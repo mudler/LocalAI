@@ -3,7 +3,7 @@ module github.com/go-skynet/llama-cli
 go 1.19
 
 require (
-	github.com/go-skynet/llama v0.0.0-20230318101759-56080ad745d1
+	github.com/go-skynet/llama v0.0.0-20230319223917-0076188dd548
 	github.com/gofiber/fiber/v2 v2.42.0
 	github.com/urfave/cli/v2 v2.25.0
 )

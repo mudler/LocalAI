@@ -2,8 +2,8 @@ github.com/andybalholm/brotli v1.0.4 h1:V7DdXeJtZscaqfNuAdSRuRFzuiKlHSC/Zh3zl9qY
 github.com/andybalholm/brotli v1.0.4/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/cpuguy83/go-md2man/v2 v2.0.2 h1:p1EgwI/C7NhT0JmVkwCD2ZBK8j4aeHQX2pMHHBfMQ6w=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
-github.com/go-skynet/llama v0.0.0-20230318101759-56080ad745d1 h1:0DwtVqERXmPTnzjv6pOPUgk9rOhC9ipD2Xn/SrW6Iro=
-github.com/go-skynet/llama v0.0.0-20230318101759-56080ad745d1/go.mod h1:ZtYsAIud4cvP9VTTI9uhdgR1uCwaO/gGKnZZ95h9i7w=
+github.com/go-skynet/llama v0.0.0-20230319223917-0076188dd548 h1:wXcEESf+zNXidrSZoDKBoIJQDDMzUwVysLIbCkWGYvM=
+github.com/go-skynet/llama v0.0.0-20230319223917-0076188dd548/go.mod h1:ZtYsAIud4cvP9VTTI9uhdgR1uCwaO/gGKnZZ95h9i7w=
 github.com/gofiber/fiber/v2 v2.42.0 h1:Fnp7ybWvS+sjNQsFvkhf4G8OhXswvB6Vee8hM/LyS+8=
 github.com/gofiber/fiber/v2 v2.42.0/go.mod h1:3+SGNjqMh5VQH5Vz2Wdi43zTIV16ktlFd3x3R6O1Zlc=
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
