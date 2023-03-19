@@ -37,4 +37,4 @@ image:
     COPY +build/llama-cli /llama-cli
     ENV MODEL_PATH=/model.bin
     ENTRYPOINT /llama-cli
-    SAVE IMAGE $IMAGE
+    SAVE IMAGE --push $IMAGE

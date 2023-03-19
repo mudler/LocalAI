@@ -1,0 +1,15 @@
+# Make sure to check the documentation at http://goreleaser.com
+project_name: llama-cli
+builds:
+  - ldflags:
+      - -w -s
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    binary: '{{ .ProjectName }}'
