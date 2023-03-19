@@ -38,3 +38,6 @@ image:
     ENV MODEL_PATH=/model.bin
     ENTRYPOINT /llama-cli
     SAVE IMAGE --push $IMAGE
+
+image-all:
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image
