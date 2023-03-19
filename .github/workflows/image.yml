@@ -50,10 +50,6 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
       - uses: earthly/actions/setup-earthly@v1
-        with:
-          version: v0.7.0
       - name: Build
         run: |
-            # https://github.com/earthly/earthly/issues/1565
-            earthly config 'global.conversion_parallelism' 0
             earthly --push +image-all --IMAGE=${{ steps.prep.outputs.image }}
