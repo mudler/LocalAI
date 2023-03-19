@@ -10,7 +10,7 @@ import (
 func api(model, listenAddr string, threads int) error {
 	app := fiber.New()
 
-	l, err := llama.New(model, 0)
+	l, err := llama.New(model)
 	if err != nil {
 		return err
 	}

@@ -179,7 +179,7 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 				fmt.Println("Templating the input failed:", err.Error())
 				os.Exit(1)
 			}
-			l, err := llama.New(ctx.String("model"), 0)
+			l, err := llama.New(ctx.String("model"))
 			if err != nil {
 				fmt.Println("Loading the model failed:", err.Error())
 				os.Exit(1)
