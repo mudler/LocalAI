@@ -1,10 +1,7 @@
 VERSION 0.7
 
-ARG GO_VERSION=1.20
-ARG GOLINT_VERSION=1.47.3
-
 go-deps:
-    ARG GO_VERSION
+    ARG GO_VERSION=1.20
     FROM golang:$GO_VERSION
     WORKDIR /build
     COPY go.mod ./
