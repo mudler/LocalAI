@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llama
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama
+  namespace: llama
+  labels:
+    app: llama
+spec:
+  selector:
+    matchLabels:
+      app: llama
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: llama
+      name: llama
+    spec:
+      containers:
+        - name: llama
+          args:
+          - api
+          image: quay.io/go-skynet/llama-cli:latest
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama
+  namespace: llama
+spec:
+  selector:
+    app: llama
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
