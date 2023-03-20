@@ -63,18 +63,6 @@ The API takes takes the following arguments:
 | address      | ADDRESS              | :8080         | The address and port to listen on. |
 
 
-And you'll see:
-```
-┌───────────────────────────────────────────────────┐ 
-│                   Fiber v2.42.0                   │ 
-│               http://127.0.0.1:8080               │ 
-│       (bound on host 0.0.0.0 and port 8080)       │ 
-│                                                   │ 
-│ Handlers ............. 1  Processes ........... 1 │ 
-│ Prefork ....... Disabled  PID ................. 1 │ 
-└───────────────────────────────────────────────────┘ 
-```
-
 Once the server is running, you can make requests to it using HTTP. For example, to generate text based on an instruction, you can send a POST request to the `/predict` endpoint with the instruction as the request body:
 
 ```
@@ -90,7 +78,19 @@ curl --location --request POST 'http://localhost:8080/predict' --header 'Content
 Example of starting the API with `docker`:
 
 ```bash
-docker run -ti --rm quay.io/go-skynet/llama-cli:latest api
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:latest api
+```
+
+And you'll see:
+```
+┌───────────────────────────────────────────────────┐ 
+│                   Fiber v2.42.0                   │ 
+│               http://127.0.0.1:8080               │ 
+│       (bound on host 0.0.0.0 and port 8080)       │ 
+│                                                   │ 
+│ Handlers ............. 1  Processes ........... 1 │ 
+│ Prefork ....... Disabled  PID ................. 1 │ 
+└───────────────────────────────────────────────────┘ 
 ```
 
 ### Golang client API
