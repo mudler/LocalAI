@@ -93,6 +93,32 @@ Example of starting the API with `docker`:
 docker run -ti --rm quay.io/go-skynet/llama-cli:latest api
 ```
 
+### Golang client API
+
+The `llama-cli` codebase has also a small client in go that can be used alongside with the api:
+
+```golang
+package main
+
+import (
+	"fmt"
+
+	client "github.com/go-skynet/llama-cli/client"
+)
+
+func main() {
+
+	cli := client.NewClient("http://ip:30007")
+
+	out, err := cli.Predict("What's an alpaca?")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(out)
+}
+```
+
 ### Kubernetes
 
 You can run the API directly in Kubernetes:
