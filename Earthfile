@@ -33,7 +33,7 @@ image:
     COPY +alpaca-model/model.bin /model.bin
     COPY +build/llama-cli /llama-cli
     ENV MODEL_PATH=/model.bin
-    ENTRYPOINT /llama-cli
+    ENTRYPOINT [ "/llama-cli" ]
     SAVE IMAGE --push $IMAGE
 
 image-all:
