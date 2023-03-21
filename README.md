@@ -8,7 +8,7 @@ llama-cli is a straightforward golang CLI interface for [llama.cpp](https://gith
 The `llama-cli` [container images](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest) come preloaded with the [alpaca.cpp](https://github.com/antimatter15/alpaca.cpp) model, enabling you to start making predictions immediately! To begin, run:
 
 ```
-docker run -ti --rm quay.io/go-skynet/llama-cli:latest  --instruction "What's an alpaca?" --topk 10000
+docker run -ti --rm quay.io/go-skynet/llama-cli:v0.1  --instruction "What's an alpaca?" --topk 10000
 ```
 
 You will receive a response like the following:
@@ -19,7 +19,7 @@ An alpaca is a member of the South American Camelid family, which includes the l
 
 ## Basic usage
 
-To use llama-cli, specify a pre-trained GPT-based model, an input text, and an instruction for text generation. llama-cli takes the following arguments:
+To use llama-cli, specify a pre-trained GPT-based model, an input text, and an instruction for text generation. llama-cli takes the following arguments when running from the CLI:
 
 ```
 llama-cli --model <model_path> --instruction <instruction> [--input <input>] [--template <template_path>] [--tokens <num_tokens>] [--threads <num_threads>] [--temperature <temperature>] [--topp <top_p>] [--topk <top_k>]
@@ -48,13 +48,33 @@ This will generate text based on the given model and instruction.
 
 ## Advanced usage
 
-`llama-cli` also provides an API for running text generation as a service. You can start the API server using the following command:
+`llama-cli` also provides an API for running text generation as a service. 
+
+Example of starting the API with `docker`:
+
+```bash
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.1 api
+```
+
+And you'll see:
+```
+┌───────────────────────────────────────────────────┐ 
+│                   Fiber v2.42.0                   │ 
+│               http://127.0.0.1:8080               │ 
+│       (bound on host 0.0.0.0 and port 8080)       │ 
+│                                                   │ 
+│ Handlers ............. 1  Processes ........... 1 │ 
+│ Prefork ....... Disabled  PID ................. 1 │ 
+└───────────────────────────────────────────────────┘ 
+```
+
+You can control the API server options with command line arguments:
 
 ```
 llama-cli api --model <model_path> [--address <address>] [--threads <num_threads>]
 ```
 
-The API takes takes the following arguments:
+The API takes takes the following:
 
 | Parameter    | Environment Variable | Default Value | Description                            |
 | ------------ | -------------------- | ------------- | -------------------------------------- |
@@ -73,24 +93,6 @@ curl --location --request POST 'http://localhost:8080/predict' --header 'Content
     "temperature": 0.7,
     "tokens": 100
 }'
-```
-
-Example of starting the API with `docker`:
-
-```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:latest api
-```
-
-And you'll see:
-```
-┌───────────────────────────────────────────────────┐ 
-│                   Fiber v2.42.0                   │ 
-│               http://127.0.0.1:8080               │ 
-│       (bound on host 0.0.0.0 and port 8080)       │ 
-│                                                   │ 
-│ Handlers ............. 1  Processes ........... 1 │ 
-│ Prefork ....... Disabled  PID ................. 1 │ 
-└───────────────────────────────────────────────────┘ 
 ```
 
 ### Golang client API
