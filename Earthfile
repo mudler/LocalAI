@@ -14,8 +14,8 @@ go-deps:
 alpaca-model:
     FROM alpine
     # This is the alpaca.cpp model https://github.com/antimatter15/alpaca.cpp
-    ARG MODEL_URL=https://ipfs.io/ipfs/QmQ1bf2BTnYxq73MFJWu1B7bQ2UD6qG7D7YDCxhTndVkPC
-    RUN wget -O model.bin -c https://ipfs.io/ipfs/QmQ1bf2BTnYxq73MFJWu1B7bQ2UD6qG7D7YDCxhTndVkPC
+    ARG MODEL_URL=https://ipfs.io/ipfs/QmUp1UGeQFDqJKvtjbSYPBiZZKRjLp8shVP9hT8ZB9Ynv1
+    RUN wget -O model.bin -c $MODEL_URL
     SAVE ARTIFACT model.bin AS LOCAL model.bin 
 
 build:
