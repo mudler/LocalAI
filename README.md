@@ -5,7 +5,7 @@ llama-cli is a straightforward golang CLI interface for [llama.cpp](https://gith
 
 ## Container images
 
-The `llama-cli` [container images](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest) come preloaded with the [alpaca.cpp](https://github.com/antimatter15/alpaca.cpp) model, enabling you to start making predictions immediately! To begin, run:
+The `llama-cli` [container images](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest) come preloaded with the [alpaca.cpp 7B](https://github.com/antimatter15/alpaca.cpp) model, enabling you to start making predictions immediately! To begin, run:
 
 ```
 docker run -ti --rm quay.io/go-skynet/llama-cli:v0.1  --instruction "What's an alpaca?" --topk 10000
@@ -93,6 +93,38 @@ curl --location --request POST 'http://localhost:8080/predict' --header 'Content
     "temperature": 0.7,
     "tokens": 100
 }'
+```
+
+## Using other models
+
+13B and 30B models are known to work:
+
+### 13B
+
+```
+wget -O tokenizer.model https://huggingface.co/decapoda-research/llama-30b-hf/resolve/main/tokenizer.model
+mkdir models
+wget -O models/gml-model-13B-q4_0.bin https://huggingface.co/Pi3141/alpaca-13B-ggml/resolve/main/ggml-model-q4_0.bin
+git clone https://gist.github.com/eiz/828bddec6162a023114ce19146cb2b82
+python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.models
+mv models/gml-model-13B-q4_0.bin.tmp models/gml-model-13B-q4_0.bin
+
+# Use the model with llama-cli
+docker run -v $PWD/models:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:master api --model /models/gml-model-13B-q4_0.bin
+```
+
+### 30B
+
+```
+wget -O tokenizer.model https://huggingface.co/decapoda-research/llama-30b-hf/resolve/main/tokenizer.model
+mkdir models
+wget -O models/ggml-model-30B-q4_0.bin https://huggingface.co/Pi3141/alpaca-30B-ggml/blob/main/ggml-model-q4_0.bin
+git clone https://gist.github.com/eiz/828bddec6162a023114ce19146cb2b82
+python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.models
+mv models/ggml-model-30B-q4_0.bin.tmp models/ggml-model-30B-q4_0.bin
+
+# Use the model with llama-cli
+docker run -v $PWD/models:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:master api --model /models/ggml-model-30B-q4_0.bin
 ```
 
 ### Golang client API
