@@ -7,13 +7,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func api(model, listenAddr string, threads int) error {
+func api(l *llama.LLama, listenAddr string, threads int) error {
 	app := fiber.New()
-
-	l, err := llama.New(model)
-	if err != nil {
-		return err
-	}
 
 	/*
 		curl --location --request POST 'http://localhost:8080/predict' --header 'Content-Type: application/json' --data-raw '{
