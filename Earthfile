@@ -11,12 +11,10 @@ go-deps:
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
-alpaca-model:
-    FROM alpine
-    # This is the alpaca.cpp model https://github.com/antimatter15/alpaca.cpp
-    ARG MODEL_URL=https://ipfs.io/ipfs/QmUp1UGeQFDqJKvtjbSYPBiZZKRjLp8shVP9hT8ZB9Ynv1
-    RUN wget -O model.bin -c $MODEL_URL
-    SAVE ARTIFACT model.bin AS LOCAL model.bin 
+model-image:
+    ARG MODEL_IMAGE=quay.io/go-skynet/models:ggml2-alpaca-7b-v0.2
+    FROM $MODEL_IMAGE
+    SAVE ARTIFACT /models/model.bin
 
 build:
     FROM +go-deps
@@ -30,7 +28,7 @@ build:
 image:
     FROM +go-deps
     ARG IMAGE=alpaca-cli
-    COPY +alpaca-model/model.bin /model.bin
+    COPY +model-image/model.bin /model.bin
     COPY +build/llama-cli /llama-cli
     ENV MODEL_PATH=/model.bin
     ENTRYPOINT [ "/llama-cli" ]
