@@ -33,7 +33,7 @@ llama-cli --model <model_path> --instruction <instruction> [--input <input>] [--
 | model        | MODEL_PATH           |               | The path to the pre-trained GPT-based model.      |
 | tokens       | TOKENS               | 128           | The maximum number of tokens to generate. |
 | threads      | THREADS              | NumCPU()      | The number of threads to use for text generation. |
-| temperature  | TEMPERATURE          | 0.95          | Sampling temperature for model output.  |
+| temperature  | TEMPERATURE          | 0.95          | Sampling temperature for model output. ( values between `0.1` and `1.0` )  |
 | top_p        | TOP_P                | 0.85          | The cumulative probability for top-p sampling. |
 | top_k        | TOP_K                | 20            | The number of top-k tokens to consider for text generation.  |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
@@ -96,6 +96,17 @@ curl --location --request POST 'http://localhost:8080/predict' --header 'Content
     "temperature": 0.7,
     "tokens": 100
 }'
+```
+
+Note: The API doesn't inject a template for talking to the instance, while the CLI does. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release, for instance:
+
+```
+Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+### Instruction:
+{instruction}
+
+### Response:
 ```
 
 ## Using other models
