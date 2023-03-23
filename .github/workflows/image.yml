@@ -84,4 +84,5 @@ jobs:
       - uses: earthly/actions/setup-earthly@v1
       - name: Build
         run: |
+            earthly config "global.buildkit_max_parallelism" "1"
             earthly --push +image-all --IMAGE=${{ steps.prep.outputs.image }}
