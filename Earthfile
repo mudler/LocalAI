@@ -34,5 +34,14 @@ image:
     ENTRYPOINT [ "/llama-cli" ]
     SAVE IMAGE --push $IMAGE
 
+lite-image:
+    FROM +go-deps
+    ARG IMAGE=alpaca-cli-nomodel
+    COPY +build/llama-cli /llama-cli
+    ENV MODEL_PATH=/model.bin
+    ENTRYPOINT [ "/llama-cli" ]
+    SAVE IMAGE --push $IMAGE-lite
+
 image-all:
     BUILD --platform=linux/amd64 --platform=linux/arm64 +image
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +lite-image

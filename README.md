@@ -8,7 +8,7 @@ llama-cli is a straightforward golang CLI interface for [llama.cpp](https://gith
 The `llama-cli` [container images](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest) come preloaded with the [alpaca.cpp 7B](https://github.com/antimatter15/alpaca.cpp) model, enabling you to start making predictions immediately! To begin, run:
 
 ```
-docker run -ti --rm quay.io/go-skynet/llama-cli:v0.1  --instruction "What's an alpaca?" --topk 10000
+docker run -ti --rm quay.io/go-skynet/llama-cli:v0.2  --instruction "What's an alpaca?" --topk 10000
 ```
 
 You will receive a response like the following:
@@ -53,7 +53,7 @@ This will generate text based on the given model and instruction.
 Example of starting the API with `docker`:
 
 ```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.1 api
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.2 api
 ```
 
 And you'll see:
@@ -102,29 +102,21 @@ curl --location --request POST 'http://localhost:8080/predict' --header 'Content
 ### 13B
 
 ```
-wget -O tokenizer.model https://huggingface.co/decapoda-research/llama-30b-hf/resolve/main/tokenizer.model
-mkdir models
-wget -O models/gml-model-13B-q4_0.bin https://huggingface.co/Pi3141/alpaca-13B-ggml/resolve/main/ggml-model-q4_0.bin
-git clone https://gist.github.com/eiz/828bddec6162a023114ce19146cb2b82
-python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.models
-mv models/gml-model-13B-q4_0.bin.tmp models/gml-model-13B-q4_0.bin
+docker run --name model --entrypoint /models quay.io/go-skynet/models:ggml2-alpaca-13b-v0.2
+docker cp model:/models/model.bin ./
 
 # Use the model with llama-cli
-docker run -v $PWD/models:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:master api --model /models/gml-model-13B-q4_0.bin
+docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.2 api --model /models/model.bin
 ```
 
 ### 30B
 
 ```
-wget -O tokenizer.model https://huggingface.co/decapoda-research/llama-30b-hf/resolve/main/tokenizer.model
-mkdir models
-wget -O models/ggml-model-30B-q4_0.bin https://huggingface.co/Pi3141/alpaca-30B-ggml/blob/main/ggml-model-q4_0.bin
-git clone https://gist.github.com/eiz/828bddec6162a023114ce19146cb2b82
-python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.models
-mv models/ggml-model-30B-q4_0.bin.tmp models/ggml-model-30B-q4_0.bin
+docker run --name model --entrypoint /models quay.io/go-skynet/models:ggml2-alpaca-30b-v0.2
+docker cp model:/models/model.bin ./
 
 # Use the model with llama-cli
-docker run -v $PWD/models:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:master api --model /models/ggml-model-30B-q4_0.bin
+docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.2 api --model /models/model.bin
 ```
 
 ### Golang client API
