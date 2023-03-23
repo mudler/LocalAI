@@ -25,7 +25,7 @@ spec:
         - name: llama
           args:
           - api
-          image: quay.io/go-skynet/llama-cli:v0.1
+          image: quay.io/go-skynet/llama-cli:v0.3
 ---
 apiVersion: v1
 kind: Service
