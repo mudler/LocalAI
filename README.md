@@ -36,7 +36,8 @@ llama-cli --model <model_path> --instruction <instruction> [--input <input>] [--
 | temperature  | TEMPERATURE          | 0.95          | Sampling temperature for model output.  |
 | top_p        | TOP_P                | 0.85          | The cumulative probability for top-p sampling. |
 | top_k        | TOP_K                | 20            | The number of top-k tokens to consider for text generation.  |
-
+| context-size | CONTEXT_SIZE         | 512           | Default token context size. |
+| alpaca       | ALPACA               | true          | Set to true for alpaca models. |
 
 Here's an example of using `llama-cli`:
 
@@ -81,6 +82,8 @@ The API takes takes the following:
 | model        | MODEL_PATH           |               | The path to the pre-trained GPT-based model.      |
 | threads      | THREADS              | CPU cores     | The number of threads to use for text generation. |
 | address      | ADDRESS              | :8080         | The address and port to listen on. |
+| context-size | CONTEXT_SIZE         | 512           | Default token context size. |
+| alpaca       | ALPACA               | true          | Set to true for alpaca models. |
 
 
 Once the server is running, you can make requests to it using HTTP. For example, to generate text based on an instruction, you can send a POST request to the `/predict` endpoint with the instruction as the request body:
@@ -97,26 +100,30 @@ curl --location --request POST 'http://localhost:8080/predict' --header 'Content
 
 ## Using other models
 
+You can use the lite images ( for example `quay.io/go-skynet/llama-cli:v0.2-lite`) that don't ship any model, and specify a model binary to be used for inference with `--model`.
+
 13B and 30B models are known to work:
 
 ### 13B
 
 ```
+# Download the model image, extract the model
 docker run --name model --entrypoint /models quay.io/go-skynet/models:ggml2-alpaca-13b-v0.2
 docker cp model:/models/model.bin ./
 
 # Use the model with llama-cli
-docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.2 api --model /models/model.bin
+docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.2-lite api --model /models/model.bin
 ```
 
 ### 30B
 
 ```
+# Download the model image, extract the model
 docker run --name model --entrypoint /models quay.io/go-skynet/models:ggml2-alpaca-30b-v0.2
 docker cp model:/models/model.bin ./
 
 # Use the model with llama-cli
-docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.2 api --model /models/model.bin
+docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.2-lite api --model /models/model.bin
 ```
 
 ### Golang client API
