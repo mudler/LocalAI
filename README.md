@@ -172,3 +172,25 @@ You can run the API directly in Kubernetes:
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/go-skynet/llama-cli/master/kubernetes/deployment.yaml
 ```
+
+### Build locally
+
+Pre-built images might fit well for most of the modern hardware, however you can and might need to build the images manually.
+
+In order to build the `llama-cli` container image locally you can use `docker`:
+
+```
+# build the image as "alpaca-image"
+docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock --rm -t -v "$(pwd)":/workspace -v earthly-tmp:/tmp/earthly:rw earthly/earthly:v0.7.2 +image --IMAGE=alpaca-image
+# run the image
+docker run alpaca-image --instruction "What's an alpaca?"
+```
+
+Or build the binary with:
+
+```
+# build the image as "alpaca-image"
+docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock --rm -t -v "$(pwd)":/workspace -v earthly-tmp:/tmp/earthly:rw earthly/earthly:v0.7.2 +build
+# run the binary
+./llama-cli --instruction "What's an alpaca?"
+```
