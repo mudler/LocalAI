@@ -1,15 +1,24 @@
 package main
 
 import (
+	"embed"
+	"net/http"
 	"strconv"
 
 	llama "github.com/go-skynet/llama/go"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 )
+
+//go:embed index.html
+var indexHTML embed.FS
 
 func api(l *llama.LLama, listenAddr string, threads int) error {
 	app := fiber.New()
-
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:         http.FS(indexHTML),
+		NotFoundFile: "index.html",
+	}))
 	/*
 		curl --location --request POST 'http://localhost:8080/predict' --header 'Content-Type: application/json' --data-raw '{
 		    "text": "What is an alpaca?",
@@ -19,6 +28,14 @@ func api(l *llama.LLama, listenAddr string, threads int) error {
 		    "tokens": 100
 		}'
 	*/
+	// Serve the index.html file
+	app.Get("/", func(c *fiber.Ctx) error {
+		data, err := indexHTML.ReadFile("index.html")
+		if err != nil {
+			return err
+		}
+		return c.Send(data)
+	})
 
 	// Endpoint to generate the prediction
 	app.Post("/predict", func(c *fiber.Ctx) error {
