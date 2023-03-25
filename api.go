@@ -28,14 +28,6 @@ func api(l *llama.LLama, listenAddr string, threads int) error {
 		    "tokens": 100
 		}'
 	*/
-	// Serve the index.html file
-	app.Get("/", func(c *fiber.Ctx) error {
-		data, err := indexHTML.ReadFile("index.html")
-		if err != nil {
-			return err
-		}
-		return c.Send(data)
-	})
 
 	// Endpoint to generate the prediction
 	app.Post("/predict", func(c *fiber.Ctx) error {
