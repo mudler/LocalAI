@@ -43,5 +43,5 @@ lite-image:
     SAVE IMAGE --push $IMAGE-lite
 
 image-all:
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +image
+    #BUILD --platform=linux/amd64 --platform=linux/arm64 +image
     BUILD --platform=linux/amd64 --platform=linux/arm64 +lite-image

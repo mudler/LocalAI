@@ -4,6 +4,7 @@ import (
 	"embed"
 	"net/http"
 	"strconv"
+	"sync"
 
 	llama "github.com/go-skynet/llama/go"
 	"github.com/gofiber/fiber/v2"
@@ -28,9 +29,12 @@ func api(l *llama.LLama, listenAddr string, threads int) error {
 		    "tokens": 100
 		}'
 	*/
+	var mutex = &sync.Mutex{}
 
 	// Endpoint to generate the prediction
 	app.Post("/predict", func(c *fiber.Ctx) error {
+		mutex.Lock()
+		defer mutex.Unlock()
 		// Get input data from the request body
 		input := new(struct {
 			Text string `json:"text"`
