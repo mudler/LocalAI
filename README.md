@@ -5,7 +5,7 @@ llama-cli is a straightforward golang CLI interface for [llama.cpp](https://gith
 
 ## Container images
 
-The `llama-cli` [container images](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest) come preloaded with the [alpaca.cpp 7B](https://github.com/antimatter15/alpaca.cpp) model, enabling you to start making predictions immediately! To begin, run:
+To begin, run:
 
 ```
 docker run -ti --rm quay.io/go-skynet/llama-cli:v0.3  --instruction "What's an alpaca?" --topk 10000
@@ -115,26 +115,8 @@ You can use the lite images ( for example `quay.io/go-skynet/llama-cli:v0.3-lite
 
 13B and 30B models are known to work:
 
-### 13B
-
 ```
 # Download the model image, extract the model
-id=$(docker create quay.io/go-skynet/models:ggml2-alpaca-13b-v0.2)
-docker cp $id:/models/model.bin ./
-docker rm -v $id
-
-# Use the model with llama-cli
-docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.3-lite api --model /models/model.bin
-```
-
-### 30B
-
-```
-# Download the model image, extract the model
-id=$(docker create quay.io/go-skynet/models:ggml2-alpaca-30b-v0.2)
-docker cp $id:/models/model.bin ./
-docker rm -v $id
-
 # Use the model with llama-cli
 docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.3-lite api --model /models/model.bin
 ```
