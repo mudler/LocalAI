@@ -11,11 +11,6 @@ go-deps:
     SAVE ARTIFACT go.mod AS LOCAL go.mod
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
-model-image:
-    ARG MODEL_IMAGE=quay.io/go-skynet/models:ggml2-alpaca-7b-v0.2
-    FROM $MODEL_IMAGE
-    SAVE ARTIFACT /models/model.bin
-
 build:
     FROM +go-deps
     WORKDIR /build
@@ -34,14 +29,13 @@ image:
     ENTRYPOINT [ "/llama-cli" ]
     SAVE IMAGE --push $IMAGE
 
-lite-image:
+image:
     FROM +go-deps
     ARG IMAGE=alpaca-cli-nomodel
     COPY +build/llama-cli /llama-cli
     ENV MODEL_PATH=/model.bin
     ENTRYPOINT [ "/llama-cli" ]
-    SAVE IMAGE --push $IMAGE-lite
+    SAVE IMAGE --push $IMAGE
 
 image-all:
-    #BUILD --platform=linux/amd64 --platform=linux/arm64 +image
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +lite-image
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +image
