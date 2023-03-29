@@ -6,7 +6,7 @@ require (
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.2
 	github.com/charmbracelet/lipgloss v0.7.1
-	github.com/go-skynet/llama v0.0.0-20230325223742-a3563a2690ba
+	github.com/go-skynet/llama v0.0.0-20230329165201-84efc8db3647
 	github.com/gofiber/fiber/v2 v2.42.0
 	github.com/urfave/cli/v2 v2.25.0
 )

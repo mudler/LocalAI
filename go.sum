@@ -23,6 +23,8 @@ github.com/go-skynet/llama v0.0.0-20230321172246-7be5326e18cc h1:NcmO8mA7iRZIX0Q
 github.com/go-skynet/llama v0.0.0-20230321172246-7be5326e18cc/go.mod h1:ZtYsAIud4cvP9VTTI9uhdgR1uCwaO/gGKnZZ95h9i7w=
 github.com/go-skynet/llama v0.0.0-20230325223742-a3563a2690ba h1:u6OhAqlWFHsTjfWKePdK2kP4/mTyXX5vsmKwrK5QX6o=
 github.com/go-skynet/llama v0.0.0-20230325223742-a3563a2690ba/go.mod h1:ZtYsAIud4cvP9VTTI9uhdgR1uCwaO/gGKnZZ95h9i7w=
+github.com/go-skynet/llama v0.0.0-20230329165201-84efc8db3647 h1:W6qHHD/Bv6wRXSzdv38gWMAXgw3fklHyEblfw88uEUU=
+github.com/go-skynet/llama v0.0.0-20230329165201-84efc8db3647/go.mod h1:ZtYsAIud4cvP9VTTI9uhdgR1uCwaO/gGKnZZ95h9i7w=
 github.com/gofiber/fiber/v2 v2.42.0 h1:Fnp7ybWvS+sjNQsFvkhf4G8OhXswvB6Vee8hM/LyS+8=
 github.com/gofiber/fiber/v2 v2.42.0/go.mod h1:3+SGNjqMh5VQH5Vz2Wdi43zTIV16ktlFd3x3R6O1Zlc=
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=

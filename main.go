@@ -36,7 +36,9 @@ func llamaFromOptions(ctx *cli.Context) (*llama.LLama, error) {
 	if ctx.Bool("alpaca") {
 		opts = append(opts, llama.EnableAlpaca)
 	}
-
+	if ctx.Bool("gpt4all") {
+		opts = append(opts, llama.EnableGPT4All)
+	}
 	return llama.New(ctx.String("model"), opts...)
 }
 
@@ -94,6 +96,11 @@ var modelFlags = []cli.Flag{
 		Name:    "alpaca",
 		EnvVars: []string{"ALPACA"},
 		Value:   true,
+	},
+	&cli.BoolFlag{
+		Name:    "gpt4all",
+		EnvVars: []string{"GPT4ALL"},
+		Value:   false,
 	},
 }
 
@@ -167,6 +174,11 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 						Name:    "alpaca",
 						EnvVars: []string{"ALPACA"},
 						Value:   true,
+					},
+					&cli.BoolFlag{
+						Name:    "gpt4all",
+						EnvVars: []string{"GPT4ALL"},
+						Value:   false,
 					},
 					&cli.IntFlag{
 						Name:    "context-size",
