@@ -38,6 +38,7 @@ llama-cli --model <model_path> --instruction <instruction> [--input <input>] [--
 | top_k        | TOP_K                | 20            | The number of top-k tokens to consider for text generation.  |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
 | alpaca       | ALPACA               | true          | Set to true for alpaca models. |
+| gpt4all       | GPT4ALL               | false          | Set to true for gpt4all models. |
 
 Here's an example of using `llama-cli`:
 
@@ -84,6 +85,7 @@ The API takes takes the following:
 | address      | ADDRESS              | :8080         | The address and port to listen on. |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
 | alpaca       | ALPACA               | true          | Set to true for alpaca models. |
+| gpt4all       | GPT4ALL               | false          | Set to true for gpt4all models. |
 
 
 Once the server is running, you can make requests to it using HTTP. For example, to generate text based on an instruction, you can send a POST request to the `/predict` endpoint with the instruction as the request body:
@@ -111,14 +113,25 @@ Below is an instruction that describes a task. Write a response that appropriate
 
 ## Using other models
 
-You can use the lite images ( for example `quay.io/go-skynet/llama-cli:v0.3-lite`) that don't ship any model, and specify a model binary to be used for inference with `--model`.
+You can specify a model binary to be used for inference with `--model`.
 
-13B and 30B models are known to work:
+13B and 30B alpaca models are known to work:
 
 ```
 # Download the model image, extract the model
 # Use the model with llama-cli
 docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.3-lite api --model /models/model.bin
+```
+
+gpt4all (https://github.com/nomic-ai/gpt4all) works as well, however the original model needs to be converted:
+
+```bash
+wget -O tokenizer.model https://huggingface.co/decapoda-research/llama-30b-hf/resolve/main/tokenizer.model
+mkdir models
+cp gpt4all.. models/
+git clone https://gist.github.com/eiz/828bddec6162a023114ce19146cb2b82
+pip install sentencepiece
+python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.model
 ```
 
 ### Golang client API
