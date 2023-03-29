@@ -22,15 +22,6 @@ build:
 
 image:
     FROM +go-deps
-    ARG IMAGE=alpaca-cli
-    COPY +model-image/model.bin /model.bin
-    COPY +build/llama-cli /llama-cli
-    ENV MODEL_PATH=/model.bin
-    ENTRYPOINT [ "/llama-cli" ]
-    SAVE IMAGE --push $IMAGE
-
-image:
-    FROM +go-deps
     ARG IMAGE=alpaca-cli-nomodel
     COPY +build/llama-cli /llama-cli
     ENV MODEL_PATH=/model.bin
