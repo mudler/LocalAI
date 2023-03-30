@@ -1,14 +1,16 @@
 ## :camel: llama-cli
 
 
-llama-cli is a straightforward golang CLI interface for [llama.cpp](https://github.com/ggerganov/llama.cpp), providing a simple API and a command line interface that allows text generation using a GPT-based model like llama directly from the terminal.
+llama-cli is a straightforward golang CLI interface for [llama.cpp](https://github.com/ggerganov/llama.cpp), providing a simple API and a command line interface that allows text generation using a GPT-based model like llama directly from the terminal. It is also compatible with [gpt4all](https://github.com/nomic-ai/gpt4all) and [alpaca](https://github.com/tatsu-lab/stanford_alpaca).
+
+`llama-cli` uses https://github.com/go-skynet/llama, which is a fork of [llama.cpp](https://github.com/ggerganov/llama.cpp) providing golang binding.
 
 ## Container images
 
 To begin, run:
 
 ```
-docker run -ti --rm quay.io/go-skynet/llama-cli:v0.3  --instruction "What's an alpaca?" --topk 10000
+docker run -ti --rm quay.io/go-skynet/llama-cli:v0.4  --instruction "What's an alpaca?" --topk 10000 --model ...
 ```
 
 You will receive a response like the following:
@@ -55,7 +57,7 @@ This will generate text based on the given model and instruction.
 Example of starting the API with `docker`:
 
 ```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.3 api --context-size 700 --threads 4
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.4 api --context-size 700 --threads 4
 ```
 
 And you'll see:
@@ -120,10 +122,10 @@ You can specify a model binary to be used for inference with `--model`.
 ```
 # Download the model image, extract the model
 # Use the model with llama-cli
-docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.3-lite api --model /models/model.bin
+docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.4 api --model /models/model.bin
 ```
 
-gpt4all (https://github.com/nomic-ai/gpt4all) works as well, however the original model needs to be converted:
+gpt4all (https://github.com/nomic-ai/gpt4all) works as well, however the original model needs to be converted (same applies for old alpaca models, too):
 
 ```bash
 wget -O tokenizer.model https://huggingface.co/decapoda-research/llama-30b-hf/resolve/main/tokenizer.model
@@ -132,6 +134,7 @@ cp gpt4all.. models/
 git clone https://gist.github.com/eiz/828bddec6162a023114ce19146cb2b82
 pip install sentencepiece
 python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.model
+# There will be a new model with the ".tmp" extension, you have to use that one!
 ```
 
 ### Golang client API
@@ -189,3 +192,14 @@ docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock --rm -t -v 
 # run the binary
 ./llama-cli --instruction "What's an alpaca?"
 ```
+
+## License
+
+MIT
+
+## Acknowledgements
+
+- [llama.cpp](https://github.com/ggerganov/llama.cpp)
+- https://github.com/tatsu-lab/stanford_alpaca
+- https://github.com/cornelk/llama-go for the initial ideas
+- https://github.com/antimatter15/alpaca.cpp for the light model version (this is compatible and tested only with that checkpoint model!)
