@@ -163,6 +163,10 @@ func main() {
 }
 ```
 
+### Windows compatibility
+
+It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/llama-cli/issues/2
+
 ### Kubernetes
 
 You can run the API directly in Kubernetes:
