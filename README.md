@@ -90,7 +90,7 @@ The API takes takes the following:
 | gpt4all       | GPT4ALL               | false          | Set to true for gpt4all models. |
 
 
-Once the server is running, you can make requests to it using HTTP. For example, to generate text based on an instruction, you can send a POST request to the `/predict` endpoint with the instruction as the request body:
+Once the server is running, you can start making requests to it using HTTP. For example, to generate text based on an instruction, you can send a POST request to the `/predict` endpoint with the instruction as the request body:
 
 ```
 curl --location --request POST 'http://localhost:8080/predict' --header 'Content-Type: application/json' --data-raw '{
@@ -101,6 +101,8 @@ curl --location --request POST 'http://localhost:8080/predict' --header 'Content
     "tokens": 100
 }'
 ```
+
+There is also available a simple web interface (for instance, http://localhost:8080/) which can be used as a playground.
 
 Note: The API doesn't inject a template for talking to the instance, while the CLI does. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release, for instance:
 
@@ -196,6 +198,12 @@ docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock --rm -t -v 
 # run the binary
 ./llama-cli --instruction "What's an alpaca?"
 ```
+
+## Short-term roadmap
+
+- Mimic OpenAI API (https://github.com/go-skynet/llama-cli/issues/10)
+- Binary releases (https://github.com/go-skynet/llama-cli/issues/6)
+- Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351)
 
 ## License
 
