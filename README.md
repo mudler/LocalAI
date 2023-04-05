@@ -204,6 +204,7 @@ docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock --rm -t -v 
 - Mimic OpenAI API (https://github.com/go-skynet/llama-cli/issues/10)
 - Binary releases (https://github.com/go-skynet/llama-cli/issues/6)
 - Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351)
+- Multi-model support
 
 ## License
 
