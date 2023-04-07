@@ -119,24 +119,6 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 		Copyright: "go-skynet authors",
 		Commands: []*cli.Command{
 			{
-				Flags: modelFlags,
-				Name:  "interactive",
-				Action: func(ctx *cli.Context) error {
-
-					l, err := llamaFromOptions(ctx)
-					if err != nil {
-						fmt.Println("Loading the model failed:", err.Error())
-						os.Exit(1)
-					}
-
-					return startInteractive(l, llama.SetTemperature(ctx.Float64("temperature")),
-						llama.SetTopP(ctx.Float64("topp")),
-						llama.SetTopK(ctx.Int("topk")),
-						llama.SetTokens(ctx.Int("tokens")),
-						llama.SetThreads(ctx.Int("threads")))
-				},
-			},
-			{
 
 				Name: "api",
 				Flags: []cli.Flag{
