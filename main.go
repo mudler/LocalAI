@@ -146,8 +146,12 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 						Value:   runtime.NumCPU(),
 					},
 					&cli.StringFlag{
-						Name:    "model",
-						EnvVars: []string{"MODEL_PATH"},
+						Name:    "models-path",
+						EnvVars: []string{"MODELS_PATH"},
+					},
+					&cli.StringFlag{
+						Name:    "default-model",
+						EnvVars: []string{"default-model"},
 					},
 					&cli.StringFlag{
 						Name:    "address",
@@ -161,13 +165,19 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 					},
 				},
 				Action: func(ctx *cli.Context) error {
-					l, err := llamaFromOptions(ctx)
-					if err != nil {
-						fmt.Println("Loading the model failed:", err.Error())
-						os.Exit(1)
+
+					var defaultModel *llama.LLama
+					defModel := ctx.String("default-model")
+					if defModel != "" {
+						opts := []llama.ModelOption{llama.SetContext(ctx.Int("context-size"))}
+						var err error
+						defaultModel, err = llama.New(ctx.String("default-model"), opts...)
+						if err != nil {
+							return err
+						}
 					}
 
-					return api(l, ctx.String("address"), ctx.Int("threads"))
+					return api(defaultModel, NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"))
 				},
 			},
 		},
