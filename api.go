@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	llama "github.com/go-skynet/llama/go"
+	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 )

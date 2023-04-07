@@ -14,10 +14,11 @@ go-deps:
 build:
     FROM +go-deps
     WORKDIR /build
-    RUN git clone https://github.com/go-skynet/llama
-    RUN cd llama && make libllama.a
+    RUN git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp
+    RUN cd go-llama.cpp && make libbinding.a
     COPY . .
-    RUN C_INCLUDE_PATH=/build/llama LIBRARY_PATH=/build/llama go build -o llama-cli ./
+    RUN go mod edit -replace github.com/go-skynet/go-llama.cpp=/build/go-llama.cpp
+    RUN C_INCLUDE_PATH=$GOPATH/src/github.com/go-skynet/go-llama.cpp LIBRARY_PATH=$GOPATH/src/github.com/go-skynet/go-llama.cpp go build -o llama-cli ./
     SAVE ARTIFACT llama-cli AS LOCAL llama-cli
 
 image:

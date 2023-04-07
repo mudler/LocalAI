@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"text/template"
 
-	llama "github.com/go-skynet/llama/go"
+	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/urfave/cli/v2"
 )
 
@@ -33,12 +33,6 @@ var nonEmptyInput string = `Below is an instruction that describes a task, paire
 
 func llamaFromOptions(ctx *cli.Context) (*llama.LLama, error) {
 	opts := []llama.ModelOption{llama.SetContext(ctx.Int("context-size"))}
-	if ctx.Bool("alpaca") {
-		opts = append(opts, llama.EnableAlpaca)
-	}
-	if ctx.Bool("gpt4all") {
-		opts = append(opts, llama.EnableGPT4All)
-	}
 	return llama.New(ctx.String("model"), opts...)
 }
 
@@ -91,16 +85,6 @@ var modelFlags = []cli.Flag{
 		Name:    "topk",
 		EnvVars: []string{"TOP_K"},
 		Value:   20,
-	},
-	&cli.BoolFlag{
-		Name:    "alpaca",
-		EnvVars: []string{"ALPACA"},
-		Value:   true,
-	},
-	&cli.BoolFlag{
-		Name:    "gpt4all",
-		EnvVars: []string{"GPT4ALL"},
-		Value:   false,
 	},
 }
 
@@ -169,16 +153,6 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 						Name:    "address",
 						EnvVars: []string{"ADDRESS"},
 						Value:   ":8080",
-					},
-					&cli.BoolFlag{
-						Name:    "alpaca",
-						EnvVars: []string{"ALPACA"},
-						Value:   true,
-					},
-					&cli.BoolFlag{
-						Name:    "gpt4all",
-						EnvVars: []string{"GPT4ALL"},
-						Value:   false,
 					},
 					&cli.IntFlag{
 						Name:    "context-size",

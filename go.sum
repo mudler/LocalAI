@@ -19,6 +19,10 @@ github.com/containerd/console v1.0.3 h1:lIr7SlA5PxZyMV30bDW0MGbiOPXwc63yRuCP0ARu
 github.com/containerd/console v1.0.3/go.mod h1:7LqA/THxQ86k76b8c/EMSiaJ3h1eZkMkXar0TQ1gf3U=
 github.com/cpuguy83/go-md2man/v2 v2.0.2 h1:p1EgwI/C7NhT0JmVkwCD2ZBK8j4aeHQX2pMHHBfMQ6w=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230404185816-24b85a924f09 h1:WPUWvw7DOv3WUuhtNfv+xJVE2CCTGa1op1PKGcNk2Bk=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230404185816-24b85a924f09/go.mod h1:yD5HHNAHPReBlvWGWUr9OcMeE5BJH3xOUDtKCwjxdEQ=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230405204601-5429d2339021 h1:SsUkTjdCCAJjULfspizf99Sfw8Fx9OAHF30kp3i6cxc=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230405204601-5429d2339021/go.mod h1:yD5HHNAHPReBlvWGWUr9OcMeE5BJH3xOUDtKCwjxdEQ=
 github.com/go-skynet/llama v0.0.0-20230321172246-7be5326e18cc h1:NcmO8mA7iRZIX0Qy2SjcsSaV14+g87MiTey1neUJaFQ=
 github.com/go-skynet/llama v0.0.0-20230321172246-7be5326e18cc/go.mod h1:ZtYsAIud4cvP9VTTI9uhdgR1uCwaO/gGKnZZ95h9i7w=
 github.com/go-skynet/llama v0.0.0-20230325223742-a3563a2690ba h1:u6OhAqlWFHsTjfWKePdK2kP4/mTyXX5vsmKwrK5QX6o=
