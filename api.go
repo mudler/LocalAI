@@ -103,10 +103,18 @@ func api(defaultModel *llama.LLama, loader *ModelLoader, listenAddr string, thre
 			mess = append(mess, i.Content)
 		}
 
-		fmt.Println("Received", input, input.Model)
+		predInput := strings.Join(mess, "\n")
+
+		templatedInput, err := loader.TemplatePrefix(input.Model, struct {
+			Input string
+		}{Input: predInput})
+		if err == nil {
+			predInput = templatedInput
+		}
+
 		// Generate the prediction using the language model
 		prediction, err := model.Predict(
-			strings.Join(mess, "\n"),
+			templatedInput,
 			llama.SetTemperature(temperature),
 			llama.SetTopP(topP),
 			llama.SetTopK(topK),
