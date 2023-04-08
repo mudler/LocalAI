@@ -49,10 +49,14 @@ func api(defaultModel *llama.LLama, loader *ModelLoader, listenAddr string, thre
 		NotFoundFile: "index.html",
 	}))
 
+	// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
 	var mutex = &sync.Mutex{}
+	mu := map[string]*sync.Mutex{}
+	var mumutex = &sync.Mutex{}
 
 	// openAI compatible API endpoint
 	app.Post("/v1/chat/completions", func(c *fiber.Ctx) error {
+
 		var err error
 		var model *llama.LLama
 
@@ -75,6 +79,23 @@ func api(defaultModel *llama.LLama, loader *ModelLoader, listenAddr string, thre
 			if err != nil {
 				return err
 			}
+		}
+
+		// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
+		if input.Model != "" {
+			mumutex.Lock()
+			l, ok := mu[input.Model]
+			if !ok {
+				m := &sync.Mutex{}
+				mu[input.Model] = m
+				l = m
+			}
+			mumutex.Unlock()
+			l.Lock()
+			defer l.Unlock()
+		} else {
+			mutex.Lock()
+			defer mutex.Unlock()
 		}
 
 		// Set the parameters for the language model prediction
@@ -105,6 +126,7 @@ func api(defaultModel *llama.LLama, loader *ModelLoader, listenAddr string, thre
 
 		predInput := strings.Join(mess, "\n")
 
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 		templatedInput, err := loader.TemplatePrefix(input.Model, struct {
 			Input string
 		}{Input: predInput})
