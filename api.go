@@ -114,7 +114,7 @@ func api(defaultModel *llama.LLama, loader *ModelLoader, listenAddr string, thre
 
 		// Generate the prediction using the language model
 		prediction, err := model.Predict(
-			templatedInput,
+			predInput,
 			llama.SetTemperature(temperature),
 			llama.SetTopP(topP),
 			llama.SetTopK(topK),
