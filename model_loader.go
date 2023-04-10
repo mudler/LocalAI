@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"text/template"
 
@@ -20,6 +22,22 @@ type ModelLoader struct {
 
 func NewModelLoader(modelPath string) *ModelLoader {
 	return &ModelLoader{modelPath: modelPath, models: make(map[string]*llama.LLama), promptsTemplates: make(map[string]*template.Template)}
+}
+
+func (ml *ModelLoader) ListModels() ([]string, error) {
+	files, err := ioutil.ReadDir(ml.modelPath)
+	if err != nil {
+		return []string{}, err
+	}
+
+	models := []string{}
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".bin") {
+			models = append(models, strings.TrimRight(file.Name(), ".bin"))
+		}
+	}
+
+	return models, nil
 }
 
 func (ml *ModelLoader) TemplatePrefix(modelName string, in interface{}) (string, error) {

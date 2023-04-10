@@ -35,6 +35,11 @@ type Message struct {
 	Content string `json:"content,omitempty"`
 }
 
+type OpenAIModel struct {
+	ID     string `json:"id"`
+	Object string `json:"object"`
+}
+
 //go:embed index.html
 var indexHTML embed.FS
 
@@ -241,11 +246,6 @@ func api(defaultModel *llama.LLama, loader *ModelLoader, listenAddr string, thre
 	app.Use(recover.New())
 	app.Use(cors.New())
 
-	app.Use("/", filesystem.New(filesystem.Config{
-		Root:         http.FS(indexHTML),
-		NotFoundFile: "index.html",
-	}))
-
 	// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
 	var mutex = &sync.Mutex{}
 	mu := map[string]*sync.Mutex{}
@@ -254,6 +254,29 @@ func api(defaultModel *llama.LLama, loader *ModelLoader, listenAddr string, thre
 	// openAI compatible API endpoint
 	app.Post("/v1/chat/completions", chatEndpoint(defaultModel, loader, threads, mutex, mumutex, mu))
 	app.Post("/v1/completions", completionEndpoint(defaultModel, loader, threads, mutex, mumutex, mu))
+	app.Get("/v1/models", func(c *fiber.Ctx) error {
+		models, err := loader.ListModels()
+		if err != nil {
+			return err
+		}
+
+		dataModels := []OpenAIModel{}
+		for _, m := range models {
+			dataModels = append(dataModels, OpenAIModel{ID: m, Object: "model"})
+		}
+		return c.JSON(struct {
+			Object string        `json:"object"`
+			Data   []OpenAIModel `json:"data"`
+		}{
+			Object: "list",
+			Data:   dataModels,
+		})
+	})
+
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:         http.FS(indexHTML),
+		NotFoundFile: "index.html",
+	}))
 
 	/*
 		curl --location --request POST 'http://localhost:8080/predict' --header 'Content-Type: application/json' --data-raw '{
