@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"embed"
@@ -42,20 +42,31 @@ type OpenAIModel struct {
 	Object string `json:"object"`
 }
 
+type OpenAIRequest struct {
+	Model string `json:"model"`
+
+	// Prompt is read only by completion API calls
+	Prompt string `json:"prompt"`
+	// Messages is readh only by chat/completion API calls
+	Messages []Message `json:"messages"`
+
+	// Common options between all the API calls
+	TopP        float64 `json:"top_p"`
+	TopK        int     `json:"top_k"`
+	Temperature float64 `json:"temperature"`
+	Maxtokens   int     `json:"max_tokens"`
+}
+
 //go:embed index.html
 var indexHTML embed.FS
 
-func completionEndpoint(defaultModel *llama.LLama, loader *model.ModelLoader, threads int, defaultMutex *sync.Mutex, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
+func openAIEndpoint(chat bool, defaultModel *llama.LLama, loader *model.ModelLoader, threads int, defaultMutex *sync.Mutex, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-
 		var err error
 		var model *llama.LLama
 
+		input := new(OpenAIRequest)
 		// Get input data from the request body
-		input := new(struct {
-			Model  string `json:"model"`
-			Prompt string `json:"prompt"`
-		})
 		if err := c.BodyParser(input); err != nil {
 			return err
 		}
@@ -90,131 +101,34 @@ func completionEndpoint(defaultModel *llama.LLama, loader *model.ModelLoader, th
 		}
 
 		// Set the parameters for the language model prediction
-		topP, err := strconv.ParseFloat(c.Query("topP", "0.9"), 64) // Default value of topP is 0.9
-		if err != nil {
-			return err
+		topP := input.TopP
+		if topP == 0 {
+			topP = 0.7
+		}
+		topK := input.TopK
+		if topK == 0 {
+			topK = 80
 		}
 
-		topK, err := strconv.Atoi(c.Query("topK", "40")) // Default value of topK is 40
-		if err != nil {
-			return err
+		temperature := input.Temperature
+		if temperature == 0 {
+			temperature = 0.9
 		}
 
-		temperature, err := strconv.ParseFloat(c.Query("temperature", "0.5"), 64) // Default value of temperature is 0.5
-		if err != nil {
-			return err
-		}
-
-		tokens, err := strconv.Atoi(c.Query("tokens", "128")) // Default value of tokens is 128
-		if err != nil {
-			return err
+		tokens := input.Maxtokens
+		if tokens == 0 {
+			tokens = 512
 		}
 
 		predInput := input.Prompt
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		templatedInput, err := loader.TemplatePrefix(input.Model, struct {
-			Input string
-		}{Input: input.Prompt})
-		if err == nil {
-			predInput = templatedInput
-		}
-
-		// Generate the prediction using the language model
-		prediction, err := model.Predict(
-			predInput,
-			llama.SetTemperature(temperature),
-			llama.SetTopP(topP),
-			llama.SetTopK(topK),
-			llama.SetTokens(tokens),
-			llama.SetThreads(threads),
-		)
-		if err != nil {
-			return err
-		}
-
-		// Return the prediction in the response body
-		return c.JSON(OpenAIResponse{
-			Model:   input.Model,
-			Choices: []Choice{{Text: prediction}},
-		})
-	}
-}
-
-func chatEndpoint(defaultModel *llama.LLama, loader *model.ModelLoader, threads int, defaultMutex *sync.Mutex, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		var err error
-		var model *llama.LLama
-
-		// Get input data from the request body
-		input := new(struct {
-			Messages []Message `json:"messages"`
-			Model    string    `json:"model"`
-		})
-		if err := c.BodyParser(input); err != nil {
-			return err
-		}
-
-		// TODO: drop me!
-		if input.Model == "gpt-3.5-turbo" {
-			input.Model = "ggml-koala-7b-model-q4_0-r2"
-		}
-
-		if input.Model == "" {
-			if defaultModel == nil {
-				return fmt.Errorf("no default model loaded, and no model specified")
+		if chat {
+			mess := []string{}
+			for _, i := range input.Messages {
+				mess = append(mess, i.Content)
 			}
-			model = defaultModel
-		} else {
-			model, err = loader.LoadModel(input.Model)
-			if err != nil {
-				return err
-			}
-		}
 
-		// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
-		if input.Model != "" {
-			mutexMap.Lock()
-			l, ok := mutexes[input.Model]
-			if !ok {
-				m := &sync.Mutex{}
-				mutexes[input.Model] = m
-				l = m
-			}
-			mutexMap.Unlock()
-			l.Lock()
-			defer l.Unlock()
-		} else {
-			defaultMutex.Lock()
-			defer defaultMutex.Unlock()
+			predInput = strings.Join(mess, "\n")
 		}
-
-		// Set the parameters for the language model prediction
-		topP, err := strconv.ParseFloat(c.Query("topP", "0.9"), 64) // Default value of topP is 0.9
-		if err != nil {
-			return err
-		}
-
-		topK, err := strconv.Atoi(c.Query("topK", "40")) // Default value of topK is 40
-		if err != nil {
-			return err
-		}
-
-		temperature, err := strconv.ParseFloat(c.Query("temperature", "0.5"), 64) // Default value of temperature is 0.5
-		if err != nil {
-			return err
-		}
-
-		tokens, err := strconv.Atoi(c.Query("tokens", "128")) // Default value of tokens is 128
-		if err != nil {
-			return err
-		}
-
-		mess := []string{}
-		for _, i := range input.Messages {
-			mess = append(mess, i.Content)
-		}
-
-		predInput := strings.Join(mess, "\n")
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 		templatedInput, err := loader.TemplatePrefix(input.Model, struct {
@@ -237,10 +151,18 @@ func chatEndpoint(defaultModel *llama.LLama, loader *model.ModelLoader, threads 
 			return err
 		}
 
+		if chat {
+			// Return the chat prediction in the response body
+			return c.JSON(OpenAIResponse{
+				Model:   input.Model,
+				Choices: []Choice{{Message: Message{Role: "assistant", Content: prediction}}},
+			})
+		}
+
 		// Return the prediction in the response body
 		return c.JSON(OpenAIResponse{
 			Model:   input.Model,
-			Choices: []Choice{{Message: Message{Role: "assistant", Content: prediction}}},
+			Choices: []Choice{{Text: prediction}},
 		})
 	}
 }
@@ -258,8 +180,8 @@ func Start(defaultModel *llama.LLama, loader *model.ModelLoader, listenAddr stri
 	var mumutex = &sync.Mutex{}
 
 	// openAI compatible API endpoint
-	app.Post("/v1/chat/completions", chatEndpoint(defaultModel, loader, threads, mutex, mumutex, mu))
-	app.Post("/v1/completions", completionEndpoint(defaultModel, loader, threads, mutex, mumutex, mu))
+	app.Post("/v1/chat/completions", openAIEndpoint(true, defaultModel, loader, threads, mutex, mumutex, mu))
+	app.Post("/v1/completions", openAIEndpoint(false, defaultModel, loader, threads, mutex, mumutex, mu))
 	app.Get("/v1/models", func(c *fiber.Ctx) error {
 		models, err := loader.ListModels()
 		if err != nil {
