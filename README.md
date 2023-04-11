@@ -1,16 +1,27 @@
 ## :camel: llama-cli
 
 
-llama-cli is a straightforward golang CLI interface for [llama.cpp](https://github.com/ggerganov/llama.cpp), providing a simple API and a command line interface that allows text generation using a GPT-based model like llama directly from the terminal. It is also compatible with [gpt4all](https://github.com/nomic-ai/gpt4all) and [alpaca](https://github.com/tatsu-lab/stanford_alpaca).
+llama-cli is a straightforward golang CLI interface for [llama.cpp](https://github.com/ggerganov/llama.cpp), providing an API compatible with OpenAI with support for multiple-models and a command line interface that allows text generation using a GPT-based model like llama directly from the terminal. It is also compatible with the models supported by `llama.cpp`. You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
 
-`llama-cli` uses https://github.com/go-skynet/llama, which is a fork of [llama.cpp](https://github.com/ggerganov/llama.cpp) providing golang binding.
+`llama-cli` doesn't shell-out, it uses https://github.com/go-skynet/go-llama.cpp, which is a golang binding of [llama.cpp](https://github.com/ggerganov/llama.cpp).
 
 ## Container images
+
+`llama-cli` comes by default as a container image. 
 
 To begin, run:
 
 ```
-docker run -ti --rm quay.io/go-skynet/llama-cli:v0.4  --instruction "What's an alpaca?" --topk 10000 --model ...
+docker run -ti --rm quay.io/go-skynet/llama-cli:v0.6  --instruction "What's an alpaca?" --topk 10000 --model ...
+```
+
+Where `--model` is the path of the model you want to use. 
+
+Note: you need to mount a volume to the docker container in order to load a model, for instance:
+
+```
+# assuming your model is in /path/to/your/models/foo.bin
+docker run -v /path/to/your/models:/models -ti --rm quay.io/go-skynet/llama-cli:v0.6  --instruction "What's an alpaca?" --topk 10000 --model /models/foo.bin
 ```
 
 You will receive a response like the following:
@@ -39,8 +50,6 @@ llama-cli --model <model_path> --instruction <instruction> [--input <input>] [--
 | top_p        | TOP_P                | 0.85          | The cumulative probability for top-p sampling. |
 | top_k        | TOP_K                | 20            | The number of top-k tokens to consider for text generation.  |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
-| alpaca       | ALPACA               | true          | Set to true for alpaca models. |
-| gpt4all       | GPT4ALL               | false          | Set to true for gpt4all models. |
 
 Here's an example of using `llama-cli`:
 
@@ -50,14 +59,14 @@ llama-cli --model ~/ggml-alpaca-7b-q4.bin --instruction "What's an alpaca?"
 
 This will generate text based on the given model and instruction.
 
-## Advanced usage
+## API
 
-`llama-cli` also provides an API for running text generation as a service. The model will be pre-loaded and kept in memory.
+`llama-cli` also provides an API for running text generation as a service. The models once loaded the first time will be kept in memory.
 
 Example of starting the API with `docker`:
 
 ```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.4 api --context-size 700 --threads 4
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.6 api --models-path /path/to/models --context-size 700 --threads 4
 ```
 
 And you'll see:
@@ -72,35 +81,67 @@ And you'll see:
 └───────────────────────────────────────────────────┘ 
 ```
 
+Note: Models have to end up with `.bin`.
+
 You can control the API server options with command line arguments:
 
 ```
-llama-cli api --model <model_path> [--address <address>] [--threads <num_threads>]
+llama-cli api --models-path <model_path> [--address <address>] [--threads <num_threads>]
 ```
 
 The API takes takes the following:
 
 | Parameter    | Environment Variable | Default Value | Description                            |
 | ------------ | -------------------- | ------------- | -------------------------------------- |
-| model        | MODEL_PATH           |               | The path to the pre-trained GPT-based model.      |
+| models-path        | MODELS_PATH           |               | The path where you have models (ending with `.bin`).      |
 | threads      | THREADS              | CPU cores     | The number of threads to use for text generation. |
 | address      | ADDRESS              | :8080         | The address and port to listen on. |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
-| alpaca       | ALPACA               | true          | Set to true for alpaca models. |
-| gpt4all       | GPT4ALL               | false          | Set to true for gpt4all models. |
 
+Once the server is running, you can start making requests to it using HTTP, using the OpenAI API. 
 
-Once the server is running, you can start making requests to it using HTTP. For example, to generate text based on an instruction, you can send a POST request to the `/predict` endpoint with the instruction as the request body:
+### Supported OpenAI API endpoints
+
+You can check out the [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat/create). 
+
+Following the list of endpoints/parameters supported.
+
+#### Chat completions
+
+For example, to generate a chat completion, you can send a POST request to the `/v1/chat/completions` endpoint with the instruction as the request body:
 
 ```
-curl --location --request POST 'http://localhost:8080/predict' --header 'Content-Type: application/json' --data-raw '{
-    "text": "What is an alpaca?",
-    "topP": 0.8,
-    "topK": 50,
-    "temperature": 0.7,
-    "tokens": 100
-}'
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "ggml-koala-7b-model-q4_0-r2.bin",
+     "messages": [{"role": "user", "content": "Say this is a test!"}],
+     "temperature": 0.7
+   }'
 ```
+
+Available additional parameters: `top_p`, `top_k`, `max_tokens`
+
+#### Completions
+
+For example, to generate a comletion, you can send a POST request to the `/v1/completions` endpoint with the instruction as the request body:
+```
+curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
+     "model": "ggml-koala-7b-model-q4_0-r2.bin",
+     "prompt": "A long time ago in a galaxy far, far away",
+     "temperature": 0.7
+   }'
+```
+
+Available additional parameters: `top_p`, `top_k`, `max_tokens`
+
+#### List models
+
+You can list all the models available with:
+
+```
+curl http://localhost:8080/v1/models
+```
+
+## Web interface
 
 There is also available a simple web interface (for instance, http://localhost:8080/) which can be used as a playground.
 
@@ -115,17 +156,18 @@ Below is an instruction that describes a task. Write a response that appropriate
 ### Response:
 ```
 
+Note: You can use a use a default template for every model in your model path, by creating a corresponding file with the `.tmpl` suffix. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance:
+
+```
+Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+### Instruction:
+{{.Input}}
+
+### Response:
+```
+
 ## Using other models
-
-You can specify a model binary to be used for inference with `--model`.
-
-13B and 30B alpaca models are known to work:
-
-```
-# Download the model image, extract the model
-# Use the model with llama-cli
-docker run -v $PWD:/models -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.4 api --model /models/model.bin
-```
 
 gpt4all (https://github.com/nomic-ai/gpt4all) works as well, however the original model needs to be converted (same applies for old alpaca models, too):
 
@@ -154,7 +196,7 @@ import (
 
 func main() {
 
-	cli := client.NewClient("http://ip:30007")
+	cli := client.NewClient("http://ip:port")
 
 	out, err := cli.Predict("What's an alpaca?")
 	if err != nil {
@@ -201,11 +243,11 @@ docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock --rm -t -v 
 
 ## Short-term roadmap
 
-- Mimic OpenAI API (https://github.com/go-skynet/llama-cli/issues/10)
+- [x] Mimic OpenAI API (https://github.com/go-skynet/llama-cli/issues/10)
 - Binary releases (https://github.com/go-skynet/llama-cli/issues/6)
 - Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351)
-- Multi-model support
-- Full Deployment and compatibility with https://github.com/mckaywrigley/chatbot-ui
+- [x] Multi-model support
+- Have a webUI!
 
 ## License
 
