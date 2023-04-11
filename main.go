@@ -9,6 +9,9 @@ import (
 	"text/template"
 
 	llama "github.com/go-skynet/go-llama.cpp"
+	api "github.com/go-skynet/llama-cli/api"
+	model "github.com/go-skynet/llama-cli/pkg/model"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -159,7 +162,7 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 						}
 					}
 
-					return api(defaultModel, NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"))
+					return api.Start(defaultModel, model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"))
 				},
 			},
 		},
