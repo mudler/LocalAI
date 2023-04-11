@@ -9,7 +9,7 @@ It is compatible with the models supported by `llama.cpp`. You might need to con
 
 ## Container images
 
-`llama-cli` comes by default as a container image. 
+`llama-cli` comes by default as a container image. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest)
 
 To begin, run:
 
