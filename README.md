@@ -1,7 +1,9 @@
 ## :camel: llama-cli
 
 
-llama-cli is a straightforward golang CLI interface for [llama.cpp](https://github.com/ggerganov/llama.cpp), providing an API compatible with OpenAI with support for multiple-models and a command line interface that allows text generation using a GPT-based model like llama directly from the terminal. It is also compatible with the models supported by `llama.cpp`. You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
+llama-cli is a straightforward golang CLI interface and API compatible with OpenAI for [llama.cpp](https://github.com/ggerganov/llama.cpp), it supports multiple-models and also provides a simple command line interface that allows text generation using a GPT-based model like llama directly from the terminal. 
+
+It is compatible with the models supported by `llama.cpp`. You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
 
 `llama-cli` doesn't shell-out, it uses https://github.com/go-skynet/go-llama.cpp, which is a golang binding of [llama.cpp](https://github.com/ggerganov/llama.cpp).
 
