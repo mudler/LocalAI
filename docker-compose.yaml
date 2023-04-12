@@ -1,0 +1,15 @@
+version: '3.6'
+
+services:
+  api:
+    image: quay.io/go-skynet/llama-cli:latest
+    build: .
+    volumes:
+      - ./models:/models
+    ports:
+      - 8080:8080
+    environment:
+      - MODELS_PATH=/models
+      - CONTEXT_SIZE=700
+      - THREADS=$THREADS
+    command: api
