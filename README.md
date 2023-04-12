@@ -55,7 +55,7 @@ Below is an instruction that describes a task. Write a response that appropriate
 To begin, run:
 
 ```
-docker run -ti --rm quay.io/go-skynet/llama-cli:v0.6  --instruction "What's an alpaca?" --topk 10000 --model ...
+docker run -ti --rm quay.io/go-skynet/llama-cli:latest  --instruction "What's an alpaca?" --topk 10000 --model ...
 ```
 
 Where `--model` is the path of the model you want to use. 
@@ -64,7 +64,7 @@ Note: you need to mount a volume to the docker container in order to load a mode
 
 ```
 # assuming your model is in /path/to/your/models/foo.bin
-docker run -v /path/to/your/models:/models -ti --rm quay.io/go-skynet/llama-cli:v0.6  --instruction "What's an alpaca?" --topk 10000 --model /models/foo.bin
+docker run -v /path/to/your/models:/models -ti --rm quay.io/go-skynet/llama-cli:latest  --instruction "What's an alpaca?" --topk 10000 --model /models/foo.bin
 ```
 
 You will receive a response like the following:
@@ -109,7 +109,7 @@ This will generate text based on the given model and instruction.
 Example of starting the API with `docker`:
 
 ```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:v0.6 api --models-path /path/to/models --context-size 700 --threads 4
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:latest api --models-path /path/to/models --context-size 700 --threads 4
 ```
 
 And you'll see:
