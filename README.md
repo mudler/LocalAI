@@ -7,6 +7,47 @@ It is compatible with the models supported by `llama.cpp`. You might need to con
 
 `llama-cli` doesn't shell-out, it uses https://github.com/go-skynet/go-llama.cpp, which is a golang binding of [llama.cpp](https://github.com/ggerganov/llama.cpp).
 
+## Usage
+
+You can use `docker-compose`:
+
+```bash
+
+git clone https://github.com/go-skynet/llama-cli
+cd llama-cli
+
+# copy your models to models/
+cp your-model.bin models/
+
+# (optional) Edit the .env file to set the number of concurrent threads used for inference
+# echo "THREADS=14" > .env
+
+# start with docker-compose
+docker compose up -d --build
+
+# Now API is accessible at localhost:8080
+curl http://localhost:8080/v1/models
+# {"object":"list","data":[{"id":"your-model.bin","object":"model"}]}
+curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
+     "model": "your-model.bin",            
+     "prompt": "A long time ago in a galaxy far, far away",
+     "temperature": 0.7
+   }'
+
+
+```
+
+Note: You can use a use a default template for every model in your model path, by creating a corresponding file with the `.tmpl` suffix next to your model. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance this can be used with alpaca:
+
+```
+Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+### Instruction:
+{{.Input}}
+
+### Response:
+```
+
 ## Container images
 
 `llama-cli` comes by default as a container image. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest)
@@ -158,16 +199,6 @@ Below is an instruction that describes a task. Write a response that appropriate
 ### Response:
 ```
 
-Note: You can use a use a default template for every model in your model path, by creating a corresponding file with the `.tmpl` suffix. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance:
-
-```
-Below is an instruction that describes a task. Write a response that appropriately completes the request.
-
-### Instruction:
-{{.Input}}
-
-### Response:
-```
 
 ## Using other models
 
@@ -229,9 +260,8 @@ In order to build the `llama-cli` container image locally you can use `docker`:
 
 ```
 # build the image as "alpaca-image"
-docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock --rm -t -v "$(pwd)":/workspace -v earthly-tmp:/tmp/earthly:rw earthly/earthly:v0.7.2 +image --IMAGE=alpaca-image
-# run the image
-docker run alpaca-image --instruction "What's an alpaca?"
+docker build -t llama-cli .
+docker run llama-cli --instruction "What's an alpaca?"
 ```
 
 Or build the binary with:
