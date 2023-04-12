@@ -32,7 +32,7 @@ jobs:
           # If the VERSION looks like a version number, assume that
           # this is the most recent version of the image and also
           # tag it 'latest'.
-          if [[ $VERSION =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+          if [[ $VERSION =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
             TAGS="$TAGS,${DOCKER_IMAGE}:latest"
           fi
 
