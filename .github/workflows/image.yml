@@ -2,6 +2,7 @@
 name: 'build container images'
 
 on:
+  pull_request:
   push:
     branches:
       - master
@@ -55,7 +56,7 @@ jobs:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
-      - name: Build PRs
+      - name: Build
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v4
         with:
@@ -65,7 +66,7 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm
           push: true
           tags: ${{ steps.prep.outputs.tags }}
-      - name: Build
+      - name: Build PRs
         if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v4
         with:
