@@ -47,7 +47,8 @@ type OpenAIRequest struct {
 
 	// Prompt is read only by completion API calls
 	Prompt string `json:"prompt"`
-	// Messages is readh only by chat/completion API calls
+	
+	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages"`
 
 	// Common options between all the API calls
