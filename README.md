@@ -37,7 +37,7 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 
 ```
 
-Note: You can use a use a default template for every model in your model path, by creating a corresponding file with the `.tmpl` suffix next to your model. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance this can be used with alpaca:
+Note: You can use a default template for every model in your model path, by creating a corresponding file with the `.tmpl` suffix next to your model. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance this can be used with alpaca:
 
 ```
 Below is an instruction that describes a task. Write a response that appropriately completes the request.
