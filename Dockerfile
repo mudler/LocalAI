@@ -17,3 +17,4 @@ RUN C_INCLUDE_PATH=/build/go-llama.cpp LIBRARY_PATH=/build/go-llama.cpp go build
 FROM debian:$DEBIAN_VERSION
 COPY --from=builder /build/llama-cli /usr/bin/llama-cli
 ENTRYPOINT [ "/usr/bin/llama-cli" ]
+CMD [ "sleep", "infinity" ]

@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+    
+    {
+        "name": "Launch Go",
+        "type": "go",
+        "request": "launch",
+        "mode": "debug",
+        "program": "${workspaceFolder}/main.go",
+        "args": [
+            "api",
+            "--models-path",
+            "/models/13B",
+            "--default-model",
+            "/models/13B/ggml-gpt4-x-alpaca-native-13b-q4_1.bin"
+        ]
+    }
+    ]
+}

@@ -1,2 +1,16 @@
+# go-llama build artifacts
+go-llama.cpp
+binding.o
+libbinding.a
+
+# llama models
+models
+
+# llama-cli build binary
 llama-cli
-models/*.bin
+
+# make test reports
+checkstyle-report.xml 
+profile.cov
+coverage.xml
+yamllint-checkstyle.xml
