@@ -136,7 +136,7 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 					},
 					&cli.StringFlag{
 						Name:    "default-model",
-						EnvVars: []string{"default-model"},
+						EnvVars: []string{"DEFAULT_MODEL"},
 					},
 					&cli.StringFlag{
 						Name:    "address",

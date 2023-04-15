@@ -19,8 +19,8 @@ cd llama-cli
 # copy your models to models/
 cp your-model.bin models/
 
-# (optional) Edit the .env file to set the number of concurrent threads used for inference
-# echo "THREADS=14" > .env
+# (optional) Edit the .env file to set things like context size and threads
+# vim .env
 
 # start with docker-compose
 docker compose up -d --build

@@ -1,15 +1,28 @@
 version: '3.6'
 
 services:
+
+  # chatgpt:
+  #   image: ghcr.io/mckaywrigley/chatbot-ui:main
+  #   # platform: linux/amd64
+  #   ports:
+  #     - 3000:3000
+  #   environment:
+  #     - 'OPENAI_API_KEY=sk-000000000000000'
+  #     - 'OPENAI_API_HOST=http://api:8080'
+
   api:
     image: quay.io/go-skynet/llama-cli:latest
-    build: .
-    volumes:
-      - ./models:/models
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - 8080:8080
     environment:
-      - MODELS_PATH=/models
-      - CONTEXT_SIZE=700
+      - MODELS_PATH=$MODELS_PATH
+      - CONTEXT_SIZE=$CONTEXT_SIZE
       - THREADS=$THREADS
+    volumes:
+      - ./models:/models:cached
     command: api
+    

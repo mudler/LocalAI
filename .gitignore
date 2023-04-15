@@ -1,2 +1,9 @@
+# go-llama build artifacts
+go-llama
+
+# llama-cli build binary
 llama-cli
+
+# Ignore models
 models/*.bin
+models/ggml-*
