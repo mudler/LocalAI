@@ -12,7 +12,7 @@ services:
   #     - 'OPENAI_API_HOST=http://api:8080'
 
   api:
-    # image: quay.io/go-skynet/llama-cli:latest
+    image: quay.io/go-skynet/llama-cli:latest
     build:
       context: .
       dockerfile: Dockerfile
