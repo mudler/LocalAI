@@ -12,17 +12,18 @@ services:
       - 'OPENAI_API_HOST=http://api:8080'
 
   api:
-    image: quay.io/go-skynet/llama-cli:latest
+    # image: quay.io/go-skynet/llama-cli:latest
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - 3001:8080
+      - 8080:8080
     environment:
-      - MODELS_PATH=$MODELS_PATH
-      - CONTEXT_SIZE=$CONTEXT_SIZE
-      - THREADS=$THREADS
+      - MODELS_PATH=/models
+      - CONTEXT_SIZE=700
+      - THREADS=10
+      - DEFAULT_MODEL=/models/7B/ggml-vicuna-7b-4bit.bin
     volumes:
-      - ./models/:/models:cached
+      - /Users/Shared/Models:/models:cached
     command: api
     

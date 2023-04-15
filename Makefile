@@ -20,6 +20,7 @@ all: help
 ## Build:
 
 build: llamacpp ## Build the project
+	$(GOCMD) mod tidy 
 	$(GOCMD) build -o $(BINARY_NAME) ./
 
 llamacpp: ## Build go-llama.cpp (pre-requisite)
@@ -27,7 +28,7 @@ llamacpp: ## Build go-llama.cpp (pre-requisite)
 	-if [ ! -f "go-llama.cpp/libbinding.a" ]; then cd go-llama.cpp && make libbinding.a; fi
 	# cp go-llama.cpp/libbinding.a libbinding.a
 	# cp go-llama.cpp/binding.o binding.o
-	cd go-llama.cpp && $(GOCMD) mod download
+	cd go-llama.cpp && $(GOCMD) mod tidy && $(GOCMD) mod download
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama.cpp
 	
 clean: ## Remove build related file

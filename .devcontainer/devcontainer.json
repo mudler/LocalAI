@@ -15,8 +15,13 @@
 	"service": "api",
 
 	// The optional 'workspaceFolder' property is the path VS Code should open by default when
+	"workspaceFolder": "/workspace",
+	"mounts": [
+		"source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+	],	
+
 	// connected. This is typically a file mount in .devcontainer/docker-compose.yml
-	"workspaceFolder": "/workspaces",
+	// "workspaceFolder": "/workspace",
 	"features": {
 		"ghcr.io/devcontainers/features/go:1": {
 			"version": "latest"
