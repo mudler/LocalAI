@@ -2,7 +2,7 @@ ARG GO_VERSION=1.20
 ARG DEBIAN_VERSION=11
 FROM golang:$GO_VERSION as builder
 WORKDIR /build
-ARG GO_LLAMA_CPP_TAG=llama.cpp-8b67998
+ARG GO_LLAMA_CPP_TAG=llama.cpp-2f7c8e0
 RUN git clone -b $GO_LLAMA_CPP_TAG --recurse-submodules https://github.com/go-skynet/go-llama.cpp
 RUN cd go-llama.cpp && make libbinding.a
 COPY go.mod ./
