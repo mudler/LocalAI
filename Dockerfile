@@ -10,7 +10,6 @@ COPY go.sum ./
 RUN go mod download
 RUN apt-get update
 COPY . .
-RUN go mod tidy
 RUN go mod edit -replace github.com/go-skynet/go-llama.cpp=/build/go-llama.cpp
 RUN C_INCLUDE_PATH=/build/go-llama.cpp LIBRARY_PATH=/build/go-llama.cpp go build -o llama-cli ./
 

@@ -11,9 +11,10 @@ services:
     #   context: .
     #   dockerfile: .devcontainer/Dockerfile
 
-    # volumes:
+    volumes:
       # Update this to wherever you want VS Code to mount the folder of your project
-      # - .:/workspaces:cached
+      - .:/workspaces:cached
+
     # Uncomment the next four lines if you will use a ptrace-based debugger like C++, Go, and Rust.
     # cap_add:
     #   - SYS_PTRACE
