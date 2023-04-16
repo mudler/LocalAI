@@ -27,6 +27,7 @@ docker compose up -d --build
 
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
+
 # {"object":"list","data":[{"id":"your-model.bin","object":"model"}]}
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.bin",            
@@ -88,7 +89,7 @@ llama-cli --model <model_path> --instruction <instruction> [--input <input>] [--
 | template     | TEMPLATE             |               | A file containing a template for output formatting (optional).  |
 | instruction  | INSTRUCTION          |               | Input prompt text or instruction. "-" for STDIN.   |
 | input        | INPUT                | -             | Path to text or "-" for STDIN.                    |
-| model        | MODEL_PATH           |               | The path to the pre-trained GPT-based model.      |
+| model        | MODEL           |               | The path to the pre-trained GPT-based model.      |
 | tokens       | TOKENS               | 128           | The maximum number of tokens to generate. |
 | threads      | THREADS              | NumCPU()      | The number of threads to use for text generation. |
 | temperature  | TEMPERATURE          | 0.95          | Sampling temperature for model output. ( values between `0.1` and `1.0` )  |
@@ -214,32 +215,6 @@ git clone https://gist.github.com/eiz/828bddec6162a023114ce19146cb2b82
 pip install sentencepiece
 python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.model
 # There will be a new model with the ".tmp" extension, you have to use that one!
-```
-
-### Golang client API
-
-The `llama-cli` codebase has also a small client in go that can be used alongside with the api:
-
-```golang
-package main
-
-import (
-	"fmt"
-
-	client "github.com/go-skynet/llama-cli/client"
-)
-
-func main() {
-
-	cli := client.NewClient("http://ip:port")
-
-	out, err := cli.Predict("What's an alpaca?")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(out)
-}
 ```
 
 ### Windows compatibility

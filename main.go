@@ -57,7 +57,7 @@ func templateString(t string, in interface{}) (string, error) {
 var modelFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:    "model",
-		EnvVars: []string{"MODEL_PATH"},
+		EnvVars: []string{"MODEL"},
 	},
 	&cli.IntFlag{
 		Name:    "tokens",
@@ -135,10 +135,6 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 						EnvVars: []string{"MODELS_PATH"},
 					},
 					&cli.StringFlag{
-						Name:    "default-model",
-						EnvVars: []string{"DEFAULT_MODEL"},
-					},
-					&cli.StringFlag{
 						Name:    "address",
 						EnvVars: []string{"ADDRESS"},
 						Value:   ":8080",
@@ -150,19 +146,7 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 					},
 				},
 				Action: func(ctx *cli.Context) error {
-
-					var defaultModel *llama.LLama
-					defModel := ctx.String("default-model")
-					if defModel != "" {
-						opts := []llama.ModelOption{llama.SetContext(ctx.Int("context-size"))}
-						var err error
-						defaultModel, err = llama.New(ctx.String("default-model"), opts...)
-						if err != nil {
-							return err
-						}
-					}
-
-					return api.Start(defaultModel, model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"))
+					return api.Start(model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"))
 				},
 			},
 		},
