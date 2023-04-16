@@ -48,6 +48,8 @@ Below is an instruction that describes a task. Write a response that appropriate
 ### Response:
 ```
 
+See the [prompt-templates](https://github.com/go-skynet/llama-cli/tree/master/prompt-templates) directory in this repository for templates for most popular models.
+
 ## Container images
 
 `llama-cli` comes by default as a container image. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest)
