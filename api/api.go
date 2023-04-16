@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -70,7 +69,7 @@ type OpenAIRequest struct {
 var indexHTML embed.FS
 
 // https://platform.openai.com/docs/api-reference/completions
-func openAIEndpoint(chat bool, defaultModel *llama.LLama, loader *model.ModelLoader, threads int, defaultMutex *sync.Mutex, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
+func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMutex *sync.Mutex, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		var err error
 		var model *llama.LLama
@@ -82,10 +81,7 @@ func openAIEndpoint(chat bool, defaultModel *llama.LLama, loader *model.ModelLoa
 		}
 
 		if input.Model == "" {
-			if defaultModel == nil {
-				return fmt.Errorf("no default model loaded, and no model specified")
-			}
-			model = defaultModel
+			return fmt.Errorf("no model specified")
 		} else {
 			model, err = loader.LoadModel(input.Model)
 			if err != nil {
@@ -204,7 +200,7 @@ func openAIEndpoint(chat bool, defaultModel *llama.LLama, loader *model.ModelLoa
 	}
 }
 
-func Start(defaultModel *llama.LLama, loader *model.ModelLoader, listenAddr string, threads int) error {
+func Start(loader *model.ModelLoader, listenAddr string, threads int) error {
 	app := fiber.New()
 
 	// Default middleware config
@@ -217,8 +213,8 @@ func Start(defaultModel *llama.LLama, loader *model.ModelLoader, listenAddr stri
 	var mumutex = &sync.Mutex{}
 
 	// openAI compatible API endpoint
-	app.Post("/v1/chat/completions", openAIEndpoint(true, defaultModel, loader, threads, mutex, mumutex, mu))
-	app.Post("/v1/completions", openAIEndpoint(false, defaultModel, loader, threads, mutex, mumutex, mu))
+	app.Post("/v1/chat/completions", openAIEndpoint(true, loader, threads, mutex, mumutex, mu))
+	app.Post("/v1/completions", openAIEndpoint(false, loader, threads, mutex, mumutex, mu))
 	app.Get("/v1/models", func(c *fiber.Ctx) error {
 		models, err := loader.ListModels()
 		if err != nil {
@@ -242,69 +238,6 @@ func Start(defaultModel *llama.LLama, loader *model.ModelLoader, listenAddr stri
 		Root:         http.FS(indexHTML),
 		NotFoundFile: "index.html",
 	}))
-
-	/*
-		curl --location --request POST 'http://localhost:8080/predict' --header 'Content-Type: application/json' --data-raw '{
-		    "text": "What is an alpaca?",
-		    "topP": 0.8,
-		    "topK": 50,
-		    "temperature": 0.7,
-		    "tokens": 100
-		}'
-	*/
-	// Endpoint to generate the prediction
-	app.Post("/predict", func(c *fiber.Ctx) error {
-		mutex.Lock()
-		defer mutex.Unlock()
-		// Get input data from the request body
-		input := new(struct {
-			Text string `json:"text"`
-		})
-		if err := c.BodyParser(input); err != nil {
-			return err
-		}
-
-		// Set the parameters for the language model prediction
-		topP, err := strconv.ParseFloat(c.Query("topP", "0.9"), 64) // Default value of topP is 0.9
-		if err != nil {
-			return err
-		}
-
-		topK, err := strconv.Atoi(c.Query("topK", "40")) // Default value of topK is 40
-		if err != nil {
-			return err
-		}
-
-		temperature, err := strconv.ParseFloat(c.Query("temperature", "0.5"), 64) // Default value of temperature is 0.5
-		if err != nil {
-			return err
-		}
-
-		tokens, err := strconv.Atoi(c.Query("tokens", "128")) // Default value of tokens is 128
-		if err != nil {
-			return err
-		}
-
-		// Generate the prediction using the language model
-		prediction, err := defaultModel.Predict(
-			input.Text,
-			llama.SetTemperature(temperature),
-			llama.SetTopP(topP),
-			llama.SetTopK(topK),
-			llama.SetTokens(tokens),
-			llama.SetThreads(threads),
-		)
-		if err != nil {
-			return err
-		}
-
-		// Return the prediction in the response body
-		return c.JSON(struct {
-			Prediction string `json:"prediction"`
-		}{
-			Prediction: prediction,
-		})
-	})
 
 	// Start the server
 	app.Listen(listenAddr)
