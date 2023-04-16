@@ -38,7 +38,9 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 
 ```
 
-Note: You can use a default template for every model in your model path, by creating a corresponding file with the `.tmpl` suffix next to your model. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance this can be used with alpaca:
+Note: The API doesn't inject a default prompt for talking to the model, while the CLI does. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
+
+You can use a default template for every model present in your model path, by creating a corresponding file with the `.tmpl` suffix next to your model. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance this can be used with alpaca:
 
 ```
 Below is an instruction that describes a task. Write a response that appropriately completes the request.
@@ -186,22 +188,6 @@ You can list all the models available with:
 ```
 curl http://localhost:8080/v1/models
 ```
-
-## Web interface
-
-There is also available a simple web interface (for instance, http://localhost:8080/) which can be used as a playground.
-
-Note: The API doesn't inject a template for talking to the instance, while the CLI does. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release, for instance:
-
-```
-Below is an instruction that describes a task. Write a response that appropriately completes the request.
-
-### Instruction:
-{instruction}
-
-### Response:
-```
-
 
 ## Using other models
 
