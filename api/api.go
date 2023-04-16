@@ -1,9 +1,7 @@
 package api
 
 import (
-	"embed"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -12,7 +10,6 @@ import (
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
@@ -64,9 +61,6 @@ type OpenAIRequest struct {
 	F16       bool `json:"f16kv"`
 	IgnoreEOS bool `json:"ignore_eos"`
 }
-
-//go:embed index.html
-var indexHTML embed.FS
 
 // https://platform.openai.com/docs/api-reference/completions
 func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMutex *sync.Mutex, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
@@ -233,11 +227,6 @@ func Start(loader *model.ModelLoader, listenAddr string, threads int) error {
 			Data:   dataModels,
 		})
 	})
-
-	app.Use("/", filesystem.New(filesystem.Config{
-		Root:         http.FS(indexHTML),
-		NotFoundFile: "index.html",
-	}))
 
 	// Start the server
 	app.Listen(listenAddr)
