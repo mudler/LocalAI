@@ -2,7 +2,7 @@ GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=llama-cli
-GOLLAMA_VERSION?=llama.cpp-8b67998
+GOLLAMA_VERSION?=llama.cpp-4ad7313
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
