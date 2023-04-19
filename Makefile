@@ -2,7 +2,7 @@ GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=llama-cli
-GOLLAMA_VERSION?=llama.cpp-4ad7313
+GOLLAMA_VERSION?=llama.cpp-5ecff35
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
@@ -17,23 +17,50 @@ all: help
 ## Build:
 
 build: prepare ## Build the project
-	$(GOCMD) build -o $(BINARY_NAME) ./
+	C_INCLUDE_PATH=$(shell pwd)/go-llama.cpp:$(shell pwd)/go-gpt4all-j LIBRARY_PATH=$(shell pwd)/go-llama.cpp:$(shell pwd)/go-gpt4all-j $(GOCMD) build -o $(BINARY_NAME) ./
+
+buildgeneric: prepare-generic ## Build the project
+	C_INCLUDE_PATH=$(shell pwd)/go-llama.cpp:$(shell pwd)/go-gpt4all-j LIBRARY_PATH=$(shell pwd)/go-llama.cpp:$(shell pwd)/go-gpt4all-j $(GOCMD) build -o $(BINARY_NAME) ./
+
+go-gpt4all-j:
+	git clone --recurse-submodules https://github.com/go-skynet/go-gpt4all-j.cpp go-gpt4all-j
+# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
+	@find ./go-gpt4all-j -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
+	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
+	@find ./go-gpt4all-j -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
+	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/gpt_/gptj_/g' {} +
+	@find ./go-gpt4all-j -type f -name "*.h" -exec sed -i'' -e 's/gpt_/gptj_/g' {} +
+
+go-gpt4all-j/libgptj.a: go-gpt4all-j
+	$(MAKE) -C go-gpt4all-j libgptj.a
+
+go-gpt4all-j/libgptj.a-generic: go-gpt4all-j
+	$(MAKE) -C go-gpt4all-j generic-libgptj.a
 
 go-llama:
 	git clone -b $(GOLLAMA_VERSION) --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
-
-prepare: go-llama
 	$(MAKE) -C go-llama libbinding.a
+
+go-llama-generic:
+	git clone -b $(GOLLAMA_VERSION) --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
+	$(MAKE) -C go-llama generic-libbinding.a
+
+prepare: go-llama go-gpt4all-j/libgptj.a
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt4all-j.cpp=$(shell pwd)/go-gpt4all-j
+
+prepare-generic: go-llama-generic go-gpt4all-j/libgptj.a-generic
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt4all-j.cpp=$(shell pwd)/go-gpt4all-j
 	
 clean: ## Remove build related file
-	$(MAKE) -C go-llama clean
 	rm -fr ./go-llama
-	rm -f $(BINARY_NAME)
+	rm -rf ./go-gpt4all-j
+	rm -rf $(BINARY_NAME)
 
 ## Run:
 run: prepare
-	C_INCLUDE_PATH=$(shell pwd)/go-llama.cpp LIBRARY_PATH=$(shell pwd)/go-llama.cpp $(GOCMD) run ./ api
+	$(GOCMD) run ./ api
 
 ## Test:
 test: ## Run the tests of the project
