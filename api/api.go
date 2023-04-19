@@ -155,10 +155,10 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMu
 			n = 1
 		}
 
-		for i := 0; i < n; i++ {
-			var prediction string
-			switch {
-			case gptModel != nil:
+		var predFunc func() (string, error)
+		switch {
+		case gptModel != nil:
+			predFunc = func() (string, error) {
 				// Generate the prediction using the language model
 				predictOptions := []gptj.PredictOption{
 					gptj.SetTemperature(temperature),
@@ -176,14 +176,13 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMu
 					predictOptions = append(predictOptions, gptj.SetSeed(input.Seed))
 				}
 
-				prediction, err = gptModel.Predict(
+				return gptModel.Predict(
 					predInput,
 					predictOptions...,
 				)
-				if err != nil {
-					return err
-				}
-			case model != nil:
+			}
+		case model != nil:
+			predFunc = func() (string, error) {
 				// Generate the prediction using the language model
 				predictOptions := []llama.PredictOption{
 					llama.SetTemperature(temperature),
@@ -209,18 +208,25 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMu
 					predictOptions = append(predictOptions, llama.SetSeed(input.Seed))
 				}
 
-				prediction, err = model.Predict(
+				return model.Predict(
 					predInput,
 					predictOptions...,
 				)
-				if err != nil {
-					return err
-				}
+			}
+		}
+
+		for i := 0; i < n; i++ {
+			var prediction string
+
+			prediction, err := predFunc()
+			if err != nil {
+				return err
 			}
 
 			if input.Echo {
 				prediction = predInput + prediction
 			}
+
 			if chat {
 				result = append(result, Choice{Message: &Message{Role: "assistant", Content: prediction}})
 			} else {
