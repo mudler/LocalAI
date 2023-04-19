@@ -7,6 +7,7 @@ import (
 
 	model "github.com/go-skynet/llama-cli/pkg/model"
 
+	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -60,6 +61,8 @@ type OpenAIRequest struct {
 	Batch     int  `json:"batch"`
 	F16       bool `json:"f16kv"`
 	IgnoreEOS bool `json:"ignore_eos"`
+
+	Seed int `json:"seed"`
 }
 
 // https://platform.openai.com/docs/api-reference/completions
@@ -67,6 +70,7 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMu
 	return func(c *fiber.Ctx) error {
 		var err error
 		var model *llama.LLama
+		var gptModel *gptj.GPTJ
 
 		input := new(OpenAIRequest)
 		// Get input data from the request body
@@ -77,9 +81,14 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMu
 		if input.Model == "" {
 			return fmt.Errorf("no model specified")
 		} else {
-			model, err = loader.LoadModel(input.Model)
-			if err != nil {
-				return err
+			// Try to load the model with both
+			var llamaerr error
+			model, llamaerr = loader.LoadLLaMAModel(input.Model)
+			if llamaerr != nil {
+				gptModel, err = loader.LoadGPTJModel(input.Model)
+				if err != nil {
+					return fmt.Errorf("llama: %s gpt: %s", llamaerr.Error(), err.Error()) // llama failed first, so we want to catch both errors
+				}
 			}
 		}
 
@@ -147,33 +156,66 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMu
 		}
 
 		for i := 0; i < n; i++ {
-			// Generate the prediction using the language model
-			predictOptions := []llama.PredictOption{
-				llama.SetTemperature(temperature),
-				llama.SetTopP(topP),
-				llama.SetTopK(topK),
-				llama.SetTokens(tokens),
-				llama.SetThreads(threads),
-			}
+			var prediction string
+			switch {
+			case gptModel != nil:
+				// Generate the prediction using the language model
+				predictOptions := []gptj.PredictOption{
+					gptj.SetTemperature(temperature),
+					gptj.SetTopP(topP),
+					gptj.SetTopK(topK),
+					gptj.SetTokens(tokens),
+					gptj.SetThreads(threads),
+				}
 
-			if input.Batch != 0 {
-				predictOptions = append(predictOptions, llama.SetBatch(input.Batch))
-			}
+				if input.Batch != 0 {
+					predictOptions = append(predictOptions, gptj.SetBatch(input.Batch))
+				}
 
-			if input.F16 {
-				predictOptions = append(predictOptions, llama.EnableF16KV)
-			}
+				if input.Seed != 0 {
+					predictOptions = append(predictOptions, gptj.SetSeed(input.Seed))
+				}
 
-			if input.IgnoreEOS {
-				predictOptions = append(predictOptions, llama.IgnoreEOS)
-			}
+				prediction, err = gptModel.Predict(
+					predInput,
+					predictOptions...,
+				)
+				if err != nil {
+					return err
+				}
+			case model != nil:
+				// Generate the prediction using the language model
+				predictOptions := []llama.PredictOption{
+					llama.SetTemperature(temperature),
+					llama.SetTopP(topP),
+					llama.SetTopK(topK),
+					llama.SetTokens(tokens),
+					llama.SetThreads(threads),
+				}
 
-			prediction, err := model.Predict(
-				predInput,
-				predictOptions...,
-			)
-			if err != nil {
-				return err
+				if input.Batch != 0 {
+					predictOptions = append(predictOptions, llama.SetBatch(input.Batch))
+				}
+
+				if input.F16 {
+					predictOptions = append(predictOptions, llama.EnableF16KV)
+				}
+
+				if input.IgnoreEOS {
+					predictOptions = append(predictOptions, llama.IgnoreEOS)
+				}
+
+				if input.Seed != 0 {
+					predictOptions = append(predictOptions, llama.SetSeed(input.Seed))
+				}
+
+				prediction, err = model.Predict(
+					predInput,
+					predictOptions...,
+				)
+				if err != nil {
+					return err
+				}
 			}
 
 			if input.Echo {

@@ -1,5 +1,6 @@
 # go-llama build artifacts
 go-llama
+go-gpt4all-j
 
 # llama-cli build binary
 llama-cli
