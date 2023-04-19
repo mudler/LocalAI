@@ -1,15 +1,24 @@
 ## :camel: llama-cli
 
 
-llama-cli is a straightforward golang CLI interface and API compatible with OpenAI for [llama.cpp](https://github.com/ggerganov/llama.cpp), it supports multiple-models and also provides a simple command line interface that allows text generation using a GPT-based model like llama directly from the terminal. 
+llama-cli is a straightforward, drop-in replacement API compatible with OpenAI for local CPU inferencing, based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is Apache 2.0 Licensed and can be used for commercial purposes.
 
-It is compatible with the models supported by `llama.cpp`. You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
+- OpenAI compatible API
+- Supports multiple-models
+- Once loaded the first time, it keep models loaded in memory for faster inference
+- Provides a simple command line interface that allows text generation directly from the terminal
+- Support for prompt templates
+- Doesn't shell-out, but uses C bindings for a faster inference and better performance. Uses [go-llama.cpp](https://github.com/go-skynet/go-llama.cpp) and [go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp).
 
-`llama-cli` doesn't shell-out, it uses https://github.com/go-skynet/go-llama.cpp, which is a golang binding of [llama.cpp](https://github.com/ggerganov/llama.cpp).
+## Model compatibility
+
+It is compatible with the models supported by [llama.cpp](https://github.com/ggerganov/llama.cpp) and also [GPT4ALL-J](https://github.com/nomic-ai/gpt4all).
+
+Note: You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
 
 ## Usage
 
-You can use `docker-compose`:
+The easiest way to run llama-cli is by using `docker-compose`:
 
 ```bash
 
@@ -27,15 +36,13 @@ docker compose up -d --build
 
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
-
 # {"object":"list","data":[{"id":"your-model.bin","object":"model"}]}
+
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.bin",            
      "prompt": "A long time ago in a galaxy far, far away",
      "temperature": 0.7
    }'
-
-
 ```
 
 Note: The API doesn't inject a default prompt for talking to the model, while the CLI does. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
