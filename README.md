@@ -1,4 +1,9 @@
-## :camel: LocalAI
+<h1 align="center">
+  <br>
+  <img height="300" src="https://user-images.githubusercontent.com/2420543/233147843-88697415-6dbf-4368-a862-ab217f9f7342.jpeg"> <br>
+    LocalAI
+<br>
+</h1>
 
 > :warning: This project has been renamed from `llama-cli` to `LocalAI` to reflect the fact that we are focusing on a fast drop-in OpenAI API rather on the CLI interface. We think that there are already many projects that can be used as a CLI interface already, for instance  [llama.cpp](https://github.com/ggerganov/llama.cpp) and [gpt4all](https://github.com/nomic-ai/gpt4all). If you are were using `llama-cli` for CLI interactions and want to keep using it, use older versions or please open up an issue - contributions are welcome!
 
