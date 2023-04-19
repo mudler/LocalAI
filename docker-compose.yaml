@@ -16,6 +16,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # args:
+        # BUILD_TYPE: generic # Uncomment to build CPU generic code that works on most HW
     ports:
       - 8080:8080
     environment:

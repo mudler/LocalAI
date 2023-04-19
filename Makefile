@@ -2,7 +2,7 @@ GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=llama-cli
-GOLLAMA_VERSION?=llama.cpp-4ad7313
+GOLLAMA_VERSION?=llama.cpp-5ecff35
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
@@ -19,11 +19,21 @@ all: help
 build: prepare ## Build the project
 	$(GOCMD) build -o $(BINARY_NAME) ./
 
+buildgeneric: prepare-generic ## Build the project
+	$(GOCMD) build -o $(BINARY_NAME) ./
+
 go-llama:
 	git clone -b $(GOLLAMA_VERSION) --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
+	$(MAKE) -C go-llama libbinding.a
+
+go-llama-generic:
+	git clone -b $(GOLLAMA_VERSION) --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
+	$(MAKE) -C go-llama generic-libbinding.a
 
 prepare: go-llama
-	$(MAKE) -C go-llama libbinding.a
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
+
+prepare-generic: go-llama-generic
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
 	
 clean: ## Remove build related file
