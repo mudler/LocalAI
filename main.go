@@ -34,11 +34,6 @@ var nonEmptyInput string = `Below is an instruction that describes a task, paire
 ### Response:
 `
 
-func llamaFromOptions(ctx *cli.Context) (*llama.LLama, error) {
-	opts := []llama.ModelOption{llama.SetContext(ctx.Int("context-size"))}
-	return llama.New(ctx.String("model"), opts...)
-}
-
 func templateString(t string, in interface{}) (string, error) {
 	// Parse the template
 	tmpl, err := template.New("prompt").Parse(t)
@@ -125,6 +120,10 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 
 				Name: "api",
 				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "f16",
+						EnvVars: []string{"F16"},
+					},
 					&cli.IntFlag{
 						Name:    "threads",
 						EnvVars: []string{"THREADS"},
@@ -146,7 +145,7 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 					},
 				},
 				Action: func(ctx *cli.Context) error {
-					return api.Start(model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"))
+					return api.Start(model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"))
 				},
 			},
 		},
@@ -201,7 +200,8 @@ echo "An Alpaca (Vicugna pacos) is a domesticated species of South American came
 				os.Exit(1)
 			}
 
-			l, err := llamaFromOptions(ctx)
+			opts := []llama.ModelOption{llama.SetContext(ctx.Int("context-size"))}
+			l, err := llama.New(ctx.String("model"), opts...)
 			if err != nil {
 				fmt.Println("Loading the model failed:", err.Error())
 				os.Exit(1)

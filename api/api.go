@@ -66,7 +66,7 @@ type OpenAIRequest struct {
 }
 
 // https://platform.openai.com/docs/api-reference/completions
-func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMutex *sync.Mutex, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
+func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 bool, defaultMutex *sync.Mutex, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		var err error
 		var model *llama.LLama
@@ -83,7 +83,15 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMu
 		} else {
 			// Try to load the model with both
 			var llamaerr error
-			model, llamaerr = loader.LoadLLaMAModel(input.Model)
+			llamaOpts := []llama.ModelOption{}
+			if ctx != 0 {
+				llamaOpts = append(llamaOpts, llama.SetContext(ctx))
+			}
+			if f16 {
+				llamaOpts = append(llamaOpts, llama.EnableF16Memory)
+			}
+
+			model, llamaerr = loader.LoadLLaMAModel(input.Model, llamaOpts...)
 			if llamaerr != nil {
 				gptModel, err = loader.LoadGPTJModel(input.Model)
 				if err != nil {
@@ -242,7 +250,7 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads int, defaultMu
 	}
 }
 
-func Start(loader *model.ModelLoader, listenAddr string, threads int) error {
+func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f16 bool) error {
 	app := fiber.New()
 
 	// Default middleware config
@@ -255,8 +263,8 @@ func Start(loader *model.ModelLoader, listenAddr string, threads int) error {
 	var mumutex = &sync.Mutex{}
 
 	// openAI compatible API endpoint
-	app.Post("/v1/chat/completions", openAIEndpoint(true, loader, threads, mutex, mumutex, mu))
-	app.Post("/v1/completions", openAIEndpoint(false, loader, threads, mutex, mumutex, mu))
+	app.Post("/v1/chat/completions", openAIEndpoint(true, loader, threads, ctxSize, f16, mutex, mumutex, mu))
+	app.Post("/v1/completions", openAIEndpoint(false, loader, threads, ctxSize, f16, mutex, mumutex, mu))
 	app.Get("/v1/models", func(c *fiber.Ctx) error {
 		models, err := loader.ListModels()
 		if err != nil {
