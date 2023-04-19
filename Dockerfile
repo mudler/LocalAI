@@ -8,5 +8,5 @@ ARG BUILD_TYPE=
 RUN make build${BUILD_TYPE}
 
 FROM debian:$DEBIAN_VERSION
-COPY --from=builder /build/llama-cli /usr/bin/llama-cli
-ENTRYPOINT [ "/usr/bin/llama-cli" ]
+COPY --from=builder /build/local-ai /usr/bin/local-ai
+ENTRYPOINT [ "/usr/bin/local-ai" ]

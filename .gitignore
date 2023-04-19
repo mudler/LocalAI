@@ -2,8 +2,9 @@
 go-llama
 go-gpt4all-j
 
-# llama-cli build binary
-llama-cli
+# LocalAI build binary
+LocalAI
+local-ai
 
 # Ignore models
 models/*.bin

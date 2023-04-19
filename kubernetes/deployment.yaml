@@ -23,9 +23,7 @@ spec:
     spec:
       containers:
         - name: llama
-          args:
-          - api
-          image: quay.io/go-skynet/llama-cli:latest
+          image: quay.io/go-skynet/local-ai:latest
 ---
 apiVersion: v1
 kind: Service

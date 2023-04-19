@@ -1,7 +1,7 @@
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
-BINARY_NAME=llama-cli
+BINARY_NAME=local-ai
 GOLLAMA_VERSION?=llama.cpp-5ecff35
 
 GREEN  := $(shell tput -Txterm setaf 2)
