@@ -1,7 +1,8 @@
-## :camel: llama-cli
+## :camel: LocalAI
 
+> :warning: This project has been renamed from `llama-cli` to `LocalAI` to reflect the fact that we are focusing on a fast drop-in OpenAI API rather on the CLI interface. We think that there are already many projects that can be used as a CLI interface already, for instance  [llama.cpp](https://github.com/ggerganov/llama.cpp) and [gpt4all](https://github.com/nomic-ai/gpt4all). If you are were using `llama-cli` for CLI interactions and want to keep using it, use older versions or please open up an issue - contributions are welcome!
 
-llama-cli is a straightforward, drop-in replacement API compatible with OpenAI for local CPU inferencing, based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is Apache 2.0 Licensed and can be used for commercial purposes.
+LocalAI is a straightforward, drop-in replacement API compatible with OpenAI for local CPU inferencing, based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is Apache 2.0 Licensed and can be used for commercial purposes.
 
 - OpenAI compatible API
 - Supports multiple-models
@@ -18,12 +19,15 @@ Note: You might need to convert older models to the new format, see [here](https
 
 ## Usage
 
-The easiest way to run llama-cli is by using `docker-compose`:
+> `LocalAI` comes by default as a container image. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
+
+The easiest way to run LocalAI is by using `docker-compose`:
 
 ```bash
 
-git clone https://github.com/go-skynet/llama-cli
-cd llama-cli
+git clone https://github.com/go-skynet/LocalAI
+
+cd LocalAI
 
 # copy your models to models/
 cp your-model.bin models/
@@ -45,8 +49,11 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
-Note: The API doesn't inject a default prompt for talking to the model, while the CLI does. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
+## Prompt templates 
 
+The API doesn't inject a default prompt for talking to the model. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
+
+<details>
 You can use a default template for every model present in your model path, by creating a corresponding file with the `.tmpl` suffix next to your model. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance this can be used with alpaca:
 
 ```
@@ -58,70 +65,19 @@ Below is an instruction that describes a task. Write a response that appropriate
 ### Response:
 ```
 
-See the [prompt-templates](https://github.com/go-skynet/llama-cli/tree/master/prompt-templates) directory in this repository for templates for most popular models.
+See the [prompt-templates](https://github.com/go-skynet/LocalAI/tree/master/prompt-templates) directory in this repository for templates for most popular models.
 
-## Container images
-
-`llama-cli` comes by default as a container image. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/llama-cli?tab=tags&tag=latest)
-
-To begin, run:
-
-```
-docker run -ti --rm quay.io/go-skynet/llama-cli:latest  --instruction "What's an alpaca?" --topk 10000 --model ...
-```
-
-Where `--model` is the path of the model you want to use. 
-
-Note: you need to mount a volume to the docker container in order to load a model, for instance:
-
-```
-# assuming your model is in /path/to/your/models/foo.bin
-docker run -v /path/to/your/models:/models -ti --rm quay.io/go-skynet/llama-cli:latest  --instruction "What's an alpaca?" --topk 10000 --model /models/foo.bin
-```
-
-You will receive a response like the following:
-
-```
-An alpaca is a member of the South American Camelid family, which includes the llama, guanaco and vicuña. It is a domesticated species that originates from the Andes mountain range in South America. Alpacas are used in the textile industry for their fleece, which is much softer than wool. Alpacas are also used for meat, milk, and fiber.
-```
-
-## Basic usage
-
-To use llama-cli, specify a pre-trained GPT-based model, an input text, and an instruction for text generation. llama-cli takes the following arguments when running from the CLI:
-
-```
-llama-cli --model <model_path> --instruction <instruction> [--input <input>] [--template <template_path>] [--tokens <num_tokens>] [--threads <num_threads>] [--temperature <temperature>] [--topp <top_p>] [--topk <top_k>]
-```
-
-| Parameter    | Environment Variable | Default Value | Description                            |
-| ------------ | -------------------- | ------------- | -------------------------------------- |
-| template     | TEMPLATE             |               | A file containing a template for output formatting (optional).  |
-| instruction  | INSTRUCTION          |               | Input prompt text or instruction. "-" for STDIN.   |
-| input        | INPUT                | -             | Path to text or "-" for STDIN.                    |
-| model        | MODEL           |               | The path to the pre-trained GPT-based model.      |
-| tokens       | TOKENS               | 128           | The maximum number of tokens to generate. |
-| threads      | THREADS              | NumCPU()      | The number of threads to use for text generation. |
-| temperature  | TEMPERATURE          | 0.95          | Sampling temperature for model output. ( values between `0.1` and `1.0` )  |
-| top_p        | TOP_P                | 0.85          | The cumulative probability for top-p sampling. |
-| top_k        | TOP_K                | 20            | The number of top-k tokens to consider for text generation.  |
-| context-size | CONTEXT_SIZE         | 512           | Default token context size. |
-
-Here's an example of using `llama-cli`:
-
-```
-llama-cli --model ~/ggml-alpaca-7b-q4.bin --instruction "What's an alpaca?"
-```
-
-This will generate text based on the given model and instruction.
+</details>
 
 ## API
 
-`llama-cli` also provides an API for running text generation as a service. The models once loaded the first time will be kept in memory.
+`LocalAI` provides an API for running text generation as a service, that follows the OpenAI reference and can be used as a drop-in. The models once loaded the first time will be kept in memory.
 
+<details>
 Example of starting the API with `docker`:
 
 ```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/llama-cli:latest api --models-path /path/to/models --context-size 700 --threads 4
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-api:latest --models-path /path/to/models --context-size 700 --threads 4
 ```
 
 And you'll see:
@@ -136,15 +92,15 @@ And you'll see:
 └───────────────────────────────────────────────────┘ 
 ```
 
-Note: Models have to end up with `.bin`.
+Note: Models have to end up with `.bin` so can be listed by the `/models` endpoint.
 
 You can control the API server options with command line arguments:
 
 ```
-llama-cli api --models-path <model_path> [--address <address>] [--threads <num_threads>]
+local-api --models-path <model_path> [--address <address>] [--threads <num_threads>]
 ```
 
-The API takes takes the following:
+The API takes takes the following parameters:
 
 | Parameter    | Environment Variable | Default Value | Description                            |
 | ------------ | -------------------- | ------------- | -------------------------------------- |
@@ -154,6 +110,8 @@ The API takes takes the following:
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
 
 Once the server is running, you can start making requests to it using HTTP, using the OpenAI API. 
+
+</details>
 
 ### Supported OpenAI API endpoints
 
@@ -212,41 +170,34 @@ python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.model
 
 ### Windows compatibility
 
-It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/llama-cli/issues/2
+It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
 
 ### Kubernetes
 
-You can run the API directly in Kubernetes:
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/go-skynet/llama-cli/master/kubernetes/deployment.yaml
-```
+You can run the API in Kubernetes, see an example deployment in [kubernetes](https://github.com/go-skynet/LocalAI/tree/master/kubernetes)
 
 ### Build locally
 
 Pre-built images might fit well for most of the modern hardware, however you can and might need to build the images manually.
 
-In order to build the `llama-cli` container image locally you can use `docker`:
+In order to build the `LocalAI` container image locally you can use `docker`:
 
 ```
-# build the image as "alpaca-image"
-docker build -t llama-cli .
-docker run llama-cli --instruction "What's an alpaca?"
+# build the image
+docker build -t LocalAI .
+docker run LocalAI
 ```
 
-Or build the binary with:
+Or build the binary with `make`:
 
 ```
-# build the image as "alpaca-image"
-docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock --rm -t -v "$(pwd)":/workspace -v earthly-tmp:/tmp/earthly:rw earthly/earthly:v0.7.2 +build
-# run the binary
-./llama-cli --instruction "What's an alpaca?"
+make build
 ```
 
 ## Short-term roadmap
 
-- [x] Mimic OpenAI API (https://github.com/go-skynet/llama-cli/issues/10)
-- Binary releases (https://github.com/go-skynet/llama-cli/issues/6)
+- [x] Mimic OpenAI API (https://github.com/go-skynet/LocalAI/issues/10)
+- Binary releases (https://github.com/go-skynet/LocalAI/issues/6)
 - Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351)
 - [x] Multi-model support
 - Have a webUI!

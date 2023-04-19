@@ -1,4 +1,4 @@
-module github.com/go-skynet/llama-cli
+module github.com/go-skynet/LocalAI
 
 go 1.19
 

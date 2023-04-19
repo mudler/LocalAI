@@ -19,7 +19,7 @@ jobs:
       - name: Prepare
         id: prep
         run: |
-          DOCKER_IMAGE=quay.io/go-skynet/llama-cli
+          DOCKER_IMAGE=quay.io/go-skynet/local-ai
           VERSION=master
           SHORTREF=${GITHUB_SHA::8}
 

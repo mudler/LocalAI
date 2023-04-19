@@ -5,8 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	model "github.com/go-skynet/llama-cli/pkg/model"
-
+	model "github.com/go-skynet/LocalAI/pkg/model"
 	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/gofiber/fiber/v2"
