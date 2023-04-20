@@ -12,13 +12,12 @@ LocalAI is a straightforward, drop-in replacement API compatible with OpenAI for
 - OpenAI compatible API
 - Supports multiple-models
 - Once loaded the first time, it keep models loaded in memory for faster inference
-- Provides a simple command line interface that allows text generation directly from the terminal
 - Support for prompt templates
 - Doesn't shell-out, but uses C bindings for a faster inference and better performance. Uses [go-llama.cpp](https://github.com/go-skynet/go-llama.cpp) and [go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp).
 
 ## Model compatibility
 
-It is compatible with the models supported by [llama.cpp](https://github.com/ggerganov/llama.cpp) and also [GPT4ALL-J](https://github.com/nomic-ai/gpt4all).
+It is compatible with the models supported by [llama.cpp](https://github.com/ggerganov/llama.cpp) supports also [GPT4ALL-J](https://github.com/nomic-ai/gpt4all) and [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml).
 
 Note: You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
 
@@ -96,8 +95,6 @@ And you'll see:
 │ Prefork ....... Disabled  PID ................. 1 │ 
 └───────────────────────────────────────────────────┘ 
 ```
-
-Note: Models have to end up with `.bin` so can be listed by the `/models` endpoint.
 
 You can control the API server options with command line arguments:
 
