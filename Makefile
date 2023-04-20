@@ -3,6 +3,8 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 GOLLAMA_VERSION?=llama.cpp-5ecff35
+GOGPT4ALLJ_VERSION?=1f548782d80d48b9a0fac33aae6f129358787bc0
+GOGPT2_VERSION?=f15da66b097d6dacc30140d5def78d153e529e70
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
@@ -24,7 +26,7 @@ buildgeneric: prepare-generic ## Build the project
 
 ## GPT4ALL-J
 go-gpt4all-j:
-	git clone --recurse-submodules https://github.com/go-skynet/go-gpt4all-j.cpp go-gpt4all-j
+	git clone --recurse-submodules https://github.com/go-skynet/go-gpt4all-j.cpp go-gpt4all-j && cd go-gpt4all-j && git checkout -b build $(GOGPT4ALLJ_VERSION)
 # This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./go-gpt4all-j -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
@@ -43,7 +45,7 @@ go-gpt4all-j/libgptj.a-generic: go-gpt4all-j
 
 # CEREBRAS GPT
 go-gpt2.cpp:
-	git clone --recurse-submodules https://github.com/go-skynet/go-gpt2.cpp go-gpt2.cpp
+	git clone --recurse-submodules https://github.com/go-skynet/go-gpt2.cpp go-gpt2.cpp && cd go-gpt2.cpp && git checkout -b build $(GOGPT2_VERSION)
 # This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./go-gpt2.cpp -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gpt2_/g' {} +
 	@find ./go-gpt2.cpp -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gpt2_/g' {} +
@@ -51,8 +53,6 @@ go-gpt2.cpp:
 	@find ./go-gpt2.cpp -type f -name "*.cpp" -exec sed -i'' -e 's/gpt_/gpt2_/g' {} +
 	@find ./go-gpt2.cpp -type f -name "*.h" -exec sed -i'' -e 's/gpt_/gpt2_/g' {} +
 	@find ./go-gpt2.cpp -type f -name "*.cpp" -exec sed -i'' -e 's/json_/json_gpt2_/g' {} +
-	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/void replace/void json_gpt2_replace/g' {} +
-	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gpt2_replace/g' {} +
 
 go-gpt2.cpp/libgpt2.a: go-gpt2.cpp
 	$(MAKE) -C go-gpt2.cpp libgpt2.a
