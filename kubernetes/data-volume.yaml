@@ -1,0 +1,28 @@
+# Create a PVC containing a model binary, sourced from an arbitrary HTTP server
+# (requires https://github.com/kubevirt/containerized-data-importer)
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: models
+  namespace: local-ai
+spec:
+  contentType: archive
+  source:
+    http:
+      url: http://<model_server>/koala-7B-4bit-128g.GGML.tar
+      secretRef: model-secret
+  pvc:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: model-secret
+  namespace: local-ai
+data:
+  accessKeyId: <model_server_username_base64_encoded>
+  secretKey: <model_server_password_base64_encoded>
