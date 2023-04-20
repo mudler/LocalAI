@@ -1,7 +1,9 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -241,11 +243,19 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 
 			}
 		}
 
-		// Return the prediction in the response body
-		return c.JSON(OpenAIResponse{
+		// unnecessary and ugly... but it is nice to see the predictions in the logs
+		response := OpenAIResponse{
 			Model:   input.Model,
 			Choices: result,
-		})
+		}
+		responseJson, err := json.Marshal(response)
+		if err != nil {
+			return fmt.Errorf("failed to marshal response")
+		}
+		log.Printf("prediction: %s", responseJson)
+
+		// Return the prediction in the response body
+		return c.JSON(response)
 	}
 }
 
