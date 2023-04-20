@@ -117,7 +117,7 @@ The API takes takes the following parameters:
 | Parameter    | Environment Variable | Default Value | Description                            |
 | ------------ | -------------------- | ------------- | -------------------------------------- |
 | models-path        | MODELS_PATH           |               | The path where you have models (ending with `.bin`).      |
-| threads      | THREADS              | CPU cores     | The number of threads to use for text generation. |
+| threads      | THREADS              | Number of Physical cores     | The number of threads to use for text generation. |
 | address      | ADDRESS              | :8080         | The address and port to listen on. |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
 
