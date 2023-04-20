@@ -66,9 +66,11 @@ Some of the models compatible are:
 - Koala
 - GPT4ALL
 - GPT4ALL-J
+- Cerebras
 - Alpaca
+- StableLM (ggml quantized)
 
-It uses llama.cpp and gpt4all as backend, supporting all the models supported by both.
+It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 `,
 		UsageText: `local-ai [options]`,
 		Copyright: "go-skynet authors",
