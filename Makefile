@@ -4,7 +4,7 @@ GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 GOLLAMA_VERSION?=llama.cpp-5ecff35
 GOGPT4ALLJ_VERSION?=1f548782d80d48b9a0fac33aae6f129358787bc0
-GOGPT2_VERSION?=f15da66b097d6dacc30140d5def78d153e529e70
+GOGPT2_VERSION?=1c24f5b86ac428cd5e81dae1f1427b1463bd2b06
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
