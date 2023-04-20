@@ -1,20 +1,23 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 
 	api "github.com/go-skynet/LocalAI/api"
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
 	path, err := os.Getwd()
 	if err != nil {
-		fmt.Println(err)
+		log.Error().Msgf("error: %s", err.Error())
 		os.Exit(1)
 	}
 
@@ -25,6 +28,10 @@ func main() {
 			&cli.BoolFlag{
 				Name:    "f16",
 				EnvVars: []string{"F16"},
+			},
+			&cli.BoolFlag{
+				Name:    "debug",
+				EnvVars: []string{"DEBUG"},
 			},
 			&cli.IntFlag{
 				Name:        "threads",
@@ -66,13 +73,17 @@ It uses llama.cpp and gpt4all as backend, supporting all the models supported by
 		UsageText: `local-ai [options]`,
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+			if ctx.Bool("debug") {
+				zerolog.SetGlobalLevel(zerolog.DebugLevel)
+			}
 			return api.Start(model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"))
 		},
 	}
 
 	err = app.Run(os.Args)
 	if err != nil {
-		fmt.Println(err)
+		log.Error().Msgf("error: %s", err.Error())
 		os.Exit(1)
 	}
 }

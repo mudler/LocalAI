@@ -82,7 +82,7 @@ See the [prompt-templates](https://github.com/go-skynet/LocalAI/tree/master/prom
 Example of starting the API with `docker`:
 
 ```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-api:latest --models-path /path/to/models --context-size 700 --threads 4
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:latest --models-path /path/to/models --context-size 700 --threads 4
 ```
 
 And you'll see:

@@ -3,15 +3,16 @@ module github.com/go-skynet/LocalAI
 go 1.19
 
 require (
+	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230419091210-303cf2a59a94
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230415213228-bac222030640
 	github.com/gofiber/fiber/v2 v2.42.0
+	github.com/rs/zerolog v1.29.1
 	github.com/urfave/cli/v2 v2.25.0
 )
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
-	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230419091210-303cf2a59a94 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

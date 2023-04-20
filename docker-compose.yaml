@@ -14,5 +14,6 @@ services:
       - MODELS_PATH=$MODELS_PATH
       - CONTEXT_SIZE=$CONTEXT_SIZE
       - THREADS=$THREADS
+      - DEBUG=$DEBUG
     volumes:
       - ./models:/models:cached
