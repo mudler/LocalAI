@@ -1,16 +1,20 @@
 {
     "version": "0.2.0",
     "configurations": [
-    
-    {
-        "name": "Launch Go",
-        "type": "go",
-        "request": "launch",
-        "mode": "debug",
-        "program": "${workspaceFolder}/main.go",
-        "args": [
-            "api"
-        ]
-    }
+        {
+            "name": "Launch Go",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/main.go",
+            "args": [
+                "api"
+            ],
+            "env": {
+                "C_INCLUDE_PATH": "/workspace/go-llama:/workspace/go-gpt4all-j:/workspace/go-gpt2",
+                "LIBRARY_PATH": "/workspace/go-llama:/workspace/go-gpt4all-j:/workspace/go-gpt2",
+                "DEBUG": "true"
+            }
+        }
     ]
 }
