@@ -5,6 +5,8 @@ go-gpt4all-j
 # LocalAI build binary
 LocalAI
 local-ai
+# prevent above rules from omitting the helm chart
+!charts/*
 
 # Ignore models
 models/*.bin

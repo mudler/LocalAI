@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "local-ai.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/name: {{ template "local-ai.name" . }}
+    helm.sh/chart: {{ include "local-ai.chart" . }}
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    app.kubernetes.io/managed-by: "{{ .Release.Service }}"
+{{- if .Values.service.annotations }}
+  annotations:
+  {{ toYaml .Values.service.annotations | indent 4 }}
+{{- end }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ include "local-ai.name" . }}
+  type: "{{ .Values.service.type }}"
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

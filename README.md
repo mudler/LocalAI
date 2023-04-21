@@ -53,6 +53,26 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
+## Helm Chart Installation
+The local-ai Helm chart supports two options for the LocalAI server's models directory:
+1. Basic deployment with no persistent volume. You must manually update the Deployment to configure your own models directory.
+
+    Install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == false`.
+
+2. Advanced, two-phase deployment to provision the models directory using a DataVolume. Requires [Containerized Data Importer CDI](https://github.com/kubevirt/containerized-data-importer) to be pre-installed in your cluster.
+
+    First, install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == true`:
+    ```bash
+    helm install local-ai charts/local-ai -n local-ai --create-namespace
+    ```
+    Wait for CDI to create an importer Pod for the DataVolume and for the importer pod to finish provisioning the model archive inside the PV.
+
+    Once the PV is provisioned and the importer Pod removed, set `.Values.deployment.volumes.enabled == true` and `.Values.dataVolume.enabled == false` and upgrade the chart:
+    ```bash
+    helm upgrade local-ai -n local-ai charts/local-ai
+    ```
+    This will update the local-ai Deployment to mount the PV that was provisioned by the DataVolume.
+
 ## Prompt templates 
 
 The API doesn't inject a default prompt for talking to the model. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
