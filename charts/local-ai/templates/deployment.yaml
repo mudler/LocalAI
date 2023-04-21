@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "local-ai.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "local-ai.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "local-ai.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  replicas: 1
+  template:
+    metadata:
+      name: {{ template "local-ai.fullname" . }}
+      labels:
+        app.kubernetes.io/name: {{ include "local-ai.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ template "local-ai.fullname" . }}
+          image: {{ .Values.deployment.image }}
+          env:
+          - name: THREADS
+            value: {{ .Values.deployment.env.threads | quote }}
+          - name: CONTEXT_SIZE
+            value: {{ .Values.deployment.env.contextSize | quote }}
+          - name: MODELS_PATH
+            value: {{ .Values.deployment.env.modelsPath }}
+{{- if .Values.deployment.volume.enabled }}
+          volumeMounts:
+          - mountPath: {{ .Values.deployment.env.modelsPath }}
+            name: models
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: {{ template "local-ai.fullname" . }}
+{{- end }}

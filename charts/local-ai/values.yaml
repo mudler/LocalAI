@@ -1,0 +1,38 @@
+deployment:
+  image: quay.io/go-skynet/local-ai:latest
+  env:
+    threads: 14
+    contextSize: 512
+    modelsPath: "/models"
+  volume:
+    enabled: false
+
+service:
+  type: ClusterIP
+  annotations: {}
+  # If using an AWS load balancer, you'll need to override the default 60s load balancer idle timeout
+  # service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "1200"
+
+# Optionally create a PVC containing a model binary, sourced from an arbitrary HTTP server or S3 bucket
+# (requires https://github.com/kubevirt/containerized-data-importer)
+dataVolume:
+  enabled: false
+  source:
+    type: "http" # Source type. One of: [ http | s3 ]
+    url: "http://<model_server>/<model_archive>" # e.g. koala-7B-4bit-128g.GGML.tar
+
+    # CertConfigMap is an optional ConfigMap reference, containing a Certificate Authority (CA) public key
+    # and a base64 encoded pem certificate
+    caCertConfigMap: ""
+
+    # SecretExtraHeaders is an optional list of Secret references, each containing an extra HTTP header
+    # that may include sensitive information. Only applicable for the http source type.
+    secretExtraHeaders: []
+  pvc:
+    accessModes:
+    - ReadWriteOnce
+    size: 5Gi
+  secret:
+    enabled: false
+    username: "" # base64 encoded
+    password: "" # base64 encoded

@@ -48,6 +48,8 @@ type OpenAIRequest struct {
 	// Prompt is read only by completion API calls
 	Prompt string `json:"prompt"`
 
+	Stop string `json:"stop"`
+
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages"`
 
@@ -61,15 +63,17 @@ type OpenAIRequest struct {
 	N int `json:"n"`
 
 	// Custom parameters - not present in the OpenAI API
-	Batch     int  `json:"batch"`
-	F16       bool `json:"f16kv"`
-	IgnoreEOS bool `json:"ignore_eos"`
+	Batch         int     `json:"batch"`
+	F16           bool    `json:"f16kv"`
+	IgnoreEOS     bool    `json:"ignore_eos"`
+	RepeatPenalty float64 `json:"repeat_penalty"`
+	Keep          int     `json:"n_keep"`
 
 	Seed int `json:"seed"`
 }
 
 // https://platform.openai.com/docs/api-reference/completions
-func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 bool, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
+func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		var err error
 		var model *llama.LLama
@@ -90,16 +94,28 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 
 		// Set model from bearer token, if available
 		bearer := strings.TrimLeft(c.Get("authorization"), "Bearer ")
 		bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
+
+		// If no model was specified, take the first available
+		if modelFile == "" {
+			models, _ := loader.ListModels()
+			if len(models) > 0 {
+				modelFile = models[0]
+				log.Debug().Msgf("No model specified, using: %s", modelFile)
+			}
+		}
+
+		// If no model is found or specified, we bail out
 		if modelFile == "" && !bearerExists {
 			return fmt.Errorf("no model specified")
 		}
 
-		if bearerExists { // model specified in bearer token takes precedence
+		// If a model is found in bearer token takes precedence
+		if bearerExists {
 			log.Debug().Msgf("Using model from bearer token: %s", bearer)
 			modelFile = bearer
 		}
 
-		// Try to load the model with both
+		// Try to load the model
 		var llamaerr, gpt2err, gptjerr, stableerr error
 		llamaOpts := []llama.ModelOption{}
 		if ctx != 0 {
@@ -269,6 +285,22 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 
 					llama.SetThreads(threads),
 				}
 
+				if debug {
+					predictOptions = append(predictOptions, llama.Debug)
+				}
+
+				if input.Stop != "" {
+					predictOptions = append(predictOptions, llama.SetStopWords(input.Stop))
+				}
+
+				if input.RepeatPenalty != 0 {
+					predictOptions = append(predictOptions, llama.SetPenalty(input.RepeatPenalty))
+				}
+
+				if input.Keep != 0 {
+					predictOptions = append(predictOptions, llama.SetNKeep(input.Keep))
+				}
+
 				if input.Batch != 0 {
 					predictOptions = append(predictOptions, llama.SetBatch(input.Batch))
 				}
@@ -341,7 +373,7 @@ func listModels(loader *model.ModelLoader) func(ctx *fiber.Ctx) error {
 	}
 }
 
-func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f16 bool) error {
+func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f16 bool, debug bool) error {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
 		// Override default error handler
@@ -371,11 +403,11 @@ func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f
 	var mumutex = &sync.Mutex{}
 
 	// openAI compatible API endpoint
-	app.Post("/v1/chat/completions", openAIEndpoint(true, loader, threads, ctxSize, f16, mumutex, mu))
-	app.Post("/chat/completions", openAIEndpoint(true, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/v1/chat/completions", openAIEndpoint(true, debug, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/chat/completions", openAIEndpoint(true, debug, loader, threads, ctxSize, f16, mumutex, mu))
 
-	app.Post("/v1/completions", openAIEndpoint(false, loader, threads, ctxSize, f16, mumutex, mu))
-	app.Post("/completions", openAIEndpoint(false, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/v1/completions", openAIEndpoint(false, debug, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/completions", openAIEndpoint(false, debug, loader, threads, ctxSize, f16, mumutex, mu))
 
 	app.Get("/v1/models", listModels(loader))
 	app.Get("/models", listModels(loader))
