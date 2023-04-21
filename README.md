@@ -15,6 +15,8 @@ LocalAI is a straightforward, drop-in replacement API compatible with OpenAI for
 - Support for prompt templates
 - Doesn't shell-out, but uses C bindings for a faster inference and better performance. Uses [go-llama.cpp](https://github.com/go-skynet/go-llama.cpp) and [go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp).
 
+Discord channel: [Discord](https://discord.gg/uJAeKSAGDy)
+
 ## Model compatibility
 
 It is compatible with the models supported by [llama.cpp](https://github.com/ggerganov/llama.cpp) supports also [GPT4ALL-J](https://github.com/nomic-ai/gpt4all) and [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml).
