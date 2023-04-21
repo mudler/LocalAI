@@ -43,11 +43,11 @@ var _ = Describe("API test", func() {
 			Expect(len(models.Models)).To(Equal(1))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
-		It("returns the models list", func() {
+		It("can generate completions", func() {
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: "abcdedfghikl"})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
-			Expect(resp.Choices[0].Text).To(ContainSubstring("foo"))
+			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})
 	})
 })

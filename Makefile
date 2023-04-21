@@ -101,7 +101,7 @@ test-models/testmodel:
 	wget https://huggingface.co/concedo/cerebras-111M-ggml/resolve/main/cerberas-111m-q4_0.bin -O test-models/testmodel
 
 test: prepare test-models/testmodel
-	@C_INCLUDE_PATH=${INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} MODELS_PATH=$(abspath ./)/test-models go test -v ./...
+	@C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} MODELS_PATH=$(abspath ./)/test-models $(GOCMD) test -v ./...
 
 ## Help:
 help: ## Show this help.
