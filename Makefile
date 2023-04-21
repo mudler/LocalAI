@@ -96,9 +96,12 @@ clean: ## Remove build related file
 run: prepare
 	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) run ./main.go
 
-## Test:
-test: ## Run the tests of the project
-	$(GOTEST) -v -race ./... $(OUTPUT_OPTIONS)
+test-models/testmodel:
+	mkdir test-models
+	wget https://huggingface.co/concedo/cerebras-111M-ggml/resolve/main/cerberas-111m-q4_0.bin -O test-models/testmodel
+
+test: prepare test-models/testmodel
+	@C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} MODELS_PATH=$(abspath ./)/test-models $(GOCMD) test -v ./...
 
 ## Help:
 help: ## Show this help.

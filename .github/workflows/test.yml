@@ -1,0 +1,45 @@
+---
+name: 'tests'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+jobs:
+  ubuntu-latest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v1
+        with: 
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential
+      - name: Test
+        run: |
+          make test
+
+  # macOS-latest:
+  #   runs-on: macOS-latest
+
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v1
+  #       with: 
+  #         submodules: true
+
+  #     - name: Dependencies
+  #       run: |
+  #         brew update
+  #         brew install sdl2
+
+  #     - name: Test
+  #       run: |
+  #         make test
