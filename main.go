@@ -85,7 +85,8 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 			if debugMode {
 				zerolog.SetGlobalLevel(zerolog.DebugLevel)
 			}
-			return api.Start(model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), debugMode)
+
+			return api.App(model.NewModelLoader(ctx.String("models-path")), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), debugMode, false).Listen(ctx.String("address"))
 		},
 	}
 

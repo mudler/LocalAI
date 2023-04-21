@@ -373,9 +373,10 @@ func listModels(loader *model.ModelLoader) func(ctx *fiber.Ctx) error {
 	}
 }
 
-func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f16 bool, debug bool) error {
+func App(loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disableMessage bool) *fiber.App {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
+		DisableStartupMessage: disableMessage,
 		// Override default error handler
 		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
 			// Status code defaults to 500
@@ -412,7 +413,5 @@ func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f
 	app.Get("/v1/models", listModels(loader))
 	app.Get("/models", listModels(loader))
 
-	// Start the server
-	app.Listen(listenAddr)
-	return nil
+	return app
 }
