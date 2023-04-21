@@ -61,7 +61,7 @@ go-gpt2/libgpt2.a-generic: go-gpt2
 	$(MAKE) -C go-gpt2 generic-libgpt2.a
 
 go-llama:
-	if [ ! -d "$(shell pwd)/go-gpt4all-j" ]; then git clone -b $(GOLLAMA_VERSION) --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama; fi
+	if [ ! -d "$(shell pwd)/go-llama" ]; then git clone -b $(GOLLAMA_VERSION) --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama; fi
 	$(MAKE) -C go-llama libbinding.a
 
 go-llama-generic:
