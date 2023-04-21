@@ -94,16 +94,28 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 		// Set model from bearer token, if available
 		bearer := strings.TrimLeft(c.Get("authorization"), "Bearer ")
 		bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
+
+		// If no model was specified, take the first available
+		if modelFile == "" {
+			models, _ := loader.ListModels()
+			if len(models) > 0 {
+				modelFile = models[0]
+				log.Debug().Msgf("No model specified, using: %s", modelFile)
+			}
+		}
+
+		// If no model is found or specified, we bail out
 		if modelFile == "" && !bearerExists {
 			return fmt.Errorf("no model specified")
 		}
 
-		if bearerExists { // model specified in bearer token takes precedence
+		// If a model is found in bearer token takes precedence
+		if bearerExists {
 			log.Debug().Msgf("Using model from bearer token: %s", bearer)
 			modelFile = bearer
 		}
 
-		// Try to load the model with both
+		// Try to load the model
 		var llamaerr, gpt2err, gptjerr, stableerr error
 		llamaOpts := []llama.ModelOption{}
 		if ctx != 0 {
