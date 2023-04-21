@@ -63,7 +63,7 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
-## Helm Chart Installation
+## Helm Chart Installation (run LocalAI in Kubernetes)
 The local-ai Helm chart supports two options for the LocalAI server's models directory:
 1. Basic deployment with no persistent volume. You must manually update the Deployment to configure your own models directory.
 
@@ -203,10 +203,6 @@ python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.model
 ### Windows compatibility
 
 It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
-
-### Kubernetes
-
-You can run the API in Kubernetes, see an example deployment in [kubernetes](https://github.com/go-skynet/LocalAI/tree/master/kubernetes)
 
 ### Build locally
 
