@@ -2,18 +2,14 @@ version: '3.6'
 
 services:
   api:
-    image: quay.io/go-skynet/local-ai:latest
+    # image: quay.io/go-skynet/local-ai:latest
     build:
       context: .
       dockerfile: Dockerfile
-      # args:
-        # BUILD_TYPE: generic # Uncomment to build CPU generic code that works on most HW
     ports:
       - 8080:8080
-    environment:
-      - MODELS_PATH=$MODELS_PATH
-      - CONTEXT_SIZE=$CONTEXT_SIZE
-      - THREADS=$THREADS
-      - DEBUG=$DEBUG
+    env_file:
+      - .env
     volumes:
       - ./models:/models:cached
+    command: ["/usr/bin/local-ai" ]
