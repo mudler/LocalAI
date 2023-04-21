@@ -5,10 +5,7 @@ metadata:
   name: {{ template "local-ai.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    app.kubernetes.io/name: {{ template "local-ai.name" . }}
-    helm.sh/chart: {{ include "local-ai.chart" . }}
-    app.kubernetes.io/instance: "{{ .Release.Name }}"
-    app.kubernetes.io/managed-by: "{{ .Release.Service }}"
+    {{- include "local-ai.labels" . | nindent 4 }}
 spec:
   contentType: archive
   source:
@@ -34,10 +31,7 @@ metadata:
   name: {{ template "local-ai.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    app.kubernetes.io/name: {{ template "local-ai.name" . }}
-    helm.sh/chart: {{ include "local-ai.chart" . }}
-    app.kubernetes.io/instance: "{{ .Release.Name }}"
-    app.kubernetes.io/managed-by: "{{ .Release.Service }}"
+    {{- include "local-ai.labels" . | nindent 4 }}
 data:
   accessKeyId: {{ .Values.dataVolume.secret.username }}
   secretKey: {{ .Values.dataVolume.secret.password }}
