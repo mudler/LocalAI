@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -373,9 +374,15 @@ func listModels(loader *model.ModelLoader) func(ctx *fiber.Ctx) error {
 	}
 }
 
-func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f16 bool, debug bool) error {
+func App(loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disableMessage bool) *fiber.App {
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
+
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
+		DisableStartupMessage: disableMessage,
 		// Override default error handler
 		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
 			// Status code defaults to 500
@@ -412,7 +419,5 @@ func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f
 	app.Get("/v1/models", listModels(loader))
 	app.Get("/models", listModels(loader))
 
-	// Start the server
-	app.Listen(listenAddr)
-	return nil
+	return app
 }

@@ -12,3 +12,4 @@ local-ai
 # Ignore models
 models/*.bin
 models/ggml-*
+test-models/

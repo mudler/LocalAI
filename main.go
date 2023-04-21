@@ -80,12 +80,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		UsageText: `local-ai [options]`,
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
-			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-			debugMode := ctx.Bool("debug")
-			if debugMode {
-				zerolog.SetGlobalLevel(zerolog.DebugLevel)
-			}
-			return api.Start(model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), debugMode)
+			return api.App(model.NewModelLoader(ctx.String("models-path")), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false).Listen(ctx.String("address"))
 		},
 	}
 
