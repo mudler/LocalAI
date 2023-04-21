@@ -1,6 +1,7 @@
 # go-llama build artifacts
 go-llama
 go-gpt4all-j
+go-gpt2
 
 # LocalAI build binary
 LocalAI
