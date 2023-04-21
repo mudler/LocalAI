@@ -19,6 +19,16 @@ LocalAI is a straightforward, drop-in replacement API compatible with OpenAI for
 
 It is compatible with the models supported by [llama.cpp](https://github.com/ggerganov/llama.cpp) supports also [GPT4ALL-J](https://github.com/nomic-ai/gpt4all) and [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml).
 
+Tested with:
+- Vicuna
+- Alpaca
+- [GPT4ALL](https://github.com/nomic-ai/gpt4all)
+- [GPT4ALL-J](https://gpt4all.io/models/ggml-gpt4all-j.bin)
+- Koala
+- [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml)
+
+It should also be compatible with StableLM and GPTNeoX ggml models (untested)
+
 Note: You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
 
 ## Usage
@@ -127,7 +137,7 @@ The API takes takes the following parameters:
 | Parameter    | Environment Variable | Default Value | Description                            |
 | ------------ | -------------------- | ------------- | -------------------------------------- |
 | models-path        | MODELS_PATH           |               | The path where you have models (ending with `.bin`).      |
-| threads      | THREADS              | CPU cores     | The number of threads to use for text generation. |
+| threads      | THREADS              | Number of Physical cores     | The number of threads to use for text generation. |
 | address      | ADDRESS              | :8080         | The address and port to listen on. |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
 

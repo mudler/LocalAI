@@ -48,6 +48,8 @@ type OpenAIRequest struct {
 	// Prompt is read only by completion API calls
 	Prompt string `json:"prompt"`
 
+	Stop string `json:"stop"`
+
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages"`
 
@@ -61,20 +63,23 @@ type OpenAIRequest struct {
 	N int `json:"n"`
 
 	// Custom parameters - not present in the OpenAI API
-	Batch     int  `json:"batch"`
-	F16       bool `json:"f16kv"`
-	IgnoreEOS bool `json:"ignore_eos"`
+	Batch         int     `json:"batch"`
+	F16           bool    `json:"f16kv"`
+	IgnoreEOS     bool    `json:"ignore_eos"`
+	RepeatPenalty float64 `json:"repeat_penalty"`
+	Keep          int     `json:"n_keep"`
 
 	Seed int `json:"seed"`
 }
 
 // https://platform.openai.com/docs/api-reference/completions
-func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 bool, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
+func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		var err error
 		var model *llama.LLama
 		var gptModel *gptj.GPTJ
 		var gpt2Model *gpt2.GPT2
+		var stableLMModel *gpt2.StableLM
 
 		input := new(OpenAIRequest)
 		// Get input data from the request body
@@ -99,7 +104,7 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 
 		}
 
 		// Try to load the model with both
-		var llamaerr, gpt2err, gptjerr error
+		var llamaerr, gpt2err, gptjerr, stableerr error
 		llamaOpts := []llama.ModelOption{}
 		if ctx != 0 {
 			llamaOpts = append(llamaOpts, llama.SetContext(ctx))
@@ -115,7 +120,10 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 
 			if gptjerr != nil {
 				gpt2Model, gpt2err = loader.LoadGPT2Model(modelFile)
 				if gpt2err != nil {
-					return fmt.Errorf("llama: %s gpt: %s gpt2: %s", llamaerr.Error(), gptjerr.Error(), gpt2err.Error()) // llama failed first, so we want to catch both errors
+					stableLMModel, stableerr = loader.LoadStableLMModel(modelFile)
+					if stableerr != nil {
+						return fmt.Errorf("llama: %s gpt: %s gpt2: %s stableLM: %s", llamaerr.Error(), gptjerr.Error(), gpt2err.Error(), stableerr.Error()) // llama failed first, so we want to catch both errors
+					}
 				}
 			}
 		}
@@ -182,6 +190,30 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 
 
 		var predFunc func() (string, error)
 		switch {
+		case stableLMModel != nil:
+			predFunc = func() (string, error) {
+				// Generate the prediction using the language model
+				predictOptions := []gpt2.PredictOption{
+					gpt2.SetTemperature(temperature),
+					gpt2.SetTopP(topP),
+					gpt2.SetTopK(topK),
+					gpt2.SetTokens(tokens),
+					gpt2.SetThreads(threads),
+				}
+
+				if input.Batch != 0 {
+					predictOptions = append(predictOptions, gpt2.SetBatch(input.Batch))
+				}
+
+				if input.Seed != 0 {
+					predictOptions = append(predictOptions, gpt2.SetSeed(input.Seed))
+				}
+
+				return stableLMModel.Predict(
+					predInput,
+					predictOptions...,
+				)
+			}
 		case gpt2Model != nil:
 			predFunc = func() (string, error) {
 				// Generate the prediction using the language model
@@ -239,6 +271,22 @@ func openAIEndpoint(chat bool, loader *model.ModelLoader, threads, ctx int, f16 
 					llama.SetTopK(topK),
 					llama.SetTokens(tokens),
 					llama.SetThreads(threads),
+				}
+
+				if debug {
+					predictOptions = append(predictOptions, llama.Debug)
+				}
+
+				if input.Stop != "" {
+					predictOptions = append(predictOptions, llama.SetStopWords(input.Stop))
+				}
+
+				if input.RepeatPenalty != 0 {
+					predictOptions = append(predictOptions, llama.SetPenalty(input.RepeatPenalty))
+				}
+
+				if input.Keep != 0 {
+					predictOptions = append(predictOptions, llama.SetNKeep(input.Keep))
 				}
 
 				if input.Batch != 0 {
@@ -313,7 +361,7 @@ func listModels(loader *model.ModelLoader) func(ctx *fiber.Ctx) error {
 	}
 }
 
-func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f16 bool) error {
+func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f16 bool, debug bool) error {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
 		// Override default error handler
@@ -343,11 +391,11 @@ func Start(loader *model.ModelLoader, listenAddr string, threads, ctxSize int, f
 	var mumutex = &sync.Mutex{}
 
 	// openAI compatible API endpoint
-	app.Post("/v1/chat/completions", openAIEndpoint(true, loader, threads, ctxSize, f16, mumutex, mu))
-	app.Post("/chat/completions", openAIEndpoint(true, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/v1/chat/completions", openAIEndpoint(true, debug, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/chat/completions", openAIEndpoint(true, debug, loader, threads, ctxSize, f16, mumutex, mu))
 
-	app.Post("/v1/completions", openAIEndpoint(false, loader, threads, ctxSize, f16, mumutex, mu))
-	app.Post("/completions", openAIEndpoint(false, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/v1/completions", openAIEndpoint(false, debug, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/completions", openAIEndpoint(false, debug, loader, threads, ctxSize, f16, mumutex, mu))
 
 	app.Get("/v1/models", listModels(loader))
 	app.Get("/models", listModels(loader))

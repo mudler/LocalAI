@@ -2,13 +2,12 @@ package main
 
 import (
 	"os"
-	"runtime"
 
 	api "github.com/go-skynet/LocalAI/api"
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/jaypipes/ghw"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-
 	"github.com/urfave/cli/v2"
 )
 
@@ -19,6 +18,12 @@ func main() {
 	if err != nil {
 		log.Error().Msgf("error: %s", err.Error())
 		os.Exit(1)
+	}
+
+	threads := 4
+	cpu, err := ghw.CPU()
+	if err == nil {
+		threads = int(cpu.TotalCores)
 	}
 
 	app := &cli.App{
@@ -37,7 +42,7 @@ func main() {
 				Name:        "threads",
 				DefaultText: "Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested.",
 				EnvVars:     []string{"THREADS"},
-				Value:       runtime.NumCPU(),
+				Value:       threads,
 			},
 			&cli.StringFlag{
 				Name:        "models-path",
@@ -66,18 +71,21 @@ Some of the models compatible are:
 - Koala
 - GPT4ALL
 - GPT4ALL-J
+- Cerebras
 - Alpaca
+- StableLM (ggml quantized)
 
-It uses llama.cpp and gpt4all as backend, supporting all the models supported by both.
+It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 `,
 		UsageText: `local-ai [options]`,
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
 			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-			if ctx.Bool("debug") {
+			debugMode := ctx.Bool("debug")
+			if debugMode {
 				zerolog.SetGlobalLevel(zerolog.DebugLevel)
 			}
-			return api.Start(model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"))
+			return api.Start(model.NewModelLoader(ctx.String("models-path")), ctx.String("address"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), debugMode)
 		},
 	}
 
