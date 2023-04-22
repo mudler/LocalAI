@@ -176,9 +176,9 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 		predInput := input.Prompt
 		if chat {
 			mess := []string{}
-			// TODO: encode roles
 			for _, i := range input.Messages {
-				mess = append(mess, i.Content)
+				content := fmt.Sprint("<|", strings.ToUpper(i.Role), "|> ", i.Content)
+				mess = append(mess, content)
 			}
 
 			predInput = strings.Join(mess, "\n")
@@ -285,6 +285,11 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 					llama.SetTokens(tokens),
 					llama.SetThreads(threads),
 				}
+				if chat {
+					// TODO: why does <|SYSTEM|> stopword cause null output?
+					//predictOptions = append(predictOptions, llama.SetStopWords("<|USER|>", "<|SYSTEM|>"))
+					predictOptions = append(predictOptions, llama.SetStopWords("<|USER|>"))
+				}
 
 				if debug {
 					predictOptions = append(predictOptions, llama.Debug)
@@ -336,6 +341,7 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 			}
 
 			if chat {
+				prediction = strings.TrimSpace(strings.TrimPrefix(prediction, "<|ASSISTANT|>"))
 				result = append(result, Choice{Message: &Message{Role: "assistant", Content: prediction}})
 			} else {
 				result = append(result, Choice{Text: prediction})
