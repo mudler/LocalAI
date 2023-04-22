@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -286,7 +287,7 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 					llama.SetThreads(threads),
 				}
 				if chat {
-					// TODO: why does <|SYSTEM|> stopword cause null output?
+					// TODO: why does adding the <|SYSTEM|> stopword cause null output?
 					//predictOptions = append(predictOptions, llama.SetStopWords("<|USER|>", "<|SYSTEM|>"))
 					predictOptions = append(predictOptions, llama.SetStopWords("<|USER|>"))
 				}
@@ -341,6 +342,9 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 			}
 
 			if chat {
+				// TODO: workaround to remove <|SYSTEM|> messages as the stopword doesn't work
+				re := regexp.MustCompile("(?m)^<\\|SYSTEM\\|>.*$")
+				prediction = re.ReplaceAllString(prediction, "")
 				prediction = strings.TrimSpace(strings.TrimPrefix(prediction, "<|ASSISTANT|>"))
 				result = append(result, Choice{Message: &Message{Role: "assistant", Content: prediction}})
 			} else {
