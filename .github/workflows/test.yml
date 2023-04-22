@@ -26,20 +26,19 @@ jobs:
         run: |
           make test
 
-  # macOS-latest:
-  #   runs-on: macOS-latest
+  macOS-latest:
+    runs-on: macOS-latest
 
-  #   steps:
-  #     - name: Clone
-  #       uses: actions/checkout@v1
-  #       with: 
-  #         submodules: true
+    steps:
+      - name: Clone
+        uses: actions/checkout@v1
+        with: 
+          submodules: true
 
-  #     - name: Dependencies
-  #       run: |
-  #         brew update
-  #         brew install sdl2
-
-  #     - name: Test
-  #       run: |
-  #         make test
+      - name: Dependencies
+        run: |
+          brew update
+          brew install sdl2
+      - name: Test
+        run: |
+          make test
