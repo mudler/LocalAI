@@ -52,7 +52,7 @@ cp your-model.bin models/
 # vim .env
 
 # start with docker-compose
-docker compose up -d --build
+docker-compose up -d --build
 
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
