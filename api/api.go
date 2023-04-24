@@ -18,6 +18,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// APIError provides error information returned by the OpenAI API.
+type APIError struct {
+	Code    any     `json:"code,omitempty"`
+	Message string  `json:"message"`
+	Param   *string `json:"param,omitempty"`
+	Type    string  `json:"type"`
+}
+
+type ErrorResponse struct {
+	Error *APIError `json:"error,omitempty"`
+}
+
 type OpenAIResponse struct {
 	Created int      `json:"created,omitempty"`
 	Object  string   `json:"chat.completion,omitempty"`
@@ -395,9 +407,11 @@ func App(loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disab
 			}
 
 			// Send custom error page
-			return ctx.Status(code).JSON(struct {
-				Error string `json:"error"`
-			}{Error: err.Error()})
+			return ctx.Status(code).JSON(
+				ErrorResponse{
+					Error: &APIError{Message: err.Error(), Code: code},
+				},
+			)
 		},
 	})
 
