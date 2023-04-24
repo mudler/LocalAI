@@ -3,7 +3,7 @@ module github.com/go-skynet/LocalAI
 go 1.19
 
 require (
-	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230420213900-1c24f5b86ac4
+	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230422085954-245a5bfe6708
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230419091210-303cf2a59a94
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230421172644-351a5a40eead
 	github.com/gofiber/fiber/v2 v2.42.0
