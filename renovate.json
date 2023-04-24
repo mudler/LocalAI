@@ -2,5 +2,16 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:base"
+  ],
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "^Makefile$"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>.*?) depName=(?<depName>.*?)( datasourceTemplate=(?<datasourceTemplate>.*?))?( packageNameTemplate=(?<packageNameTemplate>.*?))?( depNameTemplate=(?<depNameTemplate>.*?))?( valueTemplate=(?<currentValueTemplate>.*?))?( versioning=(?<versioning>.*?))?\\s+.+_VERSION=(?<currentValue>.*?)\\s"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{versioning}}{{/if}}"
+    }
   ]
 }

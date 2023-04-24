@@ -2,8 +2,11 @@ GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
+# renovate: datasource=github-tags depName=go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=llama.cpp-25d7abb
+# renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt4all-j.cpp currentValueTemplate=master depNameTemplate=go-gpt4all-j.cpp
 GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
+# renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt2.cpp currentValueTemplate=master depNameTemplate=go-gpt2.cpp
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 
 GREEN  := $(shell tput -Txterm setaf 2)

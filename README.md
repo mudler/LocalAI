@@ -7,7 +7,12 @@
 
 > :warning: This project has been renamed from `llama-cli` to `LocalAI` to reflect the fact that we are focusing on a fast drop-in OpenAI API rather on the CLI interface. We think that there are already many projects that can be used as a CLI interface already, for instance  [llama.cpp](https://github.com/ggerganov/llama.cpp) and [gpt4all](https://github.com/nomic-ai/gpt4all). If you are were using `llama-cli` for CLI interactions and want to keep using it, use older versions or please open up an issue - contributions are welcome!
 
-LocalAI is a straightforward, drop-in replacement API compatible with OpenAI for local CPU inferencing, based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is Apache 2.0 Licensed and can be used for commercial purposes.
+
+[![tests](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml) [![build container images](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml)
+
+[![](https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted)](https://discord.gg/uJAeKSAGDy) 
+
+**LocalAI** is a straightforward, drop-in replacement API compatible with OpenAI for local CPU inferencing, based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is Apache 2.0 Licensed and can be used for commercial purposes.
 
 - OpenAI compatible API
 - Supports multiple-models
@@ -15,7 +20,7 @@ LocalAI is a straightforward, drop-in replacement API compatible with OpenAI for
 - Support for prompt templates
 - Doesn't shell-out, but uses C bindings for a faster inference and better performance. Uses [go-llama.cpp](https://github.com/go-skynet/go-llama.cpp) and [go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp).
 
-Discord channel: [Discord](https://discord.gg/uJAeKSAGDy)
+Reddit post: https://www.reddit.com/r/selfhosted/comments/12w4p2f/localai_openai_compatible_api_to_run_llm_models/
 
 ## Model compatibility
 
@@ -64,26 +69,6 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
      "temperature": 0.7
    }'
 ```
-
-## Helm Chart Installation (run LocalAI in Kubernetes)
-The local-ai Helm chart supports two options for the LocalAI server's models directory:
-1. Basic deployment with no persistent volume. You must manually update the Deployment to configure your own models directory.
-
-    Install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == false`.
-
-2. Advanced, two-phase deployment to provision the models directory using a DataVolume. Requires [Containerized Data Importer CDI](https://github.com/kubevirt/containerized-data-importer) to be pre-installed in your cluster.
-
-    First, install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == true`:
-    ```bash
-    helm install local-ai charts/local-ai -n local-ai --create-namespace
-    ```
-    Wait for CDI to create an importer Pod for the DataVolume and for the importer pod to finish provisioning the model archive inside the PV.
-
-    Once the PV is provisioned and the importer Pod removed, set `.Values.deployment.volumes.enabled == true` and `.Values.dataVolume.enabled == false` and upgrade the chart:
-    ```bash
-    helm upgrade local-ai -n local-ai charts/local-ai
-    ```
-    This will update the local-ai Deployment to mount the PV that was provisioned by the DataVolume.
 
 ## Prompt templates 
 
@@ -202,11 +187,32 @@ python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.model
 # There will be a new model with the ".tmp" extension, you have to use that one!
 ```
 
-### Windows compatibility
+
+## Helm Chart Installation (run LocalAI in Kubernetes)
+The local-ai Helm chart supports two options for the LocalAI server's models directory:
+1. Basic deployment with no persistent volume. You must manually update the Deployment to configure your own models directory.
+
+    Install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == false`.
+
+2. Advanced, two-phase deployment to provision the models directory using a DataVolume. Requires [Containerized Data Importer CDI](https://github.com/kubevirt/containerized-data-importer) to be pre-installed in your cluster.
+
+    First, install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == true`:
+    ```bash
+    helm install local-ai charts/local-ai -n local-ai --create-namespace
+    ```
+    Wait for CDI to create an importer Pod for the DataVolume and for the importer pod to finish provisioning the model archive inside the PV.
+
+    Once the PV is provisioned and the importer Pod removed, set `.Values.deployment.volumes.enabled == true` and `.Values.dataVolume.enabled == false` and upgrade the chart:
+    ```bash
+    helm upgrade local-ai -n local-ai charts/local-ai
+    ```
+    This will update the local-ai Deployment to mount the PV that was provisioned by the DataVolume.
+
+## Windows compatibility
 
 It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
 
-### Build locally
+## Build locally
 
 Pre-built images might fit well for most of the modern hardware, however you can and might need to build the images manually.
 
@@ -224,13 +230,71 @@ Or build the binary with `make`:
 make build
 ```
 
+## Frequently asked questions
+
+Here are answers to some of the most common questions.
+
+
+### How do I get models? 
+
+<details>
+
+Most ggml-based models should work, but newer models may require additions to the API. If a model doesn't work, please feel free to open up issues. However, be cautious about downloading models from the internet and directly onto your machine, as there may be security vulnerabilities in lama.cpp or ggml that could be maliciously exploited. Some models can be found on Hugging Face: https://huggingface.co/models?search=ggml, or models from gpt4all should also work: https://github.com/nomic-ai/gpt4all.
+
+</details>
+
+### What's the difference with Serge, or XXX?
+
+
+<details>
+
+LocalAI is a multi-model solution that doesn't focus on a specific model type (e.g., llama.cpp or alpaca.cpp), and it handles all of these internally for faster inference,  easy to set up locally and deploy to Kubernetes.
+
+</details>
+
+
+### Can I use it with a Discord bot, or XXX?
+
+<details>
+
+Yes! If the client uses OpenAI and supports setting a different base URL to send requests to, you can use the LocalAI endpoint. This allows to use this with every application that was supposed to work with OpenAI, but without changing the application!
+
+</details>
+
+
+### Can this leverage GPUs? 
+
+<details>
+
+Not currently, as ggml doesn't support GPUs yet: https://github.com/ggerganov/llama.cpp/discussions/915.
+
+</details>
+
+### Where is the webUI? 
+
+<details> 
+We are working on to have a good out of the box experience - however as LocalAI is an API you can already plug it into existing projects that provides are UI interfaces to OpenAI's APIs. There are several already on github, and should be compatible with LocalAI already (as it mimics the OpenAI API)
+
+</details>
+
+### Does it work with AutoGPT? 
+
+<details>
+
+AutoGPT currently doesn't allow to set a different API URL, but there is a PR open for it, so this should be possible soon!
+
+</details>
+
+
 ## Short-term roadmap
 
 - [x] Mimic OpenAI API (https://github.com/go-skynet/LocalAI/issues/10)
-- Binary releases (https://github.com/go-skynet/LocalAI/issues/6)
-- Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351)
+- [ ] Binary releases (https://github.com/go-skynet/LocalAI/issues/6)
+- [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351)
 - [x] Multi-model support
-- Have a webUI!
+- [ ] Have a webUI!
+- [ ] Allow configuration of defaults for models.
+- [ ] Enable automatic downloading of models from a curated gallery, with only free-licensed models.
 
 ## License
 
