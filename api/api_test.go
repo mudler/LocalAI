@@ -49,5 +49,10 @@ var _ = Describe("API test", func() {
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})
+		It("returns errors", func() {
+			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: "abcdedfghikl"})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: llama: model does not exist"))
+		})
 	})
 })
