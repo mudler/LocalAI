@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230422085954-245a5bfe6708
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230421172644-351a5a40eead
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230424120713-e45cebe33c04
 	github.com/gofiber/fiber/v2 v2.42.0
 	github.com/jaypipes/ghw v0.10.0
 	github.com/onsi/ginkgo/v2 v2.9.2
