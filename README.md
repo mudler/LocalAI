@@ -163,6 +163,7 @@ The API takes takes the following parameters:
 | threads      | THREADS              | Number of Physical cores     | The number of threads to use for text generation. |
 | address      | ADDRESS              | :8080         | The address and port to listen on. |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
+| debug | DEBUG         | false           | Enable debug mode. |
 
 Once the server is running, you can start making requests to it using HTTP, using the OpenAI API. 
 
@@ -172,10 +173,16 @@ Once the server is running, you can start making requests to it using HTTP, usin
 
 You can check out the [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat/create). 
 
-Following the list of endpoints/parameters supported.
+Following the list of endpoints/parameters supported. 
+
+Note:
+
+- You can also specify the model a part of the OpenAI token.
+- If only one model is available, the API will use it for all the requests.
 
 #### Chat completions
 
+<details>
 For example, to generate a chat completion, you can send a POST request to the `/v1/chat/completions` endpoint with the instruction as the request body:
 
 ```
@@ -187,10 +194,12 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 ```
 
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
+</details>
 
 #### Completions
 
-For example, to generate a comletion, you can send a POST request to the `/v1/completions` endpoint with the instruction as the request body:
+<details>
+For example, to generate a completion, you can send a POST request to the `/v1/completions` endpoint with the instruction as the request body:
 ```
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "ggml-koala-7b-model-q4_0-r2.bin",
@@ -201,13 +210,18 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
+</details>
+
 #### List models
 
+<details>
 You can list all the models available with:
 
 ```
 curl http://localhost:8080/v1/models
 ```
+
+</details>
 
 ## Using other models
 
