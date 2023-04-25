@@ -346,6 +346,8 @@ AutoGPT currently doesn't allow to set a different API URL, but there is a PR op
 - [ ] Allow configuration of defaults for models.
 - [ ] Enable automatic downloading of models from a curated gallery, with only free-licensed models.
 
+[![LocalAI Star history Chart](https://api.star-history.com/svg?repos=go-skynet/LocalAI&type=Date)](https://star-history.com/#go-skynet/LocalAI&Date)
+
 ## License
 
 MIT
