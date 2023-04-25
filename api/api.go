@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -86,7 +89,7 @@ type OpenAIRequest struct {
 }
 
 // https://platform.openai.com/docs/api-reference/completions
-func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
+func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool, mutexMap *sync.Mutex, mutexes map[string]*sync.Mutex) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		var err error
 		var model *llama.LLama
@@ -128,6 +131,81 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 			modelFile = bearer
 		}
 
+		// Set the parameters for the language model prediction
+
+		// Load a config file if present after the model name
+		modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
+		if _, err := os.Stat(modelConfig); err == nil {
+			if err := cm.LoadConfig(modelConfig); err != nil {
+				return fmt.Errorf("failed loading model config %s", err.Error())
+			}
+		}
+
+		var config *Config
+		cfg, exists := cm[modelFile]
+		if !exists {
+			config = &Config{
+				OpenAIRequest: OpenAIRequest{
+					TopP:        0.7,
+					TopK:        80,
+					Maxtokens:   512,
+					Temperature: 0.9,
+					Model:       modelFile,
+				},
+			}
+		} else {
+			config = &cfg
+		}
+		if input.Echo {
+			config.Echo = input.Echo
+		}
+		if input.TopK != 0 {
+			config.TopK = input.TopK
+		}
+		if input.TopP != 0 {
+			config.TopP = input.TopP
+		}
+
+		if input.Temperature != 0 {
+			config.Temperature = input.Temperature
+		}
+
+		if input.Maxtokens != 0 {
+			config.Maxtokens = input.Maxtokens
+		}
+
+		if input.Stop != "" {
+			config.StopWords = append(config.StopWords, input.Stop)
+		}
+
+		if input.RepeatPenalty != 0 {
+			config.RepeatPenalty = input.RepeatPenalty
+		}
+
+		if input.Keep != 0 {
+			config.Keep = input.Keep
+		}
+
+		if input.Batch != 0 {
+			config.Batch = input.Batch
+		}
+
+		if input.F16 {
+			config.F16 = input.F16
+		}
+
+		if input.IgnoreEOS {
+			config.IgnoreEOS = input.IgnoreEOS
+		}
+
+		if input.Seed != 0 {
+			config.Seed = input.Seed
+		}
+
+		modelFile = config.Model
+
+		log.Debug().Msgf("Parameter Config: %+v", config)
+
 		// Try to load the model
 		var llamaerr, gpt2err, gptjerr, stableerr error
 		llamaOpts := []llama.ModelOption{}
@@ -165,39 +243,33 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 		l.Lock()
 		defer l.Unlock()
 
-		// Set the parameters for the language model prediction
-		topP := input.TopP
-		if topP == 0 {
-			topP = 0.7
-		}
-		topK := input.TopK
-		if topK == 0 {
-			topK = 80
-		}
-
-		temperature := input.Temperature
-		if temperature == 0 {
-			temperature = 0.9
-		}
-
-		tokens := input.Maxtokens
-		if tokens == 0 {
-			tokens = 512
-		}
-
 		predInput := input.Prompt
 		if chat {
 			mess := []string{}
-			// TODO: encode roles
 			for _, i := range input.Messages {
-				mess = append(mess, i.Content)
+				r := config.Roles[i.Role]
+				if r == "" {
+					r = i.Role
+				}
+
+				content := fmt.Sprint(r, " ", i.Content)
+				mess = append(mess, content)
 			}
 
 			predInput = strings.Join(mess, "\n")
 		}
 
+		templateFile := modelFile
+		if config.TemplateConfig.Chat != "" && chat {
+			templateFile = config.TemplateConfig.Chat
+		}
+
+		if config.TemplateConfig.Completion != "" && !chat {
+			templateFile = config.TemplateConfig.Completion
+		}
+
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		templatedInput, err := loader.TemplatePrefix(modelFile, struct {
+		templatedInput, err := loader.TemplatePrefix(templateFile, struct {
 			Input string
 		}{Input: predInput})
 		if err == nil {
@@ -219,19 +291,19 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 			predFunc = func() (string, error) {
 				// Generate the prediction using the language model
 				predictOptions := []gpt2.PredictOption{
-					gpt2.SetTemperature(temperature),
-					gpt2.SetTopP(topP),
-					gpt2.SetTopK(topK),
-					gpt2.SetTokens(tokens),
+					gpt2.SetTemperature(config.Temperature),
+					gpt2.SetTopP(config.TopP),
+					gpt2.SetTopK(config.TopK),
+					gpt2.SetTokens(config.Maxtokens),
 					gpt2.SetThreads(threads),
 				}
 
-				if input.Batch != 0 {
-					predictOptions = append(predictOptions, gpt2.SetBatch(input.Batch))
+				if config.Batch != 0 {
+					predictOptions = append(predictOptions, gpt2.SetBatch(config.Batch))
 				}
 
-				if input.Seed != 0 {
-					predictOptions = append(predictOptions, gpt2.SetSeed(input.Seed))
+				if config.Seed != 0 {
+					predictOptions = append(predictOptions, gpt2.SetSeed(config.Seed))
 				}
 
 				return stableLMModel.Predict(
@@ -243,19 +315,19 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 			predFunc = func() (string, error) {
 				// Generate the prediction using the language model
 				predictOptions := []gpt2.PredictOption{
-					gpt2.SetTemperature(temperature),
-					gpt2.SetTopP(topP),
-					gpt2.SetTopK(topK),
-					gpt2.SetTokens(tokens),
+					gpt2.SetTemperature(config.Temperature),
+					gpt2.SetTopP(config.TopP),
+					gpt2.SetTopK(config.TopK),
+					gpt2.SetTokens(config.Maxtokens),
 					gpt2.SetThreads(threads),
 				}
 
-				if input.Batch != 0 {
-					predictOptions = append(predictOptions, gpt2.SetBatch(input.Batch))
+				if config.Batch != 0 {
+					predictOptions = append(predictOptions, gpt2.SetBatch(config.Batch))
 				}
 
-				if input.Seed != 0 {
-					predictOptions = append(predictOptions, gpt2.SetSeed(input.Seed))
+				if config.Seed != 0 {
+					predictOptions = append(predictOptions, gpt2.SetSeed(config.Seed))
 				}
 
 				return gpt2Model.Predict(
@@ -267,19 +339,19 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 			predFunc = func() (string, error) {
 				// Generate the prediction using the language model
 				predictOptions := []gptj.PredictOption{
-					gptj.SetTemperature(temperature),
-					gptj.SetTopP(topP),
-					gptj.SetTopK(topK),
-					gptj.SetTokens(tokens),
+					gptj.SetTemperature(config.Temperature),
+					gptj.SetTopP(config.TopP),
+					gptj.SetTopK(config.TopK),
+					gptj.SetTokens(config.Maxtokens),
 					gptj.SetThreads(threads),
 				}
 
-				if input.Batch != 0 {
-					predictOptions = append(predictOptions, gptj.SetBatch(input.Batch))
+				if config.Batch != 0 {
+					predictOptions = append(predictOptions, gptj.SetBatch(config.Batch))
 				}
 
-				if input.Seed != 0 {
-					predictOptions = append(predictOptions, gptj.SetSeed(input.Seed))
+				if config.Seed != 0 {
+					predictOptions = append(predictOptions, gptj.SetSeed(config.Seed))
 				}
 
 				return gptModel.Predict(
@@ -291,10 +363,10 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 			predFunc = func() (string, error) {
 				// Generate the prediction using the language model
 				predictOptions := []llama.PredictOption{
-					llama.SetTemperature(temperature),
-					llama.SetTopP(topP),
-					llama.SetTopK(topK),
-					llama.SetTokens(tokens),
+					llama.SetTemperature(config.Temperature),
+					llama.SetTopP(config.TopP),
+					llama.SetTopK(config.TopK),
+					llama.SetTokens(config.Maxtokens),
 					llama.SetThreads(threads),
 				}
 
@@ -302,32 +374,30 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 					predictOptions = append(predictOptions, llama.Debug)
 				}
 
-				if input.Stop != "" {
-					predictOptions = append(predictOptions, llama.SetStopWords(input.Stop))
+				predictOptions = append(predictOptions, llama.SetStopWords(config.StopWords...))
+
+				if config.RepeatPenalty != 0 {
+					predictOptions = append(predictOptions, llama.SetPenalty(config.RepeatPenalty))
 				}
 
-				if input.RepeatPenalty != 0 {
-					predictOptions = append(predictOptions, llama.SetPenalty(input.RepeatPenalty))
+				if config.Keep != 0 {
+					predictOptions = append(predictOptions, llama.SetNKeep(config.Keep))
 				}
 
-				if input.Keep != 0 {
-					predictOptions = append(predictOptions, llama.SetNKeep(input.Keep))
+				if config.Batch != 0 {
+					predictOptions = append(predictOptions, llama.SetBatch(config.Batch))
 				}
 
-				if input.Batch != 0 {
-					predictOptions = append(predictOptions, llama.SetBatch(input.Batch))
-				}
-
-				if input.F16 {
+				if config.F16 {
 					predictOptions = append(predictOptions, llama.EnableF16KV)
 				}
 
-				if input.IgnoreEOS {
+				if config.IgnoreEOS {
 					predictOptions = append(predictOptions, llama.IgnoreEOS)
 				}
 
-				if input.Seed != 0 {
-					predictOptions = append(predictOptions, llama.SetSeed(input.Seed))
+				if config.Seed != 0 {
+					predictOptions = append(predictOptions, llama.SetSeed(config.Seed))
 				}
 
 				return model.Predict(
@@ -343,8 +413,18 @@ func openAIEndpoint(chat, debug bool, loader *model.ModelLoader, threads, ctx in
 				return err
 			}
 
-			if input.Echo {
+			if config.Echo {
 				prediction = predInput + prediction
+			}
+
+			for _, c := range config.Cutstrings {
+				// TODO: Optimize this, no need to recompile each time
+				re := regexp.MustCompile(c)
+				prediction = re.ReplaceAllString(prediction, "")
+			}
+
+			for _, c := range config.TrimSpace {
+				prediction = strings.TrimSpace(strings.TrimPrefix(prediction, c))
 			}
 
 			if chat {
@@ -386,7 +466,7 @@ func listModels(loader *model.ModelLoader) func(ctx *fiber.Ctx) error {
 	}
 }
 
-func App(loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disableMessage bool) *fiber.App {
+func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disableMessage bool) *fiber.App {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -415,6 +495,17 @@ func App(loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disab
 		},
 	})
 
+	cm := make(ConfigMerger)
+	if err := cm.LoadConfigs(loader.ModelPath); err != nil {
+		log.Error().Msgf("error loading config files: %s", err.Error())
+	}
+
+	if configFile != "" {
+		if err := cm.LoadConfigFile(configFile); err != nil {
+			log.Error().Msgf("error loading config file: %s", err.Error())
+		}
+	}
+
 	// Default middleware config
 	app.Use(recover.New())
 	app.Use(cors.New())
@@ -424,11 +515,11 @@ func App(loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disab
 	var mumutex = &sync.Mutex{}
 
 	// openAI compatible API endpoint
-	app.Post("/v1/chat/completions", openAIEndpoint(true, debug, loader, threads, ctxSize, f16, mumutex, mu))
-	app.Post("/chat/completions", openAIEndpoint(true, debug, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/v1/chat/completions", openAIEndpoint(cm, true, debug, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/chat/completions", openAIEndpoint(cm, true, debug, loader, threads, ctxSize, f16, mumutex, mu))
 
-	app.Post("/v1/completions", openAIEndpoint(false, debug, loader, threads, ctxSize, f16, mumutex, mu))
-	app.Post("/completions", openAIEndpoint(false, debug, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/v1/completions", openAIEndpoint(cm, false, debug, loader, threads, ctxSize, f16, mumutex, mu))
+	app.Post("/completions", openAIEndpoint(cm, false, debug, loader, threads, ctxSize, f16, mumutex, mu))
 
 	app.Get("/v1/models", listModels(loader))
 	app.Get("/models", listModels(loader))

@@ -21,7 +21,7 @@ var _ = Describe("API test", func() {
 	Context("API query", func() {
 		BeforeEach(func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			app = App(modelLoader, 1, 512, false, false, true)
+			app = App("", modelLoader, 1, 512, false, false, true)
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")

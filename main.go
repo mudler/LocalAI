@@ -51,6 +51,11 @@ func main() {
 				Value:       path,
 			},
 			&cli.StringFlag{
+				Name:        "config-file",
+				DefaultText: "Config file",
+				EnvVars:     []string{"CONFIG_FILE"},
+			},
+			&cli.StringFlag{
 				Name:        "address",
 				DefaultText: "Bind address for the API server.",
 				EnvVars:     []string{"ADDRESS"},
@@ -80,7 +85,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		UsageText: `local-ai [options]`,
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
-			return api.App(model.NewModelLoader(ctx.String("models-path")), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false).Listen(ctx.String("address"))
+			return api.App(ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path")), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false).Listen(ctx.String("address"))
 		},
 	}
 
