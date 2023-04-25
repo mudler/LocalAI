@@ -1,0 +1,23 @@
+version: '3.6'
+
+services:
+  api:
+    image: quay.io/go-skynet/local-ai:latest
+    ports:
+      - 8080:8080
+    environment:
+      - THREADS=4
+      - CONTEXT_SIZE=512
+      - DEBUG=true
+      - MODELS_PATH=/models
+    volumes:
+      - ./models:/models:cached
+    command: ["/usr/bin/local-ai" ]
+
+  chatgpt:
+    image: ghcr.io/mckaywrigley/chatbot-ui:main
+    ports:
+      - 3000:3000
+    environment:
+      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
+      - 'OPENAI_API_HOST=http://host.docker.internal:8080'
