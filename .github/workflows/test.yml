@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Clone
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
         with: 
           submodules: true
       - name: Dependencies
@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Clone
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
         with: 
           submodules: true
 
