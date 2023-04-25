@@ -74,7 +74,15 @@ func (ml *ModelLoader) TemplatePrefix(modelName string, in interface{}) (string,
 		if err := ml.loadTemplateIfExists(modelName, modelFile); err != nil {
 			return "", err
 		}
-		m = ml.promptsTemplates[modelName]
+
+		t, exists := ml.promptsTemplates[modelName]
+		if exists {
+			m = t
+		}
+
+	}
+	if m == nil {
+		return "", nil
 	}
 
 	var buf bytes.Buffer
