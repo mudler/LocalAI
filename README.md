@@ -114,6 +114,10 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 To build locally, run `make build` (see below).
 
+## Other examples
+
+To see other examples on how to integrate with other projects, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
+
 ## Prompt templates 
 
 The API doesn't inject a default prompt for talking to the model. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
@@ -176,6 +180,9 @@ The API takes takes the following parameters:
 Once the server is running, you can start making requests to it using HTTP, using the OpenAI API. 
 
 </details>
+
+## Advanced configuration
+
 
 ### Supported OpenAI API endpoints
 
@@ -256,6 +263,10 @@ The local-ai Helm chart supports two options for the LocalAI server's models dir
     This will update the local-ai Deployment to mount the PV that was provisioned by the DataVolume.
 
 </details>
+
+## Blog posts
+
+- https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65
 
 ## Windows compatibility
 
