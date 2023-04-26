@@ -50,6 +50,9 @@ git clone https://github.com/go-skynet/LocalAI
 
 cd LocalAI
 
+# (optional) Checkout a specific LocalAI tag
+# git checkout -b build <TAG>
+
 # copy your models to models/
 cp your-model.bin models/
 
@@ -80,6 +83,9 @@ git clone https://github.com/go-skynet/LocalAI
 
 cd LocalAI
 
+# (optional) Checkout a specific LocalAI tag
+# git checkout -b build <TAG>
+
 # Download gpt4all-j to models/
 wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
 
@@ -105,6 +111,8 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 # {"model":"ggml-gpt4all-j","choices":[{"message":{"role":"assistant","content":"I'm doing well, thanks. How about you?"}}]}
 ```
 </details>
+
+To build locally, run `make build` (see below).
 
 ## Prompt templates 
 
@@ -223,22 +231,11 @@ curl http://localhost:8080/v1/models
 
 </details>
 
-## Using other models
-
-gpt4all (https://github.com/nomic-ai/gpt4all) works as well, however the original model needs to be converted (same applies for old alpaca models, too):
-
-```bash
-wget -O tokenizer.model https://huggingface.co/decapoda-research/llama-30b-hf/resolve/main/tokenizer.model
-mkdir models
-cp gpt4all.. models/
-git clone https://gist.github.com/eiz/828bddec6162a023114ce19146cb2b82
-pip install sentencepiece
-python 828bddec6162a023114ce19146cb2b82/gistfile1.txt models tokenizer.model
-# There will be a new model with the ".tmp" extension, you have to use that one!
-```
-
-
 ## Helm Chart Installation (run LocalAI in Kubernetes)
+
+LocalAI can be installed inside Kubernetes with helm.
+
+<details>
 The local-ai Helm chart supports two options for the LocalAI server's models directory:
 1. Basic deployment with no persistent volume. You must manually update the Deployment to configure your own models directory.
 
@@ -257,6 +254,8 @@ The local-ai Helm chart supports two options for the LocalAI server's models dir
     helm upgrade local-ai -n local-ai charts/local-ai
     ```
     This will update the local-ai Deployment to mount the PV that was provisioned by the DataVolume.
+
+</details>
 
 ## Windows compatibility
 
@@ -335,12 +334,18 @@ AutoGPT currently doesn't allow to set a different API URL, but there is a PR op
 
 </details>
 
+## Projects already using LocalAI to run local models
+
+Feel free to open up a PR to get your project listed!
+
+- [Kairos](https://github.com/kairos-io/kairos)
+- [k8sgpt](https://github.com/k8sgpt-ai/k8sgpt#running-local-models)
 
 ## Short-term roadmap
 
 - [x] Mimic OpenAI API (https://github.com/go-skynet/LocalAI/issues/10)
 - [ ] Binary releases (https://github.com/go-skynet/LocalAI/issues/6)
-- [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351)
+- [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351) and gpt4all
 - [x] Multi-model support
 - [ ] Have a webUI!
 - [ ] Allow configuration of defaults for models.
