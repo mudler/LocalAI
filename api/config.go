@@ -29,14 +29,10 @@ type TemplateConfig struct {
 	Chat       string `yaml:"chat"`
 }
 
-type ConfigFile struct {
-	Configs []*Config
-}
-
 type ConfigMerger map[string]Config
 
-func ReadConfigFile(file string) (*ConfigFile, error) {
-	c := &ConfigFile{}
+func ReadConfigFile(file string) ([]*Config, error) {
+	c := &[]*Config{}
 	f, err := os.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read config file: %w", err)
@@ -45,7 +41,7 @@ func ReadConfigFile(file string) (*ConfigFile, error) {
 		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
 	}
 
-	return c, nil
+	return *c, nil
 }
 
 func ReadConfig(file string) (*Config, error) {
@@ -62,12 +58,14 @@ func ReadConfig(file string) (*Config, error) {
 }
 
 func (cm ConfigMerger) LoadConfigFile(file string) error {
-	c, err := ReadConfig(file)
+	c, err := ReadConfigFile(file)
 	if err != nil {
-		return fmt.Errorf("cannot read config file: %w", err)
+		return fmt.Errorf("cannot load config file: %w", err)
 	}
 
-	cm[c.Name] = *c
+	for _, cc := range c {
+		cm[cc.Name] = *cc
+	}
 	return nil
 }
 
@@ -77,7 +75,7 @@ func (cm ConfigMerger) LoadConfig(file string) error {
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
 
-	for _, cc := range c.Configs {
+	for _, cc := range c {
 		cm[cc.Name] = *cc
 	}
 	return nil

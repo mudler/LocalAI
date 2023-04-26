@@ -76,5 +76,46 @@ var _ = Describe("API test", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: llama: model does not exist"))
 		})
+
+	})
+
+	Context("Config file", func() {
+		BeforeEach(func() {
+			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
+			app = App(os.Getenv("CONFIG_FILE"), modelLoader, 1, 512, false, true, true)
+			go app.Listen("127.0.0.1:9090")
+
+			defaultConfig := openai.DefaultConfig("")
+			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+
+			// Wait for API to be ready
+			client = openai.NewClientWithConfig(defaultConfig)
+			Eventually(func() error {
+				_, err := client.ListModels(context.TODO())
+				return err
+			}, "2m").ShouldNot(HaveOccurred())
+		})
+		AfterEach(func() {
+			app.Shutdown()
+		})
+		It("can generate chat completions from config file", func() {
+
+			models, err := client.ListModels(context.TODO())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(models.Models)).To(Equal(5))
+			Expect(models.Models[0].ID).To(Equal("testmodel"))
+		})
+		It("can generate chat completions from config file", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resp.Choices)).To(Equal(1))
+			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
+		})
+		It("can generate chat completions from config file", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list2", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resp.Choices)).To(Equal(1))
+			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
+		})
 	})
 })
