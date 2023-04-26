@@ -18,6 +18,10 @@ type Config struct {
 	Cutstrings []string `yaml:"cutstrings"`
 	TrimSpace  []string `yaml:"trimspace"`
 
+	ContextSize    int               `yaml:"context_size"`
+	F16            bool              `yaml:"f16"`
+	Threads        int               `yaml:"threads"`
+	Debug          bool              `yaml:"debug"`
 	Roles          map[string]string `yaml:"roles"`
 	TemplateConfig TemplateConfig    `yaml:"template"`
 }
