@@ -11,13 +11,11 @@ import (
 )
 
 type Config struct {
-	OpenAIRequest
-	Name       string   `yaml:"name"`
-	Path       string   `yaml:"path"`
-	StopWords  []string `yaml:"stopwords"`
-	Cutstrings []string `yaml:"cutstrings"`
-	TrimSpace  []string `yaml:"trimspace"`
-
+	OpenAIRequest  `yaml:"parameters"`
+	Name           string            `yaml:"name"`
+	StopWords      []string          `yaml:"stopwords"`
+	Cutstrings     []string          `yaml:"cutstrings"`
+	TrimSpace      []string          `yaml:"trimspace"`
 	ContextSize    int               `yaml:"context_size"`
 	F16            bool              `yaml:"f16"`
 	Threads        int               `yaml:"threads"`

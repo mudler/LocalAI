@@ -40,7 +40,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(1))
+			Expect(len(models.Models)).To(Equal(3))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate completions", func() {
@@ -49,6 +49,28 @@ var _ = Describe("API test", func() {
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})
+
+		It("can generate chat completions ", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resp.Choices)).To(Equal(1))
+			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
+		})
+
+		It("can generate completions from model configs", func() {
+			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "gpt4all", Prompt: "abcdedfghikl"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resp.Choices)).To(Equal(1))
+			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
+		})
+
+		It("can generate chat completions from model configs", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "gpt4all-2", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resp.Choices)).To(Equal(1))
+			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
+		})
+
 		It("returns errors", func() {
 			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: "abcdedfghikl"})
 			Expect(err).To(HaveOccurred())

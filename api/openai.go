@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
@@ -41,8 +42,8 @@ type Choice struct {
 }
 
 type Message struct {
-	Role    string `json:"role,omitempty"`
-	Content string `json:"content,omitempty"`
+	Role    string `json:"role,omitempty" yaml:"role"`
+	Content string `json:"content,omitempty" yaml:"content"`
 }
 
 type OpenAIModel struct {
@@ -51,33 +52,33 @@ type OpenAIModel struct {
 }
 
 type OpenAIRequest struct {
-	Model string `json:"model"`
+	Model string `json:"model" yaml:"model"`
 
 	// Prompt is read only by completion API calls
-	Prompt string `json:"prompt"`
+	Prompt string `json:"prompt" yaml:"prompt"`
 
-	Stop string `json:"stop"`
+	Stop string `json:"stop" yaml:"stop"`
 
 	// Messages is read only by chat/completion API calls
-	Messages []Message `json:"messages"`
+	Messages []Message `json:"messages" yaml:"messages"`
 
 	Echo bool `json:"echo"`
 	// Common options between all the API calls
-	TopP        float64 `json:"top_p"`
-	TopK        int     `json:"top_k"`
-	Temperature float64 `json:"temperature"`
-	Maxtokens   int     `json:"max_tokens"`
+	TopP        float64 `json:"top_p" yaml:"top_p"`
+	TopK        int     `json:"top_k" yaml:"top_k"`
+	Temperature float64 `json:"temperature" yaml:"temperature"`
+	Maxtokens   int     `json:"max_tokens" yaml:"max_tokens"`
 
 	N int `json:"n"`
 
 	// Custom parameters - not present in the OpenAI API
-	Batch         int     `json:"batch"`
-	F16           bool    `json:"f16kv"`
-	IgnoreEOS     bool    `json:"ignore_eos"`
-	RepeatPenalty float64 `json:"repeat_penalty"`
-	Keep          int     `json:"n_keep"`
+	Batch         int     `json:"batch" yaml:"batch"`
+	F16           bool    `json:"f16" yaml:"f16"`
+	IgnoreEOS     bool    `json:"ignore_eos" yaml:"ignore_eos"`
+	RepeatPenalty float64 `json:"repeat_penalty" yaml:"repeat_penalty"`
+	Keep          int     `json:"n_keep" yaml:"n_keep"`
 
-	Seed int `json:"seed"`
+	Seed int `json:"seed" yaml:"seed"`
 }
 
 func defaultRequest(modelFile string) OpenAIRequest {
@@ -138,6 +139,9 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 	}
 }
 
+var cutstrings map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)
+var mu sync.Mutex = sync.Mutex{}
+
 // https://platform.openai.com/docs/api-reference/completions
 func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
@@ -157,17 +161,14 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 		bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
 
 		// If no model was specified, take the first available
-		if modelFile == "" {
+		if modelFile == "" && !bearerExists {
 			models, _ := loader.ListModels()
 			if len(models) > 0 {
 				modelFile = models[0]
 				log.Debug().Msgf("No model specified, using: %s", modelFile)
+			} else {
+				return fmt.Errorf("no model specified")
 			}
-		}
-
-		// If no model is found or specified, we bail out
-		if modelFile == "" && !bearerExists {
-			return fmt.Errorf("no model specified")
 		}
 
 		// If a model is found in bearer token takes precedence
@@ -197,7 +198,6 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 		// Set the parameters for the language model prediction
 		updateConfig(config, input)
 
-		modelFile = config.Model
 		if threads != 0 {
 			config.Threads = threads
 		}
@@ -226,7 +226,7 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 			predInput = strings.Join(mess, "\n")
 		}
 
-		templateFile := modelFile
+		templateFile := config.Model
 		if config.TemplateConfig.Chat != "" && chat {
 			templateFile = config.TemplateConfig.Chat
 		}
@@ -269,9 +269,14 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 			}
 
 			for _, c := range config.Cutstrings {
-				// TODO: Optimize this, no need to recompile each time
-				re := regexp.MustCompile(c)
-				prediction = re.ReplaceAllString(prediction, "")
+				mu.Lock()
+				reg, ok := cutstrings[c]
+				if !ok {
+					cutstrings[c] = regexp.MustCompile(c)
+					reg = cutstrings[c]
+				}
+				mu.Unlock()
+				prediction = reg.ReplaceAllString(prediction, "")
 			}
 
 			for _, c := range config.TrimSpace {
