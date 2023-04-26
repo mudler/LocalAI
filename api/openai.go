@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/valyala/fasthttp"
 )
 
 // APIError provides error information returned by the OpenAI API.
@@ -28,7 +30,7 @@ type ErrorResponse struct {
 
 type OpenAIResponse struct {
 	Created int      `json:"created,omitempty"`
-	Object  string   `json:"chat.completion,omitempty"`
+	Object  string   `json:"object,omitempty"`
 	ID      string   `json:"id,omitempty"`
 	Model   string   `json:"model,omitempty"`
 	Choices []Choice `json:"choices,omitempty"`
@@ -38,6 +40,7 @@ type Choice struct {
 	Index        int      `json:"index,omitempty"`
 	FinishReason string   `json:"finish_reason,omitempty"`
 	Message      *Message `json:"message,omitempty"`
+	Delta        *Message `json:"delta,omitempty"`
 	Text         string   `json:"text,omitempty"`
 }
 
@@ -62,7 +65,8 @@ type OpenAIRequest struct {
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages" yaml:"messages"`
 
-	Echo bool `json:"echo"`
+	Stream bool `json:"stream"`
+	Echo   bool `json:"echo"`
 	// Common options between all the API calls
 	TopP        float64 `json:"top_p" yaml:"top_p"`
 	TopK        int     `json:"top_k" yaml:"top_k"`
@@ -151,6 +155,16 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 		if err := c.BodyParser(input); err != nil {
 			return err
 		}
+
+		if input.Stream {
+			log.Debug().Msgf("Stream request received")
+			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
+			c.Set("Content-Type", "text/event-stream; charset=utf-8")
+			c.Set("Cache-Control", "no-cache")
+			c.Set("Connection", "keep-alive")
+			c.Set("Transfer-Encoding", "chunked")
+		}
+
 		modelFile := input.Model
 		received, _ := json.Marshal(input)
 
@@ -263,12 +277,7 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 			return err
 		}
 
-		for i := 0; i < n; i++ {
-			prediction, err := predFunc()
-			if err != nil {
-				return err
-			}
-
+		finetunePrediction := func(prediction string) string {
 			if config.Echo {
 				prediction = predInput + prediction
 			}
@@ -287,22 +296,72 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 			for _, c := range config.TrimSpace {
 				prediction = strings.TrimSpace(strings.TrimPrefix(prediction, c))
 			}
+			return prediction
+		}
+
+		for i := 0; i < n; i++ {
+			prediction, err := predFunc()
+			if err != nil {
+				return err
+			}
+
+			prediction = finetunePrediction(prediction)
 
 			if chat {
-				result = append(result, Choice{Message: &Message{Role: "assistant", Content: prediction}})
+				if input.Stream {
+					result = append(result, Choice{Delta: &Message{Role: "assistant", Content: prediction}})
+				} else {
+					result = append(result, Choice{Message: &Message{Role: "assistant", Content: prediction}})
+				}
 			} else {
 				result = append(result, Choice{Text: prediction})
 			}
 		}
 
-		jsonResult, _ := json.Marshal(result)
-		log.Debug().Msgf("Response: %s", jsonResult)
-
-		// Return the prediction in the response body
-		return c.JSON(OpenAIResponse{
+		resp := &OpenAIResponse{
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
-		})
+		}
+		if input.Stream && chat {
+			resp.Object = "chat.completion.chunk"
+		} else if chat {
+			resp.Object = "chat.completion"
+		} else {
+			resp.Object = "text_completion"
+		}
+
+		jsonResult, _ := json.Marshal(resp)
+		log.Debug().Msgf("Response: %s", jsonResult)
+
+		if input.Stream {
+			log.Debug().Msgf("Handling stream request")
+			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+				fmt.Fprintf(w, "event: data\n")
+				w.Flush()
+
+				fmt.Fprintf(w, "data: %s\n\n", jsonResult)
+				w.Flush()
+
+				fmt.Fprintf(w, "event: data\n")
+				w.Flush()
+
+				resp := &OpenAIResponse{
+					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Choices: []Choice{Choice{FinishReason: "stop"}},
+				}
+				respData, _ := json.Marshal(resp)
+
+				fmt.Fprintf(w, "data: %s\n\n", respData)
+				w.Flush()
+
+				//	fmt.Fprintf(w, "data: [DONE]\n\n")
+				//		w.Flush()
+			}))
+			return nil
+		} else {
+			// Return the prediction in the response body
+			return c.JSON(resp)
+		}
 	}
 }
 
