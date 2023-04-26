@@ -167,6 +167,7 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 				modelFile = models[0]
 				log.Debug().Msgf("No model specified, using: %s", modelFile)
 			} else {
+				log.Debug().Msgf("No model specified, returning error")
 				return fmt.Errorf("no model specified")
 			}
 		}
@@ -181,7 +182,7 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 		modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
 		if _, err := os.Stat(modelConfig); err == nil {
 			if err := cm.LoadConfig(modelConfig); err != nil {
-				return fmt.Errorf("failed loading model config %s", err.Error())
+				return fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
 			}
 		}
 
@@ -206,6 +207,10 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 		}
 		if f16 {
 			config.F16 = true
+		}
+
+		if debug {
+			config.Debug = true
 		}
 
 		log.Debug().Msgf("Parameter Config: %+v", config)

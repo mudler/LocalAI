@@ -70,14 +70,12 @@ func (cm ConfigMerger) LoadConfigFile(file string) error {
 }
 
 func (cm ConfigMerger) LoadConfig(file string) error {
-	c, err := ReadConfigFile(file)
+	c, err := ReadConfig(file)
 	if err != nil {
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
 
-	for _, cc := range c {
-		cm[cc.Name] = *cc
-	}
+	cm[c.Name] = *c
 	return nil
 }
 

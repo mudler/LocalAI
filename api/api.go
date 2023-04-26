@@ -51,6 +51,11 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 		}
 	}
 
+	if debug {
+		for k, v := range cm {
+			log.Debug().Msgf("Model: %s (config: %+v)", k, v)
+		}
+	}
 	// Default middleware config
 	app.Use(recover.New())
 	app.Use(cors.New())
