@@ -19,7 +19,7 @@ cd LocalAI/examples/chatbot-ui
 wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
 
 # start with docker-compose
-docker compose up -d --build
+docker-compose up -d --build
 ```
 
 Open http://localhost:3000 for the Web UI.
