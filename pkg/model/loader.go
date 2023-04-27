@@ -18,7 +18,7 @@ import (
 )
 
 type ModelLoader struct {
-	modelPath string
+	ModelPath string
 	mu        sync.Mutex
 
 	models            map[string]*llama.LLama
@@ -31,7 +31,7 @@ type ModelLoader struct {
 
 func NewModelLoader(modelPath string) *ModelLoader {
 	return &ModelLoader{
-		modelPath:         modelPath,
+		ModelPath:         modelPath,
 		gpt2models:        make(map[string]*gpt2.GPT2),
 		gptmodels:         make(map[string]*gptj.GPTJ),
 		gptstablelmmodels: make(map[string]*gpt2.StableLM),
@@ -41,12 +41,12 @@ func NewModelLoader(modelPath string) *ModelLoader {
 }
 
 func (ml *ModelLoader) ExistsInModelPath(s string) bool {
-	_, err := os.Stat(filepath.Join(ml.modelPath, s))
+	_, err := os.Stat(filepath.Join(ml.ModelPath, s))
 	return err == nil
 }
 
 func (ml *ModelLoader) ListModels() ([]string, error) {
-	files, err := ioutil.ReadDir(ml.modelPath)
+	files, err := ioutil.ReadDir(ml.ModelPath)
 	if err != nil {
 		return []string{}, err
 	}
@@ -70,7 +70,19 @@ func (ml *ModelLoader) TemplatePrefix(modelName string, in interface{}) (string,
 
 	m, ok := ml.promptsTemplates[modelName]
 	if !ok {
-		return "", fmt.Errorf("no prompt template available")
+		modelFile := filepath.Join(ml.ModelPath, modelName)
+		if err := ml.loadTemplateIfExists(modelName, modelFile); err != nil {
+			return "", err
+		}
+
+		t, exists := ml.promptsTemplates[modelName]
+		if exists {
+			m = t
+		}
+
+	}
+	if m == nil {
+		return "", nil
 	}
 
 	var buf bytes.Buffer
@@ -88,14 +100,14 @@ func (ml *ModelLoader) loadTemplateIfExists(modelName, modelFile string) error {
 	}
 
 	// Check if the model path exists
-	// skip any error here - we run anyway if a template is not exist
+	// skip any error here - we run anyway if a template does not exist
 	modelTemplateFile := fmt.Sprintf("%s.tmpl", modelName)
 
 	if !ml.ExistsInModelPath(modelTemplateFile) {
 		return nil
 	}
 
-	dat, err := os.ReadFile(filepath.Join(ml.modelPath, modelTemplateFile))
+	dat, err := os.ReadFile(filepath.Join(ml.ModelPath, modelTemplateFile))
 	if err != nil {
 		return err
 	}
@@ -125,7 +137,7 @@ func (ml *ModelLoader) LoadStableLMModel(modelName string) (*gpt2.StableLM, erro
 	}
 
 	// Load the model and keep it in memory for later use
-	modelFile := filepath.Join(ml.modelPath, modelName)
+	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
 	model, err := gpt2.NewStableLM(modelFile)
@@ -164,7 +176,7 @@ func (ml *ModelLoader) LoadGPT2Model(modelName string) (*gpt2.GPT2, error) {
 	}
 
 	// Load the model and keep it in memory for later use
-	modelFile := filepath.Join(ml.modelPath, modelName)
+	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
 	model, err := gpt2.New(modelFile)
@@ -207,7 +219,7 @@ func (ml *ModelLoader) LoadGPTJModel(modelName string) (*gptj.GPTJ, error) {
 	}
 
 	// Load the model and keep it in memory for later use
-	modelFile := filepath.Join(ml.modelPath, modelName)
+	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
 	model, err := gptj.New(modelFile)
@@ -256,7 +268,7 @@ func (ml *ModelLoader) LoadLLaMAModel(modelName string, opts ...llama.ModelOptio
 	}
 
 	// Load the model and keep it in memory for later use
-	modelFile := filepath.Join(ml.modelPath, modelName)
+	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
 	model, err := llama.New(modelFile, opts...)

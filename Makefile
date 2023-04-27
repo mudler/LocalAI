@@ -102,9 +102,11 @@ run: prepare
 test-models/testmodel:
 	mkdir test-models
 	wget https://huggingface.co/concedo/cerebras-111M-ggml/resolve/main/cerberas-111m-q4_0.bin -O test-models/testmodel
+	cp tests/fixtures/* test-models
 
 test: prepare test-models/testmodel
-	@C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} MODELS_PATH=$(abspath ./)/test-models $(GOCMD) test -v ./...
+	cp tests/fixtures/* test-models
+	@C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) test -v -timeout 20m ./...
 
 ## Help:
 help: ## Show this help.

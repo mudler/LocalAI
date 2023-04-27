@@ -10,6 +10,5 @@ local-ai
 !charts/*
 
 # Ignore models
-models/*.bin
-models/ggml-*
+models/*
 test-models/

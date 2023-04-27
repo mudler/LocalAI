@@ -1,0 +1,14 @@
+name: gpt4all-2
+parameters:
+  model: testmodel
+context_size: 1024
+threads: 5
+stopwords:
+- "HUMAN:"
+- "### Response:"
+roles:
+  user: "HUMAN:"
+  system: "GPT:"
+template:
+  completion: completion
+  chat: ggml-gpt4all-j
