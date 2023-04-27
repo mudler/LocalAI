@@ -215,6 +215,62 @@ Once the server is running, you can start making requests to it using HTTP, usin
 
 </details>
 
+### Supported OpenAI API endpoints
+
+You can check out the [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat/create). 
+
+Following the list of endpoints/parameters supported. 
+
+Note:
+
+- You can also specify the model as part of the OpenAI token.
+- If only one model is available, the API will use it for all the requests.
+
+#### Chat completions
+
+<details>
+For example, to generate a chat completion, you can send a POST request to the `/v1/chat/completions` endpoint with the instruction as the request body:
+
+```
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "ggml-koala-7b-model-q4_0-r2.bin",
+     "messages": [{"role": "user", "content": "Say this is a test!"}],
+     "temperature": 0.7
+   }'
+```
+
+Available additional parameters: `top_p`, `top_k`, `max_tokens`
+</details>
+
+#### Completions
+
+<details>
+
+To generate a completion, you can send a POST request to the `/v1/completions` endpoint with the instruction as per the request body:
+
+```
+curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
+     "model": "ggml-koala-7b-model-q4_0-r2.bin",
+     "prompt": "A long time ago in a galaxy far, far away",
+     "temperature": 0.7
+   }'
+```
+
+Available additional parameters: `top_p`, `top_k`, `max_tokens`
+
+</details>
+
+#### List models
+
+<details>
+You can list all the models available with:
+
+```
+curl http://localhost:8080/v1/models
+```
+
+</details>
+
 ## Advanced configuration
 
 LocalAI can be configured to serve user-defined models with a set of default parameters and templates.
@@ -278,59 +334,6 @@ See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/
 
 </details>
 
-## Supported OpenAI API endpoints
-
-You can check out the [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat/create). 
-
-Following the list of endpoints/parameters supported. 
-
-Note:
-
-- You can also specify the model as part of the OpenAI token.
-- If only one model is available, the API will use it for all the requests.
-
-### Chat completions
-
-<details>
-For example, to generate a chat completion, you can send a POST request to the `/v1/chat/completions` endpoint with the instruction as the request body:
-
-```
-curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-     "model": "ggml-koala-7b-model-q4_0-r2.bin",
-     "messages": [{"role": "user", "content": "Say this is a test!"}],
-     "temperature": 0.7
-   }'
-```
-
-Available additional parameters: `top_p`, `top_k`, `max_tokens`
-</details>
-
-### Completions
-
-<details>
-To generate a completion, you can send a POST request to the `/v1/completions` endpoint with the instruction as per the request body:
-```
-curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
-     "model": "ggml-koala-7b-model-q4_0-r2.bin",
-     "prompt": "A long time ago in a galaxy far, far away",
-     "temperature": 0.7
-   }'
-```
-
-Available additional parameters: `top_p`, `top_k`, `max_tokens`
-
-</details>
-
-### List models
-
-<details>
-You can list all the models available with:
-
-```
-curl http://localhost:8080/v1/models
-```
-
-</details>
 
 
 ## Blog posts
