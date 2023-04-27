@@ -5,8 +5,6 @@
 <br>
 </h1>
 
-> :warning: This project has been renamed from `llama-cli` to `LocalAI` to reflect the fact that we are focusing on a fast drop-in OpenAI API rather than on the CLI interface. We think that there are already many projects that can be used as a CLI interface already, for instance  [llama.cpp](https://github.com/ggerganov/llama.cpp) and [gpt4all](https://github.com/nomic-ai/gpt4all). If you are using `llama-cli` for CLI interactions and want to keep using it, use older versions or please open up an issue - contributions are welcome!
-
 [![tests](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml) [![build container images](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml)
 
 [![](https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted)](https://discord.gg/uJAeKSAGDy) 
