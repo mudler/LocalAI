@@ -28,7 +28,6 @@ LocalAI is a community-driven project, focused on making the AI accessible to an
 
 - [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65) - excellent usecase for localAI, using AI to analyse Kubernetes clusters.
 
-
 ## Model compatibility
 
 It is compatible with the models supported by [llama.cpp](https://github.com/ggerganov/llama.cpp) supports also [GPT4ALL-J](https://github.com/nomic-ai/gpt4all) and [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml).
@@ -438,7 +437,7 @@ Feel free to open up a PR to get your project listed!
 - [x] Multi-model support
 - [x] Have a webUI!
 - [x] Allow configuration of defaults for models.
-- [ ] Enable automatic downloading of models from a curated gallery, with only free-licensed models.
+- [ ] Enable automatic downloading of models from a curated gallery, with only free-licensed models, directly from the webui.
 
 ## Star history
 
