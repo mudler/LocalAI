@@ -4,7 +4,7 @@ Here is a list of projects that can easily be integrated with the LocalAI backen
 
 ## Projects
 
-- [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui/) (by [@mudler](https://github.com/mudler))
+- [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui/) (by [@mkellerman](https://github.com/mkellerman))
 
 ## Want to contribute?
 
