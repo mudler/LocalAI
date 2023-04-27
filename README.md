@@ -7,7 +7,6 @@
 
 > :warning: This project has been renamed from `llama-cli` to `LocalAI` to reflect the fact that we are focusing on a fast drop-in OpenAI API rather than on the CLI interface. We think that there are already many projects that can be used as a CLI interface already, for instance  [llama.cpp](https://github.com/ggerganov/llama.cpp) and [gpt4all](https://github.com/nomic-ai/gpt4all). If you are using `llama-cli` for CLI interactions and want to keep using it, use older versions or please open up an issue - contributions are welcome!
 
-
 [![tests](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml) [![build container images](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml)
 
 [![](https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted)](https://discord.gg/uJAeKSAGDy) 
@@ -21,6 +20,8 @@
 - Doesn't shell-out, but uses C bindings for a faster inference and better performance. Uses [go-llama.cpp](https://github.com/go-skynet/go-llama.cpp) and [go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp).
 
 Reddit post: https://www.reddit.com/r/selfhosted/comments/12w4p2f/localai_openai_compatible_api_to_run_llm_models/
+
+LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
 ## Model compatibility
 
@@ -116,7 +117,9 @@ To build locally, run `make build` (see below).
 
 ## Other examples
 
-To see other examples on how to integrate with other projects, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
+![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)
+
+To see other examples on how to integrate with other projects for instance chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
 ## Prompt templates 
 
@@ -135,6 +138,36 @@ The below instruction describes a task. Write a response that appropriately comp
 ```
 
 See the [prompt-templates](https://github.com/go-skynet/LocalAI/tree/master/prompt-templates) directory in this repository for templates for some of the most popular models.
+
+</details>
+
+## Installation
+
+Currently LocalAI comes as container images and can be used with docker or a containre engine of choice. 
+
+### Run LocalAI in Kubernetes
+
+LocalAI can be installed inside Kubernetes with helm.
+
+<details>
+The local-ai Helm chart supports two options for the LocalAI server's models directory:
+1. Basic deployment with no persistent volume. You must manually update the Deployment to configure your own models directory.
+
+    Install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == false`.
+
+2. Advanced, two-phase deployment to provision the models directory using a DataVolume. Requires [Containerized Data Importer CDI](https://github.com/kubevirt/containerized-data-importer) to be pre-installed in your cluster.
+
+    First, install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == true`:
+    ```bash
+    helm install local-ai charts/local-ai -n local-ai --create-namespace
+    ```
+    Wait for CDI to create an importer Pod for the DataVolume and for the importer pod to finish provisioning the model archive inside the PV.
+
+    Once the PV is provisioned and the importer Pod removed, set `.Values.deployment.volumes.enabled == true` and `.Values.dataVolume.enabled == false` and upgrade the chart:
+    ```bash
+    helm upgrade local-ai -n local-ai charts/local-ai
+    ```
+    This will update the local-ai Deployment to mount the PV that was provisioned by the DataVolume.
 
 </details>
 
@@ -176,6 +209,7 @@ The API takes takes the following parameters:
 | address      | ADDRESS              | :8080         | The address and port to listen on. |
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
 | debug | DEBUG         | false           | Enable debug mode. |
+| config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
 
 Once the server is running, you can start making requests to it using HTTP, using the OpenAI API. 
 
@@ -183,8 +217,68 @@ Once the server is running, you can start making requests to it using HTTP, usin
 
 ## Advanced configuration
 
+LocalAI can be configured to serve user-defined models with a set of default parameters and templates.
 
-### Supported OpenAI API endpoints
+<details>
+You can create multiple `yaml` files in the models path or either specify a single YAML configuration file.
+
+For instance, a configuration file (`gpt-3.5-turbo.yaml`) can be declaring the "gpt-3.5-turbo" model but backed by the "testmodel" model file:
+
+```yaml
+name: gpt-3.5-turbo
+parameters:
+  model: testmodel
+context_size: 512
+threads: 10
+stopwords:
+- "HUMAN:"
+- "### Response:"
+roles:
+  user: "HUMAN:"
+  system: "GPT:"
+template:
+  completion: completion
+  chat: ggml-gpt4all-j
+```
+
+Specifying a `config-file` via CLI allows to declare models in a single file as a list, for instance:
+
+```yaml
+- name: list1
+  parameters:
+    model: testmodel
+  context_size: 512
+  threads: 10
+  stopwords:
+  - "HUMAN:"
+  - "### Response:"
+  roles:
+    user: "HUMAN:"
+    system: "GPT:"
+  template:
+    completion: completion
+    chat: ggml-gpt4all-j
+- name: list2
+  parameters:
+    model: testmodel
+  context_size: 512
+  threads: 10
+  stopwords:
+  - "HUMAN:"
+  - "### Response:"
+  roles:
+    user: "HUMAN:"
+    system: "GPT:"
+  template:
+    completion: completion
+    chat: ggml-gpt4all-j
+```
+
+See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
+
+</details>
+
+## Supported OpenAI API endpoints
 
 You can check out the [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat/create). 
 
@@ -195,7 +289,7 @@ Note:
 - You can also specify the model as part of the OpenAI token.
 - If only one model is available, the API will use it for all the requests.
 
-#### Chat completions
+### Chat completions
 
 <details>
 For example, to generate a chat completion, you can send a POST request to the `/v1/chat/completions` endpoint with the instruction as the request body:
@@ -211,7 +305,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
 </details>
 
-#### Completions
+### Completions
 
 <details>
 To generate a completion, you can send a POST request to the `/v1/completions` endpoint with the instruction as per the request body:
@@ -227,7 +321,7 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
 </details>
 
-#### List models
+### List models
 
 <details>
 You can list all the models available with:
@@ -238,31 +332,6 @@ curl http://localhost:8080/v1/models
 
 </details>
 
-## Helm Chart Installation (run LocalAI in Kubernetes)
-
-LocalAI can be installed inside Kubernetes with helm.
-
-<details>
-The local-ai Helm chart supports two options for the LocalAI server's models directory:
-1. Basic deployment with no persistent volume. You must manually update the Deployment to configure your own models directory.
-
-    Install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == false`.
-
-2. Advanced, two-phase deployment to provision the models directory using a DataVolume. Requires [Containerized Data Importer CDI](https://github.com/kubevirt/containerized-data-importer) to be pre-installed in your cluster.
-
-    First, install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == true`:
-    ```bash
-    helm install local-ai charts/local-ai -n local-ai --create-namespace
-    ```
-    Wait for CDI to create an importer Pod for the DataVolume and for the importer pod to finish provisioning the model archive inside the PV.
-
-    Once the PV is provisioned and the importer Pod removed, set `.Values.deployment.volumes.enabled == true` and `.Values.dataVolume.enabled == false` and upgrade the chart:
-    ```bash
-    helm upgrade local-ai -n local-ai charts/local-ai
-    ```
-    This will update the local-ai Deployment to mount the PV that was provisioned by the DataVolume.
-
-</details>
 
 ## Blog posts
 
@@ -356,15 +425,19 @@ Feel free to open up a PR to get your project listed!
 
 - [x] Mimic OpenAI API (https://github.com/go-skynet/LocalAI/issues/10)
 - [ ] Binary releases (https://github.com/go-skynet/LocalAI/issues/6)
-- [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351) and gpt4all
+- [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351) and [gpt4all](https://github.com/go-skynet/LocalAI/issues/85)
 - [x] Multi-model support
-- [ ] Have a webUI!
-- [ ] Allow configuration of defaults for models.
+- [x] Have a webUI!
+- [x] Allow configuration of defaults for models.
 - [ ] Enable automatic downloading of models from a curated gallery, with only free-licensed models.
+
+## Star history
 
 [![LocalAI Star history Chart](https://api.star-history.com/svg?repos=go-skynet/LocalAI&type=Date)](https://star-history.com/#go-skynet/LocalAI&Date)
 
 ## License
+
+LocalAI is a community-driven project. It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
 MIT
 
