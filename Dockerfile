@@ -10,4 +10,5 @@ RUN make build
 
 FROM debian:$DEBIAN_VERSION
 COPY --from=builder /build/local-ai /usr/bin/local-ai
+EXPOSE 8080
 ENTRYPOINT [ "/usr/bin/local-ai" ]
