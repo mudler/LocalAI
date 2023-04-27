@@ -5,7 +5,7 @@
 <br>
 </h1>
 
-> :warning: This project has been renamed from `llama-cli` to `LocalAI` to reflect the fact that we are focusing on a fast drop-in OpenAI API rather on the CLI interface. We think that there are already many projects that can be used as a CLI interface already, for instance  [llama.cpp](https://github.com/ggerganov/llama.cpp) and [gpt4all](https://github.com/nomic-ai/gpt4all). If you are were using `llama-cli` for CLI interactions and want to keep using it, use older versions or please open up an issue - contributions are welcome!
+> :warning: This project has been renamed from `llama-cli` to `LocalAI` to reflect the fact that we are focusing on a fast drop-in OpenAI API rather than on the CLI interface. We think that there are already many projects that can be used as a CLI interface already, for instance  [llama.cpp](https://github.com/ggerganov/llama.cpp) and [gpt4all](https://github.com/nomic-ai/gpt4all). If you are using `llama-cli` for CLI interactions and want to keep using it, use older versions or please open up an issue - contributions are welcome!
 
 
 [![tests](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml) [![build container images](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml)
@@ -123,10 +123,10 @@ To see other examples on how to integrate with other projects, see: [examples](h
 The API doesn't inject a default prompt for talking to the model. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
 
 <details>
-You can use a default template for every model present in your model path, by creating a corresponding file with the `.tmpl` suffix next to your model. For instance, if the model is called `foo.bin`, you can create a sibiling file, `foo.bin.tmpl` which will be used as a default prompt, for instance this can be used with alpaca:
+You can use a default template for every model present in your model path, by creating a corresponding file with the `.tmpl` suffix next to your model. For instance, if the model is called `foo.bin`, you can create a sibling file, `foo.bin.tmpl` which will be used as a default prompt and can be used with alpaca:
 
 ```
-Below is an instruction that describes a task. Write a response that appropriately completes the request.
+The below instruction describes a task. Write a response that appropriately completes the request.
 
 ### Instruction:
 {{.Input}}
@@ -134,7 +134,7 @@ Below is an instruction that describes a task. Write a response that appropriate
 ### Response:
 ```
 
-See the [prompt-templates](https://github.com/go-skynet/LocalAI/tree/master/prompt-templates) directory in this repository for templates for most popular models.
+See the [prompt-templates](https://github.com/go-skynet/LocalAI/tree/master/prompt-templates) directory in this repository for templates for some of the most popular models.
 
 </details>
 
@@ -149,7 +149,7 @@ Example of starting the API with `docker`:
 docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:latest --models-path /path/to/models --context-size 700 --threads 4
 ```
 
-And you'll see:
+You should see:
 ```
 ┌───────────────────────────────────────────────────┐ 
 │                   Fiber v2.42.0                   │ 
@@ -192,7 +192,7 @@ Following the list of endpoints/parameters supported.
 
 Note:
 
-- You can also specify the model a part of the OpenAI token.
+- You can also specify the model as part of the OpenAI token.
 - If only one model is available, the API will use it for all the requests.
 
 #### Chat completions
@@ -214,7 +214,7 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`
 #### Completions
 
 <details>
-For example, to generate a completion, you can send a POST request to the `/v1/completions` endpoint with the instruction as the request body:
+To generate a completion, you can send a POST request to the `/v1/completions` endpoint with the instruction as per the request body:
 ```
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "ggml-koala-7b-model-q4_0-r2.bin",
