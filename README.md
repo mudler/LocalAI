@@ -17,9 +17,10 @@
 - Support for prompt templates
 - Doesn't shell-out, but uses C bindings for a faster inference and better performance. Uses [go-llama.cpp](https://github.com/go-skynet/go-llama.cpp) and [go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp).
 
-Reddit post: https://www.reddit.com/r/selfhosted/comments/12w4p2f/localai_openai_compatible_api_to_run_llm_models/
-
 LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
+
+Twitter: https://twitter.com/LocalAI_API
+Reddit post: https://www.reddit.com/r/selfhosted/comments/12w4p2f/localai_openai_compatible_api_to_run_llm_models/
 
 ## Model compatibility
 
@@ -430,7 +431,7 @@ Feel free to open up a PR to get your project listed!
 - [x] Multi-model support
 - [x] Have a webUI!
 - [x] Allow configuration of defaults for models.
-- [ ] Enable automatic downloading of models from a curated gallery, with only free-licensed models.
+- [ ] Enable automatic downloading of models from a curated gallery, with only free-licensed models, directly from the webui.
 
 ## Star history
 
