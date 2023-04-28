@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230422085954-245a5bfe6708
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230424120713-e45cebe33c04
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230428071219-3d084e4299e9
 	github.com/gofiber/fiber/v2 v2.44.0
 	github.com/jaypipes/ghw v0.10.0
 	github.com/onsi/ginkgo/v2 v2.9.2
@@ -13,6 +13,8 @@ require (
 	github.com/rs/zerolog v1.29.1
 	github.com/sashabaranov/go-openai v1.9.0
 	github.com/urfave/cli/v2 v2.25.1
+	github.com/valyala/fasthttp v1.45.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -41,7 +43,6 @@ require (
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.45.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	golang.org/x/net v0.8.0 // indirect
@@ -49,6 +50,5 @@ require (
 	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/tools v0.7.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v1.0.0 // indirect
 )
