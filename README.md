@@ -341,9 +341,10 @@ See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/
 
 
 
-## Blog posts
+## Blog posts and other articles
 
 - https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65
+- https://kairos.io/docs/examples/localai/
 
 ## Windows compatibility
 
