@@ -430,6 +430,11 @@ Feel free to open up a PR to get your project listed!
 - [Kairos](https://github.com/kairos-io/kairos)
 - [k8sgpt](https://github.com/k8sgpt-ai/k8sgpt#running-local-models)
 
+## Blog posts and other articles on LocalAI
+
+- https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65
+- https://kairos.io/docs/examples/localai/
+
 ## Short-term roadmap
 
 - [x] Mimic OpenAI API (https://github.com/go-skynet/LocalAI/issues/10)
