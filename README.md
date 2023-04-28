@@ -339,13 +339,6 @@ See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/
 
 </details>
 
-
-
-## Blog posts and other articles
-
-- https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65
-- https://kairos.io/docs/examples/localai/
-
 ## Windows compatibility
 
 It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
@@ -429,6 +422,11 @@ Feel free to open up a PR to get your project listed!
 
 - [Kairos](https://github.com/kairos-io/kairos)
 - [k8sgpt](https://github.com/k8sgpt-ai/k8sgpt#running-local-models)
+
+## Blog posts and other articles
+
+- https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65
+- https://kairos.io/docs/examples/localai/
 
 ## Short-term roadmap
 
