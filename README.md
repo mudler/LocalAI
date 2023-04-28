@@ -455,3 +455,9 @@ MIT
 - https://github.com/tatsu-lab/stanford_alpaca
 - https://github.com/cornelk/llama-go for the initial ideas
 - https://github.com/antimatter15/alpaca.cpp for the light model version (this is compatible and tested only with that checkpoint model!)
+
+## Contributors
+
+<a href="https://github.com/go-skynet/LocalAI/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=go-skynet/LocalAI" />
+</a>
