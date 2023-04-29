@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"sync"
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -185,4 +187,30 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 
 		return fn()
 	}, nil
+}
+
+var cutstrings map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)
+var mu sync.Mutex = sync.Mutex{}
+
+func Finetune(config Config, input, prediction string) string {
+	if config.Echo {
+		prediction = input + prediction
+	}
+
+	for _, c := range config.Cutstrings {
+		mu.Lock()
+		reg, ok := cutstrings[c]
+		if !ok {
+			cutstrings[c] = regexp.MustCompile(c)
+			reg = cutstrings[c]
+		}
+		mu.Unlock()
+		prediction = reg.ReplaceAllString(prediction, "")
+	}
+
+	for _, c := range config.TrimSpace {
+		prediction = strings.TrimSpace(strings.TrimPrefix(prediction, c))
+	}
+	return prediction
+
 }
