@@ -189,6 +189,36 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 	}, nil
 }
 
+func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, loader *model.ModelLoader, cb func(string, *[]Choice)) ([]Choice, error) {
+	result := []Choice{}
+
+	n := input.N
+
+	if input.N == 0 {
+		n = 1
+	}
+
+	// get the model function to call for the result
+	predFunc, err := ModelInference(predInput, loader, *config)
+	if err != nil {
+		return result, err
+	}
+
+	for i := 0; i < n; i++ {
+		prediction, err := predFunc()
+		if err != nil {
+			return result, err
+		}
+
+		prediction = Finetune(*config, predInput, prediction)
+		cb(prediction, &result)
+
+		//result = append(result, Choice{Text: prediction})
+
+	}
+	return result, err
+}
+
 var cutstrings map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)
 var mu sync.Mutex = sync.Mutex{}
 

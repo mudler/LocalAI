@@ -61,14 +61,14 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 	app.Use(cors.New())
 
 	// openAI compatible API endpoint
-	app.Post("/v1/chat/completions", openAIEndpoint(cm, ChatEndpoint, debug, loader, threads, ctxSize, f16))
-	app.Post("/chat/completions", openAIEndpoint(cm, ChatEndpoint, debug, loader, threads, ctxSize, f16))
+	app.Post("/v1/chat/completions", chatEndpoint(cm, debug, loader, threads, ctxSize, f16))
+	app.Post("/chat/completions", chatEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
-	app.Post("/v1/edits", openAIEndpoint(cm, EditEndpoint, debug, loader, threads, ctxSize, f16))
-	app.Post("/edits", openAIEndpoint(cm, EditEndpoint, debug, loader, threads, ctxSize, f16))
+	app.Post("/v1/edits", editEndpoint(cm, debug, loader, threads, ctxSize, f16))
+	app.Post("/edits", editEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
-	app.Post("/v1/completions", openAIEndpoint(cm, CompletionEndpoint, debug, loader, threads, ctxSize, f16))
-	app.Post("/completions", openAIEndpoint(cm, CompletionEndpoint, debug, loader, threads, ctxSize, f16))
+	app.Post("/v1/completions", completionEndpoint(cm, debug, loader, threads, ctxSize, f16))
+	app.Post("/completions", completionEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
 	app.Get("/v1/models", listModels(loader, cm))
 	app.Get("/models", listModels(loader, cm))
