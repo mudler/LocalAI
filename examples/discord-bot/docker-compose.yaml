@@ -15,10 +15,9 @@ services:
       - ./models:/models:cached
     command: ["/usr/bin/local-ai" ]
 
-  chatgpt:
-    image: ghcr.io/mckaywrigley/chatbot-ui:main
-    ports:
-      - 3000:3000
-    environment:
-      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
-      - 'OPENAI_API_HOST=http://api:8080'
+  bot:
+    build:
+      context: ./gpt-discord-bot
+      dockerfile: Dockerfile
+    env_file:
+    - .env
