@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	openaigo "github.com/otiai10/openaigo"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -18,6 +19,7 @@ var _ = Describe("API test", func() {
 	var app *fiber.App
 	var modelLoader *model.ModelLoader
 	var client *openai.Client
+	var client2 *openaigo.Client
 	Context("API query", func() {
 		BeforeEach(func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
@@ -26,6 +28,9 @@ var _ = Describe("API test", func() {
 
 			defaultConfig := openai.DefaultConfig("")
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+
+			client2 = openaigo.NewClient("")
+			client2.BaseURL = defaultConfig.BaseURL
 
 			// Wait for API to be ready
 			client = openai.NewClientWithConfig(defaultConfig)
@@ -87,7 +92,8 @@ var _ = Describe("API test", func() {
 
 			defaultConfig := openai.DefaultConfig("")
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
-
+			client2 = openaigo.NewClient("")
+			client2.BaseURL = defaultConfig.BaseURL
 			// Wait for API to be ready
 			client = openai.NewClientWithConfig(defaultConfig)
 			Eventually(func() error {
@@ -116,6 +122,17 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
+		})
+		It("can generate edit completions from config file", func() {
+			request := openaigo.EditCreateRequestBody{
+				Model:       "list2",
+				Instruction: "foo",
+				Input:       "bar",
+			}
+			resp, err := client2.CreateEdit(context.Background(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resp.Choices)).To(Equal(1))
+			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})
 	})
 })

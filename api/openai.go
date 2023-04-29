@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
-	"sync"
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
@@ -59,6 +57,10 @@ type OpenAIRequest struct {
 
 	// Prompt is read only by completion API calls
 	Prompt string `json:"prompt" yaml:"prompt"`
+
+	// Edit endpoint
+	Instruction string `json:"instruction" yaml:"instruction"`
+	Input       string `json:"input" yaml:"input"`
 
 	Stop string `json:"stop" yaml:"stop"`
 
@@ -143,114 +145,92 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 	}
 }
 
-var cutstrings map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)
-var mu sync.Mutex = sync.Mutex{}
+func readConfig(cm ConfigMerger, c *fiber.Ctx, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*Config, *OpenAIRequest, error) {
+	input := new(OpenAIRequest)
+	// Get input data from the request body
+	if err := c.BodyParser(input); err != nil {
+		return nil, nil, err
+	}
+
+	modelFile := input.Model
+	received, _ := json.Marshal(input)
+
+	log.Debug().Msgf("Request received: %s", string(received))
+
+	// Set model from bearer token, if available
+	bearer := strings.TrimLeft(c.Get("authorization"), "Bearer ")
+	bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
+
+	// If no model was specified, take the first available
+	if modelFile == "" && !bearerExists {
+		models, _ := loader.ListModels()
+		if len(models) > 0 {
+			modelFile = models[0]
+			log.Debug().Msgf("No model specified, using: %s", modelFile)
+		} else {
+			log.Debug().Msgf("No model specified, returning error")
+			return nil, nil, fmt.Errorf("no model specified")
+		}
+	}
+
+	// If a model is found in bearer token takes precedence
+	if bearerExists {
+		log.Debug().Msgf("Using model from bearer token: %s", bearer)
+		modelFile = bearer
+	}
+
+	// Load a config file if present after the model name
+	modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
+	if _, err := os.Stat(modelConfig); err == nil {
+		if err := cm.LoadConfig(modelConfig); err != nil {
+			return nil, nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
+		}
+	}
+
+	var config *Config
+	cfg, exists := cm[modelFile]
+	if !exists {
+		config = &Config{
+			OpenAIRequest: defaultRequest(modelFile),
+		}
+	} else {
+		config = &cfg
+	}
+
+	// Set the parameters for the language model prediction
+	updateConfig(config, input)
+
+	if threads != 0 {
+		config.Threads = threads
+	}
+	if ctx != 0 {
+		config.ContextSize = ctx
+	}
+	if f16 {
+		config.F16 = true
+	}
+
+	if debug {
+		config.Debug = true
+	}
+
+	return config, input, nil
+}
 
 // https://platform.openai.com/docs/api-reference/completions
-func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
+func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-
-		input := new(OpenAIRequest)
-		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
-			return err
-		}
-
-		if input.Stream {
-			log.Debug().Msgf("Stream request received")
-			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
-			c.Set("Content-Type", "text/event-stream; charset=utf-8")
-			c.Set("Cache-Control", "no-cache")
-			c.Set("Connection", "keep-alive")
-			c.Set("Transfer-Encoding", "chunked")
-		}
-
-		modelFile := input.Model
-		received, _ := json.Marshal(input)
-
-		log.Debug().Msgf("Request received: %s", string(received))
-
-		// Set model from bearer token, if available
-		bearer := strings.TrimLeft(c.Get("authorization"), "Bearer ")
-		bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
-
-		// If no model was specified, take the first available
-		if modelFile == "" && !bearerExists {
-			models, _ := loader.ListModels()
-			if len(models) > 0 {
-				modelFile = models[0]
-				log.Debug().Msgf("No model specified, using: %s", modelFile)
-			} else {
-				log.Debug().Msgf("No model specified, returning error")
-				return fmt.Errorf("no model specified")
-			}
-		}
-
-		// If a model is found in bearer token takes precedence
-		if bearerExists {
-			log.Debug().Msgf("Using model from bearer token: %s", bearer)
-			modelFile = bearer
-		}
-
-		// Load a config file if present after the model name
-		modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
-		if _, err := os.Stat(modelConfig); err == nil {
-			if err := cm.LoadConfig(modelConfig); err != nil {
-				return fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
-			}
-		}
-
-		var config *Config
-		cfg, exists := cm[modelFile]
-		if !exists {
-			config = &Config{
-				OpenAIRequest: defaultRequest(modelFile),
-			}
-		} else {
-			config = &cfg
-		}
-
-		// Set the parameters for the language model prediction
-		updateConfig(config, input)
-
-		if threads != 0 {
-			config.Threads = threads
-		}
-		if ctx != 0 {
-			config.ContextSize = ctx
-		}
-		if f16 {
-			config.F16 = true
-		}
-
-		if debug {
-			config.Debug = true
+		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
+		if err != nil {
+			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
 		predInput := input.Prompt
-		if chat {
-			mess := []string{}
-			for _, i := range input.Messages {
-				r := config.Roles[i.Role]
-				if r == "" {
-					r = i.Role
-				}
-
-				content := fmt.Sprint(r, " ", i.Content)
-				mess = append(mess, content)
-			}
-
-			predInput = strings.Join(mess, "\n")
-		}
-
 		templateFile := config.Model
-		if config.TemplateConfig.Chat != "" && chat {
-			templateFile = config.TemplateConfig.Chat
-		}
 
-		if config.TemplateConfig.Completion != "" && !chat {
+		if config.TemplateConfig.Completion != "" {
 			templateFile = config.TemplateConfig.Completion
 		}
 
@@ -263,77 +243,96 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 			log.Debug().Msgf("Template found, input modified to: %s", predInput)
 		}
 
-		result := []Choice{}
-
-		n := input.N
-
-		if input.N == 0 {
-			n = 1
-		}
-
-		// get the model function to call for the result
-		predFunc, err := ModelInference(predInput, loader, *config)
+		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
+			*c = append(*c, Choice{Text: s})
+		})
 		if err != nil {
 			return err
-		}
-
-		finetunePrediction := func(prediction string) string {
-			if config.Echo {
-				prediction = predInput + prediction
-			}
-
-			for _, c := range config.Cutstrings {
-				mu.Lock()
-				reg, ok := cutstrings[c]
-				if !ok {
-					cutstrings[c] = regexp.MustCompile(c)
-					reg = cutstrings[c]
-				}
-				mu.Unlock()
-				prediction = reg.ReplaceAllString(prediction, "")
-			}
-
-			for _, c := range config.TrimSpace {
-				prediction = strings.TrimSpace(strings.TrimPrefix(prediction, c))
-			}
-			return prediction
-		}
-
-		for i := 0; i < n; i++ {
-			prediction, err := predFunc()
-			if err != nil {
-				return err
-			}
-
-			prediction = finetunePrediction(prediction)
-
-			if chat {
-				if input.Stream {
-					result = append(result, Choice{Delta: &Message{Role: "assistant", Content: prediction}})
-				} else {
-					result = append(result, Choice{Message: &Message{Role: "assistant", Content: prediction}})
-				}
-			} else {
-				result = append(result, Choice{Text: prediction})
-			}
 		}
 
 		resp := &OpenAIResponse{
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
-		}
-		if input.Stream && chat {
-			resp.Object = "chat.completion.chunk"
-		} else if chat {
-			resp.Object = "chat.completion"
-		} else {
-			resp.Object = "text_completion"
+			Object:  "text_completion",
 		}
 
 		jsonResult, _ := json.Marshal(resp)
 		log.Debug().Msgf("Response: %s", jsonResult)
 
+		// Return the prediction in the response body
+		return c.JSON(resp)
+	}
+}
+
+func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
+		if err != nil {
+			return fmt.Errorf("failed reading parameters from request:%w", err)
+		}
+
+		log.Debug().Msgf("Parameter Config: %+v", config)
+
+		var predInput string
+
+		mess := []string{}
+		for _, i := range input.Messages {
+			r := config.Roles[i.Role]
+			if r == "" {
+				r = i.Role
+			}
+
+			content := fmt.Sprint(r, " ", i.Content)
+			mess = append(mess, content)
+		}
+
+		predInput = strings.Join(mess, "\n")
+
 		if input.Stream {
+			log.Debug().Msgf("Stream request received")
+			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
+			c.Set("Content-Type", "text/event-stream; charset=utf-8")
+			c.Set("Cache-Control", "no-cache")
+			c.Set("Connection", "keep-alive")
+			c.Set("Transfer-Encoding", "chunked")
+		}
+
+		templateFile := config.Model
+
+		if config.TemplateConfig.Chat != "" {
+			templateFile = config.TemplateConfig.Chat
+		}
+
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		templatedInput, err := loader.TemplatePrefix(templateFile, struct {
+			Input string
+		}{Input: predInput})
+		if err == nil {
+			predInput = templatedInput
+			log.Debug().Msgf("Template found, input modified to: %s", predInput)
+		}
+
+		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
+			if input.Stream {
+				*c = append(*c, Choice{Delta: &Message{Role: "assistant", Content: s}})
+			} else {
+				*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: s}})
+			}
+		})
+		if err != nil {
+			return err
+		}
+
+		resp := &OpenAIResponse{
+			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Choices: result,
+			Object:  "chat.completion",
+		}
+
+		if input.Stream {
+			resp.Object = "chat.completion.chunk"
+			jsonResult, _ := json.Marshal(resp)
+			log.Debug().Msgf("Response: %s", jsonResult)
 			log.Debug().Msgf("Handling stream request")
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 				fmt.Fprintf(w, "event: data\n")
@@ -347,7 +346,7 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 
 				resp := &OpenAIResponse{
 					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []Choice{Choice{FinishReason: "stop"}},
+					Choices: []Choice{{FinishReason: "stop"}},
 				}
 				respData, _ := json.Marshal(resp)
 
@@ -358,10 +357,57 @@ func openAIEndpoint(cm ConfigMerger, chat, debug bool, loader *model.ModelLoader
 				//		w.Flush()
 			}))
 			return nil
-		} else {
-			// Return the prediction in the response body
-			return c.JSON(resp)
 		}
+
+		// Return the prediction in the response body
+		return c.JSON(resp)
+	}
+}
+
+func editEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
+		if err != nil {
+			return fmt.Errorf("failed reading parameters from request:%w", err)
+		}
+
+		log.Debug().Msgf("Parameter Config: %+v", config)
+
+		predInput := input.Input
+		templateFile := config.Model
+
+		if config.TemplateConfig.Edit != "" {
+			templateFile = config.TemplateConfig.Edit
+		}
+
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		templatedInput, err := loader.TemplatePrefix(templateFile, struct {
+			Input       string
+			Instruction string
+		}{Input: predInput, Instruction: input.Instruction})
+		if err == nil {
+			predInput = templatedInput
+			log.Debug().Msgf("Template found, input modified to: %s", predInput)
+		}
+
+		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
+			*c = append(*c, Choice{Text: s})
+		})
+		if err != nil {
+			return err
+		}
+
+		resp := &OpenAIResponse{
+			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Choices: result,
+			Object:  "edit",
+		}
+
+		jsonResult, _ := json.Marshal(resp)
+		log.Debug().Msgf("Response: %s", jsonResult)
+
+		// Return the prediction in the response body
+		return c.JSON(resp)
 	}
 }
 
