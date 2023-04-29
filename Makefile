@@ -79,7 +79,7 @@ go-gpt2/libgpt2.a: go-gpt2
 go-llama:
 	git clone -b $(GOLLAMA_VERSION) --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
 
-go-llama/libbinding.a: go-llama
+go-llama/libbinding.a: go-llama 
 	$(MAKE) -C go-llama $(GENERIC_PREFIX)libbinding.a
 
 replace:
@@ -87,7 +87,16 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt4all-j.cpp=$(shell pwd)/go-gpt4all-j
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt2.cpp=$(shell pwd)/go-gpt2
 
-prepare: go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a replace
+prepare-sources: go-llama go-gpt2 go-gpt4all-j
+	$(GOCMD) mod download
+
+rebuild:
+	$(MAKE) -C go-llama clean
+	$(MAKE) -C go-gpt4all-j clean
+	$(MAKE) -C go-gpt2 clean
+	$(MAKE) build
+
+prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a replace
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
