@@ -122,6 +122,8 @@ To build locally, run `make build` (see below).
 
 ## Other examples
 
+![image](https://user-images.githubusercontent.com/42107491/235344183-44b5967d-ba22-4331-804c-8da7004a5d35.png)
+
 ![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)
 
 To see other examples on how to integrate with other projects for instance chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
@@ -404,7 +406,7 @@ Not currently, as ggml doesn't support GPUs yet: https://github.com/ggerganov/ll
 ### Where is the webUI? 
 
 <details> 
-We are working on to have a good out of the box experience - however as LocalAI is an API you can already plug it into existing projects that provides are UI interfaces to OpenAI's APIs. There are several already on github, and should be compatible with LocalAI already (as it mimics the OpenAI API)
+There is the availability of localai-webui and chatbot-ui in the examples section and can be setup as per the instructions. However as LocalAI is an API you can already plug it into existing projects that provides are UI interfaces to OpenAI's APIs. There are several already on github, and should be compatible with LocalAI already (as it mimics the OpenAI API)
 
 </details>
 

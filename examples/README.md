@@ -4,6 +4,7 @@ Here is a list of projects that can easily be integrated with the LocalAI backen
 
 ## Projects
 
+- [localai-webui](https://github.com/go-skynet/LocalAI/tree/master/examples/localai-webui/) (by [@dhruvgera](https://github.com/dhruvgera))
 - [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui/) (by [@mkellerman](https://github.com/mkellerman))
 - [discord-bot](https://github.com/go-skynet/LocalAI/tree/master/examples/discord-bot/) (by [@mudler](https://github.com/mudler))
 
