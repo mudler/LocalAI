@@ -152,27 +152,48 @@ Currently LocalAI comes as container images and can be used with docker or a con
 
 ### Run LocalAI in Kubernetes
 
-LocalAI can be installed inside Kubernetes with helm.
-
+LocalAI can be installed inside Kubernetes with helm. 
 <details>
-The local-ai Helm chart supports two options for the LocalAI server's models directory:
-1. Basic deployment with no persistent volume. You must manually update the Deployment to configure your own models directory.
 
-    Install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == false`.
-
-2. Advanced, two-phase deployment to provision the models directory using a DataVolume. Requires [Containerized Data Importer CDI](https://github.com/kubevirt/containerized-data-importer) to be pre-installed in your cluster.
-
-    First, install the chart with `.Values.deployment.volumes.enabled == false` and `.Values.dataVolume.enabled == true`:
+1. Add the helm repo
     ```bash
-    helm install local-ai charts/local-ai -n local-ai --create-namespace
+    helm repo add go-skynet https://go-skynet.github.io/helm-charts/
     ```
-    Wait for CDI to create an importer Pod for the DataVolume and for the importer pod to finish provisioning the model archive inside the PV.
+1. Create a values files with your settings:
+```bash
+cat <<EOF > values.yaml
+deployment:
+  image: quay.io/go-skynet/local-ai:latest
+  env:
+    threads: 4
+    contextSize: 1024
+    modelsPath: "/models"
+# Optionally create a PVC, mount the PV to the LocalAI Deployment,
+# and download a model to prepopulate the models directory
+modelsVolume:
+  enabled: true
+  url: "https://gpt4all.io/models/ggml-gpt4all-j.bin"
+  pvc:
+    size: 6Gi
+    accessModes:
+    - ReadWriteOnce
+  auth:
+    # Optional value for HTTP basic access authentication header
+    basic: "" # 'username:password' base64 encoded
+service:
+  type: ClusterIP
+  annotations: {}
+  # If using an AWS load balancer, you'll need to override the default 60s load balancer idle timeout
+  # service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "1200"
+EOF
+```
+3. Install the helm chart:
+```bash
+helm repo update
+helm install local-ai go-skynet/local-ai -f values.yaml
+```
 
-    Once the PV is provisioned and the importer Pod removed, set `.Values.deployment.volumes.enabled == true` and `.Values.dataVolume.enabled == false` and upgrade the chart:
-    ```bash
-    helm upgrade local-ai -n local-ai charts/local-ai
-    ```
-    This will update the local-ai Deployment to mount the PV that was provisioned by the DataVolume.
+Check out also the [helm chart repository on GitHub](https://github.com/go-skynet/helm-charts).
 
 </details>
 
