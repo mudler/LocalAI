@@ -1,0 +1,21 @@
+{
+  "name": "langchainjs-localai-example",
+  "version": "0.1.0",
+  "description": "Trivial Example of using langchain + the OpenAI API + LocalAI together",
+  "main": "index.mjs",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "start": "node --trace-warnings dist/index.mjs"
+  },
+  "author": "dave@gray101.com",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.16.3",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "langchain": "^0.0.67",
+    "typeorm": "^0.3.15"
+  }
+}
