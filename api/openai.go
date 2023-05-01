@@ -62,7 +62,7 @@ type OpenAIRequest struct {
 	Instruction string `json:"instruction" yaml:"instruction"`
 	Input       string `json:"input" yaml:"input"`
 
-	Stop string `json:"stop" yaml:"stop"`
+	Stop []string `json:"stop" yaml:"stop"`
 
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages" yaml:"messages"`
@@ -116,8 +116,8 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 		config.Maxtokens = input.Maxtokens
 	}
 
-	if input.Stop != "" {
-		config.StopWords = append(config.StopWords, input.Stop)
+	if len(input.Stop) != 0 {
+		config.StopWords = append(config.StopWords, input.Stop...)
 	}
 
 	if input.RepeatPenalty != 0 {
