@@ -1,0 +1,25 @@
+version: '3.6'
+
+services:
+  api:
+    image: quay.io/go-skynet/local-ai:latest
+    build:
+      context: ../../
+      dockerfile: Dockerfile.dev
+    ports:
+      - 8080:8080
+    environment:
+      - DEBUG=true
+      - MODELS_PATH=/models
+    volumes:
+      - ./models:/models:cached
+    command: ["/usr/bin/local-ai" ]
+
+  langchainjs:
+    build:
+      context: .
+      dockerfile: JS.Dockerfile
+    environment:
+      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
+      - 'OPENAI_API_HOST=http://api:8080/v1'
+      - 'MODEL_NAME=gpt-3.5-turbo' #gpt-3.5-turbo' # ggml-gpt4all-j' # ggml-koala-13B-4bit-128g'
