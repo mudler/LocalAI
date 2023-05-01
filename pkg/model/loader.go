@@ -193,7 +193,7 @@ func (ml *ModelLoader) LoadGPT2Model(modelName string) (*gpt2.GPT2, error) {
 	return model, err
 }
 
-func (ml *ModelLoader) LoadGPTJModel(modelName string) (*gptj.GPTJ, error) {
+func (ml *ModelLoader) LoadGPTJModel(modelName string, opts ...gptj.ModelOption) (*gptj.GPTJ, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
@@ -222,7 +222,7 @@ func (ml *ModelLoader) LoadGPTJModel(modelName string) (*gptj.GPTJ, error) {
 	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
-	model, err := gptj.New(modelFile)
+	model, err := gptj.New(modelFile, opts...)
 	if err != nil {
 		return nil, err
 	}
