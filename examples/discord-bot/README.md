@@ -1,5 +1,7 @@
 # discord-bot
 
+![Screenshot from 2023-05-01 07-58-19](https://user-images.githubusercontent.com/2420543/235413924-0cb2e75b-f2d6-4119-8610-44386e44afb8.png)
+
 ## Setup
 
 ```bash
