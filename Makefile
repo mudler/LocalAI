@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 # renovate: datasource=github-tags depName=go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=llama.cpp-7f15c5c
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt4all-j.cpp currentValueTemplate=master depNameTemplate=go-gpt4all-j.cpp
-GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
+GOGPT4ALLJ_VERSION?=d57834a2d24e8be64c78b9496a870d18393066fd
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt2.cpp currentValueTemplate=master depNameTemplate=go-gpt2.cpp
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 
@@ -58,7 +58,7 @@ go-gpt4all-j:
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
 
 go-gpt4all-j/libgptj.a: go-gpt4all-j
-	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a
+	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a example
 
 # CEREBRAS GPT
 go-gpt2:
