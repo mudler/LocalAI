@@ -24,6 +24,8 @@ github.com/go-skynet/go-gpt2.cpp v0.0.0-20230422085954-245a5bfe6708/go.mod h1:1W
 github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c h1:48I7jpLNGiQeBmF0SFVVbREh8vlG0zN13v9LH5ctXis=
 github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c/go.mod h1:5VZ9XbcINI0XcHhkcX8GPK8TplFGAzu1Hrg4tNiMCtI=
 github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230501160437-8417608f0e94/go.mod h1:5VZ9XbcINI0XcHhkcX8GPK8TplFGAzu1Hrg4tNiMCtI=
+github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230501181604-77bf8c1bccf4 h1:nN3SXI7zUlxj4dWqbYG8A+yKp6bWmDNItcLYP9gUFbs=
+github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230501181604-77bf8c1bccf4/go.mod h1:5VZ9XbcINI0XcHhkcX8GPK8TplFGAzu1Hrg4tNiMCtI=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230428071219-3d084e4299e9 h1:N/0SBefkMFao6GiGhIF7+5EdYOMHn4KnCG2AFcIXPt0=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230428071219-3d084e4299e9/go.mod h1:35AKIEMY+YTKCBJIa/8GZcNGJ2J+nQk1hQiWo/OnEWw=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230429125915-9bf702fe56b9 h1:20/tdOA4+b7Y7lCob+q2sczfOSz0pp+14L32adYJ+uQ=
