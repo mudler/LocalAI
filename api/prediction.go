@@ -16,12 +16,12 @@ import (
 var mutexMap sync.Mutex
 var mutexes map[string]*sync.Mutex = make(map[string]*sync.Mutex)
 
-func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (string, error), error) {
+func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback func(string) bool) (func() (string, error), error) {
 	var model *llama.LLama
 	var gptModel *gptj.GPTJ
 	var gpt2Model *gpt2.GPT2
 	var stableLMModel *gpt2.StableLM
-
+	supportStreams := false
 	modelFile := c.Model
 
 	// Try to load the model
@@ -125,7 +125,13 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 			)
 		}
 	case model != nil:
+		supportStreams = true
 		fn = func() (string, error) {
+
+			if tokenCallback != nil {
+				model.SetTokenCallback(tokenCallback)
+			}
+
 			// Generate the prediction using the language model
 			predictOptions := []llama.PredictOption{
 				llama.SetTemperature(c.Temperature),
@@ -185,11 +191,15 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 		l.Lock()
 		defer l.Unlock()
 
-		return fn()
+		res, err := fn()
+		if tokenCallback != nil && !supportStreams {
+			tokenCallback(res)
+		}
+		return res, err
 	}, nil
 }
 
-func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, loader *model.ModelLoader, cb func(string, *[]Choice)) ([]Choice, error) {
+func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, error) {
 	result := []Choice{}
 
 	n := input.N
@@ -199,7 +209,7 @@ func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, load
 	}
 
 	// get the model function to call for the result
-	predFunc, err := ModelInference(predInput, loader, *config)
+	predFunc, err := ModelInference(predInput, loader, *config, tokenCallback)
 	if err != nil {
 		return result, err
 	}
