@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 # renovate: datasource=github-tags depName=go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=llama.cpp-f4cef87
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt4all-j.cpp currentValueTemplate=master depNameTemplate=go-gpt4all-j.cpp
-GOGPT4ALLJ_VERSION?=d57834a2d24e8be64c78b9496a870d18393066fd
+GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt2.cpp currentValueTemplate=master depNameTemplate=go-gpt2.cpp
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 
@@ -56,15 +56,9 @@ go-gpt4all-j:
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/json_/json_gptj_/g' {} +
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/void replace/void json_gptj_replace/g' {} +
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
-	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/llama_/gptj_llama_/g' {} +
-	@find ./go-gpt4all-j -type f -name "*.h" -exec sed -i'' -e 's/llama_/gptj_llama_/g' {} +
-	@find ./go-gpt4all-j -type f -name "*" -exec sed -i'' -e 's/set_console_color/gptj_set_console_color/g' {} +
-	@find ./go-gpt4all-j -type f -name "*.txt" -exec sed -i'' -e 's/llama_/gptj_llama_/g' {} +
-	@find ./go-gpt4all-j -type f -name "Makefile" -exec sed -i'' -e 's/llama_/gptj_llama_/g' {} +
-	@mv ./go-gpt4all-j/gpt4all-j/llmodel/llama.cpp/llama_util.h ./go-gpt4all-j/gpt4all-j/llmodel/llama.cpp/gptj_llama_util.h
 
 go-gpt4all-j/libgptj.a: go-gpt4all-j
-	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a example
+	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a
 
 # CEREBRAS GPT
 go-gpt2:
