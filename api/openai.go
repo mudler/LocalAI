@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -245,7 +246,7 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 
 		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
 			*c = append(*c, Choice{Text: s})
-		})
+		}, nil)
 		if err != nil {
 			return err
 		}
@@ -290,8 +291,9 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 
 		if input.Stream {
 			log.Debug().Msgf("Stream request received")
+			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
-			c.Set("Content-Type", "text/event-stream; charset=utf-8")
+			//	c.Set("Content-Type", "text/event-stream")
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
@@ -312,13 +314,52 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 			log.Debug().Msgf("Template found, input modified to: %s", predInput)
 		}
 
+		if input.Stream {
+			responses := make(chan OpenAIResponse)
+
+			go func() {
+				ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {}, func(s string) bool {
+					resp := OpenAIResponse{
+						Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+						Choices: []Choice{{Delta: &Message{Role: "assistant", Content: s}}},
+						Object:  "chat.completion.chunk",
+					}
+
+					responses <- resp
+					return true
+				})
+				close(responses)
+			}()
+
+			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+
+				for ev := range responses {
+					var buf bytes.Buffer
+					enc := json.NewEncoder(&buf)
+					enc.Encode(ev)
+
+					fmt.Fprintf(w, "event: data\n\n")
+					fmt.Fprintf(w, "data: %v\n\n", buf.String())
+					log.Debug().Msgf("Sending chunk: %s", buf.String())
+					w.Flush()
+				}
+
+				w.WriteString("event: data\n\n")
+				resp := &OpenAIResponse{
+					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Choices: []Choice{{FinishReason: "stop"}},
+				}
+				respData, _ := json.Marshal(resp)
+
+				w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
+				w.Flush()
+			}))
+			return nil
+		}
+
 		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
-			if input.Stream {
-				*c = append(*c, Choice{Delta: &Message{Role: "assistant", Content: s}})
-			} else {
-				*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: s}})
-			}
-		})
+			*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: s}})
+		}, nil)
 		if err != nil {
 			return err
 		}
@@ -327,36 +368,6 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "chat.completion",
-		}
-
-		if input.Stream {
-			resp.Object = "chat.completion.chunk"
-			jsonResult, _ := json.Marshal(resp)
-			log.Debug().Msgf("Response: %s", jsonResult)
-			log.Debug().Msgf("Handling stream request")
-			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
-				fmt.Fprintf(w, "event: data\n")
-				w.Flush()
-
-				fmt.Fprintf(w, "data: %s\n\n", jsonResult)
-				w.Flush()
-
-				fmt.Fprintf(w, "event: data\n")
-				w.Flush()
-
-				resp := &OpenAIResponse{
-					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []Choice{{FinishReason: "stop"}},
-				}
-				respData, _ := json.Marshal(resp)
-
-				fmt.Fprintf(w, "data: %s\n\n", respData)
-				w.Flush()
-
-				//	fmt.Fprintf(w, "data: [DONE]\n\n")
-				//		w.Flush()
-			}))
-			return nil
 		}
 
 		// Return the prediction in the response body
@@ -392,7 +403,7 @@ func editEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 
 		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
 			*c = append(*c, Choice{Text: s})
-		})
+		}, nil)
 		if err != nil {
 			return err
 		}
