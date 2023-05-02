@@ -3,9 +3,9 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 # renovate: datasource=github-tags depName=go-skynet/go-llama.cpp
-GOLLAMA_VERSION?=llama.cpp-7f15c5c
+GOLLAMA_VERSION?=llama.cpp-f4cef87
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt4all-j.cpp currentValueTemplate=master depNameTemplate=go-gpt4all-j.cpp
-GOGPT4ALLJ_VERSION?=d57834a2d24e8be64c78b9496a870d18393066fd
+GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt2.cpp currentValueTemplate=master depNameTemplate=go-gpt2.cpp
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 
@@ -46,7 +46,7 @@ generic-build: ## Build the project using generic
 ## GPT4ALL-J
 go-gpt4all-j:
 	git clone --recurse-submodules https://github.com/go-skynet/go-gpt4all-j.cpp go-gpt4all-j
-	cd go-gpt4all-j && git checkout -b build $(GOGPT4ALLJ_VERSION)
+	cd go-gpt4all-j && git checkout -b build $(GOGPT4ALLJ_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./go-gpt4all-j -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
@@ -58,12 +58,12 @@ go-gpt4all-j:
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
 
 go-gpt4all-j/libgptj.a: go-gpt4all-j
-	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a example
+	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a
 
 # CEREBRAS GPT
 go-gpt2:
 	git clone --recurse-submodules https://github.com/go-skynet/go-gpt2.cpp go-gpt2
-	cd go-gpt2 && git checkout -b build $(GOGPT2_VERSION)
+	cd go-gpt2 && git checkout -b build $(GOGPT2_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./go-gpt2 -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gpt2_/g' {} +
 	@find ./go-gpt2 -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gpt2_/g' {} +
