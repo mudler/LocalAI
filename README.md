@@ -382,6 +382,58 @@ Or build the binary with `make`:
 make build
 ```
 
+## Build on mac & chatbot-ui example
+
+Building on Mac (M1 or M2) works, but you may need to install some prerequisites using brew. The below has been tested by one mac user and found to work. Note that this doesn't use docker to run the server:
+
+```
+# install build dependencies
+brew install cmake
+brew install go
+
+# clone the repo
+git clone https://github.com/go-skynet/LocalAI.git
+
+cd LocalAI
+
+# build the binary
+make build
+
+# Download gpt4all-j to models/
+wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
+
+# Use a template from the examples
+cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
+
+# Run LocalAI
+./local-ai --models-path ./models/ --debug
+
+# Now API is accessible at localhost:8080
+curl http://localhost:8080/v1/models
+
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "ggml-gpt4all-j",
+     "messages": [{"role": "user", "content": "How are you?"}],
+     "temperature": 0.9 
+   }'
+```
+
+You can now access the service from anywhere that you can reach your mac from. If you want to use the [chatbot-ui example](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) with this, you can alter it's `Dockerfile` so it looks like the below. Take care to update the IP address that the chatbot-ui service tries to access (marked `<<YOURMACIP>>` below):
+```
+version: '3.6'
+
+services:
+  chatgpt:
+    image: ghcr.io/mckaywrigley/chatbot-ui:main
+    ports:
+      - 3000:3000
+    environment:
+      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
+      - 'OPENAI_API_HOST=http://<<YOURMACIP>>:8080'
+```
+
+Once you've edited the Dockerfile, you can start it with `docker compose up`, then browse to `http://localhost:3000`.
+
 ## Frequently asked questions
 
 Here are answers to some of the most common questions.
