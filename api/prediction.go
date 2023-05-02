@@ -17,6 +17,9 @@ import (
 var mutexMap sync.Mutex
 var mutexes map[string]*sync.Mutex = make(map[string]*sync.Mutex)
 
+var loadedModels map[string]interface{} = map[string]interface{}{}
+var muModels sync.Mutex
+
 func backendLoader(backendString string, loader *model.ModelLoader, modelFile string, llamaOpts []llama.ModelOption) (model interface{}, err error) {
 	switch strings.ToLower(backendString) {
 	case "llama":
@@ -33,8 +36,23 @@ func backendLoader(backendString string, loader *model.ModelLoader, modelFile st
 }
 
 func greedyLoader(loader *model.ModelLoader, modelFile string, llamaOpts []llama.ModelOption) (model interface{}, err error) {
+	updateModels := func(model interface{}) {
+		muModels.Lock()
+		defer muModels.Unlock()
+		loadedModels[modelFile] = model
+	}
+
+	muModels.Lock()
+	m, exists := loadedModels[modelFile]
+	if exists {
+		muModels.Unlock()
+		return m, nil
+	}
+	muModels.Unlock()
+
 	model, modelerr := loader.LoadLLaMAModel(modelFile, llamaOpts...)
 	if modelerr == nil {
+		updateModels(model)
 		return model, nil
 	} else {
 		err = multierror.Append(err, modelerr)
@@ -42,6 +60,7 @@ func greedyLoader(loader *model.ModelLoader, modelFile string, llamaOpts []llama
 
 	model, modelerr = loader.LoadGPTJModel(modelFile)
 	if modelerr == nil {
+		updateModels(model)
 		return model, nil
 	} else {
 		err = multierror.Append(err, modelerr)
@@ -49,6 +68,7 @@ func greedyLoader(loader *model.ModelLoader, modelFile string, llamaOpts []llama
 
 	model, modelerr = loader.LoadGPT2Model(modelFile)
 	if modelerr == nil {
+		updateModels(model)
 		return model, nil
 	} else {
 		err = multierror.Append(err, modelerr)
@@ -56,6 +76,7 @@ func greedyLoader(loader *model.ModelLoader, modelFile string, llamaOpts []llama
 
 	model, modelerr = loader.LoadStableLMModel(modelFile)
 	if modelerr == nil {
+		updateModels(model)
 		return model, nil
 	} else {
 		err = multierror.Append(err, modelerr)
