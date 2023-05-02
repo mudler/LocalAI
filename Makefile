@@ -9,14 +9,16 @@ GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt2.cpp currentValueTemplate=master depNameTemplate=go-gpt2.cpp
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 
+RWKV_VERSION?=4bd540ef7e5d872a84af57c686b45353ec4825a2
+
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
 WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
-C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2
-LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2
+C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv
+LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv
 
 # Use this if you want to set the default behavior
 ifndef BUILD_TYPE
@@ -57,6 +59,14 @@ go-gpt4all-j:
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/void replace/void json_gptj_replace/g' {} +
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
 
+go-rwkv:
+	git clone --recurse-submodules https://github.com/donomii/go-rwkv.cpp go-rwkv
+	cd go-rwkv && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1 && go mod init github.com/donomii/go-rwkv.cpp
+	@sed -i.bak -e 's/ -lrwkv/ -lrwkv -lggml/g' go-rwkv/wrapper.go
+
+go-rwkv/librwkv.a: go-rwkv
+	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a .. && cp ggml/src/libggml.a ..
+
 go-gpt4all-j/libgptj.a: go-gpt4all-j
 	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a
 
@@ -86,8 +96,9 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt4all-j.cpp=$(shell pwd)/go-gpt4all-j
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt2.cpp=$(shell pwd)/go-gpt2
+	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
 
-prepare-sources: go-llama go-gpt2 go-gpt4all-j
+prepare-sources: go-llama go-gpt2 go-gpt4all-j go-rwkv
 	$(GOCMD) mod download
 
 rebuild:
@@ -96,7 +107,7 @@ rebuild:
 	$(MAKE) -C go-gpt2 clean
 	$(MAKE) build
 
-prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a replace
+prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a go-rwkv/librwkv.a replace
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
