@@ -382,7 +382,7 @@ Or build the binary with `make`:
 make build
 ```
 
-## Build on mac & chatbot-ui example
+## Build on mac
 
 Building on Mac (M1 or M2) works, but you may need to install some prerequisites using brew. The below has been tested by one mac user and found to work. Note that this doesn't use docker to run the server:
 
@@ -418,21 +418,6 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
    }'
 ```
 
-You can now access the service from anywhere that you can reach your mac from. If you want to use the [chatbot-ui example](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) with this, you can alter it's `Dockerfile` so it looks like the below. Take care to update the IP address that the chatbot-ui service tries to access (marked `<<YOURMACIP>>` below):
-```
-version: '3.6'
-
-services:
-  chatgpt:
-    image: ghcr.io/mckaywrigley/chatbot-ui:main
-    ports:
-      - 3000:3000
-    environment:
-      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
-      - 'OPENAI_API_HOST=http://<<YOURMACIP>>:8080'
-```
-
-Once you've edited the Dockerfile, you can start it with `docker compose up`, then browse to `http://localhost:3000`.
 
 ## Frequently asked questions
 
