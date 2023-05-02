@@ -46,7 +46,7 @@ generic-build: ## Build the project using generic
 ## GPT4ALL-J
 go-gpt4all-j:
 	git clone --recurse-submodules https://github.com/go-skynet/go-gpt4all-j.cpp go-gpt4all-j
-	cd go-gpt4all-j && git checkout -b build $(GOGPT4ALLJ_VERSION)
+	cd go-gpt4all-j && git checkout -b build $(GOGPT4ALLJ_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./go-gpt4all-j -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
@@ -63,7 +63,7 @@ go-gpt4all-j/libgptj.a: go-gpt4all-j
 # CEREBRAS GPT
 go-gpt2:
 	git clone --recurse-submodules https://github.com/go-skynet/go-gpt2.cpp go-gpt2
-	cd go-gpt2 && git checkout -b build $(GOGPT2_VERSION)
+	cd go-gpt2 && git checkout -b build $(GOGPT2_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./go-gpt2 -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gpt2_/g' {} +
 	@find ./go-gpt2 -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gpt2_/g' {} +
