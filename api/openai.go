@@ -119,7 +119,9 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 
 	switch stop := input.Stop.(type) {
 	case string:
-		config.StopWords = append(config.StopWords, stop)
+		if stop != "" {
+			config.StopWords = append(config.StopWords, stop)
+		}
 	case []string:
 		config.StopWords = append(config.StopWords, stop...)
 

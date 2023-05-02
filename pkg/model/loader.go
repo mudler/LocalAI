@@ -168,13 +168,6 @@ func (ml *ModelLoader) LoadGPT2Model(modelName string) (*gpt2.GPT2, error) {
 		return m, nil
 	}
 
-	// TODO: This needs refactoring, it's really bad to have it in here
-	// Check if we have a GPTStable model loaded instead - if we do we return an error so the API tries with StableLM
-	if _, ok := ml.gptstablelmmodels[modelName]; ok {
-		log.Debug().Msgf("Model is GPTStableLM: %s", modelName)
-		return nil, fmt.Errorf("this model is a GPTStableLM one")
-	}
-
 	// Load the model and keep it in memory for later use
 	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
@@ -205,17 +198,6 @@ func (ml *ModelLoader) LoadGPTJModel(modelName string) (*gptj.GPTJ, error) {
 	if m, ok := ml.gptmodels[modelName]; ok {
 		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
 		return m, nil
-	}
-
-	// TODO: This needs refactoring, it's really bad to have it in here
-	// Check if we have a GPT2 model loaded instead - if we do we return an error so the API tries with GPT2
-	if _, ok := ml.gpt2models[modelName]; ok {
-		log.Debug().Msgf("Model is GPT2: %s", modelName)
-		return nil, fmt.Errorf("this model is a GPT2 one")
-	}
-	if _, ok := ml.gptstablelmmodels[modelName]; ok {
-		log.Debug().Msgf("Model is GPTStableLM: %s", modelName)
-		return nil, fmt.Errorf("this model is a GPTStableLM one")
 	}
 
 	// Load the model and keep it in memory for later use
@@ -250,21 +232,6 @@ func (ml *ModelLoader) LoadLLaMAModel(modelName string, opts ...llama.ModelOptio
 	if m, ok := ml.models[modelName]; ok {
 		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
 		return m, nil
-	}
-
-	// TODO: This needs refactoring, it's really bad to have it in here
-	// Check if we have a GPTJ model loaded instead - if we do we return an error so the API tries with GPTJ
-	if _, ok := ml.gptmodels[modelName]; ok {
-		log.Debug().Msgf("Model is GPTJ: %s", modelName)
-		return nil, fmt.Errorf("this model is a GPTJ one")
-	}
-	if _, ok := ml.gpt2models[modelName]; ok {
-		log.Debug().Msgf("Model is GPT2: %s", modelName)
-		return nil, fmt.Errorf("this model is a GPT2 one")
-	}
-	if _, ok := ml.gptstablelmmodels[modelName]; ok {
-		log.Debug().Msgf("Model is GPTStableLM: %s", modelName)
-		return nil, fmt.Errorf("this model is a GPTStableLM one")
 	}
 
 	// Load the model and keep it in memory for later use
