@@ -1,10 +1,12 @@
 # langchain
 
-Example of using langchain in TypeScript, with the standard OpenAI llm module, and LocalAI.
+Example of using langchain, with the standard OpenAI llm module, and LocalAI.
 
-Example for python langchain to follow at a later date
-
+## Typescript
 Set up to make it easy to modify the `index.mts` file to look like any langchain example file.
+
+## Python
+
 
 **Please Note** - This is a tech demo example at this time. ggml-gpt4all-j has pretty terrible results for most langchain applications with the settings used in this example.
 

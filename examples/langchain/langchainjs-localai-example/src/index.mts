@@ -4,7 +4,7 @@ import { Document } from "langchain/document";
 import { initializeAgentExecutorWithOptions } from "langchain/agents";
 import {Calculator} from "langchain/tools/calculator";
 
-const pathToLocalAi = process.env['OPENAI_API_HOST'] || 'http://api:8080/v1';
+const pathToLocalAi = process.env['OPENAI_API_BASE'] || 'http://api:8080/v1';
 const fakeApiKey = process.env['OPENAI_API_KEY'] || '-';
 const modelName = process.env['MODEL_NAME'] || 'gpt-3.5-turbo';
 
