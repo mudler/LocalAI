@@ -382,6 +382,43 @@ Or build the binary with `make`:
 make build
 ```
 
+## Build on mac
+
+Building on Mac (M1 or M2) works, but you may need to install some prerequisites using brew. The below has been tested by one mac user and found to work. Note that this doesn't use docker to run the server:
+
+```
+# install build dependencies
+brew install cmake
+brew install go
+
+# clone the repo
+git clone https://github.com/go-skynet/LocalAI.git
+
+cd LocalAI
+
+# build the binary
+make build
+
+# Download gpt4all-j to models/
+wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
+
+# Use a template from the examples
+cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
+
+# Run LocalAI
+./local-ai --models-path ./models/ --debug
+
+# Now API is accessible at localhost:8080
+curl http://localhost:8080/v1/models
+
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "ggml-gpt4all-j",
+     "messages": [{"role": "user", "content": "How are you?"}],
+     "temperature": 0.9 
+   }'
+```
+
+
 ## Frequently asked questions
 
 Here are answers to some of the most common questions.
