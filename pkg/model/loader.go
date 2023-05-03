@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	rwkv "github.com/donomii/go-rwkv.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
 	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
@@ -25,8 +26,8 @@ type ModelLoader struct {
 	gptmodels         map[string]*gptj.GPTJ
 	gpt2models        map[string]*gpt2.GPT2
 	gptstablelmmodels map[string]*gpt2.StableLM
-
-	promptsTemplates map[string]*template.Template
+	rwkv              map[string]*rwkv.RwkvState
+	promptsTemplates  map[string]*template.Template
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
@@ -36,6 +37,7 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		gptmodels:         make(map[string]*gptj.GPTJ),
 		gptstablelmmodels: make(map[string]*gpt2.StableLM),
 		models:            make(map[string]*llama.LLama),
+		rwkv:              make(map[string]*rwkv.RwkvState),
 		promptsTemplates:  make(map[string]*template.Template),
 	}
 }
@@ -216,6 +218,36 @@ func (ml *ModelLoader) LoadGPTJModel(modelName string) (*gptj.GPTJ, error) {
 
 	ml.gptmodels[modelName] = model
 	return model, err
+}
+
+func (ml *ModelLoader) LoadRWKV(modelName, tokenFile string, threads uint32) (*rwkv.RwkvState, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	log.Debug().Msgf("Loading model name: %s", modelName)
+
+	// Check if we already have a loaded model
+	if !ml.ExistsInModelPath(modelName) {
+		return nil, fmt.Errorf("model does not exist")
+	}
+
+	if m, ok := ml.rwkv[modelName]; ok {
+		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
+		return m, nil
+	}
+
+	// Load the model and keep it in memory for later use
+	modelFile := filepath.Join(ml.ModelPath, modelName)
+	tokenPath := filepath.Join(ml.ModelPath, tokenFile)
+	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
+
+	model := rwkv.LoadFiles(modelFile, tokenPath, threads)
+	if model == nil {
+		return nil, fmt.Errorf("could not load model")
+	}
+
+	ml.rwkv[modelName] = model
+	return model, nil
 }
 
 func (ml *ModelLoader) LoadLLaMAModel(modelName string, opts ...llama.ModelOption) (*llama.LLama, error) {

@@ -15,7 +15,7 @@
 - Supports multiple-models
 - Once loaded the first time, it keep models loaded in memory for faster inference
 - Support for prompt templates
-- Doesn't shell-out, but uses C bindings for a faster inference and better performance. Uses [go-llama.cpp](https://github.com/go-skynet/go-llama.cpp) and [go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp).
+- Doesn't shell-out, but uses C bindings for a faster inference and better performance. 
 
 LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
@@ -39,6 +39,7 @@ Tested with:
 - [GPT4ALL-J](https://gpt4all.io/models/ggml-gpt4all-j.bin)
 - Koala
 - [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml)
+- [RWKV](https://github.com/BlinkDL/RWKV-LM) with [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp)
 
 It should also be compatible with StableLM and GPTNeoX ggml models (untested)
 
@@ -505,6 +506,13 @@ Feel free to open up a PR to get your project listed!
 LocalAI is a community-driven project. It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
 MIT
+
+## Golang bindings used
+
+- [go-skynet/go-llama.cpp](https://github.com/go-skynet/go-llama.cpp)
+- [go-skynet/go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp)
+- [go-skynet/go-gpt2.cpp](https://github.com/go-skynet/go-gpt2.cpp)
+- [donomii/go-rwkv.cpp](https://github.com/donomii/go-rwkv.cpp)
 
 ## Acknowledgements
 
