@@ -1,7 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
+
+	
 
 	api "github.com/go-skynet/LocalAI/api"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -48,7 +52,7 @@ func main() {
 				Name:        "models-path",
 				DefaultText: "Path containing models used for inferencing",
 				EnvVars:     []string{"MODELS_PATH"},
-				Value:       path,
+				Value:       filepath.Join(path, "models"),
 			},
 			&cli.StringFlag{
 				Name:        "config-file",
@@ -85,6 +89,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		UsageText: `local-ai [options]`,
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
+			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
 			return api.App(ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path")), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false).Listen(ctx.String("address"))
 		},
 	}
