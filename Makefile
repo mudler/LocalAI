@@ -131,6 +131,9 @@ test: prepare test-models/testmodel
 	cp tests/fixtures/* test-models
 	@C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) test -v -timeout 30m ./...
 
+swagger:
+	swag init -g api/api.go --output docs/swagger
+
 ## Help:
 help: ## Show this help.
 	@echo ''

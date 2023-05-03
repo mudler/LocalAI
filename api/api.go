@@ -3,14 +3,31 @@ package api
 import (
 	"errors"
 
+	_ "github.com/go-skynet/LocalAI/docs/swagger"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	swagger "github.com/gofiber/swagger"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
+// @title LocalAI API
+// @version 2.0
+// @description LocalAI is a drop-in replacement for OpenAI to enable local models inferencing with ggml.
+// @termsOfService xxx
+
+// @contact.name API Support
+// @contact.url xxx
+// @contact.email xxx
+
+// @license.name MIT
+// @license.url xxx
+
+// @host localhost:8080
+// @BasePath /
+// @schemes http
 func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disableMessage bool) *fiber.App {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if debug {
@@ -60,7 +77,8 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 	app.Use(recover.New())
 	app.Use(cors.New())
 
-	// openAI compatible API endpoint
+	app.Get("/swagger/*", swagger.HandlerDefault) // default
+
 	app.Post("/v1/chat/completions", chatEndpoint(cm, debug, loader, threads, ctxSize, f16))
 	app.Post("/chat/completions", chatEndpoint(cm, debug, loader, threads, ctxSize, f16))
 

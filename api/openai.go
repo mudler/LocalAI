@@ -16,6 +16,7 @@ import (
 )
 
 // APIError provides error information returned by the OpenAI API.
+// @Description Error returned by the API
 type APIError struct {
 	Code    any     `json:"code,omitempty"`
 	Message string  `json:"message"`
@@ -50,6 +51,8 @@ type Choice struct {
 	Text         string   `json:"text,omitempty"`
 }
 
+// Chat Message
+// @Description Message with a content and a role
 type Message struct {
 	Role    string `json:"role,omitempty" yaml:"role"`
 	Content string `json:"content,omitempty" yaml:"content"`
@@ -234,7 +237,21 @@ func readConfig(cm ConfigMerger, c *fiber.Ctx, loader *model.ModelLoader, debug 
 	return config, input, nil
 }
 
-// https://platform.openai.com/docs/api-reference/completions
+// OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/completions
+// chatEndpoint godoc
+// @Summary Chat completions.
+// @Description Allows to generate completions for a given prompt and model.
+// @Tags root
+// @Accept json
+// @Produce json
+// @Param prompt body string true "The prompt to generate completions for."
+// @Param model body string true "The ID of the model to use."
+// @Param max_tokens body integer false "The maximum number of tokens to generate in the completion."
+// @Param n body integer false "How many completions to generate for each prompt."
+// @Param temperature body float64 false "The sampling temperature to use when generating completions."
+// @Param stop body string false "Sequence where the API will stop generating further tokens"
+// @Success 200 {object} map[string]interface{}
+// @Router /v1/completions [post]
 func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
@@ -298,6 +315,21 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 	}
 }
 
+// OpenAI CHAT API endpoint for generating model-based text completions
+// chatEndpoint mimics the /chat/completions endpoint with local models
+// @Summary Generate Model-based Text Completions
+// @Description Generates text completions based on the provided prompt and previous messages, using a pre-trained language model.
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param model body string true "The name of the pre-trained language model to use for generating text completions."
+// @Param messages body []Message true "The list of previous messages exchanged with the language model, including the user's messages and the model's responses."
+// @Param temperature body number false "The sampling temperature to use when generating text completions. Must be between 0 and 1. Higher values result in more diverse completions, while lower values result in more conservative completions." default(0.5)
+// @Success 200 {object} OpenAIResponse
+// @Failure 400 {object} APIError
+// @Failure 401 {object} APIError
+// @Failure 500 {object} APIError
+// @Router /v1/chat/completions [post]
 func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
