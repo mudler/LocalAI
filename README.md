@@ -39,7 +39,7 @@ Tested with:
 - [GPT4ALL-J](https://gpt4all.io/models/ggml-gpt4all-j.bin)
 - Koala
 - [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml)
-- [RWKV](https://github.com/BlinkDL/RWKV-LM) with [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp)
+- [RWKV](https://github.com/BlinkDL/RWKV-LM) models with [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp)
 
 It should also be compatible with StableLM and GPTNeoX ggml models (untested)
 
@@ -145,11 +145,26 @@ The below instruction describes a task. Write a response that appropriately comp
 
 See the [prompt-templates](https://github.com/go-skynet/LocalAI/tree/master/prompt-templates) directory in this repository for templates for some of the most popular models.
 
+
+For the edit endpoint, an example template for alpaca-based models can be:
+
+```yaml
+Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+
+### Instruction:
+{{.Instruction}}
+
+### Input:
+{{.Input}}
+
+### Response:
+```
+
 </details>
 
 ## Installation
 
-Currently LocalAI comes as container images and can be used with docker or a containre engine of choice. 
+Currently LocalAI comes as a container image and can be used with docker or a container engine of choice. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
 
 ### Run LocalAI in Kubernetes
 
@@ -224,7 +239,7 @@ You should see:
 You can control the API server options with command line arguments:
 
 ```
-local-api --models-path <model_path> [--address <address>] [--threads <num_threads>]
+local-ai --models-path <model_path> [--address <address>] [--threads <num_threads>]
 ```
 
 The API takes takes the following parameters:
@@ -267,6 +282,24 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 ```
 
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
+</details>
+
+#### Edit completions
+
+<details>
+To generate an edit completion you can send a POST request to the `/v1/edits` endpoint with the instruction as the request body:
+
+```
+curl http://localhost:8080/v1/edits -H "Content-Type: application/json" -d '{
+     "model": "ggml-koala-7b-model-q4_0-r2.bin",
+     "instruction": "rephrase",
+     "input": "Black cat jumped out of the window",
+     "temperature": 0.7
+   }'
+```
+
+Available additional parameters: `top_p`, `top_k`, `max_tokens`.
+
 </details>
 
 #### Completions
@@ -322,6 +355,7 @@ roles:
 template:
   completion: completion
   chat: ggml-gpt4all-j
+  edit: edit-template
 ```
 
 Specifying a `config-file` via CLI allows to declare models in a single file as a list, for instance:
