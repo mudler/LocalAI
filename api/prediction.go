@@ -14,6 +14,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
+const tokenizerSuffix = ".tokenizer.json"
+
 // mutex still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
 var mutexMap sync.Mutex
 var mutexes map[string]*sync.Mutex = make(map[string]*sync.Mutex)
@@ -32,7 +34,7 @@ func backendLoader(backendString string, loader *model.ModelLoader, modelFile st
 	case "gptj":
 		return loader.LoadGPTJModel(modelFile)
 	case "rwkv":
-		return loader.LoadRWKV(modelFile, modelFile+".token.json", threads)
+		return loader.LoadRWKV(modelFile, modelFile+tokenizerSuffix, threads)
 	default:
 		return nil, fmt.Errorf("backend unsupported: %s", backendString)
 	}
@@ -85,7 +87,7 @@ func greedyLoader(loader *model.ModelLoader, modelFile string, llamaOpts []llama
 		err = multierror.Append(err, modelerr)
 	}
 
-	model, modelerr = loader.LoadRWKV(modelFile, modelFile+".token.json", threads)
+	model, modelerr = loader.LoadRWKV(modelFile, modelFile+tokenizerSuffix, threads)
 	if modelerr == nil {
 		updateModels(model)
 		return model, nil
