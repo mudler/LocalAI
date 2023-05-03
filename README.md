@@ -45,6 +45,20 @@ It should also be compatible with StableLM and GPTNeoX ggml models (untested)
 
 Note: You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
 
+### RWKV
+
+<details>
+
+For `rwkv` models, you need to put also the associated tokenizer along with the ggml model:
+
+```
+ls models
+36464540 -rw-r--r--  1 mudler mudler 1.2G May  3 10:51 rwkv_small
+36464543 -rw-r--r--  1 mudler mudler 2.4M May  3 10:51 rwkv_small.tokenizer.json
+```
+
+</details>
+
 ## Usage
 
 > `LocalAI` comes by default as a container image. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
@@ -162,13 +176,81 @@ Below is an instruction that describes a task, paired with an input that provide
 
 </details>
 
-## Installation
+## Setup
 
 Currently LocalAI comes as a container image and can be used with docker or a container engine of choice. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
 
+
+## Build locally
+
+<details>
+
+In order to build the `LocalAI` container image locally you can use `docker`:
+
+```
+# build the image
+docker build -t LocalAI .
+docker run LocalAI
+```
+
+Or you can build the binary with `make`:
+
+```
+make build
+```
+
+</details>
+
+## Build on mac
+
+Building on Mac (M1 or M2) works, but you may need to install some prerequisites using `brew`. 
+
+<details>
+
+The below has been tested by one mac user and found to work. Note that this doesn't use docker to run the server:
+
+```
+# install build dependencies
+brew install cmake
+brew install go
+
+# clone the repo
+git clone https://github.com/go-skynet/LocalAI.git
+
+cd LocalAI
+
+# build the binary
+make build
+
+# Download gpt4all-j to models/
+wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
+
+# Use a template from the examples
+cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
+
+# Run LocalAI
+./local-ai --models-path ./models/ --debug
+
+# Now API is accessible at localhost:8080
+curl http://localhost:8080/v1/models
+
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "ggml-gpt4all-j",
+     "messages": [{"role": "user", "content": "How are you?"}],
+     "temperature": 0.9 
+   }'
+```
+
+</details>
+
+## Windows compatibility
+
+It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
+
 ### Run LocalAI in Kubernetes
 
-LocalAI can be installed inside Kubernetes with helm. 
+LocalAI can be installed inside Kubernetes with helm.
+
 <details>
 
 1. Add the helm repo
@@ -336,26 +418,51 @@ curl http://localhost:8080/v1/models
 LocalAI can be configured to serve user-defined models with a set of default parameters and templates.
 
 <details>
-You can create multiple `yaml` files in the models path or either specify a single YAML configuration file.
 
-For instance, a configuration file (`gpt-3.5-turbo.yaml`) can be declaring the "gpt-3.5-turbo" model but backed by the "testmodel" model file:
+You can create multiple `yaml` files in the models path or either specify a single YAML configuration file. 
+Consider the following `models` folder in the `example/chatbot-ui`:
+
+```
+base ❯ ls -liah examples/chatbot-ui/models 
+36487587 drwxr-xr-x 2 mudler mudler 4.0K May  3 12:27 .
+36487586 drwxr-xr-x 3 mudler mudler 4.0K May  3 10:42 ..
+36465214 -rw-r--r-- 1 mudler mudler   10 Apr 27 07:46 completion.tmpl
+36464855 -rw-r--r-- 1 mudler mudler 3.6G Apr 27 00:08 ggml-gpt4all-j
+36464537 -rw-r--r-- 1 mudler mudler  245 May  3 10:42 gpt-3.5-turbo.yaml
+36467388 -rw-r--r-- 1 mudler mudler  180 Apr 27 07:46 gpt4all.tmpl
+```
+
+In the `gpt-3.5-turbo.yaml` file it is defined the `gpt-3.5-turbo` model which is an alias to use `gpt4all-j` with pre-defined options.
+
+For instance, consider the following that declares `gpt-3.5-turbo` backed by the `ggml-gpt4all-j` model:
 
 ```yaml
 name: gpt-3.5-turbo
+# Default model parameters
 parameters:
-  model: testmodel
+  # Relative to the models path
+  model: ggml-gpt4all-j
+  # temperature
+  temperature: 0.3
+  # all the OpenAI request options here..
+
+# Default context size
 context_size: 512
 threads: 10
+# Define a backend (optional). By default it will try to guess the backend the first time the model is interacted with.
+backend: gptj # available: llama, stablelm, gpt2, gptj rwkv
+# stopwords (if supported by the backend)
 stopwords:
 - "HUMAN:"
 - "### Response:"
+# define chat roles
 roles:
   user: "HUMAN:"
   system: "GPT:"
 template:
+  # template file ".tmpl" with the prompt template to use by default on the endpoint call. Note there is no extension in the files
   completion: completion
   chat: ggml-gpt4all-j
-  edit: edit-template
 ```
 
 Specifying a `config-file` via CLI allows to declare models in a single file as a list, for instance:
@@ -388,71 +495,12 @@ Specifying a `config-file` via CLI allows to declare models in a single file as 
     system: "GPT:"
   template:
     completion: completion
-    chat: ggml-gpt4all-j
+   chat: ggml-gpt4all-j
 ```
 
 See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
 
 </details>
-
-## Windows compatibility
-
-It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
-
-## Build locally
-
-Pre-built images might fit well for most of the modern hardware, however you can and might need to build the images manually.
-
-In order to build the `LocalAI` container image locally you can use `docker`:
-
-```
-# build the image
-docker build -t LocalAI .
-docker run LocalAI
-```
-
-Or build the binary with `make`:
-
-```
-make build
-```
-
-## Build on mac
-
-Building on Mac (M1 or M2) works, but you may need to install some prerequisites using brew. The below has been tested by one mac user and found to work. Note that this doesn't use docker to run the server:
-
-```
-# install build dependencies
-brew install cmake
-brew install go
-
-# clone the repo
-git clone https://github.com/go-skynet/LocalAI.git
-
-cd LocalAI
-
-# build the binary
-make build
-
-# Download gpt4all-j to models/
-wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
-
-# Use a template from the examples
-cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
-
-# Run LocalAI
-./local-ai --models-path ./models/ --debug
-
-# Now API is accessible at localhost:8080
-curl http://localhost:8080/v1/models
-
-curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-     "model": "ggml-gpt4all-j",
-     "messages": [{"role": "user", "content": "How are you?"}],
-     "temperature": 0.9 
-   }'
-```
-
 
 ## Frequently asked questions
 
