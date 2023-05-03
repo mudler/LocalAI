@@ -9,7 +9,7 @@
 
 [![](https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted)](https://discord.gg/uJAeKSAGDy) 
 
-**LocalAI** is a straightforward, drop-in replacement API compatible with OpenAI for local CPU inferencing, based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all), [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is licensed under Apache 2.0.
+**LocalAI** is a drop-in replacement REST API compatible with OpenAI for local CPU inferencing. It allows to run models locally or on-prem with consumer grade hardware. It is based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all), [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is licensed under Apache 2.0.
 
 - OpenAI compatible API
 - Supports multiple-models
@@ -19,7 +19,13 @@
 
 LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
+### News
+
+- 02-05-2023: Support for `rwkv.cpp` models ( https://github.com/go-skynet/LocalAI/pull/158 ) and for `/edits` endpoint
+- 01-05-2023: Support for SSE stream of tokens in `llama.cpp` backends ( https://github.com/go-skynet/LocalAI/pull/152 )
+
 ### Socials and community chatter
+
 - Follow [@LocalAI_API](https://twitter.com/LocalAI_API) on twitter.
 
 - [Reddit post](https://www.reddit.com/r/selfhosted/comments/12w4p2f/localai_openai_compatible_api_to_run_llm_models/) about LocalAI.
@@ -39,11 +45,25 @@ Tested with:
 - [GPT4ALL-J](https://gpt4all.io/models/ggml-gpt4all-j.bin)
 - Koala
 - [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml)
-- [RWKV](https://github.com/BlinkDL/RWKV-LM) with [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp)
+- [RWKV](https://github.com/BlinkDL/RWKV-LM) models with [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp)
 
 It should also be compatible with StableLM and GPTNeoX ggml models (untested)
 
 Note: You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
+
+### RWKV
+
+<details>
+
+For `rwkv` models, you need to put also the associated tokenizer along with the ggml model:
+
+```
+ls models
+36464540 -rw-r--r--  1 mudler mudler 1.2G May  3 10:51 rwkv_small
+36464543 -rw-r--r--  1 mudler mudler 2.4M May  3 10:51 rwkv_small.tokenizer.json
+```
+
+</details>
 
 ## Usage
 
@@ -121,13 +141,103 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 To build locally, run `make build` (see below).
 
-## Other examples
+### Other examples
 
 ![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)
 
 To see other examples on how to integrate with other projects for instance chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
-## Prompt templates 
+
+### Advanced configuration
+
+LocalAI can be configured to serve user-defined models with a set of default parameters and templates.
+
+<details>
+
+You can create multiple `yaml` files in the models path or either specify a single YAML configuration file. 
+Consider the following `models` folder in the `example/chatbot-ui`:
+
+```
+base ❯ ls -liah examples/chatbot-ui/models 
+36487587 drwxr-xr-x 2 mudler mudler 4.0K May  3 12:27 .
+36487586 drwxr-xr-x 3 mudler mudler 4.0K May  3 10:42 ..
+36465214 -rw-r--r-- 1 mudler mudler   10 Apr 27 07:46 completion.tmpl
+36464855 -rw-r--r-- 1 mudler mudler 3.6G Apr 27 00:08 ggml-gpt4all-j
+36464537 -rw-r--r-- 1 mudler mudler  245 May  3 10:42 gpt-3.5-turbo.yaml
+36467388 -rw-r--r-- 1 mudler mudler  180 Apr 27 07:46 gpt4all.tmpl
+```
+
+In the `gpt-3.5-turbo.yaml` file it is defined the `gpt-3.5-turbo` model which is an alias to use `gpt4all-j` with pre-defined options.
+
+For instance, consider the following that declares `gpt-3.5-turbo` backed by the `ggml-gpt4all-j` model:
+
+```yaml
+name: gpt-3.5-turbo
+# Default model parameters
+parameters:
+  # Relative to the models path
+  model: ggml-gpt4all-j
+  # temperature
+  temperature: 0.3
+  # all the OpenAI request options here..
+
+# Default context size
+context_size: 512
+threads: 10
+# Define a backend (optional). By default it will try to guess the backend the first time the model is interacted with.
+backend: gptj # available: llama, stablelm, gpt2, gptj rwkv
+# stopwords (if supported by the backend)
+stopwords:
+- "HUMAN:"
+- "### Response:"
+# define chat roles
+roles:
+  user: "HUMAN:"
+  system: "GPT:"
+template:
+  # template file ".tmpl" with the prompt template to use by default on the endpoint call. Note there is no extension in the files
+  completion: completion
+  chat: ggml-gpt4all-j
+```
+
+Specifying a `config-file` via CLI allows to declare models in a single file as a list, for instance:
+
+```yaml
+- name: list1
+  parameters:
+    model: testmodel
+  context_size: 512
+  threads: 10
+  stopwords:
+  - "HUMAN:"
+  - "### Response:"
+  roles:
+    user: "HUMAN:"
+    system: "GPT:"
+  template:
+    completion: completion
+    chat: ggml-gpt4all-j
+- name: list2
+  parameters:
+    model: testmodel
+  context_size: 512
+  threads: 10
+  stopwords:
+  - "HUMAN:"
+  - "### Response:"
+  roles:
+    user: "HUMAN:"
+    system: "GPT:"
+  template:
+    completion: completion
+   chat: ggml-gpt4all-j
+```
+
+See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
+
+</details>
+
+### Prompt templates 
 
 The API doesn't inject a default prompt for talking to the model. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
 
@@ -145,15 +255,143 @@ The below instruction describes a task. Write a response that appropriately comp
 
 See the [prompt-templates](https://github.com/go-skynet/LocalAI/tree/master/prompt-templates) directory in this repository for templates for some of the most popular models.
 
+
+For the edit endpoint, an example template for alpaca-based models can be:
+
+```yaml
+Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+
+### Instruction:
+{{.Instruction}}
+
+### Input:
+{{.Input}}
+
+### Response:
+```
+
 </details>
 
-## Installation
+### CLI
 
-Currently LocalAI comes as container images and can be used with docker or a containre engine of choice. 
+You can control LocalAI with command line arguments, to specify a binding address, or the number of threads.
+
+<details>
+
+Usage:
+
+```
+local-ai --models-path <model_path> [--address <address>] [--threads <num_threads>]
+```
+
+| Parameter    | Environment Variable | Default Value | Description                            |
+| ------------ | -------------------- | ------------- | -------------------------------------- |
+| models-path        | MODELS_PATH           |               | The path where you have models (ending with `.bin`).      |
+| threads      | THREADS              | Number of Physical cores     | The number of threads to use for text generation. |
+| address      | ADDRESS              | :8080         | The address and port to listen on. |
+| context-size | CONTEXT_SIZE         | 512           | Default token context size. |
+| debug | DEBUG         | false           | Enable debug mode. |
+| config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
+
+</details>
+
+## Setup
+
+Currently LocalAI comes as a container image and can be used with docker or a container engine of choice. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
+
+### Docker
+
+<details>
+Example of starting the API with `docker`:
+
+```bash
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:latest --models-path /path/to/models --context-size 700 --threads 4
+```
+
+You should see:
+```
+┌───────────────────────────────────────────────────┐ 
+│                   Fiber v2.42.0                   │ 
+│               http://127.0.0.1:8080               │ 
+│       (bound on host 0.0.0.0 and port 8080)       │ 
+│                                                   │ 
+│ Handlers ............. 1  Processes ........... 1 │ 
+│ Prefork ....... Disabled  PID ................. 1 │ 
+└───────────────────────────────────────────────────┘ 
+```
+
+</details>
+
+### Build locally
+
+<details>
+
+In order to build the `LocalAI` container image locally you can use `docker`:
+
+```
+# build the image
+docker build -t LocalAI .
+docker run LocalAI
+```
+
+Or you can build the binary with `make`:
+
+```
+make build
+```
+
+</details>
+
+### Build on mac
+
+Building on Mac (M1 or M2) works, but you may need to install some prerequisites using `brew`. 
+
+<details>
+
+The below has been tested by one mac user and found to work. Note that this doesn't use docker to run the server:
+
+```
+# install build dependencies
+brew install cmake
+brew install go
+
+# clone the repo
+git clone https://github.com/go-skynet/LocalAI.git
+
+cd LocalAI
+
+# build the binary
+make build
+
+# Download gpt4all-j to models/
+wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
+
+# Use a template from the examples
+cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
+
+# Run LocalAI
+./local-ai --models-path ./models/ --debug
+
+# Now API is accessible at localhost:8080
+curl http://localhost:8080/v1/models
+
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "ggml-gpt4all-j",
+     "messages": [{"role": "user", "content": "How are you?"}],
+     "temperature": 0.9 
+   }'
+```
+
+</details>
+
+### Windows compatibility
+
+It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
 
 ### Run LocalAI in Kubernetes
 
-LocalAI can be installed inside Kubernetes with helm. 
+LocalAI can be installed inside Kubernetes with helm.
+
 <details>
 
 1. Add the helm repo
@@ -198,51 +436,7 @@ Check out also the [helm chart repository on GitHub](https://github.com/go-skyne
 
 </details>
 
-## API
-
-`LocalAI` provides an API for running text generation as a service, that follows the OpenAI reference and can be used as a drop-in. The models once loaded the first time will be kept in memory.
-
-<details>
-Example of starting the API with `docker`:
-
-```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:latest --models-path /path/to/models --context-size 700 --threads 4
-```
-
-You should see:
-```
-┌───────────────────────────────────────────────────┐ 
-│                   Fiber v2.42.0                   │ 
-│               http://127.0.0.1:8080               │ 
-│       (bound on host 0.0.0.0 and port 8080)       │ 
-│                                                   │ 
-│ Handlers ............. 1  Processes ........... 1 │ 
-│ Prefork ....... Disabled  PID ................. 1 │ 
-└───────────────────────────────────────────────────┘ 
-```
-
-You can control the API server options with command line arguments:
-
-```
-local-api --models-path <model_path> [--address <address>] [--threads <num_threads>]
-```
-
-The API takes takes the following parameters:
-
-| Parameter    | Environment Variable | Default Value | Description                            |
-| ------------ | -------------------- | ------------- | -------------------------------------- |
-| models-path        | MODELS_PATH           |               | The path where you have models (ending with `.bin`).      |
-| threads      | THREADS              | Number of Physical cores     | The number of threads to use for text generation. |
-| address      | ADDRESS              | :8080         | The address and port to listen on. |
-| context-size | CONTEXT_SIZE         | 512           | Default token context size. |
-| debug | DEBUG         | false           | Enable debug mode. |
-| config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
-
-Once the server is running, you can start making requests to it using HTTP, using the OpenAI API. 
-
-</details>
-
-### Supported OpenAI API endpoints
+## Supported OpenAI API endpoints
 
 You can check out the [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat/create). 
 
@@ -253,7 +447,7 @@ Note:
 - You can also specify the model as part of the OpenAI token.
 - If only one model is available, the API will use it for all the requests.
 
-#### Chat completions
+### Chat completions
 
 <details>
 For example, to generate a chat completion, you can send a POST request to the `/v1/chat/completions` endpoint with the instruction as the request body:
@@ -269,7 +463,25 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
 </details>
 
-#### Completions
+### Edit completions
+
+<details>
+To generate an edit completion you can send a POST request to the `/v1/edits` endpoint with the instruction as the request body:
+
+```
+curl http://localhost:8080/v1/edits -H "Content-Type: application/json" -d '{
+     "model": "ggml-koala-7b-model-q4_0-r2.bin",
+     "instruction": "rephrase",
+     "input": "Black cat jumped out of the window",
+     "temperature": 0.7
+   }'
+```
+
+Available additional parameters: `top_p`, `top_k`, `max_tokens`.
+
+</details>
+
+### Completions
 
 <details>
 
@@ -287,7 +499,7 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
 </details>
 
-#### List models
+### List models
 
 <details>
 You can list all the models available with:
@@ -297,128 +509,6 @@ curl http://localhost:8080/v1/models
 ```
 
 </details>
-
-## Advanced configuration
-
-LocalAI can be configured to serve user-defined models with a set of default parameters and templates.
-
-<details>
-You can create multiple `yaml` files in the models path or either specify a single YAML configuration file.
-
-For instance, a configuration file (`gpt-3.5-turbo.yaml`) can be declaring the "gpt-3.5-turbo" model but backed by the "testmodel" model file:
-
-```yaml
-name: gpt-3.5-turbo
-parameters:
-  model: testmodel
-context_size: 512
-threads: 10
-stopwords:
-- "HUMAN:"
-- "### Response:"
-roles:
-  user: "HUMAN:"
-  system: "GPT:"
-template:
-  completion: completion
-  chat: ggml-gpt4all-j
-```
-
-Specifying a `config-file` via CLI allows to declare models in a single file as a list, for instance:
-
-```yaml
-- name: list1
-  parameters:
-    model: testmodel
-  context_size: 512
-  threads: 10
-  stopwords:
-  - "HUMAN:"
-  - "### Response:"
-  roles:
-    user: "HUMAN:"
-    system: "GPT:"
-  template:
-    completion: completion
-    chat: ggml-gpt4all-j
-- name: list2
-  parameters:
-    model: testmodel
-  context_size: 512
-  threads: 10
-  stopwords:
-  - "HUMAN:"
-  - "### Response:"
-  roles:
-    user: "HUMAN:"
-    system: "GPT:"
-  template:
-    completion: completion
-    chat: ggml-gpt4all-j
-```
-
-See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
-
-</details>
-
-## Windows compatibility
-
-It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
-
-## Build locally
-
-Pre-built images might fit well for most of the modern hardware, however you can and might need to build the images manually.
-
-In order to build the `LocalAI` container image locally you can use `docker`:
-
-```
-# build the image
-docker build -t LocalAI .
-docker run LocalAI
-```
-
-Or build the binary with `make`:
-
-```
-make build
-```
-
-## Build on mac
-
-Building on Mac (M1 or M2) works, but you may need to install some prerequisites using brew. The below has been tested by one mac user and found to work. Note that this doesn't use docker to run the server:
-
-```
-# install build dependencies
-brew install cmake
-brew install go
-
-# clone the repo
-git clone https://github.com/go-skynet/LocalAI.git
-
-cd LocalAI
-
-# build the binary
-make build
-
-# Download gpt4all-j to models/
-wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
-
-# Use a template from the examples
-cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
-
-# Run LocalAI
-./local-ai --models-path ./models/ --debug
-
-# Now API is accessible at localhost:8080
-curl http://localhost:8080/v1/models
-
-curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-     "model": "ggml-gpt4all-j",
-     "messages": [{"role": "user", "content": "How are you?"}],
-     "temperature": 0.9 
-   }'
-```
-
 
 ## Frequently asked questions
 
