@@ -54,8 +54,8 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
       - name: Build
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v4

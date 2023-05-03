@@ -22,5 +22,25 @@ wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
 docker-compose up -d --build
 ```
 
+## Pointing chatbot-ui to a separately managed LocalAI service
+
+If you want to use the [chatbot-ui example](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) with an externally managed LocalAI service, you can alter the `docker-compose` file so that it looks like the below. You will notice the file is smaller, because we have removed the section that would normally start the LocalAI service. Take care to update the IP address (or FQDN) that the chatbot-ui service tries to access (marked `<<LOCALAI_IP>>` below):
+```
+version: '3.6'
+
+services:
+  chatgpt:
+    image: ghcr.io/mckaywrigley/chatbot-ui:main
+    ports:
+      - 3000:3000
+    environment:
+      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
+      - 'OPENAI_API_HOST=http://<<LOCALAI_IP>>:8080'
+```
+
+Once you've edited the Dockerfile, you can start it with `docker compose up`, then browse to `http://localhost:3000`.
+
+## Accessing chatbot-ui
+
 Open http://localhost:3000 for the Web UI.
 

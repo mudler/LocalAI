@@ -16,6 +16,8 @@ services:
     command: ["/usr/bin/local-ai" ]
 
   bot:
-    image: quay.io/go-skynet/gpt-discord-bot:main
+    build:
+     context: ./ChatGPT-in-Slack
+     dockerfile: Dockerfile
     env_file:
     - .env

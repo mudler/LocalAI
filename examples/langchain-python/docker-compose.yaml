@@ -14,8 +14,3 @@ services:
     volumes:
       - ./models:/models:cached
     command: ["/usr/bin/local-ai" ]
-
-  bot:
-    image: quay.io/go-skynet/gpt-discord-bot:main
-    env_file:
-    - .env
