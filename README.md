@@ -135,13 +135,103 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 To build locally, run `make build` (see below).
 
-## Other examples
+### Other examples
 
 ![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)
 
 To see other examples on how to integrate with other projects for instance chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
-## Prompt templates 
+
+### Advanced configuration
+
+LocalAI can be configured to serve user-defined models with a set of default parameters and templates.
+
+<details>
+
+You can create multiple `yaml` files in the models path or either specify a single YAML configuration file. 
+Consider the following `models` folder in the `example/chatbot-ui`:
+
+```
+base ❯ ls -liah examples/chatbot-ui/models 
+36487587 drwxr-xr-x 2 mudler mudler 4.0K May  3 12:27 .
+36487586 drwxr-xr-x 3 mudler mudler 4.0K May  3 10:42 ..
+36465214 -rw-r--r-- 1 mudler mudler   10 Apr 27 07:46 completion.tmpl
+36464855 -rw-r--r-- 1 mudler mudler 3.6G Apr 27 00:08 ggml-gpt4all-j
+36464537 -rw-r--r-- 1 mudler mudler  245 May  3 10:42 gpt-3.5-turbo.yaml
+36467388 -rw-r--r-- 1 mudler mudler  180 Apr 27 07:46 gpt4all.tmpl
+```
+
+In the `gpt-3.5-turbo.yaml` file it is defined the `gpt-3.5-turbo` model which is an alias to use `gpt4all-j` with pre-defined options.
+
+For instance, consider the following that declares `gpt-3.5-turbo` backed by the `ggml-gpt4all-j` model:
+
+```yaml
+name: gpt-3.5-turbo
+# Default model parameters
+parameters:
+  # Relative to the models path
+  model: ggml-gpt4all-j
+  # temperature
+  temperature: 0.3
+  # all the OpenAI request options here..
+
+# Default context size
+context_size: 512
+threads: 10
+# Define a backend (optional). By default it will try to guess the backend the first time the model is interacted with.
+backend: gptj # available: llama, stablelm, gpt2, gptj rwkv
+# stopwords (if supported by the backend)
+stopwords:
+- "HUMAN:"
+- "### Response:"
+# define chat roles
+roles:
+  user: "HUMAN:"
+  system: "GPT:"
+template:
+  # template file ".tmpl" with the prompt template to use by default on the endpoint call. Note there is no extension in the files
+  completion: completion
+  chat: ggml-gpt4all-j
+```
+
+Specifying a `config-file` via CLI allows to declare models in a single file as a list, for instance:
+
+```yaml
+- name: list1
+  parameters:
+    model: testmodel
+  context_size: 512
+  threads: 10
+  stopwords:
+  - "HUMAN:"
+  - "### Response:"
+  roles:
+    user: "HUMAN:"
+    system: "GPT:"
+  template:
+    completion: completion
+    chat: ggml-gpt4all-j
+- name: list2
+  parameters:
+    model: testmodel
+  context_size: 512
+  threads: 10
+  stopwords:
+  - "HUMAN:"
+  - "### Response:"
+  roles:
+    user: "HUMAN:"
+    system: "GPT:"
+  template:
+    completion: completion
+   chat: ggml-gpt4all-j
+```
+
+See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
+
+</details>
+
+### Prompt templates 
 
 The API doesn't inject a default prompt for talking to the model. You have to use a prompt similar to what's described in the standford-alpaca docs: https://github.com/tatsu-lab/stanford_alpaca#data-release.
 
@@ -181,7 +271,7 @@ Below is an instruction that describes a task, paired with an input that provide
 Currently LocalAI comes as a container image and can be used with docker or a container engine of choice. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
 
 
-## Build locally
+### Build locally
 
 <details>
 
@@ -201,7 +291,7 @@ make build
 
 </details>
 
-## Build on mac
+### Build on mac
 
 Building on Mac (M1 or M2) works, but you may need to install some prerequisites using `brew`. 
 
@@ -243,7 +333,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 </details>
 
-## Windows compatibility
+### Windows compatibility
 
 It should work, however you need to make sure you give enough resources to the container. See https://github.com/go-skynet/LocalAI/issues/2
 
@@ -410,95 +500,6 @@ You can list all the models available with:
 ```
 curl http://localhost:8080/v1/models
 ```
-
-</details>
-
-## Advanced configuration
-
-LocalAI can be configured to serve user-defined models with a set of default parameters and templates.
-
-<details>
-
-You can create multiple `yaml` files in the models path or either specify a single YAML configuration file. 
-Consider the following `models` folder in the `example/chatbot-ui`:
-
-```
-base ❯ ls -liah examples/chatbot-ui/models 
-36487587 drwxr-xr-x 2 mudler mudler 4.0K May  3 12:27 .
-36487586 drwxr-xr-x 3 mudler mudler 4.0K May  3 10:42 ..
-36465214 -rw-r--r-- 1 mudler mudler   10 Apr 27 07:46 completion.tmpl
-36464855 -rw-r--r-- 1 mudler mudler 3.6G Apr 27 00:08 ggml-gpt4all-j
-36464537 -rw-r--r-- 1 mudler mudler  245 May  3 10:42 gpt-3.5-turbo.yaml
-36467388 -rw-r--r-- 1 mudler mudler  180 Apr 27 07:46 gpt4all.tmpl
-```
-
-In the `gpt-3.5-turbo.yaml` file it is defined the `gpt-3.5-turbo` model which is an alias to use `gpt4all-j` with pre-defined options.
-
-For instance, consider the following that declares `gpt-3.5-turbo` backed by the `ggml-gpt4all-j` model:
-
-```yaml
-name: gpt-3.5-turbo
-# Default model parameters
-parameters:
-  # Relative to the models path
-  model: ggml-gpt4all-j
-  # temperature
-  temperature: 0.3
-  # all the OpenAI request options here..
-
-# Default context size
-context_size: 512
-threads: 10
-# Define a backend (optional). By default it will try to guess the backend the first time the model is interacted with.
-backend: gptj # available: llama, stablelm, gpt2, gptj rwkv
-# stopwords (if supported by the backend)
-stopwords:
-- "HUMAN:"
-- "### Response:"
-# define chat roles
-roles:
-  user: "HUMAN:"
-  system: "GPT:"
-template:
-  # template file ".tmpl" with the prompt template to use by default on the endpoint call. Note there is no extension in the files
-  completion: completion
-  chat: ggml-gpt4all-j
-```
-
-Specifying a `config-file` via CLI allows to declare models in a single file as a list, for instance:
-
-```yaml
-- name: list1
-  parameters:
-    model: testmodel
-  context_size: 512
-  threads: 10
-  stopwords:
-  - "HUMAN:"
-  - "### Response:"
-  roles:
-    user: "HUMAN:"
-    system: "GPT:"
-  template:
-    completion: completion
-    chat: ggml-gpt4all-j
-- name: list2
-  parameters:
-    model: testmodel
-  context_size: 512
-  threads: 10
-  stopwords:
-  - "HUMAN:"
-  - "### Response:"
-  roles:
-    user: "HUMAN:"
-    system: "GPT:"
-  template:
-    completion: completion
-   chat: ggml-gpt4all-j
-```
-
-See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
 
 </details>
 

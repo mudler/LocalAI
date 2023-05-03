@@ -9,9 +9,8 @@ GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt2.cpp currentValueTemplate=master depNameTemplate=go-gpt2.cpp
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 
-# here until https://github.com/donomii/go-rwkv.cpp/pull/1 is merged
-RWKV_REPO?=https://github.com/mudler/go-rwkv.cpp
-RWKV_VERSION?=6ba15255b03016b5ecce36529b500d21815399a7
+RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
+RWKV_VERSION?=af62fcc432be2847acb6e0688b2c2491d6588d58
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
