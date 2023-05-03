@@ -15,6 +15,6 @@ services:
     command: ["/usr/bin/local-ai"]
 
   frontend:
-    image: dhruvgera/localai-frontend:latest
+    image: quay.io/go-skynet/localai-frontend:master
     ports:
       - 3000:3000
