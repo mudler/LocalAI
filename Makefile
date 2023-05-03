@@ -37,16 +37,6 @@ endif
 
 all: help
 
-## Build:
-
-build: prepare ## Build the project
-	$(info ${GREEN}I local-ai build info:${RESET})
-	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
-	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -o $(BINARY_NAME) ./
-
-generic-build: ## Build the project using generic
-	BUILD_TYPE="generic" $(MAKE) build
-
 ## GPT4ALL-J
 go-gpt4all-j:
 	git clone --recurse-submodules https://github.com/go-skynet/go-gpt4all-j.cpp go-gpt4all-j
@@ -61,6 +51,7 @@ go-gpt4all-j:
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/void replace/void json_gptj_replace/g' {} +
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
 
+## RWKV
 go-rwkv:
 	git clone --recurse-submodules $(RWKV_REPO) go-rwkv
 	cd go-rwkv && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
@@ -71,8 +62,8 @@ go-rwkv/librwkv.a: go-rwkv
 go-gpt4all-j/libgptj.a: go-gpt4all-j
 	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a
 
-# CEREBRAS GPT
-go-gpt2:
+## CEREBRAS GPT
+go-gpt2: 
 	git clone --recurse-submodules https://github.com/go-skynet/go-gpt2.cpp go-gpt2
 	cd go-gpt2 && git checkout -b build $(GOGPT2_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
@@ -85,7 +76,6 @@ go-gpt2:
 
 go-gpt2/libgpt2.a: go-gpt2
 	$(MAKE) -C go-gpt2 $(GENERIC_PREFIX)libgpt2.a
-	
 
 go-llama:
 	git clone -b $(GOLLAMA_VERSION) --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
@@ -102,14 +92,15 @@ replace:
 prepare-sources: go-llama go-gpt2 go-gpt4all-j go-rwkv
 	$(GOCMD) mod download
 
-rebuild:
+## GENERIC
+rebuild: ## Rebuilds the project
 	$(MAKE) -C go-llama clean
 	$(MAKE) -C go-gpt4all-j clean
 	$(MAKE) -C go-gpt2 clean
 	$(MAKE) -C go-rwkv clean
 	$(MAKE) build
 
-prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a go-rwkv/librwkv.a replace
+prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a go-rwkv/librwkv.a replace ## Prepares for building
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
@@ -118,8 +109,18 @@ clean: ## Remove build related file
 	rm -rf ./go-rwkv
 	rm -rf $(BINARY_NAME)
 
-## Run:
-run: prepare
+## Build:
+
+build: prepare ## Build the project
+	$(info ${GREEN}I local-ai build info:${RESET})
+	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
+	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -o $(BINARY_NAME) ./
+
+generic-build: ## Build the project using generic
+	BUILD_TYPE="generic" $(MAKE) build
+
+## Run
+run: prepare ## run local-ai
 	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) run ./main.go
 
 test-models/testmodel:
