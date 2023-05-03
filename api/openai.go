@@ -27,12 +27,19 @@ type ErrorResponse struct {
 	Error *APIError `json:"error,omitempty"`
 }
 
+type OpenAIUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 type OpenAIResponse struct {
-	Created int      `json:"created,omitempty"`
-	Object  string   `json:"object,omitempty"`
-	ID      string   `json:"id,omitempty"`
-	Model   string   `json:"model,omitempty"`
-	Choices []Choice `json:"choices,omitempty"`
+	Created int         `json:"created,omitempty"`
+	Object  string      `json:"object,omitempty"`
+	ID      string      `json:"id,omitempty"`
+	Model   string      `json:"model,omitempty"`
+	Choices []Choice    `json:"choices,omitempty"`
+	Usage   OpenAIUsage `json:"usage"`
 }
 
 type Choice struct {
