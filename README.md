@@ -9,7 +9,7 @@
 
 [![](https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted)](https://discord.gg/uJAeKSAGDy) 
 
-**LocalAI** is a straightforward, drop-in replacement API compatible with OpenAI for local CPU inferencing, based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all), [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is licensed under Apache 2.0.
+**LocalAI** is a drop-in replacement REST API compatible with OpenAI for local CPU inferencing. It allows to run models locally or on-prem with consumer grade hardware. It is based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all), [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is licensed under Apache 2.0.
 
 - OpenAI compatible API
 - Supports multiple-models
@@ -19,7 +19,13 @@
 
 LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
+### News
+
+- 02-05-2023: Support for `rwkv.cpp` models ( https://github.com/go-skynet/LocalAI/pull/158 ) and for `/edits` endpoint
+- 01-05-2023: Support for SSE stream of tokens in `llama.cpp` backends ( https://github.com/go-skynet/LocalAI/pull/152 )
+
 ### Socials and community chatter
+
 - Follow [@LocalAI_API](https://twitter.com/LocalAI_API) on twitter.
 
 - [Reddit post](https://www.reddit.com/r/selfhosted/comments/12w4p2f/localai_openai_compatible_api_to_run_llm_models/) about LocalAI.
@@ -266,10 +272,55 @@ Below is an instruction that describes a task, paired with an input that provide
 
 </details>
 
+### CLI
+
+You can control LocalAI with command line arguments, to specify a binding address, or the number of threads.
+
+<details>
+
+Usage:
+
+```
+local-ai --models-path <model_path> [--address <address>] [--threads <num_threads>]
+```
+
+| Parameter    | Environment Variable | Default Value | Description                            |
+| ------------ | -------------------- | ------------- | -------------------------------------- |
+| models-path        | MODELS_PATH           |               | The path where you have models (ending with `.bin`).      |
+| threads      | THREADS              | Number of Physical cores     | The number of threads to use for text generation. |
+| address      | ADDRESS              | :8080         | The address and port to listen on. |
+| context-size | CONTEXT_SIZE         | 512           | Default token context size. |
+| debug | DEBUG         | false           | Enable debug mode. |
+| config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
+
+</details>
+
 ## Setup
 
 Currently LocalAI comes as a container image and can be used with docker or a container engine of choice. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
 
+### Docker
+
+<details>
+Example of starting the API with `docker`:
+
+```bash
+docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:latest --models-path /path/to/models --context-size 700 --threads 4
+```
+
+You should see:
+```
+┌───────────────────────────────────────────────────┐ 
+│                   Fiber v2.42.0                   │ 
+│               http://127.0.0.1:8080               │ 
+│       (bound on host 0.0.0.0 and port 8080)       │ 
+│                                                   │ 
+│ Handlers ............. 1  Processes ........... 1 │ 
+│ Prefork ....... Disabled  PID ................. 1 │ 
+└───────────────────────────────────────────────────┘ 
+```
+
+</details>
 
 ### Build locally
 
@@ -385,51 +436,7 @@ Check out also the [helm chart repository on GitHub](https://github.com/go-skyne
 
 </details>
 
-## API
-
-`LocalAI` provides an API for running text generation as a service, that follows the OpenAI reference and can be used as a drop-in. The models once loaded the first time will be kept in memory.
-
-<details>
-Example of starting the API with `docker`:
-
-```bash
-docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:latest --models-path /path/to/models --context-size 700 --threads 4
-```
-
-You should see:
-```
-┌───────────────────────────────────────────────────┐ 
-│                   Fiber v2.42.0                   │ 
-│               http://127.0.0.1:8080               │ 
-│       (bound on host 0.0.0.0 and port 8080)       │ 
-│                                                   │ 
-│ Handlers ............. 1  Processes ........... 1 │ 
-│ Prefork ....... Disabled  PID ................. 1 │ 
-└───────────────────────────────────────────────────┘ 
-```
-
-You can control the API server options with command line arguments:
-
-```
-local-ai --models-path <model_path> [--address <address>] [--threads <num_threads>]
-```
-
-The API takes takes the following parameters:
-
-| Parameter    | Environment Variable | Default Value | Description                            |
-| ------------ | -------------------- | ------------- | -------------------------------------- |
-| models-path        | MODELS_PATH           |               | The path where you have models (ending with `.bin`).      |
-| threads      | THREADS              | Number of Physical cores     | The number of threads to use for text generation. |
-| address      | ADDRESS              | :8080         | The address and port to listen on. |
-| context-size | CONTEXT_SIZE         | 512           | Default token context size. |
-| debug | DEBUG         | false           | Enable debug mode. |
-| config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
-
-Once the server is running, you can start making requests to it using HTTP, using the OpenAI API. 
-
-</details>
-
-### Supported OpenAI API endpoints
+## Supported OpenAI API endpoints
 
 You can check out the [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat/create). 
 
@@ -440,7 +447,7 @@ Note:
 - You can also specify the model as part of the OpenAI token.
 - If only one model is available, the API will use it for all the requests.
 
-#### Chat completions
+### Chat completions
 
 <details>
 For example, to generate a chat completion, you can send a POST request to the `/v1/chat/completions` endpoint with the instruction as the request body:
@@ -456,7 +463,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
 </details>
 
-#### Edit completions
+### Edit completions
 
 <details>
 To generate an edit completion you can send a POST request to the `/v1/edits` endpoint with the instruction as the request body:
@@ -474,7 +481,7 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`.
 
 </details>
 
-#### Completions
+### Completions
 
 <details>
 
@@ -492,7 +499,7 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
 </details>
 
-#### List models
+### List models
 
 <details>
 You can list all the models available with:
