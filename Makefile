@@ -9,7 +9,9 @@ GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
 # renovate: datasource=git-refs packageNameTemplate=https://github.com/go-skynet/go-gpt2.cpp currentValueTemplate=master depNameTemplate=go-gpt2.cpp
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 
-RWKV_VERSION?=4bd540ef7e5d872a84af57c686b45353ec4825a2
+# here until https://github.com/donomii/go-rwkv.cpp/pull/1 is merged
+RWKV_REPO?=https://github.com/mudler/go-rwkv.cpp
+RWKV_VERSION?=6ba15255b03016b5ecce36529b500d21815399a7
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
@@ -60,9 +62,8 @@ go-gpt4all-j:
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
 
 go-rwkv:
-	git clone --recurse-submodules https://github.com/donomii/go-rwkv.cpp go-rwkv
-	cd go-rwkv && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1 && go mod init github.com/donomii/go-rwkv.cpp
-	@sed -i.bak -e 's/ -lrwkv/ -lrwkv -lggml/g' go-rwkv/wrapper.go
+	git clone --recurse-submodules $(RWKV_REPO) go-rwkv
+	cd go-rwkv && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
 
 go-rwkv/librwkv.a: go-rwkv
 	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a .. && cp ggml/src/libggml.a ..
