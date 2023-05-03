@@ -122,9 +122,12 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 		if stop != "" {
 			config.StopWords = append(config.StopWords, stop)
 		}
-	case []string:
-		config.StopWords = append(config.StopWords, stop...)
-
+	case []interface{}:
+		for _, pp := range stop {
+			if s, ok := pp.(string); ok {
+				config.StopWords = append(config.StopWords, s)
+			}
+		}
 	}
 
 	if input.RepeatPenalty != 0 {
@@ -239,8 +242,12 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 		switch p := input.Prompt.(type) {
 		case string:
 			predInput = append(predInput, p)
-		case []string:
-			predInput = append(predInput, p...)
+		case []interface{}:
+			for _, pp := range p {
+				if s, ok := pp.(string); ok {
+					predInput = append(predInput, s)
+				}
+			}
 		}
 
 		templateFile := config.Model
@@ -257,7 +264,7 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 			}{Input: i})
 			if err == nil {
 				i = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", predInput)
+				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
 			r, err := ComputeChoices(i, input, config, loader, func(s string, c *[]Choice) {
