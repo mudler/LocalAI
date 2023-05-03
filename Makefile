@@ -106,6 +106,7 @@ rebuild:
 	$(MAKE) -C go-llama clean
 	$(MAKE) -C go-gpt4all-j clean
 	$(MAKE) -C go-gpt2 clean
+	$(MAKE) -C go-rwkv clean
 	$(MAKE) build
 
 prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a go-rwkv/librwkv.a replace
@@ -114,6 +115,7 @@ clean: ## Remove build related file
 	rm -fr ./go-llama
 	rm -rf ./go-gpt4all-j
 	rm -rf ./go-gpt2
+	rm -rf ./go-rwkv
 	rm -rf $(BINARY_NAME)
 
 ## Run:
