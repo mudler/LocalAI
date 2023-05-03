@@ -57,7 +57,7 @@ type OpenAIRequest struct {
 	Model string `json:"model" yaml:"model"`
 
 	// Prompt is read only by completion API calls
-	Prompt string `json:"prompt" yaml:"prompt"`
+	Prompt interface{} `json:"prompt" yaml:"prompt"`
 
 	// Edit endpoint
 	Instruction string `json:"instruction" yaml:"instruction"`
@@ -234,27 +234,40 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
-		predInput := input.Prompt
+		predInput := []string{}
+
+		switch p := input.Prompt.(type) {
+		case string:
+			predInput = append(predInput, p)
+		case []string:
+			predInput = append(predInput, p...)
+		}
+
 		templateFile := config.Model
 
 		if config.TemplateConfig.Completion != "" {
 			templateFile = config.TemplateConfig.Completion
 		}
 
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		templatedInput, err := loader.TemplatePrefix(templateFile, struct {
-			Input string
-		}{Input: predInput})
-		if err == nil {
-			predInput = templatedInput
-			log.Debug().Msgf("Template found, input modified to: %s", predInput)
-		}
+		var result []Choice
+		for _, i := range predInput {
+			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+			templatedInput, err := loader.TemplatePrefix(templateFile, struct {
+				Input string
+			}{Input: i})
+			if err == nil {
+				i = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", predInput)
+			}
 
-		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
-			*c = append(*c, Choice{Text: s})
-		}, nil)
-		if err != nil {
-			return err
+			r, err := ComputeChoices(i, input, config, loader, func(s string, c *[]Choice) {
+				*c = append(*c, Choice{Text: s})
+			}, nil)
+			if err != nil {
+				return err
+			}
+
+			result = append(result, r...)
 		}
 
 		resp := &OpenAIResponse{
