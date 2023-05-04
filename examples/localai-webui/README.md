@@ -15,8 +15,8 @@ cd LocalAI/examples/localai-webui
 # (optional) Checkout a specific LocalAI tag
 # git checkout -b build <TAG>
 
-# Download gpt4all-j to models/ in the parent LocalAI project dir
-wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O ../../models/ggml-gpt4all-j
+# Download any desired models to models/ in the parent LocalAI project dir
+# For example: wget https://gpt4all.io/models/ggml-gpt4all-j.bin
 
 # start with docker-compose
 docker-compose up -d --build
