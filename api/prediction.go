@@ -6,26 +6,103 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/donomii/go-rwkv.cpp"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
 	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
+	"github.com/hashicorp/go-multierror"
 )
+
+const tokenizerSuffix = ".tokenizer.json"
 
 // mutex still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
 var mutexMap sync.Mutex
 var mutexes map[string]*sync.Mutex = make(map[string]*sync.Mutex)
 
-func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (string, error), error) {
-	var model *llama.LLama
-	var gptModel *gptj.GPTJ
-	var gpt2Model *gpt2.GPT2
-	var stableLMModel *gpt2.StableLM
+var loadedModels map[string]interface{} = map[string]interface{}{}
+var muModels sync.Mutex
 
+func backendLoader(backendString string, loader *model.ModelLoader, modelFile string, llamaOpts []llama.ModelOption, threads uint32) (model interface{}, err error) {
+	switch strings.ToLower(backendString) {
+	case "llama":
+		return loader.LoadLLaMAModel(modelFile, llamaOpts...)
+	case "stablelm":
+		return loader.LoadStableLMModel(modelFile)
+	case "gpt2":
+		return loader.LoadGPT2Model(modelFile)
+	case "gptj":
+		return loader.LoadGPTJModel(modelFile)
+	case "rwkv":
+		return loader.LoadRWKV(modelFile, modelFile+tokenizerSuffix, threads)
+	default:
+		return nil, fmt.Errorf("backend unsupported: %s", backendString)
+	}
+}
+
+func greedyLoader(loader *model.ModelLoader, modelFile string, llamaOpts []llama.ModelOption, threads uint32) (model interface{}, err error) {
+	updateModels := func(model interface{}) {
+		muModels.Lock()
+		defer muModels.Unlock()
+		loadedModels[modelFile] = model
+	}
+
+	muModels.Lock()
+	m, exists := loadedModels[modelFile]
+	if exists {
+		muModels.Unlock()
+		return m, nil
+	}
+	muModels.Unlock()
+
+	model, modelerr := loader.LoadLLaMAModel(modelFile, llamaOpts...)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = loader.LoadGPTJModel(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = loader.LoadGPT2Model(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = loader.LoadStableLMModel(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = loader.LoadRWKV(modelFile, modelFile+tokenizerSuffix, threads)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	return nil, fmt.Errorf("could not load model - all backends returned error: %s", err.Error())
+}
+
+func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback func(string) bool) (func() (string, error), error) {
+	supportStreams := false
 	modelFile := c.Model
 
 	// Try to load the model
-	var llamaerr, gpt2err, gptjerr, stableerr error
 	llamaOpts := []llama.ModelOption{}
 	if c.ContextSize != 0 {
 		llamaOpts = append(llamaOpts, llama.SetContext(c.ContextSize))
@@ -34,25 +111,35 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 		llamaOpts = append(llamaOpts, llama.EnableF16Memory)
 	}
 
-	// TODO: this is ugly, better identifying the model somehow! however, it is a good stab for a first implementation..
-	model, llamaerr = loader.LoadLLaMAModel(modelFile, llamaOpts...)
-	if llamaerr != nil {
-		gptModel, gptjerr = loader.LoadGPTJModel(modelFile, gptj.SetThreads(c.Threads))
-		if gptjerr != nil {
-			gpt2Model, gpt2err = loader.LoadGPT2Model(modelFile)
-			if gpt2err != nil {
-				stableLMModel, stableerr = loader.LoadStableLMModel(modelFile)
-				if stableerr != nil {
-					return nil, fmt.Errorf("llama: %s gpt: %s gpt2: %s stableLM: %s", llamaerr.Error(), gptjerr.Error(), gpt2err.Error(), stableerr.Error()) // llama failed first, so we want to catch both errors
-				}
-			}
-		}
+	var inferenceModel interface{}
+	var err error
+	if c.Backend == "" {
+		inferenceModel, err = greedyLoader(loader, modelFile, llamaOpts, uint32(c.Threads))
+	} else {
+		inferenceModel, err = backendLoader(c.Backend, loader, modelFile, llamaOpts, uint32(c.Threads))
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	var fn func() (string, error)
 
-	switch {
-	case stableLMModel != nil:
+	switch model := inferenceModel.(type) {
+	case *rwkv.RwkvState:
+		supportStreams = true
+
+		fn = func() (string, error) {
+			//model.ProcessInput("You are a chatbot that is very good at chatting.  blah blah blah")
+			stopWord := "\n"
+			if len(c.StopWords) > 0 {
+				stopWord = c.StopWords[0]
+			}
+
+			response := model.GenerateResponse(c.Maxtokens, stopWord, float32(c.Temperature), float32(c.TopP), tokenCallback)
+
+			return response, nil
+		}
+	case *gpt2.StableLM:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
 			predictOptions := []gpt2.PredictOption{
@@ -71,12 +158,12 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
 			}
 
-			return stableLMModel.Predict(
+			return model.Predict(
 				s,
 				predictOptions...,
 			)
 		}
-	case gpt2Model != nil:
+	case *gpt2.GPT2:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
 			predictOptions := []gpt2.PredictOption{
@@ -95,12 +182,12 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
 			}
 
-			return gpt2Model.Predict(
+			return model.Predict(
 				s,
 				predictOptions...,
 			)
 		}
-	case gptModel != nil:
+	case *gptj.GPTJ:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
 			predictOptions := []gptj.PredictOption{
@@ -108,19 +195,30 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 				gptj.SetTopP(c.TopP),
 				gptj.SetTopK(c.TopK),
 				gptj.SetTokens(c.Maxtokens),
+				gptj.SetThreads(c.Threads),
 			}
 
 			if c.Batch != 0 {
 				predictOptions = append(predictOptions, gptj.SetBatch(c.Batch))
 			}
 
-			return gptModel.Predict(
+			if c.Seed != 0 {
+				predictOptions = append(predictOptions, gptj.SetSeed(c.Seed))
+			}
+
+			return model.Predict(
 				s,
 				predictOptions...,
 			)
 		}
-	case model != nil:
+	case *llama.LLama:
+		supportStreams = true
 		fn = func() (string, error) {
+
+			if tokenCallback != nil {
+				model.SetTokenCallback(tokenCallback)
+			}
+
 			// Generate the prediction using the language model
 			predictOptions := []llama.PredictOption{
 				llama.SetTemperature(c.Temperature),
@@ -180,11 +278,15 @@ func ModelInference(s string, loader *model.ModelLoader, c Config) (func() (stri
 		l.Lock()
 		defer l.Unlock()
 
-		return fn()
+		res, err := fn()
+		if tokenCallback != nil && !supportStreams {
+			tokenCallback(res)
+		}
+		return res, err
 	}, nil
 }
 
-func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, loader *model.ModelLoader, cb func(string, *[]Choice)) ([]Choice, error) {
+func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, error) {
 	result := []Choice{}
 
 	n := input.N
@@ -194,7 +296,7 @@ func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, load
 	}
 
 	// get the model function to call for the result
-	predFunc, err := ModelInference(predInput, loader, *config)
+	predFunc, err := ModelInference(predInput, loader, *config, tokenCallback)
 	if err != nil {
 		return result, err
 	}

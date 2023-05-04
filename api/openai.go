@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -26,12 +27,19 @@ type ErrorResponse struct {
 	Error *APIError `json:"error,omitempty"`
 }
 
+type OpenAIUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 type OpenAIResponse struct {
-	Created int      `json:"created,omitempty"`
-	Object  string   `json:"object,omitempty"`
-	ID      string   `json:"id,omitempty"`
-	Model   string   `json:"model,omitempty"`
-	Choices []Choice `json:"choices,omitempty"`
+	Created int         `json:"created,omitempty"`
+	Object  string      `json:"object,omitempty"`
+	ID      string      `json:"id,omitempty"`
+	Model   string      `json:"model,omitempty"`
+	Choices []Choice    `json:"choices,omitempty"`
+	Usage   OpenAIUsage `json:"usage"`
 }
 
 type Choice struct {
@@ -56,13 +64,13 @@ type OpenAIRequest struct {
 	Model string `json:"model" yaml:"model"`
 
 	// Prompt is read only by completion API calls
-	Prompt string `json:"prompt" yaml:"prompt"`
+	Prompt interface{} `json:"prompt" yaml:"prompt"`
 
 	// Edit endpoint
 	Instruction string `json:"instruction" yaml:"instruction"`
 	Input       string `json:"input" yaml:"input"`
 
-	Stop string `json:"stop" yaml:"stop"`
+	Stop interface{} `json:"stop" yaml:"stop"`
 
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages" yaml:"messages"`
@@ -116,8 +124,17 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 		config.Maxtokens = input.Maxtokens
 	}
 
-	if input.Stop != "" {
-		config.StopWords = append(config.StopWords, input.Stop)
+	switch stop := input.Stop.(type) {
+	case string:
+		if stop != "" {
+			config.StopWords = append(config.StopWords, stop)
+		}
+	case []interface{}:
+		for _, pp := range stop {
+			if s, ok := pp.(string); ok {
+				config.StopWords = append(config.StopWords, s)
+			}
+		}
 	}
 
 	if input.RepeatPenalty != 0 {
@@ -227,27 +244,44 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
-		predInput := input.Prompt
+		predInput := []string{}
+
+		switch p := input.Prompt.(type) {
+		case string:
+			predInput = append(predInput, p)
+		case []interface{}:
+			for _, pp := range p {
+				if s, ok := pp.(string); ok {
+					predInput = append(predInput, s)
+				}
+			}
+		}
+
 		templateFile := config.Model
 
 		if config.TemplateConfig.Completion != "" {
 			templateFile = config.TemplateConfig.Completion
 		}
 
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		templatedInput, err := loader.TemplatePrefix(templateFile, struct {
-			Input string
-		}{Input: predInput})
-		if err == nil {
-			predInput = templatedInput
-			log.Debug().Msgf("Template found, input modified to: %s", predInput)
-		}
+		var result []Choice
+		for _, i := range predInput {
+			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+			templatedInput, err := loader.TemplatePrefix(templateFile, struct {
+				Input string
+			}{Input: i})
+			if err == nil {
+				i = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", i)
+			}
 
-		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
-			*c = append(*c, Choice{Text: s})
-		})
-		if err != nil {
-			return err
+			r, err := ComputeChoices(i, input, config, loader, func(s string, c *[]Choice) {
+				*c = append(*c, Choice{Text: s})
+			}, nil)
+			if err != nil {
+				return err
+			}
+
+			result = append(result, r...)
 		}
 
 		resp := &OpenAIResponse{
@@ -290,8 +324,9 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 
 		if input.Stream {
 			log.Debug().Msgf("Stream request received")
+			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
-			c.Set("Content-Type", "text/event-stream; charset=utf-8")
+			//	c.Set("Content-Type", "text/event-stream")
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
@@ -312,13 +347,52 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 			log.Debug().Msgf("Template found, input modified to: %s", predInput)
 		}
 
+		if input.Stream {
+			responses := make(chan OpenAIResponse)
+
+			go func() {
+				ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {}, func(s string) bool {
+					resp := OpenAIResponse{
+						Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+						Choices: []Choice{{Delta: &Message{Role: "assistant", Content: s}}},
+						Object:  "chat.completion.chunk",
+					}
+
+					responses <- resp
+					return true
+				})
+				close(responses)
+			}()
+
+			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+
+				for ev := range responses {
+					var buf bytes.Buffer
+					enc := json.NewEncoder(&buf)
+					enc.Encode(ev)
+
+					fmt.Fprintf(w, "event: data\n\n")
+					fmt.Fprintf(w, "data: %v\n\n", buf.String())
+					log.Debug().Msgf("Sending chunk: %s", buf.String())
+					w.Flush()
+				}
+
+				w.WriteString("event: data\n\n")
+				resp := &OpenAIResponse{
+					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Choices: []Choice{{FinishReason: "stop"}},
+				}
+				respData, _ := json.Marshal(resp)
+
+				w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
+				w.Flush()
+			}))
+			return nil
+		}
+
 		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
-			if input.Stream {
-				*c = append(*c, Choice{Delta: &Message{Role: "assistant", Content: s}})
-			} else {
-				*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: s}})
-			}
-		})
+			*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: s}})
+		}, nil)
 		if err != nil {
 			return err
 		}
@@ -327,36 +401,6 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "chat.completion",
-		}
-
-		if input.Stream {
-			resp.Object = "chat.completion.chunk"
-			jsonResult, _ := json.Marshal(resp)
-			log.Debug().Msgf("Response: %s", jsonResult)
-			log.Debug().Msgf("Handling stream request")
-			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
-				fmt.Fprintf(w, "event: data\n")
-				w.Flush()
-
-				fmt.Fprintf(w, "data: %s\n\n", jsonResult)
-				w.Flush()
-
-				fmt.Fprintf(w, "event: data\n")
-				w.Flush()
-
-				resp := &OpenAIResponse{
-					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []Choice{{FinishReason: "stop"}},
-				}
-				respData, _ := json.Marshal(resp)
-
-				fmt.Fprintf(w, "data: %s\n\n", respData)
-				w.Flush()
-
-				//	fmt.Fprintf(w, "data: [DONE]\n\n")
-				//		w.Flush()
-			}))
-			return nil
 		}
 
 		// Return the prediction in the response body
@@ -392,7 +436,7 @@ func editEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 
 		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
 			*c = append(*c, Choice{Text: s})
-		})
+		}, nil)
 		if err != nil {
 			return err
 		}
