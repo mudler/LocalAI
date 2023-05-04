@@ -19,6 +19,9 @@ services:
     build:
       context: .
       dockerfile: JS.Dockerfile
+    profiles:
+      - js
+      - ts
     depends_on:
     - "api"
     environment:
@@ -30,6 +33,8 @@ services:
     build:
       context: .
       dockerfile: PY.Dockerfile
+    profiles:
+      - py
     depends_on:
     - "api"
     environment:
