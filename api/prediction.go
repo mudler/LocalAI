@@ -261,10 +261,15 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions = append(predictOptions, llama.SetSeed(c.Seed))
 			}
 
-			return model.Predict(
+			str, er := model.Predict(
 				s,
 				predictOptions...,
 			)
+			// Seems that if we don't free the callback explicitly we leave functions registered (that might try to send on closed channels)
+			// For instance otherwise the API returns: {"error":{"code":500,"message":"send on closed channel","type":""}}
+			// after a stream event has occurred
+			model.SetTokenCallback(nil)
+			return str, er
 		}
 	}
 

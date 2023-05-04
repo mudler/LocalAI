@@ -299,6 +299,21 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 }
 
 func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
+
+	process := func(s string, req *OpenAIRequest, config *Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
+		ComputeChoices(s, req, config, loader, func(s string, c *[]Choice) {}, func(s string) bool {
+			resp := OpenAIResponse{
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []Choice{{Delta: &Message{Role: "assistant", Content: s}}},
+				Object:  "chat.completion.chunk",
+			}
+			log.Debug().Msgf("Sending goroutine: %s", s)
+
+			responses <- resp
+			return true
+		})
+		close(responses)
+	}
 	return func(c *fiber.Ctx) error {
 		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
 		if err != nil {
@@ -350,19 +365,7 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 		if input.Stream {
 			responses := make(chan OpenAIResponse)
 
-			go func() {
-				ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {}, func(s string) bool {
-					resp := OpenAIResponse{
-						Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-						Choices: []Choice{{Delta: &Message{Role: "assistant", Content: s}}},
-						Object:  "chat.completion.chunk",
-					}
-
-					responses <- resp
-					return true
-				})
-				close(responses)
-			}()
+			go process(predInput, input, config, loader, responses)
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 

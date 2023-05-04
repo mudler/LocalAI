@@ -81,10 +81,9 @@ func (ml *ModelLoader) TemplatePrefix(modelName string, in interface{}) (string,
 		if exists {
 			m = t
 		}
-
 	}
 	if m == nil {
-		return "", nil
+		return "", fmt.Errorf("failed loading any template")
 	}
 
 	var buf bytes.Buffer
