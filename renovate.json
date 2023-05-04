@@ -1,35 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base"],
-  "labels": ["PR: Dependency ⬆️", "repo automation 🤖"],
-  "regexManagers": [
-    {
-      "fileMatch": ["^Makefile$"],
-      "matchStrings": ["GOGPT4ALLJ_VERSION?=(?<currentDigest>.*)\\n"],
-      "datasourceTemplate": "git-refs",
-      "depNameTemplate": "https://github.com/go-skynet/go-gpt4all-j.cpp.git",
-      "currentValueTemplate": "master"
-    },
-    {
-      "fileMatch": ["^Makefile$"],
-      "matchStrings": ["GOLLAMA_VERSION?=(?<currentDigest>.*)\\n"],
-      "datasourceTemplate": "git-refs",
-      "depNameTemplate": "https://github.com/go-skynet/go-llama.cpp.git",
-      "currentValueTemplate": "master"
-    },
-    {
-      "fileMatch": ["^Makefile$"],
-      "matchStrings": ["GOGPT2_VERSION?=(?<currentDigest>.*)\\n"],
-      "datasourceTemplate": "git-refs",
-      "depNameTemplate": "https://github.com/go-skynet/go-gpt2.cpp.git",
-      "currentValueTemplate": "master"
-    },
-    {
-      "fileMatch": ["^Makefile$"],
-      "matchStrings": ["RWKV_VERSION?=(?<currentDigest>.*)\\n"],
-      "datasourceTemplate": "git-refs",
-      "depNameTemplate": "https://github.com/donomii/go-rwkv.cpp.git",
-      "currentValueTemplate": "main"
-    }
-  ]
+  "extends": ["config:base"]
 }

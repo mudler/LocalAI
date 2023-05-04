@@ -1,0 +1,41 @@
+name: Bump dependencies
+on:
+  schedule:
+    - cron: 0 20 * * *
+  workflow_dispatch:
+jobs:
+  bump:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repository: "go-skynet/go-gpt4all-j.cpp"
+            variable: "GOGPT4ALLJ_VERSION"
+            branch: "master"
+          - repository: "go-skynet/go-llama.cpp"
+            variable: "GOLLAMA_VERSION"
+            branch: "master"
+          - repository: "go-skynet/go-gpt2.cpp"
+            variable: "GOGPT2_VERSION"
+            branch: "master"
+          - repository: "donomii/go-rwkv.cpp"
+            variable: "RWKV_VERSION"
+            branch: "main"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Bump dependencies 🔧
+        run: |
+          bash .github/bump_deps.sh ${{ matrix.repo }} ${{ matrix.branch }} ${{ matrix.variable }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':arrow_up: Update ${{ matrix.repo }}'
+          title: ':arrow_up: Update ${{ matrix.repo }}'
+          body: Bump of ${{ matrix.repo }} version
+          signoff: true
+
+
+
