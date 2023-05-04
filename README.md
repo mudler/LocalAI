@@ -45,25 +45,44 @@ Tested with:
 - [GPT4ALL-J](https://gpt4all.io/models/ggml-gpt4all-j.bin)
 - Koala
 - [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml)
+- WizardLM
 - [RWKV](https://github.com/BlinkDL/RWKV-LM) models with [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp)
 
-It should also be compatible with StableLM and GPTNeoX ggml models (untested)
+### Vicuna, Alpaca, LLaMa...
+
+[llama.cpp](https://github.com/ggerganov/llama.cpp) based models are compatible
+
+### GPT4ALL
 
 Note: You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
+
+### GPT4ALL-J
+
+No changes required to the model.
 
 ### RWKV
 
 <details>
 
-For `rwkv` models, you need to put also the associated tokenizer along with the ggml model:
+A full example on how to run a rwkv model is in the [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/rwkv).
+
+Note: rwkv models have an associated tokenizer along that needs to be provided with it:
 
 ```
-ls models
 36464540 -rw-r--r--  1 mudler mudler 1.2G May  3 10:51 rwkv_small
 36464543 -rw-r--r--  1 mudler mudler 2.4M May  3 10:51 rwkv_small.tokenizer.json
 ```
 
 </details>
+
+### Others
+
+It should also be compatible with StableLM and GPTNeoX ggml models (untested).
+
+### Hardware requirements
+
+Depending on the model you are attempting to run might need more RAM or CPU resources. Check out also [here](https://github.com/ggerganov/llama.cpp#memorydisk-requirements) for `ggml` based backends. `rwkv` is less expensive on resources.
+
 
 ## Usage
 

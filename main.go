@@ -5,11 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	
-
 	api "github.com/go-skynet/LocalAI/api"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/jaypipes/ghw"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -22,12 +19,6 @@ func main() {
 	if err != nil {
 		log.Error().Msgf("error: %s", err.Error())
 		os.Exit(1)
-	}
-
-	threads := 4
-	cpu, err := ghw.CPU()
-	if err == nil {
-		threads = int(cpu.TotalCores)
 	}
 
 	app := &cli.App{
@@ -46,7 +37,7 @@ func main() {
 				Name:        "threads",
 				DefaultText: "Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested.",
 				EnvVars:     []string{"THREADS"},
-				Value:       threads,
+				Value:       4,
 			},
 			&cli.StringFlag{
 				Name:        "models-path",
