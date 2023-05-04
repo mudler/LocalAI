@@ -70,6 +70,9 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 	app.Post("/v1/completions", completionEndpoint(cm, debug, loader, threads, ctxSize, f16))
 	app.Post("/completions", completionEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
+	app.Post("/v1/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
+	app.Post("/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
+
 	app.Get("/v1/models", listModels(loader, cm))
 	app.Get("/models", listModels(loader, cm))
 

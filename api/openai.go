@@ -33,13 +33,21 @@ type OpenAIUsage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
+type Item struct {
+	Embedding []float32 `json:"embedding"`
+	Index     int       `json:"index"`
+	Object    string    `json:"object,omitempty"`
+}
+
 type OpenAIResponse struct {
-	Created int         `json:"created,omitempty"`
-	Object  string      `json:"object,omitempty"`
-	ID      string      `json:"id,omitempty"`
-	Model   string      `json:"model,omitempty"`
-	Choices []Choice    `json:"choices,omitempty"`
-	Usage   OpenAIUsage `json:"usage"`
+	Created int      `json:"created,omitempty"`
+	Object  string   `json:"object,omitempty"`
+	ID      string   `json:"id,omitempty"`
+	Model   string   `json:"model,omitempty"`
+	Choices []Choice `json:"choices,omitempty"`
+	Data    []Item   `json:"data,omitempty"`
+
+	Usage OpenAIUsage `json:"usage"`
 }
 
 type Choice struct {
@@ -288,6 +296,40 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "text_completion",
+		}
+
+		jsonResult, _ := json.Marshal(resp)
+		log.Debug().Msgf("Response: %s", jsonResult)
+
+		// Return the prediction in the response body
+		return c.JSON(resp)
+	}
+}
+
+// https://platform.openai.com/docs/api-reference/completions
+func embeddingsEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
+		if err != nil {
+			return fmt.Errorf("failed reading parameters from request:%w", err)
+		}
+
+		log.Debug().Msgf("Parameter Config: %+v", config)
+
+		// get the model function to call for the result
+		embedFn, err := ModelEmbedding(input.Input, loader, *config)
+		if err != nil {
+			return err
+		}
+
+		embeddings, err := embedFn()
+		if err != nil {
+			return err
+		}
+		resp := &OpenAIResponse{
+			Model:  input.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Data:   []Item{{Embedding: embeddings, Index: 0, Object: "embedding"}},
+			Object: "list",
 		}
 
 		jsonResult, _ := json.Marshal(resp)

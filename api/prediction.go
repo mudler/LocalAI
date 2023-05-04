@@ -98,11 +98,7 @@ func greedyLoader(loader *model.ModelLoader, modelFile string, llamaOpts []llama
 	return nil, fmt.Errorf("could not load model - all backends returned error: %s", err.Error())
 }
 
-func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback func(string) bool) (func() (string, error), error) {
-	supportStreams := false
-	modelFile := c.Model
-
-	// Try to load the model
+func defaultLLamaOpts(c Config) []llama.ModelOption {
 	llamaOpts := []llama.ModelOption{}
 	if c.ContextSize != 0 {
 		llamaOpts = append(llamaOpts, llama.SetContext(c.ContextSize))
@@ -110,6 +106,66 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 	if c.F16 {
 		llamaOpts = append(llamaOpts, llama.EnableF16Memory)
 	}
+	if c.Embeddings {
+		llamaOpts = append(llamaOpts, llama.EnableEmbeddings)
+	}
+	return llamaOpts
+}
+
+func ModelEmbedding(s string, loader *model.ModelLoader, c Config) (func() ([]float32, error), error) {
+	if !c.Embeddings {
+		return nil, fmt.Errorf("endpoint disabled for this model by API configuration")
+	}
+
+	modelFile := c.Model
+
+	llamaOpts := defaultLLamaOpts(c)
+
+	var inferenceModel interface{}
+	var err error
+	if c.Backend == "" {
+		inferenceModel, err = greedyLoader(loader, modelFile, llamaOpts, uint32(c.Threads))
+	} else {
+		inferenceModel, err = backendLoader(c.Backend, loader, modelFile, llamaOpts, uint32(c.Threads))
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var fn func() ([]float32, error)
+	switch model := inferenceModel.(type) {
+	case *llama.LLama:
+		fn = func() ([]float32, error) {
+			return model.Embeddings(s)
+		}
+	default:
+		fn = func() ([]float32, error) {
+			return nil, fmt.Errorf("embeddings not supported by the backend")
+		}
+	}
+
+	return func() ([]float32, error) {
+		// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
+		mutexMap.Lock()
+		l, ok := mutexes[modelFile]
+		if !ok {
+			m := &sync.Mutex{}
+			mutexes[modelFile] = m
+			l = m
+		}
+		mutexMap.Unlock()
+		l.Lock()
+		defer l.Unlock()
+
+		return fn()
+	}, nil
+}
+
+func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback func(string) bool) (func() (string, error), error) {
+	supportStreams := false
+	modelFile := c.Model
+
+	llamaOpts := defaultLLamaOpts(c)
 
 	var inferenceModel interface{}
 	var err error

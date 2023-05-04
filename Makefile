@@ -3,7 +3,7 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
-GOLLAMA_VERSION?=2e6ae1269e035886fc64e268a6dda9d8c4ba8c75
+GOLLAMA_VERSION?=67ff6a4db244
 GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
@@ -51,6 +51,9 @@ go-gpt4all-j:
 go-rwkv:
 	git clone --recurse-submodules $(RWKV_REPO) go-rwkv
 	cd go-rwkv && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
+	@find ./go-rwkv -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_rwkv_/g' {} +
+	@find ./go-rwkv -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_rwkv_/g' {} +
+	@find ./go-rwkv -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_rwkv_/g' {} +
 
 go-rwkv/librwkv.a: go-rwkv
 	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a .. && cp ggml/src/libggml.a ..
