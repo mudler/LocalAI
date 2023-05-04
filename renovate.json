@@ -1,17 +1,41 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base"
-  ],
+  "extends": ["config:base"],
+  "dependencyDashboardApproval": true,
+  "labels": ["PR: Dependency ⬆️", "repo automation 🤖"],
+  "postUpdateOptions": ["yarnDedupeHighest"],
   "regexManagers": [
     {
-      "fileMatch": [
-        "^Makefile$"
-      ],
-      "matchStrings": [
-        "#\\s*renovate:\\s*datasource=(?<datasource>.*?) depName=(?<depName>.*?)( datasourceTemplate=(?<datasourceTemplate>.*?))?( packageNameTemplate=(?<packageNameTemplate>.*?))?( depNameTemplate=(?<depNameTemplate>.*?))?( valueTemplate=(?<currentValueTemplate>.*?))?( versioning=(?<versioning>.*?))?\\s+.+_VERSION=(?<currentValue>.*?)\\s"
-      ],
-      "versioningTemplate": "{{#if versioning}}{{versioning}}{{/if}}"
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": ["GOGPT4ALLJ_VERSION?=(?<currentDigest>.*)\\n"],
+      "datasourceTemplate": "git-refs",
+      "depNameTemplate": "backends-gpt4all",
+      "lookupNameTemplate": "https://github.com/go-skynet/go-gpt4all-j.cpp.git",
+      "currentValueTemplate": "master"
+    },
+    {
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": ["GOLLAMA_VERSION?=(?<currentDigest>.*)\\n"],
+      "datasourceTemplate": "git-refs",
+      "depNameTemplate": "backends-go-llama.cpp",
+      "lookupNameTemplate": "https://github.com/go-skynet/go-llama.cpp.git",
+      "currentValueTemplate": "master"
+    },
+    {
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": ["GOGPT2_VERSION?=(?<currentDigest>.*)\\n"],
+      "datasourceTemplate": "git-refs",
+      "depNameTemplate": "backends-go-gpt2.cpp",
+      "lookupNameTemplate": "https://github.com/go-skynet/go-gpt2.cpp.git",
+      "currentValueTemplate": "master"
+    },
+    {
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": ["RWKV_VERSION?=(?<currentDigest>.*)\\n"],
+      "datasourceTemplate": "git-refs",
+      "depNameTemplate": "backends-go-rwkv.cpp",
+      "lookupNameTemplate": "https://github.com/donomii/go-rwkv.cpp.git",
+      "currentValueTemplate": "main"
     }
   ]
 }
