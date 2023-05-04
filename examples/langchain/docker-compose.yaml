@@ -15,11 +15,29 @@ services:
       - ./models:/models:cached
     command: ["/usr/bin/local-ai" ]
 
-  langchainjs:
+  js:
     build:
       context: .
       dockerfile: JS.Dockerfile
+    profiles:
+      - js
+      - ts
+    depends_on:
+    - "api"
     environment:
       - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
-      - 'OPENAI_API_HOST=http://api:8080/v1'
+      - 'OPENAI_API_BASE=http://api:8080/v1'
+      - 'MODEL_NAME=gpt-3.5-turbo' #gpt-3.5-turbo' # ggml-gpt4all-j' # ggml-koala-13B-4bit-128g'
+
+  py:
+    build:
+      context: .
+      dockerfile: PY.Dockerfile
+    profiles:
+      - py
+    depends_on:
+    - "api"
+    environment:
+      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
+      - 'OPENAI_API_BASE=http://api:8080/v1'
       - 'MODEL_NAME=gpt-3.5-turbo' #gpt-3.5-turbo' # ggml-gpt4all-j' # ggml-koala-13B-4bit-128g'

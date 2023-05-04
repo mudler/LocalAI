@@ -12,6 +12,7 @@ stopwords:
 roles:
   user: " "
   system: " "
+backend: "gptj"
 template:
   completion: completion
   chat: completion # gpt4all

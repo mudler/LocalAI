@@ -1,10 +1,6 @@
 # langchain
 
-Example of using langchain in TypeScript, with the standard OpenAI llm module, and LocalAI.
-
-Example for python langchain to follow at a later date
-
-Set up to make it easy to modify the `index.mts` file to look like any langchain example file.
+Example of using langchain, with the standard OpenAI llm module, and LocalAI. Has docker compose profiles for both the Typescript and Python versions.
 
 **Please Note** - This is a tech demo example at this time. ggml-gpt4all-j has pretty terrible results for most langchain applications with the settings used in this example.
 
@@ -22,8 +18,11 @@ cd LocalAI/examples/langchain
 # Download gpt4all-j to models/
 wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
 
-# start with docker-compose
-docker-compose up --build
+# start with docker-compose for typescript!
+docker-compose --profile ts up --build
+
+# or start with docker-compose for python!
+docker-compose --profile py up --build
 ```
 
 ## Copyright
