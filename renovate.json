@@ -9,7 +9,8 @@
       "datasourceTemplate": "git-refs",
       "depNameTemplate": "go-gpt4all-j.cpp",
       "lookupNameTemplate": "https://github.com/go-skynet/go-gpt4all-j.cpp",
-      "currentValueTemplate": "master"
+      "currentValueTemplate": "master",
+      "versioning": "git"
     },
     {
       "fileMatch": ["^Makefile$"],
@@ -17,7 +18,8 @@
       "datasourceTemplate": "git-refs",
       "depNameTemplate": "go-llama.cpp",
       "lookupNameTemplate": "https://github.com/go-skynet/go-llama.cpp",
-      "currentValueTemplate": "master"
+      "currentValueTemplate": "master",
+      "versioning": "git"
     },
     {
       "fileMatch": ["^Makefile$"],
@@ -25,7 +27,8 @@
       "datasourceTemplate": "git-refs",
       "depNameTemplate": "go-gpt2.cpp",
       "lookupNameTemplate": "https://github.com/go-skynet/go-gpt2.cpp",
-      "currentValueTemplate": "master"
+      "currentValueTemplate": "master",
+      "versioning": "git"
     },
     {
       "fileMatch": ["^Makefile$"],
@@ -33,7 +36,8 @@
       "datasourceTemplate": "git-refs",
       "depNameTemplate": "go-rwkv.cpp",
       "lookupNameTemplate": "https://github.com/donomii/go-rwkv.cpp",
-      "currentValueTemplate": "main"
+      "currentValueTemplate": "main",
+      "versioning": "git"
     }
   ]
 }
