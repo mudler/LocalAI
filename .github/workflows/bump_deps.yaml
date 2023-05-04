@@ -32,9 +32,10 @@ jobs:
         with:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
-          commit-message: ':arrow_up: Update ${{ matrix.repo }}'
-          title: ':arrow_up: Update ${{ matrix.repo }}'
-          body: Bump of ${{ matrix.repo }} version
+          commit-message: ':arrow_up: Update ${{ matrix.repository }}'
+          title: ':arrow_up: Update ${{ matrix.repository }}'
+          branch: "update/${{ matrix.variable }}"
+          body: Bump of ${{ matrix.repository }} version
           signoff: true
 
 
