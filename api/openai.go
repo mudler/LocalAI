@@ -402,6 +402,8 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 			Choices: result,
 			Object:  "chat.completion",
 		}
+		respData, _ := json.Marshal(resp)
+		log.Debug().Msgf("Response: %s", respData)
 
 		// Return the prediction in the response body
 		return c.JSON(resp)
