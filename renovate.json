@@ -7,37 +7,29 @@
       "fileMatch": ["^Makefile$"],
       "matchStrings": ["GOGPT4ALLJ_VERSION?=(?<currentDigest>.*)\\n"],
       "datasourceTemplate": "git-refs",
-      "depNameTemplate": "go-gpt4all-j.cpp",
-      "lookupNameTemplate": "https://github.com/go-skynet/go-gpt4all-j.cpp",
-      "currentValueTemplate": "master",
-      "versioningTemplate": "git"
+      "depNameTemplate": "https://github.com/go-skynet/go-gpt4all-j.cpp",
+      "currentValueTemplate": "master"
     },
     {
       "fileMatch": ["^Makefile$"],
       "matchStrings": ["GOLLAMA_VERSION?=(?<currentDigest>.*)\\n"],
       "datasourceTemplate": "git-refs",
-      "depNameTemplate": "go-llama.cpp",
-      "lookupNameTemplate": "https://github.com/go-skynet/go-llama.cpp",
-      "currentValueTemplate": "master",
-      "versioningTemplate": "git"
+      "depNameTemplate": "https://github.com/go-skynet/go-llama.cpp",
+      "currentValueTemplate": "master"
     },
     {
       "fileMatch": ["^Makefile$"],
       "matchStrings": ["GOGPT2_VERSION?=(?<currentDigest>.*)\\n"],
       "datasourceTemplate": "git-refs",
-      "depNameTemplate": "go-gpt2.cpp",
-      "lookupNameTemplate": "https://github.com/go-skynet/go-gpt2.cpp",
-      "currentValueTemplate": "master",
-      "versioningTemplate": "git"
+      "depNameTemplate": "https://github.com/go-skynet/go-gpt2.cpp",
+      "currentValueTemplate": "master"
     },
     {
       "fileMatch": ["^Makefile$"],
       "matchStrings": ["RWKV_VERSION?=(?<currentDigest>.*)\\n"],
       "datasourceTemplate": "git-refs",
-      "depNameTemplate": "go-rwkv.cpp",
-      "lookupNameTemplate": "https://github.com/donomii/go-rwkv.cpp",
-      "currentValueTemplate": "main",
-      "versioningTemplate": "git"
+      "depNameTemplate": "https://github.com/donomii/go-rwkv.cpp",
+      "currentValueTemplate": "main"
     }
   ]
 }
