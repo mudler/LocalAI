@@ -129,10 +129,13 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 		supportStreams = true
 
 		fn = func() (string, error) {
-			//model.ProcessInput("You are a chatbot that is very good at chatting.  blah blah blah")
 			stopWord := "\n"
 			if len(c.StopWords) > 0 {
 				stopWord = c.StopWords[0]
+			}
+
+			if err := model.ProcessInput(s); err != nil {
+				return "", err
 			}
 
 			response := model.GenerateResponse(c.Maxtokens, stopWord, float32(c.Temperature), float32(c.TopP), tokenCallback)
