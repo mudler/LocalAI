@@ -14,7 +14,7 @@ require (
 	github.com/onsi/gomega v1.27.6
 	github.com/otiai10/openaigo v1.1.0
 	github.com/rs/zerolog v1.29.1
-	github.com/sashabaranov/go-openai v1.9.2
+	github.com/sashabaranov/go-openai v1.9.3
 	github.com/urfave/cli/v2 v2.25.3
 	github.com/valyala/fasthttp v1.47.0
 	gopkg.in/yaml.v3 v3.0.1
