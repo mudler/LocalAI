@@ -3,7 +3,7 @@ module github.com/go-skynet/LocalAI
 go 1.19
 
 require (
-	github.com/donomii/go-rwkv.cpp v0.0.0-20230502223004-0a3db3d72e7d
+	github.com/donomii/go-rwkv.cpp v0.0.0-20230503112711-af62fcc432be
 	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230422085954-245a5bfe6708
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230503200855-2e6ae1269e03
