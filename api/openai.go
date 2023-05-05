@@ -166,7 +166,7 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 	}
 }
 
-// https://platform.openai.com/docs/api-reference/completions
+// https://platform.openai.com/docs/api-reference/embeddings
 func embeddingsEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
