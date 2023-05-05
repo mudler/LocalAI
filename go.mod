@@ -6,7 +6,7 @@ require (
 	github.com/donomii/go-rwkv.cpp v0.0.0-20230503112711-af62fcc432be
 	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230422085954-245a5bfe6708
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230504223241-67ff6a4db244
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230505100647-691d479d3675
 	github.com/gofiber/fiber/v2 v2.44.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/onsi/ginkgo/v2 v2.9.4
@@ -57,4 +57,3 @@ require (
 	golang.org/x/tools v0.8.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
