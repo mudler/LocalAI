@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -75,8 +73,8 @@ type OpenAIRequest struct {
 	Prompt interface{} `json:"prompt" yaml:"prompt"`
 
 	// Edit endpoint
-	Instruction string `json:"instruction" yaml:"instruction"`
-	Input       string `json:"input" yaml:"input"`
+	Instruction string      `json:"instruction" yaml:"instruction"`
+	Input       interface{} `json:"input" yaml:"input"`
 
 	Stop interface{} `json:"stop" yaml:"stop"`
 
@@ -117,147 +115,6 @@ func defaultRequest(modelFile string) OpenAIRequest {
 	}
 }
 
-func updateConfig(config *Config, input *OpenAIRequest) {
-	if input.Echo {
-		config.Echo = input.Echo
-	}
-	if input.TopK != 0 {
-		config.TopK = input.TopK
-	}
-	if input.TopP != 0 {
-		config.TopP = input.TopP
-	}
-
-	if input.Temperature != 0 {
-		config.Temperature = input.Temperature
-	}
-
-	if input.Maxtokens != 0 {
-		config.Maxtokens = input.Maxtokens
-	}
-
-	switch stop := input.Stop.(type) {
-	case string:
-		if stop != "" {
-			config.StopWords = append(config.StopWords, stop)
-		}
-	case []interface{}:
-		for _, pp := range stop {
-			if s, ok := pp.(string); ok {
-				config.StopWords = append(config.StopWords, s)
-			}
-		}
-	}
-
-	if input.RepeatPenalty != 0 {
-		config.RepeatPenalty = input.RepeatPenalty
-	}
-
-	if input.Keep != 0 {
-		config.Keep = input.Keep
-	}
-
-	if input.Batch != 0 {
-		config.Batch = input.Batch
-	}
-
-	if input.F16 {
-		config.F16 = input.F16
-	}
-
-	if input.IgnoreEOS {
-		config.IgnoreEOS = input.IgnoreEOS
-	}
-
-	if input.Seed != 0 {
-		config.Seed = input.Seed
-	}
-
-	if input.Mirostat != 0 {
-		config.Mirostat = input.Mirostat
-	}
-
-	if input.MirostatETA != 0 {
-		config.MirostatETA = input.MirostatETA
-	}
-
-	if input.MirostatTAU != 0 {
-		config.MirostatTAU = input.MirostatTAU
-	}
-}
-
-func readConfig(cm ConfigMerger, c *fiber.Ctx, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*Config, *OpenAIRequest, error) {
-	input := new(OpenAIRequest)
-	// Get input data from the request body
-	if err := c.BodyParser(input); err != nil {
-		return nil, nil, err
-	}
-
-	modelFile := input.Model
-	received, _ := json.Marshal(input)
-
-	log.Debug().Msgf("Request received: %s", string(received))
-
-	// Set model from bearer token, if available
-	bearer := strings.TrimLeft(c.Get("authorization"), "Bearer ")
-	bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
-
-	// If no model was specified, take the first available
-	if modelFile == "" && !bearerExists {
-		models, _ := loader.ListModels()
-		if len(models) > 0 {
-			modelFile = models[0]
-			log.Debug().Msgf("No model specified, using: %s", modelFile)
-		} else {
-			log.Debug().Msgf("No model specified, returning error")
-			return nil, nil, fmt.Errorf("no model specified")
-		}
-	}
-
-	// If a model is found in bearer token takes precedence
-	if bearerExists {
-		log.Debug().Msgf("Using model from bearer token: %s", bearer)
-		modelFile = bearer
-	}
-
-	// Load a config file if present after the model name
-	modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
-	if _, err := os.Stat(modelConfig); err == nil {
-		if err := cm.LoadConfig(modelConfig); err != nil {
-			return nil, nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
-		}
-	}
-
-	var config *Config
-	cfg, exists := cm[modelFile]
-	if !exists {
-		config = &Config{
-			OpenAIRequest: defaultRequest(modelFile),
-		}
-	} else {
-		config = &cfg
-	}
-
-	// Set the parameters for the language model prediction
-	updateConfig(config, input)
-
-	if threads != 0 {
-		config.Threads = threads
-	}
-	if ctx != 0 {
-		config.ContextSize = ctx
-	}
-	if f16 {
-		config.F16 = true
-	}
-
-	if debug {
-		config.Debug = true
-	}
-
-	return config, input, nil
-}
-
 // https://platform.openai.com/docs/api-reference/completions
 func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
@@ -268,19 +125,6 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
-		predInput := []string{}
-
-		switch p := input.Prompt.(type) {
-		case string:
-			predInput = append(predInput, p)
-		case []interface{}:
-			for _, pp := range p {
-				if s, ok := pp.(string); ok {
-					predInput = append(predInput, s)
-				}
-			}
-		}
-
 		templateFile := config.Model
 
 		if config.TemplateConfig.Completion != "" {
@@ -288,7 +132,7 @@ func completionEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 		}
 
 		var result []Choice
-		for _, i := range predInput {
+		for _, i := range config.PromptStrings {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := loader.TemplatePrefix(templateFile, struct {
 				Input string
@@ -331,20 +175,26 @@ func embeddingsEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 		}
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
+		items := []Item{}
 
-		// get the model function to call for the result
-		embedFn, err := ModelEmbedding(input.Input, loader, *config)
-		if err != nil {
-			return err
+		for i, s := range config.InputStrings {
+
+			// get the model function to call for the result
+			embedFn, err := ModelEmbedding(s, loader, *config)
+			if err != nil {
+				return err
+			}
+
+			embeddings, err := embedFn()
+			if err != nil {
+				return err
+			}
+			items = append(items, Item{Embedding: embeddings, Index: i, Object: "embedding"})
 		}
 
-		embeddings, err := embedFn()
-		if err != nil {
-			return err
-		}
 		resp := &OpenAIResponse{
 			Model:  input.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Data:   []Item{{Embedding: embeddings, Index: 0, Object: "embedding"}},
+			Data:   items,
 			Object: "list",
 		}
 
@@ -480,28 +330,32 @@ func editEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
-		predInput := input.Input
 		templateFile := config.Model
 
 		if config.TemplateConfig.Edit != "" {
 			templateFile = config.TemplateConfig.Edit
 		}
 
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		templatedInput, err := loader.TemplatePrefix(templateFile, struct {
-			Input       string
-			Instruction string
-		}{Input: predInput, Instruction: input.Instruction})
-		if err == nil {
-			predInput = templatedInput
-			log.Debug().Msgf("Template found, input modified to: %s", predInput)
-		}
+		var result []Choice
+		for _, i := range config.InputStrings {
+			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+			templatedInput, err := loader.TemplatePrefix(templateFile, struct {
+				Input       string
+				Instruction string
+			}{Input: i})
+			if err == nil {
+				i = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", i)
+			}
 
-		result, err := ComputeChoices(predInput, input, config, loader, func(s string, c *[]Choice) {
-			*c = append(*c, Choice{Text: s})
-		}, nil)
-		if err != nil {
-			return err
+			r, err := ComputeChoices(i, input, config, loader, func(s string, c *[]Choice) {
+				*c = append(*c, Choice{Text: s})
+			}, nil)
+			if err != nil {
+				return err
+			}
+
+			result = append(result, r...)
 		}
 
 		resp := &OpenAIResponse{

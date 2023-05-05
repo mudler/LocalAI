@@ -6,6 +6,7 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -40,6 +41,12 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 		},
 	})
 
+	if debug {
+		app.Use(logger.New(logger.Config{
+			Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
+		}))
+	}
+
 	cm := make(ConfigMerger)
 	if err := cm.LoadConfigs(loader.ModelPath); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())
@@ -72,6 +79,10 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 
 	app.Post("/v1/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
 	app.Post("/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
+
+	// /v1/engines/{engine_id}/embeddings
+
+	app.Post("/v1/engines/:model/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
 	app.Get("/v1/models", listModels(loader, cm))
 	app.Get("/models", listModels(loader, cm))
