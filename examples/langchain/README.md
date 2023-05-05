@@ -27,4 +27,4 @@ docker-compose --profile py up --build
 
 ## Copyright
 
-Some of the example code in index.mts is adapted from the langchainjs project and is Copyright (c) Harrison Chase. Used under the terms of the MIT license, as is the remainder of this code.
+Some of the example code in index.mts and full_demo.py is adapted from the langchainjs project and is Copyright (c) Harrison Chase. Used under the terms of the MIT license, as is the remainder of this code.

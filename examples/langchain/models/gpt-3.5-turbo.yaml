@@ -15,4 +15,4 @@ roles:
 backend: "gptj"
 template:
   completion: completion
-  chat: completion # gpt4all
+  chat: gpt4all
