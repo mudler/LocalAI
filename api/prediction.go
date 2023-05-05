@@ -206,6 +206,18 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				llama.SetThreads(c.Threads),
 			}
 
+			if c.Mirostat != 0 {
+				predictOptions = append(predictOptions, llama.SetMirostat(c.Mirostat))
+			}
+
+			if c.MirostatETA != 0 {
+				predictOptions = append(predictOptions, llama.SetMirostatETA(c.MirostatETA))
+			}
+
+			if c.MirostatTAU != 0 {
+				predictOptions = append(predictOptions, llama.SetMirostatTAU(c.MirostatTAU))
+			}
+
 			if c.Debug {
 				predictOptions = append(predictOptions, llama.Debug)
 			}

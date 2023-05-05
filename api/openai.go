@@ -100,6 +100,10 @@ type OpenAIRequest struct {
 	RepeatPenalty float64 `json:"repeat_penalty" yaml:"repeat_penalty"`
 	Keep          int     `json:"n_keep" yaml:"n_keep"`
 
+	MirostatETA float64 `json:"mirostat_eta" yaml:"mirostat_eta"`
+	MirostatTAU float64 `json:"mirostat_tau" yaml:"mirostat_tau"`
+	Mirostat    int     `json:"mirostat" yaml:"mirostat"`
+
 	Seed int `json:"seed" yaml:"seed"`
 }
 
@@ -167,6 +171,18 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 
 	if input.Seed != 0 {
 		config.Seed = input.Seed
+	}
+
+	if input.Mirostat != 0 {
+		config.Mirostat = input.Mirostat
+	}
+
+	if input.MirostatETA != 0 {
+		config.MirostatETA = input.MirostatETA
+	}
+
+	if input.MirostatTAU != 0 {
+		config.MirostatTAU = input.MirostatTAU
 	}
 }
 
