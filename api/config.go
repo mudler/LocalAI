@@ -21,6 +21,7 @@ type Config struct {
 	Threads        int               `yaml:"threads"`
 	Debug          bool              `yaml:"debug"`
 	Roles          map[string]string `yaml:"roles"`
+	Embeddings     bool              `yaml:"embeddings"`
 	Backend        string            `yaml:"backend"`
 	TemplateConfig TemplateConfig    `yaml:"template"`
 }

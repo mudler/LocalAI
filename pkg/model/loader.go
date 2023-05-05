@@ -10,6 +10,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog/log"
 
 	rwkv "github.com/donomii/go-rwkv.cpp"
@@ -281,4 +282,84 @@ func (ml *ModelLoader) LoadLLaMAModel(modelName string, opts ...llama.ModelOptio
 
 	ml.models[modelName] = model
 	return model, err
+}
+
+const tokenizerSuffix = ".tokenizer.json"
+
+var loadedModels map[string]interface{} = map[string]interface{}{}
+var muModels sync.Mutex
+
+func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, llamaOpts []llama.ModelOption, threads uint32) (model interface{}, err error) {
+	switch strings.ToLower(backendString) {
+	case "llama":
+		return ml.LoadLLaMAModel(modelFile, llamaOpts...)
+	case "stablelm":
+		return ml.LoadStableLMModel(modelFile)
+	case "gpt2":
+		return ml.LoadGPT2Model(modelFile)
+	case "gptj":
+		return ml.LoadGPTJModel(modelFile)
+	case "rwkv":
+		return ml.LoadRWKV(modelFile, modelFile+tokenizerSuffix, threads)
+	default:
+		return nil, fmt.Errorf("backend unsupported: %s", backendString)
+	}
+}
+
+func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOption, threads uint32) (model interface{}, err error) {
+	updateModels := func(model interface{}) {
+		muModels.Lock()
+		defer muModels.Unlock()
+		loadedModels[modelFile] = model
+	}
+
+	muModels.Lock()
+	m, exists := loadedModels[modelFile]
+	if exists {
+		muModels.Unlock()
+		return m, nil
+	}
+	muModels.Unlock()
+
+	model, modelerr := ml.LoadLLaMAModel(modelFile, llamaOpts...)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = ml.LoadGPTJModel(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = ml.LoadGPT2Model(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = ml.LoadStableLMModel(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = ml.LoadRWKV(modelFile, modelFile+tokenizerSuffix, threads)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	return nil, fmt.Errorf("could not load model - all backends returned error: %s", err.Error())
 }
