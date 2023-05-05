@@ -262,6 +262,10 @@ func readConfig(cm ConfigMerger, c *fiber.Ctx, loader *model.ModelLoader, debug 
 	if !exists {
 		config = &Config{
 			OpenAIRequest: defaultRequest(modelFile),
+			ContextSize:   ctx,
+			Threads:       threads,
+			F16:           f16,
+			Debug:         debug,
 		}
 	} else {
 		config = &cfg
@@ -269,20 +273,6 @@ func readConfig(cm ConfigMerger, c *fiber.Ctx, loader *model.ModelLoader, debug 
 
 	// Set the parameters for the language model prediction
 	updateConfig(config, input)
-
-	if threads != 0 {
-		config.Threads = threads
-	}
-	if ctx != 0 {
-		config.ContextSize = ctx
-	}
-	if f16 {
-		config.F16 = true
-	}
-
-	if debug {
-		config.Debug = true
-	}
 
 	return config, input, nil
 }
