@@ -1,7 +1,10 @@
 - name: list1
   parameters:
     model: testmodel
-  context_size: 128
+    top_p: 80
+    top_k: 0.9
+    temperature: 0.1
+  context_size: 10
   stopwords:
   - "HUMAN:"
   - "### Response:"
@@ -13,8 +16,11 @@
     chat: ggml-gpt4all-j
 - name: list2
   parameters:
+    top_p: 80
+    top_k: 0.9
+    temperature: 0.1
     model: testmodel
-  context_size: 128
+  context_size: 10
   stopwords:
   - "HUMAN:"
   - "### Response:"
