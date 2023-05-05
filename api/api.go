@@ -80,6 +80,10 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 	app.Post("/v1/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
 	app.Post("/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
+	// /v1/engines/{engine_id}/embeddings
+
+	app.Post("/v1/engines/:model/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
+
 	app.Get("/v1/models", listModels(loader, cm))
 	app.Get("/models", listModels(loader, cm))
 

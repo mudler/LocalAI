@@ -218,6 +218,11 @@ func readConfig(cm ConfigMerger, c *fiber.Ctx, loader *model.ModelLoader, debug 
 	}
 
 	modelFile := input.Model
+
+	if c.Params("model") != "" {
+		modelFile = c.Params("model")
+	}
+
 	received, _ := json.Marshal(input)
 
 	log.Debug().Msgf("Request received: %s", string(received))
