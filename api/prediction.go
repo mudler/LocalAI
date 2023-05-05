@@ -78,7 +78,19 @@ func ModelEmbedding(s string, loader *model.ModelLoader, c Config) (func() ([]fl
 		l.Lock()
 		defer l.Unlock()
 
-		return fn()
+		embeds, err := fn()
+		if err != nil {
+			return embeds, err
+		}
+		// Remove trailing 0s
+		for i := len(embeds) - 1; i >= 0; i-- {
+			if embeds[i] == 0.0 {
+				embeds = embeds[:i]
+			} else {
+				break
+			}
+		}
+		return embeds, nil
 	}, nil
 }
 
