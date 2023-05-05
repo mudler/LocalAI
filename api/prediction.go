@@ -28,6 +28,7 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 	if c.Embeddings {
 		llamaOpts = append(llamaOpts, llama.EnableEmbeddings)
 	}
+
 	return llamaOpts
 }
 

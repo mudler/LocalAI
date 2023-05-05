@@ -27,6 +27,8 @@ type Config struct {
 	MirostatETA    float64           `yaml:"mirostat_eta"`
 	MirostatTAU    float64           `yaml:"mirostat_tau"`
 	Mirostat       int               `yaml:"mirostat"`
+
+	PromptStrings, InputStrings []string
 }
 
 type TemplateConfig struct {
