@@ -3,7 +3,7 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
-GOLLAMA_VERSION?=67ff6a4db244
+GOLLAMA_VERSION?=67ff6a4db244b37e6efb4e6a5c5536d2bfae215b
 GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
