@@ -1,8 +1,7 @@
 name: gpt4all
 parameters:
   model: testmodel
-context_size: 512
-threads: 10
+context_size: 128
 stopwords:
 - "HUMAN:"
 - "### Response:"
