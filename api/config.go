@@ -24,6 +24,9 @@ type Config struct {
 	Embeddings     bool              `yaml:"embeddings"`
 	Backend        string            `yaml:"backend"`
 	TemplateConfig TemplateConfig    `yaml:"template"`
+	MirostatETA    float64           `yaml:"mirostat_eta"`
+	MirostatTAU    float64           `yaml:"mirostat_tau"`
+	Mirostat       int               `yaml:"mirostat"`
 }
 
 type TemplateConfig struct {
