@@ -12,7 +12,7 @@
 **LocalAI** is a drop-in replacement REST API compatible with OpenAI for local CPU inferencing. It allows to run models locally or on-prem with consumer grade hardware. It is based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all), [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is licensed under Apache 2.0.
 
 - OpenAI compatible API
-- Supports multiple-models
+- Supports multiple models
 - Once loaded the first time, it keep models loaded in memory for faster inference
 - Support for prompt templates
 - Doesn't shell-out, but uses C bindings for a faster inference and better performance. 
@@ -21,20 +21,28 @@ LocalAI is a community-driven project, focused on making the AI accessible to an
 
 See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
-### News
+## News
 
 - 02-05-2023: Support for `rwkv.cpp` models ( https://github.com/go-skynet/LocalAI/pull/158 ) and for `/edits` endpoint
 - 01-05-2023: Support for SSE stream of tokens in `llama.cpp` backends ( https://github.com/go-skynet/LocalAI/pull/152 )
 
-### Socials and community chatter
+Twitter: [@LocalAI_API](https://twitter.com/LocalAI_API) and [@mudler](https://twitter.com/mudler_it)
 
-- Follow [@LocalAI_API](https://twitter.com/LocalAI_API) on twitter.
+### Blogs and articles
 
-- [Reddit post](https://www.reddit.com/r/selfhosted/comments/12w4p2f/localai_openai_compatible_api_to_run_llm_models/) about LocalAI.
+- [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65) - excellent usecase for localAI, using AI to analyse Kubernetes clusters.
+
+## Contribute and help
+
+To help the project you can:
+
+- Upvote the [Reddit post](https://www.reddit.com/r/selfhosted/comments/12w4p2f/localai_openai_compatible_api_to_run_llm_models/) about LocalAI.
 
 - [Hacker news post](https://news.ycombinator.com/item?id=35726934) - help us out by voting if you like this project.
 
-- [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65) - excellent usecase for localAI, using AI to analyse Kubernetes clusters.
+- If you have technological skills and want to contribute to development, have a look at the open issues. If you are new you can have a look at the [good-first-issue](https://github.com/go-skynet/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and [help-wanted](https://github.com/go-skynet/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels.
+
+- If you don't have technological skills you can still help improving documentation or add examples or share your user-stories with our community, any help and contribution is welcome!
 
 ## Model compatibility
 
@@ -164,7 +172,7 @@ To build locally, run `make build` (see below).
 
 ### Other examples
 
-To see other examples on how to integrate with other projects for instance chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
+To see other examples on how to integrate with other projects for instance for question answering or for using it with chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
 
 ### Advanced configuration
@@ -612,7 +620,7 @@ Feel free to open up a PR to get your project listed!
 
 ## License
 
-LocalAI is a community-driven project. It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
+LocalAI is a community-driven project. It was initially created by [Ettore Di Giacinto](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
 MIT
 
