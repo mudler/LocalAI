@@ -26,7 +26,7 @@ See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/
 - 02-05-2023: Support for `rwkv.cpp` models ( https://github.com/go-skynet/LocalAI/pull/158 ) and for `/edits` endpoint
 - 01-05-2023: Support for SSE stream of tokens in `llama.cpp` backends ( https://github.com/go-skynet/LocalAI/pull/152 )
 
-Twitter: [@LocalAI_API](https://twitter.com/LocalAI_API) and [@mudler](https://twitter.com/mudler_it)
+Twitter: [@LocalAI_API](https://twitter.com/LocalAI_API) and [@mudler_it](https://twitter.com/mudler_it)
 
 ### Blogs and articles
 
@@ -51,24 +51,16 @@ It is compatible with the models supported by [llama.cpp](https://github.com/gge
 Tested with:
 - Vicuna
 - Alpaca
-- [GPT4ALL](https://github.com/nomic-ai/gpt4all)
-- [GPT4ALL-J](https://gpt4all.io/models/ggml-gpt4all-j.bin)
+- [GPT4ALL](https://github.com/nomic-ai/gpt4all) (changes required, see below)
+- [GPT4ALL-J](https://gpt4all.io/models/ggml-gpt4all-j.bin) (no changes required)
 - Koala
 - [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml)
 - WizardLM
 - [RWKV](https://github.com/BlinkDL/RWKV-LM) models with [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp)
 
-### Vicuna, Alpaca, LLaMa...
-
-[llama.cpp](https://github.com/ggerganov/llama.cpp) based models are compatible
-
 ### GPT4ALL
 
 Note: You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
-
-### GPT4ALL-J
-
-No changes required to the model.
 
 ### RWKV
 
