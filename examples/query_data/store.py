@@ -13,15 +13,15 @@ base_path = os.environ.get('OPENAI_API_BASE', 'http://localhost:8080/v1')
 llm_predictor = LLMPredictor(llm=OpenAI(temperature=0, model_name="gpt-3.5-turbo", openai_api_base=base_path))
 
 # Configure prompt parameters and initialise helper
-max_input_size = 256
-num_output = 256
-max_chunk_overlap = 10
+max_input_size = 512
+num_output = 512
+max_chunk_overlap = 30
 
 prompt_helper = PromptHelper(max_input_size, num_output, max_chunk_overlap)
 
 # Load documents from the 'data' directory
 documents = SimpleDirectoryReader('data').load_data()
-service_context = ServiceContext.from_defaults(llm_predictor=llm_predictor, prompt_helper=prompt_helper, chunk_size_limit = 257)
+service_context = ServiceContext.from_defaults(llm_predictor=llm_predictor, prompt_helper=prompt_helper, chunk_size_limit = 512)
 index = GPTVectorStoreIndex.from_documents(documents, service_context=service_context)
 index.storage_context.persist(persist_dir="./storage")
 

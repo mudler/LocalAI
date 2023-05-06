@@ -10,7 +10,7 @@ from llama_index import StorageContext, load_index_from_storage
 base_path = os.environ.get('OPENAI_API_BASE', 'http://localhost:8080/v1')
 
 # This example uses text-davinci-003 by default; feel free to change if desired
-llm_predictor = LLMPredictor(llm=OpenAI(temperature=0, model_name="gpt-3.5-turbo",openai_api_base=base_path))
+llm_predictor = LLMPredictor(llm=OpenAI(temperature=0, model_name="gpt-3.5-turbo", openai_api_base=base_path))
 
 # Configure prompt parameters and initialise helper
 max_input_size = 1024
