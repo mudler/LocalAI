@@ -73,6 +73,14 @@ Shows how to integrate with [Llama-Index](https://gpt-index.readthedocs.io/en/st
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/query_data/)
 
+### Template for Runpod.io
+
+_by [@fHachenberg](https://github.com/fHachenberg)_
+
+Allows to run any LocalAI-compatible model as a backend on the servers of https://runpod.io
+
+[Check it out here](https://runpod.io/gsc?template=uv9mtqnrd0&ref=984wlcra)
+
 ## Want to contribute?
 
 Create an issue, and put `Example: <description>` in the title! We will post your examples here.
