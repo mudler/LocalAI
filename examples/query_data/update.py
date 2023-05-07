@@ -3,7 +3,7 @@ import os
 # Uncomment to specify your OpenAI API key here (local testing only, not in production!), or add corresponding environment variable (recommended)
 # os.environ['OPENAI_API_KEY']= ""
 
-from llama_index import   LLMPredictor, PromptHelper, ServiceContext
+from llama_index import   LLMPredictor, PromptHelper, SimpleDirectoryReader, ServiceContext
 from langchain.llms.openai import OpenAI
 from llama_index import StorageContext, load_index_from_storage
 
@@ -27,9 +27,6 @@ storage_context = StorageContext.from_defaults(persist_dir='./storage')
 
 # load index
 index = load_index_from_storage(storage_context,     service_context=service_context,    )
-
-query_engine = index.as_query_engine()
-
-data = input("Question: ")
-response = query_engine.query(data)
-print(response)
+documents = SimpleDirectoryReader('data').load_data()
+index.refresh(documents)
+index.storage_context.persist(persist_dir="./storage")
