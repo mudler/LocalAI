@@ -30,4 +30,6 @@ export OPENAI_API_KEY=sk-
 
 python test.py
 # A good company name for a company that makes colorful socks would be "Colorsocks".
+
+python agent.py
 ```
