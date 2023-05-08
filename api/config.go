@@ -33,6 +33,7 @@ type Config struct {
 	Mirostat       int               `yaml:"mirostat"`
 
 	PromptStrings, InputStrings []string
+	InputToken                  [][]int
 }
 
 type TemplateConfig struct {
@@ -186,8 +187,15 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 		}
 	case []interface{}:
 		for _, pp := range inputs {
-			if s, ok := pp.(string); ok {
-				config.InputStrings = append(config.InputStrings, s)
+			switch i := pp.(type) {
+			case string:
+				config.InputStrings = append(config.InputStrings, i)
+			case []interface{}:
+				tokens := []int{}
+				for _, ii := range i {
+					tokens = append(tokens, int(ii.(float64)))
+				}
+				config.InputToken = append(config.InputToken, tokens)
 			}
 		}
 	}
