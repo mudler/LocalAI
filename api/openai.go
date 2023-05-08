@@ -177,10 +177,23 @@ func embeddingsEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 		items := []Item{}
 
-		for i, s := range config.InputStrings {
-
+		for i, s := range config.InputToken {
 			// get the model function to call for the result
-			embedFn, err := ModelEmbedding(s, loader, *config)
+			embedFn, err := ModelEmbedding("", s, loader, *config)
+			if err != nil {
+				return err
+			}
+
+			embeddings, err := embedFn()
+			if err != nil {
+				return err
+			}
+			items = append(items, Item{Embedding: embeddings, Index: i, Object: "embedding"})
+		}
+
+		for i, s := range config.InputStrings {
+			// get the model function to call for the result
+			embedFn, err := ModelEmbedding(s, []int{}, loader, *config)
 			if err != nil {
 				return err
 			}

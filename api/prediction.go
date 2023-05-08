@@ -32,7 +32,7 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 	return llamaOpts
 }
 
-func ModelEmbedding(s string, loader *model.ModelLoader, c Config) (func() ([]float32, error), error) {
+func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config) (func() ([]float32, error), error) {
 	if !c.Embeddings {
 		return nil, fmt.Errorf("endpoint disabled for this model by API configuration")
 	}
@@ -57,6 +57,9 @@ func ModelEmbedding(s string, loader *model.ModelLoader, c Config) (func() ([]fl
 	case *llama.LLama:
 		fn = func() ([]float32, error) {
 			predictOptions := buildLLamaPredictOptions(c)
+			if len(tokens) > 0 {
+				return model.TokenEmbeddings(tokens, predictOptions...)
+			}
 			return model.Embeddings(s, predictOptions...)
 		}
 	default:
