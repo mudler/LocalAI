@@ -529,6 +529,25 @@ curl http://localhost:8080/v1/models
 
 </details>
 
+### Embeddings
+
+<details>
+
+The embedding endpoint is experimental and enabled only if the model is configured with `emebddings: true` in its `yaml` file, for example:
+
+```yaml
+name: text-embedding-ada-002
+parameters:
+  model: wizardLM-7B.ggml.q5_1.bin
+embeddings: true
+```
+
+There is an example available [here](https://github.com/go-skynet/LocalAI/tree/master/examples/query_data/).
+
+Note: embeddings is supported only with `llama.cpp` compatible models. (doesn't work with gpt4-all-j, yet).
+
+</details>
+
 ## Frequently asked questions
 
 Here are answers to some of the most common questions.
