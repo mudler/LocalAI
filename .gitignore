@@ -3,6 +3,7 @@ go-llama
 go-gpt4all-j
 go-gpt2
 go-rwkv
+whisper.cpp
 
 # LocalAI build binary
 LocalAI
@@ -13,3 +14,6 @@ local-ai
 # Ignore models
 models/*
 test-models/
+
+# just in case
+.DS_Store
