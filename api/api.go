@@ -84,6 +84,8 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 
 	app.Post("/v1/engines/:model/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
+	app.Post("/v1/audio/transcriptions", transcriptEndpoint(cm, debug, loader, threads, ctxSize, f16))
+
 	app.Get("/v1/models", listModels(loader, cm))
 	app.Get("/models", listModels(loader, cm))
 

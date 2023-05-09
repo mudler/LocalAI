@@ -4,6 +4,8 @@ go 1.19
 
 require (
 	github.com/donomii/go-rwkv.cpp v0.0.0-20230503112711-af62fcc432be
+	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230508180809-bf2449dfae35
+	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230422085954-245a5bfe6708
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230508165257-c03e8adbc45c
@@ -11,6 +13,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
+	github.com/otiai10/copy v1.11.0
 	github.com/otiai10/openaigo v1.1.0
 	github.com/rs/zerolog v1.29.1
 	github.com/sashabaranov/go-openai v1.9.3
@@ -26,6 +29,8 @@ require (
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
+	github.com/go-audio/audio v1.0.0 // indirect
+	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.6 // indirect

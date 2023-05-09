@@ -8,6 +8,8 @@ GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
 GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=af62fcc432be2847acb6e0688b2c2491d6588d58
+WHISPER_CPP_VERSION?=bf2449dfae35a46b2cd92ab22661ce81a48d4993
+
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
@@ -15,8 +17,8 @@ WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
-C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv
-LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv
+C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp
+LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp
 
 # Use this if you want to set the default behavior
 ifndef BUILD_TYPE
@@ -76,6 +78,13 @@ go-gpt2:
 go-gpt2/libgpt2.a: go-gpt2
 	$(MAKE) -C go-gpt2 $(GENERIC_PREFIX)libgpt2.a
 
+whisper.cpp:
+	git clone https://github.com/ggerganov/whisper.cpp.git
+	cd whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
+
+whisper.cpp/libwhisper.a: whisper.cpp
+	cd whisper.cpp && make libwhisper.a
+
 go-llama:
 	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
 	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
@@ -88,8 +97,9 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt4all-j.cpp=$(shell pwd)/go-gpt4all-j
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt2.cpp=$(shell pwd)/go-gpt2
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
+	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(shell pwd)/whisper.cpp
 
-prepare-sources: go-llama go-gpt2 go-gpt4all-j go-rwkv
+prepare-sources: go-llama go-gpt2 go-gpt4all-j go-rwkv whisper.cpp
 	$(GOCMD) mod download
 
 ## GENERIC
@@ -98,9 +108,10 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-gpt4all-j clean
 	$(MAKE) -C go-gpt2 clean
 	$(MAKE) -C go-rwkv clean
+	$(MAKE) -C whisper.cpp clean
 	$(MAKE) build
 
-prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a go-rwkv/librwkv.a replace ## Prepares for building
+prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a replace ## Prepares for building
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
