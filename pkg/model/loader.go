@@ -27,8 +27,10 @@ type ModelLoader struct {
 	gptmodels         map[string]*gptj.GPTJ
 	gpt2models        map[string]*gpt2.GPT2
 	gptstablelmmodels map[string]*gpt2.StableLM
-	rwkv              map[string]*rwkv.RwkvState
-	promptsTemplates  map[string]*template.Template
+	dollymodels       map[string]*gpt2.Dolly
+
+	rwkv             map[string]*rwkv.RwkvState
+	promptsTemplates map[string]*template.Template
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
@@ -37,9 +39,11 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		gpt2models:        make(map[string]*gpt2.GPT2),
 		gptmodels:         make(map[string]*gptj.GPTJ),
 		gptstablelmmodels: make(map[string]*gpt2.StableLM),
-		models:            make(map[string]*llama.LLama),
-		rwkv:              make(map[string]*rwkv.RwkvState),
-		promptsTemplates:  make(map[string]*template.Template),
+		dollymodels:       make(map[string]*gpt2.Dolly),
+
+		models:           make(map[string]*llama.LLama),
+		rwkv:             make(map[string]*rwkv.RwkvState),
+		promptsTemplates: make(map[string]*template.Template),
 	}
 }
 
@@ -122,6 +126,38 @@ func (ml *ModelLoader) loadTemplateIfExists(modelName, modelFile string) error {
 	ml.promptsTemplates[modelName] = tmpl
 
 	return nil
+}
+
+func (ml *ModelLoader) LoadDollyModel(modelName string) (*gpt2.Dolly, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	// Check if we already have a loaded model
+	if !ml.ExistsInModelPath(modelName) {
+		return nil, fmt.Errorf("model does not exist")
+	}
+
+	if m, ok := ml.dollymodels[modelName]; ok {
+		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
+		return m, nil
+	}
+
+	// Load the model and keep it in memory for later use
+	modelFile := filepath.Join(ml.ModelPath, modelName)
+	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
+
+	model, err := gpt2.NewDolly(modelFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// If there is a prompt template, load it
+	if err := ml.loadTemplateIfExists(modelName, modelFile); err != nil {
+		return nil, err
+	}
+
+	ml.dollymodels[modelName] = model
+	return model, err
 }
 
 func (ml *ModelLoader) LoadStableLMModel(modelName string) (*gpt2.StableLM, error) {
@@ -295,6 +331,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadLLaMAModel(modelFile, llamaOpts...)
 	case "stablelm":
 		return ml.LoadStableLMModel(modelFile)
+	case "dolly":
+		return ml.LoadDollyModel(modelFile)
 	case "gpt2":
 		return ml.LoadGPT2Model(modelFile)
 	case "gptj":
@@ -346,6 +384,14 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 	}
 
 	model, modelerr = ml.LoadStableLMModel(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = ml.LoadDollyModel(modelFile)
 	if modelerr == nil {
 		updateModels(model)
 		return model, nil
