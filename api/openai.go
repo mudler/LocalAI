@@ -5,10 +5,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/whisper"
 	"github.com/gofiber/fiber/v2"
+	"github.com/otiai10/copy"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
@@ -68,6 +74,11 @@ type OpenAIModel struct {
 
 type OpenAIRequest struct {
 	Model string `json:"model" yaml:"model"`
+
+	// whisper
+	File           string `json:"file" validate:"required"`
+	ResponseFormat string `json:"response_format"`
+	Language       string `json:"language"`
 
 	// Prompt is read only by completion API calls
 	Prompt interface{} `json:"prompt" yaml:"prompt"`
@@ -382,6 +393,45 @@ func editEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 
 		// Return the prediction in the response body
 		return c.JSON(resp)
+	}
+}
+
+// https://platform.openai.com/docs/api-reference/audio/create
+func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
+		if err != nil {
+			return fmt.Errorf("failed reading parameters from request:%w", err)
+		}
+
+		// retrieve the file data from the request
+		file, err := c.FormFile("file")
+		if err != nil {
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		log.Debug().Msgf("Audio file: %+v", file)
+
+		dir, err := os.MkdirTemp("", "whisper")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(dir)
+
+		dst := filepath.Join(dir, path.Base(file.Filename))
+		if err := copy.Copy(file.Filename, dst); err != nil {
+			return err
+		}
+
+		log.Debug().Msgf("Audio file copied to: %+v", dst)
+
+		tr, err := whisper.Transcript(filepath.Join(loader.ModelPath, config.Model), dst, input.Language)
+		if err != nil {
+			return err
+		}
+
+		log.Debug().Msgf("Trascribed: %+v", tr)
+		// TODO: handle different outputs here
+		return c.Status(http.StatusOK).JSON(fiber.Map{"text": tr})
 	}
 }
 

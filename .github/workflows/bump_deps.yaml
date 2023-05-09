@@ -21,6 +21,9 @@ jobs:
           - repository: "donomii/go-rwkv.cpp"
             variable: "RWKV_VERSION"
             branch: "main"
+          - repository: "ggerganov/whisper.cpp"
+            variable: "WHISPER_CPP_VERSION"
+            branch: "master"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
