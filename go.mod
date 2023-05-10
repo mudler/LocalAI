@@ -6,8 +6,9 @@ require (
 	github.com/donomii/go-rwkv.cpp v0.0.0-20230503112711-af62fcc432be
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230508180809-bf2449dfae35
 	github.com/go-audio/wav v1.1.0
+	github.com/go-skynet/bloomz.cpp v0.0.0-20230510195113-ad7e89a0885f
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230510101404-7bb183b147ea
-	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230422085954-245a5bfe6708
+	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230509180201-d49823284cc6
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230509080828-f4d26f43f1d3
 	github.com/gofiber/fiber/v2 v2.45.0

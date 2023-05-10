@@ -5,11 +5,12 @@ BINARY_NAME=local-ai
 
 GOLLAMA_VERSION?=c03e8adbc45c866e0f6d876af1887d6b01d57eb4
 GOGPT4ALLJ_VERSION?=1f7bff57f66cb7062e40d0ac3abd2217815e5109
-GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
+GOGPT2_VERSION?=abf038a7d8efa4eefdc7c891f05ad33d4e59e49d
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=af62fcc432be2847acb6e0688b2c2491d6588d58
 WHISPER_CPP_VERSION?=bf2449dfae35a46b2cd92ab22661ce81a48d4993
 BERT_VERSION?=ec771ec715576ac050263bb7bb74bfd616a5ba13
+BLOOMZ_VERSION?=e9366e82abdfe70565644fbfae9651976714efd1
 
 
 GREEN  := $(shell tput -Txterm setaf 2)
@@ -18,8 +19,8 @@ WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
-C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert
-LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert
+C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert:$(shell pwd)/bloomz
+LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert:$(shell pwd)/bloomz
 
 # Use this if you want to set the default behavior
 ifndef BUILD_TYPE
@@ -69,6 +70,18 @@ go-rwkv:
 go-rwkv/librwkv.a: go-rwkv
 	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a .. && cp ggml/src/libggml.a ..
 
+## bloomz
+bloomz:
+	git clone --recurse-submodules https://github.com/go-skynet/bloomz.cpp bloomz
+	@find ./bloomz -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_bloomz_/g' {} +
+	@find ./bloomz -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_bloomz_/g' {} +
+	@find ./bloomz -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_bloomz_/g' {} +
+	@find ./bloomz -type f -name "*.cpp" -exec sed -i'' -e 's/gpt_/gpt_bloomz_/g' {} +
+	@find ./bloomz -type f -name "*.h" -exec sed -i'' -e 's/gpt_/gpt_bloomz_/g' {} +
+
+bloomz/libbloomz.a: bloomz
+	cd bloomz && make libbloomz.a
+
 go-bert/libgobert.a: go-bert
 	$(MAKE) -C go-bert libgobert.a
 
@@ -111,8 +124,9 @@ replace:
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(shell pwd)/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/go-bert
+	$(GOCMD) mod edit -replace github.com/go-skynet/bloomz.cpp=$(shell pwd)/bloomz
 
-prepare-sources: go-llama go-gpt2 go-gpt4all-j go-rwkv whisper.cpp go-bert
+prepare-sources: go-llama go-gpt2 go-gpt4all-j go-rwkv whisper.cpp go-bert bloomz
 	$(GOCMD) mod download
 
 ## GENERIC
@@ -123,9 +137,10 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-rwkv clean
 	$(MAKE) -C whisper.cpp clean
 	$(MAKE) -C go-bert clean
+	$(MAKE) -C bloomz clean
 	$(MAKE) build
 
-prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-bert/libgobert.a go-gpt2/libgpt2.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a replace ## Prepares for building
+prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-bert/libgobert.a go-gpt2/libgpt2.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a replace ## Prepares for building
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
@@ -133,6 +148,7 @@ clean: ## Remove build related file
 	rm -rf ./go-gpt2
 	rm -rf ./go-rwkv
 	rm -rf ./go-bert
+	rm -rf ./bloomz
 	rm -rf $(BINARY_NAME)
 
 ## Build:
