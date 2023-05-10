@@ -29,9 +29,10 @@ type ModelLoader struct {
 	gpt2models        map[string]*gpt2.GPT2
 	gptstablelmmodels map[string]*gpt2.StableLM
 	dollymodels       map[string]*gpt2.Dolly
+	redpajama         map[string]*gpt2.RedPajama
 	rwkv              map[string]*rwkv.RwkvState
 	bert              map[string]*bert.Bert
-	promptsTemplates map[string]*template.Template
+	promptsTemplates  map[string]*template.Template
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
@@ -41,8 +42,7 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		gptmodels:         make(map[string]*gptj.GPTJ),
 		gptstablelmmodels: make(map[string]*gpt2.StableLM),
 		dollymodels:       make(map[string]*gpt2.Dolly),
-
-
+		redpajama:         make(map[string]*gpt2.RedPajama),
 		models:            make(map[string]*llama.LLama),
 		rwkv:              make(map[string]*rwkv.RwkvState),
 		bert:              make(map[string]*bert.Bert),
@@ -129,6 +129,38 @@ func (ml *ModelLoader) loadTemplateIfExists(modelName, modelFile string) error {
 	ml.promptsTemplates[modelName] = tmpl
 
 	return nil
+}
+
+func (ml *ModelLoader) LoadRedPajama(modelName string) (*gpt2.RedPajama, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	// Check if we already have a loaded model
+	if !ml.ExistsInModelPath(modelName) {
+		return nil, fmt.Errorf("model does not exist")
+	}
+
+	if m, ok := ml.redpajama[modelName]; ok {
+		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
+		return m, nil
+	}
+
+	// Load the model and keep it in memory for later use
+	modelFile := filepath.Join(ml.ModelPath, modelName)
+	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
+
+	model, err := gpt2.NewRedPajama(modelFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// If there is a prompt template, load it
+	if err := ml.loadTemplateIfExists(modelName, modelFile); err != nil {
+		return nil, err
+	}
+
+	ml.redpajama[modelName] = model
+	return model, err
 }
 
 func (ml *ModelLoader) LoadDollyModel(modelName string) (*gpt2.Dolly, error) {
@@ -368,6 +400,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadStableLMModel(modelFile)
 	case "dolly":
 		return ml.LoadDollyModel(modelFile)
+	case "redpajama":
+		return ml.LoadRedPajama(modelFile)
 	case "gpt2":
 		return ml.LoadGPT2Model(modelFile)
 	case "gptj":
@@ -429,6 +463,14 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 	}
 
 	model, modelerr = ml.LoadDollyModel(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = ml.LoadRedPajama(modelFile)
 	if modelerr == nil {
 		updateModels(model)
 		return model, nil
