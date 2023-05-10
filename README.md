@@ -9,7 +9,7 @@
 
 [![](https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted)](https://discord.gg/uJAeKSAGDy) 
 
-**LocalAI** is a drop-in replacement REST API compatible with OpenAI for local CPU inferencing. It allows to run models locally or on-prem with consumer grade hardware. It is based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all), [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp) and [ggml](https://github.com/ggerganov/ggml), including support GPT4ALL-J which is licensed under Apache 2.0.
+**LocalAI** is a drop-in replacement REST API compatible with OpenAI for local CPU inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families. Supports also GPT4ALL-J which is licensed under Apache 2.0.
 
 - OpenAI compatible API
 - Supports multiple models
@@ -19,10 +19,14 @@
 
 LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
+LocalAI uses C++ bindings for optimizing speed. It is based on [llama.cpp](https://github.com/ggerganov/llama.cpp), [gpt4all](https://github.com/nomic-ai/gpt4all), [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp), [ggml](https://github.com/ggerganov/ggml), [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for audio transcriptions, and [bert.cpp](https://github.com/skeskinen/bert.cpp) for embedding.
+
 See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
 ## News
 
+- 10-05-2023: Added support for fast and accurate embeddings with `bert.cpp` ( https://github.com/go-skynet/LocalAI/pull/222 )
+- 09-05-2023: Added experimental support for transcriptions endpoint ( https://github.com/go-skynet/LocalAI/pull/211 )
 - 08-05-2023: Support for embeddings with models using the `llama.cpp` backend ( https://github.com/go-skynet/LocalAI/pull/207 )
 - 02-05-2023: Support for `rwkv.cpp` models ( https://github.com/go-skynet/LocalAI/pull/158 ) and for `/edits` endpoint
 - 01-05-2023: Support for SSE stream of tokens in `llama.cpp` backends ( https://github.com/go-skynet/LocalAI/pull/152 )
@@ -534,18 +538,18 @@ curl http://localhost:8080/v1/models
 
 <details>
 
-The embedding endpoint is experimental and enabled only if the model is configured with `emebddings: true` in its `yaml` file, for example:
+The embedding endpoint is experimental and enabled only if the model is configured with `embeddings: true` in its `yaml` file, for example:
 
 ```yaml
 name: text-embedding-ada-002
 parameters:
-  model: wizardLM-7B.ggml.q5_1.bin
+  model: bert
 embeddings: true
 ```
 
 There is an example available [here](https://github.com/go-skynet/LocalAI/tree/master/examples/query_data/).
 
-Note: embeddings is supported only with `llama.cpp` compatible models. (doesn't work with gpt4-all-j, yet).
+Note: embeddings is supported only with `llama.cpp` compatible models and `bert` models. bert is more performant and available independently of the LLM model.
 
 </details>
 
@@ -667,6 +671,7 @@ MIT
 - [go-skynet/go-llama.cpp](https://github.com/go-skynet/go-llama.cpp)
 - [go-skynet/go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp)
 - [go-skynet/go-gpt2.cpp](https://github.com/go-skynet/go-gpt2.cpp)
+- [go-skynet/go-bert.cpp](https://github.com/go-skynet/go-bert.cpp)
 - [donomii/go-rwkv.cpp](https://github.com/donomii/go-rwkv.cpp)
 
 ## Acknowledgements

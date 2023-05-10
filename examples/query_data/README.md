@@ -12,11 +12,7 @@ Summary of the steps:
 
 ## Requirements
 
-For this in order to work, you will need LocalAI and a model compatible with the `llama.cpp` backend. This is will not work with gpt4all, however you can mix models (use a llama.cpp one to build the index database, and gpt4all to query it).
-
-The example uses `WizardLM` for both embeddings and Q&A. Edit the config files in `models/` accordingly to specify the model you use (change `HERE` in the configuration files).
-
-You will also need a training data set. Copy that over `data`.
+You will need a training data set. Copy that over `data`.
 
 ## Setup
 
@@ -28,7 +24,8 @@ git clone https://github.com/go-skynet/LocalAI
 
 cd LocalAI/examples/query_data
 
-# Copy your models, edit config files accordingly
+wget https://huggingface.co/skeskinen/ggml/resolve/main/all-MiniLM-L6-v2/ggml-model-q4_0.bin -O models/bert
+wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
 
 # start with docker-compose
 docker-compose up -d --build

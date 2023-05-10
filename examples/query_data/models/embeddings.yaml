@@ -1,18 +1,6 @@
 name: text-embedding-ada-002
 parameters:
-  model: HERE
-  top_k: 80
-  temperature: 0.2
-  top_p: 0.7
-context_size: 1024
+  model: bert
 threads: 14
-stopwords:
-- "HUMAN:"
-- "GPT:"
-roles:
-  user: " "
-  system: " "
+backend: bert-embeddings
 embeddings: true
-template:
-  completion: completion
-  chat: gpt4all
