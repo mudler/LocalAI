@@ -27,6 +27,9 @@ jobs:
           - repository: "go-skynet/go-bert.cpp"
             variable: "BERT_VERSION"
             branch: "master"
+          - repository: "go-skynet/bloomz.cpp"
+            variable: "BLOOMZ_VERSION"
+            branch: "main"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

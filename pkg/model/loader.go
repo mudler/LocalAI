@@ -10,14 +10,14 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/hashicorp/go-multierror"
-	"github.com/rs/zerolog/log"
-
 	rwkv "github.com/donomii/go-rwkv.cpp"
+	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
 	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
+	"github.com/hashicorp/go-multierror"
+	"github.com/rs/zerolog/log"
 )
 
 type ModelLoader struct {
@@ -31,8 +31,10 @@ type ModelLoader struct {
 	dollymodels       map[string]*gpt2.Dolly
 	redpajama         map[string]*gpt2.RedPajama
 	rwkv              map[string]*rwkv.RwkvState
-	bert              map[string]*bert.Bert
-	promptsTemplates  map[string]*template.Template
+	bloomz            map[string]*bloomz.Bloomz
+
+	bert             map[string]*bert.Bert
+	promptsTemplates map[string]*template.Template
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
@@ -45,6 +47,7 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		redpajama:         make(map[string]*gpt2.RedPajama),
 		models:            make(map[string]*llama.LLama),
 		rwkv:              make(map[string]*rwkv.RwkvState),
+		bloomz:            make(map[string]*bloomz.Bloomz),
 		bert:              make(map[string]*bert.Bert),
 		promptsTemplates:  make(map[string]*template.Template),
 	}
@@ -259,6 +262,38 @@ func (ml *ModelLoader) LoadBERT(modelName string) (*bert.Bert, error) {
 	return model, err
 }
 
+func (ml *ModelLoader) LoadBloomz(modelName string) (*bloomz.Bloomz, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	// Check if we already have a loaded model
+	if !ml.ExistsInModelPath(modelName) {
+		return nil, fmt.Errorf("model does not exist")
+	}
+
+	if m, ok := ml.bloomz[modelName]; ok {
+		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
+		return m, nil
+	}
+
+	// Load the model and keep it in memory for later use
+	modelFile := filepath.Join(ml.ModelPath, modelName)
+	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
+
+	model, err := bloomz.New(modelFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// If there is a prompt template, load it
+	if err := ml.loadTemplateIfExists(modelName, modelFile); err != nil {
+		return nil, err
+	}
+
+	ml.bloomz[modelName] = model
+	return model, err
+}
+
 func (ml *ModelLoader) LoadGPT2Model(modelName string) (*gpt2.GPT2, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
@@ -396,6 +431,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 	switch strings.ToLower(backendString) {
 	case "llama":
 		return ml.LoadLLaMAModel(modelFile, llamaOpts...)
+	case "bloomz":
+		return ml.LoadBloomz(modelFile)
 	case "stablelm":
 		return ml.LoadStableLMModel(modelFile)
 	case "dolly":
@@ -471,6 +508,14 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 	}
 
 	model, modelerr = ml.LoadRedPajama(modelFile)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = ml.LoadBloomz(modelFile)
 	if modelerr == nil {
 		updateModels(model)
 		return model, nil
