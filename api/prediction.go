@@ -8,6 +8,7 @@ import (
 
 	"github.com/donomii/go-rwkv.cpp"
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	bert "github.com/go-skynet/go-bert.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
 	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
@@ -61,6 +62,14 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config)
 				return model.TokenEmbeddings(tokens, predictOptions...)
 			}
 			return model.Embeddings(s, predictOptions...)
+		}
+	// bert embeddings
+	case *bert.Bert:
+		fn = func() ([]float32, error) {
+			if len(tokens) > 0 {
+				return nil, fmt.Errorf("embeddings endpoint for this model supports only string")
+			}
+			return model.Embeddings(s, bert.SetThreads(c.Threads))
 		}
 	default:
 		fn = func() ([]float32, error) {

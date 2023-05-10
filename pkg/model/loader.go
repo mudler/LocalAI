@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	rwkv "github.com/donomii/go-rwkv.cpp"
+	bert "github.com/go-skynet/go-bert.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
 	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
@@ -22,14 +23,14 @@ import (
 type ModelLoader struct {
 	ModelPath string
 	mu        sync.Mutex
-
+	// TODO: this needs generics
 	models            map[string]*llama.LLama
 	gptmodels         map[string]*gptj.GPTJ
 	gpt2models        map[string]*gpt2.GPT2
 	gptstablelmmodels map[string]*gpt2.StableLM
 	dollymodels       map[string]*gpt2.Dolly
-
-	rwkv             map[string]*rwkv.RwkvState
+	rwkv              map[string]*rwkv.RwkvState
+	bert              map[string]*bert.Bert
 	promptsTemplates map[string]*template.Template
 }
 
@@ -41,9 +42,11 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		gptstablelmmodels: make(map[string]*gpt2.StableLM),
 		dollymodels:       make(map[string]*gpt2.Dolly),
 
-		models:           make(map[string]*llama.LLama),
-		rwkv:             make(map[string]*rwkv.RwkvState),
-		promptsTemplates: make(map[string]*template.Template),
+
+		models:            make(map[string]*llama.LLama),
+		rwkv:              make(map[string]*rwkv.RwkvState),
+		bert:              make(map[string]*bert.Bert),
+		promptsTemplates:  make(map[string]*template.Template),
 	}
 }
 
@@ -192,6 +195,38 @@ func (ml *ModelLoader) LoadStableLMModel(modelName string) (*gpt2.StableLM, erro
 	return model, err
 }
 
+func (ml *ModelLoader) LoadBERT(modelName string) (*bert.Bert, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	// Check if we already have a loaded model
+	if !ml.ExistsInModelPath(modelName) {
+		return nil, fmt.Errorf("model does not exist")
+	}
+
+	if m, ok := ml.bert[modelName]; ok {
+		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
+		return m, nil
+	}
+
+	// Load the model and keep it in memory for later use
+	modelFile := filepath.Join(ml.ModelPath, modelName)
+	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
+
+	model, err := bert.New(modelFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// If there is a prompt template, load it
+	if err := ml.loadTemplateIfExists(modelName, modelFile); err != nil {
+		return nil, err
+	}
+
+	ml.bert[modelName] = model
+	return model, err
+}
+
 func (ml *ModelLoader) LoadGPT2Model(modelName string) (*gpt2.GPT2, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
@@ -337,6 +372,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadGPT2Model(modelFile)
 	case "gptj":
 		return ml.LoadGPTJModel(modelFile)
+	case "bert-embeddings":
+		return ml.LoadBERT(modelFile)
 	case "rwkv":
 		return ml.LoadRWKV(modelFile, modelFile+tokenizerSuffix, threads)
 	default:
@@ -400,6 +437,14 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 	}
 
 	model, modelerr = ml.LoadRWKV(modelFile, modelFile+tokenizerSuffix, threads)
+	if modelerr == nil {
+		updateModels(model)
+		return model, nil
+	} else {
+		err = multierror.Append(err, modelerr)
+	}
+
+	model, modelerr = ml.LoadBERT(modelFile)
 	if modelerr == nil {
 		updateModels(model)
 		return model, nil
