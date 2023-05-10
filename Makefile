@@ -9,6 +9,7 @@ GOGPT2_VERSION?=245a5bfe6708ab80dc5c733dcdbfbe3cfd2acdaa
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=af62fcc432be2847acb6e0688b2c2491d6588d58
 WHISPER_CPP_VERSION?=bf2449dfae35a46b2cd92ab22661ce81a48d4993
+BERT_VERSION?=ec771ec715576ac050263bb7bb74bfd616a5ba13
 
 
 GREEN  := $(shell tput -Txterm setaf 2)
@@ -17,8 +18,8 @@ WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
-C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp
-LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp
+C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert
+LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-gpt4all-j:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert
 
 # Use this if you want to set the default behavior
 ifndef BUILD_TYPE
@@ -49,6 +50,14 @@ go-gpt4all-j:
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/void replace/void json_gptj_replace/g' {} +
 	@find ./go-gpt4all-j -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
 
+## BERT embeddings
+go-bert:
+	git clone --recurse-submodules https://github.com/go-skynet/go-bert.cpp go-bert
+	cd go-bert && git checkout -b build $(BERT_VERSION) && git submodule update --init --recursive --depth 1
+	@find ./go-bert -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_bert_/g' {} +
+	@find ./go-bert -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_bert_/g' {} +
+	@find ./go-bert -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_bert_/g' {} +
+
 ## RWKV
 go-rwkv:
 	git clone --recurse-submodules $(RWKV_REPO) go-rwkv
@@ -59,6 +68,9 @@ go-rwkv:
 
 go-rwkv/librwkv.a: go-rwkv
 	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a .. && cp ggml/src/libggml.a ..
+
+go-bert/libgobert.a: go-bert
+	$(MAKE) -C go-bert libgobert.a
 
 go-gpt4all-j/libgptj.a: go-gpt4all-j
 	$(MAKE) -C go-gpt4all-j $(GENERIC_PREFIX)libgptj.a
@@ -98,8 +110,9 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt2.cpp=$(shell pwd)/go-gpt2
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(shell pwd)/whisper.cpp
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/go-bert
 
-prepare-sources: go-llama go-gpt2 go-gpt4all-j go-rwkv whisper.cpp
+prepare-sources: go-llama go-gpt2 go-gpt4all-j go-rwkv whisper.cpp go-bert
 	$(GOCMD) mod download
 
 ## GENERIC
@@ -109,15 +122,17 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-gpt2 clean
 	$(MAKE) -C go-rwkv clean
 	$(MAKE) -C whisper.cpp clean
+	$(MAKE) -C go-bert clean
 	$(MAKE) build
 
-prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-gpt2/libgpt2.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a replace ## Prepares for building
+prepare: prepare-sources go-llama/libbinding.a go-gpt4all-j/libgptj.a go-bert/libgobert.a go-gpt2/libgpt2.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a replace ## Prepares for building
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
 	rm -rf ./go-gpt4all-j
 	rm -rf ./go-gpt2
 	rm -rf ./go-rwkv
+	rm -rf ./go-bert
 	rm -rf $(BINARY_NAME)
 
 ## Build:
@@ -141,7 +156,7 @@ test-models/testmodel:
 
 test: prepare test-models/testmodel
 	cp tests/fixtures/* test-models
-	@C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo -v -r ./...
+	@C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo -v -r ./api
 
 ## Help:
 help: ## Show this help.

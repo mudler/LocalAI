@@ -13,7 +13,7 @@ base_path = os.environ.get('OPENAI_API_BASE', 'http://localhost:8080/v1')
 llm_predictor = LLMPredictor(llm=OpenAI(temperature=0, model_name="gpt-3.5-turbo", openai_api_base=base_path))
 
 # Configure prompt parameters and initialise helper
-max_input_size = 1024
+max_input_size = 500
 num_output = 256
 max_chunk_overlap = 20
 
