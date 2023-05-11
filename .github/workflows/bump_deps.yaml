@@ -30,6 +30,9 @@ jobs:
           - repository: "go-skynet/bloomz.cpp"
             variable: "BLOOMZ_VERSION"
             branch: "main"
+          - repository: "go-skynet/gpt4all"
+            variable: "GPT4ALL_VERSION"
+            branch: "main"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

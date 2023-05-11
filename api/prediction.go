@@ -11,8 +11,8 @@ import (
 	"github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
-	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
+	gpt4all "github.com/nomic/gpt4all/gpt4all-bindings/golang"
 )
 
 // mutex still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
@@ -315,29 +315,35 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gptj.GPTJ:
+	case *gpt4all.Model:
+		supportStreams = true
+
 		fn = func() (string, error) {
+			if tokenCallback != nil {
+				model.SetTokenCallback(tokenCallback)
+			}
+
 			// Generate the prediction using the language model
-			predictOptions := []gptj.PredictOption{
-				gptj.SetTemperature(c.Temperature),
-				gptj.SetTopP(c.TopP),
-				gptj.SetTopK(c.TopK),
-				gptj.SetTokens(c.Maxtokens),
-				gptj.SetThreads(c.Threads),
+			predictOptions := []gpt4all.PredictOption{
+				gpt4all.SetTemperature(c.Temperature),
+				gpt4all.SetTopP(c.TopP),
+				gpt4all.SetTopK(c.TopK),
+				gpt4all.SetTokens(c.Maxtokens),
 			}
 
 			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gptj.SetBatch(c.Batch))
+				predictOptions = append(predictOptions, gpt4all.SetBatch(c.Batch))
 			}
 
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, gptj.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
+			str, er := model.Predict(
 				s,
 				predictOptions...,
 			)
+			// Seems that if we don't free the callback explicitly we leave functions registered (that might try to send on closed channels)
+			// For instance otherwise the API returns: {"error":{"code":500,"message":"send on closed channel","type":""}}
+			// after a stream event has occurred
+			model.SetTokenCallback(nil)
+			return str, er
 		}
 	case *llama.LLama:
 		supportStreams = true
