@@ -12,8 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/whisper"
+	whisperutil "github.com/go-skynet/LocalAI/pkg/whisper"
+	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -436,12 +438,14 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		whisperModel, err := loader.WhisperLoader("whisper", config.Model)
+		whisperModel, err := loader.BackendLoader("whisper", config.Model, []llama.ModelOption{}, uint32(config.Threads))
 		if err != nil {
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		tr, err := whisper.Transcript(whisperModel, dst, input.Language)
+		w := whisperModel.(whisper.Model)
+
+		tr, err := whisperutil.Transcript(w, dst, input.Language)
 		if err != nil {
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
