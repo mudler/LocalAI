@@ -315,11 +315,10 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt4all.GPTJ:
+	case *gpt4all.Model:
 		supportStreams = true
 
 		fn = func() (string, error) {
-
 			if tokenCallback != nil {
 				model.SetTokenCallback(tokenCallback)
 			}
