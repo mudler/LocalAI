@@ -4,7 +4,8 @@ GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
 GOLLAMA_VERSION?=c03e8adbc45c866e0f6d876af1887d6b01d57eb4
-GOGPT4ALLJ_VERSION?=3657f9417e17edf378c27d0a9274a1bf41caa914
+GPT4ALL_REPO?=https://github.com/go-skynet/gpt4all
+GPT4ALL_VERSION?=3657f9417e17edf378c27d0a9274a1bf41caa914
 GOGPT2_VERSION?=abf038a7d8efa4eefdc7c891f05ad33d4e59e49d
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=07166da10cb2a9e8854395a4f210464dcea76e47
@@ -39,8 +40,8 @@ all: help
 
 ## GPT4ALL
 gpt4all:
-	git clone --recurse-submodules https://github.com/go-skynet/gpt4all gpt4all
-	cd gpt4all && git checkout -b build $(GOGPT4ALLJ_VERSION) && git submodule update --init --recursive --depth 1
+	git clone --recurse-submodules $(GPT4ALL_REPO) gpt4all
+	cd gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
 	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
