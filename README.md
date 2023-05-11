@@ -563,6 +563,7 @@ Download one of the models from https://huggingface.co/ggerganov/whisper.cpp/tre
 
 ```yaml
 name: whisper-1
+backend: whisper
 parameters:
   model: whisper-en
 ```
