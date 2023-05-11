@@ -92,6 +92,28 @@ It should also be compatible with StableLM and GPTNeoX ggml models (untested).
 Depending on the model you are attempting to run might need more RAM or CPU resources. Check out also [here](https://github.com/ggerganov/llama.cpp#memorydisk-requirements) for `ggml` based backends. `rwkv` is less expensive on resources.
 
 
+### Feature support matrix
+
+<details>
+
+| Backend         | Compatible models     | Completion/Chat endpoint | Audio transcription | Embeddings support                | Token stream support | Github                                     | Bindings                                  |
+|-----------------|-----------------------|--------------------------|---------------------|-----------------------------------|----------------------|--------------------------------------------|-------------------------------------------|
+| llama           | Vicuna, Alpaca, LLaMa | yes                      | no                  | yes (doesn't seem to be accurate) | yes                  | https://github.com/ggerganov/llama.cpp     | https://github.com/go-skynet/go-llama.cpp |
+| gpt4all-llama   | Vicuna, Alpaca, LLaMa | yes                      | no                  | no                                | yes                  | https://github.com/nomic-ai/gpt4all        | https://github.com/go-skynet/gpt4all      |
+| gpt4all-mpt     | MPT                   | yes                      | no                  | no                                | yes                  | https://github.com/nomic-ai/gpt4all        | https://github.com/go-skynet/gpt4all      |
+| gpt4all-j       | GPT4ALL-J             | yes                      | no                  | no                                | yes                  | https://github.com/nomic-ai/gpt4all        | https://github.com/go-skynet/gpt4all      |
+| gpt2            | GPT/NeoX, Cerebras    | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
+| dolly           | Dolly                 | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
+| redpajama       | RedPajama             | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
+| stableLM        | StableLM GPT/NeoX     | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
+| starcoder       | Starcoder             | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
+| bloomz          | Bloom                 | yes                      | no                  | no                                | no                   | https://github.com/NouamaneTazi/bloomz.cpp | https://github.com/go-skynet/bloomz.cpp   |
+| rwkv            | RWKV                  | yes                      | no                  | no                                | yes                  | https://github.com/saharNooby/rwkv.cpp     | https://github.com/donomii/go-rwkv.cpp    |
+| bert-embeddings | bert                  | no                       | no                  | yes                               | no                   | https://github.com/skeskinen/bert.cpp      | https://github.com/go-skynet/go-bert.cpp  |
+| whisper         | whisper               | no                       | yes                 | no                                | no                   | https://github.com/ggerganov/whisper.cpp   | https://github.com/ggerganov/whisper.cpp  |
+
+</details>
+
 ## Usage
 
 > `LocalAI` comes by default as a container image. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).

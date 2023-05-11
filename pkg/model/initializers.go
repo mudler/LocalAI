@@ -20,6 +20,7 @@ const tokenizerSuffix = ".tokenizer.json"
 const (
 	LlamaBackend          = "llama"
 	BloomzBackend         = "bloomz"
+	StarcoderBackend      = "starcoder"
 	StableLMBackend       = "stablelm"
 	DollyBackend          = "dolly"
 	RedPajamaBackend      = "redpajama"
@@ -45,6 +46,11 @@ var backends []string = []string{
 	DollyBackend,
 	RedPajamaBackend,
 	BertEmbeddingsBackend,
+	StarcoderBackend,
+}
+
+var starCoder = func(modelFile string) (interface{}, error) {
+	return gpt2.NewStarcoder(modelFile)
 }
 
 var redPajama = func(modelFile string) (interface{}, error) {
@@ -110,6 +116,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, redPajama)
 	case Gpt2Backend:
 		return ml.LoadModel(modelFile, gpt2LM)
+	case StarcoderBackend:
+		return ml.LoadModel(modelFile, starCoder)
 	case Gpt4AllLlamaBackend:
 		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads)), gpt4all.SetModelType(gpt4all.LLaMAType)))
 	case Gpt4AllMptBackend:
