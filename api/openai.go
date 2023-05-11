@@ -444,7 +444,7 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 
 		w := whisperModel.(whisper.Model)
 
-		tr, err := whisperutil.Transcript(w, dst, input.Language)
+		tr, err := whisperutil.Transcript(w, dst, input.Language, uint(config.Threads))
 		if err != nil {
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
