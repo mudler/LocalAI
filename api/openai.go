@@ -436,7 +436,12 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		tr, err := whisper.Transcript(filepath.Join(loader.ModelPath, config.Model), dst, input.Language)
+		whisperModel, err := loader.WhisperLoader("whisper", config.Model)
+		if err != nil {
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		tr, err := whisper.Transcript(whisperModel, dst, input.Language)
 		if err != nil {
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
