@@ -28,7 +28,7 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Transcript(modelpath, audiopath, language string) (string, error) {
+func Transcript(model whisper.Model, audiopath, language string) (string, error) {
 
 	dir, err := os.MkdirTemp("", "whisper")
 	if err != nil {
@@ -57,13 +57,6 @@ func Transcript(modelpath, audiopath, language string) (string, error) {
 	}
 
 	data := buf.AsFloat32Buffer().Data
-
-	// Load the model
-	model, err := whisper.New(modelpath)
-	if err != nil {
-		return "", err
-	}
-	defer model.Close()
 
 	// Process samples
 	context, err := model.NewContext()
