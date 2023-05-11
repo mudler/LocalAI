@@ -424,12 +424,12 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 		defer os.RemoveAll(dir)
 
 		dst := filepath.Join(dir, path.Base(file.Filename))
-		dst_file, err := os.Create(dst)
+		dstFile, err := os.Create(dst)
 		if err != nil {
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		if _, err := io.Copy(dst_file, f); err != nil {
+		if _, err := io.Copy(dstFile, f); err != nil {
 			log.Debug().Msgf("Audio file %+v - %+v - err %+v", file.Filename, dst, err)
 			return err
 		}
