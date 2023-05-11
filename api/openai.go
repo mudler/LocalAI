@@ -416,7 +416,6 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
 		defer f.Close()
-		log.Debug().Msgf("Audio file: %+v", file)
 
 		dir, err := os.MkdirTemp("", "whisper")
 
