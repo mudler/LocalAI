@@ -133,7 +133,7 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/go-bert
 	$(GOCMD) mod edit -replace github.com/go-skynet/bloomz.cpp=$(shell pwd)/bloomz
 
-prepare-sources: go-llama go-gpt2 gpt4all go-rwkv whisper.cpp go-bert bloomz
+prepare-sources: go-llama go-gpt2 gpt4all go-rwkv whisper.cpp go-bert bloomz replace
 	$(GOCMD) mod download
 
 ## GENERIC
@@ -147,7 +147,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C bloomz clean
 	$(MAKE) build
 
-prepare: prepare-sources gpt4all/gpt4all-bindings/golang/libgpt4all.a go-llama/libbinding.a go-bert/libgobert.a go-gpt2/libgpt2.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a replace ## Prepares for building
+prepare: prepare-sources gpt4all/gpt4all-bindings/golang/libgpt4all.a go-llama/libbinding.a go-bert/libgobert.a go-gpt2/libgpt2.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
