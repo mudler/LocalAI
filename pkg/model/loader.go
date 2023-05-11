@@ -14,9 +14,9 @@ import (
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
-	gptj "github.com/go-skynet/go-gpt4all-j.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/hashicorp/go-multierror"
+	gpt4all "github.com/nomic/gpt4all/gpt4all-bindings/golang"
 	"github.com/rs/zerolog/log"
 )
 
@@ -25,7 +25,7 @@ type ModelLoader struct {
 	mu        sync.Mutex
 	// TODO: this needs generics
 	models            map[string]*llama.LLama
-	gptmodels         map[string]*gptj.GPTJ
+	gptmodels         map[string]*gpt4all.GPTJ
 	gpt2models        map[string]*gpt2.GPT2
 	gptstablelmmodels map[string]*gpt2.StableLM
 	dollymodels       map[string]*gpt2.Dolly
@@ -41,7 +41,7 @@ func NewModelLoader(modelPath string) *ModelLoader {
 	return &ModelLoader{
 		ModelPath:         modelPath,
 		gpt2models:        make(map[string]*gpt2.GPT2),
-		gptmodels:         make(map[string]*gptj.GPTJ),
+		gptmodels:         make(map[string]*gpt4all.GPTJ),
 		gptstablelmmodels: make(map[string]*gpt2.StableLM),
 		dollymodels:       make(map[string]*gpt2.Dolly),
 		redpajama:         make(map[string]*gpt2.RedPajama),
@@ -326,7 +326,7 @@ func (ml *ModelLoader) LoadGPT2Model(modelName string) (*gpt2.GPT2, error) {
 	return model, err
 }
 
-func (ml *ModelLoader) LoadGPTJModel(modelName string) (*gptj.GPTJ, error) {
+func (ml *ModelLoader) LoadGPTJModel(modelName string, opts ...gpt4all.ModelOption) (*gpt4all.GPTJ, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
@@ -344,7 +344,7 @@ func (ml *ModelLoader) LoadGPTJModel(modelName string) (*gptj.GPTJ, error) {
 	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
-	model, err := gptj.New(modelFile)
+	model, err := gpt4all.New(modelFile, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +442,7 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 	case "gpt2":
 		return ml.LoadGPT2Model(modelFile)
 	case "gptj":
-		return ml.LoadGPTJModel(modelFile)
+		return ml.LoadGPTJModel(modelFile, gpt4all.SetThreads(int(threads)))
 	case "bert-embeddings":
 		return ml.LoadBERT(modelFile)
 	case "rwkv":
@@ -475,7 +475,7 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 		err = multierror.Append(err, modelerr)
 	}
 
-	model, modelerr = ml.LoadGPTJModel(modelFile)
+	model, modelerr = ml.LoadGPTJModel(modelFile, gpt4all.SetThreads(int(threads)))
 	if modelerr == nil {
 		updateModels(model)
 		return model, nil
