@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -14,7 +15,6 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/whisper"
 	"github.com/gofiber/fiber/v2"
-	"github.com/otiai10/copy"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
@@ -409,16 +409,28 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 		if err != nil {
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
+		f, err := file.Open()
+		if err != nil {
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		defer f.Close()
 		log.Debug().Msgf("Audio file: %+v", file)
 
 		dir, err := os.MkdirTemp("", "whisper")
+
 		if err != nil {
 			return err
 		}
 		defer os.RemoveAll(dir)
 
 		dst := filepath.Join(dir, path.Base(file.Filename))
-		if err := copy.Copy(file.Filename, dst); err != nil {
+		dstFile, err := os.Create(dst)
+		if err != nil {
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		if _, err := io.Copy(dstFile, f); err != nil {
+			log.Debug().Msgf("Audio file %+v - %+v - err %+v", file.Filename, dst, err)
 			return err
 		}
 
@@ -426,7 +438,7 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 
 		tr, err := whisper.Transcript(filepath.Join(loader.ModelPath, config.Model), dst, input.Language)
 		if err != nil {
-			return err
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 		}
 
 		log.Debug().Msgf("Trascribed: %+v", tr)
