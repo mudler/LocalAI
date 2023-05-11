@@ -145,10 +145,10 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 		}
 		log.Debug().Msgf("[%s] Attempting to load", b)
 		model, modelerr := ml.BackendLoader(b, modelFile, llamaOpts, threads)
-		if err == nil && model != nil {
+		if modelerr == nil && model != nil {
 			log.Debug().Msgf("[%s] Loads OK", b)
 			return model, nil
-		} else if err != nil {
+		} else if modelerr != nil {
 			err = multierror.Append(err, modelerr)
 			log.Debug().Msgf("[%s] Fails: %s", b, modelerr.Error())
 		}

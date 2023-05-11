@@ -545,6 +545,7 @@ name: text-embedding-ada-002
 parameters:
   model: bert
 embeddings: true
+backend: "bert-embeddings"
 ```
 
 There is an example available [here](https://github.com/go-skynet/LocalAI/tree/master/examples/query_data/).
