@@ -285,5 +285,10 @@ func readConfig(cm ConfigMerger, c *fiber.Ctx, loader *model.ModelLoader, debug 
 		}
 	}
 
+	// Enforce debug flag if passed from CLI
+	if debug {
+		config.Debug = true
+	}
+
 	return config, input, nil
 }

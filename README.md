@@ -73,7 +73,7 @@ Note: You might need to convert older models to the new format, see [here](https
 
 A full example on how to run a rwkv model is in the [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/rwkv).
 
-Note: rwkv models have an associated tokenizer along that needs to be provided with it:
+Note: rwkv models needs to specify the backend `rwkv` in the YAML config files and have an associated tokenizer along that needs to be provided with it:
 
 ```
 36464540 -rw-r--r--  1 mudler mudler 1.2G May  3 10:51 rwkv_small
@@ -545,6 +545,7 @@ name: text-embedding-ada-002
 parameters:
   model: bert
 embeddings: true
+backend: "bert-embeddings"
 ```
 
 There is an example available [here](https://github.com/go-skynet/LocalAI/tree/master/examples/query_data/).
@@ -563,6 +564,7 @@ Download one of the models from https://huggingface.co/ggerganov/whisper.cpp/tre
 
 ```yaml
 name: whisper-1
+backend: whisper
 parameters:
   model: whisper-en
 ```
