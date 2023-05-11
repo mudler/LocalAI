@@ -12,6 +12,7 @@ import (
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/hashicorp/go-multierror"
 	gpt4all "github.com/nomic/gpt4all/gpt4all-bindings/golang"
+	"github.com/rs/zerolog/log"
 )
 
 const tokenizerSuffix = ".tokenizer.json"
@@ -33,17 +34,17 @@ const (
 
 var backends []string = []string{
 	LlamaBackend,
+	Gpt4AllLlamaBackend,
+	Gpt4AllMptBackend,
+	Gpt4AllJBackend,
+	Gpt2Backend,
+	WhisperBackend,
+	RwkvBackend,
 	BloomzBackend,
 	StableLMBackend,
 	DollyBackend,
 	RedPajamaBackend,
-	Gpt2Backend,
-	Gpt4AllLlamaBackend,
-	Gpt4AllMptBackend,
-	Gpt4AllJBackend,
 	BertEmbeddingsBackend,
-	RwkvBackend,
-	WhisperBackend,
 }
 
 var redPajama = func(modelFile string) (interface{}, error) {
@@ -127,6 +128,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 }
 
 func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOption, threads uint32) (interface{}, error) {
+	log.Debug().Msgf("Loading models greedly")
+
 	ml.mu.Lock()
 	m, exists := ml.models[modelFile]
 	if exists {
@@ -140,11 +143,14 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 		if b == BloomzBackend { // do not autoload bloomz
 			continue
 		}
+		log.Debug().Msgf("[%s] Attempting to load", b)
 		model, modelerr := ml.BackendLoader(b, modelFile, llamaOpts, threads)
-		if err == nil {
+		if err == nil && model != nil {
+			log.Debug().Msgf("[%s] Loads OK", b)
 			return model, nil
-		} else {
+		} else if err != nil {
 			err = multierror.Append(err, modelerr)
+			log.Debug().Msgf("[%s] Fails: %s", b, modelerr.Error())
 		}
 	}
 
