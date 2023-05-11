@@ -44,6 +44,8 @@ github.com/go-skynet/bloomz.cpp v0.0.0-20230510195113-ad7e89a0885f h1:GW8RQa1RVe
 github.com/go-skynet/bloomz.cpp v0.0.0-20230510195113-ad7e89a0885f/go.mod h1:wc0fJ9V04yiYTfgKvE5RUUSRQ5Kzi0Bo4I+U3nNOUuA=
 github.com/go-skynet/go-bert.cpp v0.0.0-20230510101404-7bb183b147ea h1:8Isk9D+Auth5OuXVAQPC3MO+5zF/2S7mvs2JZLw6a+8=
 github.com/go-skynet/go-bert.cpp v0.0.0-20230510101404-7bb183b147ea/go.mod h1:NHwIVvsg7Jh6p0M4uBLVmSMEaPUia6O6yjXUpLWVJmQ=
+github.com/go-skynet/go-bert.cpp v0.0.0-20230510124618-ec771ec71557 h1:LD66fKtvP2lmyuuKL8pBat/pVTKUbLs3L5fM/5lyi4w=
+github.com/go-skynet/go-bert.cpp v0.0.0-20230510124618-ec771ec71557/go.mod h1:NHwIVvsg7Jh6p0M4uBLVmSMEaPUia6O6yjXUpLWVJmQ=
 github.com/go-skynet/go-gpt2.cpp v0.0.0-20230509180201-d49823284cc6 h1:XshpypO6ekU09CI19vuzke2a1Es1lV5ZaxA7CUehu0E=
 github.com/go-skynet/go-gpt2.cpp v0.0.0-20230509180201-d49823284cc6/go.mod h1:1Wj/xbkMfwQSOrhNYK178IzqQHstZbRfhx4s8p1M5VM=
 github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c h1:48I7jpLNGiQeBmF0SFVVbREh8vlG0zN13v9LH5ctXis=
