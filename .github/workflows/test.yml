@@ -21,7 +21,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential
+          sudo apt-get install build-essential ffmpeg
       - name: Test
         run: |
           make test
@@ -38,7 +38,7 @@ jobs:
       - name: Dependencies
         run: |
           brew update
-          brew install sdl2
+          brew install sdl2 ffmpeg
       - name: Test
         run: |
           make test

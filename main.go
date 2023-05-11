@@ -62,6 +62,12 @@ func main() {
 				EnvVars:     []string{"CONTEXT_SIZE"},
 				Value:       512,
 			},
+			&cli.IntFlag{
+				Name:        "upload-limit",
+				DefaultText: "Default upload-limit. MB",
+				EnvVars:     []string{"UPLOAD_LIMIT"},
+				Value:       15,
+			},
 		},
 		Description: `
 LocalAI is a drop-in replacement OpenAI API which runs inference locally.
@@ -81,7 +87,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
 			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
-			return api.App(ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path")), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false).Listen(ctx.String("address"))
+			return api.App(ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path")), ctx.Int("upload-limit"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false).Listen(ctx.String("address"))
 		},
 	}
 

@@ -180,6 +180,8 @@ run: prepare ## run local-ai
 test-models/testmodel:
 	mkdir test-models
 	wget https://huggingface.co/concedo/cerebras-111M-ggml/resolve/main/cerberas-111m-q4_0.bin -O test-models/testmodel
+	wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
+	wget https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-models/audio.wav
 	cp tests/fixtures/* test-models
 
 test: prepare test-models/testmodel
