@@ -140,7 +140,7 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 	var err error
 
 	for _, b := range backends {
-		if b == BloomzBackend || b == WhisperBackend { // do not autoload bloomz/whisper
+		if b == BloomzBackend || b == WhisperBackend || b == RwkvBackend { // do not autoload bloomz/whisper/rwkv
 			continue
 		}
 		log.Debug().Msgf("[%s] Attempting to load", b)

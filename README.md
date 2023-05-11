@@ -73,7 +73,7 @@ Note: You might need to convert older models to the new format, see [here](https
 
 A full example on how to run a rwkv model is in the [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/rwkv).
 
-Note: rwkv models have an associated tokenizer along that needs to be provided with it:
+Note: rwkv models needs to specify the backend `rwkv` in the YAML config files and have an associated tokenizer along that needs to be provided with it:
 
 ```
 36464540 -rw-r--r--  1 mudler mudler 1.2G May  3 10:51 rwkv_small
