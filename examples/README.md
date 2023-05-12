@@ -65,13 +65,21 @@ Run a slack bot which lets you talk directly with a model
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/slack-bot/)
 
-### Question answering on documents
+### Question answering on documents with llama-index
 
 _by [@mudler](https://github.com/mudler)_
 
 Shows how to integrate with [Llama-Index](https://gpt-index.readthedocs.io/en/stable/getting_started/installation.html) to enable question answering on a set of documents.
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/query_data/)
+
+### Question answering on documents with langchain and chroma
+
+_by [@mudler](https://github.com/mudler)_
+
+Shows how to integrate with `Langchain` and `Chroma` to enable question answering on a set of documents.
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/langchain-chroma/)
 
 ### Template for Runpod.io
 
