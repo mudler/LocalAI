@@ -69,6 +69,8 @@ func Transcript(model whisper.Model, audiopath, language string, threads uint) (
 
 	if language != "" {
 		context.SetLanguage(language)
+	} else {
+		context.SetLanguage("auto")
 	}
 
 	if err := context.Process(data, nil); err != nil {
