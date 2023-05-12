@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -83,6 +84,9 @@ var _ = Describe("API test", func() {
 			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: could not load model - all backends returned error: 12 errors occurred:"))
 		})
 		It("transcribes audio", func() {
+			if runtime.GOOS != "linux" {
+				Skip("test supported only on linux")
+			}
 			resp, err := client.CreateTranscription(
 				context.Background(),
 				openai.AudioRequest{
