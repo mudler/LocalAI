@@ -1,0 +1,5 @@
+name: text-embedding-ada-002
+parameters:
+  model: bert
+backend: bert-embeddings
+embeddings: true
