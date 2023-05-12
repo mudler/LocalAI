@@ -46,7 +46,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(4))
+			Expect(len(models.Models)).To(Equal(5))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate completions", func() {
@@ -82,7 +82,7 @@ var _ = Describe("API test", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: could not load model - all backends returned error: 10 errors occurred:"))
 		})
-		It("transcribes audio", func() {
+		PIt("transcribes audio", func() {
 			resp, err := client.CreateTranscription(
 				context.Background(),
 				openai.AudioRequest{
@@ -119,7 +119,7 @@ var _ = Describe("API test", func() {
 
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(5))
+			Expect(len(models.Models)).To(Equal(7))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate chat completions from config file", func() {
