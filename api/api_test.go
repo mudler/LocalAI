@@ -46,7 +46,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(4))
+			Expect(len(models.Models)).To(Equal(5))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate completions", func() {
@@ -119,7 +119,7 @@ var _ = Describe("API test", func() {
 
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(6))
+			Expect(len(models.Models)).To(Equal(7))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate chat completions from config file", func() {
