@@ -68,7 +68,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config)
 	case *bert.Bert:
 		fn = func() ([]float32, error) {
 			if len(tokens) > 0 {
-				return nil, fmt.Errorf("embeddings endpoint for this model supports only string")
+				return model.TokenEmbeddings(tokens, bert.SetThreads(c.Threads))
 			}
 			return model.Embeddings(s, bert.SetThreads(c.Threads))
 		}
