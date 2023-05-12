@@ -46,7 +46,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(5))
+			Expect(len(models.Models)).To(Equal(4))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate completions", func() {
@@ -87,7 +87,7 @@ var _ = Describe("API test", func() {
 				context.Background(),
 				openai.AudioRequest{
 					Model:    openai.Whisper1,
-					FilePath: filepath.Join(os.Getenv("MODELS_PATH"), "audio.wav"),
+					FilePath: filepath.Join(os.Getenv("TEST_DIR"), "audio.wav"),
 				},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -119,7 +119,7 @@ var _ = Describe("API test", func() {
 
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(7))
+			Expect(len(models.Models)).To(Equal(6))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate chat completions from config file", func() {
