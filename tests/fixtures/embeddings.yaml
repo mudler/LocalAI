@@ -1,0 +1,6 @@
+name: text-embedding-ada-002
+parameters:
+  model: bert
+threads: 14
+backend: bert-embeddings
+embeddings: true

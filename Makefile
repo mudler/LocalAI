@@ -10,7 +10,7 @@ GOGPT2_VERSION?=92421a8cf61ed6e03babd9067af292b094cb1307
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=07166da10cb2a9e8854395a4f210464dcea76e47
 WHISPER_CPP_VERSION?=bf2449dfae35a46b2cd92ab22661ce81a48d4993
-BERT_VERSION?=ec771ec715576ac050263bb7bb74bfd616a5ba13
+BERT_VERSION?=ac22f8f74aec5e31bc46242c17e7d511f127856b
 BLOOMZ_VERSION?=e9366e82abdfe70565644fbfae9651976714efd1
 
 
@@ -182,6 +182,7 @@ test-models/testmodel:
 	mkdir test-dir
 	wget https://huggingface.co/concedo/cerebras-111M-ggml/resolve/main/cerberas-111m-q4_0.bin -O test-models/testmodel
 	wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
+	wget https://huggingface.co/skeskinen/ggml/resolve/main/all-MiniLM-L6-v2/ggml-model-q4_0.bin -O test-models/bert
 	wget https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
 	cp tests/fixtures/* test-models
 
