@@ -92,7 +92,7 @@ It should also be compatible with StableLM and GPTNeoX ggml models (untested).
 Depending on the model you are attempting to run might need more RAM or CPU resources. Check out also [here](https://github.com/ggerganov/llama.cpp#memorydisk-requirements) for `ggml` based backends. `rwkv` is less expensive on resources.
 
 
-### Feature support matrix
+### Model compatibility table
 
 <details>
 
@@ -106,6 +106,8 @@ Depending on the model you are attempting to run might need more RAM or CPU reso
 | dolly           | Dolly                 | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
 | redpajama       | RedPajama             | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
 | stableLM        | StableLM GPT/NeoX     | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
+| replit       | Replit             | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
+| gptneox       | GPT NeoX             | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
 | starcoder       | Starcoder             | yes                      | no                  | no                                | no                   | https://github.com/ggerganov/ggml          | https://github.com/go-skynet/go-gpt2.cpp  |
 | bloomz          | Bloom                 | yes                      | no                  | no                                | no                   | https://github.com/NouamaneTazi/bloomz.cpp | https://github.com/go-skynet/bloomz.cpp   |
 | rwkv            | RWKV                  | yes                      | no                  | no                                | yes                  | https://github.com/saharNooby/rwkv.cpp     | https://github.com/donomii/go-rwkv.cpp    |

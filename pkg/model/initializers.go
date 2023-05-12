@@ -24,6 +24,8 @@ const (
 	StableLMBackend       = "stablelm"
 	DollyBackend          = "dolly"
 	RedPajamaBackend      = "redpajama"
+	GPTNeoXBackend        = "gptneox"
+	ReplitBackend         = "replit"
 	Gpt2Backend           = "gpt2"
 	Gpt4AllLlamaBackend   = "gpt4all-llama"
 	Gpt4AllMptBackend     = "gpt4all-mpt"
@@ -45,6 +47,8 @@ var backends []string = []string{
 	StableLMBackend,
 	DollyBackend,
 	RedPajamaBackend,
+	GPTNeoXBackend,
+	ReplitBackend,
 	BertEmbeddingsBackend,
 	StarcoderBackend,
 }
@@ -59,6 +63,14 @@ var redPajama = func(modelFile string) (interface{}, error) {
 
 var dolly = func(modelFile string) (interface{}, error) {
 	return gpt2.NewDolly(modelFile)
+}
+
+var gptNeoX = func(modelFile string) (interface{}, error) {
+	return gpt2.NewGPTNeoX(modelFile)
+}
+
+var replit = func(modelFile string) (interface{}, error) {
+	return gpt2.NewReplit(modelFile)
 }
 
 var stableLM = func(modelFile string) (interface{}, error) {
@@ -116,6 +128,10 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, redPajama)
 	case Gpt2Backend:
 		return ml.LoadModel(modelFile, gpt2LM)
+	case GPTNeoXBackend:
+		return ml.LoadModel(modelFile, gptNeoX)
+	case ReplitBackend:
+		return ml.LoadModel(modelFile, replit)
 	case StarcoderBackend:
 		return ml.LoadModel(modelFile, starCoder)
 	case Gpt4AllLlamaBackend:
