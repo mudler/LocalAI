@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16 bool, debug, disableMessage bool) *fiber.App {
+func App(configFile string, loader *model.ModelLoader, uploadLimitMB, threads, ctxSize int, f16 bool, debug, disableMessage bool) *fiber.App {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -20,6 +20,7 @@ func App(configFile string, loader *model.ModelLoader, threads, ctxSize int, f16
 
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
+		BodyLimit:             uploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
 		DisableStartupMessage: disableMessage,
 		// Override default error handler
 		ErrorHandler: func(ctx *fiber.Ctx, err error) error {

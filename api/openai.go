@@ -409,14 +409,13 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")
 		if err != nil {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return err
 		}
 		f, err := file.Open()
 		if err != nil {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return err
 		}
 		defer f.Close()
-		log.Debug().Msgf("Audio file: %+v", file)
 
 		dir, err := os.MkdirTemp("", "whisper")
 
@@ -428,26 +427,33 @@ func transcriptEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, 
 		dst := filepath.Join(dir, path.Base(file.Filename))
 		dstFile, err := os.Create(dst)
 		if err != nil {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return err
 		}
 
 		if _, err := io.Copy(dstFile, f); err != nil {
-			log.Debug().Msgf("Audio file %+v - %+v - err %+v", file.Filename, dst, err)
+			log.Debug().Msgf("Audio file copying error %+v - %+v - err %+v", file.Filename, dst, err)
 			return err
 		}
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		whisperModel, err := loader.BackendLoader("whisper", config.Model, []llama.ModelOption{}, uint32(config.Threads))
+		whisperModel, err := loader.BackendLoader(model.WhisperBackend, config.Model, []llama.ModelOption{}, uint32(config.Threads))
 		if err != nil {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return err
 		}
 
-		w := whisperModel.(whisper.Model)
+		if whisperModel == nil {
+			return fmt.Errorf("could not load whisper model")
+		}
 
-		tr, err := whisperutil.Transcript(w, dst, input.Language)
+		w, ok := whisperModel.(whisper.Model)
+		if !ok {
+			return fmt.Errorf("loader returned non-whisper object")
+		}
+
+		tr, err := whisperutil.Transcript(w, dst, input.Language, uint(config.Threads))
 		if err != nil {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+			return err
 		}
 
 		log.Debug().Msgf("Trascribed: %+v", tr)

@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 
 	. "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -23,7 +24,7 @@ var _ = Describe("API test", func() {
 	Context("API query", func() {
 		BeforeEach(func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			app = App("", modelLoader, 1, 512, false, true, true)
+			app = App("", modelLoader, 15, 1, 512, false, true, true)
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -45,7 +46,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(3))
+			Expect(len(models.Models)).To(Equal(4))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate completions", func() {
@@ -81,13 +82,23 @@ var _ = Describe("API test", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: could not load model - all backends returned error: 10 errors occurred:"))
 		})
-
+		PIt("transcribes audio", func() {
+			resp, err := client.CreateTranscription(
+				context.Background(),
+				openai.AudioRequest{
+					Model:    openai.Whisper1,
+					FilePath: filepath.Join(os.Getenv("TEST_DIR"), "audio.wav"),
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Text).To(ContainSubstring("This is the Micro Machine Man presenting"))
+		})
 	})
 
 	Context("Config file", func() {
 		BeforeEach(func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			app = App(os.Getenv("CONFIG_FILE"), modelLoader, 1, 512, false, true, true)
+			app = App(os.Getenv("CONFIG_FILE"), modelLoader, 5, 1, 512, false, true, true)
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -108,7 +119,7 @@ var _ = Describe("API test", func() {
 
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(5))
+			Expect(len(models.Models)).To(Equal(6))
 			Expect(models.Models[0].ID).To(Equal("testmodel"))
 		})
 		It("can generate chat completions from config file", func() {
@@ -134,5 +145,6 @@ var _ = Describe("API test", func() {
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})
+
 	})
 })

@@ -28,7 +28,7 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Transcript(model whisper.Model, audiopath, language string) (string, error) {
+func Transcript(model whisper.Model, audiopath, language string, threads uint) (string, error) {
 
 	dir, err := os.MkdirTemp("", "whisper")
 	if err != nil {
@@ -65,8 +65,12 @@ func Transcript(model whisper.Model, audiopath, language string) (string, error)
 
 	}
 
+	context.SetThreads(threads)
+
 	if language != "" {
 		context.SetLanguage(language)
+	} else {
+		context.SetLanguage("auto")
 	}
 
 	if err := context.Process(data, nil); err != nil {
