@@ -82,7 +82,7 @@ var _ = Describe("API test", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: could not load model - all backends returned error: 12 errors occurred:"))
 		})
-		PIt("transcribes audio", func() {
+		It("transcribes audio", func() {
 			resp, err := client.CreateTranscription(
 				context.Background(),
 				openai.AudioRequest{
