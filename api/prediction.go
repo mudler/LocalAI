@@ -31,6 +31,10 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 		llamaOpts = append(llamaOpts, llama.EnableEmbeddings)
 	}
 
+	if c.NGPULayers != 0 {
+		llamaOpts = append(llamaOpts, llama.SetGPULayers(c.NGPULayers))
+	}
+
 	return llamaOpts
 }
 
