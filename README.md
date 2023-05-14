@@ -9,13 +9,13 @@
 
 [![](https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted)](https://discord.gg/uJAeKSAGDy) 
 
-**LocalAI** is a drop-in replacement REST API compatible with OpenAI for local inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families. For a list of the supported model families, see [the model compatibility table below](https://github.com/go-skynet/LocalAI#model-compatibility-table).
+**LocalAI** is a drop-in replacement REST API compatible with OpenAI API specifications for local inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families compatible with the `ggml` format. For a list of the supported model families, see [the model compatibility table below](https://github.com/go-skynet/LocalAI#model-compatibility-table).
 
-- OpenAI compatible API
+- OpenAI drop-in REST API
 - Supports multiple models
 - Once loaded the first time, it keep models loaded in memory for faster inference
 - Support for prompt templates
-- Doesn't shell-out, but uses C bindings for a faster inference and better performance. 
+- Doesn't shell-out, but uses C++ bindings for a faster inference and better performance. 
 
 LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
@@ -23,8 +23,17 @@ LocalAI uses C++ bindings for optimizing speed. It is based on [llama.cpp](https
 
 See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
+### How does it work?  
+
+<details>
+  
+![LocalAI](https://github.com/go-skynet/LocalAI/assets/2420543/38de3a9b-3866-48cd-9234-662f9571064a)
+
+</details>
+
 ## News
 
+- 14-05-2023: __v1.11.1__ released! `rwkv` backend patch release
 - 13-05-2023: __v1.11.0__ released! 🔥 Updated `llama.cpp` bindings: This update includes a breaking change in the model files ( https://github.com/ggerganov/llama.cpp/pull/1405 ) - old models should still work with the `gpt4all-llama` backend.
 - 12-05-2023: __v1.10.0__ released! 🔥🔥 Updated `gpt4all` bindings. Added support for GPTNeox (experimental), RedPajama (experimental), Starcoder (experimental), Replit (experimental), MosaicML MPT. Also now `embeddings` endpoint supports tokens arrays. See the [langchain-chroma](https://github.com/go-skynet/LocalAI/tree/master/examples/langchain-chroma) example! Note - this update does NOT include https://github.com/ggerganov/llama.cpp/pull/1405 which makes models incompatible.
 - 11-05-2023: __v1.9.0__ released! 🔥 Important whisper updates ( https://github.com/go-skynet/LocalAI/pull/233 https://github.com/go-skynet/LocalAI/pull/229 ) and extended gpt4all model families support ( https://github.com/go-skynet/LocalAI/pull/232 ). Redpajama/dolly experimental ( https://github.com/go-skynet/LocalAI/pull/214 )
@@ -60,16 +69,14 @@ It is compatible with the models supported by [llama.cpp](https://github.com/gge
 Tested with:
 - Vicuna
 - Alpaca
-- [GPT4ALL](https://github.com/nomic-ai/gpt4all) (changes required, see below)
+- [GPT4ALL](https://gpt4all.io)
 - [GPT4ALL-J](https://gpt4all.io/models/ggml-gpt4all-j.bin) (no changes required)
 - Koala
 - [cerebras-GPT with ggml](https://huggingface.co/lxe/Cerebras-GPT-2.7B-Alpaca-SP-ggml)
 - WizardLM
 - [RWKV](https://github.com/BlinkDL/RWKV-LM) models with [rwkv.cpp](https://github.com/saharNooby/rwkv.cpp)
 
-### GPT4ALL
-
-Note: You might need to convert older models to the new format, see [here](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
+Note: You might need to convert some models from older models to the new format, for indications, see [the README in llama.cpp](https://github.com/ggerganov/llama.cpp#using-gpt4all) for instance to run `gpt4all`.
 
 ### RWKV
 
@@ -607,7 +614,7 @@ curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/f
 ```
 
 </details>
-
+  
 ## Frequently asked questions
 
 Here are answers to some of the most common questions.
