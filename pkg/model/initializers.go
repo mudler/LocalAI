@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	rwkv "github.com/donomii/go-rwkv.cpp"
@@ -143,7 +144,7 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 	case BertEmbeddingsBackend:
 		return ml.LoadModel(modelFile, bertEmbeddings)
 	case RwkvBackend:
-		return ml.LoadModel(modelFile, rwkvLM(modelFile+tokenizerSuffix, threads))
+		return ml.LoadModel(modelFile, rwkvLM(filepath.Join(ml.ModelPath, modelFile+tokenizerSuffix), threads))
 	case WhisperBackend:
 		return ml.LoadModel(modelFile, whisperModel)
 	default:
