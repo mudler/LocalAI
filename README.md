@@ -684,6 +684,9 @@ Feel free to open up a PR to get your project listed!
 - [x] Multi-model support
 - [x] Have a webUI!
 - [x] Allow configuration of defaults for models.
+- [x] Support for embeddings
+- [x] Support for audio transcription with https://github.com/ggerganov/whisper.cpp
+- [ ] GPU/CUDA support ( https://github.com/go-skynet/LocalAI/issues/69 )
 - [ ] Enable automatic downloading of models from a curated gallery, with only free-licensed models, directly from the webui.
 
 ## Star history
