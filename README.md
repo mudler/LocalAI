@@ -11,7 +11,7 @@
 
 **LocalAI** is a drop-in replacement REST API compatible with OpenAI API specifications for local inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families compatible with the `ggml` format. For a list of the supported model families, see [the model compatibility table below](https://github.com/go-skynet/LocalAI#model-compatibility-table).
 
-- OpenAI drop-in REST API
+- OpenAI drop-in alternative REST API
 - Supports multiple models
 - Once loaded the first time, it keep models loaded in memory for faster inference
 - Support for prompt templates
