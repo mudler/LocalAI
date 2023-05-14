@@ -677,6 +677,7 @@ Feel free to open up a PR to get your project listed!
 - [Kairos](https://github.com/kairos-io/kairos)
 - [k8sgpt](https://github.com/k8sgpt-ai/k8sgpt#running-local-models)
 - [Spark](https://github.com/cedriking/spark)
+- [autogpt4all](https://github.com/aorumbayev/autogpt4all)
 
 ## Blog posts and other articles
 
