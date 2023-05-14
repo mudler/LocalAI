@@ -9,7 +9,7 @@
 
 [![](https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted)](https://discord.gg/uJAeKSAGDy) 
 
-**LocalAI** is a drop-in replacement REST API compatible with OpenAI for local CPU inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families. Supports also GPT4ALL-J which is licensed under Apache 2.0.
+**LocalAI** is a drop-in replacement REST API compatible with OpenAI for local inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families. For a list of the supported model families, see [the model compatibility table below](https://github.com/go-skynet/LocalAI#model-compatibility-table).
 
 - OpenAI compatible API
 - Supports multiple models
