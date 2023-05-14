@@ -9,7 +9,7 @@ GPT4ALL_VERSION?=a330bfe26e9e35ca402e16df18973a3b162fb4db
 GOGPT2_VERSION?=92421a8cf61ed6e03babd9067af292b094cb1307
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=07166da10cb2a9e8854395a4f210464dcea76e47
-WHISPER_CPP_VERSION?=1d17cd5bb37a3212679d6055ad69ba5a8d58eb71
+WHISPER_CPP_VERSION?=a5defbc1b98bea0f070331ce1e8b62d947b0443d
 BERT_VERSION?=33118e0da50318101408986b86a331daeb4a6658
 BLOOMZ_VERSION?=e9366e82abdfe70565644fbfae9651976714efd1
 
@@ -118,6 +118,9 @@ go-gpt2/libgpt2.a: go-gpt2
 whisper.cpp:
 	git clone https://github.com/ggerganov/whisper.cpp.git
 	cd whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
+	@find ./whisper.cpp -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_whisper_/g' {} +
+	@find ./whisper.cpp -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_whisper_/g' {} +
+	@find ./whisper.cpp -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_whisper_/g' {} +
 
 whisper.cpp/libwhisper.a: whisper.cpp
 	cd whisper.cpp && make libwhisper.a
