@@ -9,7 +9,7 @@ GPT4ALL_VERSION?=a330bfe26e9e35ca402e16df18973a3b162fb4db
 GOGPT2_VERSION?=92421a8cf61ed6e03babd9067af292b094cb1307
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=07166da10cb2a9e8854395a4f210464dcea76e47
-WHISPER_CPP_VERSION?=1d17cd5bb37a3212679d6055ad69ba5a8d58eb71
+WHISPER_CPP_VERSION?=a5defbc1b98bea0f070331ce1e8b62d947b0443d
 BERT_VERSION?=33118e0da50318101408986b86a331daeb4a6658
 BLOOMZ_VERSION?=e9366e82abdfe70565644fbfae9651976714efd1
 
@@ -118,6 +118,9 @@ go-gpt2/libgpt2.a: go-gpt2
 whisper.cpp:
 	git clone https://github.com/ggerganov/whisper.cpp.git
 	cd whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
+	@find ./whisper.cpp -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_whisper_/g' {} +
+	@find ./whisper.cpp -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_whisper_/g' {} +
+	@find ./whisper.cpp -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_whisper_/g' {} +
 
 whisper.cpp/libwhisper.a: whisper.cpp
 	cd whisper.cpp && make libwhisper.a
@@ -184,6 +187,8 @@ test-models/testmodel:
 	wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget https://huggingface.co/skeskinen/ggml/resolve/main/all-MiniLM-L6-v2/ggml-model-q4_0.bin -O test-models/bert
 	wget https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
+	wget https://huggingface.co/imxcstar/rwkv-4-raven-ggml/resolve/main/RWKV-4-Raven-1B5-v11-Eng99%25-Other1%25-20230425-ctx4096-16_Q4_2.bin -O test-models/rwkv
+	wget https://raw.githubusercontent.com/saharNooby/rwkv.cpp/5eb8f09c146ea8124633ab041d9ea0b1f1db4459/rwkv/20B_tokenizer.json -O test-models/rwkv.tokenizer.json
 	cp tests/fixtures/* test-models
 
 test: prepare test-models/testmodel

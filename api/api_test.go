@@ -47,7 +47,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(7))
+			Expect(len(models.Models)).To(Equal(10))
 		})
 		It("can generate completions", func() {
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: "abcdedfghikl"})
@@ -123,6 +123,18 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
 		})
+
+		Context("backends", func() {
+			It("runs rwkv", func() {
+				if runtime.GOOS != "linux" {
+					Skip("test supported only on linux")
+				}
+				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Choices) > 0).To(BeTrue())
+				Expect(resp.Choices[0].Text).To(Equal(" five."))
+			})
+		})
 	})
 
 	Context("Config file", func() {
@@ -149,7 +161,7 @@ var _ = Describe("API test", func() {
 
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(9))
+			Expect(len(models.Models)).To(Equal(12))
 		})
 		It("can generate chat completions from config file", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
