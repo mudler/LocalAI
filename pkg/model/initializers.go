@@ -13,7 +13,7 @@ import (
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/hashicorp/go-multierror"
-	gpt4all "github.com/nomic/gpt4all/gpt4all-bindings/golang"
+	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 	"github.com/rs/zerolog/log"
 )
 

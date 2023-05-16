@@ -13,7 +13,7 @@ import (
 	bert "github.com/go-skynet/go-bert.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
-	gpt4all "github.com/nomic/gpt4all/gpt4all-bindings/golang"
+	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 )
 
 // mutex still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784

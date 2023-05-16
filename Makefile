@@ -4,8 +4,8 @@ GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
 GOLLAMA_VERSION?=7f9ae4246088f0c08ed322acbae21d69cd2eb547
-GPT4ALL_REPO?=https://github.com/go-skynet/gpt4all
-GPT4ALL_VERSION?=a330bfe26e9e35ca402e16df18973a3b162fb4db
+GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
+GPT4ALL_VERSION?=a07237e54fcdfdb351913587052ac061a2a7bdff
 GOGPT2_VERSION?=92421a8cf61ed6e03babd9067af292b094cb1307
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=07166da10cb2a9e8854395a4f210464dcea76e47
@@ -15,7 +15,7 @@ BLOOMZ_VERSION?=e9366e82abdfe70565644fbfae9651976714efd1
 BUILD_TYPE?=
 CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
-STABLEDIFFUSION_VERSION?=2f32a16b5b240f77e4197cfd214af8cb638f1e34
+STABLEDIFFUSION_VERSION?=c0748eca3642d58bcf9521108bcee46959c647dc
 
 GO_TAGS?=
 
@@ -151,7 +151,7 @@ go-llama/libbinding.a: go-llama
 
 replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
-	$(GOCMD) mod edit -replace github.com/nomic/gpt4all/gpt4all-bindings/golang=$(shell pwd)/gpt4all/gpt4all-bindings/golang
+	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(shell pwd)/gpt4all/gpt4all-bindings/golang
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-gpt2.cpp=$(shell pwd)/go-gpt2
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(shell pwd)/whisper.cpp
