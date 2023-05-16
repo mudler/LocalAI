@@ -97,6 +97,8 @@ github.com/mattn/go-runewidth v0.0.14 h1:+xnbZSEeDbOIg5/mE6JF0w6n9duR1l3/WmbinWV
 github.com/mattn/go-runewidth v0.0.14/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
 github.com/mudler/go-stable-diffusion v0.0.0-20230516104333-2f32a16b5b24 h1:XfRD/bZom6u4zji7aB0urIVOsPe43KlkzSRrVhlzaOM=
 github.com/mudler/go-stable-diffusion v0.0.0-20230516104333-2f32a16b5b24/go.mod h1:8ufRkpz/S/9ahkaxzZ5i4WMgO9w4InEhuRoT7vK5Rnw=
+github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642 h1:KTkh3lOUsGqQyP4v+oa38sPFdrZtNnM4HaxTb3epdYs=
+github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642/go.mod h1:8ufRkpz/S/9ahkaxzZ5i4WMgO9w4InEhuRoT7vK5Rnw=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230516143155-79d6243fe1bc h1:OPavP/SUsVWVYPhSUZKZeX8yDSQzf4G+BmUmwzrLTyI=

@@ -13,7 +13,7 @@ require (
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230510072905-70593fccbe4b
 	github.com/gofiber/fiber/v2 v2.45.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/mudler/go-stable-diffusion v0.0.0-20230516104333-2f32a16b5b24
+	github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230516143155-79d6243fe1bc
 	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
