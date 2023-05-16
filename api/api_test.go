@@ -25,7 +25,7 @@ var _ = Describe("API test", func() {
 	Context("API query", func() {
 		BeforeEach(func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			app = App("", modelLoader, 15, 1, 512, false, true, true)
+			app = App("", modelLoader, 15, 1, 512, false, true, true, "")
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -140,7 +140,7 @@ var _ = Describe("API test", func() {
 	Context("Config file", func() {
 		BeforeEach(func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			app = App(os.Getenv("CONFIG_FILE"), modelLoader, 5, 1, 512, false, true, true)
+			app = App(os.Getenv("CONFIG_FILE"), modelLoader, 5, 1, 512, false, true, true, "")
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
