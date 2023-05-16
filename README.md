@@ -157,7 +157,9 @@ cp your-model.bin models/
 # vim .env
 
 # start with docker-compose
-docker-compose up -d --build
+docker-compose up -d --pull always
+# or you can build the images with:
+# docker-compose up -d --build
 
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
@@ -193,8 +195,9 @@ cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
 # vim .env
 
 # start with docker-compose
-docker-compose up -d --build
-
+docker-compose up -d --pull always
+# or you can build the images with:
+# docker-compose up -d --build
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
 # {"object":"list","data":[{"id":"ggml-gpt4all-j","object":"model"}]}
