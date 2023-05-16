@@ -15,23 +15,23 @@ import (
 )
 
 type Config struct {
-	OpenAIRequest  `yaml:"parameters"`
-	Name           string            `yaml:"name"`
-	StopWords      []string          `yaml:"stopwords"`
-	Cutstrings     []string          `yaml:"cutstrings"`
-	TrimSpace      []string          `yaml:"trimspace"`
-	ContextSize    int               `yaml:"context_size"`
-	F16            bool              `yaml:"f16"`
-	Threads        int               `yaml:"threads"`
-	Debug          bool              `yaml:"debug"`
-	Roles          map[string]string `yaml:"roles"`
-	Embeddings     bool              `yaml:"embeddings"`
-	Backend        string            `yaml:"backend"`
-	TemplateConfig TemplateConfig    `yaml:"template"`
-	MirostatETA    float64           `yaml:"mirostat_eta"`
-	MirostatTAU    float64           `yaml:"mirostat_tau"`
-	Mirostat       int               `yaml:"mirostat"`
-
+	OpenAIRequest               `yaml:"parameters"`
+	Name                        string            `yaml:"name"`
+	StopWords                   []string          `yaml:"stopwords"`
+	Cutstrings                  []string          `yaml:"cutstrings"`
+	TrimSpace                   []string          `yaml:"trimspace"`
+	ContextSize                 int               `yaml:"context_size"`
+	F16                         bool              `yaml:"f16"`
+	Threads                     int               `yaml:"threads"`
+	Debug                       bool              `yaml:"debug"`
+	Roles                       map[string]string `yaml:"roles"`
+	Embeddings                  bool              `yaml:"embeddings"`
+	Backend                     string            `yaml:"backend"`
+	TemplateConfig              TemplateConfig    `yaml:"template"`
+	MirostatETA                 float64           `yaml:"mirostat_eta"`
+	MirostatTAU                 float64           `yaml:"mirostat_tau"`
+	Mirostat                    int               `yaml:"mirostat"`
+	NGPULayers                  int               `yaml:"gpu_layers"`
 	PromptStrings, InputStrings []string
 	InputToken                  [][]int
 }

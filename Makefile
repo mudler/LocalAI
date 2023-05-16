@@ -3,7 +3,7 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
-GOLLAMA_VERSION?=eb99b5438787cbd687682da445e879e02bfeaa07
+GOLLAMA_VERSION?=7f9ae4246088f0c08ed322acbae21d69cd2eb547
 GPT4ALL_REPO?=https://github.com/go-skynet/gpt4all
 GPT4ALL_VERSION?=a330bfe26e9e35ca402e16df18973a3b162fb4db
 GOGPT2_VERSION?=92421a8cf61ed6e03babd9067af292b094cb1307
@@ -12,7 +12,9 @@ RWKV_VERSION?=07166da10cb2a9e8854395a4f210464dcea76e47
 WHISPER_CPP_VERSION?=a5defbc1b98bea0f070331ce1e8b62d947b0443d
 BERT_VERSION?=33118e0da50318101408986b86a331daeb4a6658
 BLOOMZ_VERSION?=e9366e82abdfe70565644fbfae9651976714efd1
-
+BUILD_TYPE?=
+CGO_LDFLAGS?=
+CUDA_LIBPATH?=/usr/local/cuda/lib64/
 
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
@@ -23,15 +25,12 @@ RESET  := $(shell tput -Txterm sgr0)
 C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/gpt4all/gpt4all-bindings/golang/:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert:$(shell pwd)/bloomz
 LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/gpt4all/gpt4all-bindings/golang/:$(shell pwd)/go-gpt2:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert:$(shell pwd)/bloomz
 
-# Use this if you want to set the default behavior
-ifndef BUILD_TYPE
-	BUILD_TYPE:=default
+ifeq ($(BUILD_TYPE),openblas)
+	CGO_LDFLAGS+=-lopenblas
 endif
 
-ifeq ($(BUILD_TYPE), "generic")
-	GENERIC_PREFIX:=generic-
-else
-	GENERIC_PREFIX:=
+ifeq ($(BUILD_TYPE),cublas)
+	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 endif
 
 .PHONY: all test build vendor
@@ -94,7 +93,7 @@ go-bert/libgobert.a: go-bert
 	$(MAKE) -C go-bert libgobert.a
 
 gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
-	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ $(GENERIC_PREFIX)libgpt4all.a
+	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ libgpt4all.a
 
 ## CEREBRAS GPT
 go-gpt2: 
@@ -113,7 +112,7 @@ go-gpt2:
 	@find ./go-gpt2 -type f -name "*.cpp" -exec sed -i'' -e 's/json_/json_gpt2_/g' {} +
 
 go-gpt2/libgpt2.a: go-gpt2
-	$(MAKE) -C go-gpt2 $(GENERIC_PREFIX)libgpt2.a
+	$(MAKE) -C go-gpt2 libgpt2.a
 
 whisper.cpp:
 	git clone https://github.com/ggerganov/whisper.cpp.git
@@ -130,7 +129,7 @@ go-llama:
 	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
 
 go-llama/libbinding.a: go-llama 
-	$(MAKE) -C go-llama $(GENERIC_PREFIX)libbinding.a
+	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
 
 replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
@@ -171,14 +170,14 @@ clean: ## Remove build related file
 build: prepare ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
-	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -x -o $(BINARY_NAME) ./
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -x -o $(BINARY_NAME) ./
 
 generic-build: ## Build the project using generic
 	BUILD_TYPE="generic" $(MAKE) build
 
 ## Run
 run: prepare ## run local-ai
-	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) run ./main.go
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) run ./main.go
 
 test-models/testmodel:
 	mkdir test-models
