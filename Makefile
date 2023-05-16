@@ -184,6 +184,7 @@ clean: ## Remove build related file
 	rm -rf ./go-rwkv
 	rm -rf ./go-bert
 	rm -rf ./bloomz
+	rm -rf ./whisper.cpp
 	rm -rf $(BINARY_NAME)
 
 ## Build:
