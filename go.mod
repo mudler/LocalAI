@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/donomii/go-rwkv.cpp v0.0.0-20230510174014-07166da10cb2
-	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230509153812-1d17cd5bb37a
+	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230515153606-95b02d76b04d
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230510195113-ad7e89a0885f
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230510124618-ec771ec71557
@@ -13,6 +13,8 @@ require (
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230510072905-70593fccbe4b
 	github.com/gofiber/fiber/v2 v2.45.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/mudler/go-stable-diffusion v0.0.0-20230516104333-2f32a16b5b24
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230516143155-79d6243fe1bc
 	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
 	github.com/otiai10/copy v1.11.0
@@ -49,8 +51,6 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
-	github.com/mudler/go-stable-diffusion v0.0.0-20230516104333-2f32a16b5b24 // indirect
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230516143155-79d6243fe1bc // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
