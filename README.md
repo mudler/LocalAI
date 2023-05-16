@@ -787,6 +787,28 @@ asset_dir: stablediffusion_assets
 2. Create a `stablediffusion_assets` directory inside your `models` directory
 3. Download the ncnn assets from https://github.com/EdVince/Stable-Diffusion-NCNN#out-of-box and place them in `stablediffusion_assets`.
 
+The models directory should look like the following:
+
+```
+models
+├── stablediffusion_assets
+│   ├── AutoencoderKL-256-256-fp16-opt.param
+│   ├── AutoencoderKL-512-512-fp16-opt.param
+│   ├── AutoencoderKL-base-fp16.param
+│   ├── AutoencoderKL-encoder-512-512-fp16.bin
+│   ├── AutoencoderKL-fp16.bin
+│   ├── FrozenCLIPEmbedder-fp16.bin
+│   ├── FrozenCLIPEmbedder-fp16.param
+│   ├── log_sigmas.bin
+│   ├── tmp-AutoencoderKL-encoder-256-256-fp16.param
+│   ├── UNetModel-256-256-MHA-fp16-opt.param
+│   ├── UNetModel-512-512-MHA-fp16-opt.param
+│   ├── UNetModel-base-MHA-fp16.param
+│   ├── UNetModel-MHA-fp16.bin
+│   └── vocab.txt
+└── stablediffusion.yaml
+```
+
 </details>
 
 ## Frequently asked questions
