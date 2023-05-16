@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mudler/go-stable-diffusion v0.0.0-20230516104333-2f32a16b5b24
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230516143155-79d6243fe1bc
-	github.com/onsi/ginkgo/v2 v2.9.4
+	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.6
 	github.com/otiai10/copy v1.11.0
 	github.com/otiai10/openaigo v1.1.0
@@ -60,9 +60,9 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/net v0.9.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
-	golang.org/x/tools v0.8.0 // indirect
+	golang.org/x/tools v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
