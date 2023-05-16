@@ -12,7 +12,7 @@
 **LocalAI** is a drop-in replacement REST API compatible with OpenAI API specifications for local inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families compatible with the `ggml` format. For a list of the supported model families, see [the model compatibility table below](https://github.com/go-skynet/LocalAI#model-compatibility-table).
 
 - OpenAI drop-in alternative REST API
-- Supports multiple models
+- Supports multiple models, Audio transcription, Text generation with GPTs, Image generation with stable diffusion (experimental)
 - Once loaded the first time, it keep models loaded in memory for faster inference
 - Support for prompt templates
 - Doesn't shell-out, but uses C++ bindings for a faster inference and better performance. 
@@ -33,6 +33,7 @@ See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/
 
 ## News
 
+- 16-05-2023: 🔥🔥🔥 Experimental support for CUDA (https://github.com/go-skynet/LocalAI/pull/258) in the `llama.cpp` backend and Stable diffusion CPU image generation (https://github.com/go-skynet/LocalAI/pull/272) in `master`.
 - 14-05-2023: __v1.11.1__ released! `rwkv` backend patch release
 - 13-05-2023: __v1.11.0__ released! 🔥 Updated `llama.cpp` bindings: This update includes a breaking change in the model files ( https://github.com/ggerganov/llama.cpp/pull/1405 ) - old models should still work with the `gpt4all-llama` backend.
 - 12-05-2023: __v1.10.0__ released! 🔥🔥 Updated `gpt4all` bindings. Added support for GPTNeox (experimental), RedPajama (experimental), Starcoder (experimental), Replit (experimental), MosaicML MPT. Also now `embeddings` endpoint supports tokens arrays. See the [langchain-chroma](https://github.com/go-skynet/LocalAI/tree/master/examples/langchain-chroma) example! Note - this update does NOT include https://github.com/ggerganov/llama.cpp/pull/1405 which makes models incompatible.
@@ -106,7 +107,7 @@ Depending on the model you are attempting to run might need more RAM or CPU reso
 
 <details>
 
-| Backend         | Compatible models     | Completion/Chat endpoint | Audio transcription | Embeddings support                | Token stream support | Github                                     | Bindings                                  |
+| Backend         | Compatible models     | Completion/Chat endpoint | Audio transcription/Image | Embeddings support                | Token stream support | Github                                     | Bindings                                  |
 |-----------------|-----------------------|--------------------------|---------------------|-----------------------------------|----------------------|--------------------------------------------|-------------------------------------------|
 | llama           | Vicuna, Alpaca, LLaMa | yes                      | no                  | yes (doesn't seem to be accurate) | yes                  | https://github.com/ggerganov/llama.cpp     | https://github.com/go-skynet/go-llama.cpp |
 | gpt4all-llama   | Vicuna, Alpaca, LLaMa | yes                      | no                  | no                                | yes                  | https://github.com/nomic-ai/gpt4all        | https://github.com/go-skynet/gpt4all      |
@@ -122,8 +123,8 @@ Depending on the model you are attempting to run might need more RAM or CPU reso
 | bloomz          | Bloom                 | yes                      | no                  | no                                | no                   | https://github.com/NouamaneTazi/bloomz.cpp | https://github.com/go-skynet/bloomz.cpp   |
 | rwkv            | RWKV                  | yes                      | no                  | no                                | yes                  | https://github.com/saharNooby/rwkv.cpp     | https://github.com/donomii/go-rwkv.cpp    |
 | bert-embeddings | bert                  | no                       | no                  | yes                               | no                   | https://github.com/skeskinen/bert.cpp      | https://github.com/go-skynet/go-bert.cpp  |
-| whisper         | whisper               | no                       | yes                 | no                                | no                   | https://github.com/ggerganov/whisper.cpp   | https://github.com/ggerganov/whisper.cpp  |
-
+| whisper         | whisper               | no                       | Audio                 | no                                | no                   | https://github.com/ggerganov/whisper.cpp   | https://github.com/ggerganov/whisper.cpp  |
+| stablediffusion         | stablediffusion               | no                       | Image                 | no                                | no                   | https://github.com/EdVince/Stable-Diffusion-NCNN   | https://github.com/mudler/go-stable-diffusion  |
 </details>
 
 ## Usage
@@ -294,6 +295,73 @@ Specifying a `config-file` via CLI allows to declare models in a single file as 
 
 See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
 
+### Full config model file reference
+
+```yaml
+name: gpt-3.5-turbo
+
+# Default model parameters
+parameters:
+  # Relative to the models path
+  model: ggml-gpt4all-j
+  # temperature
+  temperature: 0.3
+  # all the OpenAI request options here..
+  top_k: 
+  top_p: 
+  max_tokens:
+  batch:
+  f16: true
+  ignore_eos: true
+  n_keep: 10
+  seed: 
+  mode: 
+  step: 
+
+# Default context size
+context_size: 512
+# Default number of threads
+threads: 10
+# Define a backend (optional). By default it will try to guess the backend the first time the model is interacted with.
+backend: gptj # available: llama, stablelm, gpt2, gptj rwkv
+# stopwords (if supported by the backend)
+stopwords:
+- "HUMAN:"
+- "### Response:"
+# string to trim space to
+trimspace:
+- string
+# Strings to cut from the response
+cutstrings:
+- "string"
+# define chat roles
+roles:
+  user: "HUMAN:"
+  system: "GPT:"
+  assistant: "ASSISTANT:"
+template:
+  # template file ".tmpl" with the prompt template to use by default on the endpoint call. Note there is no extension in the files
+  completion: completion
+  chat: ggml-gpt4all-j
+  edit: edit_template
+
+# Enable F16 if backend supports it
+f16: true
+# Enable debugging
+debug: true
+# Enable embeddings
+embeddings: true
+# Mirostat configuration (llama.cpp only)
+mirostat_eta: 0.8
+mirostat_tau: 0.9
+mirostat: 1
+
+# GPU Layers (only used when built with cublas)
+gpu_layers: 22
+
+# Directory used to store additional assets (used for stablediffusion)
+asset_dir: ""
+```
 </details>
 
 ### Prompt templates 
@@ -351,6 +419,8 @@ local-ai --models-path <model_path> [--address <address>] [--threads <num_thread
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
 | debug | DEBUG         | false           | Enable debug mode. |
 | config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
+| upload_limit | UPLOAD_LIMIT         | 5MB           | Upload limit for whisper. |
+| image-dir | CONFIG_FILE         | empty           | Image directory to store and serve processed images. |
 
 </details>
 
@@ -439,6 +509,48 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
      "messages": [{"role": "user", "content": "How are you?"}],
      "temperature": 0.9 
    }'
+```
+
+</details>
+
+### Build with Image generation support
+
+<details>
+
+**Requirements**: OpenCV, Gomp
+
+Image generation is experimental and requires `GO_TAGS=stablediffusion` to be set during build:
+
+```
+make GO_TAGS=stablediffusion rebuild
+```
+
+</details>
+
+### Accelleration
+
+#### OpenBLAS
+
+<details>
+
+Requirements: OpenBLAS
+
+```
+make BUILD_TYPE=openblas build
+```
+
+</details>
+
+#### CuBLAS
+
+<details>
+
+Requirement: Nvidia CUDA toolkit
+
+Note: CuBLAS support is experimental, and has not been tested on real HW. please report any issues you find!
+
+```
+make BUILD_TYPE=cublas build
 ```
 
 </details>
@@ -615,6 +727,40 @@ curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/f
 
 </details>
   
+### Image generation
+
+LocalAI supports generating images with Stable diffusion, running on CPU.
+
+<details>
+
+To generate an image you can send a POST request to the `/v1/images/generations` endpoint with the instruction as the request body:
+
+```bash
+# 512x512 is supported too
+curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
+            "prompt": "A cute baby sea otter",
+            "size": "256x256" 
+          }'
+```
+
+Available additional parameters: `mode`, `step`.
+
+#### Setup
+
+Note: In order to use the `images/generation` endpoint, you need to build LocalAI with `GO_TAGS=stablediffusion`.
+
+1. Create a model file `stablediffusion.yaml` in the models folder:
+
+```yaml
+name: stablediffusion
+backend: stablediffusion
+asset_dir: stablediffusion_assets
+```
+2. Create a `stablediffusion_assets` directory inside your `models` directory
+3. Download the ncnn assets from https://github.com/EdVince/Stable-Diffusion-NCNN#out-of-box and place them in `stablediffusion_assets`.
+
+</details>
+
 ## Frequently asked questions
 
 Here are answers to some of the most common questions.
@@ -716,10 +862,15 @@ MIT
 
 ## Acknowledgements
 
+LocalAI couldn't have been built without the help of great software already available from the community. Thank you!
+
 - [llama.cpp](https://github.com/ggerganov/llama.cpp)
 - https://github.com/tatsu-lab/stanford_alpaca
 - https://github.com/cornelk/llama-go for the initial ideas
-- https://github.com/antimatter15/alpaca.cpp for the light model version (this is compatible and tested only with that checkpoint model!)
+- https://github.com/antimatter15/alpaca.cpp
+- https://github.com/EdVince/Stable-Diffusion-NCNN
+- https://github.com/ggerganov/whisper.cpp
+- https://github.com/saharNooby/rwkv.cpp
 
 ## Contributors
 
