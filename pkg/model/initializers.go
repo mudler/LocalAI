@@ -7,6 +7,7 @@ import (
 
 	rwkv "github.com/donomii/go-rwkv.cpp"
 	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
+	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
@@ -19,21 +20,22 @@ import (
 const tokenizerSuffix = ".tokenizer.json"
 
 const (
-	LlamaBackend          = "llama"
-	BloomzBackend         = "bloomz"
-	StarcoderBackend      = "starcoder"
-	StableLMBackend       = "stablelm"
-	DollyBackend          = "dolly"
-	RedPajamaBackend      = "redpajama"
-	GPTNeoXBackend        = "gptneox"
-	ReplitBackend         = "replit"
-	Gpt2Backend           = "gpt2"
-	Gpt4AllLlamaBackend   = "gpt4all-llama"
-	Gpt4AllMptBackend     = "gpt4all-mpt"
-	Gpt4AllJBackend       = "gpt4all-j"
-	BertEmbeddingsBackend = "bert-embeddings"
-	RwkvBackend           = "rwkv"
-	WhisperBackend        = "whisper"
+	LlamaBackend           = "llama"
+	BloomzBackend          = "bloomz"
+	StarcoderBackend       = "starcoder"
+	StableLMBackend        = "stablelm"
+	DollyBackend           = "dolly"
+	RedPajamaBackend       = "redpajama"
+	GPTNeoXBackend         = "gptneox"
+	ReplitBackend          = "replit"
+	Gpt2Backend            = "gpt2"
+	Gpt4AllLlamaBackend    = "gpt4all-llama"
+	Gpt4AllMptBackend      = "gpt4all-mpt"
+	Gpt4AllJBackend        = "gpt4all-j"
+	BertEmbeddingsBackend  = "bert-embeddings"
+	RwkvBackend            = "rwkv"
+	WhisperBackend         = "whisper"
+	StableDiffusionBackend = "stablediffusion"
 )
 
 var backends []string = []string{
@@ -48,8 +50,8 @@ var backends []string = []string{
 	StableLMBackend,
 	DollyBackend,
 	RedPajamaBackend,
-	GPTNeoXBackend,
 	ReplitBackend,
+	GPTNeoXBackend,
 	BertEmbeddingsBackend,
 	StarcoderBackend,
 }
@@ -89,6 +91,10 @@ var gpt2LM = func(modelFile string) (interface{}, error) {
 	return gpt2.New(modelFile)
 }
 
+var stableDiffusion = func(assetDir string) (interface{}, error) {
+	return stablediffusion.New(assetDir)
+}
+
 var whisperModel = func(modelFile string) (interface{}, error) {
 	return whisper.New(modelFile)
 }
@@ -107,6 +113,8 @@ func gpt4allLM(opts ...gpt4all.ModelOption) func(string) (interface{}, error) {
 
 func rwkvLM(tokenFile string, threads uint32) func(string) (interface{}, error) {
 	return func(s string) (interface{}, error) {
+		log.Debug().Msgf("Loading RWKV", s, tokenFile)
+
 		model := rwkv.LoadFiles(s, tokenFile, threads)
 		if model == nil {
 			return nil, fmt.Errorf("could not load model")
@@ -116,6 +124,7 @@ func rwkvLM(tokenFile string, threads uint32) func(string) (interface{}, error) 
 }
 
 func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, llamaOpts []llama.ModelOption, threads uint32) (model interface{}, err error) {
+	log.Debug().Msgf("Loading model %s from %s", backendString, modelFile)
 	switch strings.ToLower(backendString) {
 	case LlamaBackend:
 		return ml.LoadModel(modelFile, llamaLM(llamaOpts...))
@@ -133,6 +142,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, gptNeoX)
 	case ReplitBackend:
 		return ml.LoadModel(modelFile, replit)
+	case StableDiffusionBackend:
+		return ml.LoadModel(modelFile, stableDiffusion)
 	case StarcoderBackend:
 		return ml.LoadModel(modelFile, starCoder)
 	case Gpt4AllLlamaBackend:
