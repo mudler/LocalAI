@@ -23,6 +23,7 @@ LocalAI uses C++ bindings for optimizing speed. It is based on [llama.cpp](https
 
 See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
+
 ### How does it work?  
 
 <details>
@@ -34,6 +35,13 @@ See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/
 ## News
 
 - 16-05-2023: 🔥🔥🔥 Experimental support for CUDA (https://github.com/go-skynet/LocalAI/pull/258) in the `llama.cpp` backend and Stable diffusion CPU image generation (https://github.com/go-skynet/LocalAI/pull/272) in `master`.
+
+Now LocalAI can generate images too:
+
+| mode=0                                                                                                                | mode=1 (winograd/sgemm)                                                                                                                |
+|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| ![b6441997879](https://github.com/go-skynet/LocalAI/assets/2420543/d50af51c-51b7-4f39-b6c2-bf04c403894c)              | ![winograd2](https://github.com/go-skynet/LocalAI/assets/2420543/1935a69a-ecce-4afc-a099-1ac28cb649b3)                |
+
 - 14-05-2023: __v1.11.1__ released! `rwkv` backend patch release
 - 13-05-2023: __v1.11.0__ released! 🔥 Updated `llama.cpp` bindings: This update includes a breaking change in the model files ( https://github.com/ggerganov/llama.cpp/pull/1405 ) - old models should still work with the `gpt4all-llama` backend.
 - 12-05-2023: __v1.10.0__ released! 🔥🔥 Updated `gpt4all` bindings. Added support for GPTNeox (experimental), RedPajama (experimental), Starcoder (experimental), Replit (experimental), MosaicML MPT. Also now `embeddings` endpoint supports tokens arrays. See the [langchain-chroma](https://github.com/go-skynet/LocalAI/tree/master/examples/langchain-chroma) example! Note - this update does NOT include https://github.com/ggerganov/llama.cpp/pull/1405 which makes models incompatible.
@@ -204,6 +212,8 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 To build locally, run `make build` (see below).
 
 ### Other examples
+
+![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)
 
 To see other examples on how to integrate with other projects for instance for question answering or for using it with chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
@@ -731,6 +741,12 @@ curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/f
 
 LocalAI supports generating images with Stable diffusion, running on CPU.
 
+| mode=0                                                                                                                | mode=1 (winograd/sgemm)                                                                                                                |
+|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| ![test](https://github.com/go-skynet/LocalAI/assets/2420543/7145bdee-4134-45bb-84d4-f11cb08a5638)                      | ![b643343452981](https://github.com/go-skynet/LocalAI/assets/2420543/abf14de1-4f50-4715-aaa4-411d703a942a)          |
+| ![b6441997879](https://github.com/go-skynet/LocalAI/assets/2420543/d50af51c-51b7-4f39-b6c2-bf04c403894c)              | ![winograd2](https://github.com/go-skynet/LocalAI/assets/2420543/1935a69a-ecce-4afc-a099-1ac28cb649b3)                |
+| ![winograd](https://github.com/go-skynet/LocalAI/assets/2420543/1979a8c4-a70d-4602-95ed-642f382f6c6a)                | ![winograd3](https://github.com/go-skynet/LocalAI/assets/2420543/e6d184d4-5002-408f-b564-163986e1bdfb)                |
+
 <details>
 
 To generate an image you can send a POST request to the `/v1/images/generations` endpoint with the instruction as the request body:
@@ -744,6 +760,15 @@ curl http://localhost:8080/v1/images/generations -H "Content-Type: application/j
 ```
 
 Available additional parameters: `mode`, `step`.
+
+Note: To set a negative prompt, you can split the prompt with `|`, for instance: `a cute baby sea otter|malformed`.
+
+```bash
+curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
+            "prompt": "floating hair, portrait, ((loli)), ((one girl)), cute face, hidden hands, asymmetrical bangs, beautiful detailed eyes, eye shadow, hair ornament, ribbons, bowties, buttons, pleated skirt, (((masterpiece))), ((best quality)), colorful|((part of the head)), ((((mutated hands and fingers)))), deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, Octane renderer, lowres, bad anatomy, bad hands, text",
+            "size": "256x256"
+          }'
+```
 
 #### Setup
 
