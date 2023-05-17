@@ -51,7 +51,7 @@ type Config struct {
 
 type File struct {
 	Filename string `yaml:"filename"`
-	SHA      string `yaml:"sha"`
+	SHA256   string `yaml:"sha256"`
 	URI      string `yaml:"uri"`
 }
 
@@ -95,13 +95,13 @@ func Apply(basePath, nameOverride string, config *Config) error {
 		_, err := os.Stat(filePath)
 		if err == nil {
 			// File exists, check SHA
-			if file.SHA != "" {
+			if file.SHA256 != "" {
 				// Verify SHA
 				calculatedSHA, err := calculateSHA(filePath)
 				if err != nil {
 					return fmt.Errorf("failed to calculate SHA for file %q: %v", file.Filename, err)
 				}
-				if calculatedSHA == file.SHA {
+				if calculatedSHA == file.SHA256 {
 					// SHA matches, skip downloading
 					log.Debug().Msgf("File %q already exists and matches the SHA. Skipping download", file.Filename)
 					continue
@@ -145,7 +145,7 @@ func Apply(basePath, nameOverride string, config *Config) error {
 		}
 		defer outFile.Close()
 
-		if file.SHA != "" {
+		if file.SHA256 != "" {
 			log.Debug().Msgf("Download and verifying %q", file.Filename)
 
 			// Write file content and calculate SHA
@@ -157,8 +157,8 @@ func Apply(basePath, nameOverride string, config *Config) error {
 
 			// Verify SHA
 			calculatedSHA := fmt.Sprintf("%x", hash.Sum(nil))
-			if calculatedSHA != file.SHA {
-				return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", file.Filename, calculatedSHA, file.SHA)
+			if calculatedSHA != file.SHA256 {
+				return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", file.Filename, calculatedSHA, file.SHA256)
 			}
 		} else {
 			log.Debug().Msgf("SHA missing for %q. Skipping validation", file.Filename)

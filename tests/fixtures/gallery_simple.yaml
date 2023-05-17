@@ -22,7 +22,7 @@ config_file: |
 
 files:
     - filename: "cerebras"
-      sha: "c947051ae4dba9530ca55d923a7a484acd65664c8633462c8ccd4bb7848f2c65"
+      sha256: "c947051ae4dba9530ca55d923a7a484acd65664c8633462c8ccd4bb7848f2c65"
       uri: "https://huggingface.co/concedo/cerebras-111M-ggml/resolve/main/cerebras-111m-q4_2.bin"
 
 prompt_templates:
