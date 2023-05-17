@@ -133,8 +133,8 @@ func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp) fun
 			id:  uuid.String(),
 		}
 		return c.JSON(struct {
-			ID  string `json:"uid"`
-			URL string `json:"url"`
-		}{ID: uuid.String(), URL: c.BaseURL() + "/models/jobs/" + uuid.String()})
+			ID        string `json:"uid"`
+			StatusURL string `json:"status"`
+		}{ID: uuid.String(), StatusURL: c.BaseURL() + "/models/jobs/" + uuid.String()})
 	}
 }
