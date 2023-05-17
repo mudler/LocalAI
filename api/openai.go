@@ -289,12 +289,14 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 
 		mess := []string{}
 		for _, i := range input.Messages {
+			var content string
 			r := config.Roles[i.Role]
-			if r == "" {
-				r = i.Role
+			if r != "" {
+				content = fmt.Sprint(r, " ", i.Content)
+			} else {
+				content = i.Content
 			}
 
-			content := fmt.Sprint(r, " ", i.Content)
 			mess = append(mess, content)
 		}
 
