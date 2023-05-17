@@ -86,6 +86,43 @@ func Apply(basePath, nameOverride string, config *Config) error {
 
 	// Download files and verify their SHA
 	for _, file := range config.Files {
+		log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
+
+		// Create file path
+		filePath := filepath.Join(basePath, file.Filename)
+
+		// Check if the file already exists
+		_, err := os.Stat(filePath)
+		if err == nil {
+			// File exists, check SHA
+			if file.SHA != "" {
+				// Verify SHA
+				calculatedSHA, err := calculateSHA(filePath)
+				if err != nil {
+					return fmt.Errorf("failed to calculate SHA for file %q: %v", file.Filename, err)
+				}
+				if calculatedSHA == file.SHA {
+					// SHA matches, skip downloading
+					log.Debug().Msgf("File %q already exists and matches the SHA. Skipping download", file.Filename)
+					continue
+				}
+				// SHA doesn't match, delete the file and download again
+				err = os.Remove(filePath)
+				if err != nil {
+					return fmt.Errorf("failed to remove existing file %q: %v", file.Filename, err)
+				}
+				log.Debug().Msgf("Removed %q (SHA doesn't match)", filePath)
+
+			} else {
+				// SHA is missing, skip downloading
+				log.Debug().Msgf("File %q already exists. Skipping download", file.Filename)
+				continue
+			}
+		} else if !os.IsNotExist(err) {
+			// Error occurred while checking file existence
+			return fmt.Errorf("failed to check file %q existence: %v", file.Filename, err)
+		}
+
 		log.Debug().Msgf("Downloading %q", file.URI)
 
 		// Download file
@@ -94,9 +131,6 @@ func Apply(basePath, nameOverride string, config *Config) error {
 			return fmt.Errorf("failed to download file %q: %v", file.Filename, err)
 		}
 		defer resp.Body.Close()
-
-		// Create file path
-		filePath := filepath.Join(basePath, file.Filename)
 
 		// Create parent directory
 		err = os.MkdirAll(filepath.Dir(filePath), 0755)
@@ -185,4 +219,19 @@ func Apply(basePath, nameOverride string, config *Config) error {
 
 	log.Debug().Msgf("Written config file %s", configFilePath)
 	return nil
+}
+
+func calculateSHA(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
