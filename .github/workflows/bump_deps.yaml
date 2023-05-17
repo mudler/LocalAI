@@ -9,9 +9,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - repository: "go-skynet/go-gpt4all-j.cpp"
-            variable: "GOGPT4ALLJ_VERSION"
-            branch: "master"
           - repository: "go-skynet/go-llama.cpp"
             variable: "GOLLAMA_VERSION"
             branch: "master"
@@ -30,7 +27,7 @@ jobs:
           - repository: "go-skynet/bloomz.cpp"
             variable: "BLOOMZ_VERSION"
             branch: "main"
-          - repository: "go-skynet/gpt4all"
+          - repository: "nomic-ai/gpt4all"
             variable: "GPT4ALL_VERSION"
             branch: "main"
     runs-on: ubuntu-latest
