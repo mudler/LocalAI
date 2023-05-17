@@ -164,11 +164,12 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 }
 
 func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOption, threads uint32) (interface{}, error) {
-	log.Debug().Msgf("Loading models greedly")
+	log.Debug().Msgf("Loading model '%s' greedly", modelFile)
 
 	ml.mu.Lock()
 	m, exists := ml.models[modelFile]
 	if exists {
+		log.Debug().Msgf("Model '%s' already loaded", modelFile)
 		ml.mu.Unlock()
 		return m, nil
 	}
