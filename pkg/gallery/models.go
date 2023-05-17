@@ -158,7 +158,7 @@ func Apply(basePath, nameOverride string, config *Config) error {
 			// Verify SHA
 			calculatedSHA := fmt.Sprintf("%x", hash.Sum(nil))
 			if calculatedSHA != file.SHA {
-				return fmt.Errorf("SHA mismatch for file %q", file.Filename)
+				return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", file.Filename, calculatedSHA, file.SHA)
 			}
 		} else {
 			log.Debug().Msgf("SHA missing for %q. Skipping validation", file.Filename)
