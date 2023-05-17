@@ -696,6 +696,8 @@ curl http://localhost:8080/v1/models
 
 ### Embeddings
 
+OpenAI docs: https://platform.openai.com/docs/api-reference/embeddings
+
 <details>
 
 The embedding endpoint is experimental and enabled only if the model is configured with `embeddings: true` in its `yaml` file, for example:
@@ -742,6 +744,8 @@ curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/f
   
 ### Image generation
 
+OpenAI docs: https://platform.openai.com/docs/api-reference/images/create
+
 LocalAI supports generating images with Stable diffusion, running on CPU.
 
 | mode=0                                                                                                                | mode=1 (winograd/sgemm)                                                                                                                |
@@ -772,6 +776,8 @@ curl http://localhost:8080/v1/images/generations -H "Content-Type: application/j
             "size": "256x256"
           }'
 ```
+
+Note: image generator supports images up to 512x512. You can use other tools however to upscale the image, for instance: https://github.com/upscayl/upscayl.
 
 #### Setup
 
@@ -847,7 +853,7 @@ Yes! If the client uses OpenAI and supports setting a different base URL to send
 
 <details>
 
-Not currently, as ggml doesn't support GPUs yet: https://github.com/ggerganov/llama.cpp/discussions/915.
+There is partial GPU support, see build instructions above.
 
 </details>
 

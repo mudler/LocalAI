@@ -289,12 +289,14 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 
 		mess := []string{}
 		for _, i := range input.Messages {
+			var content string
 			r := config.Roles[i.Role]
-			if r == "" {
-				r = i.Role
+			if r != "" {
+				content = fmt.Sprint(r, " ", i.Content)
+			} else {
+				content = i.Content
 			}
 
-			content := fmt.Sprint(r, " ", i.Content)
 			mess = append(mess, content)
 		}
 
@@ -491,66 +493,72 @@ func imageEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, image
 
 		var result []Item
 		for _, i := range config.PromptStrings {
-			prompts := strings.Split(i, "|")
-			positive_prompt := prompts[0]
-			negative_prompt := ""
-			if len(prompts) > 1 {
-				negative_prompt = prompts[1]
+			n := input.N
+			if input.N == 0 {
+				n = 1
 			}
+			for j := 0; j < n; j++ {
+				prompts := strings.Split(i, "|")
+				positive_prompt := prompts[0]
+				negative_prompt := ""
+				if len(prompts) > 1 {
+					negative_prompt = prompts[1]
+				}
 
-			mode := 0
-			step := 15
+				mode := 0
+				step := 15
 
-			if input.Mode != 0 {
-				mode = input.Mode
-			}
+				if input.Mode != 0 {
+					mode = input.Mode
+				}
 
-			if input.Step != 0 {
-				step = input.Step
-			}
+				if input.Step != 0 {
+					step = input.Step
+				}
 
-			tempDir := ""
-			if !b64JSON {
-				tempDir = imageDir
-			}
-			// Create a temporary file
-			outputFile, err := ioutil.TempFile(tempDir, "b64")
-			if err != nil {
-				return err
-			}
-			outputFile.Close()
-			output := outputFile.Name() + ".png"
-			// Rename the temporary file
-			err = os.Rename(outputFile.Name(), output)
-			if err != nil {
-				return err
-			}
-
-			baseURL := c.BaseURL()
-
-			fn, err := ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, output, loader, *config)
-			if err != nil {
-				return err
-			}
-			if err := fn(); err != nil {
-				return err
-			}
-
-			item := &Item{}
-
-			if b64JSON {
-				defer os.RemoveAll(output)
-				data, err := os.ReadFile(output)
+				tempDir := ""
+				if !b64JSON {
+					tempDir = imageDir
+				}
+				// Create a temporary file
+				outputFile, err := ioutil.TempFile(tempDir, "b64")
 				if err != nil {
 					return err
 				}
-				item.B64JSON = base64.StdEncoding.EncodeToString(data)
-			} else {
-				base := filepath.Base(output)
-				item.URL = baseURL + "/generated-images/" + base
-			}
+				outputFile.Close()
+				output := outputFile.Name() + ".png"
+				// Rename the temporary file
+				err = os.Rename(outputFile.Name(), output)
+				if err != nil {
+					return err
+				}
 
-			result = append(result, *item)
+				baseURL := c.BaseURL()
+
+				fn, err := ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, output, loader, *config)
+				if err != nil {
+					return err
+				}
+				if err := fn(); err != nil {
+					return err
+				}
+
+				item := &Item{}
+
+				if b64JSON {
+					defer os.RemoveAll(output)
+					data, err := os.ReadFile(output)
+					if err != nil {
+						return err
+					}
+					item.B64JSON = base64.StdEncoding.EncodeToString(data)
+				} else {
+					base := filepath.Base(output)
+					item.URL = baseURL + "/generated-images/" + base
+				}
+
+				result = append(result, *item)
+			}
 		}
 
 		resp := &OpenAIResponse{
