@@ -72,8 +72,8 @@ func App(configFile string, loader *model.ModelLoader, uploadLimitMB, threads, c
 	// LocalAI API endpoints
 	applier := newGalleryApplier(loader.ModelPath)
 	applier.start(cm)
-	app.Post("/localai/gallery/apply", applyModelGallery(loader.ModelPath, cm, applier.C))
-	app.Get("/localai/gallery/op/status/:uid", getOpStatus(applier))
+	app.Post("/models/apply", applyModelGallery(loader.ModelPath, cm, applier.C))
+	app.Get("/models/jobs/:uid", getOpStatus(applier))
 
 	// openAI compatible API endpoint
 
