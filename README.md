@@ -434,7 +434,7 @@ local-ai --models-path <model_path> [--address <address>] [--threads <num_thread
 | debug | DEBUG         | false           | Enable debug mode. |
 | config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
 | upload_limit | UPLOAD_LIMIT         | 5MB           | Upload limit for whisper. |
-| image-path | CONFIG_FILE         | empty           | Image directory to store and serve processed images. |
+| image-path | IMAGE_PATH         | empty           | Image directory to store and serve processed images. |
 
 </details>
 
