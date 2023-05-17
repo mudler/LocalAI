@@ -77,7 +77,7 @@ func ReadConfigFile(filePath string) (*Config, error) {
 	return &config, nil
 }
 
-func Apply(basePath string, config *Config) error {
+func Apply(basePath, nameOverride string, config *Config) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0755)
 	if err != nil {
@@ -156,7 +156,12 @@ func Apply(basePath string, config *Config) error {
 		log.Debug().Msgf("Prompt template %q written", template.Name)
 	}
 
-	configFilePath := filepath.Join(basePath, config.Name+".yaml")
+	name := config.Name
+	if nameOverride != "" {
+		name = nameOverride
+	}
+
+	configFilePath := filepath.Join(basePath, name+".yaml")
 
 	// Read and update config file as map[string]interface{}
 	configMap := make(map[string]interface{})
@@ -165,7 +170,7 @@ func Apply(basePath string, config *Config) error {
 		return fmt.Errorf("failed to unmarshal config YAML: %v", err)
 	}
 
-	configMap["name"] = config.Name
+	configMap["name"] = name
 
 	// Write updated config file
 	updatedConfigYAML, err := yaml.Marshal(configMap)

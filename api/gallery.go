@@ -81,7 +81,7 @@ func (g *galleryApplier) start(cm *ConfigMerger) {
 				continue
 			}
 
-			if err := gallery.Apply(g.modelPath, &config); err != nil {
+			if err := gallery.Apply(g.modelPath, op.req.Name, &config); err != nil {
 				updateError(err)
 				continue
 			}
@@ -100,7 +100,8 @@ func (g *galleryApplier) start(cm *ConfigMerger) {
 // endpoints
 
 type ApplyGalleryModelRequest struct {
-	URL string `json:"url"`
+	URL  string `json:"url"`
+	Name string `json:"name"`
 }
 
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
