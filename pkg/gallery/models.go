@@ -2,7 +2,6 @@ package gallery
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,7 +84,7 @@ func inTrustedRoot(path string, trustedRoot string) error {
 			return nil
 		}
 	}
-	return errors.New("path is outside of trusted root")
+	return fmt.Errorf("path is outside of trusted root")
 }
 
 func verifyPath(path, basePath string) error {
@@ -93,12 +92,12 @@ func verifyPath(path, basePath string) error {
 
 	r, err := filepath.EvalSymlinks(c)
 	if err != nil {
-		return errors.New("unsafe or invalid path specified")
+		return fmt.Errorf("unsafe or invalid path specified")
 	}
 
 	err = inTrustedRoot(r, basePath)
 	if err != nil {
-		return errors.New("unsafe or invalid path specified")
+		return fmt.Errorf("unsafe or invalid path specified")
 	}
 
 	return nil
