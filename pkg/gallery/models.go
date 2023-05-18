@@ -2,6 +2,7 @@ package gallery
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -77,6 +78,32 @@ func ReadConfigFile(filePath string) (*Config, error) {
 	return &config, nil
 }
 
+func inTrustedRoot(path string, trustedRoot string) error {
+	for path != "/" {
+		path = filepath.Dir(path)
+		if path == trustedRoot {
+			return nil
+		}
+	}
+	return errors.New("path is outside of trusted root")
+}
+
+func verifyPath(path, basePath string) error {
+	c := filepath.Clean(filepath.Join(basePath, path))
+
+	r, err := filepath.EvalSymlinks(c)
+	if err != nil {
+		return errors.New("unsafe or invalid path specified")
+	}
+
+	err = inTrustedRoot(r, basePath)
+	if err != nil {
+		return errors.New("unsafe or invalid path specified")
+	}
+
+	return nil
+}
+
 func Apply(basePath, nameOverride string, config *Config) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0755)
@@ -88,6 +115,9 @@ func Apply(basePath, nameOverride string, config *Config) error {
 	for _, file := range config.Files {
 		log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
 
+		if err := verifyPath(file.Filename, basePath); err != nil {
+			return err
+		}
 		// Create file path
 		filePath := filepath.Join(basePath, file.Filename)
 
@@ -173,6 +203,9 @@ func Apply(basePath, nameOverride string, config *Config) error {
 
 	// Write prompt template contents to separate files
 	for _, template := range config.PromptTemplates {
+		if err := verifyPath(template.Name+".tmpl", basePath); err != nil {
+			return err
+		}
 		// Create file path
 		filePath := filepath.Join(basePath, template.Name+".tmpl")
 
@@ -193,6 +226,10 @@ func Apply(basePath, nameOverride string, config *Config) error {
 	name := config.Name
 	if nameOverride != "" {
 		name = nameOverride
+	}
+
+	if err := verifyPath(name+".yaml", basePath); err != nil {
+		return err
 	}
 
 	configFilePath := filepath.Join(basePath, name+".yaml")
