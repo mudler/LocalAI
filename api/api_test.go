@@ -22,10 +22,14 @@ var _ = Describe("API test", func() {
 	var modelLoader *model.ModelLoader
 	var client *openai.Client
 	var client2 *openaigo.Client
+	var c context.Context
+	var cancel context.CancelFunc
 	Context("API query", func() {
 		BeforeEach(func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			app = App("", modelLoader, 15, 1, 512, false, true, true, "")
+			c, cancel = context.WithCancel(context.Background())
+
+			app = App(c, "", modelLoader, 15, 1, 512, false, true, true, "")
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -42,6 +46,7 @@ var _ = Describe("API test", func() {
 			}, "2m").ShouldNot(HaveOccurred())
 		})
 		AfterEach(func() {
+			cancel()
 			app.Shutdown()
 		})
 		It("returns the models list", func() {
@@ -140,7 +145,9 @@ var _ = Describe("API test", func() {
 	Context("Config file", func() {
 		BeforeEach(func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			app = App(os.Getenv("CONFIG_FILE"), modelLoader, 5, 1, 512, false, true, true, "")
+			c, cancel = context.WithCancel(context.Background())
+
+			app = App(c, os.Getenv("CONFIG_FILE"), modelLoader, 5, 1, 512, false, true, true, "")
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -155,10 +162,10 @@ var _ = Describe("API test", func() {
 			}, "2m").ShouldNot(HaveOccurred())
 		})
 		AfterEach(func() {
+			cancel()
 			app.Shutdown()
 		})
 		It("can generate chat completions from config file", func() {
-
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models.Models)).To(Equal(12))

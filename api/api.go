@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -12,7 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func App(configFile string, loader *model.ModelLoader, uploadLimitMB, threads, ctxSize int, f16 bool, debug, disableMessage bool, imageDir string) *fiber.App {
+func App(c context.Context, configFile string, loader *model.ModelLoader, uploadLimitMB, threads, ctxSize int, f16 bool, debug, disableMessage bool, imageDir string) *fiber.App {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -71,7 +72,7 @@ func App(configFile string, loader *model.ModelLoader, uploadLimitMB, threads, c
 
 	// LocalAI API endpoints
 	applier := newGalleryApplier(loader.ModelPath)
-	applier.start(cm)
+	applier.start(c, cm)
 	app.Post("/models/apply", applyModelGallery(loader.ModelPath, cm, applier.C))
 	app.Get("/models/jobs/:uid", getOpStatus(applier))
 

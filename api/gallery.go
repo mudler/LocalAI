@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -50,49 +51,54 @@ func (g *galleryApplier) getstatus(s string) *galleryOpStatus {
 	return g.statuses[s]
 }
 
-func (g *galleryApplier) start(cm *ConfigMerger) {
+func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 	go func() {
-		for op := range g.C {
-			g.updatestatus(op.id, &galleryOpStatus{Message: "processing"})
+		for {
+			select {
+			case <-c.Done():
+				return
+			case op := <-g.C:
+				g.updatestatus(op.id, &galleryOpStatus{Message: "processing"})
 
-			updateError := func(e error) {
-				g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true})
-			}
-			// Send a GET request to the URL
-			response, err := http.Get(op.req.URL)
-			if err != nil {
-				updateError(err)
-				continue
-			}
-			defer response.Body.Close()
+				updateError := func(e error) {
+					g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true})
+				}
+				// Send a GET request to the URL
+				response, err := http.Get(op.req.URL)
+				if err != nil {
+					updateError(err)
+					continue
+				}
+				defer response.Body.Close()
 
-			// Read the response body
-			body, err := ioutil.ReadAll(response.Body)
-			if err != nil {
-				updateError(err)
-				continue
-			}
+				// Read the response body
+				body, err := ioutil.ReadAll(response.Body)
+				if err != nil {
+					updateError(err)
+					continue
+				}
 
-			// Unmarshal YAML data into a Config struct
-			var config gallery.Config
-			err = yaml.Unmarshal(body, &config)
-			if err != nil {
-				updateError(fmt.Errorf("failed to unmarshal YAML: %v", err))
-				continue
-			}
+				// Unmarshal YAML data into a Config struct
+				var config gallery.Config
+				err = yaml.Unmarshal(body, &config)
+				if err != nil {
+					updateError(fmt.Errorf("failed to unmarshal YAML: %v", err))
+					continue
+				}
 
-			if err := gallery.Apply(g.modelPath, op.req.Name, &config); err != nil {
-				updateError(err)
-				continue
-			}
+				if err := gallery.Apply(g.modelPath, op.req.Name, &config); err != nil {
+					updateError(err)
+					continue
+				}
 
-			// Reload models
-			if err := cm.LoadConfigs(g.modelPath); err != nil {
-				updateError(err)
-				continue
-			}
+				// Reload models
+				if err := cm.LoadConfigs(g.modelPath); err != nil {
+					updateError(err)
+					continue
+				}
 
-			g.updatestatus(op.id, &galleryOpStatus{Processed: true, Message: "completed"})
+				g.updatestatus(op.id, &galleryOpStatus{Processed: true, Message: "completed"})
+			}
 		}
 	}()
 }
