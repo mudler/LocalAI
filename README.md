@@ -12,7 +12,7 @@
 **LocalAI** is a drop-in replacement REST API compatible with OpenAI API specifications for local inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families compatible with the `ggml` format. For a list of the supported model families, see [the model compatibility table below](https://github.com/go-skynet/LocalAI#model-compatibility-table).
 
 - OpenAI drop-in alternative REST API
-- Supports multiple models
+- Supports multiple models, Audio transcription, Text generation with GPTs, Image generation with stable diffusion (experimental)
 - Once loaded the first time, it keep models loaded in memory for faster inference
 - Support for prompt templates
 - Doesn't shell-out, but uses C++ bindings for a faster inference and better performance. 
@@ -23,6 +23,7 @@ LocalAI uses C++ bindings for optimizing speed. It is based on [llama.cpp](https
 
 See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
+
 ### How does it work?  
 
 <details>
@@ -32,6 +33,15 @@ See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/
 </details>
 
 ## News
+
+- 17-05-2023:  __v1.12.0__ released! 🔥🔥 Minor fixes, plus CUDA (https://github.com/go-skynet/LocalAI/pull/258) support for `llama.cpp`-compatible models and image generation (https://github.com/go-skynet/LocalAI/pull/272).
+- 16-05-2023: 🔥🔥🔥 Experimental support for CUDA (https://github.com/go-skynet/LocalAI/pull/258) in the `llama.cpp` backend and Stable diffusion CPU image generation (https://github.com/go-skynet/LocalAI/pull/272) in `master`.
+
+Now LocalAI can generate images too:
+
+| mode=0                                                                                                                | mode=1 (winograd/sgemm)                                                                                                                |
+|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| ![b6441997879](https://github.com/go-skynet/LocalAI/assets/2420543/d50af51c-51b7-4f39-b6c2-bf04c403894c)              | ![winograd2](https://github.com/go-skynet/LocalAI/assets/2420543/1935a69a-ecce-4afc-a099-1ac28cb649b3)                |
 
 - 14-05-2023: __v1.11.1__ released! `rwkv` backend patch release
 - 13-05-2023: __v1.11.0__ released! 🔥 Updated `llama.cpp` bindings: This update includes a breaking change in the model files ( https://github.com/ggerganov/llama.cpp/pull/1405 ) - old models should still work with the `gpt4all-llama` backend.
@@ -106,7 +116,7 @@ Depending on the model you are attempting to run might need more RAM or CPU reso
 
 <details>
 
-| Backend         | Compatible models     | Completion/Chat endpoint | Audio transcription | Embeddings support                | Token stream support | Github                                     | Bindings                                  |
+| Backend         | Compatible models     | Completion/Chat endpoint | Audio transcription/Image | Embeddings support                | Token stream support | Github                                     | Bindings                                  |
 |-----------------|-----------------------|--------------------------|---------------------|-----------------------------------|----------------------|--------------------------------------------|-------------------------------------------|
 | llama           | Vicuna, Alpaca, LLaMa | yes                      | no                  | yes (doesn't seem to be accurate) | yes                  | https://github.com/ggerganov/llama.cpp     | https://github.com/go-skynet/go-llama.cpp |
 | gpt4all-llama   | Vicuna, Alpaca, LLaMa | yes                      | no                  | no                                | yes                  | https://github.com/nomic-ai/gpt4all        | https://github.com/go-skynet/gpt4all      |
@@ -122,8 +132,8 @@ Depending on the model you are attempting to run might need more RAM or CPU reso
 | bloomz          | Bloom                 | yes                      | no                  | no                                | no                   | https://github.com/NouamaneTazi/bloomz.cpp | https://github.com/go-skynet/bloomz.cpp   |
 | rwkv            | RWKV                  | yes                      | no                  | no                                | yes                  | https://github.com/saharNooby/rwkv.cpp     | https://github.com/donomii/go-rwkv.cpp    |
 | bert-embeddings | bert                  | no                       | no                  | yes                               | no                   | https://github.com/skeskinen/bert.cpp      | https://github.com/go-skynet/go-bert.cpp  |
-| whisper         | whisper               | no                       | yes                 | no                                | no                   | https://github.com/ggerganov/whisper.cpp   | https://github.com/ggerganov/whisper.cpp  |
-
+| whisper         | whisper               | no                       | Audio                 | no                                | no                   | https://github.com/ggerganov/whisper.cpp   | https://github.com/ggerganov/whisper.cpp  |
+| stablediffusion         | stablediffusion               | no                       | Image                 | no                                | no                   | https://github.com/EdVince/Stable-Diffusion-NCNN   | https://github.com/mudler/go-stable-diffusion  |
 </details>
 
 ## Usage
@@ -148,7 +158,9 @@ cp your-model.bin models/
 # vim .env
 
 # start with docker-compose
-docker-compose up -d --build
+docker-compose up -d --pull always
+# or you can build the images with:
+# docker-compose up -d --build
 
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
@@ -184,8 +196,9 @@ cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
 # vim .env
 
 # start with docker-compose
-docker-compose up -d --build
-
+docker-compose up -d --pull always
+# or you can build the images with:
+# docker-compose up -d --build
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
 # {"object":"list","data":[{"id":"ggml-gpt4all-j","object":"model"}]}
@@ -203,6 +216,8 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 To build locally, run `make build` (see below).
 
 ### Other examples
+
+![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)
 
 To see other examples on how to integrate with other projects for instance for question answering or for using it with chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
 
@@ -294,6 +309,73 @@ Specifying a `config-file` via CLI allows to declare models in a single file as 
 
 See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
 
+### Full config model file reference
+
+```yaml
+name: gpt-3.5-turbo
+
+# Default model parameters
+parameters:
+  # Relative to the models path
+  model: ggml-gpt4all-j
+  # temperature
+  temperature: 0.3
+  # all the OpenAI request options here..
+  top_k: 
+  top_p: 
+  max_tokens:
+  batch:
+  f16: true
+  ignore_eos: true
+  n_keep: 10
+  seed: 
+  mode: 
+  step: 
+
+# Default context size
+context_size: 512
+# Default number of threads
+threads: 10
+# Define a backend (optional). By default it will try to guess the backend the first time the model is interacted with.
+backend: gptj # available: llama, stablelm, gpt2, gptj rwkv
+# stopwords (if supported by the backend)
+stopwords:
+- "HUMAN:"
+- "### Response:"
+# string to trim space to
+trimspace:
+- string
+# Strings to cut from the response
+cutstrings:
+- "string"
+# define chat roles
+roles:
+  user: "HUMAN:"
+  system: "GPT:"
+  assistant: "ASSISTANT:"
+template:
+  # template file ".tmpl" with the prompt template to use by default on the endpoint call. Note there is no extension in the files
+  completion: completion
+  chat: ggml-gpt4all-j
+  edit: edit_template
+
+# Enable F16 if backend supports it
+f16: true
+# Enable debugging
+debug: true
+# Enable embeddings
+embeddings: true
+# Mirostat configuration (llama.cpp only)
+mirostat_eta: 0.8
+mirostat_tau: 0.9
+mirostat: 1
+
+# GPU Layers (only used when built with cublas)
+gpu_layers: 22
+
+# Directory used to store additional assets (used for stablediffusion)
+asset_dir: ""
+```
 </details>
 
 ### Prompt templates 
@@ -351,6 +433,8 @@ local-ai --models-path <model_path> [--address <address>] [--threads <num_thread
 | context-size | CONTEXT_SIZE         | 512           | Default token context size. |
 | debug | DEBUG         | false           | Enable debug mode. |
 | config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
+| upload_limit | UPLOAD_LIMIT         | 5MB           | Upload limit for whisper. |
+| image-dir | CONFIG_FILE         | empty           | Image directory to store and serve processed images. |
 
 </details>
 
@@ -439,6 +523,48 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
      "messages": [{"role": "user", "content": "How are you?"}],
      "temperature": 0.9 
    }'
+```
+
+</details>
+
+### Build with Image generation support
+
+<details>
+
+**Requirements**: OpenCV, Gomp
+
+Image generation is experimental and requires `GO_TAGS=stablediffusion` to be set during build:
+
+```
+make GO_TAGS=stablediffusion rebuild
+```
+
+</details>
+
+### Accelleration
+
+#### OpenBLAS
+
+<details>
+
+Requirements: OpenBLAS
+
+```
+make BUILD_TYPE=openblas build
+```
+
+</details>
+
+#### CuBLAS
+
+<details>
+
+Requirement: Nvidia CUDA toolkit
+
+Note: CuBLAS support is experimental, and has not been tested on real HW. please report any issues you find!
+
+```
+make BUILD_TYPE=cublas build
 ```
 
 </details>
@@ -571,6 +697,8 @@ curl http://localhost:8080/v1/models
 
 ### Embeddings
 
+OpenAI docs: https://platform.openai.com/docs/api-reference/embeddings
+
 <details>
 
 The embedding endpoint is experimental and enabled only if the model is configured with `embeddings: true` in its `yaml` file, for example:
@@ -615,6 +743,81 @@ curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/f
 
 </details>
   
+### Image generation
+
+OpenAI docs: https://platform.openai.com/docs/api-reference/images/create
+
+LocalAI supports generating images with Stable diffusion, running on CPU.
+
+| mode=0                                                                                                                | mode=1 (winograd/sgemm)                                                                                                                |
+|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| ![test](https://github.com/go-skynet/LocalAI/assets/2420543/7145bdee-4134-45bb-84d4-f11cb08a5638)                      | ![b643343452981](https://github.com/go-skynet/LocalAI/assets/2420543/abf14de1-4f50-4715-aaa4-411d703a942a)          |
+| ![b6441997879](https://github.com/go-skynet/LocalAI/assets/2420543/d50af51c-51b7-4f39-b6c2-bf04c403894c)              | ![winograd2](https://github.com/go-skynet/LocalAI/assets/2420543/1935a69a-ecce-4afc-a099-1ac28cb649b3)                |
+| ![winograd](https://github.com/go-skynet/LocalAI/assets/2420543/1979a8c4-a70d-4602-95ed-642f382f6c6a)                | ![winograd3](https://github.com/go-skynet/LocalAI/assets/2420543/e6d184d4-5002-408f-b564-163986e1bdfb)                |
+
+<details>
+
+To generate an image you can send a POST request to the `/v1/images/generations` endpoint with the instruction as the request body:
+
+```bash
+# 512x512 is supported too
+curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
+            "prompt": "A cute baby sea otter",
+            "size": "256x256" 
+          }'
+```
+
+Available additional parameters: `mode`, `step`.
+
+Note: To set a negative prompt, you can split the prompt with `|`, for instance: `a cute baby sea otter|malformed`.
+
+```bash
+curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
+            "prompt": "floating hair, portrait, ((loli)), ((one girl)), cute face, hidden hands, asymmetrical bangs, beautiful detailed eyes, eye shadow, hair ornament, ribbons, bowties, buttons, pleated skirt, (((masterpiece))), ((best quality)), colorful|((part of the head)), ((((mutated hands and fingers)))), deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, Octane renderer, lowres, bad anatomy, bad hands, text",
+            "size": "256x256"
+          }'
+```
+
+Note: image generator supports images up to 512x512. You can use other tools however to upscale the image, for instance: https://github.com/upscayl/upscayl.
+
+#### Setup
+
+Note: In order to use the `images/generation` endpoint, you need to build LocalAI with `GO_TAGS=stablediffusion`.
+
+1. Create a model file `stablediffusion.yaml` in the models folder:
+
+```yaml
+name: stablediffusion
+backend: stablediffusion
+asset_dir: stablediffusion_assets
+```
+2. Create a `stablediffusion_assets` directory inside your `models` directory
+3. Download the ncnn assets from https://github.com/EdVince/Stable-Diffusion-NCNN#out-of-box and place them in `stablediffusion_assets`.
+
+The models directory should look like the following:
+
+```
+models
+├── stablediffusion_assets
+│   ├── AutoencoderKL-256-256-fp16-opt.param
+│   ├── AutoencoderKL-512-512-fp16-opt.param
+│   ├── AutoencoderKL-base-fp16.param
+│   ├── AutoencoderKL-encoder-512-512-fp16.bin
+│   ├── AutoencoderKL-fp16.bin
+│   ├── FrozenCLIPEmbedder-fp16.bin
+│   ├── FrozenCLIPEmbedder-fp16.param
+│   ├── log_sigmas.bin
+│   ├── tmp-AutoencoderKL-encoder-256-256-fp16.param
+│   ├── UNetModel-256-256-MHA-fp16-opt.param
+│   ├── UNetModel-512-512-MHA-fp16-opt.param
+│   ├── UNetModel-base-MHA-fp16.param
+│   ├── UNetModel-MHA-fp16.bin
+│   └── vocab.txt
+└── stablediffusion.yaml
+```
+
+</details>
+
 ## Frequently asked questions
 
 Here are answers to some of the most common questions.
@@ -651,7 +854,7 @@ Yes! If the client uses OpenAI and supports setting a different base URL to send
 
 <details>
 
-Not currently, as ggml doesn't support GPUs yet: https://github.com/ggerganov/llama.cpp/discussions/915.
+There is partial GPU support, see build instructions above.
 
 </details>
 
@@ -717,10 +920,15 @@ MIT
 
 ## Acknowledgements
 
+LocalAI couldn't have been built without the help of great software already available from the community. Thank you!
+
 - [llama.cpp](https://github.com/ggerganov/llama.cpp)
 - https://github.com/tatsu-lab/stanford_alpaca
 - https://github.com/cornelk/llama-go for the initial ideas
-- https://github.com/antimatter15/alpaca.cpp for the light model version (this is compatible and tested only with that checkpoint model!)
+- https://github.com/antimatter15/alpaca.cpp
+- https://github.com/EdVince/Stable-Diffusion-NCNN
+- https://github.com/ggerganov/whisper.cpp
+- https://github.com/saharNooby/rwkv.cpp
 
 ## Contributors
 

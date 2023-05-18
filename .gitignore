@@ -1,6 +1,7 @@
 # go-llama build artifacts
 go-llama
-go-gpt4all-j
+gpt4all
+go-stable-diffusion
 go-gpt2
 go-rwkv
 whisper.cpp

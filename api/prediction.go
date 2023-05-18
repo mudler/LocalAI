@@ -8,11 +8,12 @@ import (
 
 	"github.com/donomii/go-rwkv.cpp"
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	"github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	gpt2 "github.com/go-skynet/go-gpt2.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
-	gpt4all "github.com/nomic/gpt4all/gpt4all-bindings/golang"
+	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 )
 
 // mutex still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
@@ -31,7 +32,50 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 		llamaOpts = append(llamaOpts, llama.EnableEmbeddings)
 	}
 
+	if c.NGPULayers != 0 {
+		llamaOpts = append(llamaOpts, llama.SetGPULayers(c.NGPULayers))
+	}
+
 	return llamaOpts
+}
+
+func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, dst string, loader *model.ModelLoader, c Config) (func() error, error) {
+	if c.Backend != model.StableDiffusionBackend {
+		return nil, fmt.Errorf("endpoint only working with stablediffusion models")
+	}
+	inferenceModel, err := loader.BackendLoader(c.Backend, c.ImageGenerationAssets, []llama.ModelOption{}, uint32(c.Threads))
+	if err != nil {
+		return nil, err
+	}
+
+	var fn func() error
+	switch model := inferenceModel.(type) {
+	case *stablediffusion.StableDiffusion:
+		fn = func() error {
+			return model.GenerateImage(height, width, mode, step, seed, positive_prompt, negative_prompt, dst)
+		}
+
+	default:
+		fn = func() error {
+			return fmt.Errorf("creation of images not supported by the backend")
+		}
+	}
+
+	return func() error {
+		// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
+		mutexMap.Lock()
+		l, ok := mutexes[c.Backend]
+		if !ok {
+			m := &sync.Mutex{}
+			mutexes[c.Backend] = m
+			l = m
+		}
+		mutexMap.Unlock()
+		l.Lock()
+		defer l.Unlock()
+
+		return fn()
+	}, nil
 }
 
 func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config) (func() ([]float32, error), error) {

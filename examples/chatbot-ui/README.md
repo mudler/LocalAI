@@ -19,7 +19,9 @@ cd LocalAI/examples/chatbot-ui
 wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
 
 # start with docker-compose
-docker-compose up -d --build
+docker-compose up -d --pull always
+# or you can build the images with:
+# docker-compose up -d --build
 ```
 
 ## Pointing chatbot-ui to a separately managed LocalAI service
