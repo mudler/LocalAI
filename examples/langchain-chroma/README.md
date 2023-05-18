@@ -15,6 +15,10 @@ cd LocalAI/examples/langchain-chroma
 wget https://huggingface.co/skeskinen/ggml/resolve/main/all-MiniLM-L6-v2/ggml-model-q4_0.bin -O models/bert
 wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
 
+# configure your .env
+# NOTE: ensure that THREADS does not exceed your machine's CPU cores
+mv .env.example .env
+
 # start with docker-compose
 docker-compose up -d --build
 
