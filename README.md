@@ -464,6 +464,8 @@ You should see:
 └───────────────────────────────────────────────────┘ 
 ```
 
+Note: the binary inside the image is rebuild at the start of the container to enable CPU optimizations for the execution environment, you can set the environment variable `REBUILD` to `false` to prevent this behavior.
+
 </details>
 
 ### Build locally
