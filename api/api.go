@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -12,7 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func App(configFile string, loader *model.ModelLoader, uploadLimitMB, threads, ctxSize int, f16 bool, debug, disableMessage bool, imageDir string) *fiber.App {
+func App(c context.Context, configFile string, loader *model.ModelLoader, uploadLimitMB, threads, ctxSize int, f16 bool, debug, disableMessage bool, imageDir string) *fiber.App {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -48,7 +49,7 @@ func App(configFile string, loader *model.ModelLoader, uploadLimitMB, threads, c
 		}))
 	}
 
-	cm := make(ConfigMerger)
+	cm := NewConfigMerger()
 	if err := cm.LoadConfigs(loader.ModelPath); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())
 	}
@@ -60,39 +61,51 @@ func App(configFile string, loader *model.ModelLoader, uploadLimitMB, threads, c
 	}
 
 	if debug {
-		for k, v := range cm {
-			log.Debug().Msgf("Model: %s (config: %+v)", k, v)
+		for _, v := range cm.ListConfigs() {
+			cfg, _ := cm.GetConfig(v)
+			log.Debug().Msgf("Model: %s (config: %+v)", v, cfg)
 		}
 	}
 	// Default middleware config
 	app.Use(recover.New())
 	app.Use(cors.New())
 
+	// LocalAI API endpoints
+	applier := newGalleryApplier(loader.ModelPath)
+	applier.start(c, cm)
+	app.Post("/models/apply", applyModelGallery(loader.ModelPath, cm, applier.C))
+	app.Get("/models/jobs/:uid", getOpStatus(applier))
+
 	// openAI compatible API endpoint
+
+	// chat
 	app.Post("/v1/chat/completions", chatEndpoint(cm, debug, loader, threads, ctxSize, f16))
 	app.Post("/chat/completions", chatEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
+	// edit
 	app.Post("/v1/edits", editEndpoint(cm, debug, loader, threads, ctxSize, f16))
 	app.Post("/edits", editEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
+	// completion
 	app.Post("/v1/completions", completionEndpoint(cm, debug, loader, threads, ctxSize, f16))
 	app.Post("/completions", completionEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
+	// embeddings
 	app.Post("/v1/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
 	app.Post("/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
-
-	// /v1/engines/{engine_id}/embeddings
-
 	app.Post("/v1/engines/:model/embeddings", embeddingsEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
+	// audio
 	app.Post("/v1/audio/transcriptions", transcriptEndpoint(cm, debug, loader, threads, ctxSize, f16))
 
+	// images
 	app.Post("/v1/images/generations", imageEndpoint(cm, debug, loader, imageDir))
 
 	if imageDir != "" {
 		app.Static("/generated-images", imageDir)
 	}
 
+	// models
 	app.Get("/v1/models", listModels(loader, cm))
 	app.Get("/models", listModels(loader, cm))
 

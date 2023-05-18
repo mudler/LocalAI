@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
@@ -43,8 +44,16 @@ type TemplateConfig struct {
 	Edit       string `yaml:"edit"`
 }
 
-type ConfigMerger map[string]Config
+type ConfigMerger struct {
+	configs map[string]Config
+	sync.Mutex
+}
 
+func NewConfigMerger() *ConfigMerger {
+	return &ConfigMerger{
+		configs: make(map[string]Config),
+	}
+}
 func ReadConfigFile(file string) ([]*Config, error) {
 	c := &[]*Config{}
 	f, err := os.ReadFile(file)
@@ -72,28 +81,51 @@ func ReadConfig(file string) (*Config, error) {
 }
 
 func (cm ConfigMerger) LoadConfigFile(file string) error {
+	cm.Lock()
+	defer cm.Unlock()
 	c, err := ReadConfigFile(file)
 	if err != nil {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}
 
 	for _, cc := range c {
-		cm[cc.Name] = *cc
+		cm.configs[cc.Name] = *cc
 	}
 	return nil
 }
 
 func (cm ConfigMerger) LoadConfig(file string) error {
+	cm.Lock()
+	defer cm.Unlock()
 	c, err := ReadConfig(file)
 	if err != nil {
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
 
-	cm[c.Name] = *c
+	cm.configs[c.Name] = *c
 	return nil
 }
 
+func (cm ConfigMerger) GetConfig(m string) (Config, bool) {
+	cm.Lock()
+	defer cm.Unlock()
+	v, exists := cm.configs[m]
+	return v, exists
+}
+
+func (cm ConfigMerger) ListConfigs() []string {
+	cm.Lock()
+	defer cm.Unlock()
+	var res []string
+	for k := range cm.configs {
+		res = append(res, k)
+	}
+	return res
+}
+
 func (cm ConfigMerger) LoadConfigs(path string) error {
+	cm.Lock()
+	defer cm.Unlock()
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return err
@@ -106,7 +138,7 @@ func (cm ConfigMerger) LoadConfigs(path string) error {
 		}
 		c, err := ReadConfig(filepath.Join(path, file.Name()))
 		if err == nil {
-			cm[c.Name] = *c
+			cm.configs[c.Name] = *c
 		}
 	}
 
@@ -253,7 +285,7 @@ func readInput(c *fiber.Ctx, loader *model.ModelLoader, randomModel bool) (strin
 	return modelFile, input, nil
 }
 
-func readConfig(modelFile string, input *OpenAIRequest, cm ConfigMerger, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*Config, *OpenAIRequest, error) {
+func readConfig(modelFile string, input *OpenAIRequest, cm *ConfigMerger, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*Config, *OpenAIRequest, error) {
 	// Load a config file if present after the model name
 	modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
 	if _, err := os.Stat(modelConfig); err == nil {
@@ -263,7 +295,7 @@ func readConfig(modelFile string, input *OpenAIRequest, cm ConfigMerger, loader 
 	}
 
 	var config *Config
-	cfg, exists := cm[modelFile]
+	cfg, exists := cm.GetConfig(modelFile)
 	if !exists {
 		config = &Config{
 			OpenAIRequest: defaultRequest(modelFile),

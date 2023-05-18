@@ -1,0 +1,40 @@
+name: "cerebras"
+description: |
+    cerebras
+license: "Apache 2.0"
+
+config_file: |
+    parameters:
+      model: cerebras
+      top_k: 80
+      temperature: 0.2
+      top_p: 0.7
+    context_size: 1024
+    stopwords:
+    - "HUMAN:"
+    - "GPT:"
+    roles:
+      user: ""
+      system: ""
+    template:
+      completion: "cerebras-completion"
+      chat: cerebras-chat
+
+files:
+    - filename: "cerebras"
+      sha256: "c947051ae4dba9530ca55d923a7a484acd65664c8633462c8ccd4bb7848f2c65"
+      uri: "https://huggingface.co/concedo/cerebras-111M-ggml/resolve/main/cerebras-111m-q4_2.bin"
+
+prompt_templates:
+    - name: "cerebras-completion"
+      content: |
+        Complete the prompt
+        ### Prompt:
+        {{.Input}}
+        ### Response:
+    - name: "cerebras-chat"
+      content: |
+        The prompt below is a question to answer, a task to complete, or a conversation to respond to; decide which and write an appropriate response.
+        ### Prompt:
+        {{.Input}}
+        ### Response:

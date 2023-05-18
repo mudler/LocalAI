@@ -11,11 +11,12 @@
 
 **LocalAI** is a drop-in replacement REST API compatible with OpenAI API specifications for local inferencing. It allows to run models locally or on-prem with consumer grade hardware, supporting multiple models families compatible with the `ggml` format. For a list of the supported model families, see [the model compatibility table below](https://github.com/go-skynet/LocalAI#model-compatibility-table).
 
-- OpenAI drop-in alternative REST API
+- Local, OpenAI drop-in alternative REST API. You own your data.
 - Supports multiple models, Audio transcription, Text generation with GPTs, Image generation with stable diffusion (experimental)
 - Once loaded the first time, it keep models loaded in memory for faster inference
 - Support for prompt templates
 - Doesn't shell-out, but uses C++ bindings for a faster inference and better performance. 
+- NO GPU required. NO Internet access is required either. Optional, GPU Acceleration is available in `llama.cpp`-compatible LLMs. [See building instructions](https://github.com/go-skynet/LocalAI#cublas).
 
 LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
@@ -434,7 +435,7 @@ local-ai --models-path <model_path> [--address <address>] [--threads <num_thread
 | debug | DEBUG         | false           | Enable debug mode. |
 | config-file | CONFIG_FILE         | empty           | Path to a LocalAI config file. |
 | upload_limit | UPLOAD_LIMIT         | 5MB           | Upload limit for whisper. |
-| image-dir | CONFIG_FILE         | empty           | Image directory to store and serve processed images. |
+| image-path | IMAGE_PATH         | empty           | Image directory to store and serve processed images. |
 
 </details>
 
@@ -568,6 +569,8 @@ Note: CuBLAS support is experimental, and has not been tested on real HW. please
 ```
 make BUILD_TYPE=cublas build
 ```
+
+More informations available in the upstream PR: https://github.com/ggerganov/llama.cpp/pull/1412
 
 </details>
 
