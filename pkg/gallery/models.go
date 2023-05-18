@@ -51,9 +51,9 @@ type Config struct {
 }
 
 type File struct {
-	Filename string `yaml:"filename"`
-	SHA256   string `yaml:"sha256"`
-	URI      string `yaml:"uri"`
+	Filename string `yaml:"filename" json:"filename"`
+	SHA256   string `yaml:"sha256" json:"sha256"`
+	URI      string `yaml:"uri" json:"uri"`
 }
 
 type PromptTemplate struct {

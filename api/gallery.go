@@ -110,7 +110,7 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 type ApplyGalleryModelRequest struct {
 	URL             string         `json:"url"`
 	Name            string         `json:"name"`
-	AdditionalFiles []gallery.File `json:"file"`
+	AdditionalFiles []gallery.File `json:"files"`
 }
 
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
