@@ -10,13 +10,20 @@ Download the models and start the API:
 # Clone LocalAI
 git clone https://github.com/go-skynet/LocalAI
 
-cd LocalAI/examples/query_data
+cd LocalAI/examples/langchain-chroma
 
 wget https://huggingface.co/skeskinen/ggml/resolve/main/all-MiniLM-L6-v2/ggml-model-q4_0.bin -O models/bert
 wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
 
+# configure your .env
+# NOTE: ensure that THREADS does not exceed your machine's CPU cores
+mv .env.example .env
+
 # start with docker-compose
 docker-compose up -d --build
+
+# tail the logs & wait until the build completes
+docker logs -f langchain-chroma-api-1
 ```
 
 ### Python requirements
@@ -37,7 +44,7 @@ wget https://raw.githubusercontent.com/hwchase17/chat-your-data/master/state_of_
 python store.py
 ```
 
-After it finishes, a directory "storage" will be created with the vector index database.
+After it finishes, a directory "db" will be created with the vector index database.
 
 ## Query
 
