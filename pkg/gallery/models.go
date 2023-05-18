@@ -89,18 +89,7 @@ func inTrustedRoot(path string, trustedRoot string) error {
 
 func verifyPath(path, basePath string) error {
 	c := filepath.Clean(filepath.Join(basePath, path))
-
-	r, err := filepath.EvalSymlinks(c)
-	if err != nil {
-		return fmt.Errorf("unsafe or invalid path specified")
-	}
-
-	err = inTrustedRoot(r, basePath)
-	if err != nil {
-		return fmt.Errorf("unsafe or invalid path specified")
-	}
-
-	return nil
+	return inTrustedRoot(c, basePath)
 }
 
 func Apply(basePath, nameOverride string, config *Config) error {
