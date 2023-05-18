@@ -9,6 +9,10 @@ on:
     tags:
       - '*'
 
+concurrency:
+  group: ci-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
 jobs:
   ubuntu-latest:
     runs-on: ubuntu-latest
