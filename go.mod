@@ -12,11 +12,12 @@ require (
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230516230554-b7bbefbe0b84
 	github.com/gofiber/fiber/v2 v2.45.0
+	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230516143155-79d6243fe1bc
 	github.com/onsi/ginkgo/v2 v2.9.5
-	github.com/onsi/gomega v1.27.6
+	github.com/onsi/gomega v1.27.7
 	github.com/otiai10/copy v1.11.0
 	github.com/otiai10/openaigo v1.1.0
 	github.com/rs/zerolog v1.29.1
@@ -24,6 +25,7 @@ require (
 	github.com/swaggo/swag v1.16.1
 	github.com/urfave/cli/v2 v2.25.3
 	github.com/valyala/fasthttp v1.47.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -43,7 +45,6 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.16.3 // indirect
@@ -64,5 +65,4 @@ require (
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
