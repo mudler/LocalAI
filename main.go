@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -57,9 +58,9 @@ func main() {
 				Value:       ":8080",
 			},
 			&cli.StringFlag{
-				Name:        "image-dir",
+				Name:        "image-path",
 				DefaultText: "Image directory",
-				EnvVars:     []string{"IMAGE_DIR"},
+				EnvVars:     []string{"IMAGE_PATH"},
 				Value:       "",
 			},
 			&cli.IntFlag{
@@ -93,7 +94,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
 			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
-			return api.App(ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path")), ctx.Int("upload-limit"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false, ctx.String("image-dir")).Listen(ctx.String("address"))
+			return api.App(context.Background(), ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path")), ctx.Int("upload-limit"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false, ctx.String("image-path")).Listen(ctx.String("address"))
 		},
 	}
 
