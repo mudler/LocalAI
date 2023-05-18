@@ -1,5 +1,7 @@
 FROM python
 
+RUN apt-get update && apt-get -y install cmake
+
 # convert the model (one-off)
 RUN pip3 install torch numpy
 
