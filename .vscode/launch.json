@@ -2,6 +2,19 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}/examples/langchain-chroma",
+            "env": {
+                "OPENAI_API_BASE": "http://localhost:8080/v1",
+                "OPENAI_API_KEY": "abc"
+            }
+        },
+        {
             "name": "Launch Go",
             "type": "go",
             "request": "launch",

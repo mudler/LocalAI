@@ -10,14 +10,14 @@ require (
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230516063724-cea1ed76a7f4
 	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230512145559-7bff56f02245
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230516230554-b7bbefbe0b84
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230518171914-33f8c2db53bf
 	github.com/gofiber/fiber/v2 v2.45.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230518171731-546600fb6878
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230518183047-94f401889042
 	github.com/onsi/ginkgo/v2 v2.9.5
-	github.com/onsi/gomega v1.27.6
+	github.com/onsi/gomega v1.27.7
 	github.com/otiai10/copy v1.11.0
 	github.com/otiai10/openaigo v1.1.0
 	github.com/rs/zerolog v1.29.1

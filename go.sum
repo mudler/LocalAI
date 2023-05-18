@@ -66,6 +66,8 @@ github.com/go-skynet/go-llama.cpp v0.0.0-20230510072905-70593fccbe4b h1:qqxrjY8f
 github.com/go-skynet/go-llama.cpp v0.0.0-20230510072905-70593fccbe4b/go.mod h1:DLfsPD7tYYnpksERH83HSf7qVNW3FIwmz7/zfYO0/6I=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230516230554-b7bbefbe0b84 h1:f5iYF75bAr73Tl8AdtFD5Urs/2bsHKPh52K++jLbsfk=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230516230554-b7bbefbe0b84/go.mod h1:jxyQ26t1aKC5Gn782w9WWh5n1133PxCOfkuc01xM4RQ=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230518171914-33f8c2db53bf h1:D9CLQwr1eqSnV0DM7YGOKhSfNajj2qOA7XAD6+p1/HI=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230518171914-33f8c2db53bf/go.mod h1:oA0r4BW8ndyjTMGi1tulsNd7sdg3Ql8MaVFuT1zF6ws=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 h1:tfuBGBXKqDEevZMzYi5KSi8KkcZtzBcTgAUUtapy0OI=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572/go.mod h1:9Pwr4B2jHnOSGXyyzV8ROjYa2ojvAY6HCGYYfMoC3Ls=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
@@ -115,12 +117,16 @@ github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230516143155-79d624
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230516143155-79d6243fe1bc/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230518171731-546600fb6878 h1:3MFUW2a1Aqm2nMF5f+PNGq55cbxIzkRHQX/o7JVysAo=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230518171731-546600fb6878/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
+github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230518183047-94f401889042 h1:bMU75tTgyw6mYDa5NbOHlZ1KYqQgz7heQFfTwuvCGww=
+github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230518183047-94f401889042/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
 github.com/onsi/ginkgo/v2 v2.9.4 h1:xR7vG4IXt5RWx6FfIjyAtsoMAtnc3C/rFXBBd2AjZwE=
 github.com/onsi/ginkgo/v2 v2.9.4/go.mod h1:gCQYp2Q+kSoIj7ykSVb9nskRSsR6PUj4AiLywzIhbKM=
 github.com/onsi/ginkgo/v2 v2.9.5 h1:+6Hr4uxzP4XIUyAkg61dWBw8lb/gc4/X5luuxN/EC+Q=
 github.com/onsi/ginkgo/v2 v2.9.5/go.mod h1:tvAoo1QUJwNEU2ITftXTpR7R1RbCzoZUOs3RonqW57k=
 github.com/onsi/gomega v1.27.6 h1:ENqfyGeS5AX/rlXDd/ETokDz93u0YufY1Pgxuy/PvWE=
 github.com/onsi/gomega v1.27.6/go.mod h1:PIQNjfQwkP3aQAH7lf7j87O/5FiNr+ZR8+ipb+qQlhg=
+github.com/onsi/gomega v1.27.7 h1:fVih9JD6ogIiHUN6ePK7HJidyEDpWGVB5mzM7cWNXoU=
+github.com/onsi/gomega v1.27.7/go.mod h1:1p8OOlwo2iUUDsHnOrjE5UKYJ+e3W8eQ3qSlRahPmr4=
 github.com/otiai10/copy v1.11.0 h1:OKBD80J/mLBrwnzXqGtFCzprFSGioo30JcmR4APsNwc=
 github.com/otiai10/copy v1.11.0/go.mod h1:rSaLseMUsZFFbsFGc7wCJnnkTAvdc5L6VWxPE4308Ww=
 github.com/otiai10/mint v1.5.1 h1:XaPLeE+9vGbuyEHem1JNk3bYc7KKqyI/na0/mLd/Kks=
