@@ -23,9 +23,7 @@ In a nutshell:
 
 LocalAI is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! It was initially created by [mudler](https://github.com/mudler/) at the [SpectroCloud OSS Office](https://github.com/spectrocloud).
 
-
-
-See [examples on how to integrate LocalAI](https://github.com/go-skynet/LocalAI/tree/master/examples/).
+See the [usage](https://github.com/go-skynet/LocalAI#usage) and [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/) sections to learn how to use LocalAI.
 
 ### How does it work?  
 
@@ -41,6 +39,7 @@ LocalAI uses C++ bindings for optimizing speed. It is based on [llama.cpp](https
 
 ## News
 
+- 19-05-2023: __v1.13.0__ released! 🔥🔥 updates to the `gpt4all` and `llama` backend, consolidated CUDA support ( https://github.com/go-skynet/LocalAI/pull/310 thanks to @bubthegreat and @Thireus ), preliminar support for [installing models via API](https://github.com/go-skynet/LocalAI#advanced-prepare-models-using-the-api).
 - 17-05-2023:  __v1.12.0__ released! 🔥🔥 Minor fixes, plus CUDA (https://github.com/go-skynet/LocalAI/pull/258) support for `llama.cpp`-compatible models and image generation (https://github.com/go-skynet/LocalAI/pull/272).
 - 16-05-2023: 🔥🔥🔥 Experimental support for CUDA (https://github.com/go-skynet/LocalAI/pull/258) in the `llama.cpp` backend and Stable diffusion CPU image generation (https://github.com/go-skynet/LocalAI/pull/272) in `master`.
 
