@@ -15,7 +15,7 @@
             }
         },
         {
-            "name": "Launch Go",
+            "name": "Launch LocalAI API",
             "type": "go",
             "request": "launch",
             "mode": "debug",
@@ -24,8 +24,8 @@
                 "api"
             ],
             "env": {
-                "C_INCLUDE_PATH": "/workspace/go-llama:/workspace/go-gpt4all-j:/workspace/go-gpt2",
-                "LIBRARY_PATH": "/workspace/go-llama:/workspace/go-gpt4all-j:/workspace/go-gpt2",
+                "C_INCLUDE_PATH": "${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
+                "LIBRARY_PATH": "$${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
                 "DEBUG": "true"
             }
         }
