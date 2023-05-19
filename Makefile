@@ -16,7 +16,6 @@ BUILD_TYPE?=
 CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 STABLEDIFFUSION_VERSION?=c0748eca3642d58bcf9521108bcee46959c647dc
-
 GO_TAGS?=
 
 OPTIONAL_TARGETS?=
@@ -36,8 +35,8 @@ endif
 
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
+	export LLAMA_CUBLAS=1
 endif
-
 
 ifeq ($(GO_TAGS),stablediffusion)
 	OPTIONAL_TARGETS+=go-stable-diffusion/libstablediffusion.a
