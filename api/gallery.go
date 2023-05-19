@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
@@ -63,8 +65,15 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 				updateError := func(e error) {
 					g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true})
 				}
+
+				url, err := op.req.DecodeURL()
+				if err != nil {
+					updateError(err)
+					continue
+				}
+
 				// Send a GET request to the URL
-				response, err := http.Get(op.req.URL)
+				response, err := http.Get(url)
 				if err != nil {
 					updateError(err)
 					continue
@@ -111,6 +120,43 @@ type ApplyGalleryModelRequest struct {
 	URL             string         `json:"url"`
 	Name            string         `json:"name"`
 	AdditionalFiles []gallery.File `json:"files"`
+}
+
+const (
+	githubURI = "github:"
+)
+
+func (request ApplyGalleryModelRequest) DecodeURL() (string, error) {
+	input := request.URL
+	var rawURL string
+
+	if strings.HasPrefix(input, githubURI) {
+		parts := strings.Split(input, ":")
+		repoParts := strings.Split(parts[1], "@")
+		branch := "main"
+
+		if len(repoParts) > 1 {
+			branch = repoParts[1]
+		}
+
+		repoPath := strings.Split(repoParts[0], "/")
+		org := repoPath[0]
+		project := repoPath[1]
+		projectPath := strings.Join(repoPath[2:], "/")
+
+		rawURL = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
+	} else if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
+		// Handle regular URLs
+		u, err := url.Parse(input)
+		if err != nil {
+			return "", fmt.Errorf("invalid URL: %w", err)
+		}
+		rawURL = u.String()
+	} else {
+		return "", fmt.Errorf("invalid URL format")
+	}
+
+	return rawURL, nil
 }
 
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
