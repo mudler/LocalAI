@@ -86,6 +86,8 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 					continue
 				}
 
+				config.Files = append(config.Files, op.req.AdditionalFiles...)
+
 				if err := gallery.Apply(g.modelPath, op.req.Name, &config); err != nil {
 					updateError(err)
 					continue
@@ -106,8 +108,9 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 // endpoints
 
 type ApplyGalleryModelRequest struct {
-	URL  string `json:"url"`
-	Name string `json:"name"`
+	URL             string         `json:"url"`
+	Name            string         `json:"name"`
+	AdditionalFiles []gallery.File `json:"files"`
 }
 
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
