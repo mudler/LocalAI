@@ -1,0 +1,12 @@
+#! This doesn't actually work or get used yet. It's a scratch space for an idea of mine - we might want to just strip out and ignore depreciated portions of the spec. Not reliable enough to use yet.
+
+#@ load("@ytt:overlay", "overlay")
+
+#@overlay/match by=overlay.all, expects="1+"
+---
+paths:
+  #!overlay/match by=overlay.subset({"deprecated": True})
+  #@overlay/remove
+  *:
+    *:
+      depreciated: True

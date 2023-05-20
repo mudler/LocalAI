@@ -1,0 +1,10 @@
+package: apiv2
+generate:
+  models: true
+  chi-server: true
+output: apiv2/localai.gen.go
+# output-options:
+#   user-templates:
+#     union.tmpl: "// SKIP"
+#     union-and-additional-properties.tmpl: "// SKIP"
+#     additional-properties.tmpl: "// SKIP"

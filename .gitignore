@@ -1,10 +1,17 @@
 # go-llama build artifacts
+bloomz
+go-bert
 go-llama
 gpt4all
 go-stable-diffusion
 go-gpt2
 go-rwkv
 whisper.cpp
+
+# OpenAI OpenAPI Specs/Models
+openai-openapi/spec
+openai-openapi/transformed
+apiv2/localai.gen.go
 
 # LocalAI build binary
 LocalAI

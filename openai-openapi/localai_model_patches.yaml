@@ -1,0 +1,64 @@
+#! LocalAI Model Patches
+#! These are fed to YTT, which patches the OpenAI OpenAPI spec to include the custom attributes used by LocalAI to pass parameters and information to local models.
+#! TODO: pretty this up. Fancy YAML features will reduce code duplication, but this is a POC.
+
+#@ load("@ytt:overlay", "overlay")
+
+#@overlay/match by=overlay.all
+---
+components:
+  schemas:
+    CreateChatCompletionRequest:
+      properties:
+        #@overlay/match missing_ok=True
+        x-localai-extensions:
+          type: object
+          nullable: true
+          properties:
+            seed:
+              type: integer
+              nullable: true
+            top_k:
+              type: integer
+              nullable: true
+            batch:
+              type: integer
+              nullable: true
+            f16:
+              type: boolean
+              nullable: true
+            ignore_eos:
+              type: boolean
+              nullable: true
+            #! skip RepeatPenalty, try using FrequencyPenalty in real model instead??
+            n_keep:
+              type: integer
+              nullable: true
+              x-go-name: Keep
+            mirostat:
+              type: integer
+              nullable: true
+            mirostat_eta:
+              type: number
+              nullable: true
+              x-go-type: float64
+            mirostat_tau:
+              type: number
+              nullable: true
+              x-go-type: float64
+    CreateImageRequest:
+      properties:
+        #@overlay/match missing_ok=True
+        x-localai-extensions:
+          type: object
+          nullable: true
+          properties:
+            seed:
+              type: integer
+              nullable: true
+            mode:
+              type: integer
+              nullable: true
+            step:
+              type: integer
+              nullable: true
