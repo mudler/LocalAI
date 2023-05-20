@@ -147,9 +147,9 @@ var _ = Describe("API test", func() {
 					},
 				})
 
-				Expect(response["uid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
 
-				uuid := response["uid"].(string)
+				uuid := response["uuid"].(string)
 
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
@@ -172,9 +172,9 @@ var _ = Describe("API test", func() {
 					Overrides: map[string]string{},
 				})
 
-				Expect(response["uid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
 
-				uuid := response["uid"].(string)
+				uuid := response["uuid"].(string)
 
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
