@@ -868,7 +868,7 @@ curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '
         {
             "uri": "<additional_file>",
             "sha256": "<additional_file_hash>",
-            "name": "<additional_file_name>"
+            "filename": "<additional_file_name>"
         },
       "overrides": { "backend": "...", "f16": true }
      ]
