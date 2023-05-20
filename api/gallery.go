@@ -97,7 +97,7 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 
 				config.Files = append(config.Files, op.req.AdditionalFiles...)
 
-				if err := gallery.Apply(g.modelPath, op.req.Name, &config); err != nil {
+				if err := gallery.Apply(g.modelPath, op.req.Name, &config, op.req.Overrides); err != nil {
 					updateError(err)
 					continue
 				}
@@ -117,9 +117,10 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 // endpoints
 
 type ApplyGalleryModelRequest struct {
-	URL             string         `json:"url"`
-	Name            string         `json:"name"`
-	AdditionalFiles []gallery.File `json:"files"`
+	URL             string                 `json:"url"`
+	Name            string                 `json:"name"`
+	Overrides       map[string]interface{} `json:"overrides"`
+	AdditionalFiles []gallery.File         `json:"files"`
 }
 
 const (
@@ -162,7 +163,7 @@ func (request ApplyGalleryModelRequest) DecodeURL() (string, error) {
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		status := g.getstatus(c.Params("uid"))
+		status := g.getstatus(c.Params("uuid"))
 		if status == nil {
 			return fmt.Errorf("could not find any status for ID")
 		}
@@ -188,7 +189,7 @@ func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp) fun
 			id:  uuid.String(),
 		}
 		return c.JSON(struct {
-			ID        string `json:"uid"`
+			ID        string `json:"uuid"`
 			StatusURL string `json:"status"`
 		}{ID: uuid.String(), StatusURL: c.BaseURL() + "/models/jobs/" + uuid.String()})
 	}

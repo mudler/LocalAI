@@ -869,17 +869,18 @@ curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '
             "uri": "<additional_file>",
             "sha256": "<additional_file_hash>",
             "name": "<additional_file_name>"
-        }
+        },
+      "overrides": { "backend": "...", "f16": true }
      ]
    }
 ```
 
-An optional, list of additional files can be specified to be downloaded. The `name` allows to override the model name.
+An optional, list of additional files can be specified to be downloaded within `files`. The `name` allows to override the model name. Finally it is possible to override the model config file with `override`.
 
 Returns an `uuid` and an `url` to follow up the state of the process:
 
 ```json
-{ "uid":"251475c9-f666-11ed-95e0-9a8a4480ac58", "status":"http://localhost:8080/models/jobs/251475c9-f666-11ed-95e0-9a8a4480ac58"}
+{ "uuid":"251475c9-f666-11ed-95e0-9a8a4480ac58", "status":"http://localhost:8080/models/jobs/251475c9-f666-11ed-95e0-9a8a4480ac58"}
 ```
 
 To see a collection example of curated models definition files, see the [model-gallery](https://github.com/go-skynet/model-gallery).
