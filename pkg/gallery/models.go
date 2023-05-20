@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
@@ -92,11 +93,15 @@ func verifyPath(path, basePath string) error {
 	return inTrustedRoot(c, basePath)
 }
 
-func Apply(basePath, nameOverride string, config *Config) error {
+func Apply(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create base path: %v", err)
+	}
+
+	if len(configOverrides) > 0 {
+		log.Debug().Msgf("Config overrides %+v", configOverrides)
 	}
 
 	// Download files and verify their SHA
@@ -230,6 +235,10 @@ func Apply(basePath, nameOverride string, config *Config) error {
 	}
 
 	configMap["name"] = name
+
+	if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
+		return err
+	}
 
 	// Write updated config file
 	updatedConfigYAML, err := yaml.Marshal(configMap)

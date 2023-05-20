@@ -97,7 +97,7 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 
 				config.Files = append(config.Files, op.req.AdditionalFiles...)
 
-				if err := gallery.Apply(g.modelPath, op.req.Name, &config); err != nil {
+				if err := gallery.Apply(g.modelPath, op.req.Name, &config, op.req.Overrides); err != nil {
 					updateError(err)
 					continue
 				}
@@ -117,9 +117,10 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 // endpoints
 
 type ApplyGalleryModelRequest struct {
-	URL             string         `json:"url"`
-	Name            string         `json:"name"`
-	AdditionalFiles []gallery.File `json:"files"`
+	URL             string                 `json:"url"`
+	Name            string                 `json:"name"`
+	Overrides       map[string]interface{} `json:"overrides"`
+	AdditionalFiles []gallery.File         `json:"files"`
 }
 
 const (

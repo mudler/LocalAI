@@ -9,16 +9,15 @@ require (
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230510223001-e9366e82abdf
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230516063724-cea1ed76a7f4
 	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230512145559-7bff56f02245
-	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230520082618-a298043ef5f1
 	github.com/gofiber/fiber/v2 v2.45.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/imdario/mergo v0.3.15
 	github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230519014017-914519e772fd
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
-	github.com/otiai10/copy v1.11.0
 	github.com/otiai10/openaigo v1.1.0
 	github.com/rs/zerolog v1.29.1
 	github.com/sashabaranov/go-openai v1.9.4
@@ -52,6 +51,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
+	github.com/otiai10/mint v1.5.1 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
