@@ -11,7 +11,7 @@ require (
 	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230512145559-7bff56f02245
 	github.com/go-skynet/go-gpt4all-j.cpp v0.0.0-20230422090028-1f7bff57f66c
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230520082618-a298043ef5f1
-	github.com/gofiber/fiber/v2 v2.45.0
+	github.com/gofiber/fiber/v2 v2.46.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642
