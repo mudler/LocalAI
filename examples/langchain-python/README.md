@@ -26,6 +26,7 @@ pip install langchain
 pip install openai
 
 export OPENAI_API_BASE=http://localhost:8080
+# Note: **OPENAI_API_KEY** is not required. However the library might fail if no API_KEY is passed by, so an arbitrary string can be used.
 export OPENAI_API_KEY=sk-
 
 python test.py
