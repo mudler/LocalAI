@@ -74,7 +74,7 @@ func App(c context.Context, configFile string, loader *model.ModelLoader, upload
 	applier := newGalleryApplier(loader.ModelPath)
 	applier.start(c, cm)
 	app.Post("/models/apply", applyModelGallery(loader.ModelPath, cm, applier.C))
-	app.Get("/models/jobs/:uid", getOpStatus(applier))
+	app.Get("/models/jobs/:uuid", getOpStatus(applier))
 
 	// openAI compatible API endpoint
 
