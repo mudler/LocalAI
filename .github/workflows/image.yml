@@ -9,6 +9,10 @@ on:
     tags:
       - '*'
 
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
 jobs:
   docker:
     runs-on: ubuntu-latest

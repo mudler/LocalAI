@@ -2,9 +2,7 @@
 import os
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter,TokenTextSplitter,CharacterTextSplitter
-from langchain.llms import OpenAI
-from langchain.chains import VectorDBQA
+from langchain.text_splitter import CharacterTextSplitter
 from langchain.document_loaders import TextLoader
 
 base_path = os.environ.get('OPENAI_API_BASE', 'http://localhost:8080/v1')
@@ -14,7 +12,6 @@ loader = TextLoader('state_of_the_union.txt')
 documents = loader.load()
 
 text_splitter = CharacterTextSplitter(chunk_size=300, chunk_overlap=70)
-#text_splitter = TokenTextSplitter()
 texts = text_splitter.split_documents(documents)
 
 # Embed and store the texts

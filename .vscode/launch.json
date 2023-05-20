@@ -2,7 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Go",
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}/examples/langchain-chroma",
+            "env": {
+                "OPENAI_API_BASE": "http://localhost:8080/v1",
+                "OPENAI_API_KEY": "abc"
+            }
+        },
+        {
+            "name": "Launch LocalAI API",
             "type": "go",
             "request": "launch",
             "mode": "debug",
@@ -11,8 +24,8 @@
                 "api"
             ],
             "env": {
-                "C_INCLUDE_PATH": "/workspace/go-llama:/workspace/go-gpt4all-j:/workspace/go-gpt2",
-                "LIBRARY_PATH": "/workspace/go-llama:/workspace/go-gpt4all-j:/workspace/go-gpt2",
+                "C_INCLUDE_PATH": "${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
+                "LIBRARY_PATH": "$${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
                 "DEBUG": "true"
             }
         }

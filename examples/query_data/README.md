@@ -35,6 +35,8 @@ docker-compose up -d --build
 
 In this step we will create a local vector database from our document set, so later we can ask questions on it with the LLM.
 
+Note: **OPENAI_API_KEY** is not required. However the library might fail if no API_KEY is passed by, so an arbitrary string can be used.
+
 ```bash
 export OPENAI_API_BASE=http://localhost:8080/v1
 export OPENAI_API_KEY=sk-

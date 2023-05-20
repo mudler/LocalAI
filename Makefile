@@ -3,20 +3,19 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
-GOLLAMA_VERSION?=b7bbefbe0b84262e003387a605842bdd0d099300
+GOLLAMA_VERSION?=ccf23adfb278c0165d388389a5d60f3fe38e4854
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
-GPT4ALL_VERSION?=bce2b3025b360af73091da0128b1e91f9bc94f9f
+GPT4ALL_VERSION?=914519e772fd78c15691dcd0b8bac60d6af514ec
 GOGPT2_VERSION?=7bff56f0224502c1c9ed6258d2a17e8084628827
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=07166da10cb2a9e8854395a4f210464dcea76e47
-WHISPER_CPP_VERSION?=95b02d76b04d18e4ce37ed8353a1f0797f1717ea
+WHISPER_CPP_VERSION?=041be06d5881d3c759cc4ed45d655804361237cd
 BERT_VERSION?=cea1ed76a7f48ef386a8e369f6c82c48cdf2d551
 BLOOMZ_VERSION?=e9366e82abdfe70565644fbfae9651976714efd1
 BUILD_TYPE?=
 CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 STABLEDIFFUSION_VERSION?=c0748eca3642d58bcf9521108bcee46959c647dc
-
 GO_TAGS?=
 
 OPTIONAL_TARGETS?=
@@ -36,8 +35,8 @@ endif
 
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
+	export LLAMA_CUBLAS=1
 endif
-
 
 ifeq ($(GO_TAGS),stablediffusion)
 	OPTIONAL_TARGETS+=go-stable-diffusion/libstablediffusion.a
@@ -66,6 +65,7 @@ gpt4all:
 	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/json_/json_gptj_/g' {} +
 	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/void replace/void json_gptj_replace/g' {} +
 	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
+	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/regex_escape/gpt4allregex_escape/g' {} +
 	mv ./gpt4all/gpt4all-backend/llama.cpp/llama_util.h ./gpt4all/gpt4all-backend/llama.cpp/gptjllama_util.h
 
 ## BERT embeddings
@@ -211,11 +211,11 @@ test-models/testmodel:
 	wget https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
 	wget https://huggingface.co/imxcstar/rwkv-4-raven-ggml/resolve/main/RWKV-4-Raven-1B5-v11-Eng99%25-Other1%25-20230425-ctx4096-16_Q4_2.bin -O test-models/rwkv
 	wget https://raw.githubusercontent.com/saharNooby/rwkv.cpp/5eb8f09c146ea8124633ab041d9ea0b1f1db4459/rwkv/20B_tokenizer.json -O test-models/rwkv.tokenizer.json
-	cp tests/fixtures/* test-models
+	cp tests/models_fixtures/* test-models
 
 test: prepare test-models/testmodel
-	cp tests/fixtures/* test-models
-	@C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} TEST_DIR=$(abspath ./)/test-dir/ CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo -v -r ./api
+	cp tests/models_fixtures/* test-models
+	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo -v -r ./api ./pkg
 
 ## Help:
 help: ## Show this help.
