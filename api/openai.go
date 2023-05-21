@@ -360,6 +360,7 @@ func chatEndpoint(cm *ConfigMerger, debug bool, loader *model.ModelLoader, threa
 				respData, _ := json.Marshal(resp)
 
 				w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
+				w.WriteString("data: [DONE]\n\n")
 				w.Flush()
 			}))
 			return nil
