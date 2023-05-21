@@ -346,8 +346,8 @@ func chatEndpoint(cm *ConfigMerger, debug bool, loader *model.ModelLoader, threa
 					enc := json.NewEncoder(&buf)
 					enc.Encode(ev)
 
-					fmt.Fprintf(w, "data: %v\n\n", buf.String())
 					log.Debug().Msgf("Sending chunk: %s", buf.String())
+					fmt.Fprintf(w, "data: %v\n", buf.String())
 					w.Flush()
 				}
 
