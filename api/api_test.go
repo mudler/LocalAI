@@ -114,7 +114,7 @@ var _ = Describe("API test", func() {
 			modelLoader = model.NewModelLoader(tmpdir)
 			c, cancel = context.WithCancel(context.Background())
 
-			app = App(c, "", modelLoader, 15, 1, 512, false, true, true, "")
+			app = App(WithContext(c), WithModelLoader(modelLoader))
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -198,7 +198,7 @@ var _ = Describe("API test", func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
 			c, cancel = context.WithCancel(context.Background())
 
-			app = App(c, "", modelLoader, 15, 1, 512, false, true, true, "")
+			app = App(WithContext(c), WithModelLoader(modelLoader))
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -316,7 +316,7 @@ var _ = Describe("API test", func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
 			c, cancel = context.WithCancel(context.Background())
 
-			app = App(c, os.Getenv("CONFIG_FILE"), modelLoader, 5, 1, 512, false, true, true, "")
+			app = App(WithContext(c), WithModelLoader(modelLoader), WithConfigFile(os.Getenv("CONFIG_FILE")))
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
