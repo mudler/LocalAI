@@ -108,6 +108,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 				api.WithDebug(ctx.Bool("debug")),
 				api.WithImageDir(ctx.String("image-path")),
 				api.WithF16(ctx.Bool("f16")),
+				api.WithDisableMessage(false),
 				api.WithCors(ctx.Bool("cors")),
 				api.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
 				api.WithThreads(ctx.Int("threads")),
