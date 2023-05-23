@@ -1,0 +1,81 @@
+name: Build and Release
+
+on: push
+
+jobs:
+  build-linux:
+    strategy:
+      matrix:
+        include:
+          - build: 'avx2'
+            defines: ''
+          - build: 'avx'
+            defines: '-DLLAMA_AVX2=OFF'
+          - build: 'avx512'
+            defines: '-DLLAMA_AVX512=ON'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v3
+        with: 
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+      - name: Build
+        id: build
+        env:
+          CMAKE_ARGS: "${{ matrix.define }}"
+          BUILD_ID: "${{ matrix.build }}"
+        run: |
+          make dist
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.build }}
+          path: release/
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/*
+
+  build-macOS:
+    strategy:
+      matrix:
+        include:
+          - build: 'avx2'
+            defines: ''
+          - build: 'avx'
+            defines: '-DLLAMA_AVX2=OFF'
+          - build: 'avx512'
+            defines: '-DLLAMA_AVX512=ON'
+    runs-on: macOS-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v3
+        with: 
+          submodules: true
+
+      - name: Dependencies
+        run: |
+          brew update
+          brew install sdl2 ffmpeg
+      - name: Build
+        id: build
+        env:
+          CMAKE_ARGS: "${{ matrix.define }}"
+          BUILD_ID: "${{ matrix.build }}"
+        run: |
+          make dist
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.build }}
+          path: release/
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/*

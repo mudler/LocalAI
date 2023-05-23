@@ -16,5 +16,7 @@ local-ai
 models/*
 test-models/
 
+release/
+
 # just in case
 .DS_Store
