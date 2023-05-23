@@ -10,7 +10,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
-	gpt2 "github.com/go-skynet/go-gpt2.cpp"
+	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/hashicorp/go-multierror"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
@@ -57,27 +57,27 @@ var backends []string = []string{
 }
 
 var starCoder = func(modelFile string) (interface{}, error) {
-	return gpt2.NewStarcoder(modelFile)
+	return transformers.NewStarcoder(modelFile)
 }
 
 var mpt = func(modelFile string) (interface{}, error) {
-	return gpt2.NewMPT(modelFile)
+	return transformers.NewMPT(modelFile)
 }
 
 var dolly = func(modelFile string) (interface{}, error) {
-	return gpt2.NewDolly(modelFile)
+	return transformers.NewDolly(modelFile)
 }
 
 var gptNeoX = func(modelFile string) (interface{}, error) {
-	return gpt2.NewGPTNeoX(modelFile)
+	return transformers.NewGPTNeoX(modelFile)
 }
 
 var replit = func(modelFile string) (interface{}, error) {
-	return gpt2.NewReplit(modelFile)
+	return transformers.NewReplit(modelFile)
 }
 
 var gptJ = func(modelFile string) (interface{}, error) {
-	return gpt2.NewGPTJ(modelFile)
+	return transformers.NewGPTJ(modelFile)
 }
 
 var bertEmbeddings = func(modelFile string) (interface{}, error) {
@@ -88,8 +88,8 @@ var bloomzLM = func(modelFile string) (interface{}, error) {
 	return bloomz.New(modelFile)
 }
 
-var gpt2LM = func(modelFile string) (interface{}, error) {
-	return gpt2.New(modelFile)
+var transformersLM = func(modelFile string) (interface{}, error) {
+	return transformers.New(modelFile)
 }
 
 var stableDiffusion = func(assetDir string) (interface{}, error) {
@@ -138,7 +138,7 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 	case MPTBackend:
 		return ml.LoadModel(modelFile, mpt)
 	case Gpt2Backend:
-		return ml.LoadModel(modelFile, gpt2LM)
+		return ml.LoadModel(modelFile, transformersLM)
 	case GPTNeoXBackend:
 		return ml.LoadModel(modelFile, gptNeoX)
 	case ReplitBackend:

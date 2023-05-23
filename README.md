@@ -129,13 +129,13 @@ Depending on the model you are attempting to run might need more RAM or CPU reso
 | [gpt4all-llama](https://github.com/nomic-ai/gpt4all)      | Vicuna, Alpaca, LLaMa | yes                      | no                        | no                                | yes                  |
 | [gpt4all-mpt](https://github.com/nomic-ai/gpt4all)          | MPT                   | yes                      | no                        | no                                | yes                  |
 | [gpt4all-j](https://github.com/nomic-ai/gpt4all)           | GPT4ALL-J             | yes                      | no                        | no                                | yes                  |
-| [gpt2](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-gpt2.cpp))             | GPT/NeoX, Cerebras    | yes                      | no                        | no                                | no                   |
-| [dolly](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-gpt2.cpp))            | Dolly                 | yes                      | no                        | no                                | no                   |
-| [gptj](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-gpt2.cpp))        | GPTJ             | yes                      | no                        | no                                | no                   |
-| [mpt](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-gpt2.cpp))         | MPT     | yes                      | no                        | no                                | no                   |
-| [replit](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-gpt2.cpp))        | Replit             | yes                      | no                        | no                                | no                   |
-| [gptneox](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-gpt2.cpp))        | GPT NeoX, RedPajama, StableLM             | yes                      | no                        | no                                | no                   |
-| [starcoder](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-gpt2.cpp))        | Starcoder             | yes                      | no                        | no                                | no                   |
+| [gpt2](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-ggml-transformers.cpp))             | GPT/NeoX, Cerebras    | yes                      | no                        | no                                | no                   |
+| [dolly](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-ggml-transformers.cpp))            | Dolly                 | yes                      | no                        | no                                | no                   |
+| [gptj](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-ggml-transformers.cpp))        | GPTJ             | yes                      | no                        | no                                | no                   |
+| [mpt](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-ggml-transformers.cpp))         | MPT     | yes                      | no                        | no                                | no                   |
+| [replit](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-ggml-transformers.cpp))        | Replit             | yes                      | no                        | no                                | no                   |
+| [gptneox](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-ggml-transformers.cpp))        | GPT NeoX, RedPajama, StableLM             | yes                      | no                        | no                                | no                   |
+| [starcoder](https://github.com/ggerganov/ggml) ([binding](https://github.com/go-skynet/go-ggml-transformers.cpp))        | Starcoder             | yes                      | no                        | no                                | no                   |
 | [bloomz](https://github.com/NouamaneTazi/bloomz.cpp) ([binding](https://github.com/go-skynet/bloomz.cpp))       | Bloom                 | yes                      | no                        | no                                | no                   |
 | [rwkv](https://github.com/saharNooby/rwkv.cpp) ([binding](https://github.com/donomii/go-rw))       | rwkv                 | yes                      | no                        | no                                | yes                   |
 | [bert](https://github.com/skeskinen/bert.cpp) ([binding](https://github.com/go-skynet/go-bert.cpp) | bert                  | no                       | no                  | yes                               | no                   |    
@@ -1045,7 +1045,7 @@ MIT
 
 - [go-skynet/go-llama.cpp](https://github.com/go-skynet/go-llama.cpp)
 - [go-skynet/go-gpt4all-j.cpp](https://github.com/go-skynet/go-gpt4all-j.cpp)
-- [go-skynet/go-gpt2.cpp](https://github.com/go-skynet/go-gpt2.cpp)
+- [go-skynet/go-ggml-transformers.cpp](https://github.com/go-skynet/go-ggml-transformers.cpp)
 - [go-skynet/go-bert.cpp](https://github.com/go-skynet/go-bert.cpp)
 - [donomii/go-rwkv.cpp](https://github.com/donomii/go-rwkv.cpp)
 

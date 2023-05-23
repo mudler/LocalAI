@@ -2,6 +2,9 @@ name: Build and Release
 
 on: push
 
+permissions:
+  contents: write
+
 jobs:
   build-linux:
     strategy:
