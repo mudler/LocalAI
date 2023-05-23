@@ -10,7 +10,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
-	gpt2 "github.com/go-skynet/go-gpt2.cpp"
+	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/hashicorp/go-multierror"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
@@ -23,9 +23,9 @@ const (
 	LlamaBackend           = "llama"
 	BloomzBackend          = "bloomz"
 	StarcoderBackend       = "starcoder"
-	StableLMBackend        = "stablelm"
+	GPTJBackend            = "gptj"
 	DollyBackend           = "dolly"
-	RedPajamaBackend       = "redpajama"
+	MPTBackend             = "mpt"
 	GPTNeoXBackend         = "gptneox"
 	ReplitBackend          = "replit"
 	Gpt2Backend            = "gpt2"
@@ -43,41 +43,41 @@ var backends []string = []string{
 	Gpt4AllLlamaBackend,
 	Gpt4AllMptBackend,
 	Gpt4AllJBackend,
-	Gpt2Backend,
-	WhisperBackend,
 	RwkvBackend,
-	BloomzBackend,
-	StableLMBackend,
-	DollyBackend,
-	RedPajamaBackend,
-	ReplitBackend,
 	GPTNeoXBackend,
+	WhisperBackend,
 	BertEmbeddingsBackend,
+	GPTJBackend,
+	Gpt2Backend,
+	DollyBackend,
+	MPTBackend,
+	ReplitBackend,
 	StarcoderBackend,
+	BloomzBackend,
 }
 
 var starCoder = func(modelFile string) (interface{}, error) {
-	return gpt2.NewStarcoder(modelFile)
+	return transformers.NewStarcoder(modelFile)
 }
 
-var redPajama = func(modelFile string) (interface{}, error) {
-	return gpt2.NewRedPajama(modelFile)
+var mpt = func(modelFile string) (interface{}, error) {
+	return transformers.NewMPT(modelFile)
 }
 
 var dolly = func(modelFile string) (interface{}, error) {
-	return gpt2.NewDolly(modelFile)
+	return transformers.NewDolly(modelFile)
 }
 
 var gptNeoX = func(modelFile string) (interface{}, error) {
-	return gpt2.NewGPTNeoX(modelFile)
+	return transformers.NewGPTNeoX(modelFile)
 }
 
 var replit = func(modelFile string) (interface{}, error) {
-	return gpt2.NewReplit(modelFile)
+	return transformers.NewReplit(modelFile)
 }
 
-var stableLM = func(modelFile string) (interface{}, error) {
-	return gpt2.NewStableLM(modelFile)
+var gptJ = func(modelFile string) (interface{}, error) {
+	return transformers.NewGPTJ(modelFile)
 }
 
 var bertEmbeddings = func(modelFile string) (interface{}, error) {
@@ -87,8 +87,9 @@ var bertEmbeddings = func(modelFile string) (interface{}, error) {
 var bloomzLM = func(modelFile string) (interface{}, error) {
 	return bloomz.New(modelFile)
 }
-var gpt2LM = func(modelFile string) (interface{}, error) {
-	return gpt2.New(modelFile)
+
+var transformersLM = func(modelFile string) (interface{}, error) {
+	return transformers.New(modelFile)
 }
 
 var stableDiffusion = func(assetDir string) (interface{}, error) {
@@ -130,14 +131,14 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, llamaLM(llamaOpts...))
 	case BloomzBackend:
 		return ml.LoadModel(modelFile, bloomzLM)
-	case StableLMBackend:
-		return ml.LoadModel(modelFile, stableLM)
+	case GPTJBackend:
+		return ml.LoadModel(modelFile, gptJ)
 	case DollyBackend:
 		return ml.LoadModel(modelFile, dolly)
-	case RedPajamaBackend:
-		return ml.LoadModel(modelFile, redPajama)
+	case MPTBackend:
+		return ml.LoadModel(modelFile, mpt)
 	case Gpt2Backend:
-		return ml.LoadModel(modelFile, gpt2LM)
+		return ml.LoadModel(modelFile, transformersLM)
 	case GPTNeoXBackend:
 		return ml.LoadModel(modelFile, gptNeoX)
 	case ReplitBackend:

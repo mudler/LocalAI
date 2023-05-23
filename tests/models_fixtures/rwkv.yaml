@@ -6,7 +6,6 @@ parameters:
   max_tokens: 100
   top_p: 0.8
 context_size: 1024
-threads: 14
 backend: "rwkv"
 cutwords:
 - "Bob:.*"

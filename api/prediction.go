@@ -11,7 +11,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	"github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
-	gpt2 "github.com/go-skynet/go-gpt2.cpp"
+	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 )
@@ -243,23 +243,23 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 
 			return response, nil
 		}
-	case *gpt2.GPTNeoX:
+	case *transformers.GPTNeoX:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
-			predictOptions := []gpt2.PredictOption{
-				gpt2.SetTemperature(c.Temperature),
-				gpt2.SetTopP(c.TopP),
-				gpt2.SetTopK(c.TopK),
-				gpt2.SetTokens(c.Maxtokens),
-				gpt2.SetThreads(c.Threads),
+			predictOptions := []transformers.PredictOption{
+				transformers.SetTemperature(c.Temperature),
+				transformers.SetTopP(c.TopP),
+				transformers.SetTopK(c.TopK),
+				transformers.SetTokens(c.Maxtokens),
+				transformers.SetThreads(c.Threads),
 			}
 
 			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gpt2.SetBatch(c.Batch))
+				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
 			}
 
 			if c.Seed != 0 {
-				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
+				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
 			}
 
 			return model.Predict(
@@ -267,23 +267,23 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt2.Replit:
+	case *transformers.Replit:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
-			predictOptions := []gpt2.PredictOption{
-				gpt2.SetTemperature(c.Temperature),
-				gpt2.SetTopP(c.TopP),
-				gpt2.SetTopK(c.TopK),
-				gpt2.SetTokens(c.Maxtokens),
-				gpt2.SetThreads(c.Threads),
+			predictOptions := []transformers.PredictOption{
+				transformers.SetTemperature(c.Temperature),
+				transformers.SetTopP(c.TopP),
+				transformers.SetTopK(c.TopK),
+				transformers.SetTokens(c.Maxtokens),
+				transformers.SetThreads(c.Threads),
 			}
 
 			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gpt2.SetBatch(c.Batch))
+				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
 			}
 
 			if c.Seed != 0 {
-				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
+				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
 			}
 
 			return model.Predict(
@@ -291,23 +291,23 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt2.Starcoder:
+	case *transformers.Starcoder:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
-			predictOptions := []gpt2.PredictOption{
-				gpt2.SetTemperature(c.Temperature),
-				gpt2.SetTopP(c.TopP),
-				gpt2.SetTopK(c.TopK),
-				gpt2.SetTokens(c.Maxtokens),
-				gpt2.SetThreads(c.Threads),
+			predictOptions := []transformers.PredictOption{
+				transformers.SetTemperature(c.Temperature),
+				transformers.SetTopP(c.TopP),
+				transformers.SetTopK(c.TopK),
+				transformers.SetTokens(c.Maxtokens),
+				transformers.SetThreads(c.Threads),
 			}
 
 			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gpt2.SetBatch(c.Batch))
+				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
 			}
 
 			if c.Seed != 0 {
-				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
+				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
 			}
 
 			return model.Predict(
@@ -315,23 +315,23 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt2.RedPajama:
+	case *transformers.MPT:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
-			predictOptions := []gpt2.PredictOption{
-				gpt2.SetTemperature(c.Temperature),
-				gpt2.SetTopP(c.TopP),
-				gpt2.SetTopK(c.TopK),
-				gpt2.SetTokens(c.Maxtokens),
-				gpt2.SetThreads(c.Threads),
+			predictOptions := []transformers.PredictOption{
+				transformers.SetTemperature(c.Temperature),
+				transformers.SetTopP(c.TopP),
+				transformers.SetTopK(c.TopK),
+				transformers.SetTokens(c.Maxtokens),
+				transformers.SetThreads(c.Threads),
 			}
 
 			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gpt2.SetBatch(c.Batch))
+				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
 			}
 
 			if c.Seed != 0 {
-				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
+				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
 			}
 
 			return model.Predict(
@@ -359,23 +359,23 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt2.StableLM:
+	case *transformers.GPTJ:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
-			predictOptions := []gpt2.PredictOption{
-				gpt2.SetTemperature(c.Temperature),
-				gpt2.SetTopP(c.TopP),
-				gpt2.SetTopK(c.TopK),
-				gpt2.SetTokens(c.Maxtokens),
-				gpt2.SetThreads(c.Threads),
+			predictOptions := []transformers.PredictOption{
+				transformers.SetTemperature(c.Temperature),
+				transformers.SetTopP(c.TopP),
+				transformers.SetTopK(c.TopK),
+				transformers.SetTokens(c.Maxtokens),
+				transformers.SetThreads(c.Threads),
 			}
 
 			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gpt2.SetBatch(c.Batch))
+				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
 			}
 
 			if c.Seed != 0 {
-				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
+				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
 			}
 
 			return model.Predict(
@@ -383,23 +383,23 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt2.Dolly:
+	case *transformers.Dolly:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
-			predictOptions := []gpt2.PredictOption{
-				gpt2.SetTemperature(c.Temperature),
-				gpt2.SetTopP(c.TopP),
-				gpt2.SetTopK(c.TopK),
-				gpt2.SetTokens(c.Maxtokens),
-				gpt2.SetThreads(c.Threads),
+			predictOptions := []transformers.PredictOption{
+				transformers.SetTemperature(c.Temperature),
+				transformers.SetTopP(c.TopP),
+				transformers.SetTopK(c.TopK),
+				transformers.SetTokens(c.Maxtokens),
+				transformers.SetThreads(c.Threads),
 			}
 
 			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gpt2.SetBatch(c.Batch))
+				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
 			}
 
 			if c.Seed != 0 {
-				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
+				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
 			}
 
 			return model.Predict(
@@ -407,23 +407,23 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt2.GPT2:
+	case *transformers.GPT2:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
-			predictOptions := []gpt2.PredictOption{
-				gpt2.SetTemperature(c.Temperature),
-				gpt2.SetTopP(c.TopP),
-				gpt2.SetTopK(c.TopK),
-				gpt2.SetTokens(c.Maxtokens),
-				gpt2.SetThreads(c.Threads),
+			predictOptions := []transformers.PredictOption{
+				transformers.SetTemperature(c.Temperature),
+				transformers.SetTopP(c.TopP),
+				transformers.SetTopK(c.TopK),
+				transformers.SetTokens(c.Maxtokens),
+				transformers.SetThreads(c.Threads),
 			}
 
 			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gpt2.SetBatch(c.Batch))
+				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
 			}
 
 			if c.Seed != 0 {
-				predictOptions = append(predictOptions, gpt2.SetSeed(c.Seed))
+				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
 			}
 
 			return model.Predict(
