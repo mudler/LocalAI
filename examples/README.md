@@ -57,6 +57,14 @@ A full example on how to run RWKV models with LocalAI
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/rwkv/)
 
+### PrivateGPT
+
+_by [@mudler](https://github.com/mudler)_
+
+A full example on how to run PrivateGPT with LocalAI
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/privateGPT/)
+
 ### Slack bot
 
 _by [@mudler](https://github.com/mudler)_
