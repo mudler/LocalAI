@@ -44,16 +44,16 @@ var backends []string = []string{
 	Gpt4AllMptBackend,
 	Gpt4AllJBackend,
 	RwkvBackend,
-	BertEmbeddingsBackend,
-	WhisperBackend,
-	BloomzBackend,
 	GPTNeoXBackend,
+	WhisperBackend,
+	BertEmbeddingsBackend,
 	GPTJBackend,
 	Gpt2Backend,
 	DollyBackend,
 	MPTBackend,
 	ReplitBackend,
 	StarcoderBackend,
+	BloomzBackend,
 }
 
 var starCoder = func(modelFile string) (interface{}, error) {
