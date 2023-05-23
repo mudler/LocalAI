@@ -23,9 +23,9 @@ const (
 	LlamaBackend           = "llama"
 	BloomzBackend          = "bloomz"
 	StarcoderBackend       = "starcoder"
-	StableLMBackend        = "stablelm"
+	GPTJBackend            = "gptj"
 	DollyBackend           = "dolly"
-	RedPajamaBackend       = "redpajama"
+	MPTBackend             = "mpt"
 	GPTNeoXBackend         = "gptneox"
 	ReplitBackend          = "replit"
 	Gpt2Backend            = "gpt2"
@@ -47,9 +47,9 @@ var backends []string = []string{
 	WhisperBackend,
 	RwkvBackend,
 	BloomzBackend,
-	StableLMBackend,
+	GPTJBackend,
 	DollyBackend,
-	RedPajamaBackend,
+	MPTBackend,
 	ReplitBackend,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,
@@ -60,8 +60,8 @@ var starCoder = func(modelFile string) (interface{}, error) {
 	return gpt2.NewStarcoder(modelFile)
 }
 
-var redPajama = func(modelFile string) (interface{}, error) {
-	return gpt2.NewRedPajama(modelFile)
+var mpt = func(modelFile string) (interface{}, error) {
+	return gpt2.NewMPT(modelFile)
 }
 
 var dolly = func(modelFile string) (interface{}, error) {
@@ -76,8 +76,8 @@ var replit = func(modelFile string) (interface{}, error) {
 	return gpt2.NewReplit(modelFile)
 }
 
-var stableLM = func(modelFile string) (interface{}, error) {
-	return gpt2.NewStableLM(modelFile)
+var gptJ = func(modelFile string) (interface{}, error) {
+	return gpt2.NewGPTJ(modelFile)
 }
 
 var bertEmbeddings = func(modelFile string) (interface{}, error) {
@@ -130,12 +130,12 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, llamaLM(llamaOpts...))
 	case BloomzBackend:
 		return ml.LoadModel(modelFile, bloomzLM)
-	case StableLMBackend:
-		return ml.LoadModel(modelFile, stableLM)
+	case GPTJBackend:
+		return ml.LoadModel(modelFile, gptJ)
 	case DollyBackend:
 		return ml.LoadModel(modelFile, dolly)
-	case RedPajamaBackend:
-		return ml.LoadModel(modelFile, redPajama)
+	case MPTBackend:
+		return ml.LoadModel(modelFile, mpt)
 	case Gpt2Backend:
 		return ml.LoadModel(modelFile, gpt2LM)
 	case GPTNeoXBackend:

@@ -315,7 +315,7 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt2.RedPajama:
+	case *gpt2.MPT:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
 			predictOptions := []gpt2.PredictOption{
@@ -359,7 +359,7 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
-	case *gpt2.StableLM:
+	case *gpt2.GPTJ:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
 			predictOptions := []gpt2.PredictOption{
