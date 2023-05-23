@@ -17,9 +17,12 @@ CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 STABLEDIFFUSION_VERSION?=c0748eca3642d58bcf9521108bcee46959c647dc
 GO_TAGS?=
+BUILD_ID?=git
 
 OPTIONAL_TARGETS?=
 
+OS := $(shell uname -s)
+ARCH := $(shell uname -m)
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
 WHITE  := $(shell tput -Txterm setaf 7)
@@ -186,6 +189,7 @@ clean: ## Remove build related file
 	rm -rf ./bloomz
 	rm -rf ./whisper.cpp
 	rm -rf $(BINARY_NAME)
+	rm -rf release/
 
 ## Build:
 
@@ -194,6 +198,10 @@ build: prepare ## Build the project
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -tags "$(GO_TAGS)" -x -o $(BINARY_NAME) ./
+
+dist: build
+	mkdir -p release
+	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH)
 
 generic-build: ## Build the project using generic
 	BUILD_TYPE="generic" $(MAKE) build
