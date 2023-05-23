@@ -43,16 +43,16 @@ var backends []string = []string{
 	Gpt4AllLlamaBackend,
 	Gpt4AllMptBackend,
 	Gpt4AllJBackend,
-	Gpt2Backend,
-	WhisperBackend,
 	RwkvBackend,
+	BertEmbeddingsBackend,
+	WhisperBackend,
 	BloomzBackend,
+	GPTNeoXBackend,
 	GPTJBackend,
+	Gpt2Backend,
 	DollyBackend,
 	MPTBackend,
 	ReplitBackend,
-	GPTNeoXBackend,
-	BertEmbeddingsBackend,
 	StarcoderBackend,
 }
 
@@ -87,6 +87,7 @@ var bertEmbeddings = func(modelFile string) (interface{}, error) {
 var bloomzLM = func(modelFile string) (interface{}, error) {
 	return bloomz.New(modelFile)
 }
+
 var gpt2LM = func(modelFile string) (interface{}, error) {
 	return gpt2.New(modelFile)
 }
