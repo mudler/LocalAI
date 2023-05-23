@@ -2,9 +2,12 @@
 go-llama
 gpt4all
 go-stable-diffusion
+go-ggml-transformers
 go-gpt2
 go-rwkv
 whisper.cpp
+bloomz
+go-bert
 
 # LocalAI build binary
 LocalAI
@@ -15,6 +18,7 @@ local-ai
 # Ignore models
 models/*
 test-models/
+test-dir/
 
 release/
 

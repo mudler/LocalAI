@@ -25,7 +25,7 @@
             ],
             "env": {
                 "C_INCLUDE_PATH": "${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
-                "LIBRARY_PATH": "$${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
+                "LIBRARY_PATH": "${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
                 "DEBUG": "true"
             }
         }
