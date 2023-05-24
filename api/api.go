@@ -114,6 +114,14 @@ func App(opts ...AppOption) *fiber.App {
 		app.Static("/generated-images", options.imageDir)
 	}
 
+	ok := func(c *fiber.Ctx) error {
+		return c.SendStatus(200)
+	}
+
+	// Kubernetes health checks
+	app.Get("/healthz", ok)
+	app.Get("/readyz", ok)
+
 	// models
 	app.Get("/v1/models", listModels(options.loader, cm))
 	app.Get("/models", listModels(options.loader, cm))
