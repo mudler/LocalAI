@@ -608,47 +608,69 @@ It should work, however you need to make sure you give enough resources to the c
 LocalAI can be installed inside Kubernetes with helm.
 
 <details>
+By default, the helm chart will install LocalAI instance using the ggml-gpt4all-j model without persistent storage.
 
 1. Add the helm repo
     ```bash
     helm repo add go-skynet https://go-skynet.github.io/helm-charts/
     ```
-1. Create a values files with your settings:
-```bash
-cat <<EOF > values.yaml
+2. Install the helm chart:
+    ```bash
+    helm repo update
+    helm install local-ai go-skynet/local-ai -f values.yaml
+    ```
+> **Note:** For further configuration options, see the [helm chart repository on GitHub](https://github.com/go-skynet/helm-charts).
+### Example values
+Deploy a single LocalAI pod with 6GB of persistent storage serving up a `ggml-gpt4all-j` model with custom prompt.
+```yaml
+### values.yaml
+
 deployment:
-  image: quay.io/go-skynet/local-ai:latest
+  # Adjust the number of threads and context size for model inference
   env:
-    threads: 4
-    contextSize: 1024
-    modelsPath: "/models"
-# Optionally create a PVC, mount the PV to the LocalAI Deployment,
-# and download a model to prepopulate the models directory
-modelsVolume:
-  enabled: true
-  url: "https://gpt4all.io/models/ggml-gpt4all-j.bin"
-  pvc:
+    threads: 14
+    contextSize: 512
+
+# Set the pod requests/limits
+resources:
+  limits:
+    cpu: 4000m
+    memory: 7000Mi
+  requests:
+    cpu: 100m
+    memory: 6000Mi
+
+# Add a custom prompt template for the ggml-gpt4all-j model
+promptTemplates:
+  # The name of the model this template belongs to
+  ggml-gpt4all-j.bin.tmpl: |
+    This is my custom prompt template...
+    ### Prompt:
+    {{.Input}}
+    ### Response:
+
+# Model configuration
+models:
+  # Don't re-download models on pod creation
+  forceDownload: false
+
+  # List of models to download and serve
+  list:
+    - url: "https://gpt4all.io/models/ggml-gpt4all-j.bin"
+       # Optional basic HTTP authentication
+      basicAuth: base64EncodedCredentials
+  
+  # Enable 6Gb of persistent storage models and prompt templates
+  persistence:
+    enabled: true
     size: 6Gi
-    accessModes:
-    - ReadWriteOnce
-  auth:
-    # Optional value for HTTP basic access authentication header
-    basic: "" # 'username:password' base64 encoded
+
 service:
   type: ClusterIP
   annotations: {}
   # If using an AWS load balancer, you'll need to override the default 60s load balancer idle timeout
   # service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "1200"
-EOF
 ```
-3. Install the helm chart:
-```bash
-helm repo update
-helm install local-ai go-skynet/local-ai -f values.yaml
-```
-
-Check out also the [helm chart repository on GitHub](https://github.com/go-skynet/helm-charts).
-
 </details>
 
 ## Supported OpenAI API endpoints
