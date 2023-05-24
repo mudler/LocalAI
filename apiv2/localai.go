@@ -7,6 +7,7 @@ import (
 )
 
 type LocalAIServer struct {
+	configMerger *ConfigMerger
 }
 
 var _ ServerInterface = (*LocalAIServer)(nil)
@@ -50,6 +51,7 @@ func (*LocalAIServer) CreateChatCompletion(w http.ResponseWriter, r *http.Reques
 		sendError(w, http.StatusBadRequest, "Invalid CreateChatCompletionRequest")
 		return
 	}
+	configMerger.GetConfig(chatRequest.Model)
 }
 
 // CreateClassification implements ServerInterface

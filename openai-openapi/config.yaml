@@ -3,7 +3,8 @@ generate:
   models: true
   chi-server: true
 output: apiv2/localai.gen.go
-# output-options:
+output-options:
+  exclude-depreciated: true
 #   user-templates:
 #     union.tmpl: "// SKIP"
 #     union-and-additional-properties.tmpl: "// SKIP"

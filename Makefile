@@ -198,7 +198,7 @@ prepare: prepare-sources gpt4all/gpt4all-bindings/golang/libgpt4all.a $(OPTIONAL
 clean: ## Remove build related file
 	rm -rf ./openai-openapi/spec
 	rm -rf ./openai-openapi/transformed
-	rm ./apiv2/localai.gen.go
+	rm -f ./apiv2/localai.gen.go
 	rm -rf ./go-llama
 	rm -rf ./gpt4all
 	rm -rf ./go-stable-diffusion
