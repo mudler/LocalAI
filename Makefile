@@ -18,7 +18,7 @@ CUDA_LIBPATH?=/usr/local/cuda/lib64/
 STABLEDIFFUSION_VERSION?=c0748eca3642d58bcf9521108bcee46959c647dc
 GO_TAGS?=
 BUILD_ID?=git
-
+LD_FLAGS=?=
 OPTIONAL_TARGETS?=
 
 OS := $(shell uname -s)
@@ -39,6 +39,11 @@ endif
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 	export LLAMA_CUBLAS=1
+endif
+
+# glibc-static or glibc-devel-static required
+ifeq ($(STATIC),true)
+	LD_FLAGS=-linkmode external -extldflags -static
 endif
 
 ifeq ($(GO_TAGS),stablediffusion)
@@ -197,7 +202,7 @@ build: prepare ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -tags "$(GO_TAGS)" -x -o $(BINARY_NAME) ./
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -x -o $(BINARY_NAME) ./
 
 dist: build
 	mkdir -p release
