@@ -46,6 +46,8 @@ github.com/go-skynet/go-bert.cpp v0.0.0-20230516063724-cea1ed76a7f4 h1:+3KPDf4Wv
 github.com/go-skynet/go-bert.cpp v0.0.0-20230516063724-cea1ed76a7f4/go.mod h1:VY0s5KoAI2jRCvQXKuDeEEe8KG7VaWifSNJSk+E1KtY=
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230523173010-f89d7c22df6b h1:uKICsAbdRJxMPZ4RXltwOwXPRDO1/d/pdGR3gEEUV9M=
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230523173010-f89d7c22df6b/go.mod h1:hjmO5UfipWl6xkPT54acOs9DDto8GPV81IvsBcvRjsA=
+github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230524084634-c4c581f1853c h1:jXUOCh2K4OzRItTtHzdxvkylE9r1szRSleRpXCNvraY=
+github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230524084634-c4c581f1853c/go.mod h1:hjmO5UfipWl6xkPT54acOs9DDto8GPV81IvsBcvRjsA=
 github.com/go-skynet/go-gpt2.cpp v0.0.0-20230523153133-3eb3a32c0874 h1:/6QWh2oarU7iPSpXj/3bLlkKptyxjKTRrNtGUrh8vhI=
 github.com/go-skynet/go-gpt2.cpp v0.0.0-20230523153133-3eb3a32c0874/go.mod h1:1Wj/xbkMfwQSOrhNYK178IzqQHstZbRfhx4s8p1M5VM=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230520155239-ccf23adfb278 h1:st4ow9JKy3UuhkwutrbWof2vMFU/YxwBCLYZ1IxJ2Po=
