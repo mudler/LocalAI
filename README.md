@@ -63,8 +63,9 @@ Now LocalAI can generate images too:
 
 Twitter: [@LocalAI_API](https://twitter.com/LocalAI_API) and [@mudler_it](https://twitter.com/mudler_it)
 
-### Blogs and articles
+### Blogs, articles, media
 
+- [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE) - CNCF Webinar showcasing LocalAI and k8sgpt.
 - [Question Answering on Documents locally with LangChain, LocalAI, Chroma, and GPT4All](https://mudler.pm/posts/localai-question-answering/) by Ettore Di Giacinto
 - [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65) - excellent usecase for localAI, using AI to analyse Kubernetes clusters. by Tyller Gillson
 
@@ -1037,11 +1038,6 @@ Feel free to open up a PR to get your project listed!
 - [Spark](https://github.com/cedriking/spark)
 - [autogpt4all](https://github.com/aorumbayev/autogpt4all)
 - [Mods](https://github.com/charmbracelet/mods)
-
-## Blog posts and other articles
-
-- https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65
-- https://kairos.io/docs/examples/localai/
 
 ## Short-term roadmap
 
