@@ -8,16 +8,21 @@
 ---
 components:
   schemas:
-    CreateChatCompletionRequest:
+    #@overlay/match missing_ok=True
+    LocalAIBaseRequestExtension:
+      type: object
+      nullable: true
       properties:
-        #@overlay/match missing_ok=True
-        x-localai-extensions:
-          type: object
+        seed:
+          type: integer
+          nullable: true
+    #@overlay/match missing_ok=True
+    LocalAITextRequestExtension:
+      allOf:
+        - $ref: "#/components/schemas/LocalAIBaseRequestExtension"
+        - type: object
           nullable: true
           properties:
-            seed:
-              type: integer
-              nullable: true
             top_k:
               type: integer
               nullable: true
@@ -46,19 +51,27 @@ components:
               type: number
               nullable: true
               x-go-type: float64
-    CreateImageRequest:
-      properties:
-        #@overlay/match missing_ok=True
-        x-localai-extensions:
-          type: object
+    #@overlay/match missing_ok=True
+    LocalAIImageRequestExtension:
+      allOf:
+        - $ref: "#/components/schemas/LocalAIBaseRequestExtension"
+        - type: object
           nullable: true
           properties:
-            seed:
-              type: integer
-              nullable: true
             mode:
               type: integer
               nullable: true
             step:
               type: integer
               nullable: true
+    CreateChatCompletionRequest:
+      properties:
+        #@overlay/match missing_ok=True
+        x-localai-extensions:
+           $ref: "#/components/schemas/LocalAITextRequestExtension"
+    CreateImageRequest:
+      properties:
+        #@overlay/match missing_ok=True
+        x-localai-extensions:
+           $ref: "#/components/schemas/LocalAIImageRequestExtension"
+            
