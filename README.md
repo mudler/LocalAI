@@ -1036,6 +1036,7 @@ Feel free to open up a PR to get your project listed!
 - [k8sgpt](https://github.com/k8sgpt-ai/k8sgpt#running-local-models)
 - [Spark](https://github.com/cedriking/spark)
 - [autogpt4all](https://github.com/aorumbayev/autogpt4all)
+- [Mods](https://github.com/charmbracelet/mods)
 
 ## Blog posts and other articles
 
