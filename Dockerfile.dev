@@ -11,6 +11,10 @@ RUN make build
 
 FROM debian:$DEBIAN_VERSION
 COPY --from=builder /build/local-ai /usr/bin/local-ai
-RUN apt-get update && apt-get install -y ca-certificates
+RUN apt-get update && apt-get install -y ca-certificates curl
+ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
+# Define the health check command
+HEALTHCHECK --interval=30s --timeout=360s --retries=10 \
+  CMD curl -f $HEALTHCHECK_ENDPOINT || exit 1
 EXPOSE 8080
 ENTRYPOINT [ "/usr/bin/local-ai" ]
