@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 
@@ -40,6 +42,43 @@ func newGalleryApplier(modelPath string) *galleryApplier {
 		statuses:  make(map[string]*galleryOpStatus),
 	}
 }
+
+func applyGallery(modelPath string, req ApplyGalleryModelRequest, cm *ConfigMerger) error {
+	url, err := req.DecodeURL()
+	if err != nil {
+		return err
+	}
+
+	// Send a GET request to the URL
+	response, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	// Read the response body
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	// Unmarshal YAML data into a Config struct
+	var config gallery.Config
+	err = yaml.Unmarshal(body, &config)
+	if err != nil {
+		return err
+	}
+
+	config.Files = append(config.Files, req.AdditionalFiles...)
+
+	if err := gallery.Apply(modelPath, req.Name, &config, req.Overrides); err != nil {
+		return err
+	}
+
+	// Reload models
+	return cm.LoadConfigs(modelPath)
+}
+
 func (g *galleryApplier) updatestatus(s string, op *galleryOpStatus) {
 	g.Lock()
 	defer g.Unlock()
@@ -66,44 +105,7 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 					g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true})
 				}
 
-				url, err := op.req.DecodeURL()
-				if err != nil {
-					updateError(err)
-					continue
-				}
-
-				// Send a GET request to the URL
-				response, err := http.Get(url)
-				if err != nil {
-					updateError(err)
-					continue
-				}
-				defer response.Body.Close()
-
-				// Read the response body
-				body, err := ioutil.ReadAll(response.Body)
-				if err != nil {
-					updateError(err)
-					continue
-				}
-
-				// Unmarshal YAML data into a Config struct
-				var config gallery.Config
-				err = yaml.Unmarshal(body, &config)
-				if err != nil {
-					updateError(fmt.Errorf("failed to unmarshal YAML: %v", err))
-					continue
-				}
-
-				config.Files = append(config.Files, op.req.AdditionalFiles...)
-
-				if err := gallery.Apply(g.modelPath, op.req.Name, &config, op.req.Overrides); err != nil {
-					updateError(err)
-					continue
-				}
-
-				// Reload models
-				if err := cm.LoadConfigs(g.modelPath); err != nil {
+				if err := applyGallery(g.modelPath, op.req, cm); err != nil {
 					updateError(err)
 					continue
 				}
@@ -112,6 +114,41 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 			}
 		}
 	}()
+}
+
+func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger) error {
+	dat, err := os.ReadFile(s)
+	if err != nil {
+		return err
+	}
+	var requests []ApplyGalleryModelRequest
+	err = json.Unmarshal(dat, &requests)
+	if err != nil {
+		return err
+	}
+
+	for _, r := range requests {
+		if err := applyGallery(modelPath, r, cm); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger) error {
+	var requests []ApplyGalleryModelRequest
+	err := json.Unmarshal([]byte(s), &requests)
+	if err != nil {
+		return err
+	}
+
+	for _, r := range requests {
+		if err := applyGallery(modelPath, r, cm); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // endpoints

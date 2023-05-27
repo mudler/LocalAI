@@ -69,6 +69,18 @@ func App(opts ...AppOption) *fiber.App {
 	// Default middleware config
 	app.Use(recover.New())
 
+	if options.preloadJSONModels != "" {
+		if err := ApplyGalleryFromString(options.loader.ModelPath, options.preloadJSONModels, cm); err != nil {
+			return nil
+		}
+	}
+
+	if options.preloadModelsFromPath != "" {
+		if err := ApplyGalleryFromFile(options.loader.ModelPath, options.preloadModelsFromPath, cm); err != nil {
+			return nil
+		}
+	}
+
 	if options.cors {
 		if options.corsAllowOrigins == "" {
 			app.Use(cors.New())
