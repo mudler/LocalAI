@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -102,7 +104,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config)
 	switch model := inferenceModel.(type) {
 	case *llama.LLama:
 		fn = func() ([]float32, error) {
-			predictOptions := buildLLamaPredictOptions(c)
+			predictOptions := buildLLamaPredictOptions(c, loader.ModelPath)
 			if len(tokens) > 0 {
 				return model.TokenEmbeddings(tokens, predictOptions...)
 			}
@@ -151,7 +153,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config)
 	}, nil
 }
 
-func buildLLamaPredictOptions(c Config) []llama.PredictOption {
+func buildLLamaPredictOptions(c Config, modelPath string) []llama.PredictOption {
 	// Generate the prediction using the language model
 	predictOptions := []llama.PredictOption{
 		llama.SetTemperature(c.Temperature),
@@ -159,6 +161,17 @@ func buildLLamaPredictOptions(c Config) []llama.PredictOption {
 		llama.SetTopK(c.TopK),
 		llama.SetTokens(c.Maxtokens),
 		llama.SetThreads(c.Threads),
+	}
+
+	if c.PromptCacheAll {
+		predictOptions = append(predictOptions, llama.EnablePromptCacheAll)
+	}
+
+	if c.PromptCachePath != "" {
+		// Create parent directory
+		p := filepath.Join(modelPath, c.PromptCachePath)
+		os.MkdirAll(filepath.Dir(p), 0755)
+		predictOptions = append(predictOptions, llama.SetPathPromptCache(p))
 	}
 
 	if c.Mirostat != 0 {
@@ -469,7 +482,7 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				model.SetTokenCallback(tokenCallback)
 			}
 
-			predictOptions := buildLLamaPredictOptions(c)
+			predictOptions := buildLLamaPredictOptions(c, loader.ModelPath)
 
 			str, er := model.Predict(
 				s,
