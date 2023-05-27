@@ -15,6 +15,8 @@ type Option struct {
 	debug, disableMessage           bool
 	imageDir                        string
 	cors                            bool
+	preloadJSONModels               string
+	preloadModelsFromPath           string
 	corsAllowOrigins                string
 }
 
@@ -53,6 +55,17 @@ func WithContext(ctx context.Context) AppOption {
 	}
 }
 
+func WithYAMLConfigPreload(configFile string) AppOption {
+	return func(o *Option) {
+		o.preloadModelsFromPath = configFile
+	}
+}
+
+func WithJSONStringPreload(configFile string) AppOption {
+	return func(o *Option) {
+		o.preloadJSONModels = configFile
+	}
+}
 func WithConfigFile(configFile string) AppOption {
 	return func(o *Option) {
 		o.configFile = configFile

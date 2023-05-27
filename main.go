@@ -54,6 +54,16 @@ func main() {
 				Value:       filepath.Join(path, "models"),
 			},
 			&cli.StringFlag{
+				Name:        "preload-models",
+				DefaultText: "A List of models to apply in JSON at start",
+				EnvVars:     []string{"PRELOAD_MODELS"},
+			},
+			&cli.StringFlag{
+				Name:        "preload-models-config",
+				DefaultText: "A List of models to apply at startup. Path to a YAML config file",
+				EnvVars:     []string{"PRELOAD_MODELS_CONFIG"},
+			},
+			&cli.StringFlag{
 				Name:        "config-file",
 				DefaultText: "Config file",
 				EnvVars:     []string{"CONFIG_FILE"},
@@ -103,6 +113,8 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
 			return api.App(
 				api.WithConfigFile(ctx.String("config-file")),
+				api.WithJSONStringPreload(ctx.String("preload-models")),
+				api.WithYAMLConfigPreload(ctx.String("preload-models-config")),
 				api.WithModelLoader(model.NewModelLoader(ctx.String("models-path"))),
 				api.WithContextSize(ctx.Int("context-size")),
 				api.WithDebug(ctx.Bool("debug")),
