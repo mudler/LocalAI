@@ -4,6 +4,13 @@ Here is a list of projects that can easily be integrated with the LocalAI backen
 
 ### Projects
 
+### AutoGPT
+
+_by [@mudler](https://github.com/mudler)_
+
+This example shows how to use AutoGPT with LocalAI.
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/autoGPT/)
 
 ### Chatbot-UI
 

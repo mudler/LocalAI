@@ -1025,7 +1025,7 @@ There is the availability of localai-webui and chatbot-ui in the examples sectio
 
 <details>
 
-AutoGPT currently doesn't allow to set a different API URL, but there is a PR open for it, so this should be possible soon!
+Yes, see the [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/)!
 
 </details>
 
