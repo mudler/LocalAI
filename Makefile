@@ -7,8 +7,8 @@ GOLLAMA_VERSION?=fbec625895ba0c458f783b62c8569135c5e80d79
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
 GPT4ALL_VERSION?=73db20ba85fbbdc66a56e2619394c0eea40dc72b
 GOGGMLTRANSFORMERS_VERSION?=4f18e5eb75089dc1fc8f1c955bb8f73d18520a46
-RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
-RWKV_VERSION?=07166da10cb2a9e8854395a4f210464dcea76e47
+RWKV_REPO?=https://github.com/mudler/go-rwkv.cpp
+RWKV_VERSION?=dcbd34aff983b3d04fa300c5da5ec4bfdf6db295
 WHISPER_CPP_VERSION?=9b926844e3ae0ca6a0d13573b2e0349be1a4b573
 BERT_VERSION?=cea1ed76a7f48ef386a8e369f6c82c48cdf2d551
 BLOOMZ_VERSION?=e9366e82abdfe70565644fbfae9651976714efd1
@@ -202,7 +202,7 @@ build: prepare ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -x -o $(BINARY_NAME) ./
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 dist: build
 	mkdir -p release
