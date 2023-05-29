@@ -3,19 +3,19 @@ module github.com/go-skynet/LocalAI
 go 1.19
 
 require (
-	github.com/donomii/go-rwkv.cpp v0.0.0-20230515123100-6fdd0c338e56
-	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230527074028-9b926844e3ae
+	github.com/donomii/go-rwkv.cpp v0.0.0-20230529074347-ccb05c3e1c6e
+	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230528233858-d7c936b44a80
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230510223001-e9366e82abdf
-	github.com/go-skynet/go-bert.cpp v0.0.0-20230516063724-cea1ed76a7f4
-	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230525204055-4f18e5eb7508
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230524233806-6e7e69a1607e
+	github.com/go-skynet/go-bert.cpp v0.0.0-20230529074307-771b4a085972
+	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230529072326-695f97befe14
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230529120000-4bd3910005a5
 	github.com/gofiber/fiber/v2 v2.46.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.16
 	github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230526132403-a6f3e94458e2
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230528235700-9eb81cb54922
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
 	github.com/otiai10/openaigo v1.1.0
