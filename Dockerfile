@@ -19,6 +19,7 @@ WORKDIR /build
 RUN apt-get update && \
     apt-get install -y ca-certificates cmake curl
 
+# CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     apt-get install -y software-properties-common && \
     apt-add-repository contrib && \
@@ -30,14 +31,12 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     ; fi
 ENV PATH /usr/local/cuda/bin:${PATH}
 
-RUN if [ "${BUILD_TYPE}" = "openblas" ]; then \
-    apt-get install -y libopenblas-dev \
-    ; fi
+# OpenBLAS requirements
+RUN apt-get install -y libopenblas-dev
 
-RUN if [ "${GO_TAGS}" = "stablediffusion" ]; then \
-    apt-get install -y libopencv-dev && \
-    ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2 \
-    ; fi
+# Stable Diffusion requirements
+RUN apt-get install -y libopencv-dev && \
+    ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
 COPY . .
 RUN make build
