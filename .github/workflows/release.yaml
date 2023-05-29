@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v3
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -29,7 +29,7 @@ jobs:
       - name: Build
         id: build
         env:
-          CMAKE_ARGS: "${{ matrix.define }}"
+          CMAKE_ARGS: "${{ matrix.defines }}"
           BUILD_ID: "${{ matrix.build }}"
         run: |
           make dist
@@ -58,7 +58,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v3
-        with: 
+        with:
           submodules: true
 
       - name: Dependencies
@@ -68,7 +68,7 @@ jobs:
       - name: Build
         id: build
         env:
-          CMAKE_ARGS: "${{ matrix.define }}"
+          CMAKE_ARGS: "${{ matrix.defines }}"
           BUILD_ID: "${{ matrix.build }}"
         run: |
           make dist
