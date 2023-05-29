@@ -192,6 +192,37 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		jsonResult, _ := json.Marshal(resp)
 		log.Debug().Msgf("Response: %s", jsonResult)
+		if input.Stream {
+			responses := make(chan OpenAIResponse)
+
+			go func() {
+				defer close(responses)
+				for _, r := range result {
+					responses <- OpenAIResponse{
+						Model:   input.Model,
+						Choices: []Choice{r},
+						Object:  "text_completion",
+					}
+				}
+			}()
+
+			c.Context().SetContentType("text/event-stream")
+			c.Set("Cache-Control", "no-cache")
+			c.Set("Connection", "keep-alive")
+			c.Set("Transfer-Encoding", "chunked")
+
+			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+				for ev := range responses {
+					var buf bytes.Buffer
+					enc := json.NewEncoder(&buf)
+					enc.Encode(ev)
+
+					log.Debug().Msgf("Sending chunk: %s", buf.String())
+					fmt.Fprintf(w, "data: %v\n", buf.String())
+					w.Flush()
+				}
+			}))
+		}
 
 		// Return the prediction in the response body
 		return c.JSON(resp)
