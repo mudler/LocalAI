@@ -184,14 +184,6 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			result = append(result, r...)
 		}
 
-		resp := &OpenAIResponse{
-			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: result,
-			Object:  "text_completion",
-		}
-
-		jsonResult, _ := json.Marshal(resp)
-		log.Debug().Msgf("Response: %s", jsonResult)
 		if input.Stream {
 			responses := make(chan OpenAIResponse)
 
@@ -223,6 +215,14 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 				}
 			}))
 		}
+		resp := &OpenAIResponse{
+			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Choices: result,
+			Object:  "text_completion",
+		}
+
+		jsonResult, _ := json.Marshal(resp)
+		log.Debug().Msgf("Response: %s", jsonResult)
 
 		// Return the prediction in the response body
 		return c.JSON(resp)
