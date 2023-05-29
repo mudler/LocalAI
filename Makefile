@@ -3,7 +3,7 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
-GOLLAMA_VERSION?=fbec625895ba0c458f783b62c8569135c5e80d79
+GOLLAMA_VERSION?=4bd3910005a593a6db237bc82c506d6d9fb81b18
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
 GPT4ALL_VERSION?=73db20ba85fbbdc66a56e2619394c0eea40dc72b
 GOGGMLTRANSFORMERS_VERSION?=4f18e5eb75089dc1fc8f1c955bb8f73d18520a46
@@ -39,6 +39,10 @@ endif
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 	export LLAMA_CUBLAS=1
+endif
+
+ifeq ($(BUILD_TYPE),clblas)
+	CGO_LDFLAGS+=-lOpenCL -lclblast
 endif
 
 # glibc-static or glibc-devel-static required
@@ -111,6 +115,8 @@ bloomz:
 	@find ./bloomz -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_bloomz_/g' {} +
 	@find ./bloomz -type f -name "*.cpp" -exec sed -i'' -e 's/gpt_/gpt_bloomz_/g' {} +
 	@find ./bloomz -type f -name "*.h" -exec sed -i'' -e 's/gpt_/gpt_bloomz_/g' {} +
+	@find ./bloomz -type f -name "*.cpp" -exec sed -i'' -e 's/void replace/void json_bloomz_replace/g' {} +
+	@find ./bloomz -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_bloomz_replace/g' {} +
 
 bloomz/libbloomz.a: bloomz
 	cd bloomz && make libbloomz.a
