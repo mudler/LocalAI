@@ -169,6 +169,7 @@ Feel free to open up a PR to get your project listed!
 - [Spark](https://github.com/cedriking/spark)
 - [autogpt4all](https://github.com/aorumbayev/autogpt4all)
 - [Mods](https://github.com/charmbracelet/mods)
+- [Flowise](https://github.com/FlowiseAI/Flowise)
 
 ## Short-term roadmap
 
