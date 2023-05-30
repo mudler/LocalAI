@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func App(opts ...AppOption) *fiber.App {
+func App(opts ...AppOption) (*fiber.App, error) {
 	options := newOptions(opts...)
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -71,13 +71,13 @@ func App(opts ...AppOption) *fiber.App {
 
 	if options.preloadJSONModels != "" {
 		if err := ApplyGalleryFromString(options.loader.ModelPath, options.preloadJSONModels, cm); err != nil {
-			return nil
+			return nil, err
 		}
 	}
 
 	if options.preloadModelsFromPath != "" {
 		if err := ApplyGalleryFromFile(options.loader.ModelPath, options.preloadModelsFromPath, cm); err != nil {
-			return nil
+			return nil, err
 		}
 	}
 
@@ -138,5 +138,5 @@ func App(opts ...AppOption) *fiber.App {
 	app.Get("/v1/models", listModels(options.loader, cm))
 	app.Get("/models", listModels(options.loader, cm))
 
-	return app
+	return app, nil
 }
