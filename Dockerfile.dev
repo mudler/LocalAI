@@ -72,7 +72,7 @@ RUN apt-get install -y libgomp1 libopencv-core4.5 libopencv-imgcodecs4.5
 COPY --from=builder /build/local-ai /usr/bin/local-ai
 
 # Define the health check command
-HEALTHCHECK --interval=30s --timeout=360s --retries=10 \
+HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f $HEALTHCHECK_ENDPOINT || exit 1
 
 EXPOSE 8080

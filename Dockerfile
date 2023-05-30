@@ -42,7 +42,7 @@ COPY . .
 RUN make build
 
 # Define the health check command
-HEALTHCHECK --interval=30s --timeout=360s --retries=10 \
+HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f $HEALTHCHECK_ENDPOINT || exit 1
 
 EXPOSE 8080
