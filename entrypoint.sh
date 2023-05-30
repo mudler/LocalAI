@@ -1,9 +1,11 @@
 #!/bin/bash
+set -e
 
 cd /build
 
 if [ "$REBUILD" != "false" ]; then
-	make rebuild
+	rm -rf ./local-ai
+	make build
 fi
 
 ./local-ai "$@"
