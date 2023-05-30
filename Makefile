@@ -193,6 +193,7 @@ prepare: prepare-sources gpt4all/gpt4all-bindings/golang/libgpt4all.a $(OPTIONAL
 clean: ## Remove build related file
 	rm -fr ./go-llama
 	rm -rf ./gpt4all
+	rm -rf ./go-gpt2
 	rm -rf ./go-stable-diffusion
 	rm -rf ./go-ggml-transformers
 	rm -rf ./go-rwkv
