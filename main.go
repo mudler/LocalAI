@@ -111,7 +111,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
 			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
-			return api.App(
+			app, err := api.App(
 				api.WithConfigFile(ctx.String("config-file")),
 				api.WithJSONStringPreload(ctx.String("preload-models")),
 				api.WithYAMLConfigPreload(ctx.String("preload-models-config")),
@@ -124,7 +124,12 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 				api.WithCors(ctx.Bool("cors")),
 				api.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
 				api.WithThreads(ctx.Int("threads")),
-				api.WithUploadLimitMB(ctx.Int("upload-limit"))).Listen(ctx.String("address"))
+				api.WithUploadLimitMB(ctx.Int("upload-limit")))
+			if err != nil {
+				return err
+			}
+
+			return app.Listen(ctx.String("address"))
 		},
 	}
 
