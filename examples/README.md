@@ -22,6 +22,8 @@ This integration shows how to use LocalAI with [mckaywrigley/chatbot-ui](https:/
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui/)
 
+There is also a separate example to show how to manually setup a model: [example](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui-manual/)
+
 ### Flowise
 
 _by [@mudler](https://github.com/mudler)_

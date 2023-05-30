@@ -1,0 +1,16 @@
+name: gpt-3.5-turbo
+parameters:
+  model: ggml-gpt4all-j
+  top_k: 80
+  temperature: 0.2
+  top_p: 0.7
+context_size: 1024
+stopwords:
+- "HUMAN:"
+- "GPT:"
+roles:
+  user: " "
+  system: " "
+template:
+  completion: completion
+  chat: gpt4all
