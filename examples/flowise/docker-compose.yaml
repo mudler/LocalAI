@@ -25,13 +25,13 @@ services:
     volumes:
       - ./models:/models:cached
     command: ["/usr/bin/local-ai" ]
-  chatgpt:
+  flowise:
     depends_on:
       api:
         condition: service_healthy
-    image: ghcr.io/mckaywrigley/chatbot-ui:main
+    image: flowiseai/flowise
     ports:
       - 3000:3000
-    environment:
-      - 'OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXX'
-      - 'OPENAI_API_HOST=http://api:8080'
+    volumes:
+        - ~/.flowise:/root/.flowise
+    command: /bin/sh -c "sleep 3; flowise start"

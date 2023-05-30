@@ -22,6 +22,14 @@ This integration shows how to use LocalAI with [mckaywrigley/chatbot-ui](https:/
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui/)
 
+### Flowise
+
+_by [@mudler](https://github.com/mudler)_
+
+This example shows how to use [FlowiseAI/Flowise](https://github.com/FlowiseAI/Flowise) with LocalAI.
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/flowise/)
+
 ### Discord bot
 
 _by [@mudler](https://github.com/mudler)_
