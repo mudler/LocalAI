@@ -104,7 +104,7 @@ var whisperModel = func(modelFile string) (interface{}, error) {
 }
 
 var lcHuggingFace = func(repoId string) (interface{}, error) {
-	out, _ := langchain.NewHuggingFace(repoId)
+	return langchain.NewHuggingFace(repoId)
 	return out, nil
 }
 
