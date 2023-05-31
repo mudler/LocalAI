@@ -105,7 +105,6 @@ var whisperModel = func(modelFile string) (interface{}, error) {
 
 var lcHuggingFace = func(repoId string) (interface{}, error) {
 	return langchain.NewHuggingFace(repoId)
-	return out, nil
 }
 
 func llamaLM(opts ...llama.ModelOption) func(string) (interface{}, error) {
