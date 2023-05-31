@@ -37,7 +37,7 @@ const (
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
-	LangChainHuggingFace   = "langchain-huggingface"
+	LCHuggingFaceBackend   = "langchain-huggingface"
 )
 
 var backends []string = []string{
@@ -56,7 +56,7 @@ var backends []string = []string{
 	ReplitBackend,
 	StarcoderBackend,
 	BloomzBackend,
-	LangChainHuggingFace,
+	LCHuggingFaceBackend,
 }
 
 var starCoder = func(modelFile string) (interface{}, error) {
@@ -103,7 +103,7 @@ var whisperModel = func(modelFile string) (interface{}, error) {
 	return whisper.New(modelFile)
 }
 
-var langChainHuggingFace = func(repoId string) (interface{}, error) {
+var lcHuggingFace = func(repoId string) (interface{}, error) {
 	out, _ := langchain.NewHuggingFace(repoId)
 	return out, nil
 }
@@ -167,8 +167,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, rwkvLM(filepath.Join(ml.ModelPath, modelFile+tokenizerSuffix), threads))
 	case WhisperBackend:
 		return ml.LoadModel(modelFile, whisperModel)
-	case LangChainHuggingFace:
-		return ml.LoadModel(modelFile, langChainHuggingFace)
+	case LCHuggingFaceBackend:
+		return ml.LoadModel(modelFile, lcHuggingFace)
 	default:
 		return nil, fmt.Errorf("backend unsupported: %s", backendString)
 	}
