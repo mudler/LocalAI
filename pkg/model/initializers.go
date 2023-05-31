@@ -7,6 +7,7 @@ import (
 
 	rwkv "github.com/donomii/go-rwkv.cpp"
 	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
+	"github.com/go-skynet/LocalAI/pkg/langchain"
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
@@ -36,6 +37,7 @@ const (
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
+	LangChainHuggingFace   = "langchain-huggingface"
 )
 
 var backends []string = []string{
@@ -54,6 +56,7 @@ var backends []string = []string{
 	ReplitBackend,
 	StarcoderBackend,
 	BloomzBackend,
+	LangChainHuggingFace,
 }
 
 var starCoder = func(modelFile string) (interface{}, error) {
@@ -98,6 +101,11 @@ var stableDiffusion = func(assetDir string) (interface{}, error) {
 
 var whisperModel = func(modelFile string) (interface{}, error) {
 	return whisper.New(modelFile)
+}
+
+var langChainHuggingFace = func(repoId string) (interface{}, error) {
+	out, _ := langchain.NewHuggingFace(repoId)
+	return out, nil
 }
 
 func llamaLM(opts ...llama.ModelOption) func(string) (interface{}, error) {
@@ -159,6 +167,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, rwkvLM(filepath.Join(ml.ModelPath, modelFile+tokenizerSuffix), threads))
 	case WhisperBackend:
 		return ml.LoadModel(modelFile, whisperModel)
+	case LangChainHuggingFace:
+		return ml.LoadModel(modelFile, langChainHuggingFace)
 	default:
 		return nil, fmt.Errorf("backend unsupported: %s", backendString)
 	}
