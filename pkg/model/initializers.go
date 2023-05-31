@@ -56,7 +56,6 @@ var backends []string = []string{
 	ReplitBackend,
 	StarcoderBackend,
 	BloomzBackend,
-	LCHuggingFaceBackend,
 }
 
 var starCoder = func(modelFile string) (interface{}, error) {
