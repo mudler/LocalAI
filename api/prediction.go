@@ -507,7 +507,7 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 			}
 
 			pred, er := model.PredictHuggingFace(s, predictOptions...)
-			if nil != er {
+			if er != nil {
 				return "", er
 			}
 			return pred.Completion, nil
