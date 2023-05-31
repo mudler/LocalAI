@@ -4,7 +4,7 @@ Example of integration with HuggingFace Inference API with help of [langchaingo]
 
 ## Setup
 
-Download the models and start the API:
+Download the LocalAI and start the API:
 
 ```bash
 # Clone LocalAI
