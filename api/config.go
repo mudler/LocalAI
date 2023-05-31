@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -130,11 +130,18 @@ func (cm ConfigMerger) ListConfigs() []string {
 func (cm ConfigMerger) LoadConfigs(path string) error {
 	cm.Lock()
 	defer cm.Unlock()
-	files, err := ioutil.ReadDir(path)
+	entries, err := os.ReadDir(path)
 	if err != nil {
 		return err
 	}
-
+	files := make([]fs.FileInfo, 0, len(entries))
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		files = append(files, info)
+	}
 	for _, file := range files {
 		// Skip templates, YAML and .keep files
 		if !strings.Contains(file.Name(), ".yaml") {
