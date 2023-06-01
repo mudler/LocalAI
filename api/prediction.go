@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/donomii/go-rwkv.cpp"
+	"github.com/go-skynet/LocalAI/pkg/langchain"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	"github.com/go-skynet/bloomz.cpp"
@@ -493,6 +494,23 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 			// after a stream event has occurred
 			model.SetTokenCallback(nil)
 			return str, er
+		}
+	case *langchain.HuggingFace:
+		fn = func() (string, error) {
+
+			// Generate the prediction using the language model
+			predictOptions := []langchain.PredictOption{
+				langchain.SetModel(c.Model),
+				langchain.SetMaxTokens(c.Maxtokens),
+				langchain.SetTemperature(c.Temperature),
+				langchain.SetStopWords(c.StopWords),
+			}
+
+			pred, er := model.PredictHuggingFace(s, predictOptions...)
+			if er != nil {
+				return "", er
+			}
+			return pred.Completion, nil
 		}
 	}
 
