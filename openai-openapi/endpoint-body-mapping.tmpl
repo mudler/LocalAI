@@ -1,0 +1,19 @@
+// TEMP: Consider revising this in oapi-codegen to make cleaner or at least renaming....
+//type EndpointSpecificConfig interface {
+//    GetRequestDefaults() interface{}
+//}
+var EndpointConfigMap = map[string]Config{
+{{range .}}{{$opid := .OperationId -}}
+    {{if eq (len .Bodies) 1 -}}
+        {{with index .Bodies 0}}{{ $typeDef := .TypeDef $opid -}}
+            "{{$opid}}":SpecificConfig[{{$typeDef.TypeName}}]{},
+        {{end -}}
+    {{else -}}
+        {{range .Bodies -}}
+            {{if and .IsSupported .Default -}}
+                "{{$opid}}":SpecificConfig[{{.TypeName}}]{},{{break -}}
+            {{end -}}
+        {{end -}}
+    {{end -}}
+{{end -}}
+}

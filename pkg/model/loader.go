@@ -14,16 +14,18 @@ import (
 )
 
 type ModelLoader struct {
-	ModelPath string
-	mu        sync.Mutex
+	ModelPath     string
+	TemplatesPath string
+	mu            sync.Mutex
 	// TODO: this needs generics
 	models           map[string]interface{}
 	promptsTemplates map[string]*template.Template
 }
 
-func NewModelLoader(modelPath string) *ModelLoader {
+func NewModelLoader(modelPath string, templatesPath string) *ModelLoader {
 	return &ModelLoader{
 		ModelPath:        modelPath,
+		TemplatesPath:    templatesPath,
 		models:           make(map[string]interface{}),
 		promptsTemplates: make(map[string]*template.Template),
 	}

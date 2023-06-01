@@ -2,122 +2,202 @@ package apiv2
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v2"
 )
 
-type Config struct {
-	Name            string      `yaml:"name"`
-	Endpoint        string      `yaml:"endpoint"`
-	Template        string      `yaml:"template"`
-	RequestDefaults interface{} `yaml:"request_defaults"`
+type ConfigRegistration struct {
+	Endpoint string `yaml:"endpoint" json:"endpoint" mapstructure:"endpoint"`
+	Model    string `yaml:"model" json:"model" mapstructure:"model"`
 }
 
-type ConfigMerger struct {
-	configs map[string]Config
+type ConfigLocalPaths struct {
+	Model    string `yaml:"model" mapstructure:"model"`
+	Template string `yaml:"template" mapstructure:"template"`
+}
+
+type ConfigStub struct {
+	Registration ConfigRegistration `yaml:"registration" mapstructure:"registration"`
+	LocalPaths   ConfigLocalPaths   `yaml:"local_paths" mapstructure:"local_paths"`
+}
+
+type SpecificConfig[RequestModel any] struct {
+	ConfigStub      `mapstructure:",squash"`
+	RequestDefaults RequestModel `yaml:"request_defaults" mapstructure:"request_defaults"`
+}
+
+// type Config struct {
+// 	Registration    ConfigRegistration `yaml:"registration"`
+// 	LocalPaths      ConfigLocalPaths   `yaml:"local_paths"`
+// 	RequestDefaults interface{}        `yaml:"request_defaults"`
+// }
+
+type Config interface {
+	GetRequestDefaults() interface{}
+	GetLocalPaths() ConfigLocalPaths
+	GetRegistration() ConfigRegistration
+}
+
+func (sc SpecificConfig[RequestModel]) GetRequestDefaults() interface{} {
+	return sc.RequestDefaults
+}
+
+func (sc SpecificConfig[RequestModel]) GetLocalPaths() ConfigLocalPaths {
+	return sc.LocalPaths
+}
+
+func (sc SpecificConfig[RequestModel]) GetRegistration() ConfigRegistration {
+	return sc.Registration
+}
+
+type ConfigManager struct {
+	configs map[ConfigRegistration]Config
 	sync.Mutex
 }
 
-func NewConfigMerger() *ConfigMerger {
-	return &ConfigMerger{
-		configs: make(map[string]Config),
+func NewConfigManager() *ConfigManager {
+	return &ConfigManager{
+		configs: make(map[ConfigRegistration]Config),
 	}
 }
-func ReadConfigFile(file string) ([]*Config, error) {
-	c := &[]*Config{}
-	f, err := os.ReadFile(file)
+
+// Private helper method doesn't enforce the mutex. This is because loading at the directory level keeps the lock up the whole time, and I like that.
+func (cm *ConfigManager) loadConfigFile(path string) (*Config, error) {
+	fmt.Printf("INTERNAL loadConfigFile for %s\n", path)
+	stub := ConfigStub{}
+	f, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read config file: %w", err)
 	}
-	if err := yaml.Unmarshal(f, c); err != nil {
+	if err := yaml.Unmarshal(f, &stub); err != nil {
 		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
 	}
+	fmt.Printf("RAW STUB: %+v\n", stub)
+	// fmt.Printf("DUMB SHIT: %+v\n%T\n", EndpointToRequestBodyMap[rawConfig.Registration.Endpoint], EndpointToRequestBodyMap[rawConfig.Registration.Endpoint])
 
-	return *c, nil
+	endpoint := stub.Registration.Endpoint
+
+	// EndpointConfigMap is generated over in localai.gen.go
+	// It's a map that translates a string endpoint function name to an empty SpecificConfig[T], with the type parameter for that request.
+	if structType, ok := EndpointConfigMap[endpoint]; ok {
+		fmt.Printf("~~ EndpointConfigMap[%s]: %+v\n", endpoint, structType)
+		tmpUnmarshal := map[string]interface{}{}
+		if err := yaml.Unmarshal(f, &tmpUnmarshal); err != nil {
+			if e, ok := err.(*yaml.TypeError); ok {
+				fmt.Println("\n!!!!!Type error:", e)
+			}
+			return nil, fmt.Errorf("cannot unmarshal config file for %s: %w", endpoint, err)
+		}
+		fmt.Printf("$$$ tmpUnmarshal: %+v\n", tmpUnmarshal)
+		mapstructure.Decode(tmpUnmarshal, &structType)
+
+		fmt.Printf("AFTER UNMARSHAL %T\n%+v\n=======\n", structType, structType)
+
+		// rawConfig.RequestDefaults = structType.GetRequestDefaults()
+
+		cm.configs[structType.GetRegistration()] = structType
+		// fmt.Printf("\n\n\n!!!!!HIT BOTTOM!!!!!!")
+		return &structType, nil
+		// fmt.Printf("\n\n\n!!!!!\n\n\nBIG MISS!\n\n%+v\n\n%T\n%T=====", specificStruct, specificStruct, structType)
+	}
+
+	// for i, ts := range EndpointToRequestBodyMap {
+	// 	fmt.Printf("%s: %+v\n", i, ts)
+	// }
+
+	return nil, fmt.Errorf("failed to parse config for endpoint %s", endpoint)
 }
 
-func ReadConfig(file string) (*Config, error) {
-	c := &Config{}
-	f, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read config file: %w", err)
-	}
-	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
-	}
+func (cm *ConfigManager) LoadConfigFile(path string) (*Config, error) {
+	fmt.Printf("LoadConfigFile TOP for %s", path)
 
-	return c, nil
+	cm.Lock()
+	fmt.Println("cm.Lock done")
+
+	defer cm.Unlock()
+	fmt.Println("cm.Unlock done")
+
+	return cm.loadConfigFile(path)
 }
 
-func (cm ConfigMerger) LoadConfigFile(file string) error {
+func (cm *ConfigManager) LoadConfigDirectory(path string) ([]ConfigRegistration, error) {
+	fmt.Printf("LoadConfigDirectory TOP for %s\n", path)
 	cm.Lock()
 	defer cm.Unlock()
-	c, err := ReadConfigFile(file)
+	files, err := os.ReadDir(path)
 	if err != nil {
-		return fmt.Errorf("cannot load config file: %w", err)
+		return []ConfigRegistration{}, err
+	}
+	fmt.Printf("os.ReadDir done, found %d files\n", len(files))
+
+	for _, file := range files {
+		// Skip anything that isn't yaml
+		if !strings.Contains(file.Name(), ".yaml") {
+			continue
+		}
+		_, err := cm.loadConfigFile(filepath.Join(path, file.Name()))
+		if err != nil {
+			return []ConfigRegistration{}, err
+		}
 	}
 
-	for _, cc := range c {
-		cm.configs[cc.Name] = *cc
-	}
-	return nil
+	fmt.Printf("LoadConfigDirectory DONE %d", len(cm.configs))
+
+	return cm.listConfigs(), nil
 }
 
-func (cm ConfigMerger) LoadConfig(file string) error {
+func (cm *ConfigManager) GetConfig(r ConfigRegistration) (Config, bool) {
 	cm.Lock()
 	defer cm.Unlock()
-	c, err := ReadConfig(file)
-	if err != nil {
-		return fmt.Errorf("cannot read config file: %w", err)
-	}
-
-	cm.configs[c.Name] = *c
-	return nil
-}
-
-func (cm ConfigMerger) GetConfig(m string) (Config, bool) {
-	cm.Lock()
-	defer cm.Unlock()
-	v, exists := cm.configs[m]
+	v, exists := cm.configs[r]
 	return v, exists
 }
 
-func (cm ConfigMerger) ListConfigs() []string {
-	cm.Lock()
-	defer cm.Unlock()
-	var res []string
+func (cm *ConfigManager) listConfigs() []ConfigRegistration {
+	var res []ConfigRegistration
 	for k := range cm.configs {
 		res = append(res, k)
 	}
 	return res
 }
 
-func (cm ConfigMerger) LoadConfigs(path string) error {
+func (cm *ConfigManager) ListConfigs() []ConfigRegistration {
 	cm.Lock()
 	defer cm.Unlock()
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		// Skip templates, YAML and .keep files
-		if !strings.Contains(file.Name(), ".yaml") {
-			continue
-		}
-		c, err := ReadConfig(filepath.Join(path, file.Name()))
-		if err == nil {
-			cm.configs[c.Name] = *c
-		}
-	}
-
-	return nil
+	return cm.listConfigs()
 }
+
+// // Not sure about this one, but it seems like a decent place to stick it for an experiment at least.
+// func (cm *ConfigManager) GetTextConfigForRequest()
+
+// func (cm *ConfigMerger) LoadConfigs(path string) error {
+// 	cm.Lock()
+// 	defer cm.Unlock()
+// 	files, err := ioutil.ReadDir(path)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	for _, file := range files {
+// 		// Skip templates, YAML and .keep files
+// 		if !strings.Contains(file.Name(), ".yaml") {
+// 			continue
+// 		}
+// 		c, err := ReadConfig(filepath.Join(path, file.Name()))
+// 		if err == nil {
+// 			cm.configs[ConfigLookup{Name: c.Name, Endpoint: c.Endpoint}] = *c
+// 		}
+// 	}
+
+// 	return nil
+// }
+
+// func (cm *ConfigMerger) Get
 
 // func updateConfig(config *Config, input *OpenAIRequest) {
 // 	if input.Echo {

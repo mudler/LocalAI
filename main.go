@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	api "github.com/go-skynet/LocalAI/api"
+	apiv2 "github.com/go-skynet/LocalAI/apiv2"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -21,6 +22,31 @@ func main() {
 		log.Error().Msgf("error: %s", err.Error())
 		os.Exit(1)
 	}
+
+	log.Log().Msgf("STARTING!")
+
+	// TODO REALLY SHIT TEST MUST BE FIXED BEFORE MERGE
+	v2ConfigManager := apiv2.NewConfigManager()
+	log.Log().Msgf("v2ConfigManager init %+v", v2ConfigManager)
+	registered, cfgErr := v2ConfigManager.LoadConfigDirectory("/workspace/config")
+
+	fmt.Printf("!=!")
+
+	log.Log().Msgf("NEW v2 test cfgErr: %w \nREGISTRATIONS:", cfgErr)
+
+	for i, reg := range registered {
+		log.Log().Msgf("%d: %+v", i, reg)
+
+		testField, exists := v2ConfigManager.GetConfig(reg)
+		if exists {
+			log.Log().Msgf("!! %s: %s", testField.GetRegistration().Endpoint, testField.GetLocalPaths().Model)
+		}
+
+	}
+
+	v2Server := apiv2.NewLocalAINetHTTPServer(v2ConfigManager)
+
+	log.Log().Msgf("NEW v2 test: %+v", v2Server)
 
 	app := &cli.App{
 		Name:  "LocalAI",
@@ -94,7 +120,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
 			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
-			return api.App(context.Background(), ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path")), ctx.Int("upload-limit"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false, ctx.String("image-path")).Listen(ctx.String("address"))
+			return api.App(context.Background(), ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path"), ctx.String("templates-path")), ctx.Int("upload-limit"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false, ctx.String("image-path")).Listen(ctx.String("address"))
 		},
 	}
 

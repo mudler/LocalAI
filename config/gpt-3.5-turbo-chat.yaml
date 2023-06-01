@@ -1,0 +1,11 @@
+registration:
+  model: gpt-3.5-turbo
+  endpoint: CreateChatCompletion
+local_paths:
+  model: ggml-gpt4all-j
+  template: chat-gpt4all
+request_defaults:
+  top_p: 0.7
+  temperature: 0.2
+  x-localai-extensions:
+    top_k: 80
