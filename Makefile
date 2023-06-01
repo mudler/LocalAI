@@ -63,6 +63,9 @@ gpt4all:
 	git clone --recurse-submodules $(GPT4ALL_REPO) gpt4all
 	cd gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
+	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
+	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
+	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.cpp" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.go" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.h" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
@@ -112,9 +115,11 @@ bloomz/libbloomz.a: bloomz
 go-bert/libgobert.a: go-bert
 	$(MAKE) -C go-bert libgobert.a
 
-backend-assets/gpt4all/libllmodel.so: gpt4all/gpt4all-bindings/golang/libgpt4all.a
-	mkdir -p backend-assets/gpt4all/
-	$(shell cp gpt4all/gpt4all-bindings/golang/buildllm/*.so ./backend-assets/gpt4all/)
+backend-assets/gpt4all: gpt4all/gpt4all-bindings/golang/libgpt4all.a
+	mkdir -p backend-assets/gpt4all
+	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.so backend-assets/gpt4all/
+	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dynlib backend-assets/gpt4all/ || true
+	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
 
 gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ libgpt4all.a
@@ -151,9 +156,6 @@ whisper.cpp/libwhisper.a: whisper.cpp
 go-llama:
 	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
 	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
-	@find ./go-llama -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_llama_/g' {} +
-	@find ./go-llama -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_llama_/g' {} +
-	@find ./go-llama -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_llama_/g' {} +
 
 go-llama/libbinding.a: go-llama 
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
@@ -183,7 +185,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C bloomz clean
 	$(MAKE) build
 
-prepare: prepare-sources gpt4all/gpt4all-bindings/golang/libgpt4all.a backend-assets/gpt4all/libllmodel.so $(OPTIONAL_TARGETS) go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
+prepare: prepare-sources backend-assets/gpt4all $(OPTIONAL_TARGETS) go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
