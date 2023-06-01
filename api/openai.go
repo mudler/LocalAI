@@ -190,10 +190,6 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			templateFile = config.TemplateConfig.Completion
 		}
 
-		if (len(config.PromptStrings) > 1) {
-			return errors.New("cannot handle more than 1 `PromptStrings`")
-		}
-
 		predInput := config.PromptStrings[0]
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
@@ -206,6 +202,10 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		}
 
 		if input.Stream {
+			if (len(config.PromptStrings) > 1) {
+				return errors.New("cannot handle more than 1 `PromptStrings` when `Stream`ing")
+			}
+
 			responses := make(chan OpenAIResponse)
 
 			go process(predInput, input, config, o.loader, responses)
