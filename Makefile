@@ -117,8 +117,8 @@ go-bert/libgobert.a: go-bert
 
 backend-assets/gpt4all: gpt4all/gpt4all-bindings/golang/libgpt4all.a
 	mkdir -p backend-assets/gpt4all
-	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.so backend-assets/gpt4all/
-	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dynlib backend-assets/gpt4all/ || true
+	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.so backend-assets/gpt4all/ || true
+	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dylib backend-assets/gpt4all/ || true
 	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
 
 gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
