@@ -7,6 +7,7 @@ import (
 
 	rwkv "github.com/donomii/go-rwkv.cpp"
 	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
+	"github.com/go-skynet/LocalAI/pkg/langchain"
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
@@ -36,6 +37,7 @@ const (
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
+	LCHuggingFaceBackend   = "langchain-huggingface"
 )
 
 var backends []string = []string{
@@ -100,6 +102,10 @@ var whisperModel = func(modelFile string) (interface{}, error) {
 	return whisper.New(modelFile)
 }
 
+var lcHuggingFace = func(repoId string) (interface{}, error) {
+	return langchain.NewHuggingFace(repoId)
+}
+
 func llamaLM(opts ...llama.ModelOption) func(string) (interface{}, error) {
 	return func(s string) (interface{}, error) {
 		return llama.New(s, opts...)
@@ -159,6 +165,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, rwkvLM(filepath.Join(ml.ModelPath, modelFile+tokenizerSuffix), threads))
 	case WhisperBackend:
 		return ml.LoadModel(modelFile, whisperModel)
+	case LCHuggingFaceBackend:
+		return ml.LoadModel(modelFile, lcHuggingFace)
 	default:
 		return nil, fmt.Errorf("backend unsupported: %s", backendString)
 	}

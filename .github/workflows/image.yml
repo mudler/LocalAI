@@ -15,34 +15,42 @@ concurrency:
 
 jobs:
   docker:
+    strategy:
+      matrix:
+        include:
+          - build-type: ''
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: ''
+          - build-type: 'cublas'
+            cuda-major-version: 11
+            cuda-minor-version: 7
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-cublas-cuda11'
+          - build-type: 'cublas'
+            cuda-major-version: 12
+            cuda-minor-version: 1
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-cublas-cuda12'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Prepare
-        id: prep
-        run: |
-          DOCKER_IMAGE=quay.io/go-skynet/local-ai
-          VERSION=master
-          SHORTREF=${GITHUB_SHA::8}
-
-          # If this is git tag, use the tag name as a docker tag
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-          fi
-          TAGS="${DOCKER_IMAGE}:${VERSION},${DOCKER_IMAGE}:${SHORTREF}"
-
-          # If the VERSION looks like a version number, assume that
-          # this is the most recent version of the image and also
-          # tag it 'latest'.
-          if [[ $VERSION =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            TAGS="$TAGS,${DOCKER_IMAGE}:latest"
-          fi
-
-          # Set output parameters.
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=docker_image::${DOCKER_IMAGE}
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: quay.io/go-skynet/local-ai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=${{ matrix.tag-latest }}
+            suffix=${{ matrix.tag-suffix }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
@@ -60,23 +68,18 @@ jobs:
           registry: quay.io
           username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
           password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-      - name: Build
-        if: github.event_name != 'pull_request'
+
+      - name: Build and push
         uses: docker/build-push-action@v4
         with:
           builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BUILD_TYPE=${{ matrix.build-type }}
+            CUDA_MAJOR_VERSION=${{ matrix.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ matrix.cuda-minor-version }}
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.prep.outputs.tags }}
-      - name: Build PRs
-        if: github.event_name == 'pull_request'
-        uses: docker/build-push-action@v4
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          push: false
-          tags: ${{ steps.prep.outputs.tags }}
+          platforms: ${{ matrix.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

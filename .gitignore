@@ -24,3 +24,4 @@ release/
 
 # just in case
 .DS_Store
+.idea
