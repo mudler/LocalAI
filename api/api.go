@@ -66,6 +66,13 @@ func App(opts ...AppOption) (*fiber.App, error) {
 			log.Debug().Msgf("Model: %s (config: %+v)", v, cfg)
 		}
 	}
+
+	if options.assetsDestination != "" {
+		if err := PrepareBackendAssets(options.backendAssets, options.assetsDestination); err != nil {
+			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
+		}
+	}
+
 	// Default middleware config
 	app.Use(recover.New())
 

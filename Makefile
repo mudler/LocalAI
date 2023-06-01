@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 GOLLAMA_VERSION?=10caf37d8b73386708b4373975b8917e6b212c0e
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
-GPT4ALL_VERSION?=337c7fecacfa4ae6779046513ab090687a5b0ef6
+GPT4ALL_VERSION?=682a383e0650e2126b6dd0e8ca59ed3558e1cd0e
 GOGGMLTRANSFORMERS_VERSION?=13ccc22621bb21afecd38675a2b043498e2e756c
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=ccb05c3e1c6efd098017d114dcb58ab3262b40b2
@@ -63,22 +63,10 @@ gpt4all:
 	git clone --recurse-submodules $(GPT4ALL_REPO) gpt4all
 	cd gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
-	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
-	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_gptj_/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/gpt_/gptj_/g' {} +
-	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/gpt_/gptj_/g' {} +
-	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/set_console_color/set_gptj_console_color/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/set_console_color/set_gptj_console_color/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/llama_/gptjllama_/g' {} +
-	@find ./gpt4all -type f -name "*.go" -exec sed -i'' -e 's/llama_/gptjllama_/g' {} +
-	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/llama_/gptjllama_/g' {} +
-	@find ./gpt4all -type f -name "*.txt" -exec sed -i'' -e 's/llama_/gptjllama_/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/json_/json_gptj_/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/void replace/void json_gptj_replace/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/::replace/::json_gptj_replace/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/regex_escape/gpt4allregex_escape/g' {} +
-	mv ./gpt4all/gpt4all-backend/llama.cpp/llama_util.h ./gpt4all/gpt4all-backend/llama.cpp/gptjllama_util.h
+	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.cpp" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
+	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.go" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
+	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.h" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
+
 
 ## BERT embeddings
 go-bert:
@@ -124,6 +112,10 @@ bloomz/libbloomz.a: bloomz
 go-bert/libgobert.a: go-bert
 	$(MAKE) -C go-bert libgobert.a
 
+backend-assets/gpt4all/libllmodel.so: gpt4all/gpt4all-bindings/golang/libgpt4all.a
+	mkdir -p backend-assets/gpt4all/
+	$(shell cp gpt4all/gpt4all-bindings/golang/buildllm/*.so ./backend-assets/gpt4all/)
+
 gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ libgpt4all.a
 
@@ -159,6 +151,9 @@ whisper.cpp/libwhisper.a: whisper.cpp
 go-llama:
 	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
 	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
+	@find ./go-llama -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_llama_/g' {} +
+	@find ./go-llama -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_llama_/g' {} +
+	@find ./go-llama -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_llama_/g' {} +
 
 go-llama/libbinding.a: go-llama 
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
@@ -188,7 +183,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C bloomz clean
 	$(MAKE) build
 
-prepare: prepare-sources gpt4all/gpt4all-bindings/golang/libgpt4all.a $(OPTIONAL_TARGETS) go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
+prepare: prepare-sources gpt4all/gpt4all-bindings/golang/libgpt4all.a backend-assets/gpt4all/libllmodel.so $(OPTIONAL_TARGETS) go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
@@ -196,6 +191,7 @@ clean: ## Remove build related file
 	rm -rf ./go-gpt2
 	rm -rf ./go-stable-diffusion
 	rm -rf ./go-ggml-transformers
+	rm -rf ./backend-assets
 	rm -rf ./go-rwkv
 	rm -rf ./go-bert
 	rm -rf ./bloomz

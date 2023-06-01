@@ -33,6 +33,7 @@ const (
 	Gpt4AllLlamaBackend    = "gpt4all-llama"
 	Gpt4AllMptBackend      = "gpt4all-mpt"
 	Gpt4AllJBackend        = "gpt4all-j"
+	Gpt4All                = "gpt4all"
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
@@ -42,9 +43,7 @@ const (
 
 var backends []string = []string{
 	LlamaBackend,
-	Gpt4AllLlamaBackend,
-	Gpt4AllMptBackend,
-	Gpt4AllJBackend,
+	Gpt4All,
 	RwkvBackend,
 	GPTNeoXBackend,
 	WhisperBackend,
@@ -153,12 +152,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, stableDiffusion)
 	case StarcoderBackend:
 		return ml.LoadModel(modelFile, starCoder)
-	case Gpt4AllLlamaBackend:
-		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads)), gpt4all.SetModelType(gpt4all.LLaMAType)))
-	case Gpt4AllMptBackend:
-		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads)), gpt4all.SetModelType(gpt4all.MPTType)))
-	case Gpt4AllJBackend:
-		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads)), gpt4all.SetModelType(gpt4all.GPTJType)))
+	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
+		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads))))
 	case BertEmbeddingsBackend:
 		return ml.LoadModel(modelFile, bertEmbeddings)
 	case RwkvBackend:
