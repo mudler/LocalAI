@@ -23,7 +23,7 @@ require (
 	github.com/sashabaranov/go-openai v1.9.5
 	github.com/swaggo/swag v1.16.1
 	github.com/tmc/langchaingo v0.0.0-20230530193922-fb062652f841
-	github.com/urfave/cli/v2 v2.25.3
+	github.com/urfave/cli/v2 v2.25.5
 	github.com/valyala/fasthttp v1.47.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
