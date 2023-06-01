@@ -10,7 +10,7 @@ GOGGMLTRANSFORMERS_VERSION?=13ccc22621bb21afecd38675a2b043498e2e756c
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=ccb05c3e1c6efd098017d114dcb58ab3262b40b2
 WHISPER_CPP_VERSION?=3f7436e8a09611931709b29f5c507245c8c1d7a4
-BERT_VERSION?=771b4a08597224b21cff070950ef4f68690e14ad
+BERT_VERSION?=0548994371f7081e45fcf8d472f3941a12f179aa
 BLOOMZ_VERSION?=1834e77b83faafe912ad4092ccf7f77937349e2f
 BUILD_TYPE?=
 CGO_LDFLAGS?=
@@ -235,7 +235,7 @@ test-models/testmodel:
 
 test: prepare test-models/testmodel
 	cp tests/models_fixtures/* test-models
-	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flakeAttempts 5 -v -r ./api ./pkg
+	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts 5 -v -r ./api ./pkg
 
 ## Help:
 help: ## Show this help.
