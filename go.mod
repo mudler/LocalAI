@@ -3,7 +3,7 @@ module github.com/go-skynet/LocalAI
 go 1.19
 
 require (
-	github.com/donomii/go-rwkv.cpp v0.0.0-20230531084548-c43cdf5fc5bf
+	github.com/donomii/go-rwkv.cpp v0.0.0-20230601111443-3b28b09469fc
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230601065548-3f7436e8a096
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230510223001-e9366e82abdf
@@ -22,6 +22,7 @@ require (
 	github.com/rs/zerolog v1.29.1
 	github.com/sashabaranov/go-openai v1.9.5
 	github.com/swaggo/swag v1.16.1
+	github.com/tmc/langchaingo v0.0.0-20230530193922-fb062652f841
 	github.com/urfave/cli/v2 v2.25.3
 	github.com/valyala/fasthttp v1.47.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -59,7 +60,6 @@ require (
 	github.com/savsgio/dictpool v0.0.0-20221023140959-7bf2e61cea94 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
-	github.com/tmc/langchaingo v0.0.0-20230530193922-fb062652f841 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
