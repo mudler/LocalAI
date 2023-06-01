@@ -198,6 +198,8 @@ github.com/tmc/langchaingo v0.0.0-20230530193922-fb062652f841 h1:IVlfKPZzq3W1G+C
 github.com/tmc/langchaingo v0.0.0-20230530193922-fb062652f841/go.mod h1:6l1WoyqVDwkv7cFlY3gfcTv8yVowVyuutKv8PGlQCWI=
 github.com/urfave/cli/v2 v2.25.3 h1:VJkt6wvEBOoSjPFQvOkv6iWIrsJyCrKGtCtxXWwmGeY=
 github.com/urfave/cli/v2 v2.25.3/go.mod h1:GHupkWPMM0M/sj1a2b4wUrWBPzazNrIjouW6fmdJLxc=
+github.com/urfave/cli/v2 v2.25.5 h1:d0NIAyhh5shGscroL7ek/Ya9QYQE0KNabJgiUinIQkc=
+github.com/urfave/cli/v2 v2.25.5/go.mod h1:GHupkWPMM0M/sj1a2b4wUrWBPzazNrIjouW6fmdJLxc=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.47.0 h1:y7moDoxYzMooFpT5aHgNgVOQDrS3qlkfiP9mDtGGK9c=
