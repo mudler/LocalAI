@@ -80,6 +80,12 @@ func main() {
 				EnvVars:     []string{"IMAGE_PATH"},
 				Value:       "",
 			},
+			&cli.StringFlag{
+				Name:        "backend-assets-path",
+				DefaultText: "Path used to extract libraries that are required by some of the backends in runtime.",
+				EnvVars:     []string{"BACKEND_ASSETS_PATH"},
+				Value:       "/tmp/localai/backend_data",
+			},
 			&cli.IntFlag{
 				Name:        "context-size",
 				DefaultText: "Default context size of the model",
@@ -124,6 +130,8 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 				api.WithCors(ctx.Bool("cors")),
 				api.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
 				api.WithThreads(ctx.Int("threads")),
+				api.WithBackendAssets(backendAssets),
+				api.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
 				api.WithUploadLimitMB(ctx.Int("upload-limit")))
 			if err != nil {
 				return err
