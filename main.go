@@ -25,29 +25,6 @@ func main() {
 
 	log.Log().Msgf("STARTING!")
 
-	// TODO REALLY SHIT TEST MUST BE FIXED BEFORE MERGE
-	v2ConfigManager := apiv2.NewConfigManager()
-	log.Log().Msgf("v2ConfigManager init %+v", v2ConfigManager)
-	registered, cfgErr := v2ConfigManager.LoadConfigDirectory("/workspace/config")
-
-	fmt.Printf("!=!")
-
-	log.Log().Msgf("NEW v2 test cfgErr: %w \nREGISTRATIONS:", cfgErr)
-
-	for i, reg := range registered {
-		log.Log().Msgf("%d: %+v", i, reg)
-
-		testField, exists := v2ConfigManager.GetConfig(reg)
-		if exists {
-			log.Log().Msgf("!! %s: %s", testField.GetRegistration().Endpoint, testField.GetLocalPaths().Model)
-		}
-
-	}
-
-	v2Server := apiv2.NewLocalAINetHTTPServer(v2ConfigManager)
-
-	log.Log().Msgf("NEW v2 test: %+v", v2Server)
-
 	app := &cli.App{
 		Name:  "LocalAI",
 		Usage: "OpenAI compatible API for running LLaMA/GPT models locally on CPU with consumer grade hardware.",
@@ -73,6 +50,18 @@ func main() {
 				Value:       filepath.Join(path, "models"),
 			},
 			&cli.StringFlag{
+				Name:        "template-path",
+				DefaultText: "Path containing templates used for inferencing",
+				EnvVars:     []string{"TEMPLATES_PATH"},
+				Value:       filepath.Join(path, "templates"),
+			},
+			&cli.StringFlag{
+				Name:        "config-path",
+				DefaultText: "Path containing model/endpoint configurations",
+				EnvVars:     []string{"CONFIG_PATH"},
+				Value:       filepath.Join(path, "config"),
+			},
+			&cli.StringFlag{
 				Name:        "config-file",
 				DefaultText: "Config file",
 				EnvVars:     []string{"CONFIG_FILE"},
@@ -82,6 +71,12 @@ func main() {
 				DefaultText: "Bind address for the API server.",
 				EnvVars:     []string{"ADDRESS"},
 				Value:       ":8080",
+			},
+			&cli.StringFlag{
+				Name:        "addressv2",
+				DefaultText: "Bind address for the API server (DEBUG v2 TEST)",
+				EnvVars:     []string{"ADDRESS_V2"},
+				Value:       ":8085",
 			},
 			&cli.StringFlag{
 				Name:        "image-path",
@@ -120,7 +115,33 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
 			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
-			return api.App(context.Background(), ctx.String("config-file"), model.NewModelLoader(ctx.String("models-path"), ctx.String("templates-path")), ctx.Int("upload-limit"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false, ctx.String("image-path")).Listen(ctx.String("address"))
+
+			loader := model.NewModelLoader(ctx.String("models-path"), ctx.String("templates-path"))
+
+			if av2 := ctx.String("addressv2"); av2 != "" {
+
+				v2ConfigManager := apiv2.NewConfigManager()
+				registered, cfgErr := v2ConfigManager.LoadConfigDirectory(ctx.String("config-path"))
+
+				if cfgErr != nil {
+					panic("failed to load config directory todo better handler here")
+				}
+
+				for i, reg := range registered {
+					log.Log().Msgf("%d: %+v", i, reg)
+
+					testField, exists := v2ConfigManager.GetConfig(reg)
+					if exists {
+						log.Log().Msgf("!! %s: %s", testField.GetRegistration().Endpoint, testField.GetLocalPaths().Model)
+					}
+
+				}
+
+				v2Server := apiv2.NewLocalAINetHTTPServer(v2ConfigManager, loader, ctx.String("addressv2"))
+
+				log.Log().Msgf("NEW v2 test: %+v", v2Server)
+			}
+			return api.App(context.Background(), ctx.String("config-file"), loader, ctx.Int("upload-limit"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false, ctx.String("image-path")).Listen(ctx.String("address"))
 		},
 	}
 

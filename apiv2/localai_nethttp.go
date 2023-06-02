@@ -1,16 +1,21 @@
 package apiv2
 
-import "net/http"
+import (
+	"net/http"
 
-func NewLocalAINetHTTPServer(configManager *ConfigManager) *LocalAIServer {
+	"github.com/go-skynet/LocalAI/pkg/model"
+)
+
+func NewLocalAINetHTTPServer(configManager *ConfigManager, loader *model.ModelLoader, address string) *LocalAIServer {
 	localAI := LocalAIServer{
 		configManager: configManager,
+		loader:        loader,
 	}
 
 	var middlewares []StrictMiddlewareFunc
 
 	http.Handle("/", Handler(NewStrictHandler(&localAI, middlewares)))
 
-	http.ListenAndServe(":8085", nil)
+	http.ListenAndServe(address, nil)
 	return &localAI
 }

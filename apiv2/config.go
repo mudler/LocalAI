@@ -59,6 +59,10 @@ func (sc SpecificConfig[RequestModel]) GetRequestDefaults() interface{} {
 	return sc.RequestDefaults
 }
 
+func (sc SpecificConfig[RequestModel]) GetRequest() RequestModel {
+	return sc.RequestDefaults
+}
+
 func (sc SpecificConfig[RequestModel]) GetLocalPaths() ConfigLocalPaths {
 	return sc.LocalPaths
 }
@@ -90,7 +94,6 @@ func (cm *ConfigManager) loadConfigFile(path string) (*Config, error) {
 		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
 	}
 	fmt.Printf("RAW STUB: %+v\n", stub)
-	// fmt.Printf("DUMB SHIT: %+v\n%T\n", EndpointToRequestBodyMap[rawConfig.Registration.Endpoint], EndpointToRequestBodyMap[rawConfig.Registration.Endpoint])
 
 	endpoint := stub.Registration.Endpoint
 

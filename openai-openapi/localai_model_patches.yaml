@@ -77,4 +77,15 @@ components:
         #@overlay/match missing_ok=True
         x-localai-extensions:
            $ref: "#/components/schemas/LocalAIImageRequestExtension"
-            
+    CreateChatCompletionResponse:
+      properties:
+        choices:
+          items:
+            #@overlay/match missing_ok=True
+            x-go-type-name: "CreateChatCompletionResponseChoice"
+    CreateCompletionResponse:
+      properties:
+        choices:
+          items:
+            #@overlay/match missing_ok=True
+            x-go-type-name: "CreateCompletionResponseChoice"
