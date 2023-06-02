@@ -98,7 +98,7 @@ require (
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
-	golang.org/x/tools v0.9.1 // indirect
+	golang.org/x/tools v0.9.2 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 )
 
@@ -118,4 +118,4 @@ replace github.com/go-skynet/bloomz.cpp => /workspace/bloomz
 
 replace github.com/mudler/go-stable-diffusion => /workspace/go-stable-diffusion
 
-replace github.com/deepmap/oapi-codegen v1.12.4 => github.com/dave-gray101/oapi-codegen v0.0.0-20230601032358-055c3446c85e
+replace github.com/deepmap/oapi-codegen v1.12.4 => github.com/dave-gray101/oapi-codegen v0.0.0-20230601175843-6acf0cf32d63

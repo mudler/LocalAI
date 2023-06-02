@@ -7,7 +7,9 @@ func NewLocalAINetHTTPServer(configManager *ConfigManager) *LocalAIServer {
 		configManager: configManager,
 	}
 
-	http.Handle("/", Handler(&localAI))
+	var middlewares []StrictMiddlewareFunc
+
+	http.Handle("/", Handler(NewStrictHandler(&localAI, middlewares)))
 
 	http.ListenAndServe(":8085", nil)
 	return &localAI

@@ -2,6 +2,7 @@ package: apiv2
 generate:
   models: true
   chi-server: true
+  strict-server: true
 output: apiv2/localai.gen.go
 output-options:
   exclude-depreciated: true
@@ -10,6 +11,7 @@ output-options:
     - mapstructure
   user-templates:
     endpoint-body-mapping.tmpl: ./openai-openapi/endpoint-body-mapping.tmpl
+    # chi/chi-interface.tmpl: ./openai-openapi/chi-interface.tmpl
 #     union.tmpl: "// SKIP"
 #     union-and-additional-properties.tmpl: "// SKIP"
 #     additional-properties.tmpl: "// SKIP"

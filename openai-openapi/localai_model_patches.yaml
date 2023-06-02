@@ -58,6 +58,9 @@ components:
         - type: object
           nullable: true
           properties:
+            model:
+              type: string
+              nullable: false
             mode:
               type: integer
               nullable: true

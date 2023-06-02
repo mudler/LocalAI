@@ -43,6 +43,18 @@ type Config interface {
 	GetRegistration() ConfigRegistration
 }
 
+func (cs ConfigStub) GetRequestDefaults() interface{} {
+	return nil
+}
+
+func (cs ConfigStub) GetLocalPaths() ConfigLocalPaths {
+	return cs.LocalPaths
+}
+
+func (cs ConfigStub) GetRegistration() ConfigRegistration {
+	return cs.Registration
+}
+
 func (sc SpecificConfig[RequestModel]) GetRequestDefaults() interface{} {
 	return sc.RequestDefaults
 }
@@ -156,6 +168,17 @@ func (cm *ConfigManager) GetConfig(r ConfigRegistration) (Config, bool) {
 	defer cm.Unlock()
 	v, exists := cm.configs[r]
 	return v, exists
+}
+
+// This is a convience function for endpoint functions to use.
+// The advantage is it avoids errors in the endpoint string
+// Not a clue what the performance cost of this is.
+func (cm *ConfigManager) GetConfigForThisEndpoint(m string) (Config, bool) {
+	endpoint := printCurrentFunctionName(2)
+	return cm.GetConfig(ConfigRegistration{
+		Model:    m,
+		Endpoint: endpoint,
+	})
 }
 
 func (cm *ConfigManager) listConfigs() []ConfigRegistration {
