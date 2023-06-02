@@ -7,8 +7,8 @@ GOLLAMA_VERSION?=10caf37d8b73386708b4373975b8917e6b212c0e
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
 GPT4ALL_VERSION?=022f1cabe7dd2c911936b37510582f279069ba1e
 GOGGMLTRANSFORMERS_VERSION?=17b065584ef8f3280b6286235f0db95eec8a4b1c
-RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
-RWKV_VERSION?=ccb05c3e1c6efd098017d114dcb58ab3262b40b2
+RWKV_REPO?=https://github.com/mudler/go-rwkv.cpp
+RWKV_VERSION?=f25c89f8e55a67d57c01661a16abeed1b1c25016
 WHISPER_CPP_VERSION?=5b9e59bc07dd76320354f2af6be29f16dbcb21e7
 BERT_VERSION?=0548994371f7081e45fcf8d472f3941a12f179aa
 BLOOMZ_VERSION?=1834e77b83faafe912ad4092ccf7f77937349e2f
@@ -96,7 +96,7 @@ go-rwkv:
 	@find ./go-rwkv -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_rwkv_/g' {} +
 
 go-rwkv/librwkv.a: go-rwkv
-	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a .. && cp ggml/src/libggml.a ..
+	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
 
 ## bloomz
 bloomz:
