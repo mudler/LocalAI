@@ -32,7 +32,7 @@ jobs:
           CMAKE_ARGS: "${{ matrix.defines }}"
           BUILD_ID: "${{ matrix.build }}"
         run: |
-          make dist
+          STATIC=true make dist
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.build }}
