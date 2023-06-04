@@ -64,6 +64,8 @@ github.com/go-skynet/go-bert.cpp v0.0.0-20230516063724-cea1ed76a7f4 h1:+3KPDf4Wv
 github.com/go-skynet/go-bert.cpp v0.0.0-20230516063724-cea1ed76a7f4/go.mod h1:VY0s5KoAI2jRCvQXKuDeEEe8KG7VaWifSNJSk+E1KtY=
 github.com/go-skynet/go-bert.cpp v0.0.0-20230529074307-771b4a085972 h1:eiE1CTqanNjpNWF2xp9GvNZXgKgRzNaUSyFZGMLu8Vo=
 github.com/go-skynet/go-bert.cpp v0.0.0-20230529074307-771b4a085972/go.mod h1:IQrVVZiAuWpneNrahrGu3m7VVaKLDIvQGp+Q6B8jw5g=
+github.com/go-skynet/go-bert.cpp v0.0.0-20230531070950-0548994371f7 h1:hm5rOxRf2Y8zmQTBgtDabLoprYHHQHmZ8ui8i4KQSgU=
+github.com/go-skynet/go-bert.cpp v0.0.0-20230531070950-0548994371f7/go.mod h1:55l02IF2kD+LGEH4yXzmPPygeuWiUIo8Nbh/+ZU9cb0=
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230523173010-f89d7c22df6b h1:uKICsAbdRJxMPZ4RXltwOwXPRDO1/d/pdGR3gEEUV9M=
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230523173010-f89d7c22df6b/go.mod h1:hjmO5UfipWl6xkPT54acOs9DDto8GPV81IvsBcvRjsA=
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230524084634-c4c581f1853c h1:jXUOCh2K4OzRItTtHzdxvkylE9r1szRSleRpXCNvraY=
