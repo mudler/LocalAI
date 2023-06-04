@@ -7,7 +7,7 @@ require (
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230601124500-5b9e59bc07dd
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230510223001-e9366e82abdf
-	github.com/go-skynet/go-bert.cpp v0.0.0-20230529074307-771b4a085972
+	github.com/go-skynet/go-bert.cpp v0.0.0-20230531070950-0548994371f7
 	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230604074754-6fb862c72bc0
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230603122627-3f10005b70c6
 	github.com/gofiber/fiber/v2 v2.46.0
