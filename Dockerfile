@@ -48,6 +48,7 @@ ARG BUILD_TYPE=
 ARG GO_TAGS=stablediffusion
 ARG CUDA_MAJOR_VERSION=11
 ARG CUDA_MINOR_VERSION=7
+ARG FFMPEG=
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 ENV GO_TAGS=${GO_TAGS}
@@ -73,6 +74,12 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     apt-get update && \
     apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
     ; fi
+
+# Add FFmpeg
+RUN if [ "${FFMPEG}" = "true" ]; then \
+    apt-get install -y ffmpeg \
+    ; fi
+
 ENV PATH /usr/local/cuda/bin:${PATH}
 
 # OpenBLAS requirements
