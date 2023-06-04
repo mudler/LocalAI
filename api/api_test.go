@@ -195,8 +195,11 @@ var _ = Describe("API test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["backend"]).To(Equal("bert-embeddings"))
 			})
+			It("runs gpt4all", Label("gpt4all"), func() {
+				if runtime.GOOS != "linux" {
+					Skip("test supported only on linux")
+				}
 
-			It("runs gpt4all", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       "github:go-skynet/model-gallery/gpt4all-j.yaml",
 					Name:      "gpt4all-j",
