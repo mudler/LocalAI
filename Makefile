@@ -3,7 +3,7 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
-GOLLAMA_VERSION?=3f10005b70c657c317d2cae4c22a9bd295f54a3c
+GOLLAMA_VERSION?=b1a425611fde4c5cf8f6ff523088304cfe49d6f5
 GPT4ALL_REPO?=https://github.com/go-skynet/gpt4all
 GPT4ALL_VERSION?=f7498c9
 GOGGMLTRANSFORMERS_VERSION?=6fb862c72bc04568120e711b176defe116d3751e
@@ -12,7 +12,7 @@ RWKV_VERSION?=049c1b54798a0fb8429a0905060fa5e2d64255ca
 WHISPER_CPP_VERSION?=5b9e59bc07dd76320354f2af6be29f16dbcb21e7
 BERT_VERSION?=0548994371f7081e45fcf8d472f3941a12f179aa
 BLOOMZ_VERSION?=1834e77b83faafe912ad4092ccf7f77937349e2f
-BUILD_TYPE?=
+export BUILD_TYPE?=
 CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 STABLEDIFFUSION_VERSION?=c0748eca3642d58bcf9521108bcee46959c647dc
@@ -41,6 +41,11 @@ ifeq ($(BUILD_TYPE),cublas)
 	export LLAMA_CUBLAS=1
 endif
 
+ifeq ($(BUILD_TYPE),metal)
+	CGO_LDFLAGS+=-framework Foundation -framework Metal -framework MetalKit -framework MetalPerformanceShaders
+	export LLAMA_METAL=1
+endif
+
 ifeq ($(BUILD_TYPE),clblas)
 	CGO_LDFLAGS+=-lOpenCL -lclblast
 endif
@@ -66,6 +71,12 @@ gpt4all:
 	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
 	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
 	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
+	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/llama_/llama_gpt4all_/g' {} +
+	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/llama_/llama_gpt4all_/g' {} +
+	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/llama_/llama_gpt4all_/g' {} +
+	@find ./gpt4all/gpt4all-backend -type f -name "llama_util.h" -execdir mv {} "llama_gpt4all_util.h" \;
+	@find ./gpt4all -type f -name "*.cmake" -exec sed -i'' -e 's/llama_util/llama_gpt4all_util/g' {} +
+	@find ./gpt4all -type f -name "*.txt" -exec sed -i'' -e 's/llama_util/llama_gpt4all_util/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.cpp" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.go" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.h" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
