@@ -3,6 +3,7 @@ package api_test
 import (
 	"bytes"
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -95,6 +96,9 @@ func postModelApplyRequest(url string, request modelApplyRequest) (response map[
 	return
 }
 
+//go:embed backend-assets/*
+var backendAssets embed.FS
+
 var _ = Describe("API test", func() {
 
 	var app *fiber.App
@@ -114,7 +118,7 @@ var _ = Describe("API test", func() {
 			modelLoader = model.NewModelLoader(tmpdir)
 			c, cancel = context.WithCancel(context.Background())
 
-			app, err = App(WithContext(c), WithModelLoader(modelLoader))
+			app, err = App(WithContext(c), WithModelLoader(modelLoader), WithBackendAssets(backendAssets), WithBackendAssetsOutput(tmpdir))
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -190,6 +194,32 @@ var _ = Describe("API test", func() {
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["backend"]).To(Equal("bert-embeddings"))
+			})
+			It("runs gpt4all", Label("gpt4all"), func() {
+				if runtime.GOOS != "linux" {
+					Skip("test supported only on linux")
+				}
+
+				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+					URL:       "github:go-skynet/model-gallery/gpt4all-j.yaml",
+					Name:      "gpt4all-j",
+					Overrides: map[string]string{},
+				})
+
+				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+
+				uuid := response["uuid"].(string)
+
+				Eventually(func() bool {
+					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					fmt.Println(response)
+					return response["processed"].(bool)
+				}, "360s").Should(Equal(true))
+
+				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "gpt4all-j", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "How are you?"}}})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Choices)).To(Equal(1))
+				Expect(resp.Choices[0].Message.Content).To(ContainSubstring("well"))
 			})
 		})
 	})

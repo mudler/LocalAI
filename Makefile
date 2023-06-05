@@ -4,8 +4,8 @@ GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
 GOLLAMA_VERSION?=3f10005b70c657c317d2cae4c22a9bd295f54a3c
-GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
-GPT4ALL_VERSION?=bc624f5389d656b1995b6db592f76f5853712cf6
+GPT4ALL_REPO?=https://github.com/go-skynet/gpt4all
+GPT4ALL_VERSION?=f7498c9
 GOGGMLTRANSFORMERS_VERSION?=6fb862c72bc04568120e711b176defe116d3751e
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=049c1b54798a0fb8429a0905060fa5e2d64255ca
@@ -232,8 +232,10 @@ test-models/testmodel:
 	cp tests/models_fixtures/* test-models
 
 test: prepare test-models/testmodel
+	cp -r backend-assets api
 	cp tests/models_fixtures/* test-models
-	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts 5 -v -r ./api ./pkg
+	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all" --flake-attempts 5 -v -r ./api ./pkg
+	C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="gpt4all" --flake-attempts 5 -v -r ./api ./pkg
 
 ## Help:
 help: ## Show this help.
