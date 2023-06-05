@@ -149,6 +149,8 @@ github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642 h1:KTkh
 github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642/go.mod h1:8ufRkpz/S/9ahkaxzZ5i4WMgO9w4InEhuRoT7vK5Rnw=
 github.com/mudler/go-stable-diffusion v0.0.0-20230605114250-a6706a426a90 h1:rxKtdI8RCZ41ZNbUh9jyBBy2pi3ukQP88ZzsrSVnpxY=
 github.com/mudler/go-stable-diffusion v0.0.0-20230605114250-a6706a426a90/go.mod h1:8ufRkpz/S/9ahkaxzZ5i4WMgO9w4InEhuRoT7vK5Rnw=
+github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af h1:XFq6OUqsWQam0OrEr05okXsJK/TQur3zoZTHbiZD3Ks=
+github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af/go.mod h1:8ufRkpz/S/9ahkaxzZ5i4WMgO9w4InEhuRoT7vK5Rnw=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230522220313-2ce22208a3dd h1:is/rE0YD8oEWcX3fQ+VxoS3fD0LqFEmTxh8XZegYYsA=
