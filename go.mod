@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.16
-	github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642
+	github.com/mudler/go-stable-diffusion v0.0.0-20230605114250-a6706a426a90
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230604125924-bbe195ee0207
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.7
