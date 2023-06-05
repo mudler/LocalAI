@@ -440,6 +440,22 @@ func chatEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 	}
 }
 
+// OpenAI CHAT API endpoint for editing model parameters
+// editEndpoint mimics the /edits endpoint for local models
+// @Summary Modify model parameters
+// @Description Alter model parameters for text completion models.
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param model body string true "Define which model to modify."
+// @Param instruction body string true "Define the initial prompt for the model."
+// @Param input body string true "Initial input prompt for model."
+// @Param stop body string true "Define stop words for the model to reply after."
+// @Success 200 {object} OpenAIResponse
+// @Failure 400 {object} APIError
+// @Failure 401 {object} APIError
+// @Failure 500 {object} APIError
+// @Router /edits [post]
 func editEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, threads, ctx int, f16 bool) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		config, input, err := readConfig(cm, c, loader, debug, threads, ctx, f16)
@@ -487,6 +503,17 @@ func editEndpoint(cm ConfigMerger, debug bool, loader *model.ModelLoader, thread
 	}
 }
 
+// OpenAI CHAT API endpoint for listing loaded models
+// listModels mimics the /models endpoint for listing loaded local models
+// @Summary Get a list of all currently loaded models
+// @Description List all currently loaded models.
+// @Tags Chat
+// @Produce json
+// @Success 200 {object} OpenAIResponse
+// @Failure 400 {object} APIError
+// @Failure 401 {object} APIError
+// @Failure 500 {object} APIError
+// @Router /models [get]
 func listModels(loader *model.ModelLoader, cm ConfigMerger) func(ctx *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		models, err := loader.ListModels()
