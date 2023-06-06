@@ -108,3 +108,19 @@ require (
 )
 
 replace github.com/deepmap/oapi-codegen v1.12.4 => github.com/dave-gray101/oapi-codegen v0.0.0-20230601175843-6acf0cf32d63
+
+replace github.com/go-skynet/go-llama.cpp => /Users/dave/projects/LocalAI/go-llama
+
+replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang => /Users/dave/projects/LocalAI/gpt4all/gpt4all-bindings/golang
+
+replace github.com/go-skynet/go-ggml-transformers.cpp => /Users/dave/projects/LocalAI/go-ggml-transformers
+
+replace github.com/donomii/go-rwkv.cpp => /Users/dave/projects/LocalAI/go-rwkv
+
+replace github.com/ggerganov/whisper.cpp => /Users/dave/projects/LocalAI/whisper.cpp
+
+replace github.com/go-skynet/go-bert.cpp => /Users/dave/projects/LocalAI/go-bert
+
+replace github.com/go-skynet/bloomz.cpp => /Users/dave/projects/LocalAI/bloomz
+
+replace github.com/mudler/go-stable-diffusion => /Users/dave/projects/LocalAI/go-stable-diffusion

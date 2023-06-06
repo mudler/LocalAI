@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v2"
 )
@@ -194,25 +195,131 @@ func (cm *ConfigManager) ListConfigs() []ConfigRegistration {
 
 // These functions I'm a bit dubious about. I think there's a better refactoring down in pkg/model
 // But to get a minimal test up and running, here we go!
-
+// TODO: non text completion
 func (sc SpecificConfig[RequestModel]) ToModelOptions() []llama.ModelOption {
 
 	llamaOpts := []llama.ModelOption{}
 
-	// Code to Port:	
+	switch req := sc.GetRequestDefaults().(type) {
+	case CreateCompletionRequest:
+	case CreateChatCompletionRequest:
+		if req.XLocalaiExtensions.F16 != nil && *(req.XLocalaiExtensions.F16) {
+			llamaOpts = append(llamaOpts, llama.EnableF16Memory)
+		}
 
-	// if c.ContextSize != 0 {
-	// 	llamaOpts = append(llamaOpts, llama.SetContext(c.ContextSize))
-	// }
-	// if c.F16 {
-	// 	llamaOpts = append(llamaOpts, llama.EnableF16Memory)
-	// }
+		if req.MaxTokens != nil && *req.MaxTokens > 0 {
+			llamaOpts = append(llamaOpts, llama.SetContext(*req.MaxTokens)) // todo is this right?
+		}
+
+		// TODO DO MORE!
+
+	}
+	// Code to Port:
+
 	// if c.Embeddings {
 	// 	llamaOpts = append(llamaOpts, llama.EnableEmbeddings)
 	// }
 
 	// if c.NGPULayers != 0 {
 	// 	llamaOpts = append(llamaOpts, llama.SetGPULayers(c.NGPULayers))
+	// }
+
+	return llamaOpts
+}
+
+func (sc SpecificConfig[RequestModel]) ToPredictOptions() []llama.PredictOption {
+	llamaOpts := []llama.PredictOption{}
+
+	switch req := sc.GetRequestDefaults().(type) {
+	case CreateCompletionRequest:
+	case CreateChatCompletionRequest:
+
+		if req.Temperature != nil {
+			llamaOpts = append(llamaOpts, llama.SetTemperature(float64(*req.Temperature))) // Oh boy. TODO Investigate. This is why I'm doing this.
+		}
+
+		if req.TopP != nil {
+			llamaOpts = append(llamaOpts, llama.SetTopP(float64(*req.TopP))) // CAST
+		}
+
+		if req.MaxTokens != nil {
+			llamaOpts = append(llamaOpts, llama.SetTokens(*req.MaxTokens))
+		}
+
+		if req.FrequencyPenalty != nil {
+			llamaOpts = append(llamaOpts, llama.SetPenalty(float64(*req.FrequencyPenalty))) // CAST
+		}
+
+		if stop0, err := req.Stop.AsCreateChatCompletionRequestStop0(); err == nil {
+			llamaOpts = append(llamaOpts, llama.SetStopWords(stop0))
+		}
+
+		if stop1, err := req.Stop.AsCreateChatCompletionRequestStop1(); err == nil && len(stop1) > 0 {
+			llamaOpts = append(llamaOpts, llama.SetStopWords(stop1...))
+		}
+
+		if req.XLocalaiExtensions != nil {
+
+			if req.XLocalaiExtensions.TopK != nil {
+				llamaOpts = append(llamaOpts, llama.SetTopK(*req.XLocalaiExtensions.TopK))
+			}
+
+			if req.XLocalaiExtensions.F16 != nil && *(req.XLocalaiExtensions.F16) {
+				llamaOpts = append(llamaOpts, llama.EnableF16KV)
+			}
+
+			if req.XLocalaiExtensions.Seed != nil {
+				llamaOpts = append(llamaOpts, llama.SetSeed(*req.XLocalaiExtensions.Seed))
+			}
+
+			if req.XLocalaiExtensions.IgnoreEos != nil && *(req.XLocalaiExtensions.IgnoreEos) {
+				llamaOpts = append(llamaOpts, llama.IgnoreEOS)
+			}
+
+			if req.XLocalaiExtensions.Debug != nil && *(req.XLocalaiExtensions.Debug) {
+				llamaOpts = append(llamaOpts, llama.Debug)
+			}
+
+			if req.XLocalaiExtensions.Mirostat != nil {
+				llamaOpts = append(llamaOpts, llama.SetMirostat(*req.XLocalaiExtensions.Mirostat))
+			}
+
+			if req.XLocalaiExtensions.MirostatEta != nil {
+				llamaOpts = append(llamaOpts, llama.SetMirostatETA(*req.XLocalaiExtensions.MirostatEta))
+			}
+
+			if req.XLocalaiExtensions.MirostatTau != nil {
+				llamaOpts = append(llamaOpts, llama.SetMirostatTAU(*req.XLocalaiExtensions.MirostatTau))
+			}
+
+			if req.XLocalaiExtensions.Keep != nil {
+				llamaOpts = append(llamaOpts, llama.SetNKeep(*req.XLocalaiExtensions.Keep))
+			}
+
+			if req.XLocalaiExtensions.Batch != nil && *(req.XLocalaiExtensions.Batch) != 0 {
+				llamaOpts = append(llamaOpts, llama.SetBatch(*req.XLocalaiExtensions.Batch))
+			}
+
+		}
+
+	}
+
+	// CODE TO PORT
+
+	// predictOptions := []llama.PredictOption{
+
+	// 	llama.SetThreads(c.Threads),
+	// }
+
+	// if c.PromptCacheAll {
+	// 	predictOptions = append(predictOptions, llama.EnablePromptCacheAll)
+	// }
+
+	// if c.PromptCachePath != "" {
+	// 	// Create parent directory
+	// 	p := filepath.Join(modelPath, c.PromptCachePath)
+	// 	os.MkdirAll(filepath.Dir(p), 0755)
+	// 	predictOptions = append(predictOptions, llama.SetPathPromptCache(p))
 	// }
 
 	return llamaOpts

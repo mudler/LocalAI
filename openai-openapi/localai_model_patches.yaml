@@ -16,6 +16,9 @@ components:
         seed:
           type: integer
           nullable: true
+        debug:
+          type: boolean
+          nullable: true
     #@overlay/match missing_ok=True
     LocalAITextRequestExtension:
       allOf:
@@ -68,6 +71,11 @@ components:
               type: integer
               nullable: true
     CreateChatCompletionRequest:
+      properties:
+        #@overlay/match missing_ok=True
+        x-localai-extensions:
+           $ref: "#/components/schemas/LocalAITextRequestExtension"
+    CreateCompletionRequest:
       properties:
         #@overlay/match missing_ok=True
         x-localai-extensions:
