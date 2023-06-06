@@ -3,7 +3,7 @@ module github.com/go-skynet/LocalAI
 go 1.19
 
 require (
-	github.com/donomii/go-rwkv.cpp v0.0.0-20230604202420-1e18b2490e7e
+	github.com/donomii/go-rwkv.cpp v0.0.0-20230606181754-d5f48f6d607a
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230529155654-1834e77b83fa
