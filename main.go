@@ -155,7 +155,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 
 					testField, exists := v2ConfigManager.GetConfig(reg)
 					if exists {
-						log.Log().Msgf("!! %s: %s", testField.GetRegistration().Endpoint, testField.GetLocalPaths().Model)
+						log.Log().Msgf("!! %s: %s", testField.GetRegistration().Endpoint, testField.GetLocalSettings().ModelPath)
 					}
 
 				}
@@ -164,7 +164,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 
 				log.Log().Msgf("NEW v2 test: %+v", v2Server)
 			}
-			
+
 			app, err := api.App(
 				api.WithConfigFile(ctx.String("config-file")),
 				api.WithJSONStringPreload(ctx.String("preload-models")),

@@ -56,8 +56,8 @@ func combineRequestAndConfig[RequestType any](configManager *ConfigManager, mode
 
 	return &SpecificConfig[RequestType]{
 		ConfigStub: ConfigStub{
-			Registration: config.GetRegistration(),
-			LocalPaths:   config.GetLocalPaths(),
+			Registration:  config.GetRegistration(),
+			LocalSettings: config.GetLocalSettings(),
 		},
 		RequestDefaults: request,
 	}, nil
