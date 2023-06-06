@@ -1,0 +1,42 @@
+version: "3.9"
+services:
+  api:
+    image: quay.io/go-skynet/local-ai:latest
+    ports:
+      - 8080:8080
+    env_file:
+      - .env
+    environment:
+      - DEBUG=true
+      - MODELS_PATH=/models
+    volumes:
+      - ./models:/models:cached
+    command: ["/usr/bin/local-ai" ]
+  auto-gpt:
+    image: significantgravitas/auto-gpt
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      MEMORY_BACKEND: ${MEMORY_BACKEND:-redis}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+    profiles: ["exclude-from-up"]
+    volumes:
+      - ./auto_gpt_workspace:/app/autogpt/auto_gpt_workspace
+      - ./data:/app/data
+      ## allow auto-gpt to write logs to disk
+      - ./logs:/app/logs
+      ## uncomment following lines if you want to make use of these files
+      ## you must have them existing in the same folder as this docker-compose.yml
+      #- type: bind
+      #  source: ./azure.yaml
+      #  target: /app/azure.yaml
+      #- type: bind
+      #  source: ./ai_settings.yaml
+      #  target: /app/ai_settings.yaml
+  redis:
+    image: "redis/redis-stack-server:latest"

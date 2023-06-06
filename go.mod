@@ -3,30 +3,32 @@ module github.com/go-skynet/LocalAI
 go 1.19
 
 require (
-	github.com/deepmap/oapi-codegen v1.12.4
-	github.com/donomii/go-rwkv.cpp v0.0.0-20230529074347-ccb05c3e1c6e
-	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230528233858-d7c936b44a80
+	github.com/donomii/go-rwkv.cpp v0.0.0-20230601111443-3b28b09469fc
+	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230601124500-5b9e59bc07dd
 	github.com/go-audio/wav v1.1.0
-	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230529155654-1834e77b83fa
-	github.com/go-skynet/go-bert.cpp v0.0.0-20230529074307-771b4a085972
-	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230529215936-13ccc22621bb
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230529221033-4afcaf28f36f
+	github.com/go-skynet/go-bert.cpp v0.0.0-20230531070950-0548994371f7
+	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230604074754-6fb862c72bc0
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230604235446-b1a425611fde
 	github.com/gofiber/fiber/v2 v2.46.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.16
-	github.com/mitchellh/mapstructure v1.5.0
-	github.com/mudler/go-stable-diffusion v0.0.0-20230516152536-c0748eca3642
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230530152634-6ed9c1a8d8e4
-	github.com/onsi/ginkgo/v2 v2.9.5
+	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230604125924-bbe195ee0207
+	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.7
 	github.com/otiai10/openaigo v1.1.0
 	github.com/rs/zerolog v1.29.1
-	github.com/sashabaranov/go-openai v1.9.4
+	github.com/sashabaranov/go-openai v1.10.0
+	github.com/swaggo/swag v1.16.1
+	github.com/tmc/langchaingo v0.0.0-20230605114752-4afed6d7be4a
 	github.com/urfave/cli/v2 v2.25.5
 	github.com/valyala/fasthttp v1.47.0
 	github.com/vmware-tanzu/carvel-ytt v0.45.1
+	github.com/deepmap/oapi-codegen v1.12.4
+	github.com/go-chi/chi/v5 v5.0.8
+	github.com/mitchellh/mapstructure v1.5.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -47,11 +49,11 @@ require (
 	github.com/go-audio/audio v1.0.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
-	github.com/go-openapi/jsonpointer v0.19.6 // indirect
-	github.com/go-openapi/swag v0.22.3 // indirect
-	github.com/go-playground/locales v0.14.1 // indirect
-	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.14.0 // indirect
+	github.com/go-openapi/jsonpointer v0.19.5 // indirect
+	github.com/go-openapi/jsonreference v0.19.6 // indirect
+	github.com/go-openapi/spec v0.20.4 // indirect
+	github.com/go-openapi/swag v0.19.15 // indirect
+	github.com/go-skynet/go-gpt2.cpp v0.0.0-20230523153133-3eb3a32c0874 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect

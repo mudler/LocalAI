@@ -7,10 +7,11 @@ import (
 
 	rwkv "github.com/donomii/go-rwkv.cpp"
 	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
+	"github.com/go-skynet/LocalAI/pkg/langchain"
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
-	gpt2 "github.com/go-skynet/go-gpt2.cpp"
+	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/hashicorp/go-multierror"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
@@ -23,61 +24,61 @@ const (
 	LlamaBackend           = "llama"
 	BloomzBackend          = "bloomz"
 	StarcoderBackend       = "starcoder"
-	StableLMBackend        = "stablelm"
+	GPTJBackend            = "gptj"
 	DollyBackend           = "dolly"
-	RedPajamaBackend       = "redpajama"
+	MPTBackend             = "mpt"
 	GPTNeoXBackend         = "gptneox"
 	ReplitBackend          = "replit"
 	Gpt2Backend            = "gpt2"
 	Gpt4AllLlamaBackend    = "gpt4all-llama"
 	Gpt4AllMptBackend      = "gpt4all-mpt"
 	Gpt4AllJBackend        = "gpt4all-j"
+	Gpt4All                = "gpt4all"
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
+	LCHuggingFaceBackend   = "langchain-huggingface"
 )
 
 var backends []string = []string{
 	LlamaBackend,
-	Gpt4AllLlamaBackend,
-	Gpt4AllMptBackend,
-	Gpt4AllJBackend,
-	Gpt2Backend,
-	WhisperBackend,
+	Gpt4All,
 	RwkvBackend,
-	BloomzBackend,
-	StableLMBackend,
-	DollyBackend,
-	RedPajamaBackend,
-	ReplitBackend,
 	GPTNeoXBackend,
+	WhisperBackend,
 	BertEmbeddingsBackend,
+	GPTJBackend,
+	Gpt2Backend,
+	DollyBackend,
+	MPTBackend,
+	ReplitBackend,
 	StarcoderBackend,
+	BloomzBackend,
 }
 
 var starCoder = func(modelFile string) (interface{}, error) {
-	return gpt2.NewStarcoder(modelFile)
+	return transformers.NewStarcoder(modelFile)
 }
 
-var redPajama = func(modelFile string) (interface{}, error) {
-	return gpt2.NewRedPajama(modelFile)
+var mpt = func(modelFile string) (interface{}, error) {
+	return transformers.NewMPT(modelFile)
 }
 
 var dolly = func(modelFile string) (interface{}, error) {
-	return gpt2.NewDolly(modelFile)
+	return transformers.NewDolly(modelFile)
 }
 
 var gptNeoX = func(modelFile string) (interface{}, error) {
-	return gpt2.NewGPTNeoX(modelFile)
+	return transformers.NewGPTNeoX(modelFile)
 }
 
 var replit = func(modelFile string) (interface{}, error) {
-	return gpt2.NewReplit(modelFile)
+	return transformers.NewReplit(modelFile)
 }
 
-var stableLM = func(modelFile string) (interface{}, error) {
-	return gpt2.NewStableLM(modelFile)
+var gptJ = func(modelFile string) (interface{}, error) {
+	return transformers.NewGPTJ(modelFile)
 }
 
 var bertEmbeddings = func(modelFile string) (interface{}, error) {
@@ -87,8 +88,9 @@ var bertEmbeddings = func(modelFile string) (interface{}, error) {
 var bloomzLM = func(modelFile string) (interface{}, error) {
 	return bloomz.New(modelFile)
 }
-var gpt2LM = func(modelFile string) (interface{}, error) {
-	return gpt2.New(modelFile)
+
+var transformersLM = func(modelFile string) (interface{}, error) {
+	return transformers.New(modelFile)
 }
 
 var stableDiffusion = func(assetDir string) (interface{}, error) {
@@ -97,6 +99,10 @@ var stableDiffusion = func(assetDir string) (interface{}, error) {
 
 var whisperModel = func(modelFile string) (interface{}, error) {
 	return whisper.New(modelFile)
+}
+
+var lcHuggingFace = func(repoId string) (interface{}, error) {
+	return langchain.NewHuggingFace(repoId)
 }
 
 func llamaLM(opts ...llama.ModelOption) func(string) (interface{}, error) {
@@ -130,14 +136,14 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, llamaLM(llamaOpts...))
 	case BloomzBackend:
 		return ml.LoadModel(modelFile, bloomzLM)
-	case StableLMBackend:
-		return ml.LoadModel(modelFile, stableLM)
+	case GPTJBackend:
+		return ml.LoadModel(modelFile, gptJ)
 	case DollyBackend:
 		return ml.LoadModel(modelFile, dolly)
-	case RedPajamaBackend:
-		return ml.LoadModel(modelFile, redPajama)
+	case MPTBackend:
+		return ml.LoadModel(modelFile, mpt)
 	case Gpt2Backend:
-		return ml.LoadModel(modelFile, gpt2LM)
+		return ml.LoadModel(modelFile, transformersLM)
 	case GPTNeoXBackend:
 		return ml.LoadModel(modelFile, gptNeoX)
 	case ReplitBackend:
@@ -146,18 +152,16 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, stableDiffusion)
 	case StarcoderBackend:
 		return ml.LoadModel(modelFile, starCoder)
-	case Gpt4AllLlamaBackend:
-		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads)), gpt4all.SetModelType(gpt4all.LLaMAType)))
-	case Gpt4AllMptBackend:
-		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads)), gpt4all.SetModelType(gpt4all.MPTType)))
-	case Gpt4AllJBackend:
-		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads)), gpt4all.SetModelType(gpt4all.GPTJType)))
+	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
+		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads))))
 	case BertEmbeddingsBackend:
 		return ml.LoadModel(modelFile, bertEmbeddings)
 	case RwkvBackend:
 		return ml.LoadModel(modelFile, rwkvLM(filepath.Join(ml.ModelPath, modelFile+tokenizerSuffix), threads))
 	case WhisperBackend:
 		return ml.LoadModel(modelFile, whisperModel)
+	case LCHuggingFaceBackend:
+		return ml.LoadModel(modelFile, lcHuggingFace)
 	default:
 		return nil, fmt.Errorf("backend unsupported: %s", backendString)
 	}

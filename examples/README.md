@@ -4,6 +4,13 @@ Here is a list of projects that can easily be integrated with the LocalAI backen
 
 ### Projects
 
+### AutoGPT
+
+_by [@mudler](https://github.com/mudler)_
+
+This example shows how to use AutoGPT with LocalAI.
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/autoGPT/)
 
 ### Chatbot-UI
 
@@ -14,6 +21,16 @@ _by [@mkellerman](https://github.com/mkellerman)_
 This integration shows how to use LocalAI with [mckaywrigley/chatbot-ui](https://github.com/mckaywrigley/chatbot-ui).
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui/)
+
+There is also a separate example to show how to manually setup a model: [example](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui-manual/)
+
+### Flowise
+
+_by [@mudler](https://github.com/mudler)_
+
+This example shows how to use [FlowiseAI/Flowise](https://github.com/FlowiseAI/Flowise) with LocalAI.
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/flowise/)
 
 ### Discord bot
 
@@ -56,6 +73,14 @@ _by [@mudler](https://github.com/mudler)_
 A full example on how to run RWKV models with LocalAI
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/rwkv/)
+
+### PrivateGPT
+
+_by [@mudler](https://github.com/mudler)_
+
+A full example on how to run PrivateGPT with LocalAI
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/privateGPT/)
 
 ### Slack bot
 

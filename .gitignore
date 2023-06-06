@@ -1,17 +1,13 @@
 # go-llama build artifacts
-bloomz
-go-bert
 go-llama
 gpt4all
 go-stable-diffusion
+go-ggml-transformers
 go-gpt2
 go-rwkv
 whisper.cpp
-
-# OpenAI OpenAPI Specs/Models
-openai-openapi/spec
-openai-openapi/transformed
-apiv2/localai.gen.go
+bloomz
+go-bert
 
 # LocalAI build binary
 LocalAI
@@ -22,6 +18,18 @@ local-ai
 # Ignore models
 models/*
 test-models/
+test-dir/
+
+release/
 
 # just in case
 .DS_Store
+.idea
+
+# OpenAI OpenAPI Specs/Models
+openai-openapi/spec
+openai-openapi/transformed
+apiv2/localai.gen.go
+
+# Generated during build
+backend-assets/

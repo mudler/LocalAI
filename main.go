@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,13 +36,12 @@ func main() {
 				Name:    "debug",
 				EnvVars: []string{"DEBUG"},
 			},
-			&cli.IntFlag{
-				Name:        "threads",
-				DefaultText: "Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested.",
-				EnvVars:     []string{"THREADS"},
-				Value:       4,
+			&cli.BoolFlag{
+				Name:    "cors",
+				EnvVars: []string{"CORS"},
 			},
 			&cli.StringFlag{
+<<<<<<< HEAD
 				Name:        "models-path",
 				DefaultText: "Path containing models used for inferencing",
 				EnvVars:     []string{"MODELS_PATH"},
@@ -83,18 +81,67 @@ func main() {
 				DefaultText: "Image directory",
 				EnvVars:     []string{"IMAGE_PATH"},
 				Value:       "",
+=======
+				Name:    "cors-allow-origins",
+				EnvVars: []string{"CORS_ALLOW_ORIGINS"},
+>>>>>>> master
 			},
 			&cli.IntFlag{
-				Name:        "context-size",
-				DefaultText: "Default context size of the model",
-				EnvVars:     []string{"CONTEXT_SIZE"},
-				Value:       512,
+				Name:    "threads",
+				Usage:   "Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested.",
+				EnvVars: []string{"THREADS"},
+				Value:   4,
+			},
+			&cli.StringFlag{
+				Name:    "models-path",
+				Usage:   "Path containing models used for inferencing",
+				EnvVars: []string{"MODELS_PATH"},
+				Value:   filepath.Join(path, "models"),
+			},
+			&cli.StringFlag{
+				Name:    "preload-models",
+				Usage:   "A List of models to apply in JSON at start",
+				EnvVars: []string{"PRELOAD_MODELS"},
+			},
+			&cli.StringFlag{
+				Name:    "preload-models-config",
+				Usage:   "A List of models to apply at startup. Path to a YAML config file",
+				EnvVars: []string{"PRELOAD_MODELS_CONFIG"},
+			},
+			&cli.StringFlag{
+				Name:    "config-file",
+				Usage:   "Config file",
+				EnvVars: []string{"CONFIG_FILE"},
+			},
+			&cli.StringFlag{
+				Name:    "address",
+				Usage:   "Bind address for the API server.",
+				EnvVars: []string{"ADDRESS"},
+				Value:   ":8080",
+			},
+			&cli.StringFlag{
+				Name:    "image-path",
+				Usage:   "Image directory",
+				EnvVars: []string{"IMAGE_PATH"},
+				Value:   "",
+			},
+			&cli.StringFlag{
+				Name:    "backend-assets-path",
+				Usage:   "Path used to extract libraries that are required by some of the backends in runtime.",
+				EnvVars: []string{"BACKEND_ASSETS_PATH"},
+				Value:   "/tmp/localai/backend_data",
 			},
 			&cli.IntFlag{
-				Name:        "upload-limit",
-				DefaultText: "Default upload-limit. MB",
-				EnvVars:     []string{"UPLOAD_LIMIT"},
-				Value:       15,
+				Name:    "context-size",
+				Usage:   "Default context size of the model",
+				EnvVars: []string{"CONTEXT_SIZE"},
+				Value:   512,
+			},
+			&cli.IntFlag{
+				Name:    "upload-limit",
+				Usage:   "Default upload-limit. MB",
+				EnvVars: []string{"UPLOAD_LIMIT"},
+				Value:   15,
 			},
 		},
 		Description: `
@@ -141,7 +188,29 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 
 				log.Log().Msgf("NEW v2 test: %+v", v2Server)
 			}
-			return api.App(context.Background(), ctx.String("config-file"), loader, ctx.Int("upload-limit"), ctx.Int("threads"), ctx.Int("context-size"), ctx.Bool("f16"), ctx.Bool("debug"), false, ctx.String("image-path")).Listen(ctx.String("address"))
+			
+			app, err := api.App(
+				api.WithConfigFile(ctx.String("config-file")),
+				api.WithJSONStringPreload(ctx.String("preload-models")),
+				api.WithYAMLConfigPreload(ctx.String("preload-models-config")),
+				api.WithModelLoader(loader),
+				api.WithContextSize(ctx.Int("context-size")),
+				api.WithDebug(ctx.Bool("debug")),
+				api.WithImageDir(ctx.String("image-path")),
+				api.WithF16(ctx.Bool("f16")),
+				api.WithDisableMessage(false),
+				api.WithCors(ctx.Bool("cors")),
+				api.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
+				api.WithThreads(ctx.Int("threads")),
+				api.WithBackendAssets(backendAssets),
+				api.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
+				api.WithUploadLimitMB(ctx.Int("upload-limit"))
+			)
+			if err != nil {
+				return err
+			}
+
+			return app.Listen(ctx.String("address"))
 		},
 	}
 

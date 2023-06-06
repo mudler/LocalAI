@@ -1,0 +1,37 @@
+version: '3.6'
+
+services:
+  api:
+    image: quay.io/go-skynet/local-ai:latest
+    # As initially LocalAI will download the models defined in PRELOAD_MODELS
+    # you might need to tweak the healthcheck values here according to your network connection.
+    # Here we give a timespan of 20m to download all the required files.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
+      interval: 1m
+      timeout: 20m
+      retries: 20
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    environment:
+      - DEBUG=true
+      - MODELS_PATH=/models
+      # You can preload different models here as well.
+      # See: https://github.com/go-skynet/model-gallery
+      - 'PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/gpt4all-j.yaml", "name": "gpt-3.5-turbo"}]'
+    volumes:
+      - ./models:/models:cached
+    command: ["/usr/bin/local-ai" ]
+  flowise:
+    depends_on:
+      api:
+        condition: service_healthy
+    image: flowiseai/flowise
+    ports:
+      - 3000:3000
+    volumes:
+        - ~/.flowise:/root/.flowise
+    command: /bin/sh -c "sleep 3; flowise start"
