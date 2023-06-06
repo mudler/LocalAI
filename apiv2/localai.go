@@ -64,7 +64,7 @@ func combineRequestAndConfig[RequestType any](configManager *ConfigManager, mode
 }
 
 func (las *LocalAIServer) loadModel(configStub ConfigStub) {
-
+	
 }
 
 // CancelFineTune implements StrictServerInterface
