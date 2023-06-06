@@ -41,7 +41,6 @@ func main() {
 				EnvVars: []string{"CORS"},
 			},
 			&cli.StringFlag{
-<<<<<<< HEAD
 				Name:        "models-path",
 				DefaultText: "Path containing models used for inferencing",
 				EnvVars:     []string{"MODELS_PATH"},
@@ -81,22 +80,16 @@ func main() {
 				DefaultText: "Image directory",
 				EnvVars:     []string{"IMAGE_PATH"},
 				Value:       "",
-=======
+			},
+			&cli.StringFlag{
 				Name:    "cors-allow-origins",
 				EnvVars: []string{"CORS_ALLOW_ORIGINS"},
->>>>>>> master
 			},
 			&cli.IntFlag{
 				Name:    "threads",
 				Usage:   "Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested.",
 				EnvVars: []string{"THREADS"},
 				Value:   4,
-			},
-			&cli.StringFlag{
-				Name:    "models-path",
-				Usage:   "Path containing models used for inferencing",
-				EnvVars: []string{"MODELS_PATH"},
-				Value:   filepath.Join(path, "models"),
 			},
 			&cli.StringFlag{
 				Name:    "preload-models",
@@ -107,23 +100,6 @@ func main() {
 				Name:    "preload-models-config",
 				Usage:   "A List of models to apply at startup. Path to a YAML config file",
 				EnvVars: []string{"PRELOAD_MODELS_CONFIG"},
-			},
-			&cli.StringFlag{
-				Name:    "config-file",
-				Usage:   "Config file",
-				EnvVars: []string{"CONFIG_FILE"},
-			},
-			&cli.StringFlag{
-				Name:    "address",
-				Usage:   "Bind address for the API server.",
-				EnvVars: []string{"ADDRESS"},
-				Value:   ":8080",
-			},
-			&cli.StringFlag{
-				Name:    "image-path",
-				Usage:   "Image directory",
-				EnvVars: []string{"IMAGE_PATH"},
-				Value:   "",
 			},
 			&cli.StringFlag{
 				Name:    "backend-assets-path",
@@ -204,7 +180,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 				api.WithThreads(ctx.Int("threads")),
 				api.WithBackendAssets(backendAssets),
 				api.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
-				api.WithUploadLimitMB(ctx.Int("upload-limit"))
+				api.WithUploadLimitMB(ctx.Int("upload-limit")),
 			)
 			if err != nil {
 				return err
