@@ -86,6 +86,8 @@ github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230531065233-17b065584ef8
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230531065233-17b065584ef8/go.mod h1:/JbU8HZU+tUOp+1bQAeXf3AyRXm+p3UwhccoJwCTI9A=
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230604074754-6fb862c72bc0 h1:PKwuqqVsvSPY4W9H9r3iHVpsmMWL1MQ7I5qpiY7eh0E=
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230604074754-6fb862c72bc0/go.mod h1:/JbU8HZU+tUOp+1bQAeXf3AyRXm+p3UwhccoJwCTI9A=
+github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230606131358-bd765bb6f3b3 h1:xgDRCrBU2YmwerI6CY6woFyEsBrzV/4a2/atOBm0aXE=
+github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230606131358-bd765bb6f3b3/go.mod h1:/JbU8HZU+tUOp+1bQAeXf3AyRXm+p3UwhccoJwCTI9A=
 github.com/go-skynet/go-gpt2.cpp v0.0.0-20230523153133-3eb3a32c0874 h1:/6QWh2oarU7iPSpXj/3bLlkKptyxjKTRrNtGUrh8vhI=
 github.com/go-skynet/go-gpt2.cpp v0.0.0-20230523153133-3eb3a32c0874/go.mod h1:1Wj/xbkMfwQSOrhNYK178IzqQHstZbRfhx4s8p1M5VM=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230520155239-ccf23adfb278 h1:st4ow9JKy3UuhkwutrbWof2vMFU/YxwBCLYZ1IxJ2Po=
@@ -225,6 +227,7 @@ github.com/savsgio/dictpool v0.0.0-20221023140959-7bf2e61cea94/go.mod h1:90zrgN3
 github.com/savsgio/gotils v0.0.0-20220530130905-52f3993e8d6d/go.mod h1:Gy+0tqhJvgGlqnTF8CVGP0AaGRjwBtXs/a5PA0Y3+A4=
 github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee h1:8Iv5m6xEo1NR1AvpV+7XmhI4r39LGNzwUL4YpMuL5vk=
 github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee/go.mod h1:qwtSXrKuJh/zsFQ12yEE89xfCrGKK63Rr7ctU/uCo4g=
+github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
