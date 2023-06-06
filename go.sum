@@ -24,6 +24,8 @@ github.com/donomii/go-rwkv.cpp v0.0.0-20230531084548-c43cdf5fc5bf h1:upCz8WYdzMe
 github.com/donomii/go-rwkv.cpp v0.0.0-20230531084548-c43cdf5fc5bf/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
 github.com/donomii/go-rwkv.cpp v0.0.0-20230601111443-3b28b09469fc h1:RCGGh/zw+K09sjCIYHUV7lFenxONml+LS02RdN+AkwI=
 github.com/donomii/go-rwkv.cpp v0.0.0-20230601111443-3b28b09469fc/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
+github.com/donomii/go-rwkv.cpp v0.0.0-20230604202420-1e18b2490e7e h1:Qne1BO0ltmyJcsizxZ61SV+uwuD1F8NztsfBDHOd0LI=
+github.com/donomii/go-rwkv.cpp v0.0.0-20230604202420-1e18b2490e7e/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230520182345-041be06d5881 h1:dafqVivljYk51VLFnnpTXJnfWDe637EobWZ1l8PyEf8=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230520182345-041be06d5881/go.mod h1:QIjZ9OktHFG7p+/m3sMvrAJKKdWrr1fZIK0rM6HZlyo=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230523110439-77eab3fbfe5e h1:4PMorQuoUGAXmIzCtnNOHaasyLokXdgd8jUWwsraFTo=
