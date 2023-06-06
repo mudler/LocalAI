@@ -4,21 +4,21 @@ go 1.19
 
 require (
 	github.com/deepmap/oapi-codegen v1.12.4
-	github.com/donomii/go-rwkv.cpp v0.0.0-20230601111443-3b28b09469fc
-	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230601124500-5b9e59bc07dd
+	github.com/donomii/go-rwkv.cpp v0.0.0-20230604202420-1e18b2490e7e
+	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27
 	github.com/go-audio/wav v1.1.0
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230529155654-1834e77b83fa
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230531070950-0548994371f7
 	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230604074754-6fb862c72bc0
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230604235446-b1a425611fde
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230605193043-cca84ed55fb9
 	github.com/gofiber/fiber/v2 v2.46.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.16
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230604125924-bbe195ee0207
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230605194130-266f13aee9d8
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.7
 	github.com/otiai10/openaigo v1.1.0

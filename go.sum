@@ -42,6 +42,8 @@ github.com/gabriel-vasile/mimetype v1.4.2 h1:w5qFW6JKBz9Y393Y4q372O9A7cUSequkh1Q
 github.com/gabriel-vasile/mimetype v1.4.2/go.mod h1:zApsH/mKG4w07erKIaJPFiX0Tsq9BFQgN3qGY5GnNgA=
 github.com/getkin/kin-openapi v0.117.0 h1:QT2DyGujAL09F4NrKDHJGsUoIprlIcFVHWDVDcUFE8A=
 github.com/getkin/kin-openapi v0.117.0/go.mod h1:l5e9PaFUo9fyLJCPGQeXI2ML8c3P8BHOEV2VaAVf/pc=
+github.com/donomii/go-rwkv.cpp v0.0.0-20230604202420-1e18b2490e7e h1:Qne1BO0ltmyJcsizxZ61SV+uwuD1F8NztsfBDHOd0LI=
+github.com/donomii/go-rwkv.cpp v0.0.0-20230604202420-1e18b2490e7e/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230520182345-041be06d5881 h1:dafqVivljYk51VLFnnpTXJnfWDe637EobWZ1l8PyEf8=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230520182345-041be06d5881/go.mod h1:QIjZ9OktHFG7p+/m3sMvrAJKKdWrr1fZIK0rM6HZlyo=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230523110439-77eab3fbfe5e h1:4PMorQuoUGAXmIzCtnNOHaasyLokXdgd8jUWwsraFTo=
@@ -64,6 +66,8 @@ github.com/gin-gonic/gin v1.9.0 h1:OjyFBKICoexlu99ctXNR2gg+c5pKrKMuyjgARg9qeY8=
 github.com/gin-gonic/gin v1.9.0/go.mod h1:W1Me9+hsUSyj3CePGrd1/QrKJMSJ1Tu/0hFEH89961k=
 github.com/gin-gonic/gin v1.9.1 h1:4idEAncQnU5cB7BeOkPtxjfCSye0AAm1R0RVIqJ+Jmg=
 github.com/gin-gonic/gin v1.9.1/go.mod h1:hPrL7YrpYKXt5YId3A/Tnip5kqbEAP+KLuI3SUcPTeU=
+github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27 h1:boeMTUUBtnLU8JElZJHXrsUzROJar9/t6vGOFjkrhhI=
+github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27/go.mod h1:QIjZ9OktHFG7p+/m3sMvrAJKKdWrr1fZIK0rM6HZlyo=
 github.com/go-audio/audio v1.0.0 h1:zS9vebldgbQqktK4H0lUqWrG8P0NxCJVqcj7ZpNnwd4=
 github.com/go-audio/audio v1.0.0/go.mod h1:6uAu0+H2lHkwdGsAY+j2wHPNPpPoeg5AaEFh9FlA+Zs=
 github.com/go-audio/riff v1.0.0 h1:d8iCGbDvox9BfLagY94fBynxSPHO80LmZCaOsmKxokA=
@@ -139,6 +143,8 @@ github.com/go-skynet/go-llama.cpp v0.0.0-20230603122627-3f10005b70c6 h1:w+S5j+zn
 github.com/go-skynet/go-llama.cpp v0.0.0-20230603122627-3f10005b70c6/go.mod h1:ddYIvPZyj3Vf4XkfZimVRRehZu2isd0JXfK3EemVQPk=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230604235446-b1a425611fde h1:bnWCcst0K5lgK2MCJbxV81xPSiK4fiob9f4k2RjYN8A=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230604235446-b1a425611fde/go.mod h1:ddYIvPZyj3Vf4XkfZimVRRehZu2isd0JXfK3EemVQPk=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230605193043-cca84ed55fb9 h1:PHsmllTb3sHrcdNDAPCJpIX6rijmO7bfMBqEy+ugJZ4=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230605193043-cca84ed55fb9/go.mod h1:ddYIvPZyj3Vf4XkfZimVRRehZu2isd0JXfK3EemVQPk=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 h1:tfuBGBXKqDEevZMzYi5KSi8KkcZtzBcTgAUUtapy0OI=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572/go.mod h1:9Pwr4B2jHnOSGXyyzV8ROjYa2ojvAY6HCGYYfMoC3Ls=
 github.com/go-test/deep v1.0.8 h1:TDsG77qcSprGbC6vTN8OuXp5g+J+b5Pcguhf7Zt61VM=
@@ -264,6 +270,8 @@ github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230603140917-bc624f
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230603140917-bc624f5389d6/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230604125924-bbe195ee0207 h1:3ObPrftXDNkEN5M87IXxRlhA13x/44CuVaHXppsNDUg=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230604125924-bbe195ee0207/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
+github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230605194130-266f13aee9d8 h1:7SqRnb44CN9QQtZxdFTTgaSqsWVbtFRrHLbKhrTEXlM=
+github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230605194130-266f13aee9d8/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
 github.com/onsi/ginkgo/v2 v2.9.5 h1:+6Hr4uxzP4XIUyAkg61dWBw8lb/gc4/X5luuxN/EC+Q=
 github.com/onsi/ginkgo/v2 v2.9.5/go.mod h1:tvAoo1QUJwNEU2ITftXTpR7R1RbCzoZUOs3RonqW57k=
 github.com/onsi/ginkgo/v2 v2.9.7 h1:06xGQy5www2oN160RtEZoTvnP2sPhEfePYmCDc2szss=
