@@ -34,6 +34,7 @@ const (
 	Gpt4AllMptBackend      = "gpt4all-mpt"
 	Gpt4AllJBackend        = "gpt4all-j"
 	Gpt4All                = "gpt4all"
+	FalconBackend          = "falcon"
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
@@ -41,7 +42,7 @@ const (
 	LCHuggingFaceBackend   = "langchain-huggingface"
 )
 
-var backends []string = []string{
+var autoLoadBackends []string = []string{
 	LlamaBackend,
 	Gpt4All,
 	RwkvBackend,
@@ -51,6 +52,7 @@ var backends []string = []string{
 	GPTJBackend,
 	Gpt2Backend,
 	DollyBackend,
+	FalconBackend,
 	MPTBackend,
 	ReplitBackend,
 	StarcoderBackend,
@@ -79,6 +81,10 @@ var replit = func(modelFile string) (interface{}, error) {
 
 var gptJ = func(modelFile string) (interface{}, error) {
 	return transformers.NewGPTJ(modelFile)
+}
+
+var falcon = func(modelFile string) (interface{}, error) {
+	return transformers.NewFalcon(modelFile)
 }
 
 var bertEmbeddings = func(modelFile string) (interface{}, error) {
@@ -144,6 +150,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, mpt)
 	case Gpt2Backend:
 		return ml.LoadModel(modelFile, transformersLM)
+	case FalconBackend:
+		return ml.LoadModel(modelFile, falcon)
 	case GPTNeoXBackend:
 		return ml.LoadModel(modelFile, gptNeoX)
 	case ReplitBackend:
@@ -180,7 +188,7 @@ func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOpt
 	ml.mu.Unlock()
 	var err error
 
-	for _, b := range backends {
+	for _, b := range autoLoadBackends {
 		if b == BloomzBackend || b == WhisperBackend || b == RwkvBackend { // do not autoload bloomz/whisper/rwkv
 			continue
 		}

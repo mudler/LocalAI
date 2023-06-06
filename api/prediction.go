@@ -373,6 +373,30 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 				predictOptions...,
 			)
 		}
+	case *transformers.Falcon:
+		fn = func() (string, error) {
+			// Generate the prediction using the language model
+			predictOptions := []transformers.PredictOption{
+				transformers.SetTemperature(c.Temperature),
+				transformers.SetTopP(c.TopP),
+				transformers.SetTopK(c.TopK),
+				transformers.SetTokens(c.Maxtokens),
+				transformers.SetThreads(c.Threads),
+			}
+
+			if c.Batch != 0 {
+				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
+			}
+
+			if c.Seed != 0 {
+				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
+			}
+
+			return model.Predict(
+				s,
+				predictOptions...,
+			)
+		}
 	case *transformers.GPTJ:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
