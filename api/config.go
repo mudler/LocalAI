@@ -42,6 +42,7 @@ type Config struct {
 
 	PromptCachePath string `yaml:"prompt_cache_path"`
 	PromptCacheAll  bool   `yaml:"prompt_cache_all"`
+	PromptCacheRO   bool   `yaml:"prompt_cache_ro"`
 
 	PromptStrings, InputStrings []string
 	InputToken                  [][]int

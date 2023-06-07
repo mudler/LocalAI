@@ -45,6 +45,7 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 	if c.Batch != 0 {
 		llamaOpts = append(llamaOpts, llama.SetNBatch(c.Batch))
 	}
+
 	return llamaOpts
 }
 
@@ -172,6 +173,10 @@ func buildLLamaPredictOptions(c Config, modelPath string) []llama.PredictOption 
 
 	if c.PromptCacheAll {
 		predictOptions = append(predictOptions, llama.EnablePromptCacheAll)
+	}
+
+	if c.PromptCacheRO {
+		predictOptions = append(predictOptions, llama.EnablePromptCacheRO)
 	}
 
 	if c.PromptCachePath != "" {
