@@ -16,24 +16,29 @@ import (
 )
 
 type Config struct {
-	OpenAIRequest         `yaml:"parameters"`
-	Name                  string            `yaml:"name"`
-	StopWords             []string          `yaml:"stopwords"`
-	Cutstrings            []string          `yaml:"cutstrings"`
-	TrimSpace             []string          `yaml:"trimspace"`
-	ContextSize           int               `yaml:"context_size"`
-	F16                   bool              `yaml:"f16"`
-	Threads               int               `yaml:"threads"`
-	Debug                 bool              `yaml:"debug"`
-	Roles                 map[string]string `yaml:"roles"`
-	Embeddings            bool              `yaml:"embeddings"`
-	Backend               string            `yaml:"backend"`
-	TemplateConfig        TemplateConfig    `yaml:"template"`
-	MirostatETA           float64           `yaml:"mirostat_eta"`
-	MirostatTAU           float64           `yaml:"mirostat_tau"`
-	Mirostat              int               `yaml:"mirostat"`
-	NGPULayers            int               `yaml:"gpu_layers"`
-	ImageGenerationAssets string            `yaml:"asset_dir"`
+	OpenAIRequest  `yaml:"parameters"`
+	Name           string            `yaml:"name"`
+	StopWords      []string          `yaml:"stopwords"`
+	Cutstrings     []string          `yaml:"cutstrings"`
+	TrimSpace      []string          `yaml:"trimspace"`
+	ContextSize    int               `yaml:"context_size"`
+	F16            bool              `yaml:"f16"`
+	Threads        int               `yaml:"threads"`
+	Debug          bool              `yaml:"debug"`
+	Roles          map[string]string `yaml:"roles"`
+	Embeddings     bool              `yaml:"embeddings"`
+	Backend        string            `yaml:"backend"`
+	TemplateConfig TemplateConfig    `yaml:"template"`
+	MirostatETA    float64           `yaml:"mirostat_eta"`
+	MirostatTAU    float64           `yaml:"mirostat_tau"`
+	Mirostat       int               `yaml:"mirostat"`
+	NGPULayers     int               `yaml:"gpu_layers"`
+	MMap           bool              `yaml:"mmap"`
+	MMlock         bool              `yaml:"mmlock"`
+
+	TensorSplit           string `yaml:"tensor_split"`
+	MainGPU               string `yaml:"main_gpu"`
+	ImageGenerationAssets string `yaml:"asset_dir"`
 
 	PromptCachePath string `yaml:"prompt_cache_path"`
 	PromptCacheAll  bool   `yaml:"prompt_cache_all"`
@@ -51,6 +56,12 @@ type TemplateConfig struct {
 type ConfigMerger struct {
 	configs map[string]Config
 	sync.Mutex
+}
+
+func defaultConfig(modelFile string) *Config {
+	return &Config{
+		OpenAIRequest: defaultRequest(modelFile),
+	}
 }
 
 func NewConfigMerger() *ConfigMerger {
@@ -308,13 +319,11 @@ func readConfig(modelFile string, input *OpenAIRequest, cm *ConfigMerger, loader
 	var config *Config
 	cfg, exists := cm.GetConfig(modelFile)
 	if !exists {
-		config = &Config{
-			OpenAIRequest: defaultRequest(modelFile),
-			ContextSize:   ctx,
-			Threads:       threads,
-			F16:           f16,
-			Debug:         debug,
-		}
+		config = defaultConfig(modelFile)
+		config.ContextSize = ctx
+		config.Threads = threads
+		config.F16 = f16
+		config.Debug = debug
 	} else {
 		config = &cfg
 	}
