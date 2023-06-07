@@ -12,15 +12,8 @@ git clone https://github.com/go-skynet/LocalAI
 
 cd LocalAI/examples/langchain-python
 
-# (optional) Checkout a specific LocalAI tag
-# git checkout -b build <TAG>
-
-# Download gpt4all-j to models/
-wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
-
 # start with docker-compose
-docker-compose up -d --build
-
+docker-compose up --pull always
 
 pip install langchain
 pip install openai
