@@ -17,7 +17,7 @@ require (
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230605194130-266f13aee9d8
 	github.com/onsi/ginkgo/v2 v2.9.7
-	github.com/onsi/gomega v1.27.7
+	github.com/onsi/gomega v1.27.8
 	github.com/otiai10/openaigo v1.1.0
 	github.com/rs/zerolog v1.29.1
 	github.com/sashabaranov/go-openai v1.10.0
