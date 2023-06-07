@@ -39,6 +39,13 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 		llamaOpts = append(llamaOpts, llama.SetGPULayers(c.NGPULayers))
 	}
 
+	llamaOpts = append(llamaOpts, llama.SetMMap(c.MMap))
+	llamaOpts = append(llamaOpts, llama.SetMainGPU(c.MainGPU))
+	llamaOpts = append(llamaOpts, llama.SetTensorSplit(c.TensorSplit))
+	if c.Batch != 0 {
+		llamaOpts = append(llamaOpts, llama.SetNBatch(c.Batch))
+	}
+
 	return llamaOpts
 }
 
@@ -168,6 +175,10 @@ func buildLLamaPredictOptions(c Config, modelPath string) []llama.PredictOption 
 		predictOptions = append(predictOptions, llama.EnablePromptCacheAll)
 	}
 
+	if c.PromptCacheRO {
+		predictOptions = append(predictOptions, llama.EnablePromptCacheRO)
+	}
+
 	if c.PromptCachePath != "" {
 		// Create parent directory
 		p := filepath.Join(modelPath, c.PromptCachePath)
@@ -216,6 +227,15 @@ func buildLLamaPredictOptions(c Config, modelPath string) []llama.PredictOption 
 	if c.Seed != 0 {
 		predictOptions = append(predictOptions, llama.SetSeed(c.Seed))
 	}
+
+	//predictOptions = append(predictOptions, llama.SetLogitBias(c.Seed))
+
+	predictOptions = append(predictOptions, llama.SetFrequencyPenalty(c.FrequencyPenalty))
+	predictOptions = append(predictOptions, llama.SetMlock(c.MMlock))
+	predictOptions = append(predictOptions, llama.SetMemoryMap(c.MMap))
+	predictOptions = append(predictOptions, llama.SetPredictionMainGPU(c.MainGPU))
+	predictOptions = append(predictOptions, llama.SetPredictionTensorSplit(c.TensorSplit))
+	predictOptions = append(predictOptions, llama.SetTailFreeSamplingZ(c.TFZ))
 
 	return predictOptions
 }
