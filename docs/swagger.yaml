@@ -1,0 +1,242 @@
+definitions:
+  api.APIError:
+    description: Error returned by the API
+    properties:
+      code: {}
+      message:
+        type: string
+      param:
+        type: string
+      type:
+        type: string
+    type: object
+  api.Choice:
+    properties:
+      delta:
+        $ref: '#/definitions/api.Message'
+      finish_reason:
+        type: string
+      index:
+        type: integer
+      message:
+        $ref: '#/definitions/api.Message'
+      text:
+        type: string
+    type: object
+  api.Message:
+    description: Message with a content and a role
+    properties:
+      content:
+        type: string
+      role:
+        type: string
+    type: object
+  api.OpenAIResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/api.Choice'
+        type: array
+      created:
+        type: integer
+      id:
+        type: string
+      model:
+        type: string
+      object:
+        type: string
+      usage:
+        $ref: '#/definitions/api.OpenAIUsage'
+    type: object
+  api.OpenAIUsage:
+    properties:
+      completion_tokens:
+        type: integer
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /edits:
+    post:
+      consumes:
+      - application/json
+      description: Alter model parameters for text completion models.
+      parameters:
+      - description: Define which model to modify.
+        in: body
+        name: model
+        required: true
+        schema:
+          type: string
+      - description: Define the initial prompt for the model.
+        in: body
+        name: instruction
+        required: true
+        schema:
+          type: string
+      - description: Initial input prompt for model.
+        in: body
+        name: input
+        required: true
+        schema:
+          type: string
+      - description: Define stop words for the model to reply after.
+        in: body
+        name: stop
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.OpenAIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIError'
+      summary: Modify model parameters
+      tags:
+      - Chat
+  /models:
+    get:
+      description: List all currently loaded models.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.OpenAIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIError'
+      summary: Get a list of all currently loaded models
+      tags:
+      - Chat
+  /v1/chat/completions:
+    post:
+      consumes:
+      - application/json
+      description: Generates text completions based on the provided prompt and previous
+        messages, using a pre-trained language model.
+      parameters:
+      - description: The name of the pre-trained language model to use for generating
+          text completions.
+        in: body
+        name: model
+        required: true
+        schema:
+          type: string
+      - description: The list of previous messages exchanged with the language model,
+          including the user's messages and the model's responses.
+        in: body
+        name: messages
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/api.Message'
+          type: array
+      - default: 0.5
+        description: The sampling temperature to use when generating text completions.
+          Must be between 0 and 1. Higher values result in more diverse completions,
+          while lower values result in more conservative completions.
+        in: body
+        name: temperature
+        schema:
+          type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.OpenAIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIError'
+      summary: Generate Model-based Text Completions
+      tags:
+      - Chat
+  /v1/completions:
+    post:
+      consumes:
+      - application/json
+      description: Allows to generate completions for a given prompt and model.
+      parameters:
+      - description: The prompt to generate completions for.
+        in: body
+        name: prompt
+        required: true
+        schema:
+          type: string
+      - description: The ID of the model to use.
+        in: body
+        name: model
+        required: true
+        schema:
+          type: string
+      - description: The maximum number of tokens to generate in the completion.
+        in: body
+        name: max_tokens
+        schema:
+          type: integer
+      - description: How many completions to generate for each prompt.
+        in: body
+        name: "n"
+        schema:
+          type: integer
+      - description: The sampling temperature to use when generating completions.
+        in: body
+        name: temperature
+        schema:
+          type: number
+      - description: Sequence where the API will stop generating further tokens
+        in: body
+        name: stop
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Chat completions.
+      tags:
+      - root
+swagger: "2.0"
