@@ -2,6 +2,8 @@ package apiv2
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -22,6 +24,12 @@ type LocalAIEngine struct {
 }
 
 func NewLocalAIEngine(loader *model.ModelLoader) LocalAIEngine {
+
+	// TODO CLEANUP: Perform evil magic, we only need to do once, and api should NOT be removed yet.
+	gpt4alldir := filepath.Join(".", "backend-assets", "gpt4all")
+	os.Setenv("GPT4ALL_IMPLEMENTATIONS_PATH", gpt4alldir)
+	fmt.Printf("[*HAX*] GPT4ALL_IMPLEMENTATIONS_PATH: %s\n", gpt4alldir)
+
 	return LocalAIEngine{
 		loader:     loader,
 		mutexes:    make(map[ConfigRegistration]*sync.Mutex),
@@ -79,6 +87,7 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 	case *gpt4all.Model:
 		fmt.Println("setting predictOnce for gpt4all")
 		supportStreams = true
+
 		predictOnce = func(p Prompt) (string, error) {
 			if tokenCallback != nil {
 				localModel.SetTokenCallback(tokenCallback)
