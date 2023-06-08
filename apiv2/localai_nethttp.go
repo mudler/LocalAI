@@ -7,9 +7,11 @@ import (
 )
 
 func NewLocalAINetHTTPServer(configManager *ConfigManager, loader *model.ModelLoader, address string) *LocalAIServer {
+	engine := NewLocalAIEngine(loader)
 	localAI := LocalAIServer{
 		configManager: configManager,
 		loader:        loader,
+		engine:        &engine,
 	}
 
 	var middlewares []StrictMiddlewareFunc

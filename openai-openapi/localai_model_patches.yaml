@@ -54,6 +54,14 @@ components:
               type: number
               nullable: true
               x-go-type: float64
+            cutstrings:
+              type: array
+              items:
+                type: string
+            trimstrings:
+              type: array
+              items:
+                type: string
     #@overlay/match missing_ok=True
     LocalAIImageRequestExtension:
       allOf:

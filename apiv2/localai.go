@@ -12,6 +12,7 @@ import (
 type LocalAIServer struct {
 	configManager *ConfigManager
 	loader        *model.ModelLoader
+	engine        *LocalAIEngine
 }
 
 func combineRequestAndConfig[RequestType any](configManager *ConfigManager, model string, requestFromInput *RequestType) (*SpecificConfig[RequestType], error) {
@@ -93,7 +94,33 @@ func (las *LocalAIServer) CreateChatCompletion(ctx context.Context, request Crea
 		fmt.Printf("message #%d: %+v", i, m)
 	}
 
-	return CreateChatCompletion200JSONResponse{}, nil
+	fmt.Println("Dodgy Stuff Below")
+
+	predict, err := las.engine.GetModelPredictionFunction(chatRequestConfig, nil)
+	if err != nil {
+		fmt.Printf("!!!!!!!!!! Error obtaining predict fn %s\n", err.Error())
+		return nil, err
+	}
+
+	predictions, err := predict()
+	if err != nil {
+		fmt.Printf("!!!!!!!!!! Error INSIDE predict fn %s\n", err.Error())
+		return nil, err
+	}
+
+	resp := CreateChatCompletion200JSONResponse{}
+
+	for i, prediction := range predictions {
+		resp.Choices = append(resp.Choices, CreateChatCompletionResponseChoice{
+			Message: &ChatCompletionResponseMessage{
+				Content: prediction,
+				Role:    "asssistant", // TODO FIX
+			},
+			Index: &i,
+		})
+	}
+
+	return resp, nil
 
 	// panic("unimplemented")
 }

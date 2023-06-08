@@ -2,14 +2,8 @@ package apiv2
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
 
 	llama "github.com/go-skynet/go-llama.cpp"
-	"github.com/mitchellh/mapstructure"
-	"gopkg.in/yaml.v2"
 )
 
 type ConfigRegistration struct {
@@ -38,6 +32,33 @@ type Config interface {
 	GetRequestDefaults() interface{}
 	GetLocalSettings() ConfigLocalSettings
 	GetRegistration() ConfigRegistration
+
+	// TODO: Test these. I am not sure.
+	ToPredictOptions() []llama.PredictOption
+	ToModelOptions() []llama.ModelOption
+
+	// TODO also dubious? Technically some requests lack prompts, but it's pretty general and may just be worth sticking here.
+	GetPrompts() ([]Prompt, error)
+	GetN() (int, error)
+}
+
+type Prompt interface {
+	AsString() string //, bool)
+	AsTokens() []int
+}
+
+// How do Go people name these? Should I just ditch the interface entirely?
+type PromptImpl struct {
+	sVal string
+	tVal []int
+}
+
+func (p PromptImpl) AsString() string {
+	return p.sVal
+}
+
+func (p PromptImpl) AsTokens() []int {
+	return p.tVal
 }
 
 func (cs ConfigStub) GetRequestDefaults() interface{} {
@@ -50,6 +71,23 @@ func (cs ConfigStub) GetLocalSettings() ConfigLocalSettings {
 
 func (cs ConfigStub) GetRegistration() ConfigRegistration {
 	return cs.Registration
+}
+
+func (cs ConfigStub) ToPredictOptions() []llama.PredictOption {
+	return []llama.PredictOption{}
+}
+
+func (cs ConfigStub) ToModelOptions() []llama.ModelOption {
+	return []llama.ModelOption{}
+}
+
+func (cs ConfigStub) GetPrompts() ([]Prompt, error) {
+	// Does this make sense?
+	return nil, fmt.Errorf("unsupported operation GetPrompts for %T", cs)
+}
+
+func (cs ConfigStub) GetN() (int, error) {
+	return 0, fmt.Errorf("unsupported operation GetN for %T", cs)
 }
 
 func (sc SpecificConfig[RequestModel]) GetRequestDefaults() interface{} {
@@ -66,133 +104,6 @@ func (sc SpecificConfig[RequestModel]) GetLocalSettings() ConfigLocalSettings {
 
 func (sc SpecificConfig[RequestModel]) GetRegistration() ConfigRegistration {
 	return sc.Registration
-}
-
-type ConfigManager struct {
-	configs map[ConfigRegistration]Config
-	sync.Mutex
-}
-
-func NewConfigManager() *ConfigManager {
-	return &ConfigManager{
-		configs: make(map[ConfigRegistration]Config),
-	}
-}
-
-// Private helper method doesn't enforce the mutex. This is because loading at the directory level keeps the lock up the whole time, and I like that.
-func (cm *ConfigManager) loadConfigFile(path string) (*Config, error) {
-	fmt.Printf("INTERNAL loadConfigFile for %s\n", path)
-	stub := ConfigStub{}
-	f, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read config file: %w", err)
-	}
-	if err := yaml.Unmarshal(f, &stub); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
-	}
-	fmt.Printf("RAW STUB: %+v\n", stub)
-
-	endpoint := stub.Registration.Endpoint
-
-	// EndpointConfigMap is generated over in localai.gen.go
-	// It's a map that translates a string endpoint function name to an empty SpecificConfig[T], with the type parameter for that request.
-	if structType, ok := EndpointConfigMap[endpoint]; ok {
-		fmt.Printf("~~ EndpointConfigMap[%s]: %+v\n", endpoint, structType)
-		tmpUnmarshal := map[string]interface{}{}
-		if err := yaml.Unmarshal(f, &tmpUnmarshal); err != nil {
-			if e, ok := err.(*yaml.TypeError); ok {
-				fmt.Println("\n!!!!!Type error:", e)
-			}
-			return nil, fmt.Errorf("cannot unmarshal config file for %s: %w", endpoint, err)
-		}
-		fmt.Printf("$$$ tmpUnmarshal: %+v\n", tmpUnmarshal)
-		mapstructure.Decode(tmpUnmarshal, &structType)
-
-		fmt.Printf("AFTER UNMARSHAL %T\n%+v\n=======\n", structType, structType)
-
-		// rawConfig.RequestDefaults = structType.GetRequestDefaults()
-
-		cm.configs[structType.GetRegistration()] = structType
-		// fmt.Printf("\n\n\n!!!!!HIT BOTTOM!!!!!!")
-		return &structType, nil
-		// fmt.Printf("\n\n\n!!!!!\n\n\nBIG MISS!\n\n%+v\n\n%T\n%T=====", specificStruct, specificStruct, structType)
-	}
-
-	// for i, ts := range EndpointToRequestBodyMap {
-	// 	fmt.Printf("%s: %+v\n", i, ts)
-	// }
-
-	return nil, fmt.Errorf("failed to parse config for endpoint %s", endpoint)
-}
-
-func (cm *ConfigManager) LoadConfigFile(path string) (*Config, error) {
-	fmt.Printf("LoadConfigFile TOP for %s", path)
-
-	cm.Lock()
-	fmt.Println("cm.Lock done")
-
-	defer cm.Unlock()
-	fmt.Println("cm.Unlock done")
-
-	return cm.loadConfigFile(path)
-}
-
-func (cm *ConfigManager) LoadConfigDirectory(path string) ([]ConfigRegistration, error) {
-	fmt.Printf("LoadConfigDirectory TOP for %s\n", path)
-	cm.Lock()
-	defer cm.Unlock()
-	files, err := os.ReadDir(path)
-	if err != nil {
-		return []ConfigRegistration{}, err
-	}
-	fmt.Printf("os.ReadDir done, found %d files\n", len(files))
-
-	for _, file := range files {
-		// Skip anything that isn't yaml
-		if !strings.Contains(file.Name(), ".yaml") {
-			continue
-		}
-		_, err := cm.loadConfigFile(filepath.Join(path, file.Name()))
-		if err != nil {
-			return []ConfigRegistration{}, err
-		}
-	}
-
-	fmt.Printf("LoadConfigDirectory DONE %d", len(cm.configs))
-
-	return cm.listConfigs(), nil
-}
-
-func (cm *ConfigManager) GetConfig(r ConfigRegistration) (Config, bool) {
-	cm.Lock()
-	defer cm.Unlock()
-	v, exists := cm.configs[r]
-	return v, exists
-}
-
-// This is a convience function for endpoint functions to use.
-// The advantage is it avoids errors in the endpoint string
-// Not a clue what the performance cost of this is.
-func (cm *ConfigManager) GetConfigForThisEndpoint(m string) (Config, bool) {
-	endpoint := printCurrentFunctionName(2)
-	return cm.GetConfig(ConfigRegistration{
-		Model:    m,
-		Endpoint: endpoint,
-	})
-}
-
-func (cm *ConfigManager) listConfigs() []ConfigRegistration {
-	var res []ConfigRegistration
-	for k := range cm.configs {
-		res = append(res, k)
-	}
-	return res
-}
-
-func (cm *ConfigManager) ListConfigs() []ConfigRegistration {
-	cm.Lock()
-	defer cm.Unlock()
-	return cm.listConfigs()
 }
 
 // These functions I'm a bit dubious about. I think there's a better refactoring down in pkg/model
@@ -328,3 +239,78 @@ func (sc SpecificConfig[RequestModel]) ToPredictOptions() []llama.PredictOption 
 
 	return llamaOpts
 }
+
+// It's unclear if this code belongs here or somewhere else, but I'm jamming it here for now.
+func (sc SpecificConfig[RequestModel]) GetPrompts() ([]Prompt, error) {
+	prompts := []Prompt{}
+
+	switch req := sc.GetRequestDefaults().(type) {
+	case CreateCompletionRequest:
+		p0, err := req.Prompt.AsCreateCompletionRequestPrompt0()
+		if err == nil {
+			p := PromptImpl{sVal: p0}
+			return []Prompt{p}, nil
+		}
+		p1, err := req.Prompt.AsCreateCompletionRequestPrompt1()
+		if err == nil {
+			for _, m := range p1 {
+				prompts = append(prompts, PromptImpl{sVal: m})
+			}
+			return prompts, nil
+		}
+		p2, err := req.Prompt.AsCreateCompletionRequestPrompt2()
+		if err == nil {
+			p := PromptImpl{tVal: p2}
+			return []Prompt{p}, nil
+		}
+		p3, err := req.Prompt.AsCreateCompletionRequestPrompt3()
+		if err == nil {
+			for _, t := range p3 {
+				prompts = append(prompts, PromptImpl{tVal: t})
+			}
+			return prompts, nil
+		}
+	case CreateChatCompletionRequest:
+
+		for _, message := range req.Messages {
+
+			prompts = append(prompts, PromptImpl{sVal: message.Content})
+
+			// TODO Deal with ROLES
+			// var content string
+			// r := req.Roles[message.Role]
+			// if r != "" {
+			// 	content = fmt.Sprint(r, " ", message.Content)
+			// } else {
+			// 	content = message.Content
+			// }
+
+			// if content != "" {
+			// 	prompt = prompt + content
+			// }
+
+		}
+		return prompts, nil
+	}
+
+	return nil, fmt.Errorf("string prompt not found for %T", sc.GetRequestDefaults())
+}
+
+func (sc SpecificConfig[RequestModel]) GetN() (int, error) {
+	switch req := sc.GetRequestDefaults().(type) {
+
+	case CreateChatCompletionRequest:
+	case CreateCompletionRequest:
+	case CreateEditRequest:
+	case CreateImageRequest:
+		// TODO I AM SORRY FOR THIS DIRTY HACK.
+		// YTT is currently mangling the n property and renaming it to false.
+		// This needs to be fixed before merging. However for testing.....
+		return *req.False, nil
+	}
+
+	return 0, fmt.Errorf("unsupported operation GetN for %T", sc)
+}
+
+// TODO: Not even using this, but illustration of difficulty: should this be integrated to make GetPrompts(), returning an interface of {Tokens []int, String string}
+// func (sc SpecificConfig[RequestModel]) GetTokenPrompts() ([]int, error) {}

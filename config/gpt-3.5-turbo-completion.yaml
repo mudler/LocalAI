@@ -4,6 +4,8 @@ registration:
 local_paths:
   model: ggml-gpt4all-j
   template: chat-gpt4all
+  backend: gptj
+  threads: 4
 request_defaults:
   top_p: 0.7
   temperature: 0.2
