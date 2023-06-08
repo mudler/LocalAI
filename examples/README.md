@@ -106,6 +106,16 @@ Shows how to integrate with `Langchain` and `Chroma` to enable question answerin
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/langchain-chroma/)
 
+### Telegram bot
+
+_by [@mudler](https://github.com/mudler)
+
+![Screenshot from 2023-06-09 00-36-26](https://github.com/go-skynet/LocalAI/assets/2420543/e98b4305-fa2d-41cf-9d2f-1bb2d75ca902)
+
+Use LocalAI to power a Telegram bot assistant, with Image generation and audio support!
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/telegram-bot/)
+
 ### Template for Runpod.io
 
 _by [@fHachenberg](https://github.com/fHachenberg)_
