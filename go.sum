@@ -18,6 +18,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/donomii/go-rwkv.cpp v0.0.0-20230606181754-d5f48f6d607a h1:ye/xhplHFjnTd4O9QDDhM/QmuiGiSZaKARug6wNYgWg=
 github.com/donomii/go-rwkv.cpp v0.0.0-20230606181754-d5f48f6d607a/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
+github.com/donomii/go-rwkv.cpp v0.0.0-20230608182638-fb8b955b0c35 h1:tfN6kA+k4O/oPEcCcZ+XZqyqOk9Z2L8NSHjmR4i6rhc=
+github.com/donomii/go-rwkv.cpp v0.0.0-20230608182638-fb8b955b0c35/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27 h1:boeMTUUBtnLU8JElZJHXrsUzROJar9/t6vGOFjkrhhI=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27/go.mod h1:QIjZ9OktHFG7p+/m3sMvrAJKKdWrr1fZIK0rM6HZlyo=
 github.com/go-audio/audio v1.0.0 h1:zS9vebldgbQqktK4H0lUqWrG8P0NxCJVqcj7ZpNnwd4=
@@ -46,6 +48,8 @@ github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230606131358-bd765bb6f3b3
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230606131358-bd765bb6f3b3/go.mod h1:/JbU8HZU+tUOp+1bQAeXf3AyRXm+p3UwhccoJwCTI9A=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230607123950-351aa714672f h1:c16pf8uTyaRRQLxR0QKp4q7XDeHXrXGVBHLOgdBtEgc=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230607123950-351aa714672f/go.mod h1:ffURxv+McO1SK7mWrNSaWPgTLqEukZNGTU6dn+ocMHg=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230608215450-672fb056081d h1:wYy8wst1Z0qP0kDWW5GrJsk89u39lbLvRgTx8uh7ijA=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230608215450-672fb056081d/go.mod h1:dUZekEbjnGUjk35v9iTIdmSst/NIDQ9s9Pyo4t1aBQg=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 h1:tfuBGBXKqDEevZMzYi5KSi8KkcZtzBcTgAUUtapy0OI=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572/go.mod h1:9Pwr4B2jHnOSGXyyzV8ROjYa2ojvAY6HCGYYfMoC3Ls=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
@@ -93,8 +97,12 @@ github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWb
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230605194130-266f13aee9d8 h1:7SqRnb44CN9QQtZxdFTTgaSqsWVbtFRrHLbKhrTEXlM=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230605194130-266f13aee9d8/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
+github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230608180830-47fbc0e3092d h1:CtekEOIingzlwzlBySFEuR5PlCKmHylBr7F42y2erUQ=
+github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230608180830-47fbc0e3092d/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
 github.com/onsi/ginkgo/v2 v2.9.7 h1:06xGQy5www2oN160RtEZoTvnP2sPhEfePYmCDc2szss=
 github.com/onsi/ginkgo/v2 v2.9.7/go.mod h1:cxrmXWykAwTwhQsJOPfdIDiJ+l2RYq7U8hFU+M/1uw0=
+github.com/onsi/ginkgo/v2 v2.10.0 h1:sfUl4qgLdvkChZrWCYndY2EAu9BRIw1YphNAzy1VNWs=
+github.com/onsi/ginkgo/v2 v2.10.0/go.mod h1:UDQOh5wbQUlMnkLfVaIUMtQ1Vus92oM+P2JX1aulgcE=
 github.com/onsi/gomega v1.27.8 h1:gegWiwZjBsf2DgiSbf5hpokZ98JVDMcWkUiigk6/KXc=
 github.com/onsi/gomega v1.27.8/go.mod h1:2J8vzI/s+2shY9XHRApDkdgPo1TKT7P2u6fXeJKFnNQ=
 github.com/otiai10/mint v1.5.1 h1:XaPLeE+9vGbuyEHem1JNk3bYc7KKqyI/na0/mLd/Kks=
@@ -201,6 +209,8 @@ golang.org/x/tools v0.1.12/go.mod h1:hNGJHUnrk76NpqgfD5Aqm5Crs+Hm0VOH/i9J2+nxYbc
 golang.org/x/tools v0.4.0/go.mod h1:UE5sM2OK9E/d67R0ANs2xJizIymRP5gJU295PvKXxjQ=
 golang.org/x/tools v0.9.1 h1:8WMNJAz3zrtPmnYC7ISf5dEn3MT0gY7jBJfw27yrrLo=
 golang.org/x/tools v0.9.1/go.mod h1:owI94Op576fPu3cIGQeHs3joujW/2Oc6MtlxbF5dfNc=
+golang.org/x/tools v0.9.3 h1:Gn1I8+64MsuTb/HpH+LmQtNas23LhUVr3rYZ0eKuaMM=
+golang.org/x/tools v0.9.3/go.mod h1:owI94Op576fPu3cIGQeHs3joujW/2Oc6MtlxbF5dfNc=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
