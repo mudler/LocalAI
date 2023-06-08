@@ -195,6 +195,33 @@ var _ = Describe("API test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["backend"]).To(Equal("bert-embeddings"))
 			})
+
+			It("runs openllama", Label("llama"), func() {
+				if runtime.GOOS != "linux" {
+					Skip("test supported only on linux")
+				}
+				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+					URL:       "github:go-skynet/model-gallery/openllama_3b.yaml",
+					Name:      "openllama_3b",
+					Overrides: map[string]string{},
+				})
+
+				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+
+				uuid := response["uuid"].(string)
+
+				Eventually(func() bool {
+					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					fmt.Println(response)
+					return response["processed"].(bool)
+				}, "360s").Should(Equal(true))
+
+				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "openllama_3b", Prompt: "Count up to five: one, two, three, four, "})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Choices)).To(Equal(1))
+				Expect(resp.Choices[0].Text).To(ContainSubstring("five"))
+			})
+
 			It("runs gpt4all", Label("gpt4all"), func() {
 				if runtime.GOOS != "linux" {
 					Skip("test supported only on linux")

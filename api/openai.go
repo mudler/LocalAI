@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -125,6 +125,9 @@ type OpenAIRequest struct {
 	MirostatTAU float64 `json:"mirostat_tau" yaml:"mirostat_tau"`
 	Mirostat    int     `json:"mirostat" yaml:"mirostat"`
 
+	FrequencyPenalty float64 `json:"frequency_penalty" yaml:"frequency_penalty"`
+	TFZ              float64 `json:"tfz" yaml:"tfz"`
+
 	Seed int `json:"seed" yaml:"seed"`
 
 	// Image (not supported by OpenAI)
@@ -191,7 +194,7 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		}
 
 		if input.Stream {
-			if (len(config.PromptStrings) > 1) {
+			if len(config.PromptStrings) > 1 {
 				return errors.New("cannot handle more than 1 `PromptStrings` when `Stream`ing")
 			}
 

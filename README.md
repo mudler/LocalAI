@@ -32,6 +32,7 @@ See the [Getting started](https://localai.io/basics/getting_started/index.html) 
 
 ## News
 
+- 🔥🔥🔥 06-06-2023: **v1.18.0**: Many updates, new features, and much more 🚀, check out the [Changelog](https://localai.io/basics/news/index.html#-06-06-2023-__v1180__-)!
 - 29-05-2023: LocalAI now has a website, [https://localai.io](https://localai.io)! check the news in the [dedicated section](https://localai.io/basics/news/index.html)!
 
 For latest news, follow also on Twitter [@LocalAI_API](https://twitter.com/LocalAI_API) and [@mudler_it](https://twitter.com/mudler_it)
