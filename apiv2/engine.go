@@ -88,9 +88,11 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 
 			mapstructure.Decode(config.ToPredictOptions(), &mappedPredictOptions)
 
-			str, err := localModel.PredictTEMP(
+			// str, err := localModel.PredictTEMP(
+			str, err := localModel.Predict(
 				p.AsString(),
-				mappedPredictOptions,
+				// mappedPredictOptions,
+				nil,
 			)
 			// Seems that if we don't free the callback explicitly we leave functions registered (that might try to send on closed channels)
 			// For instance otherwise the API returns: {"error":{"code":500,"message":"send on closed channel","type":""}}
@@ -108,9 +110,11 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 
 			fmt.Printf("MAPPED OPTIONS: %+v\n", mappedPredictOptions)
 
-			str, err := localModel.PredictTEMP(
+			// str, err := localModel.PredictTEMP(
+			str, err := localModel.Predict(
 				p.AsString(),
-				mappedPredictOptions,
+				// mappedPredictOptions,
+				nil,
 			)
 			return str, err
 		}
