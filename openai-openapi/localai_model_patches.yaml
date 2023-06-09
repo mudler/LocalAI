@@ -62,6 +62,27 @@ components:
               type: array
               items:
                 type: string
+
+    #@overlay/match missing_ok=True
+    LocalAIChatRequestExtension:
+      allOf:
+        - $ref: "#/components/schemas/LocalAITextRequestExtension"
+        - type: object
+          nullable: true
+          properties:
+            roles:
+              type: object
+              nullable: true
+              properties:
+                system:
+                  type: string
+                  nullable: true
+                user:
+                  type: string
+                  nullable: true
+                assistant:
+                  type: string
+                  nullable: true
     #@overlay/match missing_ok=True
     LocalAIImageRequestExtension:
       allOf:
@@ -82,7 +103,7 @@ components:
       properties:
         #@overlay/match missing_ok=True
         x-localai-extensions:
-           $ref: "#/components/schemas/LocalAITextRequestExtension"
+           $ref: "#/components/schemas/LocalAIChatRequestExtension"
     CreateCompletionRequest:
       properties:
         #@overlay/match missing_ok=True

@@ -80,7 +80,7 @@ apiv2/localai.gen.go: prepare-sources
 	echo "go mod download done, running YTT"
 	# cp ./openai-openapi/transformed/localai.yaml ./openai-openapi/transformed/localai.orig.yaml
 	$(GOCMD) run github.com/vmware-tanzu/carvel-ytt/cmd/ytt --output-files ./openai-openapi/transformed -f ./openai-openapi/transformed/localai.yaml -f ./openai-openapi/localai_model_patches.yaml
-	cp ./openai-openapi/transformed/localai.yaml ./openai-openapi/transformed/localai.mid.yaml
+	# cp ./openai-openapi/transformed/localai.yaml ./openai-openapi/transformed/localai.mid.yaml
 	echo "YTT Done, generating code..."
 	$(GOCMD) run github.com/deepmap/oapi-codegen/cmd/oapi-codegen --config=./openai-openapi/config.yaml ./openai-openapi/transformed/localai.yaml
 

@@ -168,12 +168,15 @@ func (sc SpecificConfig[RequestModel]) ToPredictOptions() []llama.PredictOption 
 			llamaOpts = append(llamaOpts, llama.SetPenalty(float64(*req.FrequencyPenalty))) // CAST
 		}
 
-		if stop0, err := req.Stop.AsCreateChatCompletionRequestStop0(); err == nil {
-			llamaOpts = append(llamaOpts, llama.SetStopWords(stop0))
-		}
+		if req.Stop != nil {
 
-		if stop1, err := req.Stop.AsCreateChatCompletionRequestStop1(); err == nil && len(stop1) > 0 {
-			llamaOpts = append(llamaOpts, llama.SetStopWords(stop1...))
+			if stop0, err := req.Stop.AsCreateChatCompletionRequestStop0(); err == nil {
+				llamaOpts = append(llamaOpts, llama.SetStopWords(stop0))
+			}
+
+			if stop1, err := req.Stop.AsCreateChatCompletionRequestStop1(); err == nil && len(stop1) > 0 {
+				llamaOpts = append(llamaOpts, llama.SetStopWords(stop1...))
+			}
 		}
 
 		if req.XLocalaiExtensions != nil {

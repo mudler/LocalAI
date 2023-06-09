@@ -93,6 +93,7 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 				localModel.SetTokenCallback(tokenCallback)
 			}
 
+			tempFakePO := []gpt4all.PredictOption{}
 			mappedPredictOptions := gpt4all.PredictOptions{}
 
 			mapstructure.Decode(config.ToPredictOptions(), &mappedPredictOptions)
@@ -101,7 +102,7 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 			str, err := localModel.Predict(
 				p.AsString(),
 				// mappedPredictOptions,
-				nil,
+				tempFakePO...,
 			)
 			// Seems that if we don't free the callback explicitly we leave functions registered (that might try to send on closed channels)
 			// For instance otherwise the API returns: {"error":{"code":500,"message":"send on closed channel","type":""}}
@@ -163,6 +164,13 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 			for n_i := 0; n_i < n; n_i++ {
 				res, err := predictOnce(prompt)
 
+				if err != nil {
+					fmt.Printf("ERROR DURING GetModelPredictionFunction -> PredictionFunction for %T with p_i: %d/n_i: %d\n%s", config, p_i, n_i, err.Error())
+					return nil, err
+				}
+
+				fmt.Printf("\n\n🤯 raw res: %s\n\n", res)
+
 				// TODO: this used to be a part of finetune. For.... questionable parameter reasons I've moved it up here. Revisit this if it's smelly in the future.
 				ccr, is_ccr := req.(CreateCompletionRequest)
 				if is_ccr {
@@ -173,10 +181,6 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 
 				res = e.Finetune(config, res)
 
-				if err != nil {
-					fmt.Printf("ERROR DURING GetModelPredictionFunction -> PredictionFunction for %T with p_i: %d/n_i: %d\n%s", config, p_i, n_i, err.Error())
-					return nil, err
-				}
 				if tokenCallback != nil && !supportStreams {
 					tokenCallback(res)
 				}

@@ -102,6 +102,7 @@ func (las *LocalAIServer) CreateChatCompletion(ctx context.Context, request Crea
 		return nil, err
 	}
 
+	fmt.Println("About to call predict()")
 	predictions, err := predict()
 	if err != nil {
 		fmt.Printf("!!!!!!!!!! Error INSIDE predict fn %s\n", err.Error())
