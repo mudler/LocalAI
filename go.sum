@@ -20,6 +20,8 @@ github.com/donomii/go-rwkv.cpp v0.0.0-20230606181754-d5f48f6d607a h1:ye/xhplHFjn
 github.com/donomii/go-rwkv.cpp v0.0.0-20230606181754-d5f48f6d607a/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
 github.com/donomii/go-rwkv.cpp v0.0.0-20230608182638-fb8b955b0c35 h1:tfN6kA+k4O/oPEcCcZ+XZqyqOk9Z2L8NSHjmR4i6rhc=
 github.com/donomii/go-rwkv.cpp v0.0.0-20230608182638-fb8b955b0c35/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
+github.com/donomii/go-rwkv.cpp v0.0.0-20230609132458-d2b25a4bb148 h1:rC8T9CXqzB4Gw2RGo7uA7r0bFE8Qvc7ZXOBwIyhQuLM=
+github.com/donomii/go-rwkv.cpp v0.0.0-20230609132458-d2b25a4bb148/go.mod h1:gWy7FIWioqYmYxkaoFyBnaKApeZVrUkHhv9EV9pz4dM=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27 h1:boeMTUUBtnLU8JElZJHXrsUzROJar9/t6vGOFjkrhhI=
 github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27/go.mod h1:QIjZ9OktHFG7p+/m3sMvrAJKKdWrr1fZIK0rM6HZlyo=
 github.com/go-audio/audio v1.0.0 h1:zS9vebldgbQqktK4H0lUqWrG8P0NxCJVqcj7ZpNnwd4=
