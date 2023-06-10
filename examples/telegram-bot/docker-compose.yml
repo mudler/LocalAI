@@ -23,16 +23,6 @@ services:
     volumes:
       - ./models:/models:cached
     command: ["/usr/bin/local-ai" ]
-  mongo:
-    container_name: mongo
-    image: mongo:latest
-    restart: always
-    ports:
-      - 127.0.0.1:${MONGODB_PORT:-27017}:${MONGODB_PORT:-27017}
-    volumes:
-      - ${MONGODB_PATH:-./mongodb}:/data/db
-    # TODO: add auth
-
   chatgpt_telegram_bot:
     container_name: chatgpt_telegram_bot
     command: python3 bot/bot.py
@@ -46,21 +36,3 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      mongo:
-        condition: service_started
-
-  mongo_express:
-    container_name: mongo-express
-    image: mongo-express:latest
-    restart: always
-    ports:
-      - 127.0.0.1:${MONGO_EXPRESS_PORT:-8081}:${MONGO_EXPRESS_PORT:-8081}
-    environment:
-      - ME_CONFIG_MONGODB_SERVER=mongo
-      - ME_CONFIG_MONGODB_PORT=${MONGODB_PORT:-27017}
-      - ME_CONFIG_MONGODB_ENABLE_ADMIN=false
-      - ME_CONFIG_MONGODB_AUTH_DATABASE=chatgpt_telegram_bot
-      - ME_CONFIG_BASICAUTH_USERNAME=${MONGO_EXPRESS_USERNAME:-username}
-      - ME_CONFIG_BASICAUTH_PASSWORD=${MONGO_EXPRESS_PASSWORD:-password}
-    depends_on:
-      - mongo
