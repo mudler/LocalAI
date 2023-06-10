@@ -28,3 +28,5 @@ release/
 
 # Generated during build
 backend-assets/
+
+/ggml-metal.metal
