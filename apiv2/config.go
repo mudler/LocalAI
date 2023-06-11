@@ -2,6 +2,7 @@ package apiv2
 
 import (
 	"fmt"
+	"strings"
 
 	llama "github.com/go-skynet/go-llama.cpp"
 )
@@ -275,22 +276,40 @@ func (sc SpecificConfig[RequestModel]) GetPrompts() ([]Prompt, error) {
 		}
 	case CreateChatCompletionRequest:
 
+		fmt.Printf("🥳 %+v\n\n\n", req.XLocalaiExtensions.Roles)
+
 		for _, message := range req.Messages {
+			var content string
+			var role string
+			if req.XLocalaiExtensions.Roles != nil {
+				// TODO this is ugly, and seems like I did it wrong, fix after
+				switch strings.ToLower(string(message.Role)) {
+				case "system":
+					if r := req.XLocalaiExtensions.Roles.System; r != nil {
+						role = *r
+					}
+				case "user":
+					if r := req.XLocalaiExtensions.Roles.User; r != nil {
+						role = *r
+					}
+				case "assistant":
+					if r := req.XLocalaiExtensions.Roles.Assistant; r != nil {
+						role = *r
+					}
+				default:
+					fmt.Printf("Unrecognized message role: %s\n", message.Role)
+					role = ""
+				}
+			}
+			if role != "" {
+				content = fmt.Sprint(role, " ", message.Content)
+			} else {
+				content = message.Content
+			}
 
-			prompts = append(prompts, PromptImpl{sVal: message.Content})
-
-			// TODO Deal with ROLES
-			// var content string
-			// r := req.Roles[message.Role]
-			// if r != "" {
-			// 	content = fmt.Sprint(r, " ", message.Content)
-			// } else {
-			// 	content = message.Content
-			// }
-
-			// if content != "" {
-			// 	prompt = prompt + content
-			// }
+			if content != "" {
+				prompts = append(prompts, PromptImpl{sVal: content})
+			}
 
 		}
 		return prompts, nil

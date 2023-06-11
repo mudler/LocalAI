@@ -8,6 +8,10 @@
 ---
 components:
   schemas:
+    #!
+    #! ==== Request Model Extensions ====
+    #!
+
     #@overlay/match missing_ok=True
     LocalAIBaseRequestExtension:
       type: object
@@ -62,7 +66,22 @@ components:
               type: array
               items:
                 type: string
-
+    #@overlay/match missing_ok=True
+    LocalAIImageRequestExtension:
+      allOf:
+        - $ref: "#/components/schemas/LocalAIBaseRequestExtension"
+        - type: object
+          nullable: true
+          properties:
+            model:
+              type: string
+              nullable: false
+            mode:
+              type: integer
+              nullable: true
+            step:
+              type: integer
+              nullable: true
     #@overlay/match missing_ok=True
     LocalAIChatRequestExtension:
       allOf:
@@ -83,37 +102,29 @@ components:
                 assistant:
                   type: string
                   nullable: true
-    #@overlay/match missing_ok=True
-    LocalAIImageRequestExtension:
-      allOf:
-        - $ref: "#/components/schemas/LocalAIBaseRequestExtension"
-        - type: object
-          nullable: true
-          properties:
-            model:
-              type: string
-              nullable: false
-            mode:
-              type: integer
-              nullable: true
-            step:
-              type: integer
-              nullable: true
+    #!
+    #! ==== x-localai-extensions for Requests ====
+    #!
+
     CreateChatCompletionRequest:
       properties:
         #@overlay/match missing_ok=True
         x-localai-extensions:
-           $ref: "#/components/schemas/LocalAIChatRequestExtension"
+          $ref: "#/components/schemas/LocalAIChatRequestExtension"
     CreateCompletionRequest:
       properties:
         #@overlay/match missing_ok=True
         x-localai-extensions:
-           $ref: "#/components/schemas/LocalAITextRequestExtension"
+          $ref: "#/components/schemas/LocalAITextRequestExtension"
     CreateImageRequest:
       properties:
         #@overlay/match missing_ok=True
         x-localai-extensions:
-           $ref: "#/components/schemas/LocalAIImageRequestExtension"
+          $ref: "#/components/schemas/LocalAIImageRequestExtension"
+    #!
+    #! ==== Responses - Desirable Type Names ====
+    #!
+    
     CreateChatCompletionResponse:
       properties:
         choices:
