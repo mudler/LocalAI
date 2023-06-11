@@ -11,3 +11,7 @@ request_defaults:
   temperature: 0.2
   x-localai-extensions:
     top_k: 80
+    roles:
+      system: "system"
+      assistant: "assistant"
+      user: "user"
