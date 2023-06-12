@@ -7,10 +7,13 @@ A few notes up front:
 * Don't take the apiv2 package name personally - I wasn't sure what characters were allowed in the package names... and this worked.
 * This is a Vertical Slice POC / Demo - so far, only text requests have really been considered, though some early prototyping has been done. Even then, testing has been limited to ggml-gpt4all-j since the goal is to get something out there!
 * This document started as my personal notes, and it's still pretty poorly written.
+* LocalAI is my first golang project. Learn on exciting stuff, I always say. I'm primarily looking for feedback on style and direction at this early phase, before I've spent even more time making everything work!
 * Model gallery is cool, and probably will help a lot with the more verbose config files this POC uses... but getting that up and running is out of scope until most of the endpoints work.
 
 ## TODO Notes:
-* CURRENTLY BROKEN to investigate merging YAML 
+*  Cleaned up a little bit for this Phase 1 POC!
+*  PredictOptions is not finished! My proposal is to add a new constructor fn to each of the go-* classes that takes the collapsed structure instead of the function slice - that way, I can mapstructure from the densest to the least. There's some commented out remnants of that, since I tested it with hacked up branches and it works. Proper implementation is phase 2!
+
 
 
 ## Goals And Documentation
@@ -35,10 +38,11 @@ Once we've patched the specifications to include our additional parameters and a
 
 A few notes about known issues here, since this _is_ an early POC:
 * YTT currently has a minor, but extremely weird bug. One of the properties of OpenAI's request model is named 'n'. For some #*$@ reason, YTT reproducably mangles this to "False" on my system. I have not yet investigated why, and have implemented a shameful workaround. I'll dig into this now that this POC is off the ground.
-*  I've been prototyping with net/http, since it's the _simplest_ and Fiber just landed upstream. Will test with that soon.
+* Fiber support JUST landed in oapi-codegen. I ported over to it! But yeah.... I did that really fast and it needs double checking :D
 * Currently, we require a patched version of oapi-codegen. I've extended it to support multiple struct tags when generating structs, and added a new template extension point for some.... stuff I'll mention later.
 ** This isn't strictly a problem - now that my changes are settled down, it might be worth trying to upstream them. If they aren't accepted, maybe we can create a go-skynet fork to hold the patch and use the existing dependency maintence infrastructure
 
+This results in a generated file `localai.gen.go` that should **not** be edited manually.
 
 Once the code was generated, we now have individual models for each endpoint. While it's worth considering changing things farther along the stack now that we have this capability, my goal was to weld these disparate models to our existing flexible model loader.
 
@@ -53,8 +57,11 @@ By using the mapstructure library, I'm able to inflate these varied shapes to a 
 This common interface is responsible for decoding down to the relevant fields. Currently in this proof of concept state, I'm heavily leveraging llama.PredictOptions, as it's the most feature complete. If we take this POC to completion, I might suggest that we expend the effort to create a base package all the go-* backends can inherit from, rather than this extra copy / mapstructure step 
 * Currently doesn't even work, and is commented out. Plan there was to also going to require modifying go-* libs to introduce an additional constructor that takes the options structure rather than slice of fn. 
 
-config manager is conceptually similar to the config_merger of the existing code
+`config_manager.go` is conceptually similar to the config_merger of the existing code
 
 `localai.go` contains the method stubs our generated server will call, and additionally contains the code for merging together the configuration file + the request input.
+
+`localai_fiber.go` hooks the server implementation up to Fiber. The functions / api in there is almost certainly wrong, but does "work" for preliminary testing.
+`localai_nethttp.go` predated it, and was a net/http impl before oapi-codegen support landed in master. I'll probably clean it up soon but it was a bit better battle tested so it survives into phase 1 POC.
 
 Actually interfacing the with backends is currently living in `engine.go`, which is conceptually similar to `prediction.go` although it is not a 1:1 port.

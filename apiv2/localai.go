@@ -7,6 +7,7 @@ import (
 
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/mitchellh/mapstructure"
+	"github.com/rs/zerolog/log"
 )
 
 type LocalAIServer struct {
@@ -26,10 +27,8 @@ func combineRequestAndConfig[RequestType any](configManager *ConfigManager, mode
 	config, exists := configManager.GetConfig(lookup)
 
 	if !exists {
-		return nil, fmt.Errorf("Config not found for %+v", lookup)
+		return nil, fmt.Errorf("config not found for %+v", lookup)
 	}
-
-	// fmt.Printf("Model: %s\nConfig: %+v\nrequestFromInput: %+v\n", model, config, requestFromInput)
 
 	request, ok := config.GetRequestDefaults().(RequestType)
 
@@ -53,8 +52,6 @@ func combineRequestAndConfig[RequestType any](configManager *ConfigManager, mode
 		return nil, decodeErr
 	}
 
-	fmt.Printf("AFTER rD: %T\n%+v\n\n", request, request)
-
 	return &SpecificConfig[RequestType]{
 		ConfigStub: ConfigStub{
 			Registration:  config.GetRegistration(),
@@ -63,10 +60,6 @@ func combineRequestAndConfig[RequestType any](configManager *ConfigManager, mode
 		RequestDefaults: request,
 	}, nil
 }
-
-// func (las *LocalAIServer) loadModel(configStub ConfigStub) {
-
-// }
 
 // CancelFineTune implements StrictServerInterface
 func (*LocalAIServer) CancelFineTune(ctx context.Context, request CancelFineTuneRequestObject) (CancelFineTuneResponseObject, error) {
@@ -79,51 +72,44 @@ func (las *LocalAIServer) CreateChatCompletion(ctx context.Context, request Crea
 	chatRequestConfig, err := combineRequestAndConfig(las.configManager, request.Body.Model, request.Body)
 
 	if err != nil {
-		fmt.Printf("CreateChatCompletion ERROR combining config and input!\n%s\n", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("errpr during CreateChatCompletion, failed to combineRequestAndConfig: %w", err)
 	}
-
-	chatRequest := chatRequestConfig.RequestDefaults
-
-	fmt.Printf("\n===CreateChatCompletion===\n%+v\n", chatRequest)
-
-	fmt.Printf("\n\n!! TYPED CreateChatCompletion !!\ntemperature %f\n top_p %f \n %d\n", *chatRequest.Temperature, *chatRequest.TopP, *chatRequest.XLocalaiExtensions.TopK)
-
-	fmt.Printf("chatRequest: %+v\nlen(messages): %d", chatRequest, len(chatRequest.Messages))
-	for i, m := range chatRequest.Messages {
-		fmt.Printf("message #%d: %+v", i, m)
-	}
-
-	fmt.Println("Dodgy Stuff Below")
 
 	predict, err := las.engine.GetModelPredictionFunction(chatRequestConfig, nil)
 	if err != nil {
-		fmt.Printf("!!!!!!!!!! Error obtaining predict fn %s\n", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("failed to GetModelPredictionFunction: %w", err)
 	}
 
-	fmt.Println("About to call predict()")
 	predictions, err := predict()
 	if err != nil {
-		fmt.Printf("!!!!!!!!!! Error INSIDE predict fn %s\n", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("error during CreateChatCompletion calling model prediction function: %w", err)
 	}
 
 	resp := CreateChatCompletion200JSONResponse{}
+
+	// People who know golang better: is there a cleaner way to do this kind of nil-safe init?
+	var responseRole ChatCompletionResponseMessageRole = "asssistant" // Fallback on a reasonable guess
+	ext := chatRequestConfig.GetRequest().XLocalaiExtensions
+	if ext != nil {
+		extr := ext.Roles
+		if extr != nil {
+			if extr.Assistant != nil {
+				responseRole = ChatCompletionResponseMessageRole(*extr.Assistant) // Call for help here too - this really seems dirty. How should this be expressed?
+			}
+		}
+	}
 
 	for i, prediction := range predictions {
 		resp.Choices = append(resp.Choices, CreateChatCompletionResponseChoice{
 			Message: &ChatCompletionResponseMessage{
 				Content: prediction,
-				Role:    "asssistant", // TODO FIX
+				Role:    responseRole,
 			},
 			Index: &i,
 		})
 	}
 
 	return resp, nil
-
-	// panic("unimplemented")
 }
 
 // CreateCompletion implements StrictServerInterface
@@ -134,40 +120,35 @@ func (las *LocalAIServer) CreateCompletion(ctx context.Context, request CreateCo
 	config, err := combineRequestAndConfig(las.configManager, modelName, request.Body)
 
 	if err != nil {
-		fmt.Printf("CreateCompletion ERROR combining config and input!\n%s\n", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("[CreateCompletion] error in combineRequestAndConfig %w", err)
 	}
 
-	req := config.GetRequest()
+	predict, err := las.engine.GetModelPredictionFunction(config, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to GetModelPredictionFunction: %w", err)
+	}
 
-	fmt.Printf("\n===CreateCompletion===\n%+v\n", req)
+	predictions, err := predict()
+	if err != nil {
+		return nil, fmt.Errorf("error during CreateChatCompletion calling model prediction function: %w", err)
+	}
+
+	log.Debug().Msgf("[CreateCompletion] predict() completed, %d", len(predictions))
 
 	var choices []CreateCompletionResponseChoice
-
-	prompts, err := req.Prompt.AsCreateCompletionRequestPrompt1()
-
-	if err != nil {
-		tokenPrompt, err := req.Prompt.AsCreateCompletionRequestPrompt2()
-		if err == nil {
-			fmt.Printf("Scary token array length %d\n", len(tokenPrompt))
-			panic("Token array is scary and phase 2")
-		}
-		singlePrompt, err := req.Prompt.AsCreateCompletionRequestPrompt0()
-		if err != nil {
-			return nil, err
-		}
-		prompts = []string{singlePrompt}
-	}
-
-	// model := las.loader.LoadModel(modelName, )
-
-	for _, v := range prompts {
-		fmt.Printf("[prompt] %s\n", v)
+	for i, prediction := range predictions {
+		log.Debug().Msgf("[CreateCompletion]%d: %s", i, prediction)
+		choices = append(choices, CreateCompletionResponseChoice{
+			Index: &i,
+			Text:  &prediction,
+			// TODO more?
+		})
 	}
 
 	return CreateCompletion200JSONResponse{
 		Model:   modelName,
 		Choices: choices,
+		// Usage need to be fixed in yaml
 	}, nil
 }
 

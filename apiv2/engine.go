@@ -13,6 +13,7 @@ import (
 	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/mitchellh/mapstructure"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
+	"github.com/rs/zerolog/log"
 )
 
 type LocalAIEngine struct {
@@ -28,7 +29,7 @@ func NewLocalAIEngine(loader *model.ModelLoader) LocalAIEngine {
 	// TODO CLEANUP: Perform evil magic, we only need to do once, and api should NOT be removed yet.
 	gpt4alldir := filepath.Join(".", "backend-assets", "gpt4all")
 	os.Setenv("GPT4ALL_IMPLEMENTATIONS_PATH", gpt4alldir)
-	fmt.Printf("[*HAX*] GPT4ALL_IMPLEMENTATIONS_PATH: %s\n", gpt4alldir)
+	log.Debug().Msgf("[*HAX*] GPT4ALL_IMPLEMENTATIONS_PATH: %s", gpt4alldir)
 
 	return LocalAIEngine{
 		loader:     loader,
@@ -40,32 +41,29 @@ func NewLocalAIEngine(loader *model.ModelLoader) LocalAIEngine {
 // TODO model interface? Currently scheduled for phase 3 lol
 func (e *LocalAIEngine) LoadModel(config Config) (interface{}, error) {
 	ls := config.GetLocalSettings()
-	fmt.Printf("LocalAIEngine.LoadModel => %+v\n\n", config)
+	log.Debug().Msgf("[LocalAIEngine::LoadModel] LocalAIEngine.LoadModel => %+v", config)
 	return e.loader.BackendLoader(ls.Backend, ls.ModelPath, config.ToModelOptions(), uint32(ls.Threads))
 }
 
 func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback func(string) bool) (func() ([]string, error), error) {
 
-	fmt.Printf("LocalAIEngine.GetModelPredictionFunction => %+v\n\n", config)
+	log.Debug().Msgf("[LocalAIEngine::GetModelPredictionFunction] called for configuration:\n%+v", config)
 
 	supportStreams := false
 	var predictOnce func(p Prompt) (string, error) = nil
 
 	inferenceModel, err := e.LoadModel(config)
 	if err != nil {
-		fmt.Printf("ERROR LOADING MODEL: %s\n", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("error loading model: %w", err)
 	}
 
 	prompts, err := config.GetPrompts()
 	if err != nil {
-		fmt.Printf("ERROR GetPrompts: %s\n", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("error calling GetPrompts(): %w", err)
 	}
 
 	switch localModel := inferenceModel.(type) {
 	case *llama.LLama:
-		fmt.Println("setting predictOnce for llama")
 		supportStreams = true
 		predictOnce = func(p Prompt) (string, error) {
 
@@ -85,7 +83,6 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 			return str, er
 		}
 	case *gpt4all.Model:
-		fmt.Println("setting predictOnce for gpt4all")
 		supportStreams = true
 
 		predictOnce = func(p Prompt) (string, error) {
@@ -111,13 +108,13 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 			return str, err
 		}
 	case *transformers.GPTJ:
-		fmt.Println("setting predictOnce for GPTJ")
 		supportStreams = false // EXP
 		predictOnce = func(p Prompt) (string, error) {
 			mappedPredictOptions := transformers.PredictOptions{}
 
 			mapstructure.Decode(config.ToPredictOptions(), &mappedPredictOptions)
 
+			// TODO Leave this for testing phase 1
 			fmt.Printf("MAPPED OPTIONS: %+v\n", mappedPredictOptions)
 
 			// str, err := localModel.PredictTEMP(
@@ -131,7 +128,6 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 	}
 
 	if predictOnce == nil {
-		fmt.Printf("Failed to find a predictOnce for %T", inferenceModel)
 		return nil, fmt.Errorf("failed to find a predictOnce for %T", inferenceModel)
 	}
 
@@ -160,21 +156,18 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 			n = 1
 		}
 
-		for p_i, prompt := range prompts {
+		for _, prompt := range prompts {
 			for n_i := 0; n_i < n; n_i++ {
 				res, err := predictOnce(prompt)
 
 				if err != nil {
-					fmt.Printf("ERROR DURING GetModelPredictionFunction -> PredictionFunction for %T with p_i: %d/n_i: %d\n%s", config, p_i, n_i, err.Error())
 					return nil, err
 				}
-
-				fmt.Printf("\n\n🤯 raw res: %s\n\n", res)
 
 				// TODO: this used to be a part of finetune. For.... questionable parameter reasons I've moved it up here. Revisit this if it's smelly in the future.
 				ccr, is_ccr := req.(CreateCompletionRequest)
 				if is_ccr {
-					if *ccr.Echo {
+					if ccr.Echo != nil && *ccr.Echo { // 🥲
 						res = prompt.AsString() + res
 					}
 				}
@@ -184,6 +177,9 @@ func (e *LocalAIEngine) GetModelPredictionFunction(config Config, tokenCallback 
 				if tokenCallback != nil && !supportStreams {
 					tokenCallback(res)
 				}
+
+				log.Debug().Msgf("[%s - %s] prediction: %s", r.Model, r.Endpoint, res)
+
 				results = append(results, res)
 			}
 		}

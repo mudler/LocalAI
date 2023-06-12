@@ -69,6 +69,8 @@ func main() {
 				EnvVars:     []string{"ADDRESS"},
 				Value:       ":8080",
 			},
+			// TODO: Cleanup before merge.
+			// Intentionally leaving this behind. It's useful to spin up localai_nethttp if needed.
 			// &cli.StringFlag{
 			// 	Name:        "addressv2",
 			// 	DefaultText: "Bind address for the API server (DEBUG v2 TEST)",
@@ -187,6 +189,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 
 				}
 
+				// TODO Cleanup before merge, Fiber seems to be a suitable replacement.
 				// v2Server := apiv2.NewLocalAINetHTTPServer(v2ConfigManager, loader, ctx.String("addressv2"))
 
 				v2Server := apiv2.RegisterNewLocalAIFiberServer(v2ConfigManager, loader, app)

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	llama "github.com/go-skynet/go-llama.cpp"
+	"github.com/rs/zerolog/log"
 )
 
 type ConfigRegistration struct {
@@ -34,11 +35,11 @@ type Config interface {
 	GetLocalSettings() ConfigLocalSettings
 	GetRegistration() ConfigRegistration
 
-	// TODO: Test these. I am not sure.
+	// Go People: Is this good design?
 	ToPredictOptions() []llama.PredictOption
 	ToModelOptions() []llama.ModelOption
 
-	// TODO also dubious? Technically some requests lack prompts, but it's pretty general and may just be worth sticking here.
+	// Go People: Also curious about these two. Even more sketchy!
 	GetPrompts() ([]Prompt, error)
 	GetN() (int, error)
 }
@@ -275,9 +276,6 @@ func (sc SpecificConfig[RequestModel]) GetPrompts() ([]Prompt, error) {
 			return prompts, nil
 		}
 	case CreateChatCompletionRequest:
-
-		fmt.Printf("🥳 %+v\n\n\n", req.XLocalaiExtensions.Roles)
-
 		for _, message := range req.Messages {
 			var content string
 			var role string
@@ -297,7 +295,7 @@ func (sc SpecificConfig[RequestModel]) GetPrompts() ([]Prompt, error) {
 						role = *r
 					}
 				default:
-					fmt.Printf("Unrecognized message role: %s\n", message.Role)
+					log.Error().Msgf("Unrecognized message role: %s", message.Role)
 					role = ""
 				}
 			}
