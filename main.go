@@ -69,11 +69,17 @@ func main() {
 				EnvVars:     []string{"ADDRESS"},
 				Value:       ":8080",
 			},
-			&cli.StringFlag{
-				Name:        "addressv2",
-				DefaultText: "Bind address for the API server (DEBUG v2 TEST)",
-				EnvVars:     []string{"ADDRESS_V2"},
-				Value:       ":8085",
+			// &cli.StringFlag{
+			// 	Name:        "addressv2",
+			// 	DefaultText: "Bind address for the API server (DEBUG v2 TEST)",
+			// 	EnvVars:     []string{"ADDRESS_V2"},
+			// 	Value:       ":8085",
+			// },
+			&cli.BoolFlag{
+				Name:        "exp-v2",
+				DefaultText: "Enable the experimental v2 API server",
+				EnvVars:     []string{"EXPERIMENTAL_V2"},
+				Value:       true,
 			},
 			&cli.StringFlag{
 				Name:        "image-path",
@@ -141,30 +147,6 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 
 			loader := model.NewModelLoader(ctx.String("models-path"), ctx.String("templates-path"))
 
-			if av2 := ctx.String("addressv2"); av2 != "" {
-
-				v2ConfigManager := apiv2.NewConfigManager()
-				registered, cfgErr := v2ConfigManager.LoadConfigDirectory(ctx.String("config-path"))
-
-				if cfgErr != nil {
-					panic("failed to load config directory todo better handler here")
-				}
-
-				for i, reg := range registered {
-					log.Log().Msgf("%d: %+v", i, reg)
-
-					testField, exists := v2ConfigManager.GetConfig(reg)
-					if exists {
-						log.Log().Msgf("!! %s: %s", testField.GetRegistration().Endpoint, testField.GetLocalSettings().ModelPath)
-					}
-
-				}
-
-				v2Server := apiv2.NewLocalAINetHTTPServer(v2ConfigManager, loader, ctx.String("addressv2"))
-
-				log.Log().Msgf("NEW v2 test: %+v", v2Server)
-			}
-
 			app, err := api.App(
 				api.WithConfigFile(ctx.String("config-file")),
 				api.WithJSONStringPreload(ctx.String("preload-models")),
@@ -184,6 +166,32 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 			)
 			if err != nil {
 				return err
+			}
+
+			// if av2 := ctx.String("addressv2"); av2 != "" {
+			if ctx.Bool("exp-v2") {
+				v2ConfigManager := apiv2.NewConfigManager()
+				registered, cfgErr := v2ConfigManager.LoadConfigDirectory(ctx.String("config-path"))
+
+				if cfgErr != nil {
+					panic("failed to load config directory todo better handler here")
+				}
+
+				for i, reg := range registered {
+					log.Log().Msgf("%d: %+v", i, reg)
+
+					testField, exists := v2ConfigManager.GetConfig(reg)
+					if exists {
+						log.Log().Msgf("!! %s: %s", testField.GetRegistration().Endpoint, testField.GetLocalSettings().ModelPath)
+					}
+
+				}
+
+				// v2Server := apiv2.NewLocalAINetHTTPServer(v2ConfigManager, loader, ctx.String("addressv2"))
+
+				v2Server := apiv2.RegisterNewLocalAIFiberServer(v2ConfigManager, loader, app)
+
+				log.Log().Msgf("NEW v2 test: %+v", v2Server)
 			}
 
 			return app.Listen(ctx.String("address"))

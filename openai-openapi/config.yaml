@@ -1,7 +1,7 @@
 package: apiv2
 generate:
   models: true
-  chi-server: true
+  fiber-server: true
   strict-server: true
 output: apiv2/localai.gen.go
 output-options:

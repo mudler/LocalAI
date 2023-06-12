@@ -1,23 +1,23 @@
 package apiv2
 
-import (
-	"net/http"
+// import (
+// 	"net/http"
 
-	"github.com/go-skynet/LocalAI/pkg/model"
-)
+// 	"github.com/go-skynet/LocalAI/pkg/model"
+// )
 
-func NewLocalAINetHTTPServer(configManager *ConfigManager, loader *model.ModelLoader, address string) *LocalAIServer {
-	engine := NewLocalAIEngine(loader)
-	localAI := LocalAIServer{
-		configManager: configManager,
-		loader:        loader,
-		engine:        &engine,
-	}
+// func NewLocalAINetHTTPServer(configManager *ConfigManager, loader *model.ModelLoader, address string) *LocalAIServer {
+// 	engine := NewLocalAIEngine(loader)
+// 	localAI := LocalAIServer{
+// 		configManager: configManager,
+// 		loader:        loader,
+// 		engine:        &engine,
+// 	}
 
-	var middlewares []StrictMiddlewareFunc
+// 	var middlewares []StrictMiddlewareFunc
 
-	http.Handle("/", Handler(NewStrictHandler(&localAI, middlewares)))
+// 	http.Handle("/", Handler(NewStrictHandler(&localAI, middlewares)))
 
-	http.ListenAndServe(address, nil)
-	return &localAI
-}
+// 	http.ListenAndServe(address, nil)
+// 	return &localAI
+// }
