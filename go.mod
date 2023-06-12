@@ -4,27 +4,26 @@ go 1.19
 
 require (
 	github.com/deepmap/oapi-codegen v1.12.4
-	github.com/donomii/go-rwkv.cpp v0.0.0-20230606181754-d5f48f6d607a
+	github.com/donomii/go-rwkv.cpp v0.0.0-20230609132458-d2b25a4bb148
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230606002726-57543c169e27
 	github.com/go-audio/wav v1.1.0
-	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230529155654-1834e77b83fa
-	github.com/go-skynet/go-bert.cpp v0.0.0-20230531070950-0548994371f7
-	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230606131358-bd765bb6f3b3
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230607123950-351aa714672f
+	github.com/go-skynet/go-bert.cpp v0.0.0-20230607105116-6069103f54b9
+	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230607102637-dabd6cd7b789
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230609233637-a12ce511c063
 	github.com/gofiber/fiber/v2 v2.46.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.16
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230605194130-266f13aee9d8
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230610141538-a9c2f473032f
 	github.com/onsi/ginkgo/v2 v2.10.0
 	github.com/onsi/gomega v1.27.8
 	github.com/otiai10/openaigo v1.1.0
 	github.com/rs/zerolog v1.29.1
-	github.com/sashabaranov/go-openai v1.10.0
-	github.com/tmc/langchaingo v0.0.0-20230605114752-4afed6d7be4a
+	github.com/sashabaranov/go-openai v1.10.1
+	github.com/tmc/langchaingo v0.0.0-20230610024316-06cb7b57ea80
 	github.com/urfave/cli/v2 v2.25.5
 	github.com/valyala/fasthttp v1.47.0
 	github.com/vmware-tanzu/carvel-ytt v0.45.2

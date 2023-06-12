@@ -3,10 +3,12 @@ package gallery
 import (
 	"crypto/sha256"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
@@ -93,7 +95,7 @@ func verifyPath(path, basePath string) error {
 	return inTrustedRoot(c, basePath)
 }
 
-func Apply(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}) error {
+func Apply(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0755)
 	if err != nil {
@@ -168,27 +170,25 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 		}
 		defer outFile.Close()
 
+		progress := &progressWriter{
+			fileName:       file.Filename,
+			total:          resp.ContentLength,
+			hash:           sha256.New(),
+			downloadStatus: downloadStatus,
+		}
+		_, err = io.Copy(io.MultiWriter(outFile, progress), resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to write file %q: %v", file.Filename, err)
+		}
+
 		if file.SHA256 != "" {
-			log.Debug().Msgf("Download and verifying %q", file.Filename)
-
-			// Write file content and calculate SHA
-			hash := sha256.New()
-			_, err = io.Copy(io.MultiWriter(outFile, hash), resp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to write file %q: %v", file.Filename, err)
-			}
-
 			// Verify SHA
-			calculatedSHA := fmt.Sprintf("%x", hash.Sum(nil))
+			calculatedSHA := fmt.Sprintf("%x", progress.hash.Sum(nil))
 			if calculatedSHA != file.SHA256 {
 				return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", file.Filename, calculatedSHA, file.SHA256)
 			}
 		} else {
 			log.Debug().Msgf("SHA missing for %q. Skipping validation", file.Filename)
-			_, err = io.Copy(outFile, resp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to write file %q: %v", file.Filename, err)
-			}
 		}
 
 		log.Debug().Msgf("File %q downloaded and verified", file.Filename)
@@ -253,6 +253,42 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 
 	log.Debug().Msgf("Written config file %s", configFilePath)
 	return nil
+}
+
+type progressWriter struct {
+	fileName       string
+	total          int64
+	written        int64
+	downloadStatus func(string, string, string, float64)
+	hash           hash.Hash
+}
+
+func (pw *progressWriter) Write(p []byte) (n int, err error) {
+	n, err = pw.hash.Write(p)
+	pw.written += int64(n)
+
+	if pw.total > 0 {
+		percentage := float64(pw.written) / float64(pw.total) * 100
+		//log.Debug().Msgf("Downloading %s: %s/%s (%.2f%%)", pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
+		pw.downloadStatus(pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
+	} else {
+		pw.downloadStatus(pw.fileName, formatBytes(pw.written), "", 0)
+	}
+
+	return
+}
+
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return strconv.FormatInt(bytes, 10) + " B"
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 func calculateSHA(filePath string) (string, error) {

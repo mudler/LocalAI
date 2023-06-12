@@ -33,3 +33,4 @@ apiv2/localai.gen.go
 
 # Generated during build
 backend-assets/
+/ggml-metal.metal
