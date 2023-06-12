@@ -12,6 +12,7 @@ A few notes up front:
 
 ## TODO Notes:
 *  Cleaned up a little bit for this Phase 1 POC!
+*  Has not even remotely been tested well yet! Works on my mac, and by that I mean I've hit it with postman! Phase 2 will include actually using the real clients / existing tests!
 *  PredictOptions is not finished! My proposal is to add a new constructor fn to each of the go-* classes that takes the collapsed structure instead of the function slice - that way, I can mapstructure from the densest to the least. There's some commented out remnants of that, since I tested it with hacked up branches and it works. Proper implementation is phase 2!
 
 
