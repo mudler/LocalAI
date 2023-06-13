@@ -39,10 +39,6 @@ jobs:
         with: 
           submodules: true
 
-      - name: Dependencies
-        run: |
-          brew update
-          brew install sdl2 ffmpeg
       - name: Test
         run: |
           make test
