@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 GOLLAMA_VERSION?=5f1620443a59c5531b5a15a16cd68f600a8437e9
 GPT4ALL_REPO?=https://github.com/go-skynet/gpt4all
-GPT4ALL_VERSION?=f7498c9
+GPT4ALL_VERSION?=d34c513e01174fe83c6042403a0d183e56478d56
 GOGGMLTRANSFORMERS_VERSION?=01b8436f44294d0e1267430f9eda4460458cec54
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=930a774fa0152426ed2279cb1005b3490bb0eba6
@@ -70,6 +70,7 @@ gpt4all:
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
 	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
+	@find ./gpt4all -type f -name "*.m" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
 	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
 	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/llama_/llama_gpt4all_/g' {} +
 	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/llama_/llama_gpt4all_/g' {} +

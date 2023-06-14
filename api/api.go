@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 
+	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -68,7 +69,9 @@ func App(opts ...AppOption) (*fiber.App, error) {
 	}
 
 	if options.assetsDestination != "" {
-		if err := PrepareBackendAssets(options.backendAssets, options.assetsDestination); err != nil {
+		// Extract files from the embedded FS
+		err := assets.ExtractFiles(options.backendAssets, options.assetsDestination)
+		if err != nil {
 			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
 		}
 	}

@@ -24,3 +24,7 @@ docker-compose up --pull always
 
 Open http://localhost:3000.
 
+## Using LocalAI
+
+Search for LocalAI in the integration, and use the `http://api:8080/` as URL.
+

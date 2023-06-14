@@ -148,7 +148,7 @@ func defaultRequest(modelFile string) OpenAIRequest {
 // https://platform.openai.com/docs/api-reference/completions
 func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 	process := func(s string, req *OpenAIRequest, config *Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
-		ComputeChoices(s, req, config, loader, func(s string, c *[]Choice) {}, func(s string) bool {
+		ComputeChoices(s, req, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
 			resp := OpenAIResponse{
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []Choice{{Text: s}},
@@ -249,7 +249,7 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
-			r, err := ComputeChoices(i, input, config, o.loader, func(s string, c *[]Choice) {
+			r, err := ComputeChoices(i, input, config, o, o.loader, func(s string, c *[]Choice) {
 				*c = append(*c, Choice{Text: s})
 			}, nil)
 			if err != nil {
@@ -291,7 +291,7 @@ func embeddingsEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		for i, s := range config.InputToken {
 			// get the model function to call for the result
-			embedFn, err := ModelEmbedding("", s, o.loader, *config)
+			embedFn, err := ModelEmbedding("", s, o.loader, *config, o)
 			if err != nil {
 				return err
 			}
@@ -305,7 +305,7 @@ func embeddingsEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		for i, s := range config.InputStrings {
 			// get the model function to call for the result
-			embedFn, err := ModelEmbedding(s, []int{}, o.loader, *config)
+			embedFn, err := ModelEmbedding(s, []int{}, o.loader, *config, o)
 			if err != nil {
 				return err
 			}
@@ -341,7 +341,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		}
 		responses <- initialMessage
 
-		ComputeChoices(s, req, config, loader, func(s string, c *[]Choice) {}, func(s string) bool {
+		ComputeChoices(s, req, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
 			resp := OpenAIResponse{
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []Choice{{Delta: &Message{Content: s}}},
@@ -439,7 +439,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			return nil
 		}
 
-		result, err := ComputeChoices(predInput, input, config, o.loader, func(s string, c *[]Choice) {
+		result, err := ComputeChoices(predInput, input, config, o, o.loader, func(s string, c *[]Choice) {
 			*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: s}})
 		}, nil)
 		if err != nil {
@@ -491,7 +491,7 @@ func editEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
-			r, err := ComputeChoices(i, input, config, o.loader, func(s string, c *[]Choice) {
+			r, err := ComputeChoices(i, input, config, o, o.loader, func(s string, c *[]Choice) {
 				*c = append(*c, Choice{Text: s})
 			}, nil)
 			if err != nil {
@@ -616,7 +616,7 @@ func imageEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 				baseURL := c.BaseURL()
 
-				fn, err := ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, output, o.loader, *config)
+				fn, err := ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, output, o.loader, *config, o)
 				if err != nil {
 					return err
 				}
@@ -697,7 +697,7 @@ func transcriptEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		whisperModel, err := o.loader.BackendLoader(model.WhisperBackend, config.Model, []llama.ModelOption{}, uint32(config.Threads))
+		whisperModel, err := o.loader.BackendLoader(model.WhisperBackend, config.Model, []llama.ModelOption{}, uint32(config.Threads), o.assetsDestination)
 		if err != nil {
 			return err
 		}
