@@ -238,6 +238,7 @@ func buildLLamaPredictOptions(c Config, modelPath string) []llama.PredictOption 
 	predictOptions = append(predictOptions, llama.SetPredictionMainGPU(c.MainGPU))
 	predictOptions = append(predictOptions, llama.SetPredictionTensorSplit(c.TensorSplit))
 	predictOptions = append(predictOptions, llama.SetTailFreeSamplingZ(c.TFZ))
+	predictOptions = append(predictOptions, llama.SetTypicalP(c.TypicalP))
 
 	return predictOptions
 }

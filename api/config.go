@@ -236,6 +236,10 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 		config.MirostatTAU = input.MirostatTAU
 	}
 
+	if input.TypicalP != 0 {
+		config.TypicalP = input.TypicalP
+	}
+
 	switch inputs := input.Input.(type) {
 	case string:
 		if inputs != "" {
