@@ -133,6 +133,8 @@ type OpenAIRequest struct {
 	// Image (not supported by OpenAI)
 	Mode int `json:"mode"`
 	Step int `json:"step"`
+
+	TypicalP float64 `json:"typical_p" yaml:"typical_p"`
 }
 
 func defaultRequest(modelFile string) OpenAIRequest {
