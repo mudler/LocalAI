@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.16
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230610141538-a9c2f473032f
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230614000846-8953b7f6a6d0
 	github.com/onsi/ginkgo/v2 v2.10.0
 	github.com/onsi/gomega v1.27.8
 	github.com/otiai10/openaigo v1.1.0
