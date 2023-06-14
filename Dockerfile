@@ -41,6 +41,10 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 
 WORKDIR /build
 
+COPY Makefile .
+RUN make get-sources
+COPY go.mod .
+RUN make prepare
 COPY . .
 RUN make build
 
@@ -58,9 +62,8 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 WORKDIR /build
 
-COPY . .
-RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
+COPY entrypoint.sh .
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
