@@ -49,11 +49,11 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 	return llamaOpts
 }
 
-func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, dst string, loader *model.ModelLoader, c Config) (func() error, error) {
+func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, dst string, loader *model.ModelLoader, c Config, o *Option) (func() error, error) {
 	if c.Backend != model.StableDiffusionBackend {
 		return nil, fmt.Errorf("endpoint only working with stablediffusion models")
 	}
-	inferenceModel, err := loader.BackendLoader(c.Backend, c.ImageGenerationAssets, []llama.ModelOption{}, uint32(c.Threads))
+	inferenceModel, err := loader.BackendLoader(c.Backend, c.ImageGenerationAssets, []llama.ModelOption{}, uint32(c.Threads), o.assetsDestination)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	}, nil
 }
 
-func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config) (func() ([]float32, error), error) {
+func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config, o *Option) (func() ([]float32, error), error) {
 	if !c.Embeddings {
 		return nil, fmt.Errorf("endpoint disabled for this model by API configuration")
 	}
@@ -100,9 +100,9 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config)
 	var inferenceModel interface{}
 	var err error
 	if c.Backend == "" {
-		inferenceModel, err = loader.GreedyLoader(modelFile, llamaOpts, uint32(c.Threads))
+		inferenceModel, err = loader.GreedyLoader(modelFile, llamaOpts, uint32(c.Threads), o.assetsDestination)
 	} else {
-		inferenceModel, err = loader.BackendLoader(c.Backend, modelFile, llamaOpts, uint32(c.Threads))
+		inferenceModel, err = loader.BackendLoader(c.Backend, modelFile, llamaOpts, uint32(c.Threads), o.assetsDestination)
 	}
 	if err != nil {
 		return nil, err
@@ -240,7 +240,7 @@ func buildLLamaPredictOptions(c Config, modelPath string) []llama.PredictOption 
 	return predictOptions
 }
 
-func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback func(string) bool) (func() (string, error), error) {
+func ModelInference(s string, loader *model.ModelLoader, c Config, o *Option, tokenCallback func(string) bool) (func() (string, error), error) {
 	supportStreams := false
 	modelFile := c.Model
 
@@ -249,9 +249,9 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 	var inferenceModel interface{}
 	var err error
 	if c.Backend == "" {
-		inferenceModel, err = loader.GreedyLoader(modelFile, llamaOpts, uint32(c.Threads))
+		inferenceModel, err = loader.GreedyLoader(modelFile, llamaOpts, uint32(c.Threads), o.assetsDestination)
 	} else {
-		inferenceModel, err = loader.BackendLoader(c.Backend, modelFile, llamaOpts, uint32(c.Threads))
+		inferenceModel, err = loader.BackendLoader(c.Backend, modelFile, llamaOpts, uint32(c.Threads), o.assetsDestination)
 	}
 	if err != nil {
 		return nil, err
@@ -579,7 +579,7 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, tokenCallback
 	}, nil
 }
 
-func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, error) {
+func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, o *Option, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, error) {
 	result := []Choice{}
 
 	n := input.N
@@ -589,7 +589,7 @@ func ComputeChoices(predInput string, input *OpenAIRequest, config *Config, load
 	}
 
 	// get the model function to call for the result
-	predFunc, err := ModelInference(predInput, loader, *config, tokenCallback)
+	predFunc, err := ModelInference(predInput, loader, *config, o, tokenCallback)
 	if err != nil {
 		return result, err
 	}
