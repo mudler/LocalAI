@@ -53,7 +53,7 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
     tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /lib64/ && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
-    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/ 
+    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
 # \
 #    ; fi
 
@@ -66,6 +66,12 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
 
+WORKDIR /build
+
+COPY Makefile .
+RUN make get-sources
+COPY go.mod .
+RUN make prepare
 COPY . .
 RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
 
@@ -83,9 +89,8 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 WORKDIR /build
 
-COPY . .
-RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
+COPY entrypoint.sh .
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \

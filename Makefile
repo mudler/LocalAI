@@ -200,6 +200,9 @@ go-llama/libbinding.a: go-llama
 go-piper/libpiper_binding.a:
 	$(MAKE) -C go-piper libpiper_binding.a example/main
 
+get-sources: go-llama go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
+	touch $@
+
 replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
 	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(shell pwd)/gpt4all/gpt4all-bindings/golang
@@ -211,7 +214,7 @@ replace:
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/go-piper
 
-prepare-sources: go-llama go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion replace
+prepare-sources: get-sources replace
 	$(GOCMD) mod download
 
 ## GENERIC
@@ -228,6 +231,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) build
 
 prepare: prepare-sources backend-assets/gpt4all $(OPTIONAL_TARGETS) go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
+	touch $@
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
