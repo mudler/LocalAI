@@ -44,6 +44,8 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 	llamaOpts = append(llamaOpts, llama.SetTensorSplit(c.TensorSplit))
 	if c.Batch != 0 {
 		llamaOpts = append(llamaOpts, llama.SetNBatch(c.Batch))
+	} else {
+		llamaOpts = append(llamaOpts, llama.SetNBatch(512))
 	}
 
 	return llamaOpts
