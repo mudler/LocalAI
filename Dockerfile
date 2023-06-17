@@ -13,6 +13,9 @@ RUN apt-get update && \
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
+    apt-get remove -y gcc-12 g++-12 && apt-get autoremove -y && apt-get install -y gcc-11 g++-11 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 11 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11 && \
     apt-get install -y software-properties-common && \
     apt-add-repository contrib && \
     curl -O https://developer.download.nvidia.com/compute/cuda/repos/debian11/x86_64/cuda-keyring_1.0-1_all.deb && \
