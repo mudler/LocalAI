@@ -137,7 +137,7 @@ gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ libgpt4all.a
 
 ## CEREBRAS GPT
-go-ggml-transformers:
+go-ggml-transformers: 
 	git clone --recurse-submodules https://github.com/go-skynet/go-ggml-transformers.cpp go-ggml-transformers
 	cd go-ggml-transformers && git checkout -b build $(GOGPT2_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
@@ -169,11 +169,8 @@ go-llama:
 	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
 	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
 
-go-llama/libbinding.a: go-llama
+go-llama/libbinding.a: go-llama 
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
-
-get-sources: go-llama go-ggml-transformers gpt4all go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
-	touch $@
 
 replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
@@ -185,7 +182,7 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/bloomz.cpp=$(shell pwd)/bloomz
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/go-stable-diffusion
 
-prepare-sources: get-sources replace
+prepare-sources: go-llama go-ggml-transformers gpt4all go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion replace
 	$(GOCMD) mod download
 
 ## GENERIC
@@ -201,7 +198,6 @@ rebuild: ## Rebuilds the project
 	$(MAKE) build
 
 prepare: prepare-sources backend-assets/gpt4all $(OPTIONAL_TARGETS) go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
-	touch $@
 
 clean: ## Remove build related file
 	rm -fr ./go-llama
