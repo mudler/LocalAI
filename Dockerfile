@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.20
+ARG GO_VERSION=1.20-bullseye
 
 FROM golang:$GO_VERSION as requirements
 
@@ -9,13 +9,10 @@ ARG CUDA_MINOR_VERSION=7
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates cmake curl
+    apt-get install -y ca-certificates cmake curl patch
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
-    apt-get remove -y gcc-12 g++-12 && apt-get autoremove -y && apt-get install -y gcc-11 g++-11 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 11 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11 && \
     apt-get install -y software-properties-common && \
     apt-add-repository contrib && \
     curl -O https://developer.download.nvidia.com/compute/cuda/repos/debian11/x86_64/cuda-keyring_1.0-1_all.deb && \
@@ -44,6 +41,10 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 
 WORKDIR /build
 
+COPY Makefile .
+RUN make get-sources
+COPY go.mod .
+RUN make prepare
 COPY . .
 RUN make build
 
@@ -61,9 +62,8 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 WORKDIR /build
 
-COPY . .
-RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
+COPY entrypoint.sh .
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
