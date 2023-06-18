@@ -41,4 +41,4 @@ jobs:
 
       - name: Test
         run: |
-          make test
+          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test

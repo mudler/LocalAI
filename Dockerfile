@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.20
+ARG GO_VERSION=1.20-bullseye
 
 FROM golang:$GO_VERSION as requirements
 
@@ -9,7 +9,7 @@ ARG CUDA_MINOR_VERSION=7
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates cmake curl
+    apt-get install -y ca-certificates cmake curl patch
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
