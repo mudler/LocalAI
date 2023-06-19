@@ -24,6 +24,14 @@ This integration shows how to use LocalAI with [mckaywrigley/chatbot-ui](https:/
 
 There is also a separate example to show how to manually setup a model: [example](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui-manual/)
 
+### K8sGPT
+
+_by [@mudler](https://github.com/mudler)_
+
+This example show how to use LocalAI inside Kubernetes with [k8sgpt](https://k8sgpt.ai).
+
+![Screenshot from 2023-06-19 23-58-47](https://github.com/go-skynet/go-ggml-transformers.cpp/assets/2420543/cab87409-ee68-44ae-8d53-41627fb49509)
+
 ### Flowise
 
 _by [@mudler](https://github.com/mudler)_
