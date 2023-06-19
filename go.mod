@@ -10,7 +10,7 @@ require (
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230607105116-6069103f54b9
 	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230617123349-32b9223ccdb1
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230616223721-7ad833b67070
-	github.com/gofiber/fiber/v2 v2.46.0
+	github.com/gofiber/fiber/v2 v2.47.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.16
@@ -50,7 +50,7 @@ require (
 	github.com/klauspost/compress v1.16.3 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.18 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/otiai10/mint v1.5.1 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
