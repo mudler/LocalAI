@@ -35,6 +35,7 @@ type Config struct {
 	NGPULayers     int               `yaml:"gpu_layers"`
 	MMap           bool              `yaml:"mmap"`
 	MMlock         bool              `yaml:"mmlock"`
+	LowVRAM        bool              `yaml:"low_vram"`
 
 	TensorSplit           string `yaml:"tensor_split"`
 	MainGPU               string `yaml:"main_gpu"`
