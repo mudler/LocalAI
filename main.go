@@ -78,7 +78,13 @@ func main() {
 				Name:    "image-path",
 				Usage:   "Image directory",
 				EnvVars: []string{"IMAGE_PATH"},
-				Value:   "",
+				Value:   "/tmp/generated/images",
+			},
+			&cli.StringFlag{
+				Name:    "audio-path",
+				Usage:   "audio directory",
+				EnvVars: []string{"AUDIO_PATH"},
+				Value:   "/tmp/generated/audio",
 			},
 			&cli.StringFlag{
 				Name:    "backend-assets-path",
@@ -125,6 +131,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 				api.WithContextSize(ctx.Int("context-size")),
 				api.WithDebug(ctx.Bool("debug")),
 				api.WithImageDir(ctx.String("image-path")),
+				api.WithAudioDir(ctx.String("audio-path")),
 				api.WithF16(ctx.Bool("f16")),
 				api.WithDisableMessage(false),
 				api.WithCors(ctx.Bool("cors")),

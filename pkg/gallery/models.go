@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
@@ -80,21 +81,6 @@ func ReadConfigFile(filePath string) (*Config, error) {
 	return &config, nil
 }
 
-func inTrustedRoot(path string, trustedRoot string) error {
-	for path != "/" {
-		path = filepath.Dir(path)
-		if path == trustedRoot {
-			return nil
-		}
-	}
-	return fmt.Errorf("path is outside of trusted root")
-}
-
-func verifyPath(path, basePath string) error {
-	c := filepath.Clean(filepath.Join(basePath, path))
-	return inTrustedRoot(c, basePath)
-}
-
 func Apply(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0755)
@@ -110,7 +96,7 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 	for _, file := range config.Files {
 		log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
 
-		if err := verifyPath(file.Filename, basePath); err != nil {
+		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
 			return err
 		}
 		// Create file path
@@ -196,7 +182,7 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 
 	// Write prompt template contents to separate files
 	for _, template := range config.PromptTemplates {
-		if err := verifyPath(template.Name+".tmpl", basePath); err != nil {
+		if err := utils.VerifyPath(template.Name+".tmpl", basePath); err != nil {
 			return err
 		}
 		// Create file path
@@ -221,7 +207,7 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 		name = nameOverride
 	}
 
-	if err := verifyPath(name+".yaml", basePath); err != nil {
+	if err := utils.VerifyPath(name+".yaml", basePath); err != nil {
 		return err
 	}
 

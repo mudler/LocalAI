@@ -128,12 +128,17 @@ func App(opts ...AppOption) (*fiber.App, error) {
 
 	// audio
 	app.Post("/v1/audio/transcriptions", transcriptEndpoint(cm, options))
+	app.Post("/tts", ttsEndpoint(cm, options))
 
 	// images
 	app.Post("/v1/images/generations", imageEndpoint(cm, options))
 
 	if options.imageDir != "" {
 		app.Static("/generated-images", options.imageDir)
+	}
+
+	if options.audioDir != "" {
+		app.Static("/generated-audio", options.audioDir)
 	}
 
 	ok := func(c *fiber.Ctx) error {

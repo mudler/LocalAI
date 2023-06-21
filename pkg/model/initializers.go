@@ -9,6 +9,7 @@ import (
 	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	"github.com/go-skynet/LocalAI/pkg/langchain"
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
+	"github.com/go-skynet/LocalAI/pkg/tts"
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
@@ -39,6 +40,7 @@ const (
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
+	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "langchain-huggingface"
 )
 
@@ -103,6 +105,12 @@ var stableDiffusion = func(assetDir string) (interface{}, error) {
 	return stablediffusion.New(assetDir)
 }
 
+func piperTTS(assetDir string) func(s string) (interface{}, error) {
+	return func(s string) (interface{}, error) {
+		return tts.New(assetDir)
+	}
+}
+
 var whisperModel = func(modelFile string) (interface{}, error) {
 	return whisper.New(modelFile)
 }
@@ -158,6 +166,8 @@ func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, lla
 		return ml.LoadModel(modelFile, replit)
 	case StableDiffusionBackend:
 		return ml.LoadModel(modelFile, stableDiffusion)
+	case PiperBackend:
+		return ml.LoadModel(modelFile, piperTTS(filepath.Join(assetDir, "backend-assets", "espeak-ng-data")))
 	case StarcoderBackend:
 		return ml.LoadModel(modelFile, starCoder)
 	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:

@@ -1,6 +1,6 @@
 module github.com/go-skynet/LocalAI
 
-go 1.19
+go 1.20
 
 require (
 	github.com/donomii/go-rwkv.cpp v0.0.0-20230619005719-f5a8c4539674
@@ -52,6 +52,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
+	github.com/mudler/go-piper v0.0.0-00010101000000-000000000000 // indirect
 	github.com/otiai10/mint v1.5.1 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
