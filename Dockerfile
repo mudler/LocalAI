@@ -57,6 +57,9 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
 # \
 #    ; fi
 
+###################################
+###################################
+
 FROM requirements as builder
 
 ARG GO_TAGS="stablediffusion tts"
@@ -75,7 +78,10 @@ RUN make prepare
 COPY . .
 RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
 
-FROM requirements
+###################################
+###################################
+
+FROM builder
 
 ARG FFMPEG
 
@@ -86,11 +92,6 @@ ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
 RUN if [ "${FFMPEG}" = "true" ]; then \
     apt-get install -y ffmpeg \
     ; fi
-
-WORKDIR /build
-
-COPY --from=builder /build/local-ai ./
-COPY entrypoint.sh .
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
