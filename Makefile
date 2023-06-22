@@ -11,6 +11,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=f5a8c45396741470583f59b916a2a7641e63bcd0
 WHISPER_CPP_VERSION?=57543c169e27312e7546d07ed0d8c6eb806ebc36
 BERT_VERSION?=6069103f54b9969c02e789d0fb12a23bd614285f
+PIPER_VERSION?=56b8a81b4760a6fbee1a82e62f007ae7e8f010a7
 BLOOMZ_VERSION?=1834e77b83faafe912ad4092ccf7f77937349e2f
 export BUILD_TYPE?=
 CGO_LDFLAGS?=
@@ -18,8 +19,9 @@ CUDA_LIBPATH?=/usr/local/cuda/lib64/
 STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
 GO_TAGS?=
 BUILD_ID?=git
-LD_FLAGS=?=
+LD_FLAGS?=
 OPTIONAL_TARGETS?=
+ESPEAK_DATA?=
 
 OS := $(shell uname -s)
 ARCH := $(shell uname -m)
@@ -30,7 +32,7 @@ CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
 C_INCLUDE_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-stable-diffusion/:$(shell pwd)/gpt4all/gpt4all-bindings/golang/:$(shell pwd)/go-ggml-transformers:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert:$(shell pwd)/bloomz
-LIBRARY_PATH=$(shell pwd)/go-llama:$(shell pwd)/go-stable-diffusion/:$(shell pwd)/gpt4all/gpt4all-bindings/golang/:$(shell pwd)/go-ggml-transformers:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert:$(shell pwd)/bloomz
+LIBRARY_PATH=$(shell pwd)/go-piper:$(shell pwd)/go-llama:$(shell pwd)/go-stable-diffusion/:$(shell pwd)/gpt4all/gpt4all-bindings/golang/:$(shell pwd)/go-ggml-transformers:$(shell pwd)/go-rwkv:$(shell pwd)/whisper.cpp:$(shell pwd)/go-bert:$(shell pwd)/bloomz
 
 ifeq ($(BUILD_TYPE),openblas)
 	CGO_LDFLAGS+=-lopenblas
@@ -55,8 +57,13 @@ ifeq ($(STATIC),true)
 	LD_FLAGS=-linkmode external -extldflags -static
 endif
 
-ifeq ($(GO_TAGS),stablediffusion)
+ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
 	OPTIONAL_TARGETS+=go-stable-diffusion/libstablediffusion.a
+endif
+
+ifeq ($(findstring tts,$(GO_TAGS)),tts)
+	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
+	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
 endif
 
 .PHONY: all test build vendor
@@ -82,6 +89,10 @@ gpt4all:
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.go" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.h" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
 
+## go-piper
+go-piper:
+	git clone --recurse-submodules https://github.com/mudler/go-piper go-piper
+	cd go-piper && git checkout -b build $(PIPER_VERSION) && git submodule update --init --recursive --depth 1
 
 ## BERT embeddings
 go-bert:
@@ -133,6 +144,14 @@ backend-assets/gpt4all: gpt4all/gpt4all-bindings/golang/libgpt4all.a
 	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dylib backend-assets/gpt4all/ || true
 	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
 
+backend-assets/espeak-ng-data:
+	mkdir -p backend-assets/espeak-ng-data
+ifdef ESPEAK_DATA
+	@cp -rf $(ESPEAK_DATA)/. backend-assets/espeak-ng-data
+else
+	@touch backend-assets/espeak-ng-data/keep
+endif
+
 gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ libgpt4all.a
 
@@ -172,6 +191,9 @@ go-llama:
 go-llama/libbinding.a: go-llama 
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
 
+go-piper/libpiper_binding.a:
+	$(MAKE) -C go-piper libpiper_binding.a example/main
+
 replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
 	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(shell pwd)/gpt4all/gpt4all-bindings/golang
@@ -181,8 +203,9 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/go-bert
 	$(GOCMD) mod edit -replace github.com/go-skynet/bloomz.cpp=$(shell pwd)/bloomz
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/go-stable-diffusion
+	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/go-piper
 
-prepare-sources: go-llama go-ggml-transformers gpt4all go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion replace
+prepare-sources: go-llama go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion replace
 	$(GOCMD) mod download
 
 ## GENERIC
@@ -195,6 +218,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-stable-diffusion clean
 	$(MAKE) -C go-bert clean
 	$(MAKE) -C bloomz clean
+	$(MAKE) -C go-piper clean
 	$(MAKE) build
 
 prepare: prepare-sources backend-assets/gpt4all $(OPTIONAL_TARGETS) go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
@@ -210,6 +234,7 @@ clean: ## Remove build related file
 	rm -rf ./go-bert
 	rm -rf ./bloomz
 	rm -rf ./whisper.cpp
+	rm -rf ./go-piper
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
 

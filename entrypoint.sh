@@ -5,7 +5,7 @@ cd /build
 
 if [ "$REBUILD" != "false" ]; then
 	rm -rf ./local-ai
-	make build
+	ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
 fi
 
 ./local-ai "$@"
