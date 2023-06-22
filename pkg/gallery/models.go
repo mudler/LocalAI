@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -290,4 +291,110 @@ func calculateSHA(filePath string) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+type Gallery struct {
+	URL  string `json:"url"`
+	Name string `json:"name"`
+}
+
+// Installs a model from the gallery (galleryname@modelname)
+func ApplyModelFromGallery(galleries []*Gallery, name string, basePath, nameOverride string, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
+	models, err := AvailableModels(galleries)
+	if err != nil {
+		return err
+	}
+
+	applyModel := func(model *GalleryModel) error {
+		url, err := model.DecodeURL()
+		if err != nil {
+			return err
+		}
+		// Send a GET request to the URL
+		response, err := http.Get(url)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+
+		// Read the response body
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+
+		// Unmarshal YAML data into a Config struct
+		var config Config
+		err = yaml.Unmarshal(body, &config)
+		if err != nil {
+			return err
+		}
+
+		if nameOverride != "" {
+			model.Name = nameOverride
+		}
+		// TODO model.Overrides could be merged with user overrides (not defined yet)
+		if err := mergo.Merge(&model.Overrides, configOverrides, mergo.WithOverride); err != nil {
+			return err
+		}
+
+		if err := Apply(basePath, model.Name, &config, model.Overrides, downloadStatus); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	for _, model := range models {
+		if name == fmt.Sprintf("%s@%s", model.Gallery.Name, model.Name) {
+			return applyModel(model)
+		}
+	}
+
+	return fmt.Errorf("no model found with name %q", name)
+}
+
+// List available models
+// Models galleries are a list of json files that are hosted on a remote server (for example github).
+// Each json file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
+func AvailableModels(galleries []*Gallery) ([]*GalleryModel, error) {
+	var models []*GalleryModel
+
+	// Get models from galleries
+	for _, gallery := range galleries {
+		galleryModels, err := getModels(gallery)
+		if err != nil {
+			return nil, err
+		}
+		models = append(models, galleryModels...)
+	}
+
+	return models, nil
+}
+
+func getModels(gallery *Gallery) ([]*GalleryModel, error) {
+	var models []*GalleryModel
+
+	// Get list of models
+	resp, err := http.Get(gallery.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get models: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get models: %s", resp.Status)
+	}
+
+	err = yaml.NewDecoder(resp.Body).Decode(&models)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode models: %v", err)
+	}
+
+	// Add gallery to models
+	for _, model := range models {
+		model.Gallery = gallery
+	}
+
+	return models, nil
 }

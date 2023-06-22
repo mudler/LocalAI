@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,8 +18,10 @@ import (
 )
 
 type galleryOp struct {
-	req ApplyGalleryModelRequest
-	id  string
+	req         gallery.GalleryModel
+	id          string
+	galleries   []*gallery.Gallery
+	galleryName string
 }
 
 type galleryOpStatus struct {
@@ -48,7 +48,7 @@ func newGalleryApplier(modelPath string) *galleryApplier {
 	}
 }
 
-func applyGallery(modelPath string, req ApplyGalleryModelRequest, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
+func applyGallery(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
 	url, err := req.DecodeURL()
 	if err != nil {
 		return err
@@ -110,12 +110,19 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 					g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true})
 				}
 
-				if err := applyGallery(g.modelPath, op.req, cm, func(fileName string, current string, total string, percentage float64) {
-					g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
-					displayDownload(fileName, current, total, percentage)
-				}); err != nil {
-					updateError(err)
-					continue
+				if op.galleryName != "" {
+					gallery.ApplyModelFromGallery(op.galleries, op.galleryName, g.modelPath, op.req.Name, op.req.Overrides, func(fileName string, current string, total string, percentage float64) {
+						g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
+						displayDownload(fileName, current, total, percentage)
+					})
+				} else {
+					if err := applyGallery(g.modelPath, op.req, cm, func(fileName string, current string, total string, percentage float64) {
+						g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
+						displayDownload(fileName, current, total, percentage)
+					}); err != nil {
+						updateError(err)
+						continue
+					}
 				}
 
 				g.updatestatus(op.id, &galleryOpStatus{Processed: true, Message: "completed", Progress: 100})
@@ -154,7 +161,7 @@ func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger) error {
 	if err != nil {
 		return err
 	}
-	var requests []ApplyGalleryModelRequest
+	var requests []gallery.GalleryModel
 	err = json.Unmarshal(dat, &requests)
 	if err != nil {
 		return err
@@ -170,7 +177,7 @@ func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger) error {
 }
 
 func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger) error {
-	var requests []ApplyGalleryModelRequest
+	var requests []gallery.GalleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {
 		return err
@@ -185,52 +192,6 @@ func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger) error {
 	return nil
 }
 
-// endpoints
-
-type ApplyGalleryModelRequest struct {
-	URL             string                 `json:"url"`
-	Name            string                 `json:"name"`
-	Overrides       map[string]interface{} `json:"overrides"`
-	AdditionalFiles []gallery.File         `json:"files"`
-}
-
-const (
-	githubURI = "github:"
-)
-
-func (request ApplyGalleryModelRequest) DecodeURL() (string, error) {
-	input := request.URL
-	var rawURL string
-
-	if strings.HasPrefix(input, githubURI) {
-		parts := strings.Split(input, ":")
-		repoParts := strings.Split(parts[1], "@")
-		branch := "main"
-
-		if len(repoParts) > 1 {
-			branch = repoParts[1]
-		}
-
-		repoPath := strings.Split(repoParts[0], "/")
-		org := repoPath[0]
-		project := repoPath[1]
-		projectPath := strings.Join(repoPath[2:], "/")
-
-		rawURL = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
-	} else if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-		// Handle regular URLs
-		u, err := url.Parse(input)
-		if err != nil {
-			return "", fmt.Errorf("invalid URL: %w", err)
-		}
-		rawURL = u.String()
-	} else {
-		return "", fmt.Errorf("invalid URL format")
-	}
-
-	return rawURL, nil
-}
-
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
@@ -243,9 +204,14 @@ func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
 	}
 }
 
-func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp) func(c *fiber.Ctx) error {
+type GalleryModel struct {
+	ID string `json:"id"`
+	gallery.GalleryModel
+}
+
+func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp, galleries []*gallery.Gallery) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		input := new(ApplyGalleryModelRequest)
+		input := new(GalleryModel)
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
 			return err
@@ -256,12 +222,24 @@ func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp) fun
 			return err
 		}
 		g <- galleryOp{
-			req: *input,
-			id:  uuid.String(),
+			req:         input.GalleryModel,
+			id:          uuid.String(),
+			galleryName: input.ID,
+			galleries:   galleries,
 		}
 		return c.JSON(struct {
 			ID        string `json:"uuid"`
 			StatusURL string `json:"status"`
 		}{ID: uuid.String(), StatusURL: c.BaseURL() + "/models/jobs/" + uuid.String()})
+	}
+}
+
+func listModelFromGallery(galleries []*gallery.Gallery) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		models, err := gallery.AvailableModels(galleries)
+		if err != nil {
+			return err
+		}
+		return c.JSON(models)
 	}
 }
