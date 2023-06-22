@@ -98,6 +98,14 @@ Run a slack bot which lets you talk directly with a model
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/slack-bot/)
 
+### Slack bot (Question answering)
+
+_by [@mudler](https://github.com/mudler)_
+
+Run a slack bot, ideally for teams, which lets you ask questions on a documentation website, or a github repository.
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/slack-qa-bot/)
+
 ### Question answering on documents with llama-index
 
 _by [@mudler](https://github.com/mudler)_

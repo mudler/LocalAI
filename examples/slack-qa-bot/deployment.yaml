@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: slack-bot
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: knowledgebase
+  namespace: slack-bot
+  labels:
+    app: localai-qabot
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localai-qabot
+  namespace: slack-bot
+  labels:
+    app: localai-qabot
+spec:
+  selector:
+    matchLabels:
+      app: localai-qabot
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: localai-qabot
+      name: localai-qabot
+    spec:
+      containers:
+        - name: localai-qabot-slack
+          env:
+          - name: OPENAI_API_KEY
+            value: "x"
+          - name: SLACK_APP_TOKEN
+            value: "xapp-1-"
+          - name: SLACK_BOT_TOKEN
+            value: "xoxb-"
+          - name: OPENAI_MODEL
+            value: "gpt-3.5-turbo"
+          - name: OPENAI_TIMEOUT_SECONDS
+            value: "400"
+          - name: OPENAI_SYSTEM_TEXT
+            value: ""
+          - name: MEMORY_DIR
+            value: "/memory"
+          - name: TRANSLATE_MARKDOWN
+            value: "true"
+          - name: OPENAI_API_BASE
+            value: "http://local-ai.default.svc.cluster.local:8080"
+          - name: REPOSITORIES
+            value: "KAIROS,AGENT,SDK,OSBUILDER,PACKAGES,IMMUCORE"
+          - name: KAIROS_CLONE_URL
+            value: "https://github.com/kairos-io/kairos"
+          - name: KAIROS_BRANCH
+            value: "master"
+          - name: AGENT_CLONE_URL
+            value: "https://github.com/kairos-io/kairos-agent"
+          - name: AGENT_BRANCH
+            value: "main"
+          - name: SDK_CLONE_URL
+            value: "https://github.com/kairos-io/kairos-sdk"
+          - name: SDK_BRANCH
+            value: "main"
+          - name: OSBUILDER_CLONE_URL
+            value: "https://github.com/kairos-io/osbuilder"
+          - name: OSBUILDER_BRANCH
+            value: "master"
+          - name: PACKAGES_CLONE_URL
+            value: "https://github.com/kairos-io/packages"
+          - name: PACKAGES_BRANCH
+            value: "main"
+          - name: IMMUCORE_CLONE_URL
+            value: "https://github.com/kairos-io/immucore"
+          - name: IMMUCORE_BRANCH
+            value: "master"
+          - name: GITHUB_PERSONAL_ACCESS_TOKEN
+            value: ""
+          - name: ISSUE_REPOSITORIES
+            value: "kairos-io/kairos"
+          image: quay.io/spectrocloud-labs/slack-qa-local-bot:qa
+          imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: "/memory"
+              name: knowledgebase
+      volumes:
+        - name: knowledgebase
+          persistentVolumeClaim:
+            claimName: knowledgebase
