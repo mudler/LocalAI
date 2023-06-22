@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+  api:
+    image: quay.io/go-skynet/local-ai:latest
+    # As initially LocalAI will download the models defined in PRELOAD_MODELS
+    # you might need to tweak the healthcheck values here according to your network connection.
+    # Here we give a timespan of 20m to download all the required files.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
+      interval: 1m
+      timeout: 20m
+      retries: 20
+    ports:
+      - 8080:8080
+    env_file:
+      - .env
+    volumes:
+      - ./models:/models:cached
+    command: ["/usr/bin/local-ai" ]
+ 
+  slackbot:
+    image: quay.io/spectrocloud-labs/slack-qa-local-bot:qa
+    container_name: slackbot
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      api:
+        condition: service_healthy
