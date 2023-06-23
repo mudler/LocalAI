@@ -97,7 +97,7 @@ func ReadConfig(file string) (*Config, error) {
 	return c, nil
 }
 
-func (cm ConfigMerger) LoadConfigFile(file string) error {
+func (cm *ConfigMerger) LoadConfigFile(file string) error {
 	cm.Lock()
 	defer cm.Unlock()
 	c, err := ReadConfigFile(file)
@@ -111,7 +111,7 @@ func (cm ConfigMerger) LoadConfigFile(file string) error {
 	return nil
 }
 
-func (cm ConfigMerger) LoadConfig(file string) error {
+func (cm *ConfigMerger) LoadConfig(file string) error {
 	cm.Lock()
 	defer cm.Unlock()
 	c, err := ReadConfig(file)
@@ -123,14 +123,14 @@ func (cm ConfigMerger) LoadConfig(file string) error {
 	return nil
 }
 
-func (cm ConfigMerger) GetConfig(m string) (Config, bool) {
+func (cm *ConfigMerger) GetConfig(m string) (Config, bool) {
 	cm.Lock()
 	defer cm.Unlock()
 	v, exists := cm.configs[m]
 	return v, exists
 }
 
-func (cm ConfigMerger) ListConfigs() []string {
+func (cm *ConfigMerger) ListConfigs() []string {
 	cm.Lock()
 	defer cm.Unlock()
 	var res []string
@@ -140,7 +140,7 @@ func (cm ConfigMerger) ListConfigs() []string {
 	return res
 }
 
-func (cm ConfigMerger) LoadConfigs(path string) error {
+func (cm *ConfigMerger) LoadConfigs(path string) error {
 	cm.Lock()
 	defer cm.Unlock()
 	entries, err := os.ReadDir(path)
