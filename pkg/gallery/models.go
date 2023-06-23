@@ -318,6 +318,10 @@ func ApplyModelFromGallery(galleries []Gallery, name string, basePath string, re
 		if req.Name != "" {
 			model.Name = req.Name
 		}
+
+		config.Files = append(config.Files, req.AdditionalFiles...)
+		config.Files = append(config.Files, model.AdditionalFiles...)
+
 		// TODO model.Overrides could be merged with user overrides (not defined yet)
 		if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
 			return err
