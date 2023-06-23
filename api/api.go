@@ -123,6 +123,7 @@ func App(opts ...AppOption) (*fiber.App, error) {
 	// completion
 	app.Post("/v1/completions", completionEndpoint(cm, options))
 	app.Post("/completions", completionEndpoint(cm, options))
+	app.Post("/v1/engines/:model/completions", completionEndpoint(cm, options))
 
 	// embeddings
 	app.Post("/v1/embeddings", embeddingsEndpoint(cm, options))
