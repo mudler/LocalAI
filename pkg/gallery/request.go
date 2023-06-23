@@ -54,7 +54,8 @@ func (request GalleryModel) DecodeURL() (string, error) {
 	} else if strings.HasPrefix(input, "file://") {
 		return input, nil
 	} else {
-		return "", fmt.Errorf("invalid URL format")
+
+		return "", fmt.Errorf("invalid URL format: %s", input)
 	}
 
 	return rawURL, nil
