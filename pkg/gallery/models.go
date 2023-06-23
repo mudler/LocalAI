@@ -219,33 +219,37 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		return err
 	}
 
-	configFilePath := filepath.Join(basePath, name+".yaml")
+	// write config file
+	if len(configOverrides) != 0 || len(config.ConfigFile) != 0 {
+		configFilePath := filepath.Join(basePath, name+".yaml")
 
-	// Read and update config file as map[string]interface{}
-	configMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal config YAML: %v", err)
+		// Read and update config file as map[string]interface{}
+		configMap := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal config YAML: %v", err)
+		}
+
+		configMap["name"] = name
+
+		if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
+			return err
+		}
+
+		// Write updated config file
+		updatedConfigYAML, err := yaml.Marshal(configMap)
+		if err != nil {
+			return fmt.Errorf("failed to marshal updated config YAML: %v", err)
+		}
+
+		err = os.WriteFile(configFilePath, updatedConfigYAML, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write updated config file: %v", err)
+		}
+
+		log.Debug().Msgf("Written config file %s", configFilePath)
 	}
 
-	configMap["name"] = name
-
-	if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
-		return err
-	}
-
-	// Write updated config file
-	updatedConfigYAML, err := yaml.Marshal(configMap)
-	if err != nil {
-		return fmt.Errorf("failed to marshal updated config YAML: %v", err)
-	}
-
-	err = os.WriteFile(configFilePath, updatedConfigYAML, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write updated config file: %v", err)
-	}
-
-	log.Debug().Msgf("Written config file %s", configFilePath)
 	return nil
 }
 
