@@ -181,6 +181,13 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 		}
 
 		log.Debug().Msgf("File %q downloaded and verified", file.Filename)
+		if utils.IsArchive(filePath) {
+			log.Debug().Msgf("File %q is an archive, uncompressing to %s", file.Filename, basePath)
+			if err := utils.ExtractArchive(filePath, basePath); err != nil {
+				log.Debug().Msgf("Failed decompressing %q: %s", file.Filename, err.Error())
+				return err
+			}
+		}
 	}
 
 	// Write prompt template contents to separate files

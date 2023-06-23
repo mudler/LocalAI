@@ -14,6 +14,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.16
+	github.com/json-iterator/go v1.1.12
+	github.com/mholt/archiver/v3 v3.5.1
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230620230702-09ae04cee90c
 	github.com/onsi/ginkgo/v2 v2.11.0
@@ -30,9 +32,15 @@ require (
 )
 
 require (
-	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
+	github.com/golang/snappy v0.0.2 // indirect
+	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/nwaples/rardecode v1.1.0 // indirect
+	github.com/pierrec/lz4/v4 v4.1.2 // indirect
+	github.com/ulikunitz/xz v0.5.9 // indirect
+	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 )
 
 require (
