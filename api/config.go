@@ -316,20 +316,32 @@ func readInput(c *fiber.Ctx, loader *model.ModelLoader, randomModel bool) (strin
 func readConfig(modelFile string, input *OpenAIRequest, cm *ConfigMerger, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*Config, *OpenAIRequest, error) {
 	// Load a config file if present after the model name
 	modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
-	if _, err := os.Stat(modelConfig); err == nil {
-		if err := cm.LoadConfig(modelConfig); err != nil {
-			return nil, nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
-		}
-	}
 
 	var config *Config
-	cfg, exists := cm.GetConfig(modelFile)
-	if !exists {
+
+	defaults := func() {
 		config = defaultConfig(modelFile)
 		config.ContextSize = ctx
 		config.Threads = threads
 		config.F16 = f16
 		config.Debug = debug
+	}
+
+	cfg, exists := cm.GetConfig(modelFile)
+	if !exists {
+		if _, err := os.Stat(modelConfig); err == nil {
+			if err := cm.LoadConfig(modelConfig); err != nil {
+				return nil, nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
+			}
+			cfg, exists = cm.GetConfig(modelFile)
+			if exists {
+				config = &cfg
+			} else {
+				defaults()
+			}
+		} else {
+			defaults()
+		}
 	} else {
 		config = &cfg
 	}
