@@ -22,7 +22,7 @@ type Option struct {
 	preloadModelsFromPath           string
 	corsAllowOrigins                string
 
-	galleries []*gallery.Gallery
+	galleries []gallery.Gallery
 
 	backendAssets     embed.FS
 	assetsDestination string
@@ -69,7 +69,7 @@ func WithBackendAssets(f embed.FS) AppOption {
 	}
 }
 
-func WithGalleries(galleries []*gallery.Gallery) AppOption {
+func WithGalleries(galleries []gallery.Gallery) AppOption {
 	return func(o *Option) {
 		o.galleries = append(o.galleries, galleries...)
 	}

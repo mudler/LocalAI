@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
@@ -172,6 +173,7 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 			// Verify SHA
 			calculatedSHA := fmt.Sprintf("%x", progress.hash.Sum(nil))
 			if calculatedSHA != file.SHA256 {
+				log.Debug().Msgf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", file.Filename, calculatedSHA, file.SHA256)
 				return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", file.Filename, calculatedSHA, file.SHA256)
 			}
 		} else {
@@ -294,47 +296,30 @@ func calculateSHA(filePath string) (string, error) {
 }
 
 type Gallery struct {
-	URL  string `json:"url"`
-	Name string `json:"name"`
+	URL  string `json:"url" yaml:"url"`
+	Name string `json:"name" yaml:"name"`
 }
 
 // Installs a model from the gallery (galleryname@modelname)
-func ApplyModelFromGallery(galleries []*Gallery, name string, basePath, nameOverride string, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
+func ApplyModelFromGallery(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
 	models, err := AvailableModels(galleries)
 	if err != nil {
 		return err
 	}
 
 	applyModel := func(model *GalleryModel) error {
-		url, err := model.DecodeURL()
-		if err != nil {
-			return err
-		}
-		// Send a GET request to the URL
-		response, err := http.Get(url)
-		if err != nil {
-			return err
-		}
-		defer response.Body.Close()
-
-		// Read the response body
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
-
-		// Unmarshal YAML data into a Config struct
 		var config Config
-		err = yaml.Unmarshal(body, &config)
+
+		err := model.Get(&config)
 		if err != nil {
 			return err
 		}
 
-		if nameOverride != "" {
-			model.Name = nameOverride
+		if req.Name != "" {
+			model.Name = req.Name
 		}
 		// TODO model.Overrides could be merged with user overrides (not defined yet)
-		if err := mergo.Merge(&model.Overrides, configOverrides, mergo.WithOverride); err != nil {
+		if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
 			return err
 		}
 
@@ -357,7 +342,7 @@ func ApplyModelFromGallery(galleries []*Gallery, name string, basePath, nameOver
 // List available models
 // Models galleries are a list of json files that are hosted on a remote server (for example github).
 // Each json file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
-func AvailableModels(galleries []*Gallery) ([]*GalleryModel, error) {
+func AvailableModels(galleries []Gallery) ([]*GalleryModel, error) {
 	var models []*GalleryModel
 
 	// Get models from galleries
@@ -372,9 +357,28 @@ func AvailableModels(galleries []*Gallery) ([]*GalleryModel, error) {
 	return models, nil
 }
 
-func getModels(gallery *Gallery) ([]*GalleryModel, error) {
-	var models []*GalleryModel
+func getModels(gallery Gallery) ([]*GalleryModel, error) {
+	var models []*GalleryModel = []*GalleryModel{}
+	if strings.HasPrefix(gallery.URL, "file://") {
+		rawURL := strings.TrimPrefix(gallery.URL, "file://")
+		// Read the response body
+		body, err := ioutil.ReadFile(rawURL)
+		if err != nil {
+			return models, err
+		}
 
+		// Unmarshal YAML data into a struct
+		err = yaml.Unmarshal(body, &models)
+		if err != nil {
+			return models, err
+		}
+
+		// Add gallery to models
+		for _, model := range models {
+			model.Gallery = gallery
+		}
+		return models, nil
+	}
 	// Get list of models
 	resp, err := http.Get(gallery.URL)
 	if err != nil {

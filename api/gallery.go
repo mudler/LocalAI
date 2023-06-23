@@ -2,25 +2,23 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v3"
 )
 
 type galleryOp struct {
 	req         gallery.GalleryModel
 	id          string
-	galleries   []*gallery.Gallery
+	galleries   []gallery.Gallery
 	galleryName string
 }
 
@@ -48,28 +46,28 @@ func newGalleryApplier(modelPath string) *galleryApplier {
 	}
 }
 
-func applyGallery(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
-	url, err := req.DecodeURL()
-	if err != nil {
-		return err
-	}
-
-	// Send a GET request to the URL
-	response, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	// Read the response body
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	// Unmarshal YAML data into a Config struct
+func applyModelFromGallery(modelPath string, name string, basePath string, req gallery.GalleryModel, cm *ConfigMerger, galleries []gallery.Gallery, downloadStatus func(string, string, string, float64)) error {
 	var config gallery.Config
-	err = yaml.Unmarshal(body, &config)
+
+	err := req.Get(&config)
+	if err != nil {
+		return err
+	}
+
+	config.Files = append(config.Files, req.AdditionalFiles...)
+
+	if err := gallery.ApplyModelFromGallery(galleries, name, modelPath, req, downloadStatus); err != nil {
+		return err
+	}
+
+	// Reload models
+	return cm.LoadConfigs(modelPath)
+}
+
+func applyGallery(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
+	var config gallery.Config
+
+	err := req.Get(&config)
 	if err != nil {
 		return err
 	}
@@ -107,14 +105,17 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 				g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: 0})
 
 				updateError := func(e error) {
-					g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true})
+					g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true, Message: "error: " + e.Error()})
 				}
 
 				if op.galleryName != "" {
-					gallery.ApplyModelFromGallery(op.galleries, op.galleryName, g.modelPath, op.req.Name, op.req.Overrides, func(fileName string, current string, total string, percentage float64) {
+					if err := applyModelFromGallery(g.modelPath, op.galleryName, g.modelPath, op.req, cm, op.galleries, func(fileName string, current string, total string, percentage float64) {
 						g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
 						displayDownload(fileName, current, total, percentage)
-					})
+					}); err != nil {
+						updateError(err)
+						continue
+					}
 				} else {
 					if err := applyGallery(g.modelPath, op.req, cm, func(fileName string, current string, total string, percentage float64) {
 						g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
@@ -209,7 +210,7 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp, galleries []*gallery.Gallery) func(c *fiber.Ctx) error {
+func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp, galleries []gallery.Gallery) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		input := new(GalleryModel)
 		// Get input data from the request body
@@ -234,12 +235,22 @@ func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp, gal
 	}
 }
 
-func listModelFromGallery(galleries []*gallery.Gallery) func(c *fiber.Ctx) error {
+func listModelFromGallery(galleries []gallery.Gallery) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		log.Debug().Msgf("Listing models from galleries: %+v", galleries)
+
 		models, err := gallery.AvailableModels(galleries)
 		if err != nil {
 			return err
 		}
-		return c.JSON(models)
+		log.Debug().Msgf("Models found from galleries: %+v", models)
+		for _, m := range models {
+			log.Debug().Msgf("Model found from galleries: %+v", m)
+		}
+		dat, err := json.Marshal(models)
+		if err != nil {
+			return err
+		}
+		return c.Send(dat)
 	}
 }

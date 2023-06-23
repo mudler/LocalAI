@@ -1,6 +1,7 @@
 package gallery_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -36,6 +37,45 @@ var _ = Describe("Model test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(content["context_size"]).To(Equal(1024))
+		})
+
+		It("applies model from gallery correctly", func() {
+			tempdir, err := os.MkdirTemp("", "test")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tempdir)
+
+			gallery := []GalleryModel{{
+				Name: "bert",
+				URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+			}}
+			out, err := yaml.Marshal(gallery)
+			Expect(err).ToNot(HaveOccurred())
+			err = ioutil.WriteFile(filepath.Join(tempdir, "gallery_simple.yaml"), out, 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			galleries := []Gallery{
+				{
+					Name: "test",
+					URL:  "file://" + filepath.Join(tempdir, "gallery_simple.yaml"),
+				},
+			}
+
+			models, err := AvailableModels(galleries)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(models)).To(Equal(1))
+			Expect(models[0].Name).To(Equal("bert"))
+			Expect(models[0].URL).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml"))
+
+			err = ApplyModelFromGallery(galleries, "test@bert", tempdir, GalleryModel{}, func(s1, s2, s3 string, f float64) {})
+			Expect(err).ToNot(HaveOccurred())
+
+			dat, err := os.ReadFile(filepath.Join(tempdir, "bert.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+
+			content := map[string]interface{}{}
+			err = yaml.Unmarshal(dat, &content)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(content["backend"]).To(Equal("bert-embeddings"))
 		})
 
 		It("renames model correctly", func() {

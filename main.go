@@ -131,8 +131,9 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		Action: func(ctx *cli.Context) error {
 			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
 			galls := ctx.String("galleries")
-			var galleries []*gallery.Gallery
-			json.Unmarshal([]byte(galls), galleries)
+			var galleries []gallery.Gallery
+			err := json.Unmarshal([]byte(galls), &galleries)
+			fmt.Println(err)
 			app, err := api.App(
 				api.WithConfigFile(ctx.String("config-file")),
 				api.WithGalleries(galleries),

@@ -106,8 +106,7 @@ func App(opts ...AppOption) (*fiber.App, error) {
 	applier.start(options.context, cm)
 
 	app.Post("/models/apply", applyModelGallery(options.loader.ModelPath, cm, applier.C, options.galleries))
-	app.Post("/models/list", listModelFromGallery(options.galleries))
-
+	app.Get("/models/list", listModelFromGallery(options.galleries))
 	app.Get("/models/jobs/:uuid", getOpStatus(applier))
 
 	// openAI compatible API endpoint
