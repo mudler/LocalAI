@@ -222,11 +222,11 @@ func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp, gal
 	}
 }
 
-func listModelFromGallery(galleries []gallery.Gallery) func(c *fiber.Ctx) error {
+func listModelFromGallery(galleries []gallery.Gallery, basePath string) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		log.Debug().Msgf("Listing models from galleries: %+v", galleries)
 
-		models, err := gallery.AvailableGalleryModels(galleries)
+		models, err := gallery.AvailableGalleryModels(galleries, basePath)
 		if err != nil {
 			return err
 		}

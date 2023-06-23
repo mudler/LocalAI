@@ -17,6 +17,7 @@ type GalleryModel struct {
 	Overrides       map[string]interface{} `json:"overrides" yaml:"overrides"`
 	AdditionalFiles []File                 `json:"files" yaml:"files"`
 	Gallery         Gallery                `json:"gallery" yaml:"gallery"`
+	Installed       bool                   `json:"installed" yaml:"installed"`
 }
 
 const (

@@ -2,6 +2,8 @@ package gallery
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
@@ -15,7 +17,7 @@ type Gallery struct {
 
 // Installs a model from the gallery (galleryname@modelname)
 func InstallModelFromGallery(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
-	models, err := AvailableGalleryModels(galleries)
+	models, err := AvailableGalleryModels(galleries, basePath)
 	if err != nil {
 		return err
 	}
@@ -59,12 +61,12 @@ func InstallModelFromGallery(galleries []Gallery, name string, basePath string, 
 // List available models
 // Models galleries are a list of json files that are hosted on a remote server (for example github).
 // Each json file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
-func AvailableGalleryModels(galleries []Gallery) ([]*GalleryModel, error) {
+func AvailableGalleryModels(galleries []Gallery, basePath string) ([]*GalleryModel, error) {
 	var models []*GalleryModel
 
 	// Get models from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryModels(gallery)
+		galleryModels, err := getGalleryModels(gallery, basePath)
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +76,7 @@ func AvailableGalleryModels(galleries []Gallery) ([]*GalleryModel, error) {
 	return models, nil
 }
 
-func getGalleryModels(gallery Gallery) ([]*GalleryModel, error) {
+func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error) {
 	var models []*GalleryModel = []*GalleryModel{}
 
 	err := utils.GetURI(gallery.URL, func(d []byte) error {
@@ -87,6 +89,11 @@ func getGalleryModels(gallery Gallery) ([]*GalleryModel, error) {
 	// Add gallery to models
 	for _, model := range models {
 		model.Gallery = gallery
+		// we check if the model was already installed by checking if the config file exists
+		// TODO: (what to do if the model doesn't install a config file?)
+		if _, err := os.Stat(filepath.Join(basePath, fmt.Sprintf("%s.yaml", model.Name))); err == nil {
+			model.Installed = true
+		}
 	}
 	return models, nil
 }

@@ -204,6 +204,9 @@ var _ = Describe("API test", func() {
 
 				models := getModels("http://127.0.0.1:9090/models/list")
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
+				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
+				Expect(models[1].Installed).To(BeFalse(), fmt.Sprint(models))
+
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					ID: "test@bert2",
 				})
@@ -231,6 +234,18 @@ var _ = Describe("API test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["backend"]).To(Equal("bert-embeddings"))
 				Expect(content["foo"]).To(Equal("bar"))
+
+				models = getModels("http://127.0.0.1:9090/models/list")
+				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
+				Expect(models[0].Name).To(Or(Equal("bert"), Equal("bert2")))
+				Expect(models[1].Name).To(Or(Equal("bert"), Equal("bert2")))
+				for _, m := range models {
+					if m.Name == "bert2" {
+						Expect(m.Installed).To(BeTrue())
+					} else {
+						Expect(m.Installed).To(BeFalse())
+					}
+				}
 			})
 			It("overrides models", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{

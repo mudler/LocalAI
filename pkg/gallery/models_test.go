@@ -60,11 +60,12 @@ var _ = Describe("Model test", func() {
 				},
 			}
 
-			models, err := AvailableGalleryModels(galleries)
+			models, err := AvailableGalleryModels(galleries, tempdir)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models)).To(Equal(1))
 			Expect(models[0].Name).To(Equal("bert"))
 			Expect(models[0].URL).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml"))
+			Expect(models[0].Installed).To(BeFalse())
 
 			err = InstallModelFromGallery(galleries, "test@bert", tempdir, GalleryModel{}, func(s1, s2, s3 string, f float64) {})
 			Expect(err).ToNot(HaveOccurred())
@@ -76,6 +77,11 @@ var _ = Describe("Model test", func() {
 			err = yaml.Unmarshal(dat, &content)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(content["backend"]).To(Equal("bert-embeddings"))
+
+			models, err = AvailableGalleryModels(galleries, tempdir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(models)).To(Equal(1))
+			Expect(models[0].Installed).To(BeTrue())
 		})
 
 		It("renames model correctly", func() {
