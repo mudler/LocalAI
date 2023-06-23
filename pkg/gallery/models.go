@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
@@ -83,7 +81,7 @@ func ReadConfigFile(filePath string) (*Config, error) {
 	return &config, nil
 }
 
-func Apply(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
+func InstallModel(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0755)
 	if err != nil {
@@ -300,116 +298,4 @@ func calculateSHA(filePath string) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
-}
-
-type Gallery struct {
-	URL  string `json:"url" yaml:"url"`
-	Name string `json:"name" yaml:"name"`
-}
-
-// Installs a model from the gallery (galleryname@modelname)
-func ApplyModelFromGallery(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
-	models, err := AvailableModels(galleries)
-	if err != nil {
-		return err
-	}
-
-	applyModel := func(model *GalleryModel) error {
-		var config Config
-
-		err := model.Get(&config)
-		if err != nil {
-			return err
-		}
-
-		if req.Name != "" {
-			model.Name = req.Name
-		}
-
-		config.Files = append(config.Files, req.AdditionalFiles...)
-		config.Files = append(config.Files, model.AdditionalFiles...)
-
-		// TODO model.Overrides could be merged with user overrides (not defined yet)
-		if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
-			return err
-		}
-
-		if err := Apply(basePath, model.Name, &config, model.Overrides, downloadStatus); err != nil {
-			return err
-		}
-
-		return nil
-	}
-
-	for _, model := range models {
-		if name == fmt.Sprintf("%s@%s", model.Gallery.Name, model.Name) {
-			return applyModel(model)
-		}
-	}
-
-	return fmt.Errorf("no model found with name %q", name)
-}
-
-// List available models
-// Models galleries are a list of json files that are hosted on a remote server (for example github).
-// Each json file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
-func AvailableModels(galleries []Gallery) ([]*GalleryModel, error) {
-	var models []*GalleryModel
-
-	// Get models from galleries
-	for _, gallery := range galleries {
-		galleryModels, err := getModels(gallery)
-		if err != nil {
-			return nil, err
-		}
-		models = append(models, galleryModels...)
-	}
-
-	return models, nil
-}
-
-func getModels(gallery Gallery) ([]*GalleryModel, error) {
-	var models []*GalleryModel = []*GalleryModel{}
-	if strings.HasPrefix(gallery.URL, "file://") {
-		rawURL := strings.TrimPrefix(gallery.URL, "file://")
-		// Read the response body
-		body, err := ioutil.ReadFile(rawURL)
-		if err != nil {
-			return models, err
-		}
-
-		// Unmarshal YAML data into a struct
-		err = yaml.Unmarshal(body, &models)
-		if err != nil {
-			return models, err
-		}
-
-		// Add gallery to models
-		for _, model := range models {
-			model.Gallery = gallery
-		}
-		return models, nil
-	}
-	// Get list of models
-	resp, err := http.Get(gallery.URL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get models: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get models: %s", resp.Status)
-	}
-
-	err = yaml.NewDecoder(resp.Body).Decode(&models)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode models: %v", err)
-	}
-
-	// Add gallery to models
-	for _, model := range models {
-		model.Gallery = gallery
-	}
-
-	return models, nil
 }

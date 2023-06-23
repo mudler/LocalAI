@@ -46,7 +46,8 @@ func newGalleryApplier(modelPath string) *galleryApplier {
 	}
 }
 
-func applyGallery(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
+// prepareModel applies a
+func prepareModel(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
 	var config gallery.Config
 
 	err := req.Get(&config)
@@ -56,21 +57,16 @@ func applyGallery(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, 
 
 	config.Files = append(config.Files, req.AdditionalFiles...)
 
-	if err := gallery.Apply(modelPath, req.Name, &config, req.Overrides, downloadStatus); err != nil {
-		return err
-	}
-
-	// Reload models
-	return cm.LoadConfigs(modelPath)
+	return gallery.InstallModel(modelPath, req.Name, &config, req.Overrides, downloadStatus)
 }
 
-func (g *galleryApplier) updatestatus(s string, op *galleryOpStatus) {
+func (g *galleryApplier) updateStatus(s string, op *galleryOpStatus) {
 	g.Lock()
 	defer g.Unlock()
 	g.statuses[s] = op
 }
 
-func (g *galleryApplier) getstatus(s string) *galleryOpStatus {
+func (g *galleryApplier) getStatus(s string) *galleryOpStatus {
 	g.Lock()
 	defer g.Unlock()
 
@@ -84,39 +80,40 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 			case <-c.Done():
 				return
 			case op := <-g.C:
-				g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: 0})
+				g.updateStatus(op.id, &galleryOpStatus{Message: "processing", Progress: 0})
 
+				// updates the status with an error
 				updateError := func(e error) {
-					g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true, Message: "error: " + e.Error()})
+					g.updateStatus(op.id, &galleryOpStatus{Error: e, Processed: true, Message: "error: " + e.Error()})
 				}
 
+				// displayDownload displays the download progress
+				progressCallback := func(fileName string, current string, total string, percentage float64) {
+					g.updateStatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
+					displayDownload(fileName, current, total, percentage)
+				}
+
+				var err error
+				// if the request contains a gallery name, we apply the gallery from the gallery list
 				if op.galleryName != "" {
-					if err := gallery.ApplyModelFromGallery(op.galleries, op.galleryName, g.modelPath, op.req, func(fileName string, current string, total string, percentage float64) {
-						g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
-						displayDownload(fileName, current, total, percentage)
-					}); err != nil {
-						updateError(err)
-						continue
-					}
-
-					// Reload models
-					err := cm.LoadConfigs(g.modelPath)
-					if err != nil {
-						updateError(err)
-						continue
-					}
-
+					err = gallery.InstallModelFromGallery(op.galleries, op.galleryName, g.modelPath, op.req, progressCallback)
 				} else {
-					if err := applyGallery(g.modelPath, op.req, cm, func(fileName string, current string, total string, percentage float64) {
-						g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
-						displayDownload(fileName, current, total, percentage)
-					}); err != nil {
-						updateError(err)
-						continue
-					}
+					err = prepareModel(g.modelPath, op.req, cm, progressCallback)
 				}
 
-				g.updatestatus(op.id, &galleryOpStatus{Processed: true, Message: "completed", Progress: 100})
+				if err != nil {
+					updateError(err)
+					continue
+				}
+
+				// Reload models
+				err = cm.LoadConfigs(g.modelPath)
+				if err != nil {
+					updateError(err)
+					continue
+				}
+
+				g.updateStatus(op.id, &galleryOpStatus{Processed: true, Message: "completed", Progress: 100})
 			}
 		}
 	}()
@@ -159,7 +156,7 @@ func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger) error {
 	}
 
 	for _, r := range requests {
-		if err := applyGallery(modelPath, r, cm, displayDownload); err != nil {
+		if err := prepareModel(modelPath, r, cm, displayDownload); err != nil {
 			return err
 		}
 	}
@@ -175,7 +172,7 @@ func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger) error {
 	}
 
 	for _, r := range requests {
-		if err := applyGallery(modelPath, r, cm, displayDownload); err != nil {
+		if err := prepareModel(modelPath, r, cm, displayDownload); err != nil {
 			return err
 		}
 	}
@@ -186,7 +183,7 @@ func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger) error {
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		status := g.getstatus(c.Params("uuid"))
+		status := g.getStatus(c.Params("uuid"))
 		if status == nil {
 			return fmt.Errorf("could not find any status for ID")
 		}
@@ -229,7 +226,7 @@ func listModelFromGallery(galleries []gallery.Gallery) func(c *fiber.Ctx) error 
 	return func(c *fiber.Ctx) error {
 		log.Debug().Msgf("Listing models from galleries: %+v", galleries)
 
-		models, err := gallery.AvailableModels(galleries)
+		models, err := gallery.AvailableGalleryModels(galleries)
 		if err != nil {
 			return err
 		}

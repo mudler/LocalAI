@@ -2,11 +2,10 @@ package gallery
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"gopkg.in/yaml.v2"
 )
 
@@ -68,31 +67,7 @@ func (request GalleryModel) Get(i interface{}) error {
 		return err
 	}
 
-	if strings.HasPrefix(url, "file://") {
-		rawURL := strings.TrimPrefix(url, "file://")
-		// Read the response body
-		body, err := ioutil.ReadFile(rawURL)
-		if err != nil {
-			return err
-		}
-
-		// Unmarshal YAML data into a struct
-		return yaml.Unmarshal(body, i)
-	}
-
-	// Send a GET request to the URL
-	response, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	// Read the response body
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	// Unmarshal YAML data into a struct
-	return yaml.Unmarshal(body, i)
+	return utils.GetURI(url, func(d []byte) error {
+		return yaml.Unmarshal(d, i)
+	})
 }
