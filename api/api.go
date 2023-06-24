@@ -104,7 +104,9 @@ func App(opts ...AppOption) (*fiber.App, error) {
 	// LocalAI API endpoints
 	applier := newGalleryApplier(options.loader.ModelPath)
 	applier.start(options.context, cm)
-	app.Post("/models/apply", applyModelGallery(options.loader.ModelPath, cm, applier.C))
+
+	app.Post("/models/apply", applyModelGallery(options.loader.ModelPath, cm, applier.C, options.galleries))
+	app.Get("/models/list", listModelFromGallery(options.galleries, options.loader.ModelPath))
 	app.Get("/models/jobs/:uuid", getOpStatus(applier))
 
 	// openAI compatible API endpoint
@@ -120,6 +122,7 @@ func App(opts ...AppOption) (*fiber.App, error) {
 	// completion
 	app.Post("/v1/completions", completionEndpoint(cm, options))
 	app.Post("/completions", completionEndpoint(cm, options))
+	app.Post("/v1/engines/:model/completions", completionEndpoint(cm, options))
 
 	// embeddings
 	app.Post("/v1/embeddings", embeddingsEndpoint(cm, options))

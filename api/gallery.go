@@ -2,26 +2,24 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"sync"
 	"time"
+
+	json "github.com/json-iterator/go"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v3"
 )
 
 type galleryOp struct {
-	req ApplyGalleryModelRequest
-	id  string
+	req         gallery.GalleryModel
+	id          string
+	galleries   []gallery.Gallery
+	galleryName string
 }
 
 type galleryOpStatus struct {
@@ -48,49 +46,27 @@ func newGalleryApplier(modelPath string) *galleryApplier {
 	}
 }
 
-func applyGallery(modelPath string, req ApplyGalleryModelRequest, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
-	url, err := req.DecodeURL()
-	if err != nil {
-		return err
-	}
-
-	// Send a GET request to the URL
-	response, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	// Read the response body
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	// Unmarshal YAML data into a Config struct
+// prepareModel applies a
+func prepareModel(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
 	var config gallery.Config
-	err = yaml.Unmarshal(body, &config)
+
+	err := req.Get(&config)
 	if err != nil {
 		return err
 	}
 
 	config.Files = append(config.Files, req.AdditionalFiles...)
 
-	if err := gallery.Apply(modelPath, req.Name, &config, req.Overrides, downloadStatus); err != nil {
-		return err
-	}
-
-	// Reload models
-	return cm.LoadConfigs(modelPath)
+	return gallery.InstallModel(modelPath, req.Name, &config, req.Overrides, downloadStatus)
 }
 
-func (g *galleryApplier) updatestatus(s string, op *galleryOpStatus) {
+func (g *galleryApplier) updateStatus(s string, op *galleryOpStatus) {
 	g.Lock()
 	defer g.Unlock()
 	g.statuses[s] = op
 }
 
-func (g *galleryApplier) getstatus(s string) *galleryOpStatus {
+func (g *galleryApplier) getStatus(s string) *galleryOpStatus {
 	g.Lock()
 	defer g.Unlock()
 
@@ -104,21 +80,40 @@ func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
 			case <-c.Done():
 				return
 			case op := <-g.C:
-				g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: 0})
+				g.updateStatus(op.id, &galleryOpStatus{Message: "processing", Progress: 0})
 
+				// updates the status with an error
 				updateError := func(e error) {
-					g.updatestatus(op.id, &galleryOpStatus{Error: e, Processed: true})
+					g.updateStatus(op.id, &galleryOpStatus{Error: e, Processed: true, Message: "error: " + e.Error()})
 				}
 
-				if err := applyGallery(g.modelPath, op.req, cm, func(fileName string, current string, total string, percentage float64) {
-					g.updatestatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
+				// displayDownload displays the download progress
+				progressCallback := func(fileName string, current string, total string, percentage float64) {
+					g.updateStatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
 					displayDownload(fileName, current, total, percentage)
-				}); err != nil {
+				}
+
+				var err error
+				// if the request contains a gallery name, we apply the gallery from the gallery list
+				if op.galleryName != "" {
+					err = gallery.InstallModelFromGallery(op.galleries, op.galleryName, g.modelPath, op.req, progressCallback)
+				} else {
+					err = prepareModel(g.modelPath, op.req, cm, progressCallback)
+				}
+
+				if err != nil {
 					updateError(err)
 					continue
 				}
 
-				g.updatestatus(op.id, &galleryOpStatus{Processed: true, Message: "completed", Progress: 100})
+				// Reload models
+				err = cm.LoadConfigs(g.modelPath)
+				if err != nil {
+					updateError(err)
+					continue
+				}
+
+				g.updateStatus(op.id, &galleryOpStatus{Processed: true, Message: "completed", Progress: 100})
 			}
 		}
 	}()
@@ -154,14 +149,14 @@ func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger) error {
 	if err != nil {
 		return err
 	}
-	var requests []ApplyGalleryModelRequest
+	var requests []gallery.GalleryModel
 	err = json.Unmarshal(dat, &requests)
 	if err != nil {
 		return err
 	}
 
 	for _, r := range requests {
-		if err := applyGallery(modelPath, r, cm, displayDownload); err != nil {
+		if err := prepareModel(modelPath, r, cm, displayDownload); err != nil {
 			return err
 		}
 	}
@@ -170,14 +165,14 @@ func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger) error {
 }
 
 func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger) error {
-	var requests []ApplyGalleryModelRequest
+	var requests []gallery.GalleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {
 		return err
 	}
 
 	for _, r := range requests {
-		if err := applyGallery(modelPath, r, cm, displayDownload); err != nil {
+		if err := prepareModel(modelPath, r, cm, displayDownload); err != nil {
 			return err
 		}
 	}
@@ -185,56 +180,10 @@ func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger) error {
 	return nil
 }
 
-// endpoints
-
-type ApplyGalleryModelRequest struct {
-	URL             string                 `json:"url"`
-	Name            string                 `json:"name"`
-	Overrides       map[string]interface{} `json:"overrides"`
-	AdditionalFiles []gallery.File         `json:"files"`
-}
-
-const (
-	githubURI = "github:"
-)
-
-func (request ApplyGalleryModelRequest) DecodeURL() (string, error) {
-	input := request.URL
-	var rawURL string
-
-	if strings.HasPrefix(input, githubURI) {
-		parts := strings.Split(input, ":")
-		repoParts := strings.Split(parts[1], "@")
-		branch := "main"
-
-		if len(repoParts) > 1 {
-			branch = repoParts[1]
-		}
-
-		repoPath := strings.Split(repoParts[0], "/")
-		org := repoPath[0]
-		project := repoPath[1]
-		projectPath := strings.Join(repoPath[2:], "/")
-
-		rawURL = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
-	} else if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-		// Handle regular URLs
-		u, err := url.Parse(input)
-		if err != nil {
-			return "", fmt.Errorf("invalid URL: %w", err)
-		}
-		rawURL = u.String()
-	} else {
-		return "", fmt.Errorf("invalid URL format")
-	}
-
-	return rawURL, nil
-}
-
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		status := g.getstatus(c.Params("uuid"))
+		status := g.getStatus(c.Params("uuid"))
 		if status == nil {
 			return fmt.Errorf("could not find any status for ID")
 		}
@@ -243,9 +192,14 @@ func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
 	}
 }
 
-func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp) func(c *fiber.Ctx) error {
+type GalleryModel struct {
+	ID string `json:"id"`
+	gallery.GalleryModel
+}
+
+func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp, galleries []gallery.Gallery) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		input := new(ApplyGalleryModelRequest)
+		input := new(GalleryModel)
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
 			return err
@@ -256,12 +210,34 @@ func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp) fun
 			return err
 		}
 		g <- galleryOp{
-			req: *input,
-			id:  uuid.String(),
+			req:         input.GalleryModel,
+			id:          uuid.String(),
+			galleryName: input.ID,
+			galleries:   galleries,
 		}
 		return c.JSON(struct {
 			ID        string `json:"uuid"`
 			StatusURL string `json:"status"`
 		}{ID: uuid.String(), StatusURL: c.BaseURL() + "/models/jobs/" + uuid.String()})
+	}
+}
+
+func listModelFromGallery(galleries []gallery.Gallery, basePath string) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		log.Debug().Msgf("Listing models from galleries: %+v", galleries)
+
+		models, err := gallery.AvailableGalleryModels(galleries, basePath)
+		if err != nil {
+			return err
+		}
+		log.Debug().Msgf("Models found from galleries: %+v", models)
+		for _, m := range models {
+			log.Debug().Msgf("Model found from galleries: %+v", m)
+		}
+		dat, err := json.Marshal(models)
+		if err != nil {
+			return err
+		}
+		return c.Send(dat)
 	}
 }

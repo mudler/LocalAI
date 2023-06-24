@@ -13,6 +13,7 @@ import (
 	"runtime"
 
 	. "github.com/go-skynet/LocalAI/api"
+	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -24,6 +25,7 @@ import (
 )
 
 type modelApplyRequest struct {
+	ID        string            `json:"id"`
 	URL       string            `json:"url"`
 	Name      string            `json:"name"`
 	Overrides map[string]string `json:"overrides"`
@@ -52,6 +54,35 @@ func getModelStatus(url string) (response map[string]interface{}) {
 	}
 	return
 }
+
+func getModels(url string) (response []gallery.GalleryModel) {
+
+	//url := "http://localhost:AI/models/apply"
+
+	// Create the request payload
+
+	// Create the HTTP request
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return
+	}
+
+	// Unmarshal the response into a map[string]interface{}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		fmt.Println("Error unmarshaling JSON response:", err)
+		return
+	}
+	return
+}
+
 func postModelApplyRequest(url string, request modelApplyRequest) (response map[string]interface{}) {
 
 	//url := "http://localhost:AI/models/apply"
@@ -118,7 +149,33 @@ var _ = Describe("API test", func() {
 			modelLoader = model.NewModelLoader(tmpdir)
 			c, cancel = context.WithCancel(context.Background())
 
-			app, err = App(WithContext(c), WithModelLoader(modelLoader), WithBackendAssets(backendAssets), WithBackendAssetsOutput(tmpdir))
+			g := []gallery.GalleryModel{
+				{
+					Name: "bert",
+					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+				},
+				{
+					Name:            "bert2",
+					URL:             "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					Overrides:       map[string]interface{}{"foo": "bar"},
+					AdditionalFiles: []gallery.File{gallery.File{Filename: "foo.yaml", URI: "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml"}},
+				},
+			}
+			out, err := yaml.Marshal(g)
+			Expect(err).ToNot(HaveOccurred())
+			err = ioutil.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			galleries := []gallery.Gallery{
+				{
+					Name: "test",
+					URL:  "file://" + filepath.Join(tmpdir, "gallery_simple.yaml"),
+				},
+			}
+
+			app, err = App(WithContext(c),
+				WithGalleries(galleries),
+				WithModelLoader(modelLoader), WithBackendAssets(backendAssets), WithBackendAssetsOutput(tmpdir))
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -143,6 +200,53 @@ var _ = Describe("API test", func() {
 		})
 
 		Context("Applying models", func() {
+			It("applies models from a gallery", func() {
+
+				models := getModels("http://127.0.0.1:9090/models/list")
+				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
+				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
+				Expect(models[1].Installed).To(BeFalse(), fmt.Sprint(models))
+
+				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+					ID: "test@bert2",
+				})
+
+				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+
+				uuid := response["uuid"].(string)
+				resp := map[string]interface{}{}
+				Eventually(func() bool {
+					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					fmt.Println(response)
+					resp = response
+					return response["processed"].(bool)
+				}, "360s").Should(Equal(true))
+				Expect(resp["message"]).ToNot(ContainSubstring("error"))
+
+				dat, err := os.ReadFile(filepath.Join(tmpdir, "bert2.yaml"))
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = os.ReadFile(filepath.Join(tmpdir, "foo.yaml"))
+				Expect(err).ToNot(HaveOccurred())
+
+				content := map[string]interface{}{}
+				err = yaml.Unmarshal(dat, &content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(content["backend"]).To(Equal("bert-embeddings"))
+				Expect(content["foo"]).To(Equal("bar"))
+
+				models = getModels("http://127.0.0.1:9090/models/list")
+				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
+				Expect(models[0].Name).To(Or(Equal("bert"), Equal("bert2")))
+				Expect(models[1].Name).To(Or(Equal("bert"), Equal("bert2")))
+				for _, m := range models {
+					if m.Name == "bert2" {
+						Expect(m.Installed).To(BeTrue())
+					} else {
+						Expect(m.Installed).To(BeFalse())
+					}
+				}
+			})
 			It("overrides models", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",

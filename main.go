@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	api "github.com/go-skynet/LocalAI/api"
+	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -52,6 +54,11 @@ func main() {
 				Usage:   "Path containing models used for inferencing",
 				EnvVars: []string{"MODELS_PATH"},
 				Value:   filepath.Join(path, "models"),
+			},
+			&cli.StringFlag{
+				Name:    "galleries",
+				Usage:   "JSON list of galleries",
+				EnvVars: []string{"GALLERIES"},
 			},
 			&cli.StringFlag{
 				Name:    "preload-models",
@@ -123,8 +130,13 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 		Copyright: "go-skynet authors",
 		Action: func(ctx *cli.Context) error {
 			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
+			galls := ctx.String("galleries")
+			var galleries []gallery.Gallery
+			err := json.Unmarshal([]byte(galls), &galleries)
+			fmt.Println(err)
 			app, err := api.App(
 				api.WithConfigFile(ctx.String("config-file")),
+				api.WithGalleries(galleries),
 				api.WithJSONStringPreload(ctx.String("preload-models")),
 				api.WithYAMLConfigPreload(ctx.String("preload-models-config")),
 				api.WithModelLoader(model.NewModelLoader(ctx.String("models-path"))),

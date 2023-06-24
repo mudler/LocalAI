@@ -81,7 +81,7 @@ func ReadConfigFile(filePath string) (*Config, error) {
 	return &config, nil
 }
 
-func Apply(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
+func InstallModel(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0755)
 	if err != nil {
@@ -171,6 +171,7 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 			// Verify SHA
 			calculatedSHA := fmt.Sprintf("%x", progress.hash.Sum(nil))
 			if calculatedSHA != file.SHA256 {
+				log.Debug().Msgf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", file.Filename, calculatedSHA, file.SHA256)
 				return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", file.Filename, calculatedSHA, file.SHA256)
 			}
 		} else {
@@ -178,6 +179,13 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 		}
 
 		log.Debug().Msgf("File %q downloaded and verified", file.Filename)
+		if utils.IsArchive(filePath) {
+			log.Debug().Msgf("File %q is an archive, uncompressing to %s", file.Filename, basePath)
+			if err := utils.ExtractArchive(filePath, basePath); err != nil {
+				log.Debug().Msgf("Failed decompressing %q: %s", file.Filename, err.Error())
+				return err
+			}
+		}
 	}
 
 	// Write prompt template contents to separate files
@@ -211,33 +219,37 @@ func Apply(basePath, nameOverride string, config *Config, configOverrides map[st
 		return err
 	}
 
-	configFilePath := filepath.Join(basePath, name+".yaml")
+	// write config file
+	if len(configOverrides) != 0 || len(config.ConfigFile) != 0 {
+		configFilePath := filepath.Join(basePath, name+".yaml")
 
-	// Read and update config file as map[string]interface{}
-	configMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal config YAML: %v", err)
+		// Read and update config file as map[string]interface{}
+		configMap := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal config YAML: %v", err)
+		}
+
+		configMap["name"] = name
+
+		if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
+			return err
+		}
+
+		// Write updated config file
+		updatedConfigYAML, err := yaml.Marshal(configMap)
+		if err != nil {
+			return fmt.Errorf("failed to marshal updated config YAML: %v", err)
+		}
+
+		err = os.WriteFile(configFilePath, updatedConfigYAML, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write updated config file: %v", err)
+		}
+
+		log.Debug().Msgf("Written config file %s", configFilePath)
 	}
 
-	configMap["name"] = name
-
-	if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
-		return err
-	}
-
-	// Write updated config file
-	updatedConfigYAML, err := yaml.Marshal(configMap)
-	if err != nil {
-		return fmt.Errorf("failed to marshal updated config YAML: %v", err)
-	}
-
-	err = os.WriteFile(configFilePath, updatedConfigYAML, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write updated config file: %v", err)
-	}
-
-	log.Debug().Msgf("Written config file %s", configFilePath)
 	return nil
 }
 
