@@ -20,7 +20,7 @@ require (
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230620230702-09ae04cee90c
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
-	github.com/otiai10/openaigo v1.2.0
+	github.com/otiai10/openaigo v1.4.0
 	github.com/rs/zerolog v1.29.1
 	github.com/sashabaranov/go-openai v1.11.3
 	github.com/swaggo/swag v1.16.1
@@ -67,7 +67,7 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mudler/go-piper v0.0.0-20230621222733-56b8a81b4760
-	github.com/otiai10/mint v1.5.1 // indirect
+	github.com/otiai10/mint v1.6.1 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
