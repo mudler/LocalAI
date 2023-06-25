@@ -19,6 +19,7 @@ type GalleryModel struct {
 	License     string   `json:"license,omitempty"  yaml:"license,omitempty"`
 	URLs        []string `json:"urls,omitempty" yaml:"urls,omitempty"`
 	Icon        string   `json:"icon,omitempty" yaml:"icon,omitempty"`
+	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 
 	// Overrides are used to override the configuration of the model
 	Overrides map[string]interface{} `json:"overrides,omitempty" yaml:"overrides,omitempty"`
