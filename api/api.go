@@ -80,13 +80,13 @@ func App(opts ...AppOption) (*fiber.App, error) {
 	app.Use(recover.New())
 
 	if options.preloadJSONModels != "" {
-		if err := ApplyGalleryFromString(options.loader.ModelPath, options.preloadJSONModels, cm); err != nil {
+		if err := ApplyGalleryFromString(options.loader.ModelPath, options.preloadJSONModels, cm, options.galleries); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.preloadModelsFromPath != "" {
-		if err := ApplyGalleryFromFile(options.loader.ModelPath, options.preloadModelsFromPath, cm); err != nil {
+		if err := ApplyGalleryFromFile(options.loader.ModelPath, options.preloadModelsFromPath, cm, options.galleries); err != nil {
 			return nil, err
 		}
 	}
