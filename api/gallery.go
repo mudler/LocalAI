@@ -48,9 +48,8 @@ func newGalleryApplier(modelPath string) *galleryApplier {
 
 // prepareModel applies a
 func prepareModel(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
-	var config gallery.Config
 
-	err := req.Get(&config)
+	config, err := gallery.GetGalleryConfigFromURL(req.URL)
 	if err != nil {
 		return err
 	}

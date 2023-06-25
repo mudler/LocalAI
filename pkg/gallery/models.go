@@ -65,6 +65,17 @@ type PromptTemplate struct {
 	Content string `yaml:"content"`
 }
 
+func GetGalleryConfigFromURL(url string) (Config, error) {
+	var config Config
+	err := utils.GetURI(url, func(url string, d []byte) error {
+		return yaml.Unmarshal(d, &config)
+	})
+	if err != nil {
+		return config, err
+	}
+	return config, nil
+}
+
 func ReadConfigFile(filePath string) (*Config, error) {
 	// Read the YAML file
 	yamlFile, err := os.ReadFile(filePath)
