@@ -183,7 +183,7 @@ var _ = Describe("API test", func() {
 		Context("Applying models", func() {
 			It("applies models from a gallery", func() {
 
-				models := getModels("http://127.0.0.1:9090/models/list")
+				models := getModels("http://127.0.0.1:9090/models/available")
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
 				Expect(models[1].Installed).To(BeFalse(), fmt.Sprint(models))
@@ -216,7 +216,7 @@ var _ = Describe("API test", func() {
 				Expect(content["backend"]).To(Equal("bert-embeddings"))
 				Expect(content["foo"]).To(Equal("bar"))
 
-				models = getModels("http://127.0.0.1:9090/models/list")
+				models = getModels("http://127.0.0.1:9090/models/available")
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Name).To(Or(Equal("bert"), Equal("bert2")))
 				Expect(models[1].Name).To(Or(Equal("bert"), Equal("bert2")))
