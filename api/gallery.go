@@ -48,9 +48,8 @@ func newGalleryApplier(modelPath string) *galleryApplier {
 
 // prepareModel applies a
 func prepareModel(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
-	var config gallery.Config
 
-	err := req.Get(&config)
+	config, err := gallery.GetGalleryConfigFromURL(req.URL)
 	if err != nil {
 		return err
 	}
@@ -144,40 +143,35 @@ func displayDownload(fileName string, current string, total string, percentage f
 	}
 }
 
-func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger) error {
+type galleryModel struct {
+	gallery.GalleryModel
+	ID string `json:"id"`
+}
+
+func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger, galleries []gallery.Gallery) error {
 	dat, err := os.ReadFile(s)
 	if err != nil {
 		return err
 	}
-	var requests []gallery.GalleryModel
-	err = json.Unmarshal(dat, &requests)
-	if err != nil {
-		return err
-	}
-
-	for _, r := range requests {
-		if err := prepareModel(modelPath, r, cm, displayDownload); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return ApplyGalleryFromString(modelPath, string(dat), cm, galleries)
 }
 
-func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger) error {
-	var requests []gallery.GalleryModel
+func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger, galleries []gallery.Gallery) error {
+	var requests []galleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {
 		return err
 	}
 
 	for _, r := range requests {
-		if err := prepareModel(modelPath, r, cm, displayDownload); err != nil {
-			return err
+		if r.ID == "" {
+			err = prepareModel(modelPath, r.GalleryModel, cm, displayDownload)
+		} else {
+			err = gallery.InstallModelFromGallery(galleries, r.ID, modelPath, r.GalleryModel, displayDownload)
 		}
 	}
 
-	return nil
+	return err
 }
 
 func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {

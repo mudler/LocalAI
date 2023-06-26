@@ -23,9 +23,7 @@ func InstallModelFromGallery(galleries []Gallery, name string, basePath string, 
 	}
 
 	applyModel := func(model *GalleryModel) error {
-		var config Config
-
-		err := model.Get(&config)
+		config, err := GetGalleryConfigFromURL(model.URL)
 		if err != nil {
 			return err
 		}
@@ -79,7 +77,7 @@ func AvailableGalleryModels(galleries []Gallery, basePath string) ([]*GalleryMod
 func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error) {
 	var models []*GalleryModel = []*GalleryModel{}
 
-	err := utils.GetURI(gallery.URL, func(d []byte) error {
+	err := utils.GetURI(gallery.URL, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {
