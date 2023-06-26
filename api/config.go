@@ -23,6 +23,7 @@ type Config struct {
 	TrimSpace      []string          `yaml:"trimspace"`
 	ContextSize    int               `yaml:"context_size"`
 	F16            bool              `yaml:"f16"`
+	NUMA           bool              `yaml:"numa"`
 	Threads        int               `yaml:"threads"`
 	Debug          bool              `yaml:"debug"`
 	Roles          map[string]string `yaml:"roles"`
