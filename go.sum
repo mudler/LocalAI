@@ -55,6 +55,8 @@ github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230620192816-a459d2726792
 github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230620192816-a459d2726792/go.mod h1:31j1odgFXP8hDSUVfH0zErKI5aYVP18ddYnPkwCso2A=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230616223721-7ad833b67070 h1:T771FjB1yQw8j4P5x4ayFrUPNTglzxRIqDjaNkMVIME=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230616223721-7ad833b67070/go.mod h1:tzi97YvT1bVQ+iTG39LvpDkKG1WbizgtljC+orSoM40=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230626215901-f104111358e8 h1:Knh5QUvI/68erb/yWtrVa/3hvoQdENF2dH0hL2HNPrI=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230626215901-f104111358e8/go.mod h1:tzi97YvT1bVQ+iTG39LvpDkKG1WbizgtljC+orSoM40=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 h1:tfuBGBXKqDEevZMzYi5KSi8KkcZtzBcTgAUUtapy0OI=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572/go.mod h1:9Pwr4B2jHnOSGXyyzV8ROjYa2ojvAY6HCGYYfMoC3Ls=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
