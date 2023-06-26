@@ -53,9 +53,12 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
     tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /lib64/ && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
-    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/ 
+    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
 # \
 #    ; fi
+
+###################################
+###################################
 
 FROM requirements as builder
 
@@ -66,8 +69,17 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
 
+WORKDIR /build
+
+COPY Makefile .
+RUN make get-sources
+COPY go.mod .
+RUN make prepare
 COPY . .
 RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
+
+###################################
+###################################
 
 FROM requirements
 
@@ -83,6 +95,10 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 WORKDIR /build
 
+# we start fresh & re-copy all assets because `make build` does not clean up nicely after itself
+# so when `entrypoint.sh` runs `make build` again (which it does by default), the build would fail
+# see https://github.com/go-skynet/LocalAI/pull/658#discussion_r1241971626 and
+# https://github.com/go-skynet/LocalAI/pull/434
 COPY . .
 RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
