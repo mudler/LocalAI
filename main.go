@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	api "github.com/go-skynet/LocalAI/api"
+	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog"
@@ -24,8 +25,9 @@ func main() {
 	}
 
 	app := &cli.App{
-		Name:  "LocalAI",
-		Usage: "OpenAI compatible API for running LLaMA/GPT models locally on CPU with consumer grade hardware.",
+		Name:    "LocalAI",
+		Version: internal.PrintableVersion(),
+		Usage:   "OpenAI compatible API for running LLaMA/GPT models locally on CPU with consumer grade hardware.",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "f16",

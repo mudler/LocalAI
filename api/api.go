@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 
+	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -104,6 +105,12 @@ func App(opts ...AppOption) (*fiber.App, error) {
 	// LocalAI API endpoints
 	applier := newGalleryApplier(options.loader.ModelPath)
 	applier.start(options.context, cm)
+
+	app.Get("/version", func(c *fiber.Ctx) error {
+		return c.JSON(struct {
+			Version string `json:"version"`
+		}{Version: internal.PrintableVersion()})
+	})
 
 	app.Post("/models/apply", applyModelGallery(options.loader.ModelPath, cm, applier.C, options.galleries))
 	app.Get("/models/available", listModelFromGallery(options.galleries, options.loader.ModelPath))
