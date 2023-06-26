@@ -19,7 +19,13 @@ CUDA_LIBPATH?=/usr/local/cuda/lib64/
 STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
 GO_TAGS?=
 BUILD_ID?=git
+
+VERSION?=$(shell git describe --always --tags --dirty || echo "dev" )
+# go tool nm ./local-ai | grep Commit
 LD_FLAGS?=
+override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Version=$(VERSION)"
+override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
+
 OPTIONAL_TARGETS?=
 ESPEAK_DATA?=
 
@@ -244,6 +250,8 @@ build: prepare ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
+	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
+
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 ifeq ($(BUILD_TYPE),metal)
 	cp go-llama/build/bin/ggml-metal.metal .
