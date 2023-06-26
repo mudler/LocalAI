@@ -40,6 +40,8 @@ RUN apt-get install -y libopencv-dev && \
 # piper requirements
 # Use pre-compiled Piper phonemization library (includes onnxruntime)
 #RUN if echo "${GO_TAGS}" | grep -q "tts"; then \
+RUN test -n "$TARGETARCH" \
+    || (echo 'missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`' && false)
 RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSION}.tar.gz" | \
     tar -xzvf - && \
     mkdir -p "spdlog-${SPDLOG_VERSION}/build" && \
