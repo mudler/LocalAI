@@ -152,9 +152,14 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 	process := func(s string, req *OpenAIRequest, config *Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
 		ComputeChoices(s, req, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
 			resp := OpenAIResponse{
-				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []Choice{{Text: s}},
-				Object:  "text_completion",
+				Model: req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []Choice{
+					{
+						Index: 0,
+						Text:  s,
+					},
+				},
+				Object: "text_completion",
 			}
 			log.Debug().Msgf("Sending goroutine: %s", s)
 
@@ -228,8 +233,14 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 				}
 
 				resp := &OpenAIResponse{
-					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []Choice{{FinishReason: "stop"}},
+					Model: input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Choices: []Choice{
+						{
+							Index:        0,
+							FinishReason: "stop",
+						},
+					},
+					Object: "text_completion",
 				}
 				respData, _ := json.Marshal(resp)
 
@@ -346,7 +357,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		ComputeChoices(s, req, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
 			resp := OpenAIResponse{
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []Choice{{Delta: &Message{Content: s}}},
+				Choices: []Choice{{Delta: &Message{Content: s}, Index: 0}},
 				Object:  "chat.completion.chunk",
 			}
 			log.Debug().Msgf("Sending goroutine: %s", s)
@@ -429,8 +440,14 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 				}
 
 				resp := &OpenAIResponse{
-					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []Choice{{FinishReason: "stop"}},
+					Model: input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Choices: []Choice{
+						{
+							FinishReason: "stop",
+							Index:        0,
+							Delta:        &Message{},
+						}},
+					Object: "chat.completion.chunk",
 				}
 				respData, _ := json.Marshal(resp)
 
