@@ -81,7 +81,7 @@ RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data 
 ###################################
 ###################################
 
-FROM builder
+FROM requirements
 
 ARG FFMPEG
 
@@ -92,6 +92,16 @@ ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
 RUN if [ "${FFMPEG}" = "true" ]; then \
     apt-get install -y ffmpeg \
     ; fi
+
+WORKDIR /build
+
+# we start fresh & re-copy all assets because `make build` does not clean up nicely after itself
+# so when `entrypoint.sh` runs `make build` again (which it does by default), the build would fail
+# see https://github.com/go-skynet/LocalAI/pull/658#discussion_r1241971626 and
+# https://github.com/go-skynet/LocalAI/pull/434
+COPY . .
+RUN make prepare-sources
+COPY --from=builder /build/local-ai ./
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
