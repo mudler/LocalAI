@@ -48,6 +48,10 @@ func defaultLLamaOpts(c Config) []llama.ModelOption {
 		llamaOpts = append(llamaOpts, llama.SetNBatch(512))
 	}
 
+	if c.NUMA {
+		llamaOpts = append(llamaOpts, llama.EnableNUMA)
+	}
+
 	if c.LowVRAM {
 		llamaOpts = append(llamaOpts, llama.EnabelLowVRAM)
 	}
