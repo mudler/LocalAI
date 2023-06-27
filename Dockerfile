@@ -37,11 +37,16 @@ RUN apt-get install -y libopenblas-dev
 RUN apt-get install -y libopencv-dev && \
     ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
+# Use the variables in subsequent instructions
+RUN echo "Target Architecture: $TARGETARCH"
+RUN echo "Target Variant: $TARGETVARIANT"
+
 # piper requirements
 # Use pre-compiled Piper phonemization library (includes onnxruntime)
 #RUN if echo "${GO_TAGS}" | grep -q "tts"; then \
 RUN test -n "$TARGETARCH" \
-    || (echo 'missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`' && false)
+    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
+
 RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSION}.tar.gz" | \
     tar -xzvf - && \
     mkdir -p "spdlog-${SPDLOG_VERSION}/build" && \
@@ -51,7 +56,7 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
     cmake --install . --prefix /usr && mkdir -p "lib/Linux-$(uname -m)" && \
     cd /build && \
     mkdir -p "lib/Linux-$(uname -m)/piper_phonemize" && \
-    curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v${PIPER_PHONEMIZE_VERSION}/libpiper_phonemize-${TARGETARCH}${TARGETVARIANT}.tar.gz" | \
+    curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v${PIPER_PHONEMIZE_VERSION}/libpiper_phonemize-${TARGETARCH:-$(go env GOARCH)}${TARGETVARIANT}.tar.gz" | \
     tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /lib64/ && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
