@@ -20,10 +20,10 @@ In a nutshell:
 - Local, OpenAI drop-in alternative REST API. You own your data.
 - NO GPU required. NO Internet access is required either
   - Optional, GPU Acceleration is available in `llama.cpp`-compatible LLMs. See also the [build section](https://localai.io/basics/build/index.html). 
-- Supports multiple models: 
+- Supports multiple models:
+  - 📖 Text generation with GPTs (`llama.cpp`, `gpt4all.cpp`, ... and more)
   - 🗣 Text to Audio 🎺🆕
   - 🔈 Audio to Text (Audio transcription with `whisper.cpp`)
-  - 📖 Text generation with GPTs (`llama.cpp`, `gpt4all.cpp`, ... and more)
   - 🎨 Image generation with stable diffusion
 - 🏃 Once loaded the first time, it keep models loaded in memory for faster inference
 - ⚡ Doesn't shell-out, but uses C++ bindings for a faster inference and better performance. 
