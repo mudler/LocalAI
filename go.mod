@@ -8,7 +8,7 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230529155654-1834e77b83fa
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230607105116-6069103f54b9
-	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230620192816-a459d2726792
+	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230626202628-8e31841dcddc
 	github.com/go-skynet/go-llama.cpp v0.0.0-20230627195533-582753605210
 	github.com/gofiber/fiber/v2 v2.47.0
 	github.com/google/uuid v1.3.0
