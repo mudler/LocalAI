@@ -73,7 +73,7 @@ func Transcript(model whisper.Model, audiopath, language string, threads uint) (
 		context.SetLanguage("auto")
 	}
 
-	if err := context.Process(data, nil); err != nil {
+	if err := context.Process(data, nil, nil); err != nil {
 		return "", err
 	}
 
