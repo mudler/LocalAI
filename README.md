@@ -41,6 +41,18 @@ See the [Getting started](https://localai.io/basics/getting_started/index.html) 
 |------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
 ![Screenshot from 2023-06-09 00-36-26](https://github.com/go-skynet/LocalAI/assets/2420543/e98b4305-fa2d-41cf-9d2f-1bb2d75ca902)   |  ![Screenshot from 2023-05-30 18-01-03](https://github.com/go-skynet/LocalAI/assets/2420543/02458782-0549-4131-971c-95ee56ec1af8)|    |
 
+## Hot topics / Roadmap
+
+- [x] Support for embeddings
+- [x] Support for audio transcription with https://github.com/ggerganov/whisper.cpp
+- [X] Support for text-to-audio
+- [x] GPU/CUDA support ( https://github.com/go-skynet/LocalAI/issues/69 )
+- [X] Enable automatic downloading of models from a curated gallery
+- [X] Enable automatic downloading of models from HuggingFace
+- [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351) 
+- [ ] Enable gallery management directly from the webui.
+- [ ] 🔥 OpenAI functions: https://github.com/go-skynet/LocalAI/issues/588
+
 ## News
 
 - 🔥🔥🔥 28-06-2023: **v1.20.0**: Added text to audio and gallery huggingface repositories! [Release notes](https://localai.io/basics/news/index.html#-28-06-2023-__v1200__-) [Changelog](https://github.com/go-skynet/LocalAI/releases/tag/v1.20.0)
@@ -49,6 +61,13 @@ See the [Getting started](https://localai.io/basics/getting_started/index.html) 
 - 29-05-2023: LocalAI now has a website, [https://localai.io](https://localai.io)! check the news in the [dedicated section](https://localai.io/basics/news/index.html)!
 
 For latest news, follow also on Twitter [@LocalAI_API](https://twitter.com/LocalAI_API) and [@mudler_it](https://twitter.com/mudler_it)
+
+## Media, Blogs, Social
+
+- [Create a slackbot for teams and OSS projects that answer to documentation](https://mudler.pm/posts/smart-slackbot-for-teams/)
+- [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)
+- [Question Answering on Documents locally with LangChain, LocalAI, Chroma, and GPT4All](https://mudler.pm/posts/localai-question-answering/)
+- [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65)
 
 ## Contribute and help
 
@@ -182,23 +201,6 @@ Feel free to open up a PR to get your project listed!
 - [autogpt4all](https://github.com/aorumbayev/autogpt4all)
 - [Mods](https://github.com/charmbracelet/mods)
 - [Flowise](https://github.com/FlowiseAI/Flowise)
-
-## Short-term roadmap
-
-- [x] Mimic OpenAI API (https://github.com/go-skynet/LocalAI/issues/10)
-- [x] Binary releases (https://github.com/go-skynet/LocalAI/issues/6)
-- [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351) 
-- [x] Upstream [gpt4all](https://github.com/go-skynet/LocalAI/issues/85) bindings
-- [x] Multi-model support
-- [x] Have a webUI!
-- [x] Allow configuration of defaults for models.
-- [x] Support for embeddings
-- [x] Support for audio transcription with https://github.com/ggerganov/whisper.cpp
-- [x] GPU/CUDA support ( https://github.com/go-skynet/LocalAI/issues/69 )
-- [X] Enable automatic downloading of models from a curated gallery
-- [ ] Enable automatic downloading of models from HuggingFace
-- [ ] Enable gallery management directly from the webui.
-- [ ] 🔥 OpenAI functions: https://github.com/go-skynet/LocalAI/issues/588
 
 ## Star history
 
