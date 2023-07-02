@@ -20,7 +20,7 @@ STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
 GO_TAGS?=
 BUILD_ID?=git
 
-VERSION?=$(shell git describe --always --tags --dirty || echo "dev" )
+VERSION?=$(shell git describe --always --tags || echo "dev" )
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=
 override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Version=$(VERSION)"

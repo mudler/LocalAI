@@ -83,6 +83,8 @@ RUN make get-sources
 COPY go.mod .
 RUN make prepare
 COPY . .
+COPY .git .
+
 RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
 
 ###################################
