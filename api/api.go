@@ -51,6 +51,9 @@ func App(opts ...AppOption) (*fiber.App, error) {
 		}))
 	}
 
+	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.threads, options.loader.ModelPath)
+	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
+
 	cm := NewConfigMerger()
 	if err := cm.LoadConfigs(options.loader.ModelPath); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())

@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"embed"
+	"encoding/json"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/rs/zerolog/log"
 )
 
 type Option struct {
@@ -66,6 +68,20 @@ func WithBackendAssetsOutput(out string) AppOption {
 func WithBackendAssets(f embed.FS) AppOption {
 	return func(o *Option) {
 		o.backendAssets = f
+	}
+}
+
+func WithStringGalleries(galls string) AppOption {
+	return func(o *Option) {
+		if galls == "" {
+			log.Debug().Msgf("no galleries to load")
+			return
+		}
+		var galleries []gallery.Gallery
+		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
+			log.Error().Msgf("failed loading galleries: %s", err.Error())
+		}
+		o.galleries = append(o.galleries, galleries...)
 	}
 }
 

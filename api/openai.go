@@ -214,7 +214,7 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		if input.Stream {
 			if len(config.PromptStrings) > 1 {
-				return errors.New("cannot handle more than 1 `PromptStrings` when `Stream`ing")
+				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
 			}
 
 			predInput := config.PromptStrings[0]
@@ -222,7 +222,9 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := o.loader.TemplatePrefix(templateFile, struct {
 				Input string
-			}{Input: predInput})
+			}{
+				Input: predInput,
+			})
 			if err == nil {
 				predInput = templatedInput
 				log.Debug().Msgf("Template found, input modified to: %s", predInput)
@@ -268,7 +270,9 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := o.loader.TemplatePrefix(templateFile, struct {
 				Input string
-			}{Input: i})
+			}{
+				Input: i,
+			})
 			if err == nil {
 				i = templatedInput
 				log.Debug().Msgf("Template found, input modified to: %s", i)

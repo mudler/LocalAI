@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
@@ -17,6 +18,10 @@ type Gallery struct {
 
 // Installs a model from the gallery (galleryname@modelname)
 func InstallModelFromGallery(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
+
+	// os.PathSeparator is not allowed in model names. Replace them with "__" to avoid conflicts with file paths.
+	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
+
 	models, err := AvailableGalleryModels(galleries, basePath)
 	if err != nil {
 		return err
