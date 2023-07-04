@@ -737,7 +737,7 @@ func transcriptEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		log.Debug().Msgf("Trascribed: %+v", tr)
 		// TODO: handle different outputs here
-		return c.Status(http.StatusOK).JSON(fiber.Map{"text": tr})
+		return c.Status(http.StatusOK).JSON(tr)
 	}
 }
 
