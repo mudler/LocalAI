@@ -402,7 +402,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 	}
 	return func(c *fiber.Ctx) error {
 		processFunctions := false
-		funcs := []grammar.Function{}
+		funcs := grammar.Functions{}
 		model, input, err := readInput(c, o.loader, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
@@ -419,7 +419,6 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			((config.functionCallString != "none" || config.functionCallString == "") || len(config.functionCallNameString) > 0) {
 			log.Debug().Msgf("Response needs to process functions")
 
-			var funcs grammar.Functions = input.Functions
 			processFunctions = true
 
 			// Force picking one of the functions by the request
@@ -428,6 +427,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			}
 
 			// Append the no action function
+			funcs = append(funcs, input.Functions...)
 			funcs = append(funcs, noActionGrammar)
 
 			// Update input grammar
