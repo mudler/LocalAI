@@ -421,14 +421,14 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 			processFunctions = true
 
+			// Append the no action function
+			funcs = append(funcs, input.Functions...)
+			funcs = append(funcs, noActionGrammar)
+
 			// Force picking one of the functions by the request
 			if config.functionCallNameString != "" {
 				funcs = funcs.Select(config.functionCallNameString)
 			}
-
-			// Append the no action function
-			funcs = append(funcs, input.Functions...)
-			funcs = append(funcs, noActionGrammar)
 
 			// Update input grammar
 			jsStruct := funcs.ToJSONStructure()
@@ -452,7 +452,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 				roleFn := "assistant_function_call"
 				r := config.Roles[roleFn]
 				if r != "" {
-					role = roleFn
+					role = r
 				}
 			}
 			r := config.Roles[role]

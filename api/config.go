@@ -281,7 +281,7 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 		n, exists := fnc["name"]
 		if exists {
 			nn, e := n.(string)
-			if !e {
+			if e {
 				name = nn
 			}
 		}
