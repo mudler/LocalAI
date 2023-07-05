@@ -445,11 +445,41 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		mess := []string{}
 		for _, i := range input.Messages {
 			var content string
-			r := config.Roles[i.Role]
+			role := i.Role
+			// if function call, we want to customize the role so we can display better that the "assistant called a json action"
+			// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
+			if i.FunctionCall != nil {
+				roleFn := "assistant_function_call"
+				r := config.Roles[roleFn]
+				if r != "" {
+					role = roleFn
+				}
+			}
+			r := config.Roles[role]
 			if r != "" {
 				content = fmt.Sprint(r, " ", i.Content)
+				if i.FunctionCall != nil {
+					j, err := json.Marshal(i.FunctionCall)
+					if err == nil {
+						if i.Content != "" {
+							content += "\n" + fmt.Sprint(r, " ", string(j))
+						} else {
+							content = fmt.Sprint(r, " ", string(j))
+						}
+					}
+				}
 			} else {
 				content = i.Content
+				if i.FunctionCall != nil {
+					j, err := json.Marshal(i.FunctionCall)
+					if err == nil {
+						if i.Content != "" {
+							content += "\n" + string(j)
+						} else {
+							content = string(j)
+						}
+					}
+				}
 			}
 
 			mess = append(mess, content)
