@@ -257,6 +257,7 @@ prepare-sources: get-sources replace
 
 ## GENERIC
 rebuild: ## Rebuilds the project
+	$(GOCMD) clean -cache
 	$(MAKE) -C go-llama clean
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ clean
 	$(MAKE) -C go-ggml-transformers clean
@@ -272,6 +273,7 @@ prepare: prepare-sources backend-assets/gpt4all $(OPTIONAL_TARGETS) go-llama/lib
 	touch $@
 
 clean: ## Remove build related file
+	$(GOCMD) clean -cache
 	rm -fr ./go-llama
 	rm -rf ./gpt4all
 	rm -rf ./go-gpt2
