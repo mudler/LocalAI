@@ -94,7 +94,7 @@ FROM requirements
 
 ARG FFMPEG
 
-ENV REBUILD=true
+ENV REBUILD=false
 ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
 
 # Add FFmpeg
