@@ -145,6 +145,8 @@ type OpenAIRequest struct {
 
 	// A grammar to constrain the LLM output
 	Grammar string `json:"grammar" yaml:"grammar"`
+	// A grammar object
+	JSONFunctionGrammarObject *grammar.JSONFunctionStructure `json:"grammar_json_functions" yaml:"grammar_json_functions"`
 
 	TypicalP float64 `json:"typical_p" yaml:"typical_p"`
 }
@@ -433,6 +435,8 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			// Update input grammar
 			jsStruct := funcs.ToJSONStructure()
 			config.Grammar = jsStruct.Grammar("")
+		} else if input.JSONFunctionGrammarObject != nil {
+			config.Grammar = input.JSONFunctionGrammarObject.Grammar("")
 		}
 
 		// functions are not supported in stream mode (yet?)
@@ -486,6 +490,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		}
 
 		predInput = strings.Join(mess, "\n")
+		log.Debug().Msgf("Prompt (before templating): %s", predInput)
 
 		if toStream {
 			log.Debug().Msgf("Stream request received")
@@ -522,7 +527,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			log.Debug().Msgf("Template failed loading: %s", err.Error())
 		}
 
-		log.Debug().Msgf("Prompt: %s", predInput)
+		log.Debug().Msgf("Prompt (after templating): %s", predInput)
 		if processFunctions {
 			log.Debug().Msgf("Grammar: %+v", config.Grammar)
 		}

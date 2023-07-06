@@ -211,12 +211,12 @@ type Item struct {
 	Properties Properties `json:"properties"`
 }
 
-type JSONStructure struct {
+type JSONFunctionStructure struct {
 	OneOf []Item `json:"oneOf,omitempty"`
 	AnyOf []Item `json:"anyOf,omitempty"`
 }
 
-func (j JSONStructure) Grammar(propOrder string) string {
+func (j JSONFunctionStructure) Grammar(propOrder string) string {
 	dat, _ := json.Marshal(j)
 	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat)
 }

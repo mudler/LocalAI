@@ -66,7 +66,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 		It("generates a valid grammar from JSON Objects", func() {
 
-			structuredGrammar := JSONStructure{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: []Item{
 					{
 						Type: "object",

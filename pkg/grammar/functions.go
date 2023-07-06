@@ -11,8 +11,8 @@ type Function struct {
 }
 type Functions []Function
 
-func (f Functions) ToJSONStructure() JSONStructure {
-	js := JSONStructure{}
+func (f Functions) ToJSONStructure() JSONFunctionStructure {
+	js := JSONFunctionStructure{}
 	for _, function := range f {
 		//	t := function.Parameters["type"]
 		//tt := t.(string)
