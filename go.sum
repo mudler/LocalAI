@@ -147,6 +147,8 @@ github.com/otiai10/openaigo v1.2.0 h1:Whq+uvgqw8NdIsVdixtBKCAI6OdfCJiGPlhUnYJQ6A
 github.com/otiai10/openaigo v1.2.0/go.mod h1:792bx6AWTS61weDi2EzKpHHnTF4eDMAlJ5GvAk/mgPg=
 github.com/otiai10/openaigo v1.4.0 h1:BeacKb2Q5bVejjOKHFJxL2WFYal3QxwkrKtKuoU5LNU=
 github.com/otiai10/openaigo v1.4.0/go.mod h1:kIaXc3V+Xy5JLplcBxehVyGYDtufHp3PFPy04jOwOAI=
+github.com/otiai10/openaigo v1.5.2 h1:YnNDisZmA4syArF3IxMCIrfgZOq30PLV219gPY7n2z8=
+github.com/otiai10/openaigo v1.5.2/go.mod h1:kIaXc3V+Xy5JLplcBxehVyGYDtufHp3PFPy04jOwOAI=
 github.com/philhofer/fwd v1.1.1/go.mod h1:gk3iGcWd9+svBvR0sR+KPcfE+RNWozjowpeBVG3ZVNU=
 github.com/philhofer/fwd v1.1.2 h1:bnDivRJ1EWPjUIRXV5KfORO897HTbpFAQddBdE8t7Gw=
 github.com/philhofer/fwd v1.1.2/go.mod h1:qkPdfjR2SIEbspLqpe1tO4n5yICnr2DY7mqEx2tUTP0=
