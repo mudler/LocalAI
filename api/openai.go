@@ -425,7 +425,9 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 			// Append the no action function
 			funcs = append(funcs, input.Functions...)
-			funcs = append(funcs, noActionGrammar)
+			if !config.DisableDefaultAnswer {
+				funcs = append(funcs, noActionGrammar)
+			}
 
 			// Force picking one of the functions by the request
 			if config.functionCallNameString != "" {

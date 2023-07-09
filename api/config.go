@@ -42,6 +42,8 @@ type Config struct {
 	MainGPU               string `yaml:"main_gpu"`
 	ImageGenerationAssets string `yaml:"asset_dir"`
 
+	DisableDefaultAnswer bool `yaml:"disable_default_answer"`
+
 	PromptCachePath string `yaml:"prompt_cache_path"`
 	PromptCacheAll  bool   `yaml:"prompt_cache_all"`
 	PromptCacheRO   bool   `yaml:"prompt_cache_ro"`
@@ -269,7 +271,6 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 			}
 		}
 	}
-
 	// Can be either a string or an object
 	switch fnc := input.FunctionCall.(type) {
 	case string:
