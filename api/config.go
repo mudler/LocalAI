@@ -42,17 +42,23 @@ type Config struct {
 	MainGPU               string `yaml:"main_gpu"`
 	ImageGenerationAssets string `yaml:"asset_dir"`
 
-	DisableDefaultAnswer bool `yaml:"disable_default_answer"`
-
 	PromptCachePath string `yaml:"prompt_cache_path"`
 	PromptCacheAll  bool   `yaml:"prompt_cache_all"`
 	PromptCacheRO   bool   `yaml:"prompt_cache_ro"`
 
 	Grammar string `yaml:"grammar"`
 
+	FunctionsConfig Functions `yaml:"function"`
+
 	PromptStrings, InputStrings                []string
 	InputToken                                 [][]int
 	functionCallString, functionCallNameString string
+}
+
+type Functions struct {
+	DisableNoAction         bool   `yaml:"disable_no_action"`
+	NoActionFunctionName    string `yaml:"no_action_function_name"`
+	NoActionDescriptionName string `yaml:"no_action_description_name"`
 }
 
 type TemplateConfig struct {

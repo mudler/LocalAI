@@ -363,23 +363,6 @@ func embeddingsEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 }
 
 func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
-	// TODO: replace this with config settings
-	// Allow the user to set custom actions via config file
-	// to be "embedded" in each model
-	const noActionName = "answer"
-	const noActionDescription = "use this action to answer without performing any action"
-
-	noActionGrammar := grammar.Function{
-		Name:        noActionName,
-		Description: noActionDescription,
-		Parameters: map[string]interface{}{
-			"properties": map[string]interface{}{
-				"message": map[string]interface{}{
-					"type":        "string",
-					"description": "The message to reply the user with",
-				}},
-		},
-	}
 
 	process := func(s string, req *OpenAIRequest, config *Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
 		initialMessage := OpenAIResponse{
@@ -416,6 +399,18 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		}
 		log.Debug().Msgf("Configuration read: %+v", config)
 
+		// Allow the user to set custom actions via config file
+		// to be "embedded" in each model
+		noActionName := "answer"
+		noActionDescription := "use this action to answer without performing any action"
+
+		if config.FunctionsConfig.NoActionFunctionName != "" {
+			noActionName = config.FunctionsConfig.NoActionFunctionName
+		}
+		if config.FunctionsConfig.NoActionDescriptionName != "" {
+			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
+		}
+
 		// process functions if we have any defined or if we have a function call string
 		if len(input.Functions) > 0 &&
 			((config.functionCallString != "none" || config.functionCallString == "") || len(config.functionCallNameString) > 0) {
@@ -423,9 +418,21 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 			processFunctions = true
 
+			noActionGrammar := grammar.Function{
+				Name:        noActionName,
+				Description: noActionDescription,
+				Parameters: map[string]interface{}{
+					"properties": map[string]interface{}{
+						"message": map[string]interface{}{
+							"type":        "string",
+							"description": "The message to reply the user with",
+						}},
+				},
+			}
+
 			// Append the no action function
 			funcs = append(funcs, input.Functions...)
-			if !config.DisableDefaultAnswer {
+			if !config.FunctionsConfig.DisableNoAction {
 				funcs = append(funcs, noActionGrammar)
 			}
 
