@@ -202,6 +202,19 @@ Feel free to open up a PR to get your project listed!
 - [Mods](https://github.com/charmbracelet/mods)
 - [Flowise](https://github.com/FlowiseAI/Flowise)
 
+## Sponsors
+
+> Do you find LocalAI useful?
+
+Support the project by becoming [a backer or sponsor](https://github.com/sponsors/mudler). Your logo will show up here with a link to your website.
+
+A huge thank you to our generous sponsors who support this project:
+
+| ![Spectro Cloud logo_600x600px_transparent bg](https://github.com/go-skynet/LocalAI/assets/2420543/68a6f3cb-8a65-4a4d-99b5-6417a8905512) | 
+|:-----------------------------------------------:|
+|  [Spectro Cloud](https://www.spectrocloud.com/)  |  
+|  Spectro Cloud kindly supports LocalAI by providing GPU and computing resources to run tests on lamdalabs!  |
+
 ## Star history
 
 [![LocalAI Star history Chart](https://api.star-history.com/svg?repos=go-skynet/LocalAI&type=Date)](https://star-history.com/#go-skynet/LocalAI&Date)
