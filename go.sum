@@ -195,6 +195,8 @@ github.com/tmc/langchaingo v0.0.0-20230627220614-633853b5ac3b h1:xUxtya/3KRDn1rc
 github.com/tmc/langchaingo v0.0.0-20230627220614-633853b5ac3b/go.mod h1:F1k7uRBLM8jMMEPV3dVtWVNc+W91nxOBRKbJWM/LwpM=
 github.com/tmc/langchaingo v0.0.0-20230628165432-e510561c17f9 h1:BooyHg3f058lrPcTLdfC7HTfjO5OGZAgwciQJ5e85l0=
 github.com/tmc/langchaingo v0.0.0-20230628165432-e510561c17f9/go.mod h1:F1k7uRBLM8jMMEPV3dVtWVNc+W91nxOBRKbJWM/LwpM=
+github.com/tmc/langchaingo v0.0.0-20230709010448-a875e6bc0c54 h1:MZSC3/pdBzkoPG49uTRvtEepOQKdbdgaT1aLtaEwxx4=
+github.com/tmc/langchaingo v0.0.0-20230709010448-a875e6bc0c54/go.mod h1:RsMJqgUynOtr2jWNhUF41R3j6SDkKq9c8UfE0nJYBb4=
 github.com/ulikunitz/xz v0.5.8/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
 github.com/ulikunitz/xz v0.5.9 h1:RsKRIA2MO8x56wkkcd3LbtcE/uMszhb6DpRf+3uwa3I=
 github.com/ulikunitz/xz v0.5.9/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
