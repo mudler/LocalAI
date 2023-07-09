@@ -9,7 +9,7 @@ require (
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230529155654-1834e77b83fa
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230607105116-6069103f54b9
 	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230626202628-8e31841dcddc
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230628194133-42ba44838369
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230703203849-ffa57fbc3a12
 	github.com/gofiber/fiber/v2 v2.47.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
