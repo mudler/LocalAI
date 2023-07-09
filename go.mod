@@ -17,7 +17,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230628182915-a67f8132e165
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230708212935-d611d107479f
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/otiai10/openaigo v1.5.2
