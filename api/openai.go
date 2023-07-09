@@ -459,13 +459,13 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		for _, i := range input.Messages {
 			var content string
 			role := i.Role
-			// if function call, we want to customize the role so we can display better that the "assistant called a json action"
+			// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
 			// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
-			if i.FunctionCall != nil {
+			if i.FunctionCall != nil && i.Role == "assistant" {
 				roleFn := "assistant_function_call"
 				r := config.Roles[roleFn]
 				if r != "" {
-					role = r
+					role = roleFn
 				}
 			}
 			r := config.Roles[role]
