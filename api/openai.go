@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
+	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	whisperutil "github.com/go-skynet/LocalAI/pkg/whisper"
 	llama "github.com/go-skynet/go-llama.cpp"
@@ -73,8 +74,12 @@ type Choice struct {
 }
 
 type Message struct {
-	Role    string `json:"role,omitempty" yaml:"role"`
-	Content string `json:"content,omitempty" yaml:"content"`
+	// The message role
+	Role string `json:"role,omitempty" yaml:"role"`
+	// The message content
+	Content *string `json:"content" yaml:"content"`
+	// A result of a function call
+	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`
 }
 
 type OpenAIModel struct {
@@ -103,6 +108,10 @@ type OpenAIRequest struct {
 
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages" yaml:"messages"`
+
+	// A list of available functions to call
+	Functions    []grammar.Function `json:"functions" yaml:"functions"`
+	FunctionCall interface{}        `json:"function_call" yaml:"function_call"` // might be a string or an object
 
 	Stream bool `json:"stream"`
 	Echo   bool `json:"echo"`
@@ -133,6 +142,11 @@ type OpenAIRequest struct {
 	// Image (not supported by OpenAI)
 	Mode int `json:"mode"`
 	Step int `json:"step"`
+
+	// A grammar to constrain the LLM output
+	Grammar string `json:"grammar" yaml:"grammar"`
+	// A grammar object
+	JSONFunctionGrammarObject *grammar.JSONFunctionStructure `json:"grammar_json_functions" yaml:"grammar_json_functions"`
 
 	TypicalP float64 `json:"typical_p" yaml:"typical_p"`
 }
@@ -202,7 +216,7 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		if input.Stream {
 			if len(config.PromptStrings) > 1 {
-				return errors.New("cannot handle more than 1 `PromptStrings` when `Stream`ing")
+				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
 			}
 
 			predInput := config.PromptStrings[0]
@@ -210,7 +224,9 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := o.loader.TemplatePrefix(templateFile, struct {
 				Input string
-			}{Input: predInput})
+			}{
+				Input: predInput,
+			})
 			if err == nil {
 				predInput = templatedInput
 				log.Debug().Msgf("Template found, input modified to: %s", predInput)
@@ -256,7 +272,9 @@ func completionEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := o.loader.TemplatePrefix(templateFile, struct {
 				Input string
-			}{Input: i})
+			}{
+				Input: i,
+			})
 			if err == nil {
 				i = templatedInput
 				log.Debug().Msgf("Template found, input modified to: %s", i)
@@ -357,7 +375,7 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		ComputeChoices(s, req, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
 			resp := OpenAIResponse{
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []Choice{{Delta: &Message{Content: s}, Index: 0}},
+				Choices: []Choice{{Delta: &Message{Content: &s}, Index: 0}},
 				Object:  "chat.completion.chunk",
 			}
 			log.Debug().Msgf("Sending goroutine: %s", s)
@@ -368,6 +386,8 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		close(responses)
 	}
 	return func(c *fiber.Ctx) error {
+		processFunctions := false
+		funcs := grammar.Functions{}
 		model, input, err := readInput(c, o.loader, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
@@ -377,27 +397,116 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
+		log.Debug().Msgf("Configuration read: %+v", config)
 
-		log.Debug().Msgf("Parameter Config: %+v", config)
+		// Allow the user to set custom actions via config file
+		// to be "embedded" in each model
+		noActionName := "answer"
+		noActionDescription := "use this action to answer without performing any action"
+
+		if config.FunctionsConfig.NoActionFunctionName != "" {
+			noActionName = config.FunctionsConfig.NoActionFunctionName
+		}
+		if config.FunctionsConfig.NoActionDescriptionName != "" {
+			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
+		}
+
+		// process functions if we have any defined or if we have a function call string
+		if len(input.Functions) > 0 &&
+			((config.functionCallString != "none" || config.functionCallString == "") || len(config.functionCallNameString) > 0) {
+			log.Debug().Msgf("Response needs to process functions")
+
+			processFunctions = true
+
+			noActionGrammar := grammar.Function{
+				Name:        noActionName,
+				Description: noActionDescription,
+				Parameters: map[string]interface{}{
+					"properties": map[string]interface{}{
+						"message": map[string]interface{}{
+							"type":        "string",
+							"description": "The message to reply the user with",
+						}},
+				},
+			}
+
+			// Append the no action function
+			funcs = append(funcs, input.Functions...)
+			if !config.FunctionsConfig.DisableNoAction {
+				funcs = append(funcs, noActionGrammar)
+			}
+
+			// Force picking one of the functions by the request
+			if config.functionCallNameString != "" {
+				funcs = funcs.Select(config.functionCallNameString)
+			}
+
+			// Update input grammar
+			jsStruct := funcs.ToJSONStructure()
+			config.Grammar = jsStruct.Grammar("")
+		} else if input.JSONFunctionGrammarObject != nil {
+			config.Grammar = input.JSONFunctionGrammarObject.Grammar("")
+		}
+
+		// functions are not supported in stream mode (yet?)
+		toStream := input.Stream && !processFunctions
+
+		log.Debug().Msgf("Parameters: %+v", config)
 
 		var predInput string
 
 		mess := []string{}
 		for _, i := range input.Messages {
 			var content string
-			r := config.Roles[i.Role]
+			role := i.Role
+			// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
+			// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
+			if i.FunctionCall != nil && i.Role == "assistant" {
+				roleFn := "assistant_function_call"
+				r := config.Roles[roleFn]
+				if r != "" {
+					role = roleFn
+				}
+			}
+			r := config.Roles[role]
+			contentExists := i.Content != nil && *i.Content != ""
 			if r != "" {
-				content = fmt.Sprint(r, " ", i.Content)
+				if contentExists {
+					content = fmt.Sprint(r, " ", *i.Content)
+				}
+				if i.FunctionCall != nil {
+					j, err := json.Marshal(i.FunctionCall)
+					if err == nil {
+						if contentExists {
+							content += "\n" + fmt.Sprint(r, " ", string(j))
+						} else {
+							content = fmt.Sprint(r, " ", string(j))
+						}
+					}
+				}
 			} else {
-				content = i.Content
+				if contentExists {
+					content = fmt.Sprint(*i.Content)
+				}
+				if i.FunctionCall != nil {
+					j, err := json.Marshal(i.FunctionCall)
+					if err == nil {
+						if contentExists {
+							content += "\n" + string(j)
+						} else {
+							content = string(j)
+						}
+					}
+				}
 			}
 
 			mess = append(mess, content)
 		}
 
 		predInput = strings.Join(mess, "\n")
+		log.Debug().Msgf("Prompt (before templating): %s", predInput)
 
-		if input.Stream {
+		if toStream {
 			log.Debug().Msgf("Stream request received")
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
@@ -409,20 +518,35 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		templateFile := config.Model
 
-		if config.TemplateConfig.Chat != "" {
+		if config.TemplateConfig.Chat != "" && !processFunctions {
 			templateFile = config.TemplateConfig.Chat
+		}
+
+		if config.TemplateConfig.Functions != "" && processFunctions {
+			templateFile = config.TemplateConfig.Functions
 		}
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 		templatedInput, err := o.loader.TemplatePrefix(templateFile, struct {
-			Input string
-		}{Input: predInput})
+			Input     string
+			Functions []grammar.Function
+		}{
+			Input:     predInput,
+			Functions: funcs,
+		})
 		if err == nil {
 			predInput = templatedInput
 			log.Debug().Msgf("Template found, input modified to: %s", predInput)
+		} else {
+			log.Debug().Msgf("Template failed loading: %s", err.Error())
 		}
 
-		if input.Stream {
+		log.Debug().Msgf("Prompt (after templating): %s", predInput)
+		if processFunctions {
+			log.Debug().Msgf("Grammar: %+v", config.Grammar)
+		}
+
+		if toStream {
 			responses := make(chan OpenAIResponse)
 
 			go process(predInput, input, config, o.loader, responses)
@@ -459,7 +583,72 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 		}
 
 		result, err := ComputeChoices(predInput, input, config, o, o.loader, func(s string, c *[]Choice) {
-			*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: s}})
+			if processFunctions {
+				// As we have to change the result before processing, we can't stream the answer (yet?)
+				ss := map[string]interface{}{}
+				json.Unmarshal([]byte(s), &ss)
+				log.Debug().Msgf("Function return: %s %+v", s, ss)
+
+				// The grammar defines the function name as "function", while OpenAI returns "name"
+				func_name := ss["function"]
+				// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
+				args := ss["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+				d, _ := json.Marshal(args)
+
+				ss["arguments"] = string(d)
+				ss["name"] = func_name
+
+				// if do nothing, reply with a message
+				if func_name == noActionName {
+					log.Debug().Msgf("nothing to do, computing a reply")
+
+					// If there is a message that the LLM already sends as part of the JSON reply, use it
+					arguments := map[string]interface{}{}
+					json.Unmarshal([]byte(d), &arguments)
+					m, exists := arguments["message"]
+					if exists {
+						switch message := m.(type) {
+						case string:
+							if message != "" {
+								log.Debug().Msgf("Reply received from LLM: %s", message)
+								message = Finetune(*config, predInput, message)
+								log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
+
+								*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &message}})
+								return
+							}
+						}
+					}
+
+					log.Debug().Msgf("No action received from LLM, without a message, computing a reply")
+					// Otherwise ask the LLM to understand the JSON output and the context, and return a message
+					// Note: This costs (in term of CPU) another computation
+					config.Grammar = ""
+					predFunc, err := ModelInference(predInput, o.loader, *config, o, nil)
+					if err != nil {
+						log.Error().Msgf("inference error: %s", err.Error())
+						return
+					}
+
+					prediction, err := predFunc()
+					if err != nil {
+						log.Error().Msgf("inference error: %s", err.Error())
+						return
+					}
+
+					prediction = Finetune(*config, predInput, prediction)
+					*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &prediction}})
+				} else {
+					// otherwise reply with the function call
+					*c = append(*c, Choice{
+						FinishReason: "function_call",
+						Message:      &Message{Role: "assistant", FunctionCall: ss},
+					})
+				}
+
+				return
+			}
+			*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &s}})
 		}, nil)
 		if err != nil {
 			return err

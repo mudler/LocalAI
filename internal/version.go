@@ -6,5 +6,5 @@ var Version = ""
 var Commit = ""
 
 func PrintableVersion() string {
-	return fmt.Sprintf("LocalAI %s (%s)", Version, Commit)
+	return fmt.Sprintf("%s (%s)", Version, Commit)
 }

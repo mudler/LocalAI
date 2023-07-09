@@ -83,6 +83,8 @@ RUN make get-sources
 COPY go.mod .
 RUN make prepare
 COPY . .
+COPY .git .
+
 RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
 
 ###################################
@@ -92,7 +94,7 @@ FROM requirements
 
 ARG FFMPEG
 
-ENV REBUILD=true
+ENV REBUILD=false
 ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
 
 # Add FFmpeg

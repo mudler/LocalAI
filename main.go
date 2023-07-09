@@ -1,14 +1,11 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
 	api "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/internal"
-	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -126,19 +123,13 @@ Some of the models compatible are:
 - Alpaca
 - StableLM (ggml quantized)
 
-It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
+For a list of compatible model, check out: https://localai.io/model-compatibility/index.html
 `,
 		UsageText: `local-ai [options]`,
-		Copyright: "go-skynet authors",
+		Copyright: "Ettore Di Giacinto",
 		Action: func(ctx *cli.Context) error {
-			fmt.Printf("Starting LocalAI using %d threads, with models path: %s\n", ctx.Int("threads"), ctx.String("models-path"))
-			galls := ctx.String("galleries")
-			var galleries []gallery.Gallery
-			err := json.Unmarshal([]byte(galls), &galleries)
-			fmt.Println(err)
 			app, err := api.App(
 				api.WithConfigFile(ctx.String("config-file")),
-				api.WithGalleries(galleries),
 				api.WithJSONStringPreload(ctx.String("preload-models")),
 				api.WithYAMLConfigPreload(ctx.String("preload-models-config")),
 				api.WithModelLoader(model.NewModelLoader(ctx.String("models-path"))),
@@ -147,6 +138,7 @@ It uses llama.cpp, ggml and gpt4all as backend with golang c bindings.
 				api.WithImageDir(ctx.String("image-path")),
 				api.WithAudioDir(ctx.String("audio-path")),
 				api.WithF16(ctx.Bool("f16")),
+				api.WithStringGalleries(ctx.String("galleries")),
 				api.WithDisableMessage(false),
 				api.WithCors(ctx.Bool("cors")),
 				api.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),

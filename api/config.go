@@ -46,12 +46,24 @@ type Config struct {
 	PromptCacheAll  bool   `yaml:"prompt_cache_all"`
 	PromptCacheRO   bool   `yaml:"prompt_cache_ro"`
 
-	PromptStrings, InputStrings []string
-	InputToken                  [][]int
+	Grammar string `yaml:"grammar"`
+
+	FunctionsConfig Functions `yaml:"function"`
+
+	PromptStrings, InputStrings                []string
+	InputToken                                 [][]int
+	functionCallString, functionCallNameString string
+}
+
+type Functions struct {
+	DisableNoAction         bool   `yaml:"disable_no_action"`
+	NoActionFunctionName    string `yaml:"no_action_function_name"`
+	NoActionDescriptionName string `yaml:"no_action_description_name"`
 }
 
 type TemplateConfig struct {
 	Completion string `yaml:"completion"`
+	Functions  string `yaml:"function"`
 	Chat       string `yaml:"chat"`
 	Edit       string `yaml:"edit"`
 }
@@ -181,6 +193,10 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 		config.TopP = input.TopP
 	}
 
+	if input.Grammar != "" {
+		config.Grammar = input.Grammar
+	}
+
 	if input.Temperature != 0 {
 		config.Temperature = input.Temperature
 	}
@@ -260,6 +276,23 @@ func updateConfig(config *Config, input *OpenAIRequest) {
 				config.InputToken = append(config.InputToken, tokens)
 			}
 		}
+	}
+	// Can be either a string or an object
+	switch fnc := input.FunctionCall.(type) {
+	case string:
+		if fnc != "" {
+			config.functionCallString = fnc
+		}
+	case map[string]interface{}:
+		var name string
+		n, exists := fnc["name"]
+		if exists {
+			nn, e := n.(string)
+			if e {
+				name = nn
+			}
+		}
+		config.functionCallNameString = name
 	}
 
 	switch p := input.Prompt.(type) {

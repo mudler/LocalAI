@@ -3,24 +3,51 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
-GOLLAMA_VERSION?=ecd358d2f144b4282a73df443d60474fca5db9ec
+# llama.cpp versions
+# Temporarly pinned to https://github.com/go-skynet/go-llama.cpp/pull/124
+GOLLAMA_VERSION?=cb8d7cd4cb95725a04504a9e3a26dd72a12b69ac
+
+# Temporary set a specific version of llama.cpp
+# containing: https://github.com/ggerganov/llama.cpp/pull/1773 and
+# rebased on top of master.
+# This pin can be dropped when the PR above is merged, and go-llama has merged changes as well
+# Set empty to use the version pinned by go-llama
+LLAMA_CPP_REPO?=https://github.com/mudler/llama.cpp
+LLAMA_CPP_VERSION?=48ce8722a05a018681634af801fd0fd45b3a87cc
+
+# gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
 GPT4ALL_VERSION?=70cbff70cc2a9ad26d492d44ab582d32e6219956
+
+# go-ggml-transformers version
 GOGGMLTRANSFORMERS_VERSION?=8e31841dcddca16468c11b2e7809f279fa76a832
+
+# go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=f5a8c45396741470583f59b916a2a7641e63bcd0
+
+# whisper.cpp version
 WHISPER_CPP_VERSION?=85ed71aaec8e0612a84c0b67804bde75aa75a273
+
+# bert.cpp version
 BERT_VERSION?=6069103f54b9969c02e789d0fb12a23bd614285f
+
+# go-piper version
 PIPER_VERSION?=56b8a81b4760a6fbee1a82e62f007ae7e8f010a7
+
+# go-bloomz version
 BLOOMZ_VERSION?=1834e77b83faafe912ad4092ccf7f77937349e2f
+
+# stablediffusion version
+STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
+
 export BUILD_TYPE?=
 CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
-STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
 GO_TAGS?=
 BUILD_ID?=git
 
-VERSION?=$(shell git describe --always --tags --dirty || echo "dev" )
+VERSION?=$(shell git describe --always --tags || echo "dev" )
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=
 override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Version=$(VERSION)"
@@ -201,6 +228,9 @@ whisper.cpp/libwhisper.a: whisper.cpp
 go-llama:
 	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
 	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
+ifneq ($(LLAMA_CPP_REPO),)
+	cd go-llama && rm -rf llama.cpp && git clone $(LLAMA_CPP_REPO) llama.cpp && cd llama.cpp && git checkout -b build $(LLAMA_CPP_VERSION) && git submodule update --init --recursive --depth 1
+endif
 
 go-llama/libbinding.a: go-llama
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
@@ -227,6 +257,7 @@ prepare-sources: get-sources replace
 
 ## GENERIC
 rebuild: ## Rebuilds the project
+	$(GOCMD) clean -cache
 	$(MAKE) -C go-llama clean
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ clean
 	$(MAKE) -C go-ggml-transformers clean
@@ -242,6 +273,7 @@ prepare: prepare-sources backend-assets/gpt4all $(OPTIONAL_TARGETS) go-llama/lib
 	touch $@
 
 clean: ## Remove build related file
+	$(GOCMD) clean -cache
 	rm -fr ./go-llama
 	rm -rf ./gpt4all
 	rm -rf ./go-gpt2

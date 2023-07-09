@@ -189,6 +189,8 @@ func buildLLamaPredictOptions(c Config, modelPath string) []llama.PredictOption 
 		predictOptions = append(predictOptions, llama.EnablePromptCacheRO)
 	}
 
+	predictOptions = append(predictOptions, llama.WithGrammar(c.Grammar))
+
 	if c.PromptCachePath != "" {
 		// Create parent directory
 		p := filepath.Join(modelPath, c.PromptCachePath)
