@@ -194,7 +194,7 @@ gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
 
 ## CEREBRAS GPT
 go-ggml-transformers:
-	git clone --recurse-submodules https://github.com/go-skynet/go-ggml-transformers.cpp go-ggml-transformers
+	git clone --recurse-submodules https://github.com/hiventive/go-ggml-transformers.cpp go-ggml-transformers
 	cd go-ggml-transformers && git checkout -b build $(GOGPT2_VERSION) && git submodule update --init --recursive --depth 1
 	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
 	@find ./go-ggml-transformers -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gpt2_/g' {} +
@@ -213,7 +213,7 @@ go-ggml-transformers:
 	@find ./go-ggml-transformers -type f -name "*.h" -exec sed -i'' -e 's/clear_numa_thread_affinity/transformers_clear_numa_thread_affinity/g' {} +
 
 go-ggml-transformers/libtransformers.a: go-ggml-transformers
-	$(MAKE) -C go-ggml-transformers libtransformers.a
+	$(MAKE) -C go-ggml-transformers BUILD_TYPE=$(BUILD_TYPE) libtransformers.a
 
 whisper.cpp:
 	git clone https://github.com/ggerganov/whisper.cpp.git
