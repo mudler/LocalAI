@@ -110,6 +110,11 @@ func main() {
 				EnvVars: []string{"UPLOAD_LIMIT"},
 				Value:   15,
 			},
+			&cli.StringFlag{
+				Name:    "api-key",
+				Usage:   "API Key to enable API authentication. When this is set, all the requests must be authenticated with this API key.",
+				EnvVars: []string{"API_KEY"},
+			},
 		},
 		Description: `
 LocalAI is a drop-in replacement OpenAI API which runs inference locally.
@@ -145,7 +150,9 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				api.WithThreads(ctx.Int("threads")),
 				api.WithBackendAssets(backendAssets),
 				api.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
-				api.WithUploadLimitMB(ctx.Int("upload-limit")))
+				api.WithUploadLimitMB(ctx.Int("upload-limit")),
+				api.WithApiKey(ctx.String("api-key")),
+			)
 			if err != nil {
 				return err
 			}

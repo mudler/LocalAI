@@ -23,6 +23,7 @@ type Option struct {
 	preloadJSONModels               string
 	preloadModelsFromPath           string
 	corsAllowOrigins                string
+	apiKey                          string
 
 	galleries []gallery.Gallery
 
@@ -165,5 +166,11 @@ func WithAudioDir(audioDir string) AppOption {
 func WithImageDir(imageDir string) AppOption {
 	return func(o *Option) {
 		o.imageDir = imageDir
+	}
+}
+
+func WithApiKey(apiKey string) AppOption {
+	return func(o *Option) {
+		o.apiKey = apiKey
 	}
 }
