@@ -1,4 +1,4 @@
-package api
+package options
 
 import (
 	"context"
@@ -11,35 +11,35 @@ import (
 )
 
 type Option struct {
-	context                         context.Context
-	configFile                      string
-	loader                          *model.ModelLoader
-	uploadLimitMB, threads, ctxSize int
-	f16                             bool
-	debug, disableMessage           bool
-	imageDir                        string
-	audioDir                        string
-	cors                            bool
-	preloadJSONModels               string
-	preloadModelsFromPath           string
-	corsAllowOrigins                string
+	Context                             context.Context
+	ConfigFile                          string
+	Loader                              *model.ModelLoader
+	UploadLimitMB, Threads, ContextSize int
+	F16                                 bool
+	Debug, DisableMessage               bool
+	ImageDir                            string
+	AudioDir                            string
+	CORS                                bool
+	PreloadJSONModels                   string
+	PreloadModelsFromPath               string
+	CORSAllowOrigins                    string
 
-	galleries []gallery.Gallery
+	Galleries []gallery.Gallery
 
-	backendAssets     embed.FS
-	assetsDestination string
+	BackendAssets     embed.FS
+	AssetsDestination string
 }
 
 type AppOption func(*Option)
 
-func newOptions(o ...AppOption) *Option {
+func NewOptions(o ...AppOption) *Option {
 	opt := &Option{
-		context:        context.Background(),
-		uploadLimitMB:  15,
-		threads:        1,
-		ctxSize:        512,
-		debug:          true,
-		disableMessage: true,
+		Context:        context.Background(),
+		UploadLimitMB:  15,
+		Threads:        1,
+		ContextSize:    512,
+		Debug:          true,
+		DisableMessage: true,
 	}
 	for _, oo := range o {
 		oo(opt)
@@ -49,25 +49,25 @@ func newOptions(o ...AppOption) *Option {
 
 func WithCors(b bool) AppOption {
 	return func(o *Option) {
-		o.cors = b
+		o.CORS = b
 	}
 }
 
 func WithCorsAllowOrigins(b string) AppOption {
 	return func(o *Option) {
-		o.corsAllowOrigins = b
+		o.CORSAllowOrigins = b
 	}
 }
 
 func WithBackendAssetsOutput(out string) AppOption {
 	return func(o *Option) {
-		o.assetsDestination = out
+		o.AssetsDestination = out
 	}
 }
 
 func WithBackendAssets(f embed.FS) AppOption {
 	return func(o *Option) {
-		o.backendAssets = f
+		o.BackendAssets = f
 	}
 }
 
@@ -81,89 +81,89 @@ func WithStringGalleries(galls string) AppOption {
 		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
 			log.Error().Msgf("failed loading galleries: %s", err.Error())
 		}
-		o.galleries = append(o.galleries, galleries...)
+		o.Galleries = append(o.Galleries, galleries...)
 	}
 }
 
 func WithGalleries(galleries []gallery.Gallery) AppOption {
 	return func(o *Option) {
-		o.galleries = append(o.galleries, galleries...)
+		o.Galleries = append(o.Galleries, galleries...)
 	}
 }
 
 func WithContext(ctx context.Context) AppOption {
 	return func(o *Option) {
-		o.context = ctx
+		o.Context = ctx
 	}
 }
 
 func WithYAMLConfigPreload(configFile string) AppOption {
 	return func(o *Option) {
-		o.preloadModelsFromPath = configFile
+		o.PreloadModelsFromPath = configFile
 	}
 }
 
 func WithJSONStringPreload(configFile string) AppOption {
 	return func(o *Option) {
-		o.preloadJSONModels = configFile
+		o.PreloadJSONModels = configFile
 	}
 }
 func WithConfigFile(configFile string) AppOption {
 	return func(o *Option) {
-		o.configFile = configFile
+		o.ConfigFile = configFile
 	}
 }
 
 func WithModelLoader(loader *model.ModelLoader) AppOption {
 	return func(o *Option) {
-		o.loader = loader
+		o.Loader = loader
 	}
 }
 
 func WithUploadLimitMB(limit int) AppOption {
 	return func(o *Option) {
-		o.uploadLimitMB = limit
+		o.UploadLimitMB = limit
 	}
 }
 
 func WithThreads(threads int) AppOption {
 	return func(o *Option) {
-		o.threads = threads
+		o.Threads = threads
 	}
 }
 
 func WithContextSize(ctxSize int) AppOption {
 	return func(o *Option) {
-		o.ctxSize = ctxSize
+		o.ContextSize = ctxSize
 	}
 }
 
 func WithF16(f16 bool) AppOption {
 	return func(o *Option) {
-		o.f16 = f16
+		o.F16 = f16
 	}
 }
 
 func WithDebug(debug bool) AppOption {
 	return func(o *Option) {
-		o.debug = debug
+		o.Debug = debug
 	}
 }
 
 func WithDisableMessage(disableMessage bool) AppOption {
 	return func(o *Option) {
-		o.disableMessage = disableMessage
+		o.DisableMessage = disableMessage
 	}
 }
 
 func WithAudioDir(audioDir string) AppOption {
 	return func(o *Option) {
-		o.audioDir = audioDir
+		o.AudioDir = audioDir
 	}
 }
 
 func WithImageDir(imageDir string) AppOption {
 	return func(o *Option) {
-		o.imageDir = imageDir
+		o.ImageDir = imageDir
 	}
 }

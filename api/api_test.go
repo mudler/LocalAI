@@ -13,6 +13,7 @@ import (
 	"runtime"
 
 	. "github.com/go-skynet/LocalAI/api"
+	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -154,9 +155,10 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			app, err = App(WithContext(c),
-				WithGalleries(galleries),
-				WithModelLoader(modelLoader), WithBackendAssets(backendAssets), WithBackendAssetsOutput(tmpdir))
+			app, err = App(
+				options.WithContext(c),
+				options.WithGalleries(galleries),
+				options.WithModelLoader(modelLoader), options.WithBackendAssets(backendAssets), options.WithBackendAssetsOutput(tmpdir))
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -342,7 +344,7 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			app, err = App(WithContext(c), WithModelLoader(modelLoader))
+			app, err = App(options.WithContext(c), options.WithModelLoader(modelLoader))
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -462,7 +464,7 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			app, err = App(WithContext(c), WithModelLoader(modelLoader), WithConfigFile(os.Getenv("CONFIG_FILE")))
+			app, err = App(options.WithContext(c), options.WithModelLoader(modelLoader), options.WithConfigFile(os.Getenv("CONFIG_FILE")))
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 

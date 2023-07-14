@@ -1,8 +1,10 @@
-package api
+package api_config_test
 
 import (
 	"os"
 
+	. "github.com/go-skynet/LocalAI/api/config"
+	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,29 +28,29 @@ var _ = Describe("Test cases for config related functions", func() {
 		})
 
 		It("Test LoadConfigs", func() {
-			cm := NewConfigMerger()
-			options := newOptions()
+			cm := NewConfigLoader()
+			opts := options.NewOptions()
 			modelLoader := model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			WithModelLoader(modelLoader)(options)
+			options.WithModelLoader(modelLoader)(opts)
 
-			err := cm.LoadConfigs(options.loader.ModelPath)
+			err := cm.LoadConfigs(opts.Loader.ModelPath)
 			Expect(err).To(BeNil())
-			Expect(cm.configs).ToNot(BeNil())
+			Expect(cm.ListConfigs()).ToNot(BeNil())
 
 			// config should includes gpt4all models's api.config
-			Expect(cm.configs).To(HaveKey("gpt4all"))
+			Expect(cm.ListConfigs()).To(ContainElements("gpt4all"))
 
 			// config should includes gpt2 models's api.config
-			Expect(cm.configs).To(HaveKey("gpt4all-2"))
+			Expect(cm.ListConfigs()).To(ContainElements("gpt4all-2"))
 
 			// config should includes text-embedding-ada-002 models's api.config
-			Expect(cm.configs).To(HaveKey("text-embedding-ada-002"))
+			Expect(cm.ListConfigs()).To(ContainElements("text-embedding-ada-002"))
 
 			// config should includes rwkv_test models's api.config
-			Expect(cm.configs).To(HaveKey("rwkv_test"))
+			Expect(cm.ListConfigs()).To(ContainElements("rwkv_test"))
 
 			// config should includes whisper-1 models's api.config
-			Expect(cm.configs).To(HaveKey("whisper-1"))
+			Expect(cm.ListConfigs()).To(ContainElements("whisper-1"))
 		})
 	})
 })

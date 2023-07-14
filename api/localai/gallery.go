@@ -1,4 +1,4 @@
-package api
+package localai
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	json "github.com/json-iterator/go"
 
+	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -38,7 +39,7 @@ type galleryApplier struct {
 	statuses map[string]*galleryOpStatus
 }
 
-func newGalleryApplier(modelPath string) *galleryApplier {
+func NewGalleryService(modelPath string) *galleryApplier {
 	return &galleryApplier{
 		modelPath: modelPath,
 		C:         make(chan galleryOp),
@@ -47,7 +48,7 @@ func newGalleryApplier(modelPath string) *galleryApplier {
 }
 
 // prepareModel applies a
-func prepareModel(modelPath string, req gallery.GalleryModel, cm *ConfigMerger, downloadStatus func(string, string, string, float64)) error {
+func prepareModel(modelPath string, req gallery.GalleryModel, cm *config.ConfigLoader, downloadStatus func(string, string, string, float64)) error {
 
 	config, err := gallery.GetGalleryConfigFromURL(req.URL)
 	if err != nil {
@@ -72,7 +73,7 @@ func (g *galleryApplier) getStatus(s string) *galleryOpStatus {
 	return g.statuses[s]
 }
 
-func (g *galleryApplier) start(c context.Context, cm *ConfigMerger) {
+func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 	go func() {
 		for {
 			select {
@@ -148,7 +149,7 @@ type galleryModel struct {
 	ID string `json:"id"`
 }
 
-func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger, galleries []gallery.Gallery) error {
+func ApplyGalleryFromFile(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery) error {
 	dat, err := os.ReadFile(s)
 	if err != nil {
 		return err
@@ -156,7 +157,7 @@ func ApplyGalleryFromFile(modelPath, s string, cm *ConfigMerger, galleries []gal
 	return ApplyGalleryFromString(modelPath, string(dat), cm, galleries)
 }
 
-func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger, galleries []gallery.Gallery) error {
+func ApplyGalleryFromString(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery) error {
 	var requests []galleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {
@@ -174,7 +175,9 @@ func ApplyGalleryFromString(modelPath, s string, cm *ConfigMerger, galleries []g
 	return err
 }
 
-func getOpStatus(g *galleryApplier) func(c *fiber.Ctx) error {
+/// Endpoints
+
+func GetOpStatusEndpoint(g *galleryApplier) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		status := g.getStatus(c.Params("uuid"))
@@ -191,7 +194,7 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp, galleries []gallery.Gallery) func(c *fiber.Ctx) error {
+func ApplyModelGalleryEndpoint(modelPath string, cm *config.ConfigLoader, g chan galleryOp, galleries []gallery.Gallery) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		input := new(GalleryModel)
 		// Get input data from the request body
@@ -216,7 +219,7 @@ func applyModelGallery(modelPath string, cm *ConfigMerger, g chan galleryOp, gal
 	}
 }
 
-func listModelFromGallery(galleries []gallery.Gallery, basePath string) func(c *fiber.Ctx) error {
+func ListModelFromGalleryEndpoint(galleries []gallery.Gallery, basePath string) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		log.Debug().Msgf("Listing models from galleries: %+v", galleries)
 

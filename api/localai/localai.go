@@ -1,10 +1,13 @@
-package api
+package localai
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
+	config "github.com/go-skynet/LocalAI/api/config"
+
+	"github.com/go-skynet/LocalAI/api/options"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/tts"
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -32,7 +35,7 @@ func generateUniqueFileName(dir, baseName, ext string) string {
 	}
 }
 
-func ttsEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
+func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(TTSRequest)
@@ -41,10 +44,10 @@ func ttsEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			return err
 		}
 
-		piperModel, err := o.loader.BackendLoader(
+		piperModel, err := o.Loader.BackendLoader(
 			model.WithBackendString(model.PiperBackend),
 			model.WithModelFile(input.Model),
-			model.WithAssetDir(o.assetsDestination))
+			model.WithAssetDir(o.AssetsDestination))
 		if err != nil {
 			return err
 		}
@@ -58,16 +61,16 @@ func ttsEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			return fmt.Errorf("loader returned non-piper object %+v", w)
 		}
 
-		if err := os.MkdirAll(o.audioDir, 0755); err != nil {
+		if err := os.MkdirAll(o.AudioDir, 0755); err != nil {
 			return err
 		}
 
-		fileName := generateUniqueFileName(o.audioDir, "piper", ".wav")
-		filePath := filepath.Join(o.audioDir, fileName)
+		fileName := generateUniqueFileName(o.AudioDir, "piper", ".wav")
+		filePath := filepath.Join(o.AudioDir, fileName)
 
-		modelPath := filepath.Join(o.loader.ModelPath, input.Model)
+		modelPath := filepath.Join(o.Loader.ModelPath, input.Model)
 
-		if err := utils.VerifyPath(modelPath, o.loader.ModelPath); err != nil {
+		if err := utils.VerifyPath(modelPath, o.Loader.ModelPath); err != nil {
 			return err
 		}
 

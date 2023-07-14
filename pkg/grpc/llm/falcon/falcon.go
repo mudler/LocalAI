@@ -126,6 +126,9 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) {
 	predictOptions := buildPredictOptions(opts)
 
 	predictOptions = append(predictOptions, ggllm.SetTokenCallback(func(token string) bool {
+		if token == "<|endoftext|>" {
+			return true
+		}
 		results <- token
 		return true
 	}))
