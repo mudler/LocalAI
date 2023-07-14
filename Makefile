@@ -296,7 +296,7 @@ test-models/testmodel:
 	cp tests/models_fixtures/* test-models
 
 prepare-test: grpcs
-	cp -r backend-assets api
+	cp -rf backend-assets api
 	cp tests/models_fixtures/* test-models
 
 test: prepare test-models/testmodel grpcs
