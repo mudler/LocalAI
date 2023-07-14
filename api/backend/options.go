@@ -7,34 +7,8 @@ import (
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	config "github.com/go-skynet/LocalAI/api/config"
-	"github.com/go-skynet/LocalAI/pkg/langchain"
-	"github.com/go-skynet/bloomz.cpp"
 )
 
-func langchainOptions(c config.Config) []langchain.PredictOption {
-	return []langchain.PredictOption{
-		langchain.SetModel(c.Model),
-		langchain.SetMaxTokens(c.Maxtokens),
-		langchain.SetTemperature(c.Temperature),
-		langchain.SetStopWords(c.StopWords),
-	}
-}
-
-func bloomzOptions(c config.Config) []bloomz.PredictOption {
-	// Generate the prediction using the language model
-	predictOptions := []bloomz.PredictOption{
-		bloomz.SetTemperature(c.Temperature),
-		bloomz.SetTopP(c.TopP),
-		bloomz.SetTopK(c.TopK),
-		bloomz.SetTokens(c.Maxtokens),
-		bloomz.SetThreads(c.Threads),
-	}
-
-	if c.Seed != 0 {
-		predictOptions = append(predictOptions, bloomz.SetSeed(c.Seed))
-	}
-	return predictOptions
-}
 func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {

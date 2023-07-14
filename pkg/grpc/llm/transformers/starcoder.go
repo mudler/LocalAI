@@ -5,12 +5,15 @@ package transformers
 import (
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
 
 type Starcoder struct {
+	base.Base
+
 	starcoder *transformers.Starcoder
 }
 
@@ -20,16 +23,12 @@ func (llm *Starcoder) Load(opts *pb.ModelOptions) error {
 	return err
 }
 
-func (llm *Starcoder) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
 func (llm *Starcoder) Predict(opts *pb.PredictOptions) (string, error) {
 	return llm.starcoder.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
-func (llm *Starcoder) PredictStream(opts *pb.PredictOptions, results chan string) {
+func (llm *Starcoder) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	go func() {
 		res, err := llm.starcoder.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -39,4 +38,6 @@ func (llm *Starcoder) PredictStream(opts *pb.PredictOptions, results chan string
 		results <- res
 		close(results)
 	}()
+
+	return nil
 }

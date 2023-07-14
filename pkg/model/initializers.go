@@ -4,18 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
-	rwkv "github.com/donomii/go-rwkv.cpp"
-	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
-	"github.com/go-skynet/LocalAI/pkg/langchain"
-	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
-	"github.com/go-skynet/LocalAI/pkg/tts"
-	bloomz "github.com/go-skynet/bloomz.cpp"
-	bert "github.com/go-skynet/go-bert.cpp"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hpcloud/tail"
 	"github.com/phayes/freeport"
@@ -27,20 +22,22 @@ import (
 const tokenizerSuffix = ".tokenizer.json"
 
 const (
-	LlamaBackend           = "llama"
-	BloomzBackend          = "bloomz"
-	StarcoderBackend       = "starcoder"
-	GPTJBackend            = "gptj"
-	DollyBackend           = "dolly"
-	MPTBackend             = "mpt"
-	GPTNeoXBackend         = "gptneox"
-	ReplitBackend          = "replit"
-	Gpt2Backend            = "gpt2"
-	Gpt4AllLlamaBackend    = "gpt4all-llama"
-	Gpt4AllMptBackend      = "gpt4all-mpt"
-	Gpt4AllJBackend        = "gpt4all-j"
-	Gpt4All                = "gpt4all"
-	FalconBackend          = "falcon"
+	LlamaBackend        = "llama"
+	BloomzBackend       = "bloomz"
+	StarcoderBackend    = "starcoder"
+	GPTJBackend         = "gptj"
+	DollyBackend        = "dolly"
+	MPTBackend          = "mpt"
+	GPTNeoXBackend      = "gptneox"
+	ReplitBackend       = "replit"
+	Gpt2Backend         = "gpt2"
+	Gpt4AllLlamaBackend = "gpt4all-llama"
+	Gpt4AllMptBackend   = "gpt4all-mpt"
+	Gpt4AllJBackend     = "gpt4all-j"
+	Gpt4All             = "gpt4all"
+	FalconBackend       = "falcon"
+	FalconGGMLBackend   = "falcon-ggml"
+
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
@@ -54,76 +51,38 @@ var autoLoadBackends []string = []string{
 	LlamaBackend,
 	Gpt4All,
 	RwkvBackend,
+	FalconBackend,
 	WhisperBackend,
-	BertEmbeddingsBackend,
 	GPTNeoXBackend,
+	BertEmbeddingsBackend,
+	FalconGGMLBackend,
 	GPTJBackend,
 	Gpt2Backend,
 	DollyBackend,
 	MPTBackend,
 	ReplitBackend,
 	StarcoderBackend,
-	FalconBackend,
 	BloomzBackend,
 }
 
-var bertEmbeddings = func(modelFile string) (interface{}, error) {
-	return bert.New(modelFile)
-}
-
-var bloomzLM = func(modelFile string) (interface{}, error) {
-	return bloomz.New(modelFile)
-}
-
-var stableDiffusion = func(assetDir string) (interface{}, error) {
-	return stablediffusion.New(assetDir)
-}
-
-func piperTTS(assetDir string) func(s string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
-		return tts.New(assetDir)
-	}
-}
-
-var whisperModel = func(modelFile string) (interface{}, error) {
-	return whisper.New(modelFile)
-}
-
-var lcHuggingFace = func(repoId string) (interface{}, error) {
-	return langchain.NewHuggingFace(repoId)
-}
-
-// func llamaLM(opts ...llama.ModelOption) func(string) (interface{}, error) {
-// 	return func(s string) (interface{}, error) {
-// 		return llama.New(s, opts...)
-// 	}
-// }
-
-// func gpt4allLM(opts ...gpt4all.ModelOption) func(string) (interface{}, error) {
-// 	return func(s string) (interface{}, error) {
-// 		return gpt4all.New(s, opts...)
-// 	}
-// }
-
-func rwkvLM(tokenFile string, threads uint32) func(string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
-		log.Debug().Msgf("Loading RWKV", s, tokenFile)
-
-		model := rwkv.LoadFiles(s, tokenFile, threads)
-		if model == nil {
-			return nil, fmt.Errorf("could not load model")
-		}
-		return model, nil
+func (ml *ModelLoader) StopGRPC() {
+	for _, p := range ml.grpcProcesses {
+		p.Stop()
 	}
 }
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
 // It also loads the model
-func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
+func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (*grpc.Client, error) {
+	return func(s string) (*grpc.Client, error) {
 		log.Debug().Msgf("Loading GRPC Model", backend, *o)
 
 		grpcProcess := filepath.Join(o.assetDir, "backend-assets", "grpc", backend)
+
+		// Check if the file exists
+		if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
+			return nil, fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
+		}
 
 		// Make sure the process is executable
 		if err := os.Chmod(grpcProcess, 0755); err != nil {
@@ -150,6 +109,14 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (inter
 		if err := grpcControlProcess.Run(); err != nil {
 			return nil, err
 		}
+
+		// clean up process
+		go func() {
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+			<-c
+			grpcControlProcess.Stop()
+		}()
 
 		go func() {
 			t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})
@@ -200,7 +167,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (inter
 
 		log.Debug().Msgf("GRPC: Loading model with options: %+v", options)
 
-		res, err := client.LoadModel(context.TODO(), &options)
+		res, err := client.LoadModel(o.context, &options)
 		if err != nil {
 			return nil, err
 		}
@@ -212,63 +179,37 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (inter
 	}
 }
 
-func (ml *ModelLoader) BackendLoader(opts ...Option) (model interface{}, err error) {
-
-	//backendString string, modelFile string, llamaOpts []llama.ModelOption, threads uint32, assetDir string) (model interface{}, err error) {
-
+func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err error) {
 	o := NewOptions(opts...)
 
 	log.Debug().Msgf("Loading model %s from %s", o.backendString, o.modelFile)
-	switch strings.ToLower(o.backendString) {
-	case LlamaBackend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(LlamaBackend, o))
-	case BloomzBackend:
-		return ml.LoadModel(o.modelFile, bloomzLM)
-	case GPTJBackend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(GPTJBackend, o))
-	case DollyBackend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(DollyBackend, o))
-	case MPTBackend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(MPTBackend, o))
-	case Gpt2Backend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(Gpt2Backend, o))
-	case FalconBackend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(FalconBackend, o))
-	case GPTNeoXBackend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(GPTNeoXBackend, o))
-	case ReplitBackend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(ReplitBackend, o))
-	case StableDiffusionBackend:
-		return ml.LoadModel(o.modelFile, stableDiffusion)
-	case PiperBackend:
-		return ml.LoadModel(o.modelFile, piperTTS(filepath.Join(o.assetDir, "backend-assets", "espeak-ng-data")))
-	case StarcoderBackend:
-		return ml.LoadModel(o.modelFile, ml.grpcModel(StarcoderBackend, o))
+
+	backend := strings.ToLower(o.backendString)
+	switch backend {
+	case LlamaBackend, GPTJBackend, DollyBackend,
+		MPTBackend, Gpt2Backend, FalconBackend,
+		GPTNeoXBackend, ReplitBackend, StarcoderBackend, BloomzBackend,
+		RwkvBackend, LCHuggingFaceBackend, BertEmbeddingsBackend, FalconGGMLBackend, StableDiffusionBackend, WhisperBackend:
+		return ml.LoadModel(o.modelFile, ml.grpcModel(backend, o))
 	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
 		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "gpt4all")
 		return ml.LoadModel(o.modelFile, ml.grpcModel(Gpt4All, o))
-	//	return ml.LoadModel(o.modelFile, gpt4allLM(gpt4all.SetThreads(int(o.threads)), gpt4all.SetLibrarySearchPath(filepath.Join(o.assetDir, "backend-assets", "gpt4all"))))
-	case BertEmbeddingsBackend:
-		return ml.LoadModel(o.modelFile, bertEmbeddings)
-	case RwkvBackend:
-		return ml.LoadModel(o.modelFile, rwkvLM(filepath.Join(ml.ModelPath, o.modelFile+tokenizerSuffix), o.threads))
-	case WhisperBackend:
-		return ml.LoadModel(o.modelFile, whisperModel)
-	case LCHuggingFaceBackend:
-		return ml.LoadModel(o.modelFile, lcHuggingFace)
+	case PiperBackend:
+		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "espeak-ng-data")
+		return ml.LoadModel(o.modelFile, ml.grpcModel(PiperBackend, o))
 	default:
 		return nil, fmt.Errorf("backend unsupported: %s", o.backendString)
 	}
 }
 
-func (ml *ModelLoader) GreedyLoader(opts ...Option) (interface{}, error) {
+func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 	o := NewOptions(opts...)
 
 	log.Debug().Msgf("Loading model '%s' greedly", o.modelFile)
 
+	// Is this really needed? BackendLoader already does this
 	ml.mu.Lock()
-	m, exists := ml.models[o.modelFile]
-	if exists {
+	if m := ml.checkIsLoaded(o.modelFile); m != nil {
 		log.Debug().Msgf("Model '%s' already loaded", o.modelFile)
 		ml.mu.Unlock()
 		return m, nil
@@ -285,7 +226,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (interface{}, error) {
 		model, modelerr := ml.BackendLoader(
 			WithBackendString(b),
 			WithModelFile(o.modelFile),
-			WithLoadGRPCOpts(o.gRPCOptions),
+			WithLoadGRPCLLMModelOpts(o.gRPCOptions),
 			WithThreads(o.threads),
 			WithAssetDir(o.assetDir),
 		)

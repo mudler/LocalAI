@@ -2,7 +2,9 @@ package main
 
 import (
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	api "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/api/options"
@@ -15,6 +17,13 @@ import (
 
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	// clean up process
+	go func() {
+		c := make(chan os.Signal, 1) // we need to reserve to buffer size 1, so the notifier are not blocked
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		<-c
+		os.Exit(1)
+	}()
 
 	path, err := os.Getwd()
 	if err != nil {

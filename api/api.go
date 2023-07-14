@@ -173,5 +173,12 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	app.Get("/v1/models", openai.ListModelsEndpoint(options.Loader, cm))
 	app.Get("/models", openai.ListModelsEndpoint(options.Loader, cm))
 
+	// turn off any process that was started by GRPC if the context is canceled
+	go func() {
+		<-options.Context.Done()
+		log.Debug().Msgf("Context canceled, shutting down")
+		options.Loader.StopGRPC()
+	}()
+
 	return app, nil
 }

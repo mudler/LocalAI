@@ -5,11 +5,14 @@ package gpt4all
 import (
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 )
 
 type LLM struct {
+	base.Base
+
 	gpt4all *gpt4all.Model
 }
 
@@ -39,7 +42,7 @@ func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
 	return llm.gpt4all.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
-func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) {
+func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	predictOptions := buildPredictOptions(opts)
 
 	go func() {
@@ -54,8 +57,6 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) {
 		llm.gpt4all.SetTokenCallback(nil)
 		close(results)
 	}()
-}
 
-func (llm *LLM) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
-	return []float32{}, fmt.Errorf("not implemented")
+	return nil
 }

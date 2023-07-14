@@ -6,8 +6,8 @@ import (
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 )
 
 func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, dst string, loader *model.ModelLoader, c config.Config, o *options.Option) (func() error, error) {
@@ -19,23 +19,27 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 		model.WithBackendString(c.Backend),
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithThreads(uint32(c.Threads)),
+		model.WithContext(o.Context),
 		model.WithModelFile(c.ImageGenerationAssets),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	var fn func() error
-	switch model := inferenceModel.(type) {
-	case *stablediffusion.StableDiffusion:
-		fn = func() error {
-			return model.GenerateImage(height, width, mode, step, seed, positive_prompt, negative_prompt, dst)
-		}
-
-	default:
-		fn = func() error {
-			return fmt.Errorf("creation of images not supported by the backend")
-		}
+	fn := func() error {
+		_, err := inferenceModel.GenerateImage(
+			o.Context,
+			&proto.GenerateImageRequest{
+				Height:         int32(height),
+				Width:          int32(width),
+				Mode:           int32(mode),
+				Step:           int32(step),
+				Seed:           int32(seed),
+				PositivePrompt: positive_prompt,
+				NegativePrompt: negative_prompt,
+				Dst:            dst,
+			})
+		return err
 	}
 
 	return func() error {

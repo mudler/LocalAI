@@ -21,7 +21,7 @@ import (
 
 // server is used to implement helloworld.GreeterServer.
 type server struct {
-	pb.UnimplementedLLMServer
+	pb.UnimplementedBackendServer
 	llm LLM
 }
 
@@ -51,7 +51,48 @@ func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply,
 	return &pb.Reply{Message: result}, err
 }
 
-func (s *server) PredictStream(in *pb.PredictOptions, stream pb.LLM_PredictStreamServer) error {
+func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {
+	err := s.llm.GenerateImage(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error generating image: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Image generated", Success: true}, nil
+}
+
+func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
+	err := s.llm.TTS(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error generating audio: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Audio generated", Success: true}, nil
+}
+
+func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
+	result, err := s.llm.AudioTranscription(in)
+	if err != nil {
+		return nil, err
+	}
+	tresult := &pb.TranscriptResult{}
+	for _, s := range result.Segments {
+		tks := []int32{}
+		for _, t := range s.Tokens {
+			tks = append(tks, int32(t))
+		}
+		tresult.Segments = append(tresult.Segments,
+			&pb.TranscriptSegment{
+				Text:   s.Text,
+				Id:     int32(s.Id),
+				Start:  int64(s.Start),
+				End:    int64(s.End),
+				Tokens: tks,
+			})
+	}
+
+	tresult.Text = result.Text
+	return tresult, nil
+}
+
+func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
 
 	resultChan := make(chan string)
 
@@ -75,7 +116,7 @@ func StartServer(address string, model LLM) error {
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterLLMServer(s, &server{llm: model})
+	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		return err

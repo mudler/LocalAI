@@ -5,12 +5,15 @@ package falcon
 import (
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	ggllm "github.com/mudler/go-ggllm.cpp"
 )
 
 type LLM struct {
+	base.Base
+
 	falcon *ggllm.Falcon
 }
 
@@ -40,10 +43,6 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	model, err := ggllm.New(opts.Model, ggllmOpts...)
 	llm.falcon = model
 	return err
-}
-
-func (llm *LLM) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
-	return nil, fmt.Errorf("not implemented")
 }
 
 func buildPredictOptions(opts *pb.PredictOptions) []ggllm.PredictOption {
@@ -122,7 +121,7 @@ func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
 	return llm.falcon.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
-func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) {
+func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	predictOptions := buildPredictOptions(opts)
 
 	predictOptions = append(predictOptions, ggllm.SetTokenCallback(func(token string) bool {
@@ -140,4 +139,6 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) {
 		}
 		close(results)
 	}()
+
+	return nil
 }

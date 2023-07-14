@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,8 +9,8 @@ import (
 	config "github.com/go-skynet/LocalAI/api/config"
 
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/tts"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 )
@@ -47,6 +48,7 @@ func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) 
 		piperModel, err := o.Loader.BackendLoader(
 			model.WithBackendString(model.PiperBackend),
 			model.WithModelFile(input.Model),
+			model.WithContext(o.Context),
 			model.WithAssetDir(o.AssetsDestination))
 		if err != nil {
 			return err
@@ -56,13 +58,8 @@ func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) 
 			return fmt.Errorf("could not load piper model")
 		}
 
-		w, ok := piperModel.(*tts.Piper)
-		if !ok {
-			return fmt.Errorf("loader returned non-piper object %+v", w)
-		}
-
 		if err := os.MkdirAll(o.AudioDir, 0755); err != nil {
-			return err
+			return fmt.Errorf("failed creating audio directory: %s", err)
 		}
 
 		fileName := generateUniqueFileName(o.AudioDir, "piper", ".wav")
@@ -74,7 +71,11 @@ func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) 
 			return err
 		}
 
-		if err := w.TTS(input.Input, modelPath, filePath); err != nil {
+		if _, err := piperModel.TTS(context.Background(), &proto.TTSRequest{
+			Text:  input.Input,
+			Model: modelPath,
+			Dst:   filePath,
+		}); err != nil {
 			return err
 		}
 

@@ -1,6 +1,8 @@
 package model
 
 import (
+	"context"
+
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 )
 
@@ -9,6 +11,7 @@ type Options struct {
 	modelFile     string
 	threads       uint32
 	assetDir      string
+	context       context.Context
 
 	gRPCOptions *pb.ModelOptions
 }
@@ -27,7 +30,7 @@ func WithModelFile(modelFile string) Option {
 	}
 }
 
-func WithLoadGRPCOpts(opts *pb.ModelOptions) Option {
+func WithLoadGRPCLLMModelOpts(opts *pb.ModelOptions) Option {
 	return func(o *Options) {
 		o.gRPCOptions = opts
 	}
@@ -45,8 +48,17 @@ func WithAssetDir(assetDir string) Option {
 	}
 }
 
+func WithContext(ctx context.Context) Option {
+	return func(o *Options) {
+		o.context = ctx
+	}
+}
+
 func NewOptions(opts ...Option) *Options {
-	o := &Options{}
+	o := &Options{
+		gRPCOptions: &pb.ModelOptions{},
+		context:     context.Background(),
+	}
 	for _, opt := range opts {
 		opt(o)
 	}

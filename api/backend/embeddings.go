@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
@@ -9,7 +8,6 @@ import (
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	bert "github.com/go-skynet/go-bert.cpp"
 )
 
 func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.Config, o *options.Option) (func() ([]float32, error), error) {
@@ -25,10 +23,11 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 	var err error
 
 	opts := []model.Option{
-		model.WithLoadGRPCOpts(grpcOpts),
+		model.WithLoadGRPCLLMModelOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithModelFile(modelFile),
+		model.WithContext(o.Context),
 	}
 
 	if c.Backend == "" {
@@ -54,7 +53,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 				}
 				predictOptions.EmbeddingTokens = embeds
 
-				res, err := model.Embeddings(context.TODO(), predictOptions)
+				res, err := model.Embeddings(o.Context, predictOptions)
 				if err != nil {
 					return nil, err
 				}
@@ -63,21 +62,12 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 			}
 			predictOptions.Embeddings = s
 
-			res, err := model.Embeddings(context.TODO(), predictOptions)
+			res, err := model.Embeddings(o.Context, predictOptions)
 			if err != nil {
 				return nil, err
 			}
 
 			return res.Embeddings, nil
-		}
-
-	// bert embeddings
-	case *bert.Bert:
-		fn = func() ([]float32, error) {
-			if len(tokens) > 0 {
-				return model.TokenEmbeddings(tokens, bert.SetThreads(c.Threads))
-			}
-			return model.Embeddings(s, bert.SetThreads(c.Threads))
 		}
 	default:
 		fn = func() ([]float32, error) {
@@ -87,7 +77,15 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 
 	return func() ([]float32, error) {
 		// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
-		l := Lock(modelFile)
+		mutexMap.Lock()
+		l, ok := mutexes[modelFile]
+		if !ok {
+			m := &sync.Mutex{}
+			mutexes[modelFile] = m
+			l = m
+		}
+		mutexMap.Unlock()
+		l.Lock()
 		defer l.Unlock()
 
 		embeds, err := fn()

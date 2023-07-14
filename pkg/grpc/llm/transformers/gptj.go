@@ -5,12 +5,15 @@ package transformers
 import (
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
 
 type GPTJ struct {
+	base.Base
+
 	gptj *transformers.GPTJ
 }
 
@@ -20,16 +23,12 @@ func (llm *GPTJ) Load(opts *pb.ModelOptions) error {
 	return err
 }
 
-func (llm *GPTJ) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
 func (llm *GPTJ) Predict(opts *pb.PredictOptions) (string, error) {
 	return llm.gptj.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
-func (llm *GPTJ) PredictStream(opts *pb.PredictOptions, results chan string) {
+func (llm *GPTJ) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	go func() {
 		res, err := llm.gptj.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -39,4 +38,5 @@ func (llm *GPTJ) PredictStream(opts *pb.PredictOptions, results chan string) {
 		results <- res
 		close(results)
 	}()
+	return nil
 }

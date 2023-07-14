@@ -2,17 +2,20 @@ syntax = "proto3";
 
 option go_package = "github.com/go-skynet/LocalAI/pkg/grpc/proto";
 option java_multiple_files = true;
-option java_package = "io.skynet.localai.llmserver";
-option java_outer_classname = "LLMServer";
+option java_package = "io.skynet.localai.backend";
+option java_outer_classname = "LocalAIBackend";
 
-package llm;
+package backend;
 
-service LLM {
+service Backend {
   rpc Health(HealthMessage) returns (Reply) {}
   rpc Predict(PredictOptions) returns (Reply) {}
   rpc LoadModel(ModelOptions) returns (Result) {}
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
+  rpc GenerateImage(GenerateImageRequest) returns (Result) {}
+  rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
+  rpc TTS(TTSRequest) returns (Result) {}
 }
 
 message HealthMessage {}
@@ -87,4 +90,40 @@ message Result {
 
 message EmbeddingResult {
   repeated float embeddings = 1;
+}
+
+message TranscriptRequest {
+  string dst = 2;
+  string language = 3;
+  uint32 threads = 4;
+}
+
+message TranscriptResult {
+  repeated TranscriptSegment segments = 1;
+  string text = 2;
+}
+
+message TranscriptSegment {
+  int32 id = 1;
+  int64 start = 2;
+  int64 end = 3;
+  string text = 4;
+  repeated int32 tokens = 5;
+}
+
+message GenerateImageRequest {
+  int32 height = 1;
+  int32 width = 2;
+  int32 mode = 3;
+  int32 step = 4;
+  int32 seed = 5;
+  string positive_prompt = 6;
+  string negative_prompt = 7;
+  string dst = 8;
+}
+
+message TTSRequest {
+  string text = 1;
+  string model = 2;
+  string dst = 3;
 }

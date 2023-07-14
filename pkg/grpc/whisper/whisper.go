@@ -5,24 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	wav "github.com/go-audio/wav"
+	"github.com/go-skynet/LocalAI/pkg/grpc/whisper/api"
 )
-
-type Segment struct {
-	Id int               `json:"id"`
-	Start time.Duration  `json:"start"`
-	End time.Duration    `json:"end"`
-	Text string          `json:"text"`
-	Tokens []int         `json:"tokens"`
-}
-
-type Result struct {
-	Segments []Segment  `json:"segments"`
-	Text string         `json:"text"`
-}
 
 func sh(c string) (string, error) {
 	cmd := exec.Command("/bin/sh", "-c", c)
@@ -42,8 +29,8 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Transcript(model whisper.Model, audiopath, language string, threads uint) (Result, error) {
-	res := Result{}
+func Transcript(model whisper.Model, audiopath, language string, threads uint) (api.Result, error) {
+	res := api.Result{}
 
 	dir, err := os.MkdirTemp("", "whisper")
 	if err != nil {
@@ -99,11 +86,11 @@ func Transcript(model whisper.Model, audiopath, language string, threads uint) (
 		}
 
 		var tokens []int
-		for _, t := range(s.Tokens) {
+		for _, t := range s.Tokens {
 			tokens = append(tokens, t.Id)
 		}
 
-		segment := Segment{Id: s.Num, Text: s.Text, Start:s.Start, End: s.End, Tokens: tokens}
+		segment := api.Segment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
 		res.Segments = append(res.Segments, segment)
 
 		res.Text += s.Text

@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,11 +9,10 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	whisperutil "github.com/go-skynet/LocalAI/pkg/whisper"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -64,6 +64,7 @@ func TranscriptEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		whisperModel, err := o.Loader.BackendLoader(
 			model.WithBackendString(model.WhisperBackend),
 			model.WithModelFile(config.Model),
+			model.WithContext(o.Context),
 			model.WithThreads(uint32(config.Threads)),
 			model.WithAssetDir(o.AssetsDestination))
 		if err != nil {
@@ -74,18 +75,17 @@ func TranscriptEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			return fmt.Errorf("could not load whisper model")
 		}
 
-		w, ok := whisperModel.(whisper.Model)
-		if !ok {
-			return fmt.Errorf("loader returned non-whisper object")
-		}
-
-		tr, err := whisperutil.Transcript(w, dst, input.Language, uint(config.Threads))
+		tr, err := whisperModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
+			Dst:      dst,
+			Language: input.Language,
+			Threads:  uint32(config.Threads),
+		})
 		if err != nil {
 			return err
 		}
 
 		log.Debug().Msgf("Trascribed: %+v", tr)
 		// TODO: handle different outputs here
-		return c.Status(http.StatusOK).JSON(fiber.Map{"text": tr})
+		return c.Status(http.StatusOK).JSON(tr)
 	}
 }

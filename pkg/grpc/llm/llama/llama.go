@@ -5,11 +5,14 @@ package llama
 import (
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/go-llama.cpp"
 )
 
 type LLM struct {
+	base.Base
+
 	llama *llama.LLama
 }
 
@@ -133,7 +136,7 @@ func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
 	return llm.llama.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
-func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) {
+func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	predictOptions := buildPredictOptions(opts)
 
 	predictOptions = append(predictOptions, llama.SetTokenCallback(func(token string) bool {
@@ -148,6 +151,8 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) {
 		}
 		close(results)
 	}()
+
+	return nil
 }
 
 func (llm *LLM) Embeddings(opts *pb.PredictOptions) ([]float32, error) {

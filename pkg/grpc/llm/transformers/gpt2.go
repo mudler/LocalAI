@@ -5,12 +5,15 @@ package transformers
 import (
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
 
 type GPT2 struct {
+	base.Base
+
 	gpt2 *transformers.GPT2
 }
 
@@ -20,16 +23,12 @@ func (llm *GPT2) Load(opts *pb.ModelOptions) error {
 	return err
 }
 
-func (llm *GPT2) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
 func (llm *GPT2) Predict(opts *pb.PredictOptions) (string, error) {
 	return llm.gpt2.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
-func (llm *GPT2) PredictStream(opts *pb.PredictOptions, results chan string) {
+func (llm *GPT2) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	go func() {
 		res, err := llm.gpt2.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -39,4 +38,5 @@ func (llm *GPT2) PredictStream(opts *pb.PredictOptions, results chan string) {
 		results <- res
 		close(results)
 	}()
+	return nil
 }

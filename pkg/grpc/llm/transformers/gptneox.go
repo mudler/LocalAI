@@ -5,12 +5,15 @@ package transformers
 import (
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
 
 type GPTNeoX struct {
+	base.Base
+
 	gptneox *transformers.GPTNeoX
 }
 
@@ -20,16 +23,12 @@ func (llm *GPTNeoX) Load(opts *pb.ModelOptions) error {
 	return err
 }
 
-func (llm *GPTNeoX) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
 func (llm *GPTNeoX) Predict(opts *pb.PredictOptions) (string, error) {
 	return llm.gptneox.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
-func (llm *GPTNeoX) PredictStream(opts *pb.PredictOptions, results chan string) {
+func (llm *GPTNeoX) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	go func() {
 		res, err := llm.gptneox.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -39,4 +38,5 @@ func (llm *GPTNeoX) PredictStream(opts *pb.PredictOptions, results chan string) 
 		results <- res
 		close(results)
 	}()
+	return nil
 }
