@@ -2,13 +2,11 @@ package model
 
 import (
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	llama "github.com/go-skynet/go-llama.cpp"
 )
 
 type Options struct {
 	backendString string
 	modelFile     string
-	llamaOpts     []llama.ModelOption
 	threads       uint32
 	assetDir      string
 
@@ -32,12 +30,6 @@ func WithModelFile(modelFile string) Option {
 func WithLoadGRPCOpts(opts *pb.ModelOptions) Option {
 	return func(o *Options) {
 		o.gRPCOptions = opts
-	}
-}
-
-func WithLlamaOpts(opts ...llama.ModelOption) Option {
-	return func(o *Options) {
-		o.llamaOpts = append(o.llamaOpts, opts...)
 	}
 }
 

@@ -12,6 +12,7 @@ service LLM {
   rpc Predict(PredictOptions) returns (Reply) {}
   rpc LoadModel(ModelOptions) returns (Result) {}
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
+  rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
 }
 
 message HealthMessage {}
@@ -41,7 +42,6 @@ message PredictOptions {
   float MirostatTAU = 21;
   bool PenalizeNL = 22;
   string LogitBias = 23;
-  string PathPromptCache = 24;
   bool MLock = 25;
   bool MMap = 26;
   bool PromptCacheAll = 27;
@@ -52,6 +52,8 @@ message PredictOptions {
   float TopP = 32;
   string PromptCachePath = 33;
   bool Debug = 34;
+  repeated int32 EmbeddingTokens = 35;
+  string Embeddings = 36;
 }
 
 // The response message containing the result
@@ -79,4 +81,8 @@ message ModelOptions {
 message Result {
   string message = 1;
   bool success = 2;
+}
+
+message EmbeddingResult {
+  repeated float embeddings = 1;
 }

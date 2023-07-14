@@ -17,7 +17,6 @@ import (
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
-	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hpcloud/tail"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
@@ -135,11 +134,11 @@ var lcHuggingFace = func(repoId string) (interface{}, error) {
 	return langchain.NewHuggingFace(repoId)
 }
 
-func llamaLM(opts ...llama.ModelOption) func(string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
-		return llama.New(s, opts...)
-	}
-}
+// func llamaLM(opts ...llama.ModelOption) func(string) (interface{}, error) {
+// 	return func(s string) (interface{}, error) {
+// 		return llama.New(s, opts...)
+// 	}
+// }
 
 func gpt4allLM(opts ...gpt4all.ModelOption) func(string) (interface{}, error) {
 	return func(s string) (interface{}, error) {
@@ -263,7 +262,8 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model interface{}, err err
 	log.Debug().Msgf("Loading model %s from %s", o.backendString, o.modelFile)
 	switch strings.ToLower(o.backendString) {
 	case LlamaBackend:
-		return ml.LoadModel(o.modelFile, llamaLM(o.llamaOpts...))
+		//	return ml.LoadModel(o.modelFile, llamaLM(o.llamaOpts...))
+		return ml.LoadModel(o.modelFile, ml.grpcModel(LlamaBackend, o))
 	case BloomzBackend:
 		return ml.LoadModel(o.modelFile, bloomzLM)
 	case GPTJBackend:
@@ -325,7 +325,6 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (interface{}, error) {
 		model, modelerr := ml.BackendLoader(
 			WithBackendString(b),
 			WithModelFile(o.modelFile),
-			WithLlamaOpts(o.llamaOpts...),
 			WithLoadGRPCOpts(o.gRPCOptions),
 			WithThreads(o.threads),
 			WithAssetDir(o.assetDir),

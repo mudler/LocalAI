@@ -18,7 +18,6 @@ import (
 	"github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
-	llama "github.com/go-skynet/go-llama.cpp"
 
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 )
@@ -36,38 +35,17 @@ func gRPCModelOpts(c Config) *pb.ModelOptions {
 		ContextSize: int32(c.ContextSize),
 		Seed:        int32(c.Seed),
 		NBatch:      int32(b),
+		F16Memory:   c.F16,
+		MLock:       c.MMlock,
+		NUMA:        c.NUMA,
+		Embeddings:  c.Embeddings,
+		LowVRAM:     c.LowVRAM,
 		NGPULayers:  int32(c.NGPULayers),
 		MMap:        c.MMap,
 		MainGPU:     c.MainGPU,
 		TensorSplit: c.TensorSplit,
 	}
 }
-
-// func defaultGGLLMOpts(c Config) []ggllm.ModelOption {
-// 	ggllmOpts := []ggllm.ModelOption{}
-// 	if c.ContextSize != 0 {
-// 		ggllmOpts = append(ggllmOpts, ggllm.SetContext(c.ContextSize))
-// 	}
-// 	// F16 doesn't seem to produce good output at all!
-// 	//if c.F16 {
-// 	//	llamaOpts = append(llamaOpts, llama.EnableF16Memory)
-// 	//}
-
-// 	if c.NGPULayers != 0 {
-// 		ggllmOpts = append(ggllmOpts, ggllm.SetGPULayers(c.NGPULayers))
-// 	}
-
-// 	ggllmOpts = append(ggllmOpts, ggllm.SetMMap(c.MMap))
-// 	ggllmOpts = append(ggllmOpts, ggllm.SetMainGPU(c.MainGPU))
-// 	ggllmOpts = append(ggllmOpts, ggllm.SetTensorSplit(c.TensorSplit))
-// 	if c.Batch != 0 {
-// 		ggllmOpts = append(ggllmOpts, ggllm.SetNBatch(c.Batch))
-// 	} else {
-// 		ggllmOpts = append(ggllmOpts, ggllm.SetNBatch(512))
-// 	}
-
-// 	return ggllmOpts
-// }
 
 func gRPCPredictOpts(c Config, modelPath string) *pb.PredictOptions {
 	promptCachePath := ""
@@ -77,14 +55,18 @@ func gRPCPredictOpts(c Config, modelPath string) *pb.PredictOptions {
 		promptCachePath = p
 	}
 	return &pb.PredictOptions{
-		Temperature:       float32(c.Temperature),
-		TopP:              float32(c.TopP),
-		TopK:              int32(c.TopK),
-		Tokens:            int32(c.Maxtokens),
-		Threads:           int32(c.Threads),
-		PromptCacheAll:    c.PromptCacheAll,
-		PromptCacheRO:     c.PromptCacheRO,
-		PromptCachePath:   promptCachePath,
+		Temperature:     float32(c.Temperature),
+		TopP:            float32(c.TopP),
+		TopK:            int32(c.TopK),
+		Tokens:          int32(c.Maxtokens),
+		Threads:         int32(c.Threads),
+		PromptCacheAll:  c.PromptCacheAll,
+		PromptCacheRO:   c.PromptCacheRO,
+		PromptCachePath: promptCachePath,
+		F16KV:           c.F16,
+		DebugMode:       c.Debug,
+		Grammar:         c.Grammar,
+
 		Mirostat:          int32(c.Mirostat),
 		MirostatETA:       float32(c.MirostatETA),
 		MirostatTAU:       float32(c.MirostatTAU),
@@ -103,200 +85,6 @@ func gRPCPredictOpts(c Config, modelPath string) *pb.PredictOptions {
 		TailFreeSamplingZ: float32(c.TFZ),
 		TypicalP:          float32(c.TypicalP),
 	}
-}
-
-// func buildGGLLMPredictOptions(c Config, modelPath string) []ggllm.PredictOption {
-// 	// Generate the prediction using the language model
-// 	predictOptions := []ggllm.PredictOption{
-// 		ggllm.SetTemperature(c.Temperature),
-// 		ggllm.SetTopP(c.TopP),
-// 		ggllm.SetTopK(c.TopK),
-// 		ggllm.SetTokens(c.Maxtokens),
-// 		ggllm.SetThreads(c.Threads),
-// 	}
-
-// 	if c.PromptCacheAll {
-// 		predictOptions = append(predictOptions, ggllm.EnablePromptCacheAll)
-// 	}
-
-// 	if c.PromptCacheRO {
-// 		predictOptions = append(predictOptions, ggllm.EnablePromptCacheRO)
-// 	}
-
-// 	if c.PromptCachePath != "" {
-// 		// Create parent directory
-// 		p := filepath.Join(modelPath, c.PromptCachePath)
-// 		os.MkdirAll(filepath.Dir(p), 0755)
-// 		predictOptions = append(predictOptions, ggllm.SetPathPromptCache(p))
-// 	}
-
-// 	if c.Mirostat != 0 {
-// 		predictOptions = append(predictOptions, ggllm.SetMirostat(c.Mirostat))
-// 	}
-
-// 	if c.MirostatETA != 0 {
-// 		predictOptions = append(predictOptions, ggllm.SetMirostatETA(c.MirostatETA))
-// 	}
-
-// 	if c.MirostatTAU != 0 {
-// 		predictOptions = append(predictOptions, ggllm.SetMirostatTAU(c.MirostatTAU))
-// 	}
-
-// 	if c.Debug {
-// 		predictOptions = append(predictOptions, ggllm.Debug)
-// 	}
-
-// 	predictOptions = append(predictOptions, ggllm.SetStopWords(c.StopWords...))
-
-// 	if c.RepeatPenalty != 0 {
-// 		predictOptions = append(predictOptions, ggllm.SetPenalty(c.RepeatPenalty))
-// 	}
-
-// 	if c.Keep != 0 {
-// 		predictOptions = append(predictOptions, ggllm.SetNKeep(c.Keep))
-// 	}
-
-// 	if c.Batch != 0 {
-// 		predictOptions = append(predictOptions, ggllm.SetBatch(c.Batch))
-// 	}
-
-// 	if c.IgnoreEOS {
-// 		predictOptions = append(predictOptions, ggllm.IgnoreEOS)
-// 	}
-
-// 	if c.Seed != 0 {
-// 		predictOptions = append(predictOptions, ggllm.SetSeed(c.Seed))
-// 	}
-
-// 	//predictOptions = append(predictOptions, llama.SetLogitBias(c.Seed))
-
-// 	predictOptions = append(predictOptions, ggllm.SetFrequencyPenalty(c.FrequencyPenalty))
-// 	predictOptions = append(predictOptions, ggllm.SetMlock(c.MMlock))
-// 	predictOptions = append(predictOptions, ggllm.SetMemoryMap(c.MMap))
-// 	predictOptions = append(predictOptions, ggllm.SetPredictionMainGPU(c.MainGPU))
-// 	predictOptions = append(predictOptions, ggllm.SetPredictionTensorSplit(c.TensorSplit))
-// 	predictOptions = append(predictOptions, ggllm.SetTailFreeSamplingZ(c.TFZ))
-// 	predictOptions = append(predictOptions, ggllm.SetTypicalP(c.TypicalP))
-
-// 	return predictOptions
-// }
-
-func defaultLLamaOpts(c Config) []llama.ModelOption {
-	llamaOpts := []llama.ModelOption{}
-	if c.ContextSize != 0 {
-		llamaOpts = append(llamaOpts, llama.SetContext(c.ContextSize))
-	}
-	if c.F16 {
-		llamaOpts = append(llamaOpts, llama.EnableF16Memory)
-	}
-	if c.Embeddings {
-		llamaOpts = append(llamaOpts, llama.EnableEmbeddings)
-	}
-
-	if c.NGPULayers != 0 {
-		llamaOpts = append(llamaOpts, llama.SetGPULayers(c.NGPULayers))
-	}
-
-	llamaOpts = append(llamaOpts, llama.SetMMap(c.MMap))
-	llamaOpts = append(llamaOpts, llama.SetMainGPU(c.MainGPU))
-	llamaOpts = append(llamaOpts, llama.SetTensorSplit(c.TensorSplit))
-	if c.Batch != 0 {
-		llamaOpts = append(llamaOpts, llama.SetNBatch(c.Batch))
-	} else {
-		llamaOpts = append(llamaOpts, llama.SetNBatch(512))
-	}
-
-	if c.NUMA {
-		llamaOpts = append(llamaOpts, llama.EnableNUMA)
-	}
-
-	if c.LowVRAM {
-		llamaOpts = append(llamaOpts, llama.EnabelLowVRAM)
-	}
-
-	return llamaOpts
-}
-
-func buildLLamaPredictOptions(c Config, modelPath string) []llama.PredictOption {
-	// Generate the prediction using the language model
-	predictOptions := []llama.PredictOption{
-		llama.SetTemperature(c.Temperature),
-		llama.SetTopP(c.TopP),
-		llama.SetTopK(c.TopK),
-		llama.SetTokens(c.Maxtokens),
-		llama.SetThreads(c.Threads),
-	}
-
-	if c.PromptCacheAll {
-		predictOptions = append(predictOptions, llama.EnablePromptCacheAll)
-	}
-
-	if c.PromptCacheRO {
-		predictOptions = append(predictOptions, llama.EnablePromptCacheRO)
-	}
-
-	predictOptions = append(predictOptions, llama.WithGrammar(c.Grammar))
-
-	if c.PromptCachePath != "" {
-		// Create parent directory
-		p := filepath.Join(modelPath, c.PromptCachePath)
-		os.MkdirAll(filepath.Dir(p), 0755)
-		predictOptions = append(predictOptions, llama.SetPathPromptCache(p))
-	}
-
-	if c.Mirostat != 0 {
-		predictOptions = append(predictOptions, llama.SetMirostat(c.Mirostat))
-	}
-
-	if c.MirostatETA != 0 {
-		predictOptions = append(predictOptions, llama.SetMirostatETA(c.MirostatETA))
-	}
-
-	if c.MirostatTAU != 0 {
-		predictOptions = append(predictOptions, llama.SetMirostatTAU(c.MirostatTAU))
-	}
-
-	if c.Debug {
-		predictOptions = append(predictOptions, llama.Debug)
-	}
-
-	predictOptions = append(predictOptions, llama.SetStopWords(c.StopWords...))
-
-	if c.RepeatPenalty != 0 {
-		predictOptions = append(predictOptions, llama.SetPenalty(c.RepeatPenalty))
-	}
-
-	if c.Keep != 0 {
-		predictOptions = append(predictOptions, llama.SetNKeep(c.Keep))
-	}
-
-	if c.Batch != 0 {
-		predictOptions = append(predictOptions, llama.SetBatch(c.Batch))
-	}
-
-	if c.F16 {
-		predictOptions = append(predictOptions, llama.EnableF16KV)
-	}
-
-	if c.IgnoreEOS {
-		predictOptions = append(predictOptions, llama.IgnoreEOS)
-	}
-
-	if c.Seed != 0 {
-		predictOptions = append(predictOptions, llama.SetSeed(c.Seed))
-	}
-
-	//predictOptions = append(predictOptions, llama.SetLogitBias(c.Seed))
-
-	predictOptions = append(predictOptions, llama.SetFrequencyPenalty(c.FrequencyPenalty))
-	predictOptions = append(predictOptions, llama.SetMlock(c.MMlock))
-	predictOptions = append(predictOptions, llama.SetMemoryMap(c.MMap))
-	predictOptions = append(predictOptions, llama.SetPredictionMainGPU(c.MainGPU))
-	predictOptions = append(predictOptions, llama.SetPredictionTensorSplit(c.TensorSplit))
-	predictOptions = append(predictOptions, llama.SetTailFreeSamplingZ(c.TFZ))
-	predictOptions = append(predictOptions, llama.SetTypicalP(c.TypicalP))
-
-	return predictOptions
 }
 
 func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, dst string, loader *model.ModelLoader, c Config, o *Option) (func() error, error) {
@@ -351,14 +139,12 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config,
 
 	modelFile := c.Model
 
-	llamaOpts := defaultLLamaOpts(c)
 	grpcOpts := gRPCModelOpts(c)
 
 	var inferenceModel interface{}
 	var err error
 
 	opts := []model.Option{
-		model.WithLlamaOpts(llamaOpts...),
 		model.WithLoadGRPCOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithAssetDir(o.assetsDestination),
@@ -377,14 +163,34 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c Config,
 
 	var fn func() ([]float32, error)
 	switch model := inferenceModel.(type) {
-	case *llama.LLama:
+	case *grpc.Client:
 		fn = func() ([]float32, error) {
-			predictOptions := buildLLamaPredictOptions(c, loader.ModelPath)
+			predictOptions := gRPCPredictOpts(c, loader.ModelPath)
 			if len(tokens) > 0 {
-				return model.TokenEmbeddings(tokens, predictOptions...)
+				embeds := []int32{}
+
+				for _, t := range tokens {
+					embeds = append(embeds, int32(t))
+				}
+				predictOptions.EmbeddingTokens = embeds
+
+				res, err := model.Embeddings(context.TODO(), predictOptions)
+				if err != nil {
+					return nil, err
+				}
+
+				return res.Embeddings, nil
 			}
-			return model.Embeddings(s, predictOptions...)
+			predictOptions.Embeddings = s
+
+			res, err := model.Embeddings(context.TODO(), predictOptions)
+			if err != nil {
+				return nil, err
+			}
+
+			return res.Embeddings, nil
 		}
+
 	// bert embeddings
 	case *bert.Bert:
 		fn = func() ([]float32, error) {
@@ -432,14 +238,12 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, o *Option, to
 	supportStreams := false
 	modelFile := c.Model
 
-	llamaOpts := defaultLLamaOpts(c)
 	grpcOpts := gRPCModelOpts(c)
 
 	var inferenceModel interface{}
 	var err error
 
 	opts := []model.Option{
-		model.WithLlamaOpts(llamaOpts...),
 		model.WithLoadGRPCOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithAssetDir(o.assetsDestination),
@@ -707,26 +511,6 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, o *Option, to
 			if c.Batch != 0 {
 				predictOptions = append(predictOptions, gpt4all.SetBatch(c.Batch))
 			}
-
-			str, er := model.Predict(
-				s,
-				predictOptions...,
-			)
-			// Seems that if we don't free the callback explicitly we leave functions registered (that might try to send on closed channels)
-			// For instance otherwise the API returns: {"error":{"code":500,"message":"send on closed channel","type":""}}
-			// after a stream event has occurred
-			model.SetTokenCallback(nil)
-			return str, er
-		}
-	case *llama.LLama:
-		supportStreams = true
-		fn = func() (string, error) {
-
-			if tokenCallback != nil {
-				model.SetTokenCallback(tokenCallback)
-			}
-
-			predictOptions := buildLLamaPredictOptions(c, loader.ModelPath)
 
 			str, er := model.Predict(
 				s,

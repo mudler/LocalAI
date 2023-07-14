@@ -29,6 +29,15 @@ func (s *server) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, e
 	return &pb.Reply{Message: "OK"}, nil
 }
 
+func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
+	embeds, err := s.llm.Embeddings(in)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.EmbeddingResult{Embeddings: embeds}, nil
+}
+
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
 	err := s.llm.Load(in)
 	if err != nil {

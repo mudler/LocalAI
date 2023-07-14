@@ -26,6 +26,7 @@ type LLMClient interface {
 	Predict(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (*Reply, error)
 	LoadModel(ctx context.Context, in *ModelOptions, opts ...grpc.CallOption) (*Result, error)
 	PredictStream(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (LLM_PredictStreamClient, error)
+	Embedding(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (*EmbeddingResult, error)
 }
 
 type lLMClient struct {
@@ -95,6 +96,15 @@ func (x *lLMPredictStreamClient) Recv() (*Reply, error) {
 	return m, nil
 }
 
+func (c *lLMClient) Embedding(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (*EmbeddingResult, error) {
+	out := new(EmbeddingResult)
+	err := c.cc.Invoke(ctx, "/llm.LLM/Embedding", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LLMServer is the server API for LLM service.
 // All implementations must embed UnimplementedLLMServer
 // for forward compatibility
@@ -103,6 +113,7 @@ type LLMServer interface {
 	Predict(context.Context, *PredictOptions) (*Reply, error)
 	LoadModel(context.Context, *ModelOptions) (*Result, error)
 	PredictStream(*PredictOptions, LLM_PredictStreamServer) error
+	Embedding(context.Context, *PredictOptions) (*EmbeddingResult, error)
 	mustEmbedUnimplementedLLMServer()
 }
 
@@ -121,6 +132,9 @@ func (UnimplementedLLMServer) LoadModel(context.Context, *ModelOptions) (*Result
 }
 func (UnimplementedLLMServer) PredictStream(*PredictOptions, LLM_PredictStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method PredictStream not implemented")
+}
+func (UnimplementedLLMServer) Embedding(context.Context, *PredictOptions) (*EmbeddingResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Embedding not implemented")
 }
 func (UnimplementedLLMServer) mustEmbedUnimplementedLLMServer() {}
 
@@ -210,6 +224,24 @@ func (x *lLMPredictStreamServer) Send(m *Reply) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _LLM_Embedding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PredictOptions)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LLMServer).Embedding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/llm.LLM/Embedding",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LLMServer).Embedding(ctx, req.(*PredictOptions))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LLM_ServiceDesc is the grpc.ServiceDesc for LLM service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -228,6 +260,10 @@ var LLM_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LoadModel",
 			Handler:    _LLM_LoadModel_Handler,
+		},
+		{
+			MethodName: "Embedding",
+			Handler:    _LLM_Embedding_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

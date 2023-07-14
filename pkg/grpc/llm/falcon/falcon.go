@@ -42,6 +42,10 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	return err
 }
 
+func (llm *LLM) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func buildPredictOptions(opts *pb.PredictOptions) []ggllm.PredictOption {
 	predictOptions := []ggllm.PredictOption{
 		ggllm.SetTemperature(float64(opts.Temperature)),
