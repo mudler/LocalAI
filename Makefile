@@ -91,13 +91,13 @@ ifeq ($(STATIC),true)
 endif
 
 ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
-	OPTIONAL_TARGETS+=go-stable-diffusion/libstablediffusion.a
+#	OPTIONAL_TARGETS+=go-stable-diffusion/libstablediffusion.a
 	OPTIONAL_GRPC+=backend-assets/grpc/stablediffusion
 endif
 
 ifeq ($(findstring tts,$(GO_TAGS)),tts)
-	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
-	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
+#	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
+#	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
 endif
 
@@ -234,7 +234,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-ggllm clean
 	$(MAKE) build
 
-prepare: prepare-sources grpcs go-bert/libgobert.a go-ggml-transformers/libtransformers.a  whisper.cpp/libwhisper.a $(OPTIONAL_TARGETS) 
+prepare: prepare-sources $(OPTIONAL_TARGETS) 
 	touch $@
 
 clean: ## Remove build related file
@@ -256,7 +256,7 @@ clean: ## Remove build related file
 
 ## Build:
 
-build: prepare ## Build the project
+build: grpcs prepare ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -415,4 +415,4 @@ backend-assets/grpc/whisper: backend-assets/grpc whisper.cpp/libwhisper.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/whisper.cpp LIBRARY_PATH=$(shell pwd)/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./cmd/grpc/whisper/
 
-grpcs: backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/falcon backend-assets/grpc/bloomz backend-assets/grpc/llama backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
+grpcs: prepare backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/falcon backend-assets/grpc/bloomz backend-assets/grpc/llama backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
