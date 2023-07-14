@@ -31,17 +31,16 @@ jobs:
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
           sudo mkdir /build && sudo chmod -R 777 /build && cd /build && \
-          PIPER_PHONEMIZE_VERSION='1.0.0' SPDLOG_VERSION="1.11.0" \
-          curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSION}.tar.gz" | \
+          curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz" | \
           tar -xzvf - && \
-          mkdir -p "spdlog-${SPDLOG_VERSION}/build" && \
-          cd "spdlog-${SPDLOG_VERSION}/build" && \
+          mkdir -p "spdlog-1.11.0/build" && \
+          cd "spdlog-1.11.0/build" && \
           cmake ..  && \
           make -j8 && \
           sudo cmake --install . --prefix /usr && mkdir -p "lib/Linux-$(uname -m)" && \
           cd /build && \
           mkdir -p "lib/Linux-$(uname -m)/piper_phonemize" && \
-          curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v${PIPER_PHONEMIZE_VERSION}/libpiper_phonemize-${TARGETARCH:-$(go env GOARCH)}${TARGETVARIANT}.tar.gz" | \
+          curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v1.0.0/libpiper_phonemize-amd64.tar.gz" | \
           tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
           sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /lib64/ && \
           sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
