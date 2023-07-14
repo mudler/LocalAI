@@ -20,7 +20,6 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	whisperutil "github.com/go-skynet/LocalAI/pkg/whisper"
-	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -362,6 +361,13 @@ func embeddingsEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 	}
 }
 
+func isEOS(s string) bool {
+	if s == "<|endoftext|>" {
+		return true
+	}
+
+	return false
+}
 func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 	process := func(s string, req *OpenAIRequest, config *Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
@@ -380,7 +386,9 @@ func chatEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			}
 			log.Debug().Msgf("Sending goroutine: %s", s)
 
-			responses <- resp
+			if s != "" && !isEOS(s) {
+				responses <- resp
+			}
 			return true
 		})
 		close(responses)
@@ -905,7 +913,11 @@ func transcriptEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		whisperModel, err := o.loader.BackendLoader(model.WhisperBackend, config.Model, []llama.ModelOption{}, uint32(config.Threads), o.assetsDestination)
+		whisperModel, err := o.loader.BackendLoader(
+			model.WithBackendString(model.WhisperBackend),
+			model.WithModelFile(config.Model),
+			model.WithThreads(uint32(config.Threads)),
+			model.WithAssetDir(o.assetsDestination))
 		if err != nil {
 			return err
 		}

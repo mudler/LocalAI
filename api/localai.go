@@ -8,7 +8,6 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/tts"
 	"github.com/go-skynet/LocalAI/pkg/utils"
-	llama "github.com/go-skynet/go-llama.cpp"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -42,7 +41,10 @@ func ttsEndpoint(cm *ConfigMerger, o *Option) func(c *fiber.Ctx) error {
 			return err
 		}
 
-		piperModel, err := o.loader.BackendLoader(model.PiperBackend, input.Model, []llama.ModelOption{}, uint32(0), o.assetsDestination)
+		piperModel, err := o.loader.BackendLoader(
+			model.WithBackendString(model.PiperBackend),
+			model.WithModelFile(input.Model),
+			model.WithAssetDir(o.assetsDestination))
 		if err != nil {
 			return err
 		}

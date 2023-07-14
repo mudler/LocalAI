@@ -41,6 +41,9 @@ BLOOMZ_VERSION?=1834e77b83faafe912ad4092ccf7f77937349e2f
 # stablediffusion version
 STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
 
+# Go-ggllm
+GOGGLLM_VERSION?=862477d16eefb0805261c19c9b0d053e3b2b684b
+
 export BUILD_TYPE?=
 CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
@@ -125,6 +128,14 @@ gpt4all:
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.c" -exec sed -i'' -e 's/set_numa_thread_affinity/gpt4all__set_numa_thread_affinity/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.c" -exec sed -i'' -e 's/clear_numa_thread_affinity/gpt4all__clear_numa_thread_affinity/g' {} +
 	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.h" -exec sed -i'' -e 's/clear_numa_thread_affinity/gpt4all__clear_numa_thread_affinity/g' {} +
+
+## go-ggllm
+go-ggllm:
+	git clone --recurse-submodules https://github.com/mudler/go-ggllm.cpp go-ggllm
+	cd go-ggllm && git checkout -b build $(GOGGLLM_VERSION) && git submodule update --init --recursive --depth 1
+
+go-ggllm/libggllm.a: go-ggllm
+	$(MAKE) -C go-ggllm BUILD_TYPE=$(BUILD_TYPE) libggllm.a
 
 ## go-piper
 go-piper:
@@ -238,7 +249,7 @@ go-llama/libbinding.a: go-llama
 go-piper/libpiper_binding.a:
 	$(MAKE) -C go-piper libpiper_binding.a example/main
 
-get-sources: go-llama go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
+get-sources: go-llama go-ggllm go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
 	touch $@
 
 replace:
@@ -251,6 +262,7 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/bloomz.cpp=$(shell pwd)/bloomz
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/go-piper
+	$(GOCMD) mod edit -replace github.com/mudler/go-ggllm.cpp=$(shell pwd)/go-ggllm
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
@@ -267,9 +279,10 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-bert clean
 	$(MAKE) -C bloomz clean
 	$(MAKE) -C go-piper clean
+	$(MAKE) -C go-ggllm clean
 	$(MAKE) build
 
-prepare: prepare-sources backend-assets/gpt4all $(OPTIONAL_TARGETS) go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
+prepare: prepare-sources backend-assets/gpt4all grpcs $(OPTIONAL_TARGETS) go-ggllm/libggllm.a go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
 	touch $@
 
 clean: ## Remove build related file
@@ -285,6 +298,7 @@ clean: ## Remove build related file
 	rm -rf ./bloomz
 	rm -rf ./whisper.cpp
 	rm -rf ./go-piper
+	rm -rf ./go-ggllm
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
 
@@ -296,7 +310,7 @@ build: prepare ## Build the project
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=${C_INCLUDE_PATH} LIBRARY_PATH=${LIBRARY_PATH} $(GOCMD) build -x -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 ifeq ($(BUILD_TYPE),metal)
 	cp go-llama/build/bin/ggml-metal.metal .
 endif
@@ -341,3 +355,19 @@ help: ## Show this help.
 		if (/^[a-zA-Z_-]+:.*?##.*$$/) {printf "    ${YELLOW}%-20s${GREEN}%s${RESET}\n", $$1, $$2} \
 		else if (/^## .*$$/) {printf "  ${CYAN}%s${RESET}\n", substr($$1,4)} \
 		}' $(MAKEFILE_LIST)
+
+protogen:
+	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    pkg/grpc/proto/llmserver.proto
+
+## GRPC
+
+backend-assets/grpc:
+	mkdir -p backend-assets/grpc
+
+falcon-grpc: backend-assets/grpc
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggllm LIBRARY_PATH=$(shell pwd)/go-ggllm \
+	$(GOCMD) build -x -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/falcon ./cmd/grpc/falcon/
+
+
+grpcs: falcon-grpc

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"text/template"
 
+	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"
 )
 
@@ -18,6 +19,7 @@ type ModelLoader struct {
 	mu        sync.Mutex
 	// TODO: this needs generics
 	models           map[string]interface{}
+	grpcProcesses    map[string]*process.Process
 	promptsTemplates map[string]*template.Template
 }
 
@@ -26,6 +28,7 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		ModelPath:        modelPath,
 		models:           make(map[string]interface{}),
 		promptsTemplates: make(map[string]*template.Template),
+		grpcProcesses:    make(map[string]*process.Process),
 	}
 }
 
