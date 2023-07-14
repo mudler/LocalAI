@@ -99,10 +99,6 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
 	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
-# die if ESPEAK_DATA is not set
-ifndef ESPEAK_DATA
-$(error ESPEAK_DATA is not set. Espeak data is required for tts)
-endif
 endif
 
 .PHONY: all test build vendor
