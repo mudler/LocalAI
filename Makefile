@@ -67,6 +67,15 @@ WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
+ifndef UNAME_S
+UNAME_S := $(shell uname -s)
+endif
+
+# workaround for rwkv.cpp
+ifeq ($(UNAME_S),Darwin)
+        CGO_LDFLAGS += -lcblas -framework Accelerate 
+endif
+
 ifeq ($(BUILD_TYPE),openblas)
 	CGO_LDFLAGS+=-lopenblas
 endif
