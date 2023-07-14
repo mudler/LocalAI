@@ -17,7 +17,6 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 	"github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
-	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
 
 // mutex still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
@@ -244,7 +243,7 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, o *Option, to
 
 	opts := []model.Option{
 		model.WithLoadGRPCOpts(grpcOpts),
-		model.WithThreads(uint32(c.Threads)),
+		model.WithThreads(uint32(c.Threads)), // GPT4all uses this
 		model.WithAssetDir(o.assetsDestination),
 		model.WithModelFile(modelFile),
 	}
@@ -279,102 +278,6 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, o *Option, to
 
 			return response, nil
 		}
-	case *transformers.GPTNeoX:
-		fn = func() (string, error) {
-			// Generate the prediction using the language model
-			predictOptions := []transformers.PredictOption{
-				transformers.SetTemperature(c.Temperature),
-				transformers.SetTopP(c.TopP),
-				transformers.SetTopK(c.TopK),
-				transformers.SetTokens(c.Maxtokens),
-				transformers.SetThreads(c.Threads),
-			}
-
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
-			}
-
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
-				s,
-				predictOptions...,
-			)
-		}
-	case *transformers.Replit:
-		fn = func() (string, error) {
-			// Generate the prediction using the language model
-			predictOptions := []transformers.PredictOption{
-				transformers.SetTemperature(c.Temperature),
-				transformers.SetTopP(c.TopP),
-				transformers.SetTopK(c.TopK),
-				transformers.SetTokens(c.Maxtokens),
-				transformers.SetThreads(c.Threads),
-			}
-
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
-			}
-
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
-				s,
-				predictOptions...,
-			)
-		}
-	case *transformers.Starcoder:
-		fn = func() (string, error) {
-			// Generate the prediction using the language model
-			predictOptions := []transformers.PredictOption{
-				transformers.SetTemperature(c.Temperature),
-				transformers.SetTopP(c.TopP),
-				transformers.SetTopK(c.TopK),
-				transformers.SetTokens(c.Maxtokens),
-				transformers.SetThreads(c.Threads),
-			}
-
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
-			}
-
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
-				s,
-				predictOptions...,
-			)
-		}
-	case *transformers.MPT:
-		fn = func() (string, error) {
-			// Generate the prediction using the language model
-			predictOptions := []transformers.PredictOption{
-				transformers.SetTemperature(c.Temperature),
-				transformers.SetTopP(c.TopP),
-				transformers.SetTopK(c.TopK),
-				transformers.SetTokens(c.Maxtokens),
-				transformers.SetThreads(c.Threads),
-			}
-
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
-			}
-
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
-				s,
-				predictOptions...,
-			)
-		}
 	case *bloomz.Bloomz:
 		fn = func() (string, error) {
 			// Generate the prediction using the language model
@@ -395,102 +298,7 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, o *Option, to
 				predictOptions...,
 			)
 		}
-	case *transformers.Falcon:
-		fn = func() (string, error) {
-			// Generate the prediction using the language model
-			predictOptions := []transformers.PredictOption{
-				transformers.SetTemperature(c.Temperature),
-				transformers.SetTopP(c.TopP),
-				transformers.SetTopK(c.TopK),
-				transformers.SetTokens(c.Maxtokens),
-				transformers.SetThreads(c.Threads),
-			}
 
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
-			}
-
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
-				s,
-				predictOptions...,
-			)
-		}
-	case *transformers.GPTJ:
-		fn = func() (string, error) {
-			// Generate the prediction using the language model
-			predictOptions := []transformers.PredictOption{
-				transformers.SetTemperature(c.Temperature),
-				transformers.SetTopP(c.TopP),
-				transformers.SetTopK(c.TopK),
-				transformers.SetTokens(c.Maxtokens),
-				transformers.SetThreads(c.Threads),
-			}
-
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
-			}
-
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
-				s,
-				predictOptions...,
-			)
-		}
-	case *transformers.Dolly:
-		fn = func() (string, error) {
-			// Generate the prediction using the language model
-			predictOptions := []transformers.PredictOption{
-				transformers.SetTemperature(c.Temperature),
-				transformers.SetTopP(c.TopP),
-				transformers.SetTopK(c.TopK),
-				transformers.SetTokens(c.Maxtokens),
-				transformers.SetThreads(c.Threads),
-			}
-
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
-			}
-
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
-				s,
-				predictOptions...,
-			)
-		}
-	case *transformers.GPT2:
-		fn = func() (string, error) {
-			// Generate the prediction using the language model
-			predictOptions := []transformers.PredictOption{
-				transformers.SetTemperature(c.Temperature),
-				transformers.SetTopP(c.TopP),
-				transformers.SetTopK(c.TopK),
-				transformers.SetTokens(c.Maxtokens),
-				transformers.SetThreads(c.Threads),
-			}
-
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, transformers.SetBatch(c.Batch))
-			}
-
-			if c.Seed != 0 {
-				predictOptions = append(predictOptions, transformers.SetSeed(c.Seed))
-			}
-
-			return model.Predict(
-				s,
-				predictOptions...,
-			)
-		}
 	case *grpc.Client:
 		// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
 		supportStreams = true

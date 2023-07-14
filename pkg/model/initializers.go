@@ -16,7 +16,6 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/tts"
 	bloomz "github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
-	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hpcloud/tail"
 	"github.com/phayes/freeport"
@@ -55,7 +54,6 @@ var autoLoadBackends []string = []string{
 	LlamaBackend,
 	Gpt4All,
 	RwkvBackend,
-	//GGLLMFalconBackend,
 	WhisperBackend,
 	BertEmbeddingsBackend,
 	GPTNeoXBackend,
@@ -69,50 +67,12 @@ var autoLoadBackends []string = []string{
 	BloomzBackend,
 }
 
-var starCoder = func(modelFile string) (interface{}, error) {
-	return transformers.NewStarcoder(modelFile)
-}
-
-var mpt = func(modelFile string) (interface{}, error) {
-	return transformers.NewMPT(modelFile)
-}
-
-var dolly = func(modelFile string) (interface{}, error) {
-	return transformers.NewDolly(modelFile)
-}
-
-// func ggllmFalcon(opts ...ggllm.ModelOption) func(string) (interface{}, error) {
-// 	return func(s string) (interface{}, error) {
-// 		return ggllm.New(s, opts...)
-// 	}
-// }
-
-var gptNeoX = func(modelFile string) (interface{}, error) {
-	return transformers.NewGPTNeoX(modelFile)
-}
-
-var replit = func(modelFile string) (interface{}, error) {
-	return transformers.NewReplit(modelFile)
-}
-
-var gptJ = func(modelFile string) (interface{}, error) {
-	return transformers.NewGPTJ(modelFile)
-}
-
-var falcon = func(modelFile string) (interface{}, error) {
-	return transformers.NewFalcon(modelFile)
-}
-
 var bertEmbeddings = func(modelFile string) (interface{}, error) {
 	return bert.New(modelFile)
 }
 
 var bloomzLM = func(modelFile string) (interface{}, error) {
 	return bloomz.New(modelFile)
-}
-
-var transformersLM = func(modelFile string) (interface{}, error) {
-	return transformers.New(modelFile)
 }
 
 var stableDiffusion = func(assetDir string) (interface{}, error) {
@@ -261,34 +221,32 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model interface{}, err err
 	log.Debug().Msgf("Loading model %s from %s", o.backendString, o.modelFile)
 	switch strings.ToLower(o.backendString) {
 	case LlamaBackend:
-		//	return ml.LoadModel(o.modelFile, llamaLM(o.llamaOpts...))
 		return ml.LoadModel(o.modelFile, ml.grpcModel(LlamaBackend, o))
 	case BloomzBackend:
 		return ml.LoadModel(o.modelFile, bloomzLM)
 	case GPTJBackend:
-		return ml.LoadModel(o.modelFile, gptJ)
+		return ml.LoadModel(o.modelFile, ml.grpcModel(GPTJBackend, o))
 	case DollyBackend:
-		return ml.LoadModel(o.modelFile, dolly)
+		return ml.LoadModel(o.modelFile, ml.grpcModel(DollyBackend, o))
 	case MPTBackend:
-		return ml.LoadModel(o.modelFile, mpt)
+		return ml.LoadModel(o.modelFile, ml.grpcModel(MPTBackend, o))
 	case Gpt2Backend:
-		return ml.LoadModel(o.modelFile, transformersLM)
+		return ml.LoadModel(o.modelFile, ml.grpcModel(Gpt2Backend, o))
 	case FalconBackend:
 		return ml.LoadModel(o.modelFile, ml.grpcModel(FalconBackend, o))
 	case GPTNeoXBackend:
-		return ml.LoadModel(o.modelFile, gptNeoX)
+		return ml.LoadModel(o.modelFile, ml.grpcModel(GPTNeoXBackend, o))
 	case ReplitBackend:
-		return ml.LoadModel(o.modelFile, replit)
+		return ml.LoadModel(o.modelFile, ml.grpcModel(ReplitBackend, o))
 	case StableDiffusionBackend:
 		return ml.LoadModel(o.modelFile, stableDiffusion)
 	case PiperBackend:
 		return ml.LoadModel(o.modelFile, piperTTS(filepath.Join(o.assetDir, "backend-assets", "espeak-ng-data")))
 	case StarcoderBackend:
-		return ml.LoadModel(o.modelFile, starCoder)
+		return ml.LoadModel(o.modelFile, ml.grpcModel(StarcoderBackend, o))
 	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
 		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "gpt4all")
 		return ml.LoadModel(o.modelFile, ml.grpcModel(Gpt4All, o))
-
 	//	return ml.LoadModel(o.modelFile, gpt4allLM(gpt4all.SetThreads(int(o.threads)), gpt4all.SetLibrarySearchPath(filepath.Join(o.assetDir, "backend-assets", "gpt4all"))))
 	case BertEmbeddingsBackend:
 		return ml.LoadModel(o.modelFile, bertEmbeddings)
