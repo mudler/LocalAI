@@ -18,8 +18,6 @@ import (
 	"github.com/go-skynet/bloomz.cpp"
 	bert "github.com/go-skynet/go-bert.cpp"
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
-
-	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 )
 
 // mutex still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
@@ -43,6 +41,7 @@ func gRPCModelOpts(c Config) *pb.ModelOptions {
 		NGPULayers:  int32(c.NGPULayers),
 		MMap:        c.MMap,
 		MainGPU:     c.MainGPU,
+		Threads:     int32(c.Threads),
 		TensorSplit: c.TensorSplit,
 	}
 }
@@ -491,36 +490,6 @@ func ModelInference(s string, loader *model.ModelLoader, c Config, o *Option, to
 				s,
 				predictOptions...,
 			)
-		}
-	case *gpt4all.Model:
-		supportStreams = true
-
-		fn = func() (string, error) {
-			if tokenCallback != nil {
-				model.SetTokenCallback(tokenCallback)
-			}
-
-			// Generate the prediction using the language model
-			predictOptions := []gpt4all.PredictOption{
-				gpt4all.SetTemperature(c.Temperature),
-				gpt4all.SetTopP(c.TopP),
-				gpt4all.SetTopK(c.TopK),
-				gpt4all.SetTokens(c.Maxtokens),
-			}
-
-			if c.Batch != 0 {
-				predictOptions = append(predictOptions, gpt4all.SetBatch(c.Batch))
-			}
-
-			str, er := model.Predict(
-				s,
-				predictOptions...,
-			)
-			// Seems that if we don't free the callback explicitly we leave functions registered (that might try to send on closed channels)
-			// For instance otherwise the API returns: {"error":{"code":500,"message":"send on closed channel","type":""}}
-			// after a stream event has occurred
-			model.SetTokenCallback(nil)
-			return str, er
 		}
 	case *grpc.Client:
 		// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported

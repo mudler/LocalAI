@@ -19,7 +19,6 @@ import (
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hpcloud/tail"
-	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 
@@ -140,11 +139,11 @@ var lcHuggingFace = func(repoId string) (interface{}, error) {
 // 	}
 // }
 
-func gpt4allLM(opts ...gpt4all.ModelOption) func(string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
-		return gpt4all.New(s, opts...)
-	}
-}
+// func gpt4allLM(opts ...gpt4all.ModelOption) func(string) (interface{}, error) {
+// 	return func(s string) (interface{}, error) {
+// 		return gpt4all.New(s, opts...)
+// 	}
+// }
 
 func rwkvLM(tokenFile string, threads uint32) func(string) (interface{}, error) {
 	return func(s string) (interface{}, error) {
@@ -287,7 +286,10 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model interface{}, err err
 	case StarcoderBackend:
 		return ml.LoadModel(o.modelFile, starCoder)
 	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
-		return ml.LoadModel(o.modelFile, gpt4allLM(gpt4all.SetThreads(int(o.threads)), gpt4all.SetLibrarySearchPath(filepath.Join(o.assetDir, "backend-assets", "gpt4all"))))
+		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "gpt4all")
+		return ml.LoadModel(o.modelFile, ml.grpcModel(Gpt4All, o))
+
+	//	return ml.LoadModel(o.modelFile, gpt4allLM(gpt4all.SetThreads(int(o.threads)), gpt4all.SetLibrarySearchPath(filepath.Join(o.assetDir, "backend-assets", "gpt4all"))))
 	case BertEmbeddingsBackend:
 		return ml.LoadModel(o.modelFile, bertEmbeddings)
 	case RwkvBackend:

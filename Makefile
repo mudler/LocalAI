@@ -110,24 +110,6 @@ all: help
 gpt4all:
 	git clone --recurse-submodules $(GPT4ALL_REPO) gpt4all
 	cd gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
-	# This is hackish, but needed as both go-llama and go-gpt4allj have their own version of ggml..
-	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
-	@find ./gpt4all -type f -name "*.m" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
-	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/ggml_/ggml_gpt4all_/g' {} +
-	@find ./gpt4all -type f -name "*.c" -exec sed -i'' -e 's/llama_/llama_gpt4all_/g' {} +
-	@find ./gpt4all -type f -name "*.cpp" -exec sed -i'' -e 's/llama_/llama_gpt4all_/g' {} +
-	@find ./gpt4all -type f -name "*.h" -exec sed -i'' -e 's/llama_/llama_gpt4all_/g' {} +
-	@find ./gpt4all/gpt4all-backend -type f -name "llama_util.h" -execdir mv {} "llama_gpt4all_util.h" \;
-	@find ./gpt4all -type f -name "*.cmake" -exec sed -i'' -e 's/llama_util/llama_gpt4all_util/g' {} +
-	@find ./gpt4all -type f -name "*.txt" -exec sed -i'' -e 's/llama_util/llama_gpt4all_util/g' {} +
-	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.cpp" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
-	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.go" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
-	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.h" -exec sed -i'' -e 's/load_model/load_gpt4all_model/g' {} +
-	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.h" -exec sed -i'' -e 's/set_numa_thread_affinity/gpt4all_set_numa_thread_affinity/g' {} +
-	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.c" -exec sed -i'' -e 's/set_numa_thread_affinity/gpt4all__set_numa_thread_affinity/g' {} +
-	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.c" -exec sed -i'' -e 's/clear_numa_thread_affinity/gpt4all__clear_numa_thread_affinity/g' {} +
-	@find ./gpt4all/gpt4all-bindings/golang -type f -name "*.h" -exec sed -i'' -e 's/clear_numa_thread_affinity/gpt4all__clear_numa_thread_affinity/g' {} +
 
 ## go-ggllm
 go-ggllm:
@@ -282,7 +264,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-ggllm clean
 	$(MAKE) build
 
-prepare: prepare-sources backend-assets/gpt4all grpcs $(OPTIONAL_TARGETS) go-ggllm/libggllm.a go-llama/libbinding.a go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a  ## Prepares for building
+prepare: prepare-sources grpcs go-bert/libgobert.a go-ggml-transformers/libtransformers.a go-rwkv/librwkv.a whisper.cpp/libwhisper.a bloomz/libbloomz.a $(OPTIONAL_TARGETS) 
 	touch $@
 
 clean: ## Remove build related file
@@ -365,12 +347,16 @@ protogen:
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
 
-falcon-grpc: backend-assets/grpc
+falcon-grpc: backend-assets/grpc go-ggllm/libggllm.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggllm LIBRARY_PATH=$(shell pwd)/go-ggllm \
 	$(GOCMD) build -x -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/falcon ./cmd/grpc/falcon/
 
-llama-grpc: backend-assets/grpc
+llama-grpc: backend-assets/grpc go-llama/libbinding.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama LIBRARY_PATH=$(shell pwd)/go-llama \
 	$(GOCMD) build -x -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama ./cmd/grpc/llama/
 
-grpcs: falcon-grpc llama-grpc
+gpt4all-grpc: backend-assets/grpc backend-assets/gpt4all gpt4all/gpt4all-bindings/golang/libgpt4all.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ \
+	$(GOCMD) build -x -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gpt4all ./cmd/grpc/gpt4all/
+
+grpcs: falcon-grpc llama-grpc gpt4all-grpc
