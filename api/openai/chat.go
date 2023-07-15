@@ -19,9 +19,10 @@ import (
 
 func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	process := func(s string, req *OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
+		emptyMessage := ""
 		initialMessage := OpenAIResponse{
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []Choice{{Delta: &Message{Role: "assistant"}}},
+			Choices: []Choice{{Delta: &Message{Role: "assistant", Content: &emptyMessage}}},
 			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
