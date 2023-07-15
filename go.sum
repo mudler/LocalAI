@@ -110,6 +110,8 @@ github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9G
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/mudler/go-ggllm.cpp v0.0.0-20230708215552-a6504d5bc137 h1:d+XGcCrw65q6KDUbF2wZBPVZ7i7kU6I7fKSX+UwzP7w=
 github.com/mudler/go-ggllm.cpp v0.0.0-20230708215552-a6504d5bc137/go.mod h1:00giAi/vwF8LX29JBjkPQhtASsivPnGNzB6sdmk8JGE=
+github.com/mudler/go-ggllm.cpp v0.0.0-20230709223052-862477d16eef h1:OJZtJ5vYhlkTJI0RHIl62kOkhiINQEhZgsXlwmmNDhM=
+github.com/mudler/go-ggllm.cpp v0.0.0-20230709223052-862477d16eef/go.mod h1:00giAi/vwF8LX29JBjkPQhtASsivPnGNzB6sdmk8JGE=
 github.com/mudler/go-piper v0.0.0-20230621222733-56b8a81b4760 h1:OFVkSxR7CRSRSNm5dvpMRZwmSwWa8EMMnHbc84fW5tU=
 github.com/mudler/go-piper v0.0.0-20230621222733-56b8a81b4760/go.mod h1:O7SwdSWMilAWhBZMK9N9Y/oBDyMMzshE3ju8Xkexwig=
 github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d h1:/lAg9vPAAU+s35cDMCx1IyeMn+4OYfCBPqi08Q8vXDg=
