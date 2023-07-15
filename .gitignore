@@ -30,3 +30,13 @@ release/
 backend-assets/
 
 /ggml-metal.metal
+.env
+pictures/cc1EUUHn.s
+pictures/cc86q29b.s
+pictures/cch1MqnM.s
+pictures/ccj0ZrSv.s
+pictures/ccl2gcGz.s
+pictures/ccOMMq5C.s
+cuda_12.0.0_525.60.13_linux.run
+myapp
+helloworld.cu

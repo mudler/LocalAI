@@ -1,0 +1,40 @@
+version: '3.6'
+
+services:
+  api:
+    container_name: local-ai
+    image: quay.io/go-skynet/local-ai:v0.19.0-cublas-cuda12
+    restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - 8080:8080
+    environment:
+        - DEBUG=true
+        - MODELS_PATH=/models
+        - 'PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/openllama_7b.yaml", "name": "gpt-3.5-turbo", "overrides": { "f16":true, "gpu_layers": 35, "mmap": true, "batch": 512 } } ]'        
+        - THREADS=6
+        - BUILD_TYPE=cublas
+        - REBUILD=true
+        - NVIDIA_VISIBLE_DEVICES=all
+        - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+        - ./models:/models:cached
+        - ./pictures/:/tmp/
+    command: ["/usr/bin/local-ai"]
+
+  flowise:
+    container_name: flowise-ai
+    image: flowiseai/flowise:latest
+    restart: always
+    ports:
+        - 3000:3000
+    volumes:
+        - ~/.flowise:/root/.flowise
+        - ./logs:/logs/
+    command: /bin/sh -c "sleep 3; flowise start"
