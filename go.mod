@@ -26,7 +26,7 @@ require (
 	github.com/otiai10/openaigo v1.5.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/rs/zerolog v1.29.1
-	github.com/sashabaranov/go-openai v1.13.0
+	github.com/sashabaranov/go-openai v1.14.0
 	github.com/tmc/langchaingo v0.0.0-20230709010448-a875e6bc0c54
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/valyala/fasthttp v1.48.0
