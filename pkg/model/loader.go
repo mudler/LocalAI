@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc"
+	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"
 )
 
@@ -17,15 +20,17 @@ type ModelLoader struct {
 	ModelPath string
 	mu        sync.Mutex
 	// TODO: this needs generics
-	models           map[string]interface{}
+	models           map[string]*grpc.Client
+	grpcProcesses    map[string]*process.Process
 	promptsTemplates map[string]*template.Template
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
 	return &ModelLoader{
 		ModelPath:        modelPath,
-		models:           make(map[string]interface{}),
+		models:           make(map[string]*grpc.Client),
 		promptsTemplates: make(map[string]*template.Template),
+		grpcProcesses:    make(map[string]*process.Process),
 	}
 }
 
@@ -110,14 +115,14 @@ func (ml *ModelLoader) loadTemplateIfExists(modelName, modelFile string) error {
 	return nil
 }
 
-func (ml *ModelLoader) LoadModel(modelName string, loader func(string) (interface{}, error)) (interface{}, error) {
+func (ml *ModelLoader) LoadModel(modelName string, loader func(string) (*grpc.Client, error)) (*grpc.Client, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
 	// Check if we already have a loaded model
-	if m, ok := ml.models[modelName]; ok {
+	if model := ml.checkIsLoaded(modelName); model != nil {
 		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
-		return m, nil
+		return model, nil
 	}
 
 	// Load the model and keep it in memory for later use
@@ -136,4 +141,26 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string) (interfac
 
 	ml.models[modelName] = model
 	return model, nil
+}
+
+func (ml *ModelLoader) checkIsLoaded(s string) *grpc.Client {
+	if m, ok := ml.models[s]; ok {
+		log.Debug().Msgf("Model already loaded in memory: %s", s)
+
+		if !m.HealthCheck(context.Background()) {
+			log.Debug().Msgf("GRPC Model not responding", s)
+			if !ml.grpcProcesses[s].IsAlive() {
+				log.Debug().Msgf("GRPC Process is not responding", s)
+				// stop and delete the process, this forces to re-load the model and re-create again the service
+				ml.grpcProcesses[s].Stop()
+				delete(ml.grpcProcesses, s)
+				delete(ml.models, s)
+				return nil
+			}
+		}
+
+		return m
+	}
+
+	return nil
 }

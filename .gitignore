@@ -1,12 +1,19 @@
 # go-llama build artifacts
 go-llama
-gpt4all
+/gpt4all
 go-stable-diffusion
+go-piper
+go-ggllm
+/piper
+
+*.a
+get-sources
+
 go-ggml-transformers
 go-gpt2
 go-rwkv
 whisper.cpp
-bloomz
+/bloomz
 go-bert
 
 # LocalAI build binary
@@ -30,6 +37,7 @@ release/
 backend-assets/
 
 /ggml-metal.metal
+<<<<<<< HEAD
 .env
 pictures/cc1EUUHn.s
 pictures/cc86q29b.s
@@ -40,3 +48,5 @@ pictures/ccOMMq5C.s
 cuda_12.0.0_525.60.13_linux.run
 myapp
 helloworld.cu
+=======
+>>>>>>> cb5d6f6e3a3b5be9c1572100680fbfa3865646d1
