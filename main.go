@@ -2,9 +2,12 @@ package main
 
 import (
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	api "github.com/go-skynet/LocalAI/api"
+	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/internal"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog"
@@ -14,6 +17,13 @@ import (
 
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	// clean up process
+	go func() {
+		c := make(chan os.Signal, 1) // we need to reserve to buffer size 1, so the notifier are not blocked
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		<-c
+		os.Exit(1)
+	}()
 
 	path, err := os.Getwd()
 	if err != nil {
@@ -129,23 +139,23 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 		Copyright: "Ettore Di Giacinto",
 		Action: func(ctx *cli.Context) error {
 			app, err := api.App(
-				api.WithConfigFile(ctx.String("config-file")),
-				api.WithJSONStringPreload(ctx.String("preload-models")),
-				api.WithYAMLConfigPreload(ctx.String("preload-models-config")),
-				api.WithModelLoader(model.NewModelLoader(ctx.String("models-path"))),
-				api.WithContextSize(ctx.Int("context-size")),
-				api.WithDebug(ctx.Bool("debug")),
-				api.WithImageDir(ctx.String("image-path")),
-				api.WithAudioDir(ctx.String("audio-path")),
-				api.WithF16(ctx.Bool("f16")),
-				api.WithStringGalleries(ctx.String("galleries")),
-				api.WithDisableMessage(false),
-				api.WithCors(ctx.Bool("cors")),
-				api.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
-				api.WithThreads(ctx.Int("threads")),
-				api.WithBackendAssets(backendAssets),
-				api.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
-				api.WithUploadLimitMB(ctx.Int("upload-limit")))
+				options.WithConfigFile(ctx.String("config-file")),
+				options.WithJSONStringPreload(ctx.String("preload-models")),
+				options.WithYAMLConfigPreload(ctx.String("preload-models-config")),
+				options.WithModelLoader(model.NewModelLoader(ctx.String("models-path"))),
+				options.WithContextSize(ctx.Int("context-size")),
+				options.WithDebug(ctx.Bool("debug")),
+				options.WithImageDir(ctx.String("image-path")),
+				options.WithAudioDir(ctx.String("audio-path")),
+				options.WithF16(ctx.Bool("f16")),
+				options.WithStringGalleries(ctx.String("galleries")),
+				options.WithDisableMessage(false),
+				options.WithCors(ctx.Bool("cors")),
+				options.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
+				options.WithThreads(ctx.Int("threads")),
+				options.WithBackendAssets(backendAssets),
+				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
+				options.WithUploadLimitMB(ctx.Int("upload-limit")))
 			if err != nil {
 				return err
 			}
