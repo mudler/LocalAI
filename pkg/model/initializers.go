@@ -37,6 +37,7 @@ const (
 	Gpt4All             = "gpt4all"
 	FalconBackend       = "falcon"
 	FalconGGMLBackend   = "falcon-ggml"
+	LlamaMasterBackend  = "llama-master"
 
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
@@ -186,7 +187,7 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 
 	backend := strings.ToLower(o.backendString)
 	switch backend {
-	case LlamaBackend, GPTJBackend, DollyBackend,
+	case LlamaBackend, LlamaMasterBackend, GPTJBackend, DollyBackend,
 		MPTBackend, Gpt2Backend, FalconBackend,
 		GPTNeoXBackend, ReplitBackend, StarcoderBackend, BloomzBackend,
 		RwkvBackend, LCHuggingFaceBackend, BertEmbeddingsBackend, FalconGGMLBackend, StableDiffusionBackend, WhisperBackend:
