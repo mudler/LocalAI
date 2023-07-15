@@ -30,6 +30,15 @@ jobs:
           - repository: "nomic-ai/gpt4all"
             variable: "GPT4ALL_VERSION"
             branch: "main"
+          - repository: "mudler/go-ggllm.cpp"
+            variable: "GOGGLLM_VERSION"
+            branch: "master"
+          - repository: "mudler/go-stable-diffusion"
+            variable: "STABLEDIFFUSION_VERSION"
+            branch: "master"
+          - repository: "mudler/go-piper"
+            variable: "PIPER_VERSION"
+            branch: "master"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
