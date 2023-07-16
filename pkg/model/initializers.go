@@ -48,7 +48,7 @@ const (
 	//GGLLMFalconBackend     = "falcon"
 )
 
-var autoLoadBackends []string = []string{
+var AutoLoadBackends []string = []string{
 	LlamaBackend,
 	Gpt4All,
 	RwkvBackend,
@@ -56,6 +56,7 @@ var autoLoadBackends []string = []string{
 	WhisperBackend,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,
+	LlamaMasterBackend,
 	FalconGGMLBackend,
 	GPTJBackend,
 	Gpt2Backend,
@@ -218,7 +219,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 	ml.mu.Unlock()
 	var err error
 
-	for _, b := range autoLoadBackends {
+	for _, b := range AutoLoadBackends {
 		if b == BloomzBackend || b == WhisperBackend || b == RwkvBackend { // do not autoload bloomz/whisper/rwkv
 			continue
 		}
