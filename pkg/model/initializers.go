@@ -238,6 +238,9 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 		} else if modelerr != nil {
 			err = multierror.Append(err, modelerr)
 			log.Debug().Msgf("[%s] Fails: %s", b, modelerr.Error())
+		} else if model == nil {
+			err = multierror.Append(err, modelerr)
+			log.Debug().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
 		}
 	}
 
