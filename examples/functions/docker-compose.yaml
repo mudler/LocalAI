@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  api:
+    image: quay.io/go-skynet/local-ai:master
+    ports:
+      - 8080:8080
+    env_file:
+      - .env
+    environment:
+      - DEBUG=true
+      - MODELS_PATH=/models
+    volumes:
+      - ./models:/models:cached
+    command: ["/usr/bin/local-ai" ]
+  functions:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    env_file:
+      - .env

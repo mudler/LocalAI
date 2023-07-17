@@ -64,6 +64,14 @@ A ready to use example to show e2e how to integrate LocalAI with langchain
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/langchain-python/)
 
+### LocalAI functions
+
+_by [@mudler](https://github.com/mudler)_
+
+A ready to use example to show how to use OpenAI functions with LocalAI
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/functions/)
+
 ### LocalAI WebUI
 
 _by [@dhruvgera](https://github.com/dhruvgera)_
