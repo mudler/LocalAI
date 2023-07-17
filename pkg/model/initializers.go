@@ -51,9 +51,7 @@ const (
 var AutoLoadBackends []string = []string{
 	LlamaBackend,
 	Gpt4All,
-	RwkvBackend,
 	FalconBackend,
-	WhisperBackend,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,
 	LlamaMasterBackend,
@@ -64,7 +62,6 @@ var AutoLoadBackends []string = []string{
 	MPTBackend,
 	ReplitBackend,
 	StarcoderBackend,
-	BloomzBackend,
 }
 
 func (ml *ModelLoader) StopGRPC() {
@@ -220,9 +217,6 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 	var err error
 
 	for _, b := range AutoLoadBackends {
-		if b == BloomzBackend || b == WhisperBackend || b == RwkvBackend { // do not autoload bloomz/whisper/rwkv
-			continue
-		}
 		log.Debug().Msgf("[%s] Attempting to load", b)
 
 		model, modelerr := ml.BackendLoader(
