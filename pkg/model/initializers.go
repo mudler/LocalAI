@@ -37,6 +37,7 @@ const (
 	Gpt4All             = "gpt4all"
 	FalconBackend       = "falcon"
 	FalconGGMLBackend   = "falcon-ggml"
+	LlamaMasterBackend  = "llama-master"
 
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
@@ -47,14 +48,13 @@ const (
 	//GGLLMFalconBackend     = "falcon"
 )
 
-var autoLoadBackends []string = []string{
+var AutoLoadBackends []string = []string{
 	LlamaBackend,
 	Gpt4All,
-	RwkvBackend,
 	FalconBackend,
-	WhisperBackend,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,
+	LlamaMasterBackend,
 	FalconGGMLBackend,
 	GPTJBackend,
 	Gpt2Backend,
@@ -62,7 +62,6 @@ var autoLoadBackends []string = []string{
 	MPTBackend,
 	ReplitBackend,
 	StarcoderBackend,
-	BloomzBackend,
 }
 
 func (ml *ModelLoader) StopGRPC() {
@@ -186,7 +185,7 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 
 	backend := strings.ToLower(o.backendString)
 	switch backend {
-	case LlamaBackend, GPTJBackend, DollyBackend,
+	case LlamaBackend, LlamaMasterBackend, GPTJBackend, DollyBackend,
 		MPTBackend, Gpt2Backend, FalconBackend,
 		GPTNeoXBackend, ReplitBackend, StarcoderBackend, BloomzBackend,
 		RwkvBackend, LCHuggingFaceBackend, BertEmbeddingsBackend, FalconGGMLBackend, StableDiffusionBackend, WhisperBackend:
@@ -217,10 +216,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 	ml.mu.Unlock()
 	var err error
 
-	for _, b := range autoLoadBackends {
-		if b == BloomzBackend || b == WhisperBackend || b == RwkvBackend { // do not autoload bloomz/whisper/rwkv
-			continue
-		}
+	for _, b := range AutoLoadBackends {
 		log.Debug().Msgf("[%s] Attempting to load", b)
 
 		model, modelerr := ml.BackendLoader(
@@ -236,6 +232,9 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 		} else if modelerr != nil {
 			err = multierror.Append(err, modelerr)
 			log.Debug().Msgf("[%s] Fails: %s", b, modelerr.Error())
+		} else if model == nil {
+			err = multierror.Append(err, modelerr)
+			log.Debug().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
 		}
 	}
 

@@ -7,6 +7,7 @@ BINARY_NAME=local-ai
 # Temporarly pinned to https://github.com/go-skynet/go-llama.cpp/pull/124
 GOLLAMA_VERSION?=cb8d7cd4cb95725a04504a9e3a26dd72a12b69ac
 
+GOLLAMA_MASTER_VERSION?=6c97625cca76aa5fca98a5a138ee4e5fe4797ecb
 # Temporary set a specific version of llama.cpp
 # containing: https://github.com/ggerganov/llama.cpp/pull/1773 and
 # rebased on top of master.
@@ -204,17 +205,25 @@ ifneq ($(LLAMA_CPP_REPO),)
 	cd go-llama && rm -rf llama.cpp && git clone $(LLAMA_CPP_REPO) llama.cpp && cd llama.cpp && git checkout -b build $(LLAMA_CPP_VERSION) && git submodule update --init --recursive --depth 1
 endif
 
+go-llama-master:
+	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama-master
+	cd go-llama-master && git checkout -b build $(GOLLAMA_MASTER_VERSION) && git submodule update --init --recursive --depth 1
+
 go-llama/libbinding.a: go-llama
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
+
+go-llama-master/libbinding.a: go-llama-master
+	$(MAKE) -C go-llama-master BUILD_TYPE=$(BUILD_TYPE) libbinding.a
 
 go-piper/libpiper_binding.a:
 	$(MAKE) -C go-piper libpiper_binding.a example/main
 
-get-sources: go-llama go-ggllm go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
+get-sources: go-llama go-ggllm go-llama-master go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
 	touch $@
 
 replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp-master=$(shell pwd)/go-llama-master
 	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(shell pwd)/gpt4all/gpt4all-bindings/golang
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-ggml-transformers.cpp=$(shell pwd)/go-ggml-transformers
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
@@ -232,6 +241,7 @@ prepare-sources: get-sources replace
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
 	$(MAKE) -C go-llama clean
+	$(MAKE) -C go-llama-master clean
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ clean
 	$(MAKE) -C go-ggml-transformers clean
 	$(MAKE) -C go-rwkv clean
@@ -361,6 +371,10 @@ backend-assets/grpc/llama: backend-assets/grpc go-llama/libbinding.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama LIBRARY_PATH=$(shell pwd)/go-llama \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama ./cmd/grpc/llama/
 
+backend-assets/grpc/llama-master: backend-assets/grpc go-llama-master/libbinding.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama-master LIBRARY_PATH=$(shell pwd)/go-llama-master \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-master ./cmd/grpc/llama-master/
+
 backend-assets/grpc/gpt4all: backend-assets/grpc backend-assets/gpt4all gpt4all/gpt4all-bindings/golang/libgpt4all.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gpt4all ./cmd/grpc/gpt4all/
@@ -424,4 +438,4 @@ backend-assets/grpc/whisper: backend-assets/grpc whisper.cpp/libwhisper.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/whisper.cpp LIBRARY_PATH=$(shell pwd)/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./cmd/grpc/whisper/
 
-grpcs: prepare backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/falcon backend-assets/grpc/bloomz backend-assets/grpc/llama backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
+grpcs: prepare backend-assets/grpc/langchain-huggingface backend-assets/grpc/llama-master backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/falcon backend-assets/grpc/bloomz backend-assets/grpc/llama backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
