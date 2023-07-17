@@ -18,7 +18,7 @@ LLAMA_CPP_VERSION?=48ce8722a05a018681634af801fd0fd45b3a87cc
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
-GPT4ALL_VERSION?=cfd70b69fcf5e587b8e0e3e9b9aaa90e19cbbc51
+GPT4ALL_VERSION?=1e74171a7bbfa3a431fd068882c2912364d4ab26
 
 # go-ggml-transformers version
 GOGGMLTRANSFORMERS_VERSION?=ffb09d7dd71e2cbc6c5d7d05357d230eea6f369a
