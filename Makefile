@@ -189,7 +189,7 @@ go-ggml-transformers:
 	cd go-ggml-transformers && git checkout -b build $(GOGPT2_VERSION) && git submodule update --init --recursive --depth 1
 
 go-ggml-transformers/libtransformers.a: go-ggml-transformers
-	$(MAKE) -C go-ggml-transformers libtransformers.a
+	$(MAKE) -C go-ggml-transformers BUILD_TYPE=$(BUILD_TYPE) libtransformers.a
 
 whisper.cpp:
 	git clone https://github.com/ggerganov/whisper.cpp.git
