@@ -16,6 +16,7 @@ var (
 	PRIMITIVE_RULES = map[string]string{
 		"boolean": `("true" | "false") space`,
 		"number":  `[0-9]+ space`,                    // TODO complete
+		"integer": `[0-9]+ space`,                    // TODO complete
 		"string":  `"\"" [ \t!#-\[\]-~]* "\"" space`, // TODO complete
 		"null":    `"null" space`,
 	}
@@ -82,7 +83,7 @@ func (sc *JSONSchemaConverter) formatGrammar() string {
 	return strings.Join(lines, "\n")
 }
 
-func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string) string {
+func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string, rootSchema map[string]interface{}) string {
 	st, existType := schema["type"]
 	var schemaType string
 	if existType {
@@ -101,18 +102,21 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string)
 
 		if oneOfExists {
 			for i, altSchema := range oneOfSchemas {
-				alternative := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i))
+				alternative := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
 				alternatives = append(alternatives, alternative)
 			}
 		} else if anyOfExists {
 			for i, altSchema := range anyOfSchemas {
-				alternative := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i))
+				alternative := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
 				alternatives = append(alternatives, alternative)
 			}
 		}
 
 		rule := strings.Join(alternatives, " | ")
 		return sc.addRule(ruleName, rule)
+	} else if ref, exists := schema["$ref"].(string); exists {
+		referencedSchema := sc.resolveReference(ref, rootSchema)
+		return sc.visit(referencedSchema, name, rootSchema)
 	} else if constVal, exists := schema["const"]; exists {
 		return sc.addRule(ruleName, sc.formatLiteral(constVal))
 	} else if enumVals, exists := schema["enum"].([]interface{}); exists {
@@ -152,7 +156,7 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string)
 		for i, propPair := range propPairs {
 			propName := propPair.propName
 			propSchema := propPair.propSchema
-			propRuleName := sc.visit(propSchema, fmt.Sprintf("%s-%s", ruleName, propName))
+			propRuleName := sc.visit(propSchema, fmt.Sprintf("%s-%s", ruleName, propName), rootSchema)
 
 			if i > 0 {
 				rule.WriteString(` "," space`)
@@ -164,7 +168,7 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string)
 		rule.WriteString(` "}" space`)
 		return sc.addRule(ruleName, rule.String())
 	} else if items, exists := schema["items"].(map[string]interface{}); schemaType == "array" && exists {
-		itemRuleName := sc.visit(items, fmt.Sprintf("%s-item", ruleName))
+		itemRuleName := sc.visit(items, fmt.Sprintf("%s-item", ruleName), rootSchema)
 		rule := fmt.Sprintf(`"[" space (%s ("," space %s)*)? "]" space`, itemRuleName, itemRuleName)
 		return sc.addRule(ruleName, rule)
 	} else {
@@ -175,9 +179,30 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string)
 		return sc.addRule(schemaType, primitiveRule)
 	}
 }
+func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[string]interface{}) map[string]interface{} {
+	if !strings.HasPrefix(ref, "#/$defs/") {
+		panic(fmt.Sprintf("Invalid reference format: %s", ref))
+	}
 
+	defKey := strings.TrimPrefix(ref, "#/$defs/")
+	definitions, exists := rootSchema["$defs"].(map[string]interface{})
+	if !exists {
+		fmt.Println(rootSchema)
+
+		panic("No definitions found in the schema")
+	}
+
+	def, exists := definitions[defKey].(map[string]interface{})
+	if !exists {
+		fmt.Println(definitions)
+
+		panic(fmt.Sprintf("Definition not found: %s", defKey))
+	}
+
+	return def
+}
 func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}) string {
-	sc.visit(schema, "")
+	sc.visit(schema, "", schema)
 	return sc.formatGrammar()
 }
 
@@ -212,8 +237,9 @@ type Item struct {
 }
 
 type JSONFunctionStructure struct {
-	OneOf []Item `json:"oneOf,omitempty"`
-	AnyOf []Item `json:"anyOf,omitempty"`
+	OneOf []Item                 `json:"oneOf,omitempty"`
+	AnyOf []Item                 `json:"anyOf,omitempty"`
+	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
 func (j JSONFunctionStructure) Grammar(propOrder string) string {
