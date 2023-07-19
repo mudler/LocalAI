@@ -282,9 +282,6 @@ build: grpcs prepare ## Build the project
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
-ifeq ($(BUILD_TYPE),metal)
-	cp go-llama/build/bin/ggml-metal.metal .
-endif
 
 dist: build
 	mkdir -p release
@@ -370,6 +367,10 @@ backend-assets/grpc/falcon: backend-assets/grpc go-ggllm/libggllm.a
 backend-assets/grpc/llama: backend-assets/grpc go-llama/libbinding.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama LIBRARY_PATH=$(shell pwd)/go-llama \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama ./cmd/grpc/llama/
+# TODO: every binary should have its own folder instead, so can have different metal implementations
+ifeq ($(BUILD_TYPE),metal)
+	cp go-llama/build/bin/ggml-metal.metal backend-assets/grpc/
+endif
 
 backend-assets/grpc/llama-master: backend-assets/grpc go-llama-master/libbinding.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama-master LIBRARY_PATH=$(shell pwd)/go-llama-master \
