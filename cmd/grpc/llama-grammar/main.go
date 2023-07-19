@@ -7,7 +7,7 @@ package main
 import (
 	"flag"
 
-	llama "github.com/go-skynet/LocalAI/pkg/grpc/llm/llama-master"
+	llama "github.com/go-skynet/LocalAI/pkg/grpc/llm/llama-grammar"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )

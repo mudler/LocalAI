@@ -39,7 +39,7 @@ require (
 require (
 	github.com/dlclark/regexp2 v1.8.1 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
-	github.com/go-skynet/go-llama.cpp-master v0.0.0-20230703203849-ffa57fbc3a12 // indirect
+	github.com/go-skynet/go-llama.cpp-grammar v0.0.0-20230703203849-ffa57fbc3a12 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
