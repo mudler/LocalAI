@@ -74,7 +74,7 @@ func (ml *ModelLoader) StopGRPC() {
 // It also loads the model
 func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (*grpc.Client, error) {
 	return func(s string) (*grpc.Client, error) {
-		log.Debug().Msgf("Loading GRPC Model", backend, *o)
+		log.Debug().Msgf("Loading GRPC Model %s: %+v", backend, *o)
 
 		grpcProcess := filepath.Join(o.assetDir, "backend-assets", "grpc", backend)
 
@@ -88,7 +88,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (*grpc
 			return nil, err
 		}
 
-		log.Debug().Msgf("Loading GRPC Process", grpcProcess)
+		log.Debug().Msgf("Loading GRPC Process %s", grpcProcess)
 		port, err := freeport.GetFreePort()
 		if err != nil {
 			return nil, err
