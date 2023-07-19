@@ -62,6 +62,11 @@ var AutoLoadBackends []string = []string{
 	MPTBackend,
 	ReplitBackend,
 	StarcoderBackend,
+	BloomzBackend,
+	RwkvBackend,
+	WhisperBackend,
+	StableDiffusionBackend,
+	PiperBackend,
 }
 
 func (ml *ModelLoader) StopGRPC() {
