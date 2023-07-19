@@ -7,7 +7,7 @@ BINARY_NAME=local-ai
 # Temporarly pinned to https://github.com/go-skynet/go-llama.cpp/pull/124
 GOLLAMA_VERSION?=cb8d7cd4cb95725a04504a9e3a26dd72a12b69ac
 
-GOLLAMA_MASTER_VERSION?=6c97625cca76aa5fca98a5a138ee4e5fe4797ecb
+GOLLAMA_MASTER_VERSION?=c90272fdb693fc8d6faf20e1e9a5481c453318e8
 # Temporary set a specific version of llama.cpp
 # containing: https://github.com/ggerganov/llama.cpp/pull/1773 and
 # rebased on top of master.
