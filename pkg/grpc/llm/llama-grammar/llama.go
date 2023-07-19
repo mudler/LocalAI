@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/go-skynet/go-llama.cpp-master"
+	"github.com/go-skynet/go-llama.cpp-grammar"
 )
 
 type LLM struct {
@@ -70,6 +70,8 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 	if opts.PromptCacheRO {
 		predictOptions = append(predictOptions, llama.EnablePromptCacheRO)
 	}
+
+	predictOptions = append(predictOptions, llama.WithGrammar(opts.Grammar))
 
 	// Expected absolute path
 	if opts.PromptCachePath != "" {

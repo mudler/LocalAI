@@ -71,8 +71,6 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 		predictOptions = append(predictOptions, llama.EnablePromptCacheRO)
 	}
 
-	predictOptions = append(predictOptions, llama.WithGrammar(opts.Grammar))
-
 	// Expected absolute path
 	if opts.PromptCachePath != "" {
 		predictOptions = append(predictOptions, llama.SetPathPromptCache(opts.PromptCachePath))
