@@ -124,6 +124,8 @@ var _ = Describe("API test", func() {
 	var c context.Context
 	var cancel context.CancelFunc
 	var tmpdir string
+	commonOpts := []options.AppOption{options.WithDebug(false),
+		options.WithDisableMessage(true)}
 
 	Context("API with ephemeral models", func() {
 		BeforeEach(func() {
@@ -159,9 +161,10 @@ var _ = Describe("API test", func() {
 			}
 
 			app, err = App(
-				options.WithContext(c),
-				options.WithGalleries(galleries),
-				options.WithModelLoader(modelLoader), options.WithBackendAssets(backendAssets), options.WithBackendAssetsOutput(tmpdir))
+				append(commonOpts,
+					options.WithContext(c),
+					options.WithGalleries(galleries),
+					options.WithModelLoader(modelLoader), options.WithBackendAssets(backendAssets), options.WithBackendAssetsOutput(tmpdir))...)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -400,13 +403,14 @@ var _ = Describe("API test", func() {
 			}
 
 			app, err = App(
-				options.WithContext(c),
-				options.WithAudioDir(tmpdir),
-				options.WithImageDir(tmpdir),
-				options.WithGalleries(galleries),
-				options.WithModelLoader(modelLoader),
-				options.WithBackendAssets(backendAssets),
-				options.WithBackendAssetsOutput(tmpdir),
+				append(commonOpts,
+					options.WithContext(c),
+					options.WithAudioDir(tmpdir),
+					options.WithImageDir(tmpdir),
+					options.WithGalleries(galleries),
+					options.WithModelLoader(modelLoader),
+					options.WithBackendAssets(backendAssets),
+					options.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
@@ -500,7 +504,9 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			app, err = App(options.WithContext(c), options.WithModelLoader(modelLoader))
+			app, err = App(
+				append(commonOpts,
+					options.WithContext(c), options.WithModelLoader(modelLoader))...)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -674,7 +680,12 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			app, err = App(options.WithContext(c), options.WithModelLoader(modelLoader), options.WithConfigFile(os.Getenv("CONFIG_FILE")))
+			app, err = App(
+				append(commonOpts,
+					options.WithContext(c),
+					options.WithModelLoader(modelLoader),
+					options.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
+			)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
