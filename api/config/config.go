@@ -60,10 +60,11 @@ type Functions struct {
 }
 
 type TemplateConfig struct {
-	Completion string `yaml:"completion"`
-	Functions  string `yaml:"function"`
-	Chat       string `yaml:"chat"`
-	Edit       string `yaml:"edit"`
+	Completion  string `yaml:"completion"`
+	Functions   string `yaml:"function"`
+	Chat        string `yaml:"chat"`
+	ChatMessage string `yaml:"chat_message"`
+	Edit        string `yaml:"edit"`
 }
 
 type ConfigLoader struct {

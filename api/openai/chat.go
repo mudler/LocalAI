@@ -112,7 +112,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		var predInput string
 
 		mess := []string{}
-		for _, i := range input.Messages {
+		for messageIndex, i := range input.Messages {
 			var content string
 			role := i.Role
 			if role == "system" {
@@ -130,31 +130,47 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			}
 			r := config.Roles[role]
 			contentExists := i.Content != nil && *i.Content != ""
-			if r != "" {
-				if contentExists {
-					content = fmt.Sprint(r, " ", *i.Content)
+			if config.TemplateConfig.ChatMessage != "" {
+				chatMessageData := model.ChatMessageTemplateData{
+					SystemPrompt: requestSystemPrompt,
+					Role:         r,
+					RoleName:     role,
+					Content:      *i.Content,
+					MessageIndex: messageIndex,
 				}
-				if i.FunctionCall != nil {
-					j, err := json.Marshal(i.FunctionCall)
-					if err == nil {
-						if contentExists {
-							content += "\n" + fmt.Sprint(r, " ", string(j))
-						} else {
-							content = fmt.Sprint(r, " ", string(j))
+				chatMessageTemplate, err := o.Loader.TemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
+				if err != nil {
+					log.Error().Msgf("error processing message %+v using template \"%s\". Skipping!", chatMessageData, config.TemplateConfig.ChatMessage)
+					continue
+				}
+				content = chatMessageTemplate
+			} else {
+				if r != "" {
+					if contentExists {
+						content = fmt.Sprint(r, " ", *i.Content)
+					}
+					if i.FunctionCall != nil {
+						j, err := json.Marshal(i.FunctionCall)
+						if err == nil {
+							if contentExists {
+								content += "\n" + fmt.Sprint(r, " ", string(j))
+							} else {
+								content = fmt.Sprint(r, " ", string(j))
+							}
 						}
 					}
-				}
-			} else {
-				if contentExists {
-					content = fmt.Sprint(*i.Content)
-				}
-				if i.FunctionCall != nil {
-					j, err := json.Marshal(i.FunctionCall)
-					if err == nil {
-						if contentExists {
-							content += "\n" + string(j)
-						} else {
-							content = string(j)
+				} else {
+					if contentExists {
+						content = fmt.Sprint(*i.Content)
+					}
+					if i.FunctionCall != nil {
+						j, err := json.Marshal(i.FunctionCall)
+						if err == nil {
+							if contentExists {
+								content += "\n" + string(j)
+							} else {
+								content = string(j)
+							}
 						}
 					}
 				}
@@ -190,7 +206,6 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		templatedInput, err := o.Loader.TemplatePrefix(templateFile, model.PromptTemplateData{
 			Input:     predInput,
 			Functions: funcs,
-			System:    requestSystemPrompt,
 		})
 		if err == nil {
 			predInput = templatedInput

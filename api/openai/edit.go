@@ -37,7 +37,6 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			templatedInput, err := o.Loader.TemplatePrefix(templateFile, model.PromptTemplateData{
 				Input:       i,
 				Instruction: input.Instruction,
-				System:      config.SystemPrompt,
 			})
 			if err == nil {
 				i = templatedInput
