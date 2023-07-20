@@ -11,10 +11,21 @@ import (
 	"sync"
 	"text/template"
 
+	grammar "github.com/go-skynet/LocalAI/pkg/grammar"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"
 )
+
+// Rather than pass an interface{} to the prompt template:
+// These are the definitions of all possible variables LocalAI will currently populate for use in a prompt template file
+// Please note: Not all of these are populated on every endpoint - your template should either be tested for each endpoint you map it to, or tolerant of zero values.
+type PromptTemplateData struct {
+	System      string
+	Input       string
+	Instruction string
+	Functions   []grammar.Function
+}
 
 type ModelLoader struct {
 	ModelPath string
@@ -58,7 +69,7 @@ func (ml *ModelLoader) ListModels() ([]string, error) {
 	return models, nil
 }
 
-func (ml *ModelLoader) TemplatePrefix(modelName string, in interface{}) (string, error) {
+func (ml *ModelLoader) TemplatePrefix(modelName string, in PromptTemplateData) (string, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
@@ -148,9 +159,9 @@ func (ml *ModelLoader) checkIsLoaded(s string) *grpc.Client {
 		log.Debug().Msgf("Model already loaded in memory: %s", s)
 
 		if !m.HealthCheck(context.Background()) {
-			log.Debug().Msgf("GRPC Model not responding", s)
+			log.Debug().Msgf("GRPC Model not responding: %s", s)
 			if !ml.grpcProcesses[s].IsAlive() {
-				log.Debug().Msgf("GRPC Process is not responding", s)
+				log.Debug().Msgf("GRPC Process is not responding: %s", s)
 				// stop and delete the process, this forces to re-load the model and re-create again the service
 				ml.grpcProcesses[s].Stop()
 				delete(ml.grpcProcesses, s)

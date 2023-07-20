@@ -49,6 +49,8 @@ type Config struct {
 	functionCallString, functionCallNameString string
 
 	FunctionsConfig Functions `yaml:"function"`
+
+	SystemPrompt string `yaml:system_prompt`
 }
 
 type Functions struct {
