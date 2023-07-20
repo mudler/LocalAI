@@ -30,6 +30,10 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 		model.WithContext(o.Context),
 	}
 
+	for k, v := range o.ExternalGRPCBackends {
+		opts = append(opts, model.WithExternalBackend(k, v))
+	}
+
 	if c.Backend == "" {
 		inferenceModel, err = loader.GreedyLoader(opts...)
 	} else {

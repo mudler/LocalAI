@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	api "github.com/go-skynet/LocalAI/api"
@@ -39,6 +40,10 @@ func main() {
 			&cli.BoolFlag{
 				Name:    "f16",
 				EnvVars: []string{"F16"},
+			},
+			&cli.BoolFlag{
+				Name:    "autoload-galleries",
+				EnvVars: []string{"AUTOLOAD_GALLERIES"},
 			},
 			&cli.BoolFlag{
 				Name:    "debug",
@@ -108,6 +113,11 @@ func main() {
 				EnvVars: []string{"BACKEND_ASSETS_PATH"},
 				Value:   "/tmp/localai/backend_data",
 			},
+			&cli.StringSliceFlag{
+				Name:    "external-grpc-backends",
+				Usage:   "A list of external grpc backends",
+				EnvVars: []string{"EXTERNAL_GRPC_BACKENDS"},
+			},
 			&cli.IntFlag{
 				Name:    "context-size",
 				Usage:   "Default context size of the model",
@@ -138,7 +148,8 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 		UsageText: `local-ai [options]`,
 		Copyright: "Ettore Di Giacinto",
 		Action: func(ctx *cli.Context) error {
-			app, err := api.App(
+
+			opts := []options.AppOption{
 				options.WithConfigFile(ctx.String("config-file")),
 				options.WithJSONStringPreload(ctx.String("preload-models")),
 				options.WithYAMLConfigPreload(ctx.String("preload-models-config")),
@@ -155,7 +166,22 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithThreads(ctx.Int("threads")),
 				options.WithBackendAssets(backendAssets),
 				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
-				options.WithUploadLimitMB(ctx.Int("upload-limit")))
+				options.WithUploadLimitMB(ctx.Int("upload-limit")),
+			}
+
+			externalgRPC := ctx.StringSlice("external-grpc-backends")
+			// split ":" to get backend name and the uri
+			for _, v := range externalgRPC {
+				backend := v[:strings.IndexByte(v, ':')]
+				uri := v[strings.IndexByte(v, ':')+1:]
+				opts = append(opts, options.WithExternalBackend(backend, uri))
+			}
+
+			if ctx.Bool("autoload-galleries") {
+				opts = append(opts, options.EnableGalleriesAutoload)
+			}
+
+			app, err := api.App(opts...)
 			if err != nil {
 				return err
 			}
