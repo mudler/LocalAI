@@ -206,10 +206,10 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (*grpc
 
 		res, err := client.LoadModel(o.context, &options)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not load model: %w", err)
 		}
 		if !res.Success {
-			return nil, fmt.Errorf("could not load model: %s", res.Message)
+			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
 		}
 
 		return client, nil
@@ -289,7 +289,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 			err = multierror.Append(err, modelerr)
 			log.Debug().Msgf("[%s] Fails: %s", b, modelerr.Error())
 		} else if model == nil {
-			err = multierror.Append(err, modelerr)
+			err = multierror.Append(err, fmt.Errorf("backend returned no usable model"))
 			log.Debug().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
 		}
 	}

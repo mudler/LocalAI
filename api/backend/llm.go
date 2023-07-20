@@ -73,6 +73,9 @@ func ModelInference(s string, loader *model.ModelLoader, c config.Config, o *opt
 			return ss, err
 		} else {
 			reply, err := inferenceModel.Predict(o.Context, opts)
+			if err != nil {
+				return "", err
+			}
 			return reply.Message, err
 		}
 	}

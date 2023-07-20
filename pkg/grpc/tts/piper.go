@@ -3,7 +3,9 @@ package tts
 // This is a wrapper to statisfy the GRPC service interface
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
@@ -16,6 +18,9 @@ type Piper struct {
 }
 
 func (sd *Piper) Load(opts *pb.ModelOptions) error {
+	if filepath.Ext(opts.Model) != ".onnx" {
+		return fmt.Errorf("unsupported model type %s (should end with .onnx)", opts.Model)
+	}
 	var err error
 	// Note: the Model here is a path to a directory containing the model files
 	sd.piper, err = New(opts.LibrarySearchPath)

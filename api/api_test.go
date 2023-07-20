@@ -389,70 +389,6 @@ var _ = Describe("API test", func() {
 		})
 	})
 
-	Context("External gRPCs", func() {
-		BeforeEach(func() {
-			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			c, cancel = context.WithCancel(context.Background())
-
-			app, err := App(
-				append(commonOpts,
-					options.WithContext(c),
-					options.WithAudioDir(tmpdir),
-					options.WithImageDir(tmpdir),
-					options.WithModelLoader(modelLoader),
-					options.WithBackendAssets(backendAssets),
-					options.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
-					options.WithBackendAssetsOutput(tmpdir))...,
-			)
-			Expect(err).ToNot(HaveOccurred())
-			go app.Listen("127.0.0.1:9090")
-
-			defaultConfig := openai.DefaultConfig("")
-			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
-
-			// Wait for API to be ready
-			client = openai.NewClientWithConfig(defaultConfig)
-			Eventually(func() error {
-				_, err := client.ListModels(context.TODO())
-				return err
-			}, "2m").ShouldNot(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			cancel()
-			app.Shutdown()
-			os.RemoveAll(tmpdir)
-		})
-
-		It("calculate embeddings with huggingface", func() {
-			if runtime.GOOS != "linux" {
-				Skip("test supported only on linux")
-			}
-			resp, err := client.CreateEmbeddings(
-				context.Background(),
-				openai.EmbeddingRequest{
-					Model: openai.AdaCodeSearchCode,
-					Input: []string{"sun", "cat"},
-				},
-			)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 384))
-			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 384))
-
-			sunEmbedding := resp.Data[0].Embedding
-			resp2, err := client.CreateEmbeddings(
-				context.Background(),
-				openai.EmbeddingRequest{
-					Model: openai.AdaCodeSearchCode,
-					Input: []string{"sun"},
-				},
-			)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
-			Expect(resp2.Data[0].Embedding).ToNot(Equal(resp.Data[1].Embedding))
-		})
-	})
-
 	Context("Model gallery", func() {
 		BeforeEach(func() {
 			var err error
@@ -573,7 +509,10 @@ var _ = Describe("API test", func() {
 			var err error
 			app, err = App(
 				append(commonOpts,
-					options.WithContext(c), options.WithModelLoader(modelLoader))...)
+					options.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
+					options.WithContext(c),
+					options.WithModelLoader(modelLoader),
+				)...)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -628,7 +567,7 @@ var _ = Describe("API test", func() {
 		})
 
 		It("returns errors", func() {
-			backends := len(model.AutoLoadBackends)
+			backends := len(model.AutoLoadBackends) + 1 // +1 for huggingface
 			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: "abcdedfghikl"})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("error, status code: 500, message: could not load model - all backends returned error: %d errors occurred:", backends)))
@@ -673,6 +612,36 @@ var _ = Describe("API test", func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
+		})
+
+		Context("External gRPC calls", func() {
+			It("calculate embeddings with huggingface", func() {
+				if runtime.GOOS != "linux" {
+					Skip("test supported only on linux")
+				}
+				resp, err := client.CreateEmbeddings(
+					context.Background(),
+					openai.EmbeddingRequest{
+						Model: openai.AdaCodeSearchCode,
+						Input: []string{"sun", "cat"},
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 384))
+				Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 384))
+
+				sunEmbedding := resp.Data[0].Embedding
+				resp2, err := client.CreateEmbeddings(
+					context.Background(),
+					openai.EmbeddingRequest{
+						Model: openai.AdaCodeSearchCode,
+						Input: []string{"sun"},
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
+				Expect(resp2.Data[0].Embedding).ToNot(Equal(resp.Data[1].Embedding))
+			})
 		})
 
 		Context("backends", func() {
