@@ -29,6 +29,7 @@ jobs:
           
           sudo apt-get install -y ca-certificates cmake curl patch
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+          sudo pip install -r extra/requirements.txt
 
           sudo mkdir /build && sudo chmod -R 777 /build && cd /build && \
           curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz" | \
@@ -45,7 +46,6 @@ jobs:
           sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /lib64/ && \
           sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
           sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
-    
       - name: Test
         run: |
           ESPEAK_DATA="/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data" GO_TAGS="tts stablediffusion" make test
