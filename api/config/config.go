@@ -50,7 +50,7 @@ type Config struct {
 
 	FunctionsConfig Functions `yaml:"function"`
 
-	SystemPrompt string `yaml:system_prompt`
+	SystemPrompt string `yaml:"system_prompt"`
 }
 
 type Functions struct {

@@ -54,6 +54,8 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 		log.Debug().Msgf("Configuration read: %+v", config)
 
+		requestSystemPrompt := config.SystemPrompt
+
 		// Allow the user to set custom actions via config file
 		// to be "embedded" in each model
 		noActionName := "answer"
@@ -113,6 +115,10 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		for _, i := range input.Messages {
 			var content string
 			role := i.Role
+			if role == "system" {
+				requestSystemPrompt = *i.Content
+			}
+
 			// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
 			// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
 			if i.FunctionCall != nil && i.Role == "assistant" {
@@ -184,6 +190,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		templatedInput, err := o.Loader.TemplatePrefix(templateFile, model.PromptTemplateData{
 			Input:     predInput,
 			Functions: funcs,
+			System:    requestSystemPrompt,
 		})
 		if err == nil {
 			predInput = templatedInput
