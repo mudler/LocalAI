@@ -1,0 +1,4 @@
+sentence_transformers
+grpcio
+google
+protobuf

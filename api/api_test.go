@@ -386,6 +386,102 @@ var _ = Describe("API test", func() {
 		})
 	})
 
+	Context("External gRPCs", func() {
+		BeforeEach(func() {
+			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
+			c, cancel = context.WithCancel(context.Background())
+
+			app, err := App(
+				append(commonOpts,
+					options.WithContext(c),
+					options.WithAudioDir(tmpdir),
+					options.WithImageDir(tmpdir),
+					options.WithModelLoader(modelLoader),
+					options.WithBackendAssets(backendAssets),
+					options.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
+					options.WithBackendAssetsOutput(tmpdir))...,
+			)
+			Expect(err).ToNot(HaveOccurred())
+			go app.Listen("127.0.0.1:9090")
+
+			defaultConfig := openai.DefaultConfig("")
+			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+
+			// Wait for API to be ready
+			client = openai.NewClientWithConfig(defaultConfig)
+			Eventually(func() error {
+				_, err := client.ListModels(context.TODO())
+				return err
+			}, "2m").ShouldNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			cancel()
+			app.Shutdown()
+			os.RemoveAll(tmpdir)
+		})
+
+		Context("API query", func() {
+			BeforeEach(func() {
+				modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
+				c, cancel = context.WithCancel(context.Background())
+
+				var err error
+				app, err = App(
+					append(commonOpts,
+						options.WithDebug(true),
+						options.WithContext(c), options.WithModelLoader(modelLoader))...)
+				Expect(err).ToNot(HaveOccurred())
+				go app.Listen("127.0.0.1:9090")
+
+				defaultConfig := openai.DefaultConfig("")
+				defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+
+				client2 = openaigo.NewClient("")
+				client2.BaseURL = defaultConfig.BaseURL
+
+				// Wait for API to be ready
+				client = openai.NewClientWithConfig(defaultConfig)
+				Eventually(func() error {
+					_, err := client.ListModels(context.TODO())
+					return err
+				}, "2m").ShouldNot(HaveOccurred())
+			})
+			AfterEach(func() {
+				cancel()
+				app.Shutdown()
+			})
+
+			It("calculate embeddings with huggingface", func() {
+				if runtime.GOOS != "linux" {
+					Skip("test supported only on linux")
+				}
+				resp, err := client.CreateEmbeddings(
+					context.Background(),
+					openai.EmbeddingRequest{
+						Model: openai.AdaCodeSearchCode,
+						Input: []string{"sun", "cat"},
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 384))
+				Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 384))
+
+				sunEmbedding := resp.Data[0].Embedding
+				resp2, err := client.CreateEmbeddings(
+					context.Background(),
+					openai.EmbeddingRequest{
+						Model: openai.AdaCodeSearchCode,
+						Input: []string{"sun"},
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
+				Expect(resp2.Data[0].Embedding).ToNot(Equal(resp.Data[1].Embedding))
+			})
+		})
+	})
+
 	Context("Model gallery", func() {
 		BeforeEach(func() {
 			var err error
@@ -530,7 +626,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(10))
+			Expect(len(models.Models)).To(Equal(11))
 		})
 		It("can generate completions", func() {
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: "abcdedfghikl"})
@@ -707,7 +803,7 @@ var _ = Describe("API test", func() {
 		It("can generate chat completions from config file", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(12))
+			Expect(len(models.Models)).To(Equal(13))
 		})
 		It("can generate chat completions from config file", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
