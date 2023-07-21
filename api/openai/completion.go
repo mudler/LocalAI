@@ -122,7 +122,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		}
 
 		var result []Choice
-		for _, i := range config.PromptStrings {
+		for k, i := range config.PromptStrings {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := o.Loader.TemplatePrefix(templateFile, struct {
 				Input string
@@ -135,7 +135,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			}
 
 			r, err := ComputeChoices(i, input.N, config, o, o.Loader, func(s string, c *[]Choice) {
-				*c = append(*c, Choice{Text: s})
+				*c = append(*c, Choice{Text: s, FinishReason: "stop", Index: k})
 			}, nil)
 			if err != nil {
 				return err
