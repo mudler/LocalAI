@@ -115,10 +115,6 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		for messageIndex, i := range input.Messages {
 			var content string
 			role := i.Role
-			if role == "system" {
-				log.Debug().Msgf("Message with index %d has system role, replacing \"%s\" with \"%s\"", messageIndex, requestSystemPrompt, *i.Content)
-				requestSystemPrompt = *i.Content
-			}
 
 			// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
 			// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
@@ -141,11 +137,11 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				}
 				templatedChatMessage, err := o.Loader.TemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 				if err != nil {
-					log.Error().Msgf("error %s processing message %+v using template \"%s\". Skipping!", err.Error(), chatMessageData, config.TemplateConfig.ChatMessage)
+					log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, config.TemplateConfig.ChatMessage, err)
 					continue
 				}
 				if templatedChatMessage == "" {
-					log.Warn().Msgf("template \"%s\" produced blank output for %+v", config.TemplateConfig.ChatMessage, chatMessageData)
+					log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", config.TemplateConfig.ChatMessage, chatMessageData)
 					continue
 				}
 				log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
