@@ -116,6 +116,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			var content string
 			role := i.Role
 			if role == "system" {
+				log.Debug().Msgf("Message with index %d has system role, replacing \"%s\" with \"%s\"", messageIndex, requestSystemPrompt, *i.Content)
 				requestSystemPrompt = *i.Content
 			}
 
@@ -141,6 +142,10 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				templatedChatMessage, err := o.Loader.TemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 				if err != nil {
 					log.Error().Msgf("error %s processing message %+v using template \"%s\". Skipping!", err.Error(), chatMessageData, config.TemplateConfig.ChatMessage)
+					continue
+				}
+				if templatedChatMessage == "" {
+					log.Warn().Msgf("template \"%s\" produced blank output for %+v", config.TemplateConfig.ChatMessage, chatMessageData)
 					continue
 				}
 				log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
