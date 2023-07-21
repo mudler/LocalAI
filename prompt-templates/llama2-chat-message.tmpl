@@ -1,7 +1,7 @@
-{{ if eq .RoleName "user" }} [[INST]] {{ if le .MessageIndex 1 }} <<SYS>>
-{{ .SystemPrompt}}
-<</SYS>> {{ end }}
-{{ .Content }} [/INST]
-{{ else if eq .RoleName "assistant" }}
-{{ .Content }}
-{{ end }}
+{{if eq .RoleName "assistant"}}{{.Content}}{{else}}
+[INST]
+{{if .SystemPrompt}}{{.SystemPrompt}}{{else if eq .RoleName "system"}}<<SYS>>{{.Content}}<</SYS>>
+
+{{else if .Content}}{{.Content}}{{end}}
+[/INST] 
+{{end}}
