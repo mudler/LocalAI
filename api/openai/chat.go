@@ -138,12 +138,13 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					Content:      *i.Content,
 					MessageIndex: messageIndex,
 				}
-				chatMessageTemplate, err := o.Loader.TemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
+				templatedChatMessage, err := o.Loader.TemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 				if err != nil {
-					log.Error().Msgf("error processing message %+v using template \"%s\". Skipping!", chatMessageData, config.TemplateConfig.ChatMessage)
+					log.Error().Msgf("error %s processing message %+v using template \"%s\". Skipping!", err.Error(), chatMessageData, config.TemplateConfig.ChatMessage)
 					continue
 				}
-				content = chatMessageTemplate
+				log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
+				content = templatedChatMessage
 			} else {
 				if r != "" {
 					if contentExists {
