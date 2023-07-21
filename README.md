@@ -185,7 +185,7 @@ LocalAI can be installed inside Kubernetes with helm. See [installation instruct
 
 ## Supported API endpoints
 
-See the [list of the supported API endpoints](https://localai.io/api-endpoints/index.html) and how to configure image generation and audio transcription.
+See the [list of the LocalAI features](https://localai.io/features/index.html) for a full tour of the available API endpoints.
 
 ## Frequently asked questions
 
