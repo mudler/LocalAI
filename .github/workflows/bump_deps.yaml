@@ -13,7 +13,7 @@ jobs:
             variable: "GOLLAMA_VERSION"
             branch: "master"
           - repository: "go-skynet/go-llama.cpp"
-            variable: "GOLLAMA_MASTER_VERSION"
+            variable: "GOLLAMA_GRAMMAR_VERSION"
             branch: "master"
           - repository: "go-skynet/go-ggml-transformers.cpp"
             variable: "GOGGMLTRANSFORMERS_VERSION"

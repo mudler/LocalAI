@@ -18,9 +18,17 @@ func (f Functions) ToJSONStructure() JSONFunctionStructure {
 		//tt := t.(string)
 
 		properties := function.Parameters["properties"]
+		defs := function.Parameters["$defs"]
 		dat, _ := json.Marshal(properties)
+		dat2, _ := json.Marshal(defs)
 		prop := map[string]interface{}{}
+		defsD := map[string]interface{}{}
+
 		json.Unmarshal(dat, &prop)
+		json.Unmarshal(dat2, &defsD)
+		if js.Defs == nil {
+			js.Defs = defsD
+		}
 		js.OneOf = append(js.OneOf, Item{
 			Type: "object",
 			Properties: Properties{
