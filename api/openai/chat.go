@@ -302,7 +302,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 				return
 			}
-			*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &s}})
+			*c = append(*c, Choice{FinishReason: "stop", Index: 0, Message: &Message{Role: "assistant", Content: &s}})
 		}, nil)
 		if err != nil {
 			return err
