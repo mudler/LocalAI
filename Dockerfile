@@ -11,10 +11,15 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py"
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates cmake curl patch
+    apt-get install -y ca-certificates cmake curl patch pip
+
+# Extras requirements
+COPY extra/requirements.txt /build/extra/requirements.txt
+RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \

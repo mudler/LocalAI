@@ -1,7 +1,6 @@
 package openai
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,10 +8,9 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
-	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	model "github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -61,25 +59,7 @@ func TranscriptEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		whisperModel, err := o.Loader.BackendLoader(
-			model.WithBackendString(model.WhisperBackend),
-			model.WithModelFile(config.Model),
-			model.WithContext(o.Context),
-			model.WithThreads(uint32(config.Threads)),
-			model.WithAssetDir(o.AssetsDestination))
-		if err != nil {
-			return err
-		}
-
-		if whisperModel == nil {
-			return fmt.Errorf("could not load whisper model")
-		}
-
-		tr, err := whisperModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
-			Dst:      dst,
-			Language: input.Language,
-			Threads:  uint32(config.Threads),
-		})
+		tr, err := backend.ModelTranscription(dst, input.Language, o.Loader, *config, o)
 		if err != nil {
 			return err
 		}

@@ -14,9 +14,20 @@ type Options struct {
 	context       context.Context
 
 	gRPCOptions *pb.ModelOptions
+
+	externalBackends map[string]string
 }
 
 type Option func(*Options)
+
+func WithExternalBackend(name string, uri string) Option {
+	return func(o *Options) {
+		if o.externalBackends == nil {
+			o.externalBackends = make(map[string]string)
+		}
+		o.externalBackends[name] = uri
+	}
+}
 
 func WithBackendString(backend string) Option {
 	return func(o *Options) {

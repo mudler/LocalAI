@@ -3,9 +3,10 @@ go-llama
 /gpt4all
 go-stable-diffusion
 go-piper
+/go-bert
 go-ggllm
 /piper
-
+__pycache__/
 *.a
 get-sources
 
