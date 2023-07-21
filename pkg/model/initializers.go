@@ -153,8 +153,9 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (*grpc
 
 		if !ready {
 			log.Debug().Msgf("GRPC Service NOT ready")
-			log.Debug().Msgf("Alive: ", grpcControlProcess.IsAlive())
-			log.Debug().Msgf(fmt.Sprintf("GRPC Service Exitcode:"))
+			log.Debug().Msgf("Alive: %t", grpcControlProcess.IsAlive())
+			exitCode, exitErr := grpcControlProcess.ExitCode()
+			log.Debug().Msgf(fmt.Sprintf("GRPC Service Exitcode: %s (%+v)", exitCode, exitErr))
 
 			log.Debug().Msgf(grpcControlProcess.ExitCode())
 

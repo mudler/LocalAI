@@ -54,8 +54,6 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 		log.Debug().Msgf("Configuration read: %+v", config)
 
-		requestSystemPrompt := config.SystemPrompt
-
 		// Allow the user to set custom actions via config file
 		// to be "embedded" in each model
 		noActionName := "answer"
@@ -129,7 +127,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			contentExists := i.Content != nil && *i.Content != ""
 			if config.TemplateConfig.ChatMessage != "" {
 				chatMessageData := model.ChatMessageTemplateData{
-					SystemPrompt: requestSystemPrompt,
+					SystemPrompt: config.SystemPrompt,
 					Role:         r,
 					RoleName:     role,
 					Content:      *i.Content,

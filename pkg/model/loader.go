@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,7 +65,7 @@ func (ml *ModelLoader) ExistsInModelPath(s string) bool {
 }
 
 func (ml *ModelLoader) ListModels() ([]string, error) {
-	files, err := ioutil.ReadDir(ml.ModelPath)
+	files, err := os.ReadDir(ml.ModelPath)
 	if err != nil {
 		return []string{}, err
 	}
