@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 # Temporarly pinned to https://github.com/go-skynet/go-llama.cpp/pull/124
-GOLLAMA_VERSION?=c90272fdb693fc8d6faf20e1e9a5481c453318e8
+GOLLAMA_VERSION?=f3a6ee0ef53d667f110d28fcf9b808bdca741c07
 
 GOLLAMA_GRAMMAR_VERSION?=cb8d7cd4cb95725a04504a9e3a26dd72a12b69ac
 # Temporary set a specific version of llama.cpp
@@ -310,7 +310,7 @@ test: prepare test-models/testmodel grpcs
 	@echo 'Running tests'
 	export GO_TAGS="tts stablediffusion"
 	$(MAKE) prepare-test
-	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
+	HUGGINGFACE_GRPC=$(abspath ./)/extra/grpc/huggingface/huggingface.py TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama" --flake-attempts 5 -v -r ./api ./pkg
 	$(MAKE) test-gpt4all
 	$(MAKE) test-llama
@@ -335,9 +335,7 @@ test-stablediffusion: prepare-test
 
 test-container:
 	docker build --target requirements -t local-ai-test-container .
-	docker run --name localai-tests -e GO_TAGS=$(GO_TAGS) -ti -v $(abspath ./):/build local-ai-test-container make test
-	docker rm localai-tests
-	docker rmi local-ai-test-container
+	docker run -ti --rm --entrypoint /bin/bash -ti -v $(abspath ./):/build local-ai-test-container
 
 ## Help:
 help: ## Show this help.
@@ -351,9 +349,14 @@ help: ## Show this help.
 		else if (/^## .*$$/) {printf "  ${CYAN}%s${RESET}\n", substr($$1,4)} \
 		}' $(MAKEFILE_LIST)
 
-protogen:
+protogen: protogen-go protogen-python
+
+protogen-go:
 	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative \
     pkg/grpc/proto/backend.proto
+
+protogen-python:
+	python -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/huggingface/ --grpc_python_out=extra/grpc/huggingface/ pkg/grpc/proto/backend.proto
 
 ## GRPC
 

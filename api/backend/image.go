@@ -15,12 +15,20 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 		return nil, fmt.Errorf("endpoint only working with stablediffusion models")
 	}
 
-	inferenceModel, err := loader.BackendLoader(
+	opts := []model.Option{
 		model.WithBackendString(c.Backend),
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithContext(o.Context),
 		model.WithModelFile(c.ImageGenerationAssets),
+	}
+
+	for k, v := range o.ExternalGRPCBackends {
+		opts = append(opts, model.WithExternalBackend(k, v))
+	}
+
+	inferenceModel, err := loader.BackendLoader(
+		opts...,
 	)
 	if err != nil {
 		return nil, err

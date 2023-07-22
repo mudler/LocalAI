@@ -28,6 +28,10 @@ type Option struct {
 
 	BackendAssets     embed.FS
 	AssetsDestination string
+
+	ExternalGRPCBackends map[string]string
+
+	AutoloadGalleries bool
 }
 
 type AppOption func(*Option)
@@ -50,6 +54,19 @@ func NewOptions(o ...AppOption) *Option {
 func WithCors(b bool) AppOption {
 	return func(o *Option) {
 		o.CORS = b
+	}
+}
+
+var EnableGalleriesAutoload = func(o *Option) {
+	o.AutoloadGalleries = true
+}
+
+func WithExternalBackend(name string, uri string) AppOption {
+	return func(o *Option) {
+		if o.ExternalGRPCBackends == nil {
+			o.ExternalGRPCBackends = make(map[string]string)
+		}
+		o.ExternalGRPCBackends[name] = uri
 	}
 }
 

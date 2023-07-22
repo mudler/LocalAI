@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
-	"time"
 
 	json "github.com/json-iterator/go"
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
+	"github.com/go-skynet/LocalAI/pkg/utils"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -80,6 +82,8 @@ func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 			case <-c.Done():
 				return
 			case op := <-g.C:
+				utils.ResetDownloadTimers()
+
 				g.updateStatus(op.id, &galleryOpStatus{Message: "processing", Progress: 0})
 
 				// updates the status with an error
@@ -90,13 +94,17 @@ func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 				// displayDownload displays the download progress
 				progressCallback := func(fileName string, current string, total string, percentage float64) {
 					g.updateStatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
-					displayDownload(fileName, current, total, percentage)
+					utils.DisplayDownloadFunction(fileName, current, total, percentage)
 				}
 
 				var err error
 				// if the request contains a gallery name, we apply the gallery from the gallery list
 				if op.galleryName != "" {
-					err = gallery.InstallModelFromGallery(op.galleries, op.galleryName, g.modelPath, op.req, progressCallback)
+					if strings.Contains(op.galleryName, "@") {
+						err = gallery.InstallModelFromGallery(op.galleries, op.galleryName, g.modelPath, op.req, progressCallback)
+					} else {
+						err = gallery.InstallModelFromGalleryByName(op.galleries, op.galleryName, g.modelPath, op.req, progressCallback)
+					}
 				} else {
 					err = prepareModel(g.modelPath, op.req, cm, progressCallback)
 				}
@@ -117,31 +125,6 @@ func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 			}
 		}
 	}()
-}
-
-var lastProgress time.Time = time.Now()
-var startTime time.Time = time.Now()
-
-func displayDownload(fileName string, current string, total string, percentage float64) {
-	currentTime := time.Now()
-
-	if currentTime.Sub(lastProgress) >= 5*time.Second {
-
-		lastProgress = currentTime
-
-		// calculate ETA based on percentage and elapsed time
-		var eta time.Duration
-		if percentage > 0 {
-			elapsed := currentTime.Sub(startTime)
-			eta = time.Duration(float64(elapsed)*(100/percentage) - float64(elapsed))
-		}
-
-		if total != "" {
-			log.Debug().Msgf("Downloading %s: %s/%s (%.2f%%) ETA: %s", fileName, current, total, percentage, eta)
-		} else {
-			log.Debug().Msgf("Downloading: %s", current)
-		}
-	}
 }
 
 type galleryModel struct {
@@ -165,10 +148,11 @@ func ApplyGalleryFromString(modelPath, s string, cm *config.ConfigLoader, galler
 	}
 
 	for _, r := range requests {
+		utils.ResetDownloadTimers()
 		if r.ID == "" {
-			err = prepareModel(modelPath, r.GalleryModel, cm, displayDownload)
+			err = prepareModel(modelPath, r.GalleryModel, cm, utils.DisplayDownloadFunction)
 		} else {
-			err = gallery.InstallModelFromGallery(galleries, r.ID, modelPath, r.GalleryModel, displayDownload)
+			err = gallery.InstallModelFromGallery(galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
 		}
 	}
 
