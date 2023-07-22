@@ -35,33 +35,46 @@ type ChatMessageTemplateData struct {
 	MessageIndex int
 }
 
+// Keep this in sync with config.TemplateConfig. Is there a more idiomatic way to accomplish this in go?
+// Technically, order doesn't _really_ matter, but the count must stay in sync, see tests/integration/reflect_test.go
+type TemplateType int
+
+const (
+	ChatPromptTemplate TemplateType = iota
+	ChatMessageTemplate
+	CompletionPromptTemplate
+	EditPromptTemplate
+	FunctionsPromptTemplate
+
+	// The following TemplateType is **NOT** a valid value and MUST be last. It exists to make the sanity integration tests simpler!
+	IntegrationTestTemplate
+)
+
+// new idea: what if we declare a struct of these here, and use a loop to check?
+
+// TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we seperate directories for .bin/.yaml and .tmpl
 type ModelLoader struct {
 	ModelPath string
 	mu        sync.Mutex
 	// TODO: this needs generics
-	models               map[string]*grpc.Client
-	grpcProcesses        map[string]*process.Process
-	promptsTemplates     map[string]*template.Template
-	chatMessageTemplates map[string]*template.Template
+	models        map[string]*grpc.Client
+	grpcProcesses map[string]*process.Process
+	templates     map[TemplateType]map[string]*template.Template
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
-	return &ModelLoader{
-		ModelPath:            modelPath,
-		models:               make(map[string]*grpc.Client),
-		promptsTemplates:     make(map[string]*template.Template),
-		chatMessageTemplates: make(map[string]*template.Template),
-		grpcProcesses:        make(map[string]*process.Process),
+	nml := &ModelLoader{
+		ModelPath:     modelPath,
+		models:        make(map[string]*grpc.Client),
+		templates:     make(map[TemplateType]map[string]*template.Template),
+		grpcProcesses: make(map[string]*process.Process),
 	}
-}
-
-func existsInModelPath(modelPath string, s string) bool {
-	_, err := os.Stat(filepath.Join(modelPath, s))
-	return err == nil
+	nml.initializeTemplateMap()
+	return nml
 }
 
 func (ml *ModelLoader) ExistsInModelPath(s string) bool {
-	return existsInModelPath(ml.ModelPath, s)
+	return existsInPath(ml.ModelPath, s)
 }
 
 func (ml *ModelLoader) ListModels() ([]string, error) {
@@ -83,70 +96,6 @@ func (ml *ModelLoader) ListModels() ([]string, error) {
 	return models, nil
 }
 
-// TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that.
-
-func evaluateTemplate[T any](templateName string, in T, modelPath string, templateMap *(map[string]*template.Template), mutex *sync.Mutex) (string, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	m, ok := (*templateMap)[templateName]
-	if !ok {
-		// return "", fmt.Errorf("template not loaded: %s", templateName)
-		loadErr := loadTemplateIfExists(templateName, modelPath, templateMap)
-		if loadErr != nil {
-			return "", loadErr
-		}
-		m = (*templateMap)[templateName] // ok is not important since we check m on the next line
-	}
-	if m == nil {
-		return "", fmt.Errorf("failed loading a template for %s", templateName)
-	}
-
-	var buf bytes.Buffer
-
-	if err := m.Execute(&buf, in); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
-
-func (ml *ModelLoader) TemplatePrefix(templateName string, in PromptTemplateData) (string, error) {
-	return evaluateTemplate[PromptTemplateData](templateName, in, ml.ModelPath, &(ml.promptsTemplates), &(ml.mu))
-}
-
-func (ml *ModelLoader) TemplateForChatMessage(templateName string, messageData ChatMessageTemplateData) (string, error) {
-	return evaluateTemplate[ChatMessageTemplateData](templateName, messageData, ml.ModelPath, &(ml.chatMessageTemplates), &(ml.mu))
-}
-
-func loadTemplateIfExists(templateName, modelPath string, templateMap *(map[string]*template.Template)) error {
-	// Check if the template was already loaded
-	if _, ok := (*templateMap)[templateName]; ok {
-		return nil
-	}
-
-	// Check if the model path exists
-	// skip any error here - we run anyway if a template does not exist
-	modelTemplateFile := fmt.Sprintf("%s.tmpl", templateName)
-
-	if !existsInModelPath(modelPath, modelTemplateFile) {
-		return nil
-	}
-
-	dat, err := os.ReadFile(filepath.Join(modelPath, modelTemplateFile))
-	if err != nil {
-		return err
-	}
-
-	// Parse the template
-	tmpl, err := template.New("prompt").Parse(string(dat))
-	if err != nil {
-		return err
-	}
-	(*templateMap)[templateName] = tmpl
-
-	return nil
-}
-
 func (ml *ModelLoader) LoadModel(modelName string, loader func(string) (*grpc.Client, error)) (*grpc.Client, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
@@ -166,10 +115,13 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string) (*grpc.Cl
 		return nil, err
 	}
 
-	// If there is a prompt template, load it
-	if err := loadTemplateIfExists(modelName, ml.ModelPath, &(ml.promptsTemplates)); err != nil {
-		return nil, err
-	}
+	// TODO: Add a helper method to iterate all prompt templates associated with a config if and only if it's YAML?
+	// Minor perf loss here until this is fixed, but we initialize on first request
+
+	// // If there is a prompt template, load it
+	// if err := ml.loadTemplateIfExists(modelName); err != nil {
+	// 	return nil, err
+	// }
 
 	ml.models[modelName] = model
 	return model, nil
@@ -193,6 +145,84 @@ func (ml *ModelLoader) checkIsLoaded(s string) *grpc.Client {
 
 		return m
 	}
+
+	return nil
+}
+
+func (ml *ModelLoader) EvaluateTemplateForPrompt(templateType TemplateType, templateName string, in PromptTemplateData) (string, error) {
+	// TODO: should this check be improved?
+	if templateType == ChatMessageTemplate {
+		return "", fmt.Errorf("invalid templateType: ChatMessage")
+	}
+	return ml.evaluateTemplate(templateType, templateName, in)
+}
+
+func (ml *ModelLoader) EvaluateTemplateForChatMessage(templateName string, messageData ChatMessageTemplateData) (string, error) {
+	return ml.evaluateTemplate(ChatMessageTemplate, templateName, messageData)
+}
+
+func existsInPath(path string, s string) bool {
+	_, err := os.Stat(filepath.Join(path, s))
+	return err == nil
+}
+
+func (ml *ModelLoader) initializeTemplateMap() {
+	// This also seems somewhat clunky as we reference the Test / End of valid data value slug, but it works?
+	for tt := TemplateType(0); tt < IntegrationTestTemplate; tt++ {
+		ml.templates[tt] = make(map[string]*template.Template)
+	}
+}
+
+func (ml *ModelLoader) evaluateTemplate(templateType TemplateType, templateName string, in interface{}) (string, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	m, ok := ml.templates[templateType][templateName]
+	if !ok {
+		// return "", fmt.Errorf("template not loaded: %s", templateName)
+		loadErr := ml.loadTemplateIfExists(templateType, templateName)
+		if loadErr != nil {
+			return "", loadErr
+		}
+		m = ml.templates[templateType][templateName] // ok is not important since we check m on the next line, and wealready checked
+	}
+	if m == nil {
+		return "", fmt.Errorf("failed loading a template for %s", templateName)
+	}
+
+	var buf bytes.Buffer
+
+	if err := m.Execute(&buf, in); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func (ml *ModelLoader) loadTemplateIfExists(templateType TemplateType, templateName string) error {
+	// Check if the template was already loaded
+	if _, ok := ml.templates[templateType][templateName]; ok {
+		return nil
+	}
+
+	// Check if the model path exists
+	// skip any error here - we run anyway if a template does not exist
+	modelTemplateFile := fmt.Sprintf("%s.tmpl", templateName)
+
+	if !ml.ExistsInModelPath(modelTemplateFile) {
+		return nil
+	}
+
+	dat, err := os.ReadFile(filepath.Join(ml.ModelPath, modelTemplateFile))
+	if err != nil {
+		return err
+	}
+
+	// Parse the template
+	tmpl, err := template.New("prompt").Parse(string(dat))
+	if err != nil {
+		return err
+	}
+	ml.templates[templateType][templateName] = tmpl
 
 	return nil
 }

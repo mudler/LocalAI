@@ -76,7 +76,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			predInput := config.PromptStrings[0]
 
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-			templatedInput, err := o.Loader.TemplatePrefix(templateFile, model.PromptTemplateData{
+			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
 				Input: predInput,
 			})
 			if err == nil {
@@ -122,7 +122,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		var result []Choice
 		for _, i := range config.PromptStrings {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-			templatedInput, err := o.Loader.TemplatePrefix(templateFile, model.PromptTemplateData{
+			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
 				Input: i,
 			})
 			if err == nil {

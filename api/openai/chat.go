@@ -125,6 +125,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			}
 			r := config.Roles[role]
 			contentExists := i.Content != nil && *i.Content != ""
+			// First attempt to populate content via a chat message specific template
 			if config.TemplateConfig.ChatMessage != "" {
 				chatMessageData := model.ChatMessageTemplateData{
 					SystemPrompt: config.SystemPrompt,
@@ -133,18 +134,20 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					Content:      *i.Content,
 					MessageIndex: messageIndex,
 				}
-				templatedChatMessage, err := o.Loader.TemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
+				templatedChatMessage, err := o.Loader.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 				if err != nil {
 					log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, config.TemplateConfig.ChatMessage, err)
-					continue
+				} else {
+					if templatedChatMessage == "" {
+						log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", config.TemplateConfig.ChatMessage, chatMessageData)
+						continue // TODO: This continue is here intentionally to skip over the line `mess = append(mess, content)` below, and to prevent the sprintf
+					}
+					log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
+					content = templatedChatMessage
 				}
-				if templatedChatMessage == "" {
-					log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", config.TemplateConfig.ChatMessage, chatMessageData)
-					continue
-				}
-				log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
-				content = templatedChatMessage
-			} else {
+			}
+			// If this model doesn't have such a template, or if
+			if content == "" {
 				if r != "" {
 					if contentExists {
 						content = fmt.Sprint(r, " ", *i.Content)
@@ -203,7 +206,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		templatedInput, err := o.Loader.TemplatePrefix(templateFile, model.PromptTemplateData{
+		templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
 			Input:     predInput,
 			Functions: funcs,
 		})
