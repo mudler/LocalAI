@@ -128,7 +128,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 // It also loads the model
 func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string) (*grpc.Client, error) {
 	return func(s string) (*grpc.Client, error) {
-		log.Debug().Msgf("Loading GRPC Model", backend, *o)
+		log.Debug().Msgf("Loading GRPC Model %s: %+v", backend, *o)
 
 		var client *grpc.Client
 

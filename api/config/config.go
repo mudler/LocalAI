@@ -49,6 +49,8 @@ type Config struct {
 	functionCallString, functionCallNameString string
 
 	FunctionsConfig Functions `yaml:"function"`
+
+	SystemPrompt string `yaml:"system_prompt"`
 }
 
 type Functions struct {
@@ -58,10 +60,11 @@ type Functions struct {
 }
 
 type TemplateConfig struct {
-	Completion string `yaml:"completion"`
-	Functions  string `yaml:"function"`
-	Chat       string `yaml:"chat"`
-	Edit       string `yaml:"edit"`
+	Chat        string `yaml:"chat"`
+	ChatMessage string `yaml:"chat_message"`
+	Completion  string `yaml:"completion"`
+	Edit        string `yaml:"edit"`
+	Functions   string `yaml:"function"`
 }
 
 type ConfigLoader struct {
