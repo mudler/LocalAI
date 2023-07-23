@@ -102,7 +102,6 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string) (*grpc.Cl
 
 	// Check if we already have a loaded model
 	if model := ml.checkIsLoaded(modelName); model != nil {
-		log.Debug().Msgf("Model already loaded in memory: %s", modelName)
 		return model, nil
 	}
 
