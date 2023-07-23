@@ -13,7 +13,7 @@ import (
 
 func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readInput(c, o.Loader, true)
+		modelFile, input, err := readInput(c, o, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

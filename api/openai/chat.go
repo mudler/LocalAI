@@ -43,7 +43,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 	return func(c *fiber.Ctx) error {
 		processFunctions := false
 		funcs := grammar.Functions{}
-		modelFile, input, err := readInput(c, o.Loader, true)
+		modelFile, input, err := readInput(c, o, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

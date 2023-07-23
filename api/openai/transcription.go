@@ -19,7 +19,7 @@ import (
 // https://platform.openai.com/docs/api-reference/audio/create
 func TranscriptEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readInput(c, o.Loader, false)
+		m, input, err := readInput(c, o, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

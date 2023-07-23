@@ -9,14 +9,16 @@ import (
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
+	options "github.com/go-skynet/LocalAI/api/options"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
-func readInput(c *fiber.Ctx, loader *model.ModelLoader, randomModel bool) (string, *OpenAIRequest, error) {
+func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *OpenAIRequest, error) {
+	loader := o.Loader
 	input := new(OpenAIRequest)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(o.Context)
 	input.Context = ctx
 	input.Cancel = cancel
 	// Get input data from the request body
