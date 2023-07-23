@@ -43,7 +43,7 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
-			r, err := ComputeChoices(i, input.N, config, o, o.Loader, func(s string, c *[]Choice) {
+			r, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]Choice) {
 				*c = append(*c, Choice{Text: s})
 			}, nil)
 			if err != nil {

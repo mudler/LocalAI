@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,6 +16,9 @@ import (
 
 func readInput(c *fiber.Ctx, loader *model.ModelLoader, randomModel bool) (string, *OpenAIRequest, error) {
 	input := new(OpenAIRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	input.Context = ctx
+	input.Cancel = cancel
 	// Get input data from the request body
 	if err := c.BodyParser(input); err != nil {
 		return "", nil, err
