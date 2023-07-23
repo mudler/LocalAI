@@ -78,7 +78,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return err
 	}
 
-	log.Debug().Msgf("Loading GRPC Process", grpcProcess)
+	log.Debug().Msgf("Loading GRPC Process: %s", grpcProcess)
 
 	log.Debug().Msgf("GRPC Service for %s will be running at: '%s'", id, serverAddress)
 
