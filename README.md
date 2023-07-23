@@ -21,10 +21,11 @@ In a nutshell:
 - NO GPU required. NO Internet access is required either
   - Optional, GPU Acceleration is available in `llama.cpp`-compatible LLMs. See also the [build section](https://localai.io/basics/build/index.html). 
 - Supports multiple models:
-  - 📖 Text generation with GPTs (`llama.cpp`, `gpt4all.cpp`, ... and more)
-  - 🗣 Text to Audio 🎺🆕
-  - 🔈 Audio to Text (Audio transcription with `whisper.cpp`)
-  - 🎨 Image generation with stable diffusion
+  - 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `gpt4all.cpp`, ... and more)
+  - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
+  - 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
+  - 🎨 [Image generation with stable diffusion](https://localai.io/features/image-generation)
+  - 🔥 [OpenAI functions](https://localai.io/features/openai-functions/) 🆕
 - 🏃 Once loaded the first time, it keep models loaded in memory for faster inference
 - ⚡ Doesn't shell-out, but uses C++ bindings for a faster inference and better performance. 
 
@@ -51,14 +52,13 @@ See the [Getting started](https://localai.io/basics/getting_started/index.html) 
 - [X] Enable automatic downloading of models from HuggingFace
 - [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351) 
 - [ ] Enable gallery management directly from the webui.
-- [ ] 🔥 OpenAI functions: https://github.com/go-skynet/LocalAI/issues/588
+- [x] 🔥 OpenAI functions: https://github.com/go-skynet/LocalAI/issues/588
 
 ## News
 
-- 🔥🔥🔥 28-06-2023: **v1.20.0**: Added text to audio and gallery huggingface repositories! [Release notes](https://localai.io/basics/news/index.html#-28-06-2023-__v1200__-) [Changelog](https://github.com/go-skynet/LocalAI/releases/tag/v1.20.0)
-- 🔥🔥🔥 19-06-2023: **v1.19.0**: CUDA support! [Release notes](https://localai.io/basics/news/index.html#-19-06-2023-__v1190__-) [Changelog](https://github.com/go-skynet/LocalAI/releases/tag/v1.19.0)
-- 🔥🔥🔥 06-06-2023: **v1.18.0**: Many updates, new features, and much more 🚀, check out the [Release notes](https://localai.io/basics/news/index.html#-06-06-2023-__v1180__-)!
-- 29-05-2023: LocalAI now has a website, [https://localai.io](https://localai.io)! check the news in the [dedicated section](https://localai.io/basics/news/index.html)!
+Check the news and the release notes in the [dedicated section](https://localai.io/basics/news/index.html)
+
+- 🔥🔥🔥 23-07-2023: **v1.22.0**: LLaMa2, huggingface embeddings, and more ! [Changelog](https://github.com/go-skynet/LocalAI/releases/tag/v1.22.0)
 
 For latest news, follow also on Twitter [@LocalAI_API](https://twitter.com/LocalAI_API) and [@mudler_it](https://twitter.com/mudler_it)
 
