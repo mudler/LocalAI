@@ -61,6 +61,11 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 		llama.SetTopK(int(opts.TopK)),
 		llama.SetTokens(int(opts.Tokens)),
 		llama.SetThreads(int(opts.Threads)),
+		llama.WithGrammar(opts.Grammar),
+		llama.SetRopeFreqBase(float64(opts.RopeFreqBase)),
+		llama.SetRopeFreqScale(float64(opts.RopeFreqScale)),
+		llama.SetNegativePromptScale(float64(opts.NegativePromptScale)),
+		llama.SetNegativePrompt(opts.NegativePrompt),
 	}
 
 	if opts.PromptCacheAll {
