@@ -7,7 +7,8 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ComputeChoices(predInput string, n int, config *config.Config, o *options.Option, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, error) {
+func ComputeChoices(req *OpenAIRequest, predInput string, config *config.Config, o *options.Option, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, error) {
+	n := req.N
 	result := []Choice{}
 
 	if n == 0 {
@@ -15,7 +16,7 @@ func ComputeChoices(predInput string, n int, config *config.Config, o *options.O
 	}
 
 	// get the model function to call for the result
-	predFunc, err := backend.ModelInference(predInput, loader, *config, o, tokenCallback)
+	predFunc, err := backend.ModelInference(req.Context, predInput, loader, *config, o, tokenCallback)
 	if err != nil {
 		return result, err
 	}

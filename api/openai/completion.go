@@ -18,7 +18,7 @@ import (
 // https://platform.openai.com/docs/api-reference/completions
 func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	process := func(s string, req *OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
-		ComputeChoices(s, req.N, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
+		ComputeChoices(req, s, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
 			resp := OpenAIResponse{
 				Model: req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []Choice{
@@ -38,7 +38,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 	}
 
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readInput(c, o.Loader, true)
+		modelFile, input, err := readInput(c, o, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -130,7 +130,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
-			r, err := ComputeChoices(i, input.N, config, o, o.Loader, func(s string, c *[]Choice) {
+			r, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]Choice) {
 				*c = append(*c, Choice{Text: s, FinishReason: "stop", Index: k})
 			}, nil)
 			if err != nil {

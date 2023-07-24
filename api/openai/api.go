@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	config "github.com/go-skynet/LocalAI/api/config"
 
 	"github.com/go-skynet/LocalAI/pkg/grammar"
@@ -69,6 +70,9 @@ type OpenAIModel struct {
 
 type OpenAIRequest struct {
 	config.PredictionOptions
+
+	Context context.Context
+	Cancel  context.CancelFunc
 
 	// whisper
 	File string `json:"file" validate:"required"`
