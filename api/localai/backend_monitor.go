@@ -1,6 +1,9 @@
 package localai
 
 import (
+	"fmt"
+	"strings"
+
 	config "github.com/go-skynet/LocalAI/api/config"
 
 	"github.com/go-skynet/LocalAI/api/options"
@@ -31,16 +34,12 @@ func BackendMonitorEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *
 			return err
 		}
 
-		config, exists := cm.GetConfig(input.Model)
-		var backend string
-		if exists {
-			backend = config.Backend
-		} else {
-			// Last ditch effort: use it raw, see if a backend happens to match.
-			backend = input.Model
+		modelBin := input.Model
+		if !strings.HasSuffix(modelBin, ".bin") {
+			modelBin = fmt.Sprintf("%s.bin", input.Model)
 		}
 
-		pid, err := o.Loader.GetGRPCPID(backend)
+		pid, err := o.Loader.GetGRPCPID(modelBin)
 
 		if err != nil {
 			log.Error().Msgf("model %s : failed to find pid %+v", input.Model, err)

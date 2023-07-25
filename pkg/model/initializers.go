@@ -68,8 +68,8 @@ var AutoLoadBackends []string = []string{
 }
 
 func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
-	p, ok := ml.grpcProcesses[id]
-	if !ok {
+	p, exists := ml.grpcProcesses[id]
+	if !exists {
 		return -1, fmt.Errorf("no grpc backend found for %s", id)
 	}
 	return strconv.Atoi(p.PID)
