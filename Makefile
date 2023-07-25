@@ -237,7 +237,8 @@ prepare: prepare-sources $(OPTIONAL_TARGETS)
 
 clean: ## Remove build related file
 	$(GOCMD) clean -cache
-	rm -fr ./go-llama
+	rm -f prepare
+	rm -rf ./go-llama
 	rm -rf ./gpt4all
 	rm -rf ./go-gpt2
 	rm -rf ./go-stable-diffusion
