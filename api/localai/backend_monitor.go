@@ -31,7 +31,16 @@ func BackendMonitorEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *
 			return err
 		}
 
-		pid, err := o.Loader.GetGRPCPID(input.Model)
+		config, exists := cm.GetConfig(input.Model)
+		var backend string
+		if exists {
+			backend = config.Backend
+		} else {
+			// Last ditch effort: use it raw, see if a backend happens to match.
+			backend = input.Model
+		}
+
+		pid, err := o.Loader.GetGRPCPID(backend)
 
 		if err != nil {
 			log.Error().Msgf("model %s : failed to find pid %+v", input.Model, err)
