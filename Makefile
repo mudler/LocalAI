@@ -260,7 +260,6 @@ clean: ## Remove build related file
 	$(GOCMD) clean -cache
 	rm -f prepare
 	rm -rf ./go-llama
-	rm -rf ./go-llama-grammar
 	rm -rf ./gpt4all
 	rm -rf ./go-gpt2
 	rm -rf ./go-stable-diffusion
