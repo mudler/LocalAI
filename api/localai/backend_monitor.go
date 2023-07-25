@@ -37,7 +37,7 @@ func BackendMonitorEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *
 		config, exists := cm.GetConfig(input.Model)
 		var backend string
 		if exists {
-			backend = config.Backend
+			backend = config.Model
 		} else {
 			// Last ditch effort: use it raw, see if a backend happens to match.
 			backend = input.Model
