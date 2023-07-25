@@ -23,67 +23,87 @@ type BackendMonitorResponse struct {
 	CPUPercent    float64
 }
 
-// TODO this code lives here temporarily. Should it live down in pkg/model/initializers instead?
+type BackendMonitor struct {
+	configLoader *config.ConfigLoader
+	options      *options.Option // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
+}
 
-func BackendMonitorEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func NewBackendMonitor(configLoader *config.ConfigLoader, options *options.Option) BackendMonitor {
+	return BackendMonitor{
+		configLoader: configLoader,
+		options:      options,
+	}
+}
+
+func (bm *BackendMonitor) SampleBackend(model string) (*BackendMonitorResponse, error) {
+	config, exists := bm.configLoader.GetConfig(model)
+	var backend string
+	if exists {
+		backend = config.Model
+	} else {
+		// Last ditch effort: use it raw, see if a backend happens to match.
+		backend = model
+	}
+
+	if !strings.HasSuffix(backend, ".bin") {
+		backend = fmt.Sprintf("%s.bin", backend)
+	}
+
+	pid, err := bm.options.Loader.GetGRPCPID(backend)
+
+	if err != nil {
+		log.Error().Msgf("model %s : failed to find pid %+v", model, err)
+		return nil, err
+	}
+
+	// Name is slightly frightening but this does _not_ create a new process, rather it looks up an existing process by PID.
+	backendProcess, err := gopsutil.NewProcess(int32(pid))
+
+	if err != nil {
+		log.Error().Msgf("model %s [PID %d] : error getting process info %+v", model, pid, err)
+		return nil, err
+	}
+
+	memInfo, err := backendProcess.MemoryInfo()
+
+	if err != nil {
+		log.Error().Msgf("model %s [PID %d] : error getting memory info %+v", model, pid, err)
+		return nil, err
+	}
+
+	memPercent, err := backendProcess.MemoryPercent()
+	if err != nil {
+		log.Error().Msgf("model %s [PID %d] : error getting memory percent %+v", model, pid, err)
+		return nil, err
+	}
+
+	cpuPercent, err := backendProcess.CPUPercent()
+	if err != nil {
+		log.Error().Msgf("model %s [PID %d] : error getting cpu percent %+v", model, pid, err)
+		return nil, err
+	}
+
+	return &BackendMonitorResponse{
+		MemoryInfo:    memInfo,
+		MemoryPercent: memPercent,
+		CPUPercent:    cpuPercent,
+	}, nil
+}
+
+func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-
 		input := new(BackendMonitorRequest)
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
 			return err
 		}
 
-		config, exists := cm.GetConfig(input.Model)
-		var backend string
-		if exists {
-			backend = config.Model
-		} else {
-			// Last ditch effort: use it raw, see if a backend happens to match.
-			backend = input.Model
-		}
-
-		if !strings.HasSuffix(backend, ".bin") {
-			backend = fmt.Sprintf("%s.bin", backend)
-		}
-
-		pid, err := o.Loader.GetGRPCPID(backend)
-
+		val, err := bm.SampleBackend(input.Model)
 		if err != nil {
-			log.Error().Msgf("model %s : failed to find pid %+v", input.Model, err)
+			log.Warn().Msgf("backend monitor (currently only supports local node grpc backends) error during %s, %+v", input.Model, err)
 			return err
 		}
 
-		backendProcess, err := gopsutil.NewProcess(int32(pid))
-
-		if err != nil {
-			log.Error().Msgf("model %s [PID %d] : error getting process info %+v", input.Model, pid, err)
-			return err
-		}
-
-		memInfo, err := backendProcess.MemoryInfo()
-
-		if err != nil {
-			log.Error().Msgf("model %s [PID %d] : error getting memory info %+v", input.Model, pid, err)
-			return err
-		}
-
-		memPercent, err := backendProcess.MemoryPercent()
-		if err != nil {
-			log.Error().Msgf("model %s [PID %d] : error getting memory percent %+v", input.Model, pid, err)
-			return err
-		}
-
-		cpuPercent, err := backendProcess.CPUPercent()
-		if err != nil {
-			log.Error().Msgf("model %s [PID %d] : error getting cpu percent %+v", input.Model, pid, err)
-			return err
-		}
-
-		return c.JSON(BackendMonitorResponse{
-			MemoryInfo:    memInfo,
-			MemoryPercent: memPercent,
-			CPUPercent:    cpuPercent,
-		})
+		return c.JSON(val)
 	}
 }

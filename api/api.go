@@ -170,7 +170,8 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	app.Get("/readyz", ok)
 
 	// Experimental
-	app.Get("/monitor", localai.BackendMonitorEndpoint(cm, options))
+	backendMonitor := localai.NewBackendMonitor(cm, options) // Split out for now
+	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitor))
 
 	// models
 	app.Get("/v1/models", openai.ListModelsEndpoint(options.Loader, cm))
