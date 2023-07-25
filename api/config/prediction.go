@@ -34,4 +34,9 @@ type PredictionOptions struct {
 
 	TypicalP float64 `json:"typical_p" yaml:"typical_p"`
 	Seed     int     `json:"seed" yaml:"seed"`
+
+	NegativePrompt      string  `json:"negative_prompt" yaml:"negative_prompt"`
+	RopeFreqBase        float32 `json:"rope_freq_base" yaml:"rope_freq_base"`
+	RopeFreqScale       float32 `json:"rope_freq_scale" yaml:"rope_freq_scale"`
+	NegativePromptScale float32 `json:"negative_prompt_scale" yaml:"negative_prompt_scale"`
 }

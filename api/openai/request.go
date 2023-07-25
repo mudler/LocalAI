@@ -71,6 +71,22 @@ func updateConfig(config *config.Config, input *OpenAIRequest) {
 		config.TopP = input.TopP
 	}
 
+	if input.NegativePromptScale != 0 {
+		config.NegativePromptScale = input.NegativePromptScale
+	}
+
+	if input.NegativePrompt != "" {
+		config.NegativePrompt = input.NegativePrompt
+	}
+
+	if input.RopeFreqBase != 0 {
+		config.RopeFreqBase = input.RopeFreqBase
+	}
+
+	if input.RopeFreqScale != 0 {
+		config.RopeFreqScale = input.RopeFreqScale
+	}
+
 	if input.Grammar != "" {
 		config.Grammar = input.Grammar
 	}

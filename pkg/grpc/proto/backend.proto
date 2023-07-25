@@ -57,6 +57,10 @@ message PredictOptions {
   bool Debug = 34;
   repeated int32 EmbeddingTokens = 35;
   string Embeddings = 36;
+  float RopeFreqBase = 37;
+  float RopeFreqScale = 38;
+  float NegativePromptScale = 39;
+  string NegativePrompt = 40;
 }
 
 // The response message containing the result
