@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -66,10 +67,33 @@ var AutoLoadBackends []string = []string{
 	PiperBackend,
 }
 
-func (ml *ModelLoader) StopGRPC() {
-	for _, p := range ml.grpcProcesses {
-		p.Stop()
+func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
+	p, ok := ml.grpcProcesses[id]
+	if !ok {
+		return -1, fmt.Errorf("no grpc backend found for %s", id)
 	}
+	return strconv.Atoi(p.PID)
+}
+
+type GRPCProcessFilter = func(p *process.Process) bool
+
+func includeAllProcesses(_ *process.Process) bool {
+	return true
+}
+
+func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) {
+	for _, p := range ml.grpcProcesses {
+		if filter(p) {
+			p.Stop()
+		}
+	}
+}
+
+func (ml *ModelLoader) StopAllGRPC() {
+	ml.StopGRPC(includeAllProcesses)
+	// for _, p := range ml.grpcProcesses {
+	// 	p.Stop()
+	// }
 }
 
 func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string) error {
