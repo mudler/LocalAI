@@ -42,7 +42,7 @@ func (c *Client) HealthCheck(ctx context.Context) bool {
 		return false
 	}
 
-	if res.Message == "OK" {
+	if string(res.Message) == "OK" {
 		return true
 	}
 	return false
@@ -80,7 +80,7 @@ func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grp
 	return client.LoadModel(ctx, in, opts...)
 }
 
-func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(s string), opts ...grpc.CallOption) error {
+func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err

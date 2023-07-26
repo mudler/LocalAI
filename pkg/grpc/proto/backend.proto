@@ -65,7 +65,7 @@ message PredictOptions {
 
 // The response message containing the result
 message Reply {
-  string message = 1;
+  bytes message = 1;
 }
 
 message ModelOptions {
