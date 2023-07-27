@@ -13,15 +13,13 @@
 
 **LocalAI** is a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families that are compatible with the ggml format. Does not require GPU.
 
-For a list of the supported model families, please see [the model compatibility table](https://localai.io/model-compatibility/index.html#model-compatibility-table).
-
 In a nutshell:
 
 - Local, OpenAI drop-in alternative REST API. You own your data.
 - NO GPU required. NO Internet access is required either
   - Optional, GPU Acceleration is available in `llama.cpp`-compatible LLMs. See also the [build section](https://localai.io/basics/build/index.html). 
 - Supports multiple models:
-  - 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `gpt4all.cpp`, ... and more)
+  - 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `gpt4all.cpp`, ... [:book: and more](https://localai.io/model-compatibility/index.html#model-compatibility-table))
   - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
   - 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
   - 🎨 [Image generation with stable diffusion](https://localai.io/features/image-generation)
@@ -30,6 +28,8 @@ In a nutshell:
 - ⚡ Doesn't shell-out, but uses C++ bindings for a faster inference and better performance. 
 
 LocalAI was created by [Ettore Di Giacinto](https://github.com/mudler/) and is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome! 
+
+Note that this started just as a [fun weekend project](https://localai.io/#backstory) in order to try to create the necessary pieces for a full AI assistant like `ChatGPT`: the community is growing fast and we are working hard to make it better and more stable. If you want to help, please consider contributing (see below)!
 
 See the [Getting started](https://localai.io/basics/getting_started/index.html) and [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/) sections to learn how to use LocalAI. For a list of curated models check out the [model gallery](https://localai.io/models/).
 
@@ -53,6 +53,7 @@ See the [Getting started](https://localai.io/basics/getting_started/index.html) 
 - [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351) 
 - [ ] Enable gallery management directly from the webui.
 - [x] 🔥 OpenAI functions: https://github.com/go-skynet/LocalAI/issues/588
+- [ ] 🔥 GPTQ support: https://github.com/go-skynet/LocalAI/issues/796
 
 ## News
 
