@@ -17,7 +17,10 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	llamaOpts := []llama.ModelOption{}
+	llamaOpts := []llama.ModelOption{
+		llama.WithRopeFreqBase(opts.RopeFreqBase),
+		llama.WithRopeFreqScale(opts.RopeFreqScale),
+	}
 
 	if opts.ContextSize != 0 {
 		llamaOpts = append(llamaOpts, llama.SetContext(int(opts.ContextSize)))
@@ -56,15 +59,15 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 
 func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 	predictOptions := []llama.PredictOption{
-		llama.SetTemperature(float64(opts.Temperature)),
-		llama.SetTopP(float64(opts.TopP)),
+		llama.SetTemperature(opts.Temperature),
+		llama.SetTopP(opts.TopP),
 		llama.SetTopK(int(opts.TopK)),
 		llama.SetTokens(int(opts.Tokens)),
 		llama.SetThreads(int(opts.Threads)),
 		llama.WithGrammar(opts.Grammar),
-		llama.SetRopeFreqBase(float64(opts.RopeFreqBase)),
-		llama.SetRopeFreqScale(float64(opts.RopeFreqScale)),
-		llama.SetNegativePromptScale(float64(opts.NegativePromptScale)),
+		llama.SetRopeFreqBase(opts.RopeFreqBase),
+		llama.SetRopeFreqScale(opts.RopeFreqScale),
+		llama.SetNegativePromptScale(opts.NegativePromptScale),
 		llama.SetNegativePrompt(opts.NegativePrompt),
 	}
 
@@ -86,11 +89,11 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 	}
 
 	if opts.MirostatETA != 0 {
-		predictOptions = append(predictOptions, llama.SetMirostatETA(float64(opts.MirostatETA)))
+		predictOptions = append(predictOptions, llama.SetMirostatETA(opts.MirostatETA))
 	}
 
 	if opts.MirostatTAU != 0 {
-		predictOptions = append(predictOptions, llama.SetMirostatTAU(float64(opts.MirostatTAU)))
+		predictOptions = append(predictOptions, llama.SetMirostatTAU(opts.MirostatTAU))
 	}
 
 	if opts.Debug {
@@ -100,7 +103,7 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 	predictOptions = append(predictOptions, llama.SetStopWords(opts.StopPrompts...))
 
 	if opts.PresencePenalty != 0 {
-		predictOptions = append(predictOptions, llama.SetPenalty(float64(opts.PresencePenalty)))
+		predictOptions = append(predictOptions, llama.SetPenalty(opts.PresencePenalty))
 	}
 
 	if opts.NKeep != 0 {
@@ -125,13 +128,13 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 
 	//predictOptions = append(predictOptions, llama.SetLogitBias(c.Seed))
 
-	predictOptions = append(predictOptions, llama.SetFrequencyPenalty(float64(opts.FrequencyPenalty)))
+	predictOptions = append(predictOptions, llama.SetFrequencyPenalty(opts.FrequencyPenalty))
 	predictOptions = append(predictOptions, llama.SetMlock(opts.MLock))
 	predictOptions = append(predictOptions, llama.SetMemoryMap(opts.MMap))
 	predictOptions = append(predictOptions, llama.SetPredictionMainGPU(opts.MainGPU))
 	predictOptions = append(predictOptions, llama.SetPredictionTensorSplit(opts.TensorSplit))
-	predictOptions = append(predictOptions, llama.SetTailFreeSamplingZ(float64(opts.TailFreeSamplingZ)))
-	predictOptions = append(predictOptions, llama.SetTypicalP(float64(opts.TypicalP)))
+	predictOptions = append(predictOptions, llama.SetTailFreeSamplingZ(opts.TailFreeSamplingZ))
+	predictOptions = append(predictOptions, llama.SetTypicalP(opts.TypicalP))
 	return predictOptions
 }
 
