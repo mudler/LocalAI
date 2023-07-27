@@ -15,19 +15,21 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		b = c.Batch
 	}
 	return &pb.ModelOptions{
-		ContextSize: int32(c.ContextSize),
-		Seed:        int32(c.Seed),
-		NBatch:      int32(b),
-		F16Memory:   c.F16,
-		MLock:       c.MMlock,
-		NUMA:        c.NUMA,
-		Embeddings:  c.Embeddings,
-		LowVRAM:     c.LowVRAM,
-		NGPULayers:  int32(c.NGPULayers),
-		MMap:        c.MMap,
-		MainGPU:     c.MainGPU,
-		Threads:     int32(c.Threads),
-		TensorSplit: c.TensorSplit,
+		ContextSize:   int32(c.ContextSize),
+		Seed:          int32(c.Seed),
+		NBatch:        int32(b),
+		F16Memory:     c.F16,
+		MLock:         c.MMlock,
+		RopeFreqBase:  c.RopeFreqBase,
+		RopeFreqScale: c.RopeFreqScale,
+		NUMA:          c.NUMA,
+		Embeddings:    c.Embeddings,
+		LowVRAM:       c.LowVRAM,
+		NGPULayers:    int32(c.NGPULayers),
+		MMap:          c.MMap,
+		MainGPU:       c.MainGPU,
+		Threads:       int32(c.Threads),
+		TensorSplit:   c.TensorSplit,
 	}
 }
 
