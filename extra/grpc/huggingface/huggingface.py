@@ -15,7 +15,7 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
     def Health(self, request, context):
-        return backend_pb2.Reply(message="OK")
+        return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
     def LoadModel(self, request, context):
         model_name = request.Model
         model_name = os.path.basename(model_name)

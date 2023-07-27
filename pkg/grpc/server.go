@@ -26,7 +26,7 @@ type server struct {
 }
 
 func (s *server) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, error) {
-	return &pb.Reply{Message: "OK"}, nil
+	return newReply("OK"), nil
 }
 
 func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
@@ -48,7 +48,7 @@ func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result
 
 func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
 	result, err := s.llm.Predict(in)
-	return &pb.Reply{Message: result}, err
+	return newReply(result), err
 }
 
 func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {
@@ -99,7 +99,7 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 	done := make(chan bool)
 	go func() {
 		for result := range resultChan {
-			stream.Send(&pb.Reply{Message: result})
+			stream.Send(newReply(result))
 		}
 		done <- true
 	}()

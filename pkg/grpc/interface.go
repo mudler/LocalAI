@@ -14,3 +14,7 @@ type LLM interface {
 	AudioTranscription(*pb.TranscriptRequest) (api.Result, error)
 	TTS(*pb.TTSRequest) error
 }
+
+func newReply(s string) *pb.Reply {
+	return &pb.Reply{Message: []byte(s)}
+}
