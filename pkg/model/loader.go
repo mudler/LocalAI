@@ -86,7 +86,7 @@ func (ml *ModelLoader) ListModels() ([]string, error) {
 	models := []string{}
 	for _, file := range files {
 		// Skip templates, YAML and .keep files
-		if strings.HasSuffix(file.Name(), ".tmpl") || strings.HasSuffix(file.Name(), ".keep") || strings.HasSuffix(file.Name(), ".yaml") || strings.HasSuffix(file.Name(), ".yml") {
+		if strings.HasSuffix(file.Name(), ".tmpl") || strings.HasSuffix(file.Name(), ".keep") || strings.HasSuffix(file.Name(), ".yaml") || strings.HasSuffix(file.Name(), ".yml") || strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
 

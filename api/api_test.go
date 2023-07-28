@@ -536,7 +536,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(11))
+			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
 		})
 		It("can generate completions", func() {
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: "abcdedfghikl"})
