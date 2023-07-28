@@ -745,14 +745,14 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models.Models)).To(Equal(13))
 		})
-		It("can generate chat completions from config file", func() {
-			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
+		It("can generate chat completions from config file (list1)", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: "abcdedfghikl"}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
 		})
-		It("can generate chat completions from config file", func() {
-			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list2", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
+		It("can generate chat completions from config file (list2)", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list2", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: "abcdedfghikl"}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
