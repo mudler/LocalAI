@@ -31,7 +31,7 @@ func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func
 			// If filter _IS_ specified, we should use it to create the filterFn
 			rxp, err := regexp.Compile(filter)
 			if err != nil {
-				return nil
+				return err
 			}
 			filterFn = func(name string) bool {
 				return rxp.MatchString(name)
