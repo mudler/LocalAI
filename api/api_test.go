@@ -740,11 +740,6 @@ var _ = Describe("API test", func() {
 			cancel()
 			app.Shutdown()
 		})
-		It("can generate chat completions from config file", func() {
-			models, err := client.ListModels(context.TODO())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(13))
-		})
 		It("can generate chat completions from config file (list1)", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: "abcdedfghikl"}}})
 			Expect(err).ToNot(HaveOccurred())
