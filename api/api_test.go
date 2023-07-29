@@ -297,7 +297,7 @@ var _ = Describe("API test", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       "github:go-skynet/model-gallery/openllama_3b.yaml",
 					Name:      "openllama_3b",
-					Overrides: map[string]interface{}{"backend": "llama", "mmap": true, "f16": true},
+					Overrides: map[string]interface{}{"backend": "llama", "mmap": true, "f16": true, "context_size": 128},
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
