@@ -17,9 +17,20 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
+
+	ropeFreqBase := float32(10000)
+	ropeFreqScale := float32(1)
+
+	if opts.RopeFreqBase != 0 {
+		ropeFreqBase = opts.RopeFreqBase
+	}
+	if opts.RopeFreqScale != 0 {
+		ropeFreqScale = opts.RopeFreqScale
+	}
+
 	llamaOpts := []llama.ModelOption{
-		llama.WithRopeFreqBase(opts.RopeFreqBase),
-		llama.WithRopeFreqScale(opts.RopeFreqScale),
+		llama.WithRopeFreqBase(ropeFreqBase),
+		llama.WithRopeFreqScale(ropeFreqScale),
 	}
 
 	if opts.ContextSize != 0 {
