@@ -17,9 +17,20 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
+
+	ropeFreqBase := float32(10000)
+	ropeFreqScale := float32(1)
+
+	if opts.RopeFreqBase != 0 {
+		ropeFreqBase = opts.RopeFreqBase
+	}
+	if opts.RopeFreqScale != 0 {
+		ropeFreqScale = opts.RopeFreqScale
+	}
+
 	llamaOpts := []llama.ModelOption{
-		llama.WithRopeFreqBase(opts.RopeFreqBase),
-		llama.WithRopeFreqScale(opts.RopeFreqScale),
+		llama.WithRopeFreqBase(ropeFreqBase),
+		llama.WithRopeFreqScale(ropeFreqScale),
 	}
 
 	if opts.ContextSize != 0 {
@@ -58,6 +69,15 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 }
 
 func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
+	ropeFreqBase := float32(10000)
+	ropeFreqScale := float32(1)
+
+	if opts.RopeFreqBase != 0 {
+		ropeFreqBase = opts.RopeFreqBase
+	}
+	if opts.RopeFreqScale != 0 {
+		ropeFreqScale = opts.RopeFreqScale
+	}
 	predictOptions := []llama.PredictOption{
 		llama.SetTemperature(opts.Temperature),
 		llama.SetTopP(opts.TopP),
@@ -65,8 +85,8 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 		llama.SetTokens(int(opts.Tokens)),
 		llama.SetThreads(int(opts.Threads)),
 		llama.WithGrammar(opts.Grammar),
-		llama.SetRopeFreqBase(opts.RopeFreqBase),
-		llama.SetRopeFreqScale(opts.RopeFreqScale),
+		llama.SetRopeFreqBase(ropeFreqBase),
+		llama.SetRopeFreqScale(ropeFreqScale),
 		llama.SetNegativePromptScale(opts.NegativePromptScale),
 		llama.SetNegativePrompt(opts.NegativePrompt),
 	}
