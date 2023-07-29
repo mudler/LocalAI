@@ -60,7 +60,7 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	}
 
 	if opts.LowVRAM {
-		llamaOpts = append(llamaOpts, llama.EnabelLowVRAM)
+		llamaOpts = append(llamaOpts, llama.EnableLowVRAM)
 	}
 
 	model, err := llama.New(opts.Model, llamaOpts...)
