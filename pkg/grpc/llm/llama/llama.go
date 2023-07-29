@@ -58,7 +58,7 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 }
 
 func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
-	ropeFreqBase := float32(1000)
+	ropeFreqBase := float32(10000)
 	ropeFreqScale := float32(1)
 
 	if opts.RopeFreqBase != 0 {
