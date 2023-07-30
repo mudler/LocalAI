@@ -18,5 +18,5 @@ func inTrustedRoot(path string, trustedRoot string) error {
 // VerifyPath verifies that path is based in basePath.
 func VerifyPath(path, basePath string) error {
 	c := filepath.Clean(filepath.Join(basePath, path))
-	return inTrustedRoot(c, basePath)
+	return inTrustedRoot(c, filepath.Clean(basePath))
 }
