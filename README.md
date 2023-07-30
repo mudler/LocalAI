@@ -202,6 +202,7 @@ Feel free to open up a PR to get your project listed!
 - [autogpt4all](https://github.com/aorumbayev/autogpt4all)
 - [Mods](https://github.com/charmbracelet/mods)
 - [Flowise](https://github.com/FlowiseAI/Flowise)
+- [BMO Chatbot](https://github.com/longy2k/obsidian-bmo-chatbot)
 
 ## Sponsors
 
