@@ -18,17 +18,14 @@ func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func
 
 		dataModels := []OpenAIModel{}
 
-		skipBinIfModelConfigured := false
 		var filterFn func(name string) bool
 		filter := c.Query("filter")
+
+		// If filter is not specified, do not filter the list by model name
 		if filter == "" {
-			// If filter param isn't specified at all, take our best guess at presenting a useful list to our users.
-			// 1) Remove any raw model files from the list that are already configured
-			skipBinIfModelConfigured = true
-			// 2) Don't filter out anything else
 			filterFn = func(_ string) bool { return true }
 		} else {
-			// If filter _IS_ specified, we should use it to create the filterFn
+			// If filter _IS_ specified, we compile it to a regex which is used to create the filterFn
 			rxp, err := regexp.Compile(filter)
 			if err != nil {
 				return err
@@ -38,16 +35,23 @@ func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func
 			}
 		}
 
+		// By default, exclude any loose files that are already referenced by a configuration file.
+		includeConfigured := c.QueryBool("includeConfigured", false)
+
+		// Start with the known configurations
 		for _, c := range cm.GetAllConfigs() {
-			if skipBinIfModelConfigured {
+			if includeConfigured {
 				mm[c.Model] = nil
 			}
+
 			if filterFn(c.Name) {
 				dataModels = append(dataModels, OpenAIModel{ID: c.Name, Object: "model"})
 			}
 		}
 
+		// Then iterate through the loose files:
 		for _, m := range models {
+			// And only adds them if they shouldn't be skipped.
 			if _, exists := mm[m]; !exists && filterFn(m) {
 				dataModels = append(dataModels, OpenAIModel{ID: m, Object: "model"})
 			}
