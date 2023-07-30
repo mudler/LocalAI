@@ -203,6 +203,7 @@ Feel free to open up a PR to get your project listed!
 - [Mods](https://github.com/charmbracelet/mods)
 - [Flowise](https://github.com/FlowiseAI/Flowise)
 - [BMO Chatbot](https://github.com/longy2k/obsidian-bmo-chatbot)
+- [Mattermost OpenOps](https://openops.mattermost.com)
 
 ## Sponsors
 
