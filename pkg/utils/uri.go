@@ -2,8 +2,9 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 	if strings.HasPrefix(url, "file://") {
 		rawURL := strings.TrimPrefix(url, "file://")
 		// Read the response body
-		body, err := ioutil.ReadFile(rawURL)
+		body, err := os.ReadFile(rawURL)
 		if err != nil {
 			return err
 		}
@@ -49,7 +50,7 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 	defer response.Body.Close()
 
 	// Read the response body
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
