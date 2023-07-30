@@ -36,11 +36,11 @@ func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func
 		}
 
 		// By default, exclude any loose files that are already referenced by a configuration file.
-		includeConfigured := c.QueryBool("includeConfigured", false)
+		excludeConfigured := c.QueryBool("excludeConfigured")
 
 		// Start with the known configurations
 		for _, c := range cm.GetAllConfigs() {
-			if includeConfigured {
+			if excludeConfigured {
 				mm[c.Model] = nil
 			}
 
