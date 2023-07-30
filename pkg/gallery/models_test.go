@@ -1,7 +1,6 @@
 package gallery_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -50,7 +49,7 @@ var _ = Describe("Model test", func() {
 			}}
 			out, err := yaml.Marshal(gallery)
 			Expect(err).ToNot(HaveOccurred())
-			err = ioutil.WriteFile(filepath.Join(tempdir, "gallery_simple.yaml"), out, 0644)
+			err = os.WriteFile(filepath.Join(tempdir, "gallery_simple.yaml"), out, 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			galleries := []Gallery{

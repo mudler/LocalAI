@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -105,7 +104,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 					tempDir = o.ImageDir
 				}
 				// Create a temporary file
-				outputFile, err := ioutil.TempFile(tempDir, "b64")
+				outputFile, err := os.CreateTemp(tempDir, "b64")
 				if err != nil {
 					return err
 				}

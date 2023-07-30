@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,7 +44,7 @@ func getModelStatus(url string) (response map[string]interface{}) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error reading response body:", err)
 		return
@@ -97,7 +96,7 @@ func postModelApplyRequest(url string, request modelApplyRequest) (response map[
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error reading response body:", err)
 		return
@@ -153,7 +152,7 @@ var _ = Describe("API test", func() {
 			}
 			out, err := yaml.Marshal(g)
 			Expect(err).ToNot(HaveOccurred())
-			err = ioutil.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0644)
+			err = os.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			galleries := []gallery.Gallery{
