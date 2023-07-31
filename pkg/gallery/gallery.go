@@ -19,6 +19,8 @@ type Gallery struct {
 // Installs a model from the gallery (galleryname@modelname)
 func InstallModelFromGallery(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
 	applyModel := func(model *GalleryModel) error {
+		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
+
 		config, err := GetGalleryConfigFromURL(model.URL)
 		if err != nil {
 			return err
@@ -51,7 +53,11 @@ func InstallModelFromGallery(galleries []Gallery, name string, basePath string, 
 
 	model, err := FindGallery(models, name)
 	if err != nil {
-		return err
+		var err2 error
+		model, err2 = FindGallery(models, strings.ToLower(name))
+		if err2 != nil {
+			return err
+		}
 	}
 
 	return applyModel(model)
@@ -79,7 +85,7 @@ func InstallModelFromGalleryByName(galleries []Gallery, name string, basePath st
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 	var model *GalleryModel
 	for _, m := range models {
-		if name == m.Name {
+		if name == m.Name || name == strings.ToLower(m.Name) {
 			model = m
 		}
 	}
