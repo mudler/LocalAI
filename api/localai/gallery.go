@@ -140,7 +140,13 @@ func processRequests(modelPath, s string, cm *config.ConfigLoader, galleries []g
 		if r.ID == "" {
 			err = prepareModel(modelPath, r.GalleryModel, cm, utils.DisplayDownloadFunction)
 		} else {
-			err = gallery.InstallModelFromGallery(galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
+			if strings.Contains(r.ID, "@") {
+				err = gallery.InstallModelFromGallery(
+					galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
+			} else {
+				err = gallery.InstallModelFromGalleryByName(
+					galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
+			}
 		}
 	}
 	return err
