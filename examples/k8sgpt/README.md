@@ -38,7 +38,7 @@ helm install local-ai go-skynet/local-ai --create-namespace --namespace local-ai
 # Install k8sgpt
 helm repo add k8sgpt https://charts.k8sgpt.ai/
 helm repo update
-helm install release k8sgpt/k8sgpt-operator -n k8sgpt-operator-system --create-namespace
+helm install release k8sgpt/k8sgpt-operator -n k8sgpt-operator-system --create-namespace --version 0.0.17
 ```
 
 Apply the k8sgpt-operator configuration:
