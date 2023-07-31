@@ -27,7 +27,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/rs/zerolog v1.30.0
 	github.com/sashabaranov/go-openai v1.14.1
-	github.com/tmc/langchaingo v0.0.0-20230729232647-7df4fe5fb8fe
+	github.com/tmc/langchaingo v0.0.0-20230731024823-8f101609f600
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/valyala/fasthttp v1.48.0
 	google.golang.org/grpc v1.57.0
