@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=8c51308e42d79e8de2553747b23e74f444b02ae2
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
-GPT4ALL_VERSION?=91a32c0e84a091ce7e0a3c4d08a058c75c770306
+GPT4ALL_VERSION?=3ed6d176a5597bb41ec05ad2da2f4ad409f6533c
 
 # go-ggml-transformers version
 GOGGMLTRANSFORMERS_VERSION?=ffb09d7dd71e2cbc6c5d7d05357d230eea6f369a
