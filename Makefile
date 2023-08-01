@@ -4,7 +4,7 @@ GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
 # llama.cpp versions
-GOLLAMA_VERSION?=8c51308e42d79e8de2553747b23e74f444b02ae2
+GOLLAMA_VERSION?=6ba16de8e965e5aa0f32d25ef9d6149bb6586565
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
