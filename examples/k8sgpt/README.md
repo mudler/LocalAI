@@ -55,7 +55,6 @@ spec:
   baseUrl: http://local-ai.local-ai.svc.cluster.local:8080/v1
   noCache: false
   model: gpt-3.5-turbo
-  noCache: false
   version: v0.3.0
   enableAI: true
 EOF
@@ -68,3 +67,6 @@ Apply a broken pod:
 ```
 kubectl apply -f broken-pod.yaml
 ```
+
+## ArgoCD Deployment Example
+[Deploy K8sgpt + localai with Argocd](https://github.com/tyler-harpool/gitops/tree/main/infra/k8gpt)
