@@ -69,4 +69,4 @@ kubectl apply -f broken-pod.yaml
 ```
 
 ## ArgoCD Deployment Example
-[Deploy K8sgpt + localai with Argocd]https://github.com/tyler-harpool/gitops/tree/main/infra/k8gpt
+[Deploy K8sgpt + localai with Argocd](https://github.com/tyler-harpool/gitops/tree/main/infra/k8gpt)
