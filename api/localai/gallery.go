@@ -129,8 +129,8 @@ func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 }
 
 type galleryModel struct {
-	gallery.GalleryModel
-	ID string `json:"id"`
+	gallery.GalleryModel `yaml:",inline"` // https://github.com/go-yaml/yaml/issues/63
+	ID                   string           `json:"id"`
 }
 
 func processRequests(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery, requests []galleryModel) error {
