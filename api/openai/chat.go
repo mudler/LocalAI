@@ -109,6 +109,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 		var predInput string
 
+		suppressConfigSystemPrompt := false
 		mess := []string{}
 		for messageIndex, i := range input.Messages {
 			var content string
@@ -146,7 +147,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					content = templatedChatMessage
 				}
 			}
-			// If this model doesn't have such a template, or if
+			// If this model doesn't have such a template, or if that template fails to return a value, template at the message level.
 			if content == "" {
 				if r != "" {
 					if contentExists {
@@ -176,6 +177,10 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 							}
 						}
 					}
+				}
+				// Special Handling: System. We care if it was printed at all, not the r branch, so check seperately
+				if contentExists && role == "system" {
+					suppressConfigSystemPrompt = true
 				}
 			}
 
@@ -207,8 +212,10 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 		templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
-			Input:     predInput,
-			Functions: funcs,
+			SystemPrompt:         config.SystemPrompt,
+			SuppressSystemPrompt: suppressConfigSystemPrompt,
+			Input:                predInput,
+			Functions:            funcs,
 		})
 		if err == nil {
 			predInput = templatedInput
