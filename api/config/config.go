@@ -51,6 +51,9 @@ type Config struct {
 	FunctionsConfig Functions `yaml:"function"`
 
 	SystemPrompt string `yaml:"system_prompt"`
+
+	RMSNormEps float32 `yaml:"rms_norm_eps"`
+	NGQA       int32   `yaml:"ngqa"`
 }
 
 type Functions struct {

@@ -87,6 +87,8 @@ message ModelOptions {
   string LibrarySearchPath = 16;
   float RopeFreqBase = 17;
   float RopeFreqScale = 18;
+  float RMSNormEps = 19;
+  int32 NGQA = 20;
 }
 
 message Result {
