@@ -207,8 +207,9 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 		templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
-			Input:     predInput,
-			Functions: funcs,
+			SystemPrompt: config.SystemPrompt,
+			Input:        predInput,
+			Functions:    funcs,
 		})
 		if err == nil {
 			predInput = templatedInput
