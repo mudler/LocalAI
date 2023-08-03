@@ -15,10 +15,13 @@ var (
 
 	PRIMITIVE_RULES = map[string]string{
 		"boolean": `("true" | "false") space`,
-		"number":  `[0-9]+ space`,                    // TODO complete
-		"integer": `[0-9]+ space`,                    // TODO complete
-		"string":  `"\"" [ \t!#-\[\]-~]* "\"" space`, // TODO complete
-		"null":    `"null" space`,
+		"number":  `("-"? ([0-9] | [1-9] [0-9]*)) ("." [0-9]+)? ([eE] [-+]? [0-9]+)? space`,
+		"integer": `("-"? ([0-9] | [1-9] [0-9]*)) space`,
+		"string": `"\"" (
+			[^"\\] |
+			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+		  )* "\"" space`,
+		"null": `"null" space`,
 	}
 
 	INVALID_RULE_CHARS_RE     = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
@@ -175,6 +178,9 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		primitiveRule, exists := PRIMITIVE_RULES[schemaType]
 		if !exists {
 			panic(fmt.Sprintf("Unrecognized schema: %v", schema))
+		}
+		if ruleName == "root" {
+			schemaType = "root"
 		}
 		return sc.addRule(schemaType, primitiveRule)
 	}

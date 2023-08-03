@@ -48,7 +48,10 @@ root ::= root-0 | root-1
 space ::= " "?
 root-0-arguments ::= "{" space "\"date\"" space ":" space string "," space "\"time\"" space ":" space string "," space "\"title\"" space ":" space string "}" space
 root-1 ::= "{" space "\"arguments\"" space ":" space root-1-arguments "," space "\"function\"" space ":" space root-1-function "}" space
-string ::= "\"" [ \t!#-\[\]-~]* "\"" space
+string ::= "\"" (
+	[^"\\] |
+	"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+)* "\"" space
 root-1-function ::= "\"search\""`
 )
 
