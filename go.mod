@@ -40,7 +40,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/shirou/gopsutil/v3 v3.23.6 // indirect
+	github.com/shirou/gopsutil/v3 v3.23.6
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
@@ -61,7 +61,6 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.2 // indirect
 	github.com/ulikunitz/xz v0.5.9 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	google.golang.org/genproto v0.0.0-20230526161137-0005af68ea54 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
@@ -93,3 +92,23 @@ require (
 	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/tools v0.9.3 // indirect
 )
+
+replace github.com/go-skynet/go-llama.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-llama
+
+replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang => /mnt/c/Users/campe/Projects/LocalAI/gpt4all/gpt4all-bindings/golang
+
+replace github.com/go-skynet/go-ggml-transformers.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-ggml-transformers
+
+replace github.com/donomii/go-rwkv.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-rwkv
+
+replace github.com/ggerganov/whisper.cpp => /mnt/c/Users/campe/Projects/LocalAI/whisper.cpp
+
+replace github.com/go-skynet/go-bert.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-bert
+
+replace github.com/go-skynet/bloomz.cpp => /mnt/c/Users/campe/Projects/LocalAI/bloomz
+
+replace github.com/mudler/go-stable-diffusion => /mnt/c/Users/campe/Projects/LocalAI/go-stable-diffusion
+
+replace github.com/mudler/go-piper => /mnt/c/Users/campe/Projects/LocalAI/go-piper
+
+replace github.com/mudler/go-ggllm.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-ggllm

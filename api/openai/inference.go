@@ -7,8 +7,8 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ComputeChoices(req *OpenAIRequest, predInput string, config *config.Config, o *options.Option, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, error) {
-	n := req.N
+func ComputeChoices(req *OpenAIRequest, predInput string, config *config.Config, o *options.Option, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, backend.TokenUsage, error) {
+	n := req.N // number of completions to return
 	result := []Choice{}
 
 	if n == 0 {
@@ -18,20 +18,25 @@ func ComputeChoices(req *OpenAIRequest, predInput string, config *config.Config,
 	// get the model function to call for the result
 	predFunc, err := backend.ModelInference(req.Context, predInput, loader, *config, o, tokenCallback)
 	if err != nil {
-		return result, err
+		return result, backend.TokenUsage{}, err
 	}
+
+	tokenUsage := backend.TokenUsage{}
 
 	for i := 0; i < n; i++ {
 		prediction, err := predFunc()
 		if err != nil {
-			return result, err
+			return result, backend.TokenUsage{}, err
 		}
 
-		prediction = backend.Finetune(*config, predInput, prediction)
-		cb(prediction, &result)
+		tokenUsage.Prompt += prediction.Usage.Prompt
+		tokenUsage.Completion += prediction.Usage.Completion
+
+		finetunedResponse := backend.Finetune(*config, predInput, prediction.Response)
+		cb(finetunedResponse, &result)
 
 		//result = append(result, Choice{Text: prediction})
 
 	}
-	return result, err
+	return result, tokenUsage, err
 }

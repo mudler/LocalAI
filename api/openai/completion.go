@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -120,6 +121,9 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		}
 
 		var result []Choice
+
+		totalTokenUsage := backend.TokenUsage{}
+
 		for k, i := range config.PromptStrings {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
@@ -130,12 +134,15 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
-			r, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]Choice) {
+			r, tokenUsage, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]Choice) {
 				*c = append(*c, Choice{Text: s, FinishReason: "stop", Index: k})
 			}, nil)
 			if err != nil {
 				return err
 			}
+
+			totalTokenUsage.Prompt += tokenUsage.Prompt
+			totalTokenUsage.Completion += tokenUsage.Completion
 
 			result = append(result, r...)
 		}
@@ -144,6 +151,11 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "text_completion",
+			Usage: OpenAIUsage{
+				PromptTokens:     totalTokenUsage.Prompt,
+				CompletionTokens: totalTokenUsage.Completion,
+				TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
+			},
 		}
 
 		jsonResult, _ := json.Marshal(resp)

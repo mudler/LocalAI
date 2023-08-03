@@ -263,7 +263,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			return nil
 		}
 
-		result, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]Choice) {
+		result, tokenUsage, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]Choice) {
 			if processFunctions {
 				// As we have to change the result before processing, we can't stream the answer (yet?)
 				ss := map[string]interface{}{}
@@ -317,8 +317,8 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 						return
 					}
 
-					prediction = backend.Finetune(*config, predInput, prediction)
-					*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &prediction}})
+					fineTunedResponse := backend.Finetune(*config, predInput, prediction.Response)
+					*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &fineTunedResponse}})
 				} else {
 					// otherwise reply with the function call
 					*c = append(*c, Choice{
@@ -339,6 +339,11 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "chat.completion",
+			Usage: OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			},
 		}
 		respData, _ := json.Marshal(resp)
 		log.Debug().Msgf("Response: %s", respData)

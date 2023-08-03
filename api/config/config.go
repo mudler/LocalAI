@@ -50,7 +50,8 @@ type Config struct {
 
 	FunctionsConfig Functions `yaml:"function"`
 
-	SystemPrompt string `yaml:"system_prompt"`
+	SystemPrompt string          `yaml:"system_prompt"`
+	Chicken      map[string]bool `yaml:"chicken"` // "Chicken Bit" registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 }
 
 type Functions struct {

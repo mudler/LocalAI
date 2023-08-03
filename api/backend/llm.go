@@ -1,11 +1,13 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
+	"unsafe"
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
@@ -15,7 +17,17 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
-func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string) bool) (func() (string, error), error) {
+type LLMResponse struct {
+	Response string // should this be []byte?
+	Usage    TokenUsage
+}
+
+type TokenUsage struct {
+	Prompt     int
+	Completion int
+}
+
+func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	grpcOpts := gRPCModelOpts(c)
@@ -62,26 +74,71 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 	}
 
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
-	fn := func() (string, error) {
+	fn := func() (LLMResponse, error) {
 		opts := gRPCPredictOpts(c, loader.ModelPath)
 		opts.Prompt = s
+
+		// Declared outside of chicken zone, since returning 0's is current behavior.
+		promptTokens := 0
+		completionTokens := 0
+
+		// check the chicken bit for token_usage, since tokenCallback may have a cost, but default to on.
+		if !c.Chicken["usage"] {
+			userTokenCallback := tokenCallback
+			if userTokenCallback == nil {
+				userTokenCallback = func(token string) bool {
+					return true
+				}
+			}
+
+			promptAccumulator := []byte{}
+
+			// Go Experts: Is this the bridge too far? Goal is to avoid immutable string copies all over the place here
+			promptBytes := *(*[]byte)(unsafe.Pointer(&s))
+
+			tokenCallback = func(token string) bool {
+
+				promptAccumulator = append(promptAccumulator, []byte(token)...)
+
+				if len(promptAccumulator) <= len(promptBytes) && bytes.HasPrefix(promptBytes, promptAccumulator) {
+					promptTokens++
+				}
+				completionTokens++
+
+				return userTokenCallback(token)
+			}
+		}
+
 		if tokenCallback != nil {
 			ss := ""
 			err := inferenceModel.PredictStream(ctx, opts, func(s []byte) {
 				tokenCallback(string(s))
 				ss += string(s)
 			})
-			return ss, err
+			return LLMResponse{
+				Response: ss,
+				Usage: TokenUsage{
+					Prompt:     promptTokens,
+					Completion: completionTokens,
+				},
+			}, err
 		} else {
+			// TODO: Is the chicken bit the only way to get here? is that acceptable?
 			reply, err := inferenceModel.Predict(ctx, opts)
 			if err != nil {
-				return "", err
+				return LLMResponse{}, err
 			}
-			return string(reply.Message), err
+			return LLMResponse{
+				Response: string(reply.Message),
+				Usage: TokenUsage{
+					Prompt:     promptTokens,
+					Completion: completionTokens,
+				},
+			}, err
 		}
 	}
 
-	return func() (string, error) {
+	return func() (LLMResponse, error) {
 		// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
 		mutexMap.Lock()
 		l, ok := mutexes[modelFile]
