@@ -67,9 +67,9 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 		opts.Prompt = s
 		if tokenCallback != nil {
 			ss := ""
-			err := inferenceModel.PredictStream(ctx, opts, func(s string) {
-				tokenCallback(s)
-				ss += s
+			err := inferenceModel.PredictStream(ctx, opts, func(s []byte) {
+				tokenCallback(string(s))
+				ss += string(s)
 			})
 			return ss, err
 		} else {
@@ -77,7 +77,7 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 			if err != nil {
 				return "", err
 			}
-			return reply.Message, err
+			return string(reply.Message), err
 		}
 	}
 

@@ -172,6 +172,16 @@ func (cm *ConfigLoader) GetConfig(m string) (Config, bool) {
 	return v, exists
 }
 
+func (cm *ConfigLoader) GetAllConfigs() []Config {
+	cm.Lock()
+	defer cm.Unlock()
+	var res []Config
+	for _, v := range cm.configs {
+		res = append(res, v)
+	}
+	return res
+}
+
 func (cm *ConfigLoader) ListConfigs() []string {
 	cm.Lock()
 	defer cm.Unlock()

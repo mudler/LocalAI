@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,10 +29,10 @@ import (
 )
 
 type modelApplyRequest struct {
-	ID        string            `json:"id"`
-	URL       string            `json:"url"`
-	Name      string            `json:"name"`
-	Overrides map[string]string `json:"overrides"`
+	ID        string                 `json:"id"`
+	URL       string                 `json:"url"`
+	Name      string                 `json:"name"`
+	Overrides map[string]interface{} `json:"overrides"`
 }
 
 func getModelStatus(url string) (response map[string]interface{}) {
@@ -45,7 +44,7 @@ func getModelStatus(url string) (response map[string]interface{}) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error reading response body:", err)
 		return
@@ -97,7 +96,7 @@ func postModelApplyRequest(url string, request modelApplyRequest) (response map[
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error reading response body:", err)
 		return
@@ -153,7 +152,7 @@ var _ = Describe("API test", func() {
 			}
 			out, err := yaml.Marshal(g)
 			Expect(err).ToNot(HaveOccurred())
-			err = ioutil.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0644)
+			err = os.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			galleries := []gallery.Gallery{
@@ -243,7 +242,7 @@ var _ = Describe("API test", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
 					Name: "bert",
-					Overrides: map[string]string{
+					Overrides: map[string]interface{}{
 						"backend": "llama",
 					},
 				})
@@ -269,7 +268,7 @@ var _ = Describe("API test", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
 					Name:      "bert",
-					Overrides: map[string]string{},
+					Overrides: map[string]interface{}{},
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -297,7 +296,7 @@ var _ = Describe("API test", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       "github:go-skynet/model-gallery/openllama_3b.yaml",
 					Name:      "openllama_3b",
-					Overrides: map[string]string{"backend": "llama-grammar"},
+					Overrides: map[string]interface{}{"backend": "llama", "mmap": true, "f16": true, "context_size": 128},
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -355,7 +354,7 @@ var _ = Describe("API test", func() {
 				var res map[string]string
 				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
+				Expect(res["location"]).To(Equal("San Francisco, California, United States"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 			})
@@ -366,9 +365,8 @@ var _ = Describe("API test", func() {
 				}
 
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					URL:       "github:go-skynet/model-gallery/gpt4all-j.yaml",
-					Name:      "gpt4all-j",
-					Overrides: map[string]string{},
+					URL:  "github:go-skynet/model-gallery/gpt4all-j.yaml",
+					Name: "gpt4all-j",
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -536,7 +534,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(11))
+			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
 		})
 		It("can generate completions", func() {
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: "abcdedfghikl"})
@@ -740,19 +738,14 @@ var _ = Describe("API test", func() {
 			cancel()
 			app.Shutdown()
 		})
-		It("can generate chat completions from config file", func() {
-			models, err := client.ListModels(context.TODO())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(13))
-		})
-		It("can generate chat completions from config file", func() {
-			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
+		It("can generate chat completions from config file (list1)", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: "abcdedfghikl"}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
 		})
-		It("can generate chat completions from config file", func() {
-			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list2", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "abcdedfghikl"}}})
+		It("can generate chat completions from config file (list2)", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list2", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: "abcdedfghikl"}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())

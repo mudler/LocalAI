@@ -57,11 +57,15 @@ message PredictOptions {
   bool Debug = 34;
   repeated int32 EmbeddingTokens = 35;
   string Embeddings = 36;
+  float RopeFreqBase = 37;
+  float RopeFreqScale = 38;
+  float NegativePromptScale = 39;
+  string NegativePrompt = 40;
 }
 
 // The response message containing the result
 message Reply {
-  string message = 1;
+  bytes message = 1;
 }
 
 message ModelOptions {
@@ -81,6 +85,8 @@ message ModelOptions {
   string TensorSplit = 14;
   int32 Threads = 15;
   string LibrarySearchPath = 16;
+  float RopeFreqBase = 17;
+  float RopeFreqScale = 18;
 }
 
 message Result {

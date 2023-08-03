@@ -36,7 +36,6 @@ const (
 	Gpt4All             = "gpt4all"
 	FalconBackend       = "falcon"
 	FalconGGMLBackend   = "falcon-ggml"
-	LlamaGrammarBackend = "llama-grammar"
 
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
@@ -52,7 +51,6 @@ var AutoLoadBackends []string = []string{
 	FalconBackend,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,
-	LlamaGrammarBackend,
 	FalconGGMLBackend,
 	GPTJBackend,
 	Gpt2Backend,
@@ -254,7 +252,7 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 	}
 
 	switch backend {
-	case LlamaBackend, LlamaGrammarBackend, GPTJBackend, DollyBackend,
+	case LlamaBackend, GPTJBackend, DollyBackend,
 		MPTBackend, Gpt2Backend, FalconBackend,
 		GPTNeoXBackend, ReplitBackend, StarcoderBackend, BloomzBackend,
 		RwkvBackend, LCHuggingFaceBackend, BertEmbeddingsBackend, FalconGGMLBackend, StableDiffusionBackend, WhisperBackend:

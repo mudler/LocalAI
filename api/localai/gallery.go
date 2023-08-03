@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	json "github.com/json-iterator/go"
+	"gopkg.in/yaml.v3"
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
@@ -128,8 +129,27 @@ func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 }
 
 type galleryModel struct {
-	gallery.GalleryModel
-	ID string `json:"id"`
+	gallery.GalleryModel `yaml:",inline"` // https://github.com/go-yaml/yaml/issues/63
+	ID                   string           `json:"id"`
+}
+
+func processRequests(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery, requests []galleryModel) error {
+	var err error
+	for _, r := range requests {
+		utils.ResetDownloadTimers()
+		if r.ID == "" {
+			err = prepareModel(modelPath, r.GalleryModel, cm, utils.DisplayDownloadFunction)
+		} else {
+			if strings.Contains(r.ID, "@") {
+				err = gallery.InstallModelFromGallery(
+					galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
+			} else {
+				err = gallery.InstallModelFromGalleryByName(
+					galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
+			}
+		}
+	}
+	return err
 }
 
 func ApplyGalleryFromFile(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery) error {
@@ -137,7 +157,13 @@ func ApplyGalleryFromFile(modelPath, s string, cm *config.ConfigLoader, gallerie
 	if err != nil {
 		return err
 	}
-	return ApplyGalleryFromString(modelPath, string(dat), cm, galleries)
+	var requests []galleryModel
+
+	if err := yaml.Unmarshal(dat, &requests); err != nil {
+		return err
+	}
+
+	return processRequests(modelPath, s, cm, galleries, requests)
 }
 
 func ApplyGalleryFromString(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery) error {
@@ -147,16 +173,7 @@ func ApplyGalleryFromString(modelPath, s string, cm *config.ConfigLoader, galler
 		return err
 	}
 
-	for _, r := range requests {
-		utils.ResetDownloadTimers()
-		if r.ID == "" {
-			err = prepareModel(modelPath, r.GalleryModel, cm, utils.DisplayDownloadFunction)
-		} else {
-			err = gallery.InstallModelFromGallery(galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
-		}
-	}
-
-	return err
+	return processRequests(modelPath, s, cm, galleries, requests)
 }
 
 /// Endpoints
