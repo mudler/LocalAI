@@ -18,6 +18,8 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		ContextSize:   int32(c.ContextSize),
 		Seed:          int32(c.Seed),
 		NBatch:        int32(b),
+		NGQA:          c.NGQA,
+		RMSNormEps:    c.RMSNormEps,
 		F16Memory:     c.F16,
 		MLock:         c.MMlock,
 		RopeFreqBase:  c.RopeFreqBase,

@@ -33,6 +33,14 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 		llama.WithRopeFreqScale(ropeFreqScale),
 	}
 
+	if opts.NGQA != 0 {
+		llamaOpts = append(llamaOpts, llama.WithGQA(int(opts.NGQA)))
+	}
+
+	if opts.RMSNormEps != 0 {
+		llamaOpts = append(llamaOpts, llama.WithRMSNormEPS(opts.RMSNormEps))
+	}
+
 	if opts.ContextSize != 0 {
 		llamaOpts = append(llamaOpts, llama.SetContext(int(opts.ContextSize)))
 	}

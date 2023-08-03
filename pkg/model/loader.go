@@ -20,10 +20,12 @@ import (
 // These are the definitions of all possible variables LocalAI will currently populate for use in a prompt template file
 // Please note: Not all of these are populated on every endpoint - your template should either be tested for each endpoint you map it to, or tolerant of zero values.
 type PromptTemplateData struct {
-	Input        string
-	Instruction  string
-	Functions    []grammar.Function
-	MessageIndex int
+	SystemPrompt         string
+	SuppressSystemPrompt bool // used by chat specifically to indicate that SystemPrompt above should be _ignored_
+	Input                string
+	Instruction          string
+	Functions            []grammar.Function
+	MessageIndex         int
 }
 
 // TODO: Ask mudler about FunctionCall stuff being useful at the message level?

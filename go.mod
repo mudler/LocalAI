@@ -9,7 +9,7 @@ require (
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230529155654-1834e77b83fa
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230716133540-6abe312cded1
 	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230714203132-ffb09d7dd71e
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230729200103-8c51308e42d7
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230802220037-50cee7712066
 	github.com/gofiber/fiber/v2 v2.48.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
@@ -20,14 +20,14 @@ require (
 	github.com/mudler/go-ggllm.cpp v0.0.0-20230709223052-862477d16eef
 	github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230731161838-cbdcde8b7586
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230802145814-c449b71b56de
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.10
 	github.com/otiai10/openaigo v1.5.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/rs/zerolog v1.30.0
 	github.com/sashabaranov/go-openai v1.14.1
-	github.com/tmc/langchaingo v0.0.0-20230731024823-8f101609f600
+	github.com/tmc/langchaingo v0.0.0-20230802030916-271e9bd7e7c5
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/valyala/fasthttp v1.48.0
 	google.golang.org/grpc v1.57.0

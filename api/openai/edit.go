@@ -38,8 +38,9 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		for _, i := range config.InputStrings {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.EditPromptTemplate, templateFile, model.PromptTemplateData{
-				Input:       i,
-				Instruction: input.Instruction,
+				Input:        i,
+				Instruction:  input.Instruction,
+				SystemPrompt: config.SystemPrompt,
 			})
 			if err == nil {
 				i = templatedInput
