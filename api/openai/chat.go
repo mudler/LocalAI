@@ -12,6 +12,7 @@ import (
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -274,6 +275,8 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			if processFunctions {
 				// As we have to change the result before processing, we can't stream the answer (yet?)
 				ss := map[string]interface{}{}
+				// This prevent newlines to break JSON parsing for clients
+				s = utils.EscapeNewLines(s)
 				json.Unmarshal([]byte(s), &ss)
 				log.Debug().Msgf("Function return: %s %+v", s, ss)
 
