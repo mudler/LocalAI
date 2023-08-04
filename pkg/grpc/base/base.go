@@ -5,6 +5,7 @@ package base
 import (
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/pkg/grpc"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/grpc/whisper/api"
 )
@@ -39,4 +40,8 @@ func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (api.Result, error) {
 
 func (llm *Base) TTS(*pb.TTSRequest) error {
 	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) TokenizeString(opts *pb.PredictOptions) (grpc.TokenizationResponse, error) {
+	return grpc.TokenizationResponse{}, fmt.Errorf("unimplemented")
 }

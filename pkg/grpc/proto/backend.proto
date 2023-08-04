@@ -16,6 +16,7 @@ service Backend {
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc TTS(TTSRequest) returns (Result) {}
+  rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
 }
 
 message HealthMessage {}
@@ -134,4 +135,9 @@ message TTSRequest {
   string text = 1;
   string model = 2;
   string dst = 3;
+}
+
+message TokenizationResponse {
+  int32 length = 1;
+  repeated string tokens = 2;
 }

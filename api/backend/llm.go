@@ -1,13 +1,11 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
-	"unsafe"
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
@@ -91,20 +89,15 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 				}
 			}
 
-			promptAccumulator := []byte{}
+			// TODO: Broken:
 
-			// Go Experts: Is this the bridge too far? Goal is to avoid immutable string copies all over the place here
-			promptBytes := *(*[]byte)(unsafe.Pointer(&s))
+			// promptInfo, pErr := inferenceModel.TokenizeString(ctx, opts)
+			// if pErr == nil && promptInfo.Length > 0 {
+			// 	promptTokens = promptInfo.Length
+			// }
 
 			tokenCallback = func(token string) bool {
-
-				promptAccumulator = append(promptAccumulator, []byte(token)...)
-
-				if len(promptAccumulator) <= len(promptBytes) && bytes.HasPrefix(promptBytes, promptAccumulator) {
-					promptTokens++
-				}
 				completionTokens++
-
 				return userTokenCallback(token)
 			}
 		}
