@@ -115,9 +115,15 @@ func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb
 	if err != nil {
 		return nil, err
 	}
+
+	castTokens := make([]int32, len(res.Tokens))
+	for i, v := range res.Tokens {
+		castTokens[i] = int32(v)
+	}
+
 	return &pb.TokenizationResponse{
 		Length: int32(res.Length),
-		Tokens: res.Tokens,
+		Tokens: castTokens,
 	}, err
 }
 

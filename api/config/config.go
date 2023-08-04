@@ -51,7 +51,7 @@ type Config struct {
 	FunctionsConfig Functions `yaml:"function"`
 
 	SystemPrompt string          `yaml:"system_prompt"`
-	Chicken      map[string]bool `yaml:"chicken"` // "Chicken Bit" registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
+	FeatureFlag  map[string]bool `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 
 	RMSNormEps float32 `yaml:"rms_norm_eps"`
 	NGQA       int32   `yaml:"ngqa"`

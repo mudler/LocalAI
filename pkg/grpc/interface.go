@@ -6,8 +6,8 @@ import (
 )
 
 type TokenizationResponse struct {
-	Length int      `json:"length"`
-	Tokens []string `json:"tokens"`
+	Length int   `json:"length"`
+	Tokens []int `json:"tokens"`
 }
 
 type LLM interface {

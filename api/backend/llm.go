@@ -76,20 +76,17 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 		opts := gRPCPredictOpts(c, loader.ModelPath)
 		opts.Prompt = s
 
-		// Declared outside of chicken zone, since returning 0's is current behavior.
 		promptTokens := 0
 		completionTokens := 0
 
-		// check the chicken bit for token_usage, since tokenCallback may have a cost, but default to on.
-		if !c.Chicken["usage"] {
+		// check the per-model feature flag for usage, since tokenCallback may have a cost, but default to on.
+		if !c.FeatureFlag["usage"] {
 			userTokenCallback := tokenCallback
 			if userTokenCallback == nil {
 				userTokenCallback = func(token string) bool {
 					return true
 				}
 			}
-
-			// TODO: Broken:
 
 			promptInfo, pErr := inferenceModel.TokenizeString(ctx, opts)
 			if pErr == nil && promptInfo.Length > 0 {

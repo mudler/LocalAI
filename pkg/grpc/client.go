@@ -173,8 +173,13 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 		return nil, err
 	}
 
+	castTokens := make([]int, len(res.Tokens))
+	for i, v := range res.Tokens {
+		castTokens[i] = int(v)
+	}
+
 	return &TokenizationResponse{
 		Length: int(res.Length),
-		Tokens: res.Tokens,
+		Tokens: castTokens,
 	}, err
 }
