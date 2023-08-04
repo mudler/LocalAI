@@ -91,10 +91,10 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 
 			// TODO: Broken:
 
-			// promptInfo, pErr := inferenceModel.TokenizeString(ctx, opts)
-			// if pErr == nil && promptInfo.Length > 0 {
-			// 	promptTokens = promptInfo.Length
-			// }
+			promptInfo, pErr := inferenceModel.TokenizeString(ctx, opts)
+			if pErr == nil && promptInfo.Length > 0 {
+				promptTokens = promptInfo.Length
+			}
 
 			tokenCallback = func(token string) bool {
 				completionTokens++

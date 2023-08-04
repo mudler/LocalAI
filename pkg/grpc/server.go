@@ -112,6 +112,9 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 
 func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
 	res, err := s.llm.TokenizeString(in)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.TokenizationResponse{
 		Length: int32(res.Length),
 		Tokens: res.Tokens,
