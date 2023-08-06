@@ -79,7 +79,9 @@ LocalAI was created by [Ettore Di Giacinto](https://github.com/mudler/) and is a
 
 Note that this started just as a [fun weekend project](https://localai.io/#backstory) in order to try to create the necessary pieces for a full AI assistant like `ChatGPT`: the community is growing fast and we are working hard to make it better and more stable. If you want to help, please consider contributing (see below)!
 
-## 🚀 Features
+## 🔥🔥 [Hot topics / Roadmap](https://localai.io/#-hot-topics--roadmap)
+
+## 🚀 [Features](https://localai.io/features/)
 
 - 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `gpt4all.cpp`, ... [:book: and more](https://localai.io/model-compatibility/index.html#model-compatibility-table))
 - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
@@ -90,20 +92,8 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
 
-## 🔥🔥 Hot topics / Roadmap
 
-- [x] Support for embeddings
-- [x] Support for audio transcription with https://github.com/ggerganov/whisper.cpp
-- [X] Support for text-to-audio
-- [x] GPU/CUDA support ( https://github.com/go-skynet/LocalAI/issues/69 )
-- [X] Enable automatic downloading of models from a curated gallery
-- [X] Enable automatic downloading of models from HuggingFace
-- [ ] Upstream our golang bindings to llama.cpp (https://github.com/ggerganov/llama.cpp/issues/351) 
-- [ ] Enable gallery management directly from the webui.
-- [x] 🔥 OpenAI functions: https://github.com/go-skynet/LocalAI/issues/588
-- [ ] 🔥 GPTQ support: https://github.com/go-skynet/LocalAI/issues/796
-
-## :book: 🎥 Media, Blogs, Social
+## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
 
 - [Create a slackbot for teams and OSS projects that answer to documentation](https://mudler.pm/posts/smart-slackbot-for-teams/)
 - [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)
