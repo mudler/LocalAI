@@ -112,81 +112,11 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 
 ## 💻 Usage
 
-Check out the [Getting started](https://localai.io/basics/getting_started/index.html) section. Here below you will find generic, quick instructions to get ready and use LocalAI.
-
-The easiest way to run LocalAI is by using `docker-compose` (to build locally, see [building LocalAI](https://localai.io/basics/build/index.html)):
-
-```bash
-
-git clone https://github.com/go-skynet/LocalAI
-
-cd LocalAI
-
-# (optional) Checkout a specific LocalAI tag
-# git checkout -b build <TAG>
-
-# copy your models to models/
-cp your-model.bin models/
-
-# (optional) Edit the .env file to set things like context size and threads
-# vim .env
-
-# start with docker-compose
-docker-compose up -d --pull always
-# or you can build the images with:
-# docker-compose up -d --build
-
-# Now API is accessible at localhost:8080
-curl http://localhost:8080/v1/models
-# {"object":"list","data":[{"id":"your-model.bin","object":"model"}]}
-
-curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
-     "model": "your-model.bin",            
-     "prompt": "A long time ago in a galaxy far, far away",
-     "temperature": 0.7
-   }'
-```
+Check out the [Getting started](https://localai.io/basics/getting_started/index.html) section in our documentation.
 
 ### 💡 Example: Use GPT4ALL-J model
 
-<details>
-
-```bash
-# Clone LocalAI
-git clone https://github.com/go-skynet/LocalAI
-
-cd LocalAI
-
-# (optional) Checkout a specific LocalAI tag
-# git checkout -b build <TAG>
-
-# Download gpt4all-j to models/
-wget https://gpt4all.io/models/ggml-gpt4all-j.bin -O models/ggml-gpt4all-j
-
-# Use a template from the examples
-cp -rf prompt-templates/ggml-gpt4all-j.tmpl models/
-
-# (optional) Edit the .env file to set things like context size and threads
-# vim .env
-
-# start with docker-compose
-docker-compose up -d --pull always
-# or you can build the images with:
-# docker-compose up -d --build
-# Now API is accessible at localhost:8080
-curl http://localhost:8080/v1/models
-# {"object":"list","data":[{"id":"ggml-gpt4all-j","object":"model"}]}
-
-curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-     "model": "ggml-gpt4all-j",
-     "messages": [{"role": "user", "content": "How are you?"}],
-     "temperature": 0.9 
-   }'
-
-# {"model":"ggml-gpt4all-j","choices":[{"message":{"role":"assistant","content":"I'm doing well, thanks. How about you?"}}]}
-```
-</details>
-
+See the [documentation](https://localai.io/basics/getting_started/#example-use-gpt4all-j-model-with-docker-compose)
 
 ### 🔗 Resources
 
