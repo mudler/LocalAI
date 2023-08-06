@@ -23,6 +23,7 @@ In a nutshell:
   - 🎨 [Image generation with stable diffusion](https://localai.io/features/image-generation)
   - 🔥 [OpenAI functions](https://localai.io/features/openai-functions/) 🆕
   - 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
+  - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🏃 Once loaded the first time, it keep models loaded in memory for faster inference
 - ⚡ Doesn't shell-out, but uses C++ bindings for a faster inference and better performance. 
 
