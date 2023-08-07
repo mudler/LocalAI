@@ -56,9 +56,10 @@ type Config struct {
 	NGQA       int32   `yaml:"ngqa"`
 
 	// AutoGPTQ
-	ModelBaseName string `yaml:"model_base_name"`
-	Device        string `yaml:"device"`
-	Triton        bool   `yaml:"triton"`
+	ModelBaseName    string `yaml:"model_base_name"`
+	Device           string `yaml:"device"`
+	Triton           bool   `yaml:"triton"`
+	UseFastTokenizer bool   `yaml:"use_fast_tokenizer"`
 }
 
 type Functions struct {

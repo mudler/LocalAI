@@ -83,6 +83,10 @@ func updateConfig(config *config.Config, input *OpenAIRequest) {
 		config.NegativePromptScale = input.NegativePromptScale
 	}
 
+	if input.UseFastTokenizer {
+		config.UseFastTokenizer = input.UseFastTokenizer
+	}
+
 	if input.NegativePrompt != "" {
 		config.NegativePrompt = input.NegativePrompt
 	}

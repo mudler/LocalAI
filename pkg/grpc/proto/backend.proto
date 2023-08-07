@@ -95,6 +95,7 @@ message ModelOptions {
   string Device = 22;
   bool UseTriton = 23;
   string ModelBaseName = 24;
+  bool UseFastTokenizer = 25;
 }
 
 message Result {
