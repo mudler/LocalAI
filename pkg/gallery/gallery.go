@@ -85,7 +85,7 @@ func InstallModelFromGalleryByName(galleries []Gallery, name string, basePath st
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 	var model *GalleryModel
 	for _, m := range models {
-		if name == m.Name || name == strings.ToLower(m.Name) {
+		if name == m.Name || m.Name == strings.ToLower(name) {
 			model = m
 		}
 	}
