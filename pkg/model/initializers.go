@@ -83,7 +83,9 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
 		process.WithName(grpcProcess),
-		process.WithArgs("--addr", serverAddress))
+		process.WithArgs("--addr", serverAddress),
+		process.WithEnvironment(os.Environ()...),
+	)
 
 	ml.grpcProcesses[id] = grpcControlProcess
 
