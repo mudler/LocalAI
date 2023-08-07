@@ -17,9 +17,9 @@ ARG GO_TAGS="stablediffusion tts"
 RUN apt-get update && \
     apt-get install -y ca-certificates cmake curl patch pip
 
-# Extras requirements
-COPY extra/requirements.txt /build/extra/requirements.txt
-RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
+# Use the variables in subsequent instructions
+RUN echo "Target Architecture: $TARGETARCH"
+RUN echo "Target Variant: $TARGETVARIANT"
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
@@ -33,6 +33,14 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     ; fi
 ENV PATH /usr/local/cuda/bin:${PATH}
 
+# Extras requirements
+COPY extra/requirements.txt /build/extra/requirements.txt
+
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        pip install auto-gptq;\
+    fi
+RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
+
 WORKDIR /build
 
 # OpenBLAS requirements
@@ -42,9 +50,6 @@ RUN apt-get install -y libopenblas-dev
 RUN apt-get install -y libopencv-dev && \
     ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
-# Use the variables in subsequent instructions
-RUN echo "Target Architecture: $TARGETARCH"
-RUN echo "Target Variant: $TARGETVARIANT"
 
 # piper requirements
 # Use pre-compiled Piper phonemization library (includes onnxruntime)
