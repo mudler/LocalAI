@@ -61,7 +61,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             top_p=top_p,
             repetition_penalty=penalty,
             )
-        return backend_pb2.Result(message=bytes(pipeline(request.Prompt)[0]["generated_text"]))
+        return backend_pb2.Result(message=bytes(pipeline(request.Prompt)[0]["generated_text"], encoding='utf-8'))
 
     def PredictStream(self, request, context):
         # Implement PredictStream RPC
