@@ -18,7 +18,7 @@ type Dolly struct {
 }
 
 func (llm *Dolly) Load(opts *pb.ModelOptions) error {
-	model, err := transformers.NewDolly(opts.Model)
+	model, err := transformers.NewDolly(opts.ModelFile)
 	llm.dolly = model
 	return err
 }

@@ -18,8 +18,8 @@ type Piper struct {
 }
 
 func (sd *Piper) Load(opts *pb.ModelOptions) error {
-	if filepath.Ext(opts.Model) != ".onnx" {
-		return fmt.Errorf("unsupported model type %s (should end with .onnx)", opts.Model)
+	if filepath.Ext(opts.ModelFile) != ".onnx" {
+		return fmt.Errorf("unsupported model type %s (should end with .onnx)", opts.ModelFile)
 	}
 	var err error
 	// Note: the Model here is a path to a directory containing the model files

@@ -8,7 +8,10 @@ import argparse
 import signal
 import sys
 import os
-from sentence_transformers import SentenceTransformer
+from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+from pathlib import Path
+from transformers import AutoTokenizer
+from transformers import TextGenerationPipeline
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -17,20 +20,45 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def Health(self, request, context):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
     def LoadModel(self, request, context):
-        model_name = request.Model
         try:
-            self.model = SentenceTransformer(model_name)
+            device = "cuda:0"
+            if request.Device != "":
+                device = request.Device
+
+            tokenizer = AutoTokenizer.from_pretrained(request.Model, use_fast=True)
+
+            model = AutoGPTQForCausalLM.from_quantized(request.Model,
+                    model_basename=request.ModelBaseName,
+                    use_safetensors=True,
+                    trust_remote_code=True,
+                    device=device,
+                    use_triton=request.UseTriton,
+                    quantize_config=None)
+            
+            self.model = model
+            self.tokenizer = tokenizer
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
-        # Implement your logic here for the LoadModel service
-        # Replace this with your desired response
         return backend_pb2.Result(message="Model loaded successfully", success=True)
-    def Embedding(self, request, context):
-        # Implement your logic here for the Embedding service
-        # Replace this with your desired response
-        print("Calculated embeddings for: " + request.Embeddings, file=sys.stderr)
-        sentence_embeddings = self.model.encode(request.Embeddings)
-        return backend_pb2.EmbeddingResult(embeddings=sentence_embeddings)
+
+    def Predict(self, request, context):
+        # Implement Predict RPC
+        pipeline = TextGenerationPipeline(
+            model=self.model, 
+            tokenizer=self.tokenizer,
+            max_new_tokens=request.Tokens,
+            temperature=request.Temperature,
+            top_p=request.TopP,
+            repetition_penalty=request.Penalty,
+            )
+        return backend_pb2.Result(message=bytes(pipeline(request.Prompt)[0]["generated_text"]))
+
+    def PredictStream(self, request, context):
+        # Implement PredictStream RPC
+        #for reply in some_data_generator():
+        #    yield reply
+        # Not implemented yet
+        return self.Predict(request, context)
 
 
 def serve(address):

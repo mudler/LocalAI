@@ -18,7 +18,7 @@ type MPT struct {
 }
 
 func (llm *MPT) Load(opts *pb.ModelOptions) error {
-	model, err := transformers.NewMPT(opts.Model)
+	model, err := transformers.NewMPT(opts.ModelFile)
 	llm.mpt = model
 	return err
 }

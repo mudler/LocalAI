@@ -18,7 +18,7 @@ type GPTJ struct {
 }
 
 func (llm *GPTJ) Load(opts *pb.ModelOptions) error {
-	model, err := transformers.NewGPTJ(opts.Model)
+	model, err := transformers.NewGPTJ(opts.ModelFile)
 	llm.gptj = model
 	return err
 }

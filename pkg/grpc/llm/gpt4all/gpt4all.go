@@ -17,7 +17,7 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	model, err := gpt4all.New(opts.Model,
+	model, err := gpt4all.New(opts.ModelFile,
 		gpt4all.SetThreads(int(opts.Threads)),
 		gpt4all.SetLibrarySearchPath(opts.LibrarySearchPath))
 	llm.gpt4all = model

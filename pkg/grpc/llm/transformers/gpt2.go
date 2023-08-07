@@ -18,7 +18,7 @@ type GPT2 struct {
 }
 
 func (llm *GPT2) Load(opts *pb.ModelOptions) error {
-	model, err := transformers.New(opts.Model)
+	model, err := transformers.New(opts.ModelFile)
 	llm.gpt2 = model
 	return err
 }

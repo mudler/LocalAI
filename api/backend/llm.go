@@ -27,7 +27,7 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 		model.WithLoadGRPCLLMModelOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)), // some models uses this to allocate threads during startup
 		model.WithAssetDir(o.AssetsDestination),
-		model.WithModelFile(modelFile),
+		model.WithModel(modelFile),
 		model.WithContext(o.Context),
 	}
 

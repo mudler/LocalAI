@@ -20,9 +20,9 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	modelPath := filepath.Dir(opts.Model)
-	modelFile := filepath.Base(opts.Model)
-	model := rwkv.LoadFiles(opts.Model, filepath.Join(modelPath, modelFile+tokenizerSuffix), uint32(opts.GetThreads()))
+	modelPath := filepath.Dir(opts.ModelFile)
+	modelFile := filepath.Base(opts.ModelFile)
+	model := rwkv.LoadFiles(opts.ModelFile, filepath.Join(modelPath, modelFile+tokenizerSuffix), uint32(opts.GetThreads()))
 
 	if model == nil {
 		return fmt.Errorf("could not load model")

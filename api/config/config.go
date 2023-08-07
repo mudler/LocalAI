@@ -54,6 +54,11 @@ type Config struct {
 
 	RMSNormEps float32 `yaml:"rms_norm_eps"`
 	NGQA       int32   `yaml:"ngqa"`
+
+	// AutoGPTQ
+	ModelBaseName string `yaml:"model_base_name"`
+	Device        string `yaml:"device"`
+	Triton        bool   `yaml:"triton"`
 }
 
 type Functions struct {

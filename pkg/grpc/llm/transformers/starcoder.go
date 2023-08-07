@@ -18,7 +18,7 @@ type Starcoder struct {
 }
 
 func (llm *Starcoder) Load(opts *pb.ModelOptions) error {
-	model, err := transformers.NewStarcoder(opts.Model)
+	model, err := transformers.NewStarcoder(opts.ModelFile)
 	llm.starcoder = model
 	return err
 }

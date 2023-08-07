@@ -8,7 +8,7 @@ import (
 
 type Options struct {
 	backendString string
-	modelFile     string
+	model         string
 	threads       uint32
 	assetDir      string
 	context       context.Context
@@ -35,9 +35,9 @@ func WithBackendString(backend string) Option {
 	}
 }
 
-func WithModelFile(modelFile string) Option {
+func WithModel(modelFile string) Option {
 	return func(o *Options) {
-		o.modelFile = modelFile
+		o.model = modelFile
 	}
 }
 
