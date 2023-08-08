@@ -38,7 +38,7 @@ COPY extra/requirements.txt /build/extra/requirements.txt
 
 RUN pip install --upgrade pip
 RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-        pip install auto-gptq;\
+        pip install torch && pip install auto-gptq;\
     fi
 RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
 
