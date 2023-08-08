@@ -273,7 +273,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 		options := []Option{
 			WithBackendString(b),
 			WithModel(o.model),
-			WithLoadGRPCLLMModelOpts(o.gRPCOptions),
+			WithLoadGRPCLoadModelOpts(o.gRPCOptions),
 			WithThreads(o.threads),
 			WithAssetDir(o.assetDir),
 		}

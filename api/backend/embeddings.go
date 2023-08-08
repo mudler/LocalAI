@@ -23,7 +23,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 	var err error
 
 	opts := []model.Option{
-		model.WithLoadGRPCLLMModelOpts(grpcOpts),
+		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithModel(modelFile),

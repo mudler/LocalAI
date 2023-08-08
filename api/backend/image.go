@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"fmt"
 	"sync"
 
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -11,16 +10,18 @@ import (
 )
 
 func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, dst string, loader *model.ModelLoader, c config.Config, o *options.Option) (func() error, error) {
-	if c.Backend != model.StableDiffusionBackend {
-		return nil, fmt.Errorf("endpoint only working with stablediffusion models")
-	}
 
 	opts := []model.Option{
 		model.WithBackendString(c.Backend),
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithContext(o.Context),
-		model.WithModel(c.ImageGenerationAssets),
+		model.WithModel(c.Model),
+		model.WithLoadGRPCLoadModelOpts(&proto.ModelOptions{
+			CUDA:          c.Diffusers.CUDA,
+			SchedulerType: c.Diffusers.SchedulerType,
+			PipelineType:  c.Diffusers.PipelineType,
+		}),
 	}
 
 	for k, v := range o.ExternalGRPCBackends {

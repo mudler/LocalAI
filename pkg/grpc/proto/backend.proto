@@ -96,6 +96,11 @@ message ModelOptions {
   bool UseTriton = 23;
   string ModelBaseName = 24;
   bool UseFastTokenizer = 25;
+
+  // Diffusers
+  string PipelineType = 26;
+  string SchedulerType = 27;
+  bool CUDA = 28;
 }
 
 message Result {
