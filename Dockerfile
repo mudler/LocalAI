@@ -35,9 +35,10 @@ ENV PATH /usr/local/cuda/bin:${PATH}
 
 # Extras requirements
 COPY extra/requirements.txt /build/extra/requirements.txt
-
+ENV PATH="/root/.cargo/bin:${PATH}"
 RUN pip install --upgrade pip
 RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
         pip install diffusers invisible_watermark transformers accelerate safetensors;\
     fi
 RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
