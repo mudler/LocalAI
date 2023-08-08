@@ -36,6 +36,7 @@ ENV PATH /usr/local/cuda/bin:${PATH}
 # Extras requirements
 COPY extra/requirements.txt /build/extra/requirements.txt
 
+RUN pip install --upgrade pip
 RUN if [ "${TARGETARCH}" = "amd64" ]; then \
         pip install auto-gptq;\
     fi
