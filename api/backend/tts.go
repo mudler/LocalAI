@@ -28,10 +28,14 @@ func generateUniqueFileName(dir, baseName, ext string) string {
 	}
 }
 
-func ModelTTS(text, modelFile string, loader *model.ModelLoader, o *options.Option) (string, *proto.Result, error) {
+func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *options.Option) (string, *proto.Result, error) {
+	bb := backend
+	if bb == "" {
+		bb = model.PiperBackend
+	}
 	opts := []model.Option{
-		model.WithBackendString(model.PiperBackend),
-		model.WithModelFile(modelFile),
+		model.WithBackendString(bb),
+		model.WithModel(modelFile),
 		model.WithContext(o.Context),
 		model.WithAssetDir(o.AssetsDestination),
 	}
@@ -56,10 +60,13 @@ func ModelTTS(text, modelFile string, loader *model.ModelLoader, o *options.Opti
 	fileName := generateUniqueFileName(o.AudioDir, "piper", ".wav")
 	filePath := filepath.Join(o.AudioDir, fileName)
 
-	modelPath := filepath.Join(o.Loader.ModelPath, modelFile)
-
-	if err := utils.VerifyPath(modelPath, o.Loader.ModelPath); err != nil {
-		return "", nil, err
+	// If the model file is not empty, we pass it joined with the model path
+	modelPath := ""
+	if modelFile != "" {
+		modelPath = filepath.Join(o.Loader.ModelPath, modelFile)
+		if err := utils.VerifyPath(modelPath, o.Loader.ModelPath); err != nil {
+			return "", nil, err
+		}
 	}
 
 	res, err := piperModel.TTS(context.Background(), &proto.TTSRequest{

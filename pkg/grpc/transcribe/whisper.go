@@ -17,7 +17,7 @@ type Whisper struct {
 
 func (sd *Whisper) Load(opts *pb.ModelOptions) error {
 	// Note: the Model here is a path to a directory containing the model files
-	w, err := whisper.New(opts.Model)
+	w, err := whisper.New(opts.ModelFile)
 	sd.whisper = w
 	return err
 }

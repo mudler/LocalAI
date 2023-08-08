@@ -40,7 +40,7 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 		ggllmOpts = append(ggllmOpts, ggllm.SetNBatch(512))
 	}
 
-	model, err := ggllm.New(opts.Model, ggllmOpts...)
+	model, err := ggllm.New(opts.ModelFile, ggllmOpts...)
 	llm.falcon = model
 	return err
 }

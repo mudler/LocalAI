@@ -98,7 +98,7 @@ func (ml *ModelLoader) ListModels() ([]string, error) {
 	return models, nil
 }
 
-func (ml *ModelLoader) LoadModel(modelName string, loader func(string) (*grpc.Client, error)) (*grpc.Client, error) {
+func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (*grpc.Client, error)) (*grpc.Client, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
@@ -111,7 +111,7 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string) (*grpc.Cl
 	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
-	model, err := loader(modelFile)
+	model, err := loader(modelName, modelFile)
 	if err != nil {
 		return nil, err
 	}

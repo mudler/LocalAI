@@ -20,7 +20,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithContext(o.Context),
-		model.WithModelFile(c.ImageGenerationAssets),
+		model.WithModel(c.ImageGenerationAssets),
 	}
 
 	for k, v := range o.ExternalGRPCBackends {

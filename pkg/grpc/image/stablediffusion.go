@@ -16,7 +16,7 @@ type StableDiffusion struct {
 func (sd *StableDiffusion) Load(opts *pb.ModelOptions) error {
 	var err error
 	// Note: the Model here is a path to a directory containing the model files
-	sd.stablediffusion, err = stablediffusion.New(opts.Model)
+	sd.stablediffusion, err = stablediffusion.New(opts.ModelFile)
 	return err
 }
 

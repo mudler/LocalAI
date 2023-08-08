@@ -8,7 +8,10 @@ import argparse
 import signal
 import sys
 import os
-from sentence_transformers import SentenceTransformer
+from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+from pathlib import Path
+from bark import SAMPLE_RATE, generate_audio, preload_models
+from scipy.io.wavfile import write as write_wav
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -19,19 +22,33 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def LoadModel(self, request, context):
         model_name = request.Model
         try:
-            self.model = SentenceTransformer(model_name)
+            print("Preparing models, please wait", file=sys.stderr)
+            # download and load all models
+            preload_models()
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         # Implement your logic here for the LoadModel service
         # Replace this with your desired response
         return backend_pb2.Result(message="Model loaded successfully", success=True)
-    def Embedding(self, request, context):
-        # Implement your logic here for the Embedding service
-        # Replace this with your desired response
-        print("Calculated embeddings for: " + request.Embeddings, file=sys.stderr)
-        sentence_embeddings = self.model.encode(request.Embeddings)
-        return backend_pb2.EmbeddingResult(embeddings=sentence_embeddings)
 
+    def TTS(self, request, context):
+        model = request.model
+        print(request, file=sys.stderr)
+        try:
+            audio_array = None
+            if model != "":
+                audio_array = generate_audio(request.text, history_prompt=model)
+            else:
+                audio_array = generate_audio(request.text)
+            print("saving to", request.dst, file=sys.stderr)
+            # save audio to disk
+            write_wav(request.dst, SAMPLE_RATE, audio_array)
+            print("saved to", request.dst, file=sys.stderr)
+            print("tts for", file=sys.stderr)
+            print(request, file=sys.stderr)
+        except Exception as err:
+            return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
+        return backend_pb2.Result(success=True)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

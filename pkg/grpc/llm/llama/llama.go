@@ -71,7 +71,7 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 		llamaOpts = append(llamaOpts, llama.EnabelLowVRAM)
 	}
 
-	model, err := llama.New(opts.Model, llamaOpts...)
+	model, err := llama.New(opts.ModelFile, llamaOpts...)
 	llm.llama = model
 	return err
 }

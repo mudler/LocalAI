@@ -15,7 +15,7 @@ import (
 func ModelTranscription(audio, language string, loader *model.ModelLoader, c config.Config, o *options.Option) (*api.Result, error) {
 	opts := []model.Option{
 		model.WithBackendString(model.WhisperBackend),
-		model.WithModelFile(c.Model),
+		model.WithModel(c.Model),
 		model.WithContext(o.Context),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithAssetDir(o.AssetsDestination),

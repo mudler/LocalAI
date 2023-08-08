@@ -26,7 +26,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 		model.WithLoadGRPCLLMModelOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithAssetDir(o.AssetsDestination),
-		model.WithModelFile(modelFile),
+		model.WithModel(modelFile),
 		model.WithContext(o.Context),
 	}
 

@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+
 	config "github.com/go-skynet/LocalAI/api/config"
 
 	"github.com/go-skynet/LocalAI/pkg/grammar"
@@ -106,4 +107,9 @@ type OpenAIRequest struct {
 	Grammar string `json:"grammar" yaml:"grammar"`
 
 	JSONFunctionGrammarObject *grammar.JSONFunctionStructure `json:"grammar_json_functions" yaml:"grammar_json_functions"`
+
+	Backend string `json:"backend" yaml:"backend"`
+
+	// AutoGPTQ
+	ModelBaseName string `json:"model_base_name" yaml:"model_base_name"`
 }

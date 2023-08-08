@@ -71,8 +71,20 @@ func updateConfig(config *config.Config, input *OpenAIRequest) {
 		config.TopP = input.TopP
 	}
 
+	if input.Backend != "" {
+		config.Backend = input.Backend
+	}
+
+	if input.ModelBaseName != "" {
+		config.ModelBaseName = input.ModelBaseName
+	}
+
 	if input.NegativePromptScale != 0 {
 		config.NegativePromptScale = input.NegativePromptScale
+	}
+
+	if input.UseFastTokenizer {
+		config.UseFastTokenizer = input.UseFastTokenizer
 	}
 
 	if input.NegativePrompt != "" {

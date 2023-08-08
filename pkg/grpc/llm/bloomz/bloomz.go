@@ -18,7 +18,7 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	model, err := bloomz.New(opts.Model)
+	model, err := bloomz.New(opts.ModelFile)
 	llm.bloomz = model
 	return err
 }

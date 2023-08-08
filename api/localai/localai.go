@@ -9,8 +9,9 @@ import (
 )
 
 type TTSRequest struct {
-	Model string `json:"model" yaml:"model"`
-	Input string `json:"input" yaml:"input"`
+	Model   string `json:"model" yaml:"model"`
+	Input   string `json:"input" yaml:"input"`
+	Backend string `json:"backend" yaml:"backend"`
 }
 
 func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
@@ -22,7 +23,7 @@ func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) 
 			return err
 		}
 
-		filePath, _, err := backend.ModelTTS(input.Input, input.Model, o.Loader, o)
+		filePath, _, err := backend.ModelTTS(input.Backend, input.Input, input.Model, o.Loader, o)
 		if err != nil {
 			return err
 		}
