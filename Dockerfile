@@ -11,7 +11,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py,autogptq:/build/extra/grpc/autogptq/autogptq.py,bark:/build/extra/grpc/bark/ttsbark.py"
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py,autogptq:/build/extra/grpc/autogptq/autogptq.py,bark:/build/extra/grpc/bark/ttsbark.py,diffusers:/build/extra/grpc/diffusers/backend_diffusers.py"
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
@@ -35,10 +35,14 @@ ENV PATH /usr/local/cuda/bin:${PATH}
 
 # Extras requirements
 COPY extra/requirements.txt /build/extra/requirements.txt
-
+ENV PATH="/root/.cargo/bin:${PATH}"
 RUN pip install --upgrade pip
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-        pip install auto-gptq;\
+        pip install git+https://github.com/suno-ai/bark.git diffusers invisible_watermark transformers accelerate safetensors;\
+    fi
+RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
+        pip install torch && pip install auto-gptq;\
     fi
 RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
 

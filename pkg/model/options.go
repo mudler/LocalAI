@@ -41,7 +41,7 @@ func WithModel(modelFile string) Option {
 	}
 }
 
-func WithLoadGRPCLLMModelOpts(opts *pb.ModelOptions) Option {
+func WithLoadGRPCLoadModelOpts(opts *pb.ModelOptions) Option {
 	return func(o *Options) {
 		o.gRPCOptions = opts
 	}
