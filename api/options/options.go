@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -187,8 +186,8 @@ func WithImageDir(imageDir string) AppOption {
 	}
 }
 
-func WithApiKey(apiKeys string) AppOption {
+func WithApiKeys(apiKeys []string) AppOption {
 	return func(o *Option) {
-		o.ApiKeys = strings.Split(apiKeys, ",")
+		o.ApiKeys = apiKeys
 	}
 }

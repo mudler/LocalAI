@@ -130,9 +130,9 @@ func main() {
 				EnvVars: []string{"UPLOAD_LIMIT"},
 				Value:   15,
 			},
-			&cli.StringFlag{
+			&cli.StringSliceFlag{
 				Name:    "api-keys",
-				Usage:   "Comma delimited list of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys.",
+				Usage:   "List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys.",
 				EnvVars: []string{"API_KEY"},
 			},
 		},
@@ -172,7 +172,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithBackendAssets(backendAssets),
 				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
-				options.WithApiKey(ctx.String("api-keys")),
+				options.WithApiKeys(ctx.StringSlice("api-keys")),
 			}
 
 			externalgRPC := ctx.StringSlice("external-grpc-backends")
