@@ -86,7 +86,7 @@ func App(opts ...AppOption) (*fiber.App, error) {
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
-		if options.apiKey != "" {
+		if len(options.apiKeys) > 0 {
 			authHeader := c.Get("Authorization")
 			if authHeader == "" {
 				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
@@ -97,7 +97,13 @@ func App(opts ...AppOption) (*fiber.App, error) {
 			}
 
 			apiKey := authHeaderParts[1]
-			if apiKey != options.apiKey {
+			validApiKey := false
+			for _, key := range options.apiKeys {
+				if apiKey == key {
+					validApiKey = true
+				}
+			}
+			if !validApiKey {
 				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
 			}
 		}
