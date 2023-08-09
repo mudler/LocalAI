@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -23,6 +24,7 @@ type Option struct {
 	PreloadJSONModels                   string
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
+	ApiKeys                             []string
 
 	Galleries []gallery.Gallery
 
@@ -182,5 +184,11 @@ func WithAudioDir(audioDir string) AppOption {
 func WithImageDir(imageDir string) AppOption {
 	return func(o *Option) {
 		o.ImageDir = imageDir
+	}
+}
+
+func WithApiKey(apiKey string) AppOption {
+	return func(o *Option) {
+		o.ApiKeys = strings.Split(apiKey, ",")
 	}
 }

@@ -92,7 +92,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
-		if len(options.apiKeys) > 0 {
+		if len(options.ApiKeys) > 0 {
 			authHeader := c.Get("Authorization")
 			if authHeader == "" {
 				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
@@ -104,33 +104,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 			apiKey := authHeaderParts[1]
 			validApiKey := false
-			for _, key := range options.apiKeys {
-				if apiKey == key {
-					validApiKey = true
-				}
-			}
-			if !validApiKey {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
-			}
-		}
-		return c.Next()
-	}
-
-	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
-	auth := func(c *fiber.Ctx) error {
-		if len(options.apiKeys) > 0 {
-			authHeader := c.Get("Authorization")
-			if authHeader == "" {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
-			}
-			authHeaderParts := strings.Split(authHeader, " ")
-			if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
-			}
-
-			apiKey := authHeaderParts[1]
-			validApiKey := false
-			for _, key := range options.apiKeys {
+			for _, key := range options.ApiKeys {
 				if apiKey == key {
 					validApiKey = true
 				}
