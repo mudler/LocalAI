@@ -187,8 +187,8 @@ func WithImageDir(imageDir string) AppOption {
 	}
 }
 
-func WithApiKey(apiKey string) AppOption {
+func WithApiKey(apiKeys string) AppOption {
 	return func(o *Option) {
-		o.ApiKeys = strings.Split(apiKey, ",")
+		o.ApiKeys = strings.Split(apiKeys, ",")
 	}
 }
