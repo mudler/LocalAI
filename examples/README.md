@@ -1,6 +1,15 @@
 # Examples
 
+| [ChatGPT OSS alternative](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui)                                                                                                                | [Image generation](https://localai.io/api-endpoints/index.html#image-generation)                                                                                                              |
+|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+|  ![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)            | ![b6441997879](https://github.com/go-skynet/LocalAI/assets/2420543/d50af51c-51b7-4f39-b6c2-bf04c403894c)                  |
+
+|                                                                    [Telegram bot](https://github.com/go-skynet/LocalAI/tree/master/examples/telegram-bot)   | [Flowise](https://github.com/go-skynet/LocalAI/tree/master/examples/flowise)                                                                                                                     |
+|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+![Screenshot from 2023-06-09 00-36-26](https://github.com/go-skynet/LocalAI/assets/2420543/e98b4305-fa2d-41cf-9d2f-1bb2d75ca902)   |  ![Screenshot from 2023-05-30 18-01-03](https://github.com/go-skynet/LocalAI/assets/2420543/02458782-0549-4131-971c-95ee56ec1af8)|    |
+
 Here is a list of projects that can easily be integrated with the LocalAI backend. 
+
 
 ### Projects
 
@@ -63,6 +72,14 @@ _by [@mudler](https://github.com/mudler)_
 A ready to use example to show e2e how to integrate LocalAI with langchain
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/langchain-python/)
+
+### LocalAI functions
+
+_by [@mudler](https://github.com/mudler)_
+
+A ready to use example to show how to use OpenAI functions with LocalAI
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/functions/)
 
 ### LocalAI WebUI
 

@@ -22,7 +22,7 @@ services:
       - 'PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/gpt4all-j.yaml", "name": "gpt-3.5-turbo"}, {"url": "github:go-skynet/model-gallery/stablediffusion.yaml"}, {"url": "github:go-skynet/model-gallery/whisper-base.yaml", "name": "whisper-1"}]'
     volumes:
       - ./models:/models:cached
-    command: ["/usr/bin/local-ai" ]
+    command: ["/usr/bin/local-ai"]
   chatgpt_telegram_bot:
     container_name: chatgpt_telegram_bot
     command: python3 bot/bot.py

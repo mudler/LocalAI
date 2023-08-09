@@ -1,41 +1,41 @@
 package model
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
-	rwkv "github.com/donomii/go-rwkv.cpp"
-	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
-	"github.com/go-skynet/LocalAI/pkg/langchain"
-	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
-	"github.com/go-skynet/LocalAI/pkg/tts"
-	bloomz "github.com/go-skynet/bloomz.cpp"
-	bert "github.com/go-skynet/go-bert.cpp"
-	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
-	llama "github.com/go-skynet/go-llama.cpp"
+	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/hashicorp/go-multierror"
-	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
+	"github.com/hpcloud/tail"
+	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
+
+	process "github.com/mudler/go-processmanager"
 )
 
-const tokenizerSuffix = ".tokenizer.json"
-
 const (
-	LlamaBackend           = "llama"
-	BloomzBackend          = "bloomz"
-	StarcoderBackend       = "starcoder"
-	GPTJBackend            = "gptj"
-	DollyBackend           = "dolly"
-	MPTBackend             = "mpt"
-	GPTNeoXBackend         = "gptneox"
-	ReplitBackend          = "replit"
-	Gpt2Backend            = "gpt2"
-	Gpt4AllLlamaBackend    = "gpt4all-llama"
-	Gpt4AllMptBackend      = "gpt4all-mpt"
-	Gpt4AllJBackend        = "gpt4all-j"
-	Gpt4All                = "gpt4all"
-	FalconBackend          = "falcon"
+	LlamaBackend        = "llama"
+	BloomzBackend       = "bloomz"
+	StarcoderBackend    = "starcoder"
+	GPTJBackend         = "gptj"
+	DollyBackend        = "dolly"
+	MPTBackend          = "mpt"
+	GPTNeoXBackend      = "gptneox"
+	ReplitBackend       = "replit"
+	Gpt2Backend         = "gpt2"
+	Gpt4AllLlamaBackend = "gpt4all-llama"
+	Gpt4AllMptBackend   = "gpt4all-mpt"
+	Gpt4AllJBackend     = "gpt4all-j"
+	Gpt4All             = "gpt4all"
+	FalconBackend       = "falcon"
+	FalconGGMLBackend   = "falcon-ggml"
+
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
@@ -44,172 +44,254 @@ const (
 	LCHuggingFaceBackend   = "langchain-huggingface"
 )
 
-var autoLoadBackends []string = []string{
+var AutoLoadBackends []string = []string{
 	LlamaBackend,
 	Gpt4All,
-	RwkvBackend,
+	FalconBackend,
 	GPTNeoXBackend,
-	WhisperBackend,
 	BertEmbeddingsBackend,
+	FalconGGMLBackend,
 	GPTJBackend,
 	Gpt2Backend,
 	DollyBackend,
-	FalconBackend,
 	MPTBackend,
 	ReplitBackend,
 	StarcoderBackend,
 	BloomzBackend,
+	RwkvBackend,
+	WhisperBackend,
+	StableDiffusionBackend,
+	PiperBackend,
 }
 
-var starCoder = func(modelFile string) (interface{}, error) {
-	return transformers.NewStarcoder(modelFile)
-}
-
-var mpt = func(modelFile string) (interface{}, error) {
-	return transformers.NewMPT(modelFile)
-}
-
-var dolly = func(modelFile string) (interface{}, error) {
-	return transformers.NewDolly(modelFile)
-}
-
-var gptNeoX = func(modelFile string) (interface{}, error) {
-	return transformers.NewGPTNeoX(modelFile)
-}
-
-var replit = func(modelFile string) (interface{}, error) {
-	return transformers.NewReplit(modelFile)
-}
-
-var gptJ = func(modelFile string) (interface{}, error) {
-	return transformers.NewGPTJ(modelFile)
-}
-
-var falcon = func(modelFile string) (interface{}, error) {
-	return transformers.NewFalcon(modelFile)
-}
-
-var bertEmbeddings = func(modelFile string) (interface{}, error) {
-	return bert.New(modelFile)
-}
-
-var bloomzLM = func(modelFile string) (interface{}, error) {
-	return bloomz.New(modelFile)
-}
-
-var transformersLM = func(modelFile string) (interface{}, error) {
-	return transformers.New(modelFile)
-}
-
-var stableDiffusion = func(assetDir string) (interface{}, error) {
-	return stablediffusion.New(assetDir)
-}
-
-func piperTTS(assetDir string) func(s string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
-		return tts.New(assetDir)
+func (ml *ModelLoader) StopGRPC() {
+	for _, p := range ml.grpcProcesses {
+		p.Stop()
 	}
 }
 
-var whisperModel = func(modelFile string) (interface{}, error) {
-	return whisper.New(modelFile)
-}
-
-var lcHuggingFace = func(repoId string) (interface{}, error) {
-	return langchain.NewHuggingFace(repoId)
-}
-
-func llamaLM(opts ...llama.ModelOption) func(string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
-		return llama.New(s, opts...)
+func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string) error {
+	// Make sure the process is executable
+	if err := os.Chmod(grpcProcess, 0755); err != nil {
+		return err
 	}
-}
 
-func gpt4allLM(opts ...gpt4all.ModelOption) func(string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
-		return gpt4all.New(s, opts...)
+	log.Debug().Msgf("Loading GRPC Process: %s", grpcProcess)
+
+	log.Debug().Msgf("GRPC Service for %s will be running at: '%s'", id, serverAddress)
+
+	grpcControlProcess := process.New(
+		process.WithTemporaryStateDir(),
+		process.WithName(grpcProcess),
+		process.WithArgs("--addr", serverAddress),
+		process.WithEnvironment(os.Environ()...),
+	)
+
+	ml.grpcProcesses[id] = grpcControlProcess
+
+	if err := grpcControlProcess.Run(); err != nil {
+		return err
 	}
-}
 
-func rwkvLM(tokenFile string, threads uint32) func(string) (interface{}, error) {
-	return func(s string) (interface{}, error) {
-		log.Debug().Msgf("Loading RWKV", s, tokenFile)
+	log.Debug().Msgf("GRPC Service state dir: %s", grpcControlProcess.StateDir())
+	// clean up process
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		<-c
+		grpcControlProcess.Stop()
+	}()
 
-		model := rwkv.LoadFiles(s, tokenFile, threads)
-		if model == nil {
-			return nil, fmt.Errorf("could not load model")
+	go func() {
+		t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})
+		if err != nil {
+			log.Debug().Msgf("Could not tail stderr")
 		}
-		return model, nil
+		for line := range t.Lines {
+			log.Debug().Msgf("GRPC(%s): stderr %s", strings.Join([]string{id, serverAddress}, "-"), line.Text)
+		}
+	}()
+	go func() {
+		t, err := tail.TailFile(grpcControlProcess.StdoutPath(), tail.Config{Follow: true})
+		if err != nil {
+			log.Debug().Msgf("Could not tail stdout")
+		}
+		for line := range t.Lines {
+			log.Debug().Msgf("GRPC(%s): stdout %s", strings.Join([]string{id, serverAddress}, "-"), line.Text)
+		}
+	}()
+
+	return nil
+}
+
+// starts the grpcModelProcess for the backend, and returns a grpc client
+// It also loads the model
+func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string) (*grpc.Client, error) {
+	return func(modelName, modelFile string) (*grpc.Client, error) {
+		log.Debug().Msgf("Loading GRPC Model %s: %+v", backend, *o)
+
+		var client *grpc.Client
+
+		getFreeAddress := func() (string, error) {
+			port, err := freeport.GetFreePort()
+			if err != nil {
+				return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
+			}
+			return fmt.Sprintf("127.0.0.1:%d", port), nil
+		}
+
+		// Check if the backend is provided as external
+		if uri, ok := o.externalBackends[backend]; ok {
+			log.Debug().Msgf("Loading external backend: %s", uri)
+			// check if uri is a file or a address
+			if _, err := os.Stat(uri); err == nil {
+				serverAddress, err := getFreeAddress()
+				if err != nil {
+					return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
+				}
+				// Make sure the process is executable
+				if err := ml.startProcess(uri, o.model, serverAddress); err != nil {
+					return nil, err
+				}
+
+				log.Debug().Msgf("GRPC Service Started")
+
+				client = grpc.NewClient(serverAddress)
+			} else {
+				// address
+				client = grpc.NewClient(uri)
+			}
+		} else {
+			grpcProcess := filepath.Join(o.assetDir, "backend-assets", "grpc", backend)
+			// Check if the file exists
+			if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
+				return nil, fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
+			}
+
+			serverAddress, err := getFreeAddress()
+			if err != nil {
+				return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
+			}
+
+			// Make sure the process is executable
+			if err := ml.startProcess(grpcProcess, o.model, serverAddress); err != nil {
+				return nil, err
+			}
+
+			log.Debug().Msgf("GRPC Service Started")
+
+			client = grpc.NewClient(serverAddress)
+		}
+
+		// Wait for the service to start up
+		ready := false
+		for i := 0; i < 10; i++ {
+			if client.HealthCheck(context.Background()) {
+				log.Debug().Msgf("GRPC Service Ready")
+				ready = true
+				break
+			}
+			time.Sleep(1 * time.Second)
+		}
+
+		if !ready {
+			log.Debug().Msgf("GRPC Service NOT ready")
+			return nil, fmt.Errorf("grpc service not ready")
+		}
+
+		options := *o.gRPCOptions
+		options.Model = modelName
+		options.ModelFile = modelFile
+
+		log.Debug().Msgf("GRPC: Loading model with options: %+v", options)
+
+		res, err := client.LoadModel(o.context, &options)
+		if err != nil {
+			return nil, fmt.Errorf("could not load model: %w", err)
+		}
+		if !res.Success {
+			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
+		}
+
+		return client, nil
 	}
 }
 
-func (ml *ModelLoader) BackendLoader(backendString string, modelFile string, llamaOpts []llama.ModelOption, threads uint32, assetDir string) (model interface{}, err error) {
-	log.Debug().Msgf("Loading model %s from %s", backendString, modelFile)
-	switch strings.ToLower(backendString) {
-	case LlamaBackend:
-		return ml.LoadModel(modelFile, llamaLM(llamaOpts...))
-	case BloomzBackend:
-		return ml.LoadModel(modelFile, bloomzLM)
-	case GPTJBackend:
-		return ml.LoadModel(modelFile, gptJ)
-	case DollyBackend:
-		return ml.LoadModel(modelFile, dolly)
-	case MPTBackend:
-		return ml.LoadModel(modelFile, mpt)
-	case Gpt2Backend:
-		return ml.LoadModel(modelFile, transformersLM)
-	case FalconBackend:
-		return ml.LoadModel(modelFile, falcon)
-	case GPTNeoXBackend:
-		return ml.LoadModel(modelFile, gptNeoX)
-	case ReplitBackend:
-		return ml.LoadModel(modelFile, replit)
-	case StableDiffusionBackend:
-		return ml.LoadModel(modelFile, stableDiffusion)
-	case PiperBackend:
-		return ml.LoadModel(modelFile, piperTTS(filepath.Join(assetDir, "backend-assets", "espeak-ng-data")))
-	case StarcoderBackend:
-		return ml.LoadModel(modelFile, starCoder)
+func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err error) {
+	o := NewOptions(opts...)
+
+	log.Debug().Msgf("Loading model %s from %s", o.backendString, o.model)
+
+	backend := strings.ToLower(o.backendString)
+
+	// if an external backend is provided, use it
+	_, externalBackendExists := o.externalBackends[backend]
+	if externalBackendExists {
+		return ml.LoadModel(o.model, ml.grpcModel(backend, o))
+	}
+
+	switch backend {
+	case LlamaBackend, GPTJBackend, DollyBackend,
+		MPTBackend, Gpt2Backend, FalconBackend,
+		GPTNeoXBackend, ReplitBackend, StarcoderBackend, BloomzBackend,
+		RwkvBackend, LCHuggingFaceBackend, BertEmbeddingsBackend, FalconGGMLBackend, StableDiffusionBackend, WhisperBackend:
+		return ml.LoadModel(o.model, ml.grpcModel(backend, o))
 	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
-		return ml.LoadModel(modelFile, gpt4allLM(gpt4all.SetThreads(int(threads)), gpt4all.SetLibrarySearchPath(filepath.Join(assetDir, "backend-assets", "gpt4all"))))
-	case BertEmbeddingsBackend:
-		return ml.LoadModel(modelFile, bertEmbeddings)
-	case RwkvBackend:
-		return ml.LoadModel(modelFile, rwkvLM(filepath.Join(ml.ModelPath, modelFile+tokenizerSuffix), threads))
-	case WhisperBackend:
-		return ml.LoadModel(modelFile, whisperModel)
-	case LCHuggingFaceBackend:
-		return ml.LoadModel(modelFile, lcHuggingFace)
+		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "gpt4all")
+		return ml.LoadModel(o.model, ml.grpcModel(Gpt4All, o))
+	case PiperBackend:
+		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "espeak-ng-data")
+		return ml.LoadModel(o.model, ml.grpcModel(PiperBackend, o))
 	default:
-		return nil, fmt.Errorf("backend unsupported: %s", backendString)
+		return nil, fmt.Errorf("backend unsupported: %s", o.backendString)
 	}
 }
 
-func (ml *ModelLoader) GreedyLoader(modelFile string, llamaOpts []llama.ModelOption, threads uint32, assetDir string) (interface{}, error) {
-	log.Debug().Msgf("Loading model '%s' greedly", modelFile)
+func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
+	o := NewOptions(opts...)
 
+	// Is this really needed? BackendLoader already does this
 	ml.mu.Lock()
-	m, exists := ml.models[modelFile]
-	if exists {
-		log.Debug().Msgf("Model '%s' already loaded", modelFile)
+	if m := ml.checkIsLoaded(o.model); m != nil {
+		log.Debug().Msgf("Model '%s' already loaded", o.model)
 		ml.mu.Unlock()
 		return m, nil
 	}
 	ml.mu.Unlock()
 	var err error
 
-	for _, b := range autoLoadBackends {
-		if b == BloomzBackend || b == WhisperBackend || b == RwkvBackend { // do not autoload bloomz/whisper/rwkv
-			continue
-		}
+	// autoload also external backends
+	allBackendsToAutoLoad := []string{}
+	allBackendsToAutoLoad = append(allBackendsToAutoLoad, AutoLoadBackends...)
+	for _, b := range o.externalBackends {
+		allBackendsToAutoLoad = append(allBackendsToAutoLoad, b)
+	}
+	log.Debug().Msgf("Loading model '%s' greedly from all the available backends: %s", o.model, strings.Join(allBackendsToAutoLoad, ", "))
+
+	for _, b := range allBackendsToAutoLoad {
 		log.Debug().Msgf("[%s] Attempting to load", b)
-		model, modelerr := ml.BackendLoader(b, modelFile, llamaOpts, threads, assetDir)
+		options := []Option{
+			WithBackendString(b),
+			WithModel(o.model),
+			WithLoadGRPCLoadModelOpts(o.gRPCOptions),
+			WithThreads(o.threads),
+			WithAssetDir(o.assetDir),
+		}
+
+		for k, v := range o.externalBackends {
+			options = append(options, WithExternalBackend(k, v))
+		}
+
+		model, modelerr := ml.BackendLoader(options...)
 		if modelerr == nil && model != nil {
 			log.Debug().Msgf("[%s] Loads OK", b)
 			return model, nil
 		} else if modelerr != nil {
 			err = multierror.Append(err, modelerr)
 			log.Debug().Msgf("[%s] Fails: %s", b, modelerr.Error())
+		} else if model == nil {
+			err = multierror.Append(err, fmt.Errorf("backend returned no usable model"))
+			log.Debug().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
 		}
 	}
 

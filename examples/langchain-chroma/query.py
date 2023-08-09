@@ -9,7 +9,7 @@ from langchain.vectorstores.base import VectorStoreRetriever
 base_path = os.environ.get('OPENAI_API_BASE', 'http://localhost:8080/v1')
 
 # Load and process the text
-embedding = OpenAIEmbeddings()
+embedding = OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_base=base_path)
 persist_directory = 'db'
 
 # Now we can load the persisted database from disk, and use it as normal. 

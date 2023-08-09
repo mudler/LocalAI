@@ -1,12 +1,20 @@
 # go-llama build artifacts
 go-llama
-gpt4all
+/gpt4all
 go-stable-diffusion
+go-piper
+/go-bert
+go-ggllm
+/piper
+__pycache__/
+*.a
+get-sources
+
 go-ggml-transformers
 go-gpt2
 go-rwkv
 whisper.cpp
-bloomz
+/bloomz
 go-bert
 
 # LocalAI build binary
@@ -28,5 +36,5 @@ release/
 
 # Generated during build
 backend-assets/
-
+prepare
 /ggml-metal.metal

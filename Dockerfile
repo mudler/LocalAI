@@ -11,10 +11,15 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py,autogptq:/build/extra/grpc/autogptq/autogptq.py,bark:/build/extra/grpc/bark/ttsbark.py,diffusers:/build/extra/grpc/diffusers/backend_diffusers.py"
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates cmake curl patch
+    apt-get install -y ca-certificates cmake curl patch pip
+
+# Use the variables in subsequent instructions
+RUN echo "Target Architecture: $TARGETARCH"
+RUN echo "Target Variant: $TARGETVARIANT"
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
@@ -28,6 +33,19 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     ; fi
 ENV PATH /usr/local/cuda/bin:${PATH}
 
+# Extras requirements
+COPY extra/requirements.txt /build/extra/requirements.txt
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN pip install --upgrade pip
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        pip install git+https://github.com/suno-ai/bark.git diffusers invisible_watermark transformers accelerate safetensors;\
+    fi
+RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
+        pip install torch && pip install auto-gptq;\
+    fi
+RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
+
 WORKDIR /build
 
 # OpenBLAS requirements
@@ -37,9 +55,6 @@ RUN apt-get install -y libopenblas-dev
 RUN apt-get install -y libopencv-dev && \
     ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
-# Use the variables in subsequent instructions
-RUN echo "Target Architecture: $TARGETARCH"
-RUN echo "Target Variant: $TARGETVARIANT"
 
 # piper requirements
 # Use pre-compiled Piper phonemization library (includes onnxruntime)
@@ -58,8 +73,8 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
     mkdir -p "lib/Linux-$(uname -m)/piper_phonemize" && \
     curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v${PIPER_PHONEMIZE_VERSION}/libpiper_phonemize-${TARGETARCH:-$(go env GOARCH)}${TARGETVARIANT}.tar.gz" | \
     tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
-    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /lib64/ && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
+    ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
 # \
 #    ; fi

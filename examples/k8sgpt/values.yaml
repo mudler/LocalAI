@@ -2,12 +2,13 @@ replicaCount: 1
 
 deployment:
   # https://quay.io/repository/go-skynet/local-ai?tab=tags
-  image: quay.io/go-skynet/local-ai:latest
+  image: quay.io/go-skynet/local-ai:v1.23.0
   env:
     threads: 4
     debug: "true"
     context_size: 512
-    preload_models: '[{ "url": "github:go-skynet/model-gallery/wizard.yaml", "name": "gpt-3.5-turbo", "overrides": { "parameters": { "model": "WizardLM-7B-uncensored.ggmlv3.q5_1" }},"files": [ { "uri": "https://huggingface.co//WizardLM-7B-uncensored-GGML/resolve/main/WizardLM-7B-uncensored.ggmlv3.q5_1.bin", "sha256": "d92a509d83a8ea5e08ba4c2dbaf08f29015932dc2accd627ce0665ac72c2bb2b", "filename": "WizardLM-7B-uncensored.ggmlv3.q5_1" }]}]'
+    galleries: '[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
+    preload_models: '[{ "id": "huggingface@thebloke__open-llama-13b-open-instruct-ggml__open-llama-13b-open-instruct.ggmlv3.q3_k_m.bin", "name": "gpt-3.5-turbo", "overrides": { "f16": true, "mmap": true }}]'
   modelsPath: "/models"
 
 resources:

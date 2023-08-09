@@ -38,7 +38,7 @@ helm install local-ai go-skynet/local-ai --create-namespace --namespace local-ai
 # Install k8sgpt
 helm repo add k8sgpt https://charts.k8sgpt.ai/
 helm repo update
-helm install release k8sgpt/k8sgpt-operator -n k8sgpt-operator-system --create-namespace
+helm install release k8sgpt/k8sgpt-operator -n k8sgpt-operator-system --create-namespace --version 0.0.17
 ```
 
 Apply the k8sgpt-operator configuration:
@@ -55,7 +55,6 @@ spec:
   baseUrl: http://local-ai.local-ai.svc.cluster.local:8080/v1
   noCache: false
   model: gpt-3.5-turbo
-  noCache: false
   version: v0.3.0
   enableAI: true
 EOF
@@ -68,3 +67,6 @@ Apply a broken pod:
 ```
 kubectl apply -f broken-pod.yaml
 ```
+
+## ArgoCD Deployment Example
+[Deploy K8sgpt + localai with Argocd](https://github.com/tyler-harpool/gitops/tree/main/infra/k8gpt)
