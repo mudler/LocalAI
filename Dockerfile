@@ -17,6 +17,9 @@ ARG GO_TAGS="stablediffusion tts"
 RUN apt-get update && \
     apt-get install -y ca-certificates cmake curl patch pip
 
+COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"
