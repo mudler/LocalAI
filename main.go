@@ -130,6 +130,11 @@ func main() {
 				EnvVars: []string{"UPLOAD_LIMIT"},
 				Value:   15,
 			},
+			&cli.StringSliceFlag{
+				Name:    "api-keys",
+				Usage:   "List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys.",
+				EnvVars: []string{"API_KEY"},
+			},
 		},
 		Description: `
 LocalAI is a drop-in replacement OpenAI API which runs inference locally.
@@ -167,6 +172,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithBackendAssets(backendAssets),
 				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
+				options.WithApiKeys(ctx.StringSlice("api-keys")),
 			}
 
 			externalgRPC := ctx.StringSlice("external-grpc-backends")

@@ -91,6 +91,18 @@ message ModelOptions {
   float RopeFreqScale = 18;
   float RMSNormEps = 19;
   int32 NGQA = 20;
+  string ModelFile = 21;
+
+  // AutoGPTQ
+  string Device = 22;
+  bool UseTriton = 23;
+  string ModelBaseName = 24;
+  bool UseFastTokenizer = 25;
+
+  // Diffusers
+  string PipelineType = 26;
+  string SchedulerType = 27;
+  bool CUDA = 28;
 }
 
 message Result {

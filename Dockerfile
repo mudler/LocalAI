@@ -11,15 +11,15 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py"
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py,autogptq:/build/extra/grpc/autogptq/autogptq.py,bark:/build/extra/grpc/bark/ttsbark.py,diffusers:/build/extra/grpc/diffusers/backend_diffusers.py,exllama:/build/extra/grpc/exllama/exllama.py"
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
     apt-get install -y ca-certificates cmake curl patch pip
 
-# Extras requirements
-COPY extra/requirements.txt /build/extra/requirements.txt
-RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
+# Use the variables in subsequent instructions
+RUN echo "Target Architecture: $TARGETARCH"
+RUN echo "Target Variant: $TARGETVARIANT"
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
@@ -29,9 +29,22 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     dpkg -i cuda-keyring_1.0-1_all.deb && \
     rm -f cuda-keyring_1.0-1_all.deb && \
     apt-get update && \
-    apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+    apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
     ; fi
 ENV PATH /usr/local/cuda/bin:${PATH}
+
+# Extras requirements
+COPY extra/requirements.txt /build/extra/requirements.txt
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN pip install --upgrade pip
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        pip install git+https://github.com/suno-ai/bark.git diffusers invisible_watermark transformers accelerate safetensors;\
+    fi
+RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
+        pip install torch && pip install auto-gptq https://github.com/jllllll/exllama/releases/download/0.0.10/exllama-0.0.10+cu${CUDA_MAJOR_VERSION}${CUDA_MINOR_VERSION}-cp39-cp39-linux_x86_64.whl;\
+    fi
+RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
 
 WORKDIR /build
 
@@ -42,9 +55,6 @@ RUN apt-get install -y libopenblas-dev
 RUN apt-get install -y libopencv-dev && \
     ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
-# Use the variables in subsequent instructions
-RUN echo "Target Architecture: $TARGETARCH"
-RUN echo "Target Variant: $TARGETVARIANT"
 
 # piper requirements
 # Use pre-compiled Piper phonemization library (includes onnxruntime)

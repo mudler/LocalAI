@@ -18,7 +18,7 @@ type GPTNeoX struct {
 }
 
 func (llm *GPTNeoX) Load(opts *pb.ModelOptions) error {
-	model, err := transformers.NewGPTNeoX(opts.Model)
+	model, err := transformers.NewGPTNeoX(opts.ModelFile)
 	llm.gptneox = model
 	return err
 }

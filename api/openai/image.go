@@ -89,7 +89,10 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 				}
 
 				mode := 0
-				step := 15
+				step := config.Step
+				if step == 0 {
+					step = 15
+				}
 
 				if input.Mode != 0 {
 					mode = input.Mode

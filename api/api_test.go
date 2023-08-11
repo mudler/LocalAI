@@ -470,6 +470,9 @@ var _ = Describe("API test", func() {
 
 			response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 				ID: "model-gallery@stablediffusion",
+				Overrides: map[string]interface{}{
+					"parameters": map[string]interface{}{"model": "stablediffusion_assets"},
+				},
 			})
 
 			Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))

@@ -71,8 +71,20 @@ func updateConfig(config *config.Config, input *OpenAIRequest) {
 		config.TopP = input.TopP
 	}
 
+	if input.Backend != "" {
+		config.Backend = input.Backend
+	}
+
+	if input.ModelBaseName != "" {
+		config.AutoGPTQ.ModelBaseName = input.ModelBaseName
+	}
+
 	if input.NegativePromptScale != 0 {
 		config.NegativePromptScale = input.NegativePromptScale
+	}
+
+	if input.UseFastTokenizer {
+		config.UseFastTokenizer = input.UseFastTokenizer
 	}
 
 	if input.NegativePrompt != "" {
@@ -137,15 +149,15 @@ func updateConfig(config *config.Config, input *OpenAIRequest) {
 	}
 
 	if input.Mirostat != 0 {
-		config.Mirostat = input.Mirostat
+		config.LLMConfig.Mirostat = input.Mirostat
 	}
 
 	if input.MirostatETA != 0 {
-		config.MirostatETA = input.MirostatETA
+		config.LLMConfig.MirostatETA = input.MirostatETA
 	}
 
 	if input.MirostatTAU != 0 {
-		config.MirostatTAU = input.MirostatTAU
+		config.LLMConfig.MirostatTAU = input.MirostatTAU
 	}
 
 	if input.TypicalP != 0 {

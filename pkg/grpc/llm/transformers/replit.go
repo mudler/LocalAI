@@ -18,7 +18,7 @@ type Replit struct {
 }
 
 func (llm *Replit) Load(opts *pb.ModelOptions) error {
-	model, err := transformers.NewReplit(opts.Model)
+	model, err := transformers.NewReplit(opts.ModelFile)
 	llm.replit = model
 	return err
 }

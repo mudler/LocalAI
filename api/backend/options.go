@@ -15,10 +15,11 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		b = c.Batch
 	}
 	return &pb.ModelOptions{
-		ContextSize:   int32(c.ContextSize),
-		Seed:          int32(c.Seed),
-		NBatch:        int32(b),
-		NGQA:          c.NGQA,
+		ContextSize: int32(c.ContextSize),
+		Seed:        int32(c.Seed),
+		NBatch:      int32(b),
+		NGQA:        c.NGQA,
+
 		RMSNormEps:    c.RMSNormEps,
 		F16Memory:     c.F16,
 		MLock:         c.MMlock,
@@ -32,6 +33,11 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		MainGPU:       c.MainGPU,
 		Threads:       int32(c.Threads),
 		TensorSplit:   c.TensorSplit,
+		// AutoGPTQ
+		ModelBaseName:    c.AutoGPTQ.ModelBaseName,
+		Device:           c.AutoGPTQ.Device,
+		UseTriton:        c.AutoGPTQ.Triton,
+		UseFastTokenizer: c.AutoGPTQ.UseFastTokenizer,
 	}
 }
 
@@ -58,9 +64,9 @@ func gRPCPredictOpts(c config.Config, modelPath string) *pb.PredictOptions {
 		RopeFreqBase:        c.RopeFreqBase,
 		RopeFreqScale:       c.RopeFreqScale,
 		NegativePrompt:      c.NegativePrompt,
-		Mirostat:            int32(c.Mirostat),
-		MirostatETA:         float32(c.MirostatETA),
-		MirostatTAU:         float32(c.MirostatTAU),
+		Mirostat:            int32(c.LLMConfig.Mirostat),
+		MirostatETA:         float32(c.LLMConfig.MirostatETA),
+		MirostatTAU:         float32(c.LLMConfig.MirostatTAU),
 		Debug:               c.Debug,
 		StopPrompts:         c.StopWords,
 		Repeat:              int32(c.RepeatPenalty),

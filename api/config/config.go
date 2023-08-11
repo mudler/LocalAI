@@ -13,48 +13,70 @@ import (
 
 type Config struct {
 	PredictionOptions `yaml:"parameters"`
-	Name              string            `yaml:"name"`
-	StopWords         []string          `yaml:"stopwords"`
-	Cutstrings        []string          `yaml:"cutstrings"`
-	TrimSpace         []string          `yaml:"trimspace"`
-	ContextSize       int               `yaml:"context_size"`
-	F16               bool              `yaml:"f16"`
-	NUMA              bool              `yaml:"numa"`
-	Threads           int               `yaml:"threads"`
-	Debug             bool              `yaml:"debug"`
-	Roles             map[string]string `yaml:"roles"`
-	Embeddings        bool              `yaml:"embeddings"`
-	Backend           string            `yaml:"backend"`
-	TemplateConfig    TemplateConfig    `yaml:"template"`
-	MirostatETA       float64           `yaml:"mirostat_eta"`
-	MirostatTAU       float64           `yaml:"mirostat_tau"`
-	Mirostat          int               `yaml:"mirostat"`
-	NGPULayers        int               `yaml:"gpu_layers"`
-	MMap              bool              `yaml:"mmap"`
-	MMlock            bool              `yaml:"mmlock"`
-	LowVRAM           bool              `yaml:"low_vram"`
+	Name              string `yaml:"name"`
 
-	TensorSplit           string `yaml:"tensor_split"`
-	MainGPU               string `yaml:"main_gpu"`
-	ImageGenerationAssets string `yaml:"asset_dir"`
+	F16            bool              `yaml:"f16"`
+	Threads        int               `yaml:"threads"`
+	Debug          bool              `yaml:"debug"`
+	Roles          map[string]string `yaml:"roles"`
+	Embeddings     bool              `yaml:"embeddings"`
+	Backend        string            `yaml:"backend"`
+	TemplateConfig TemplateConfig    `yaml:"template"`
 
-	PromptCachePath string `yaml:"prompt_cache_path"`
-	PromptCacheAll  bool   `yaml:"prompt_cache_all"`
-	PromptCacheRO   bool   `yaml:"prompt_cache_ro"`
-
-	Grammar string `yaml:"grammar"`
-
-	PromptStrings, InputStrings                []string
-	InputToken                                 [][]int
-	functionCallString, functionCallNameString string
+	PromptStrings, InputStrings                []string `yaml:"-"`
+	InputToken                                 [][]int  `yaml:"-"`
+	functionCallString, functionCallNameString string   `yaml:"-"`
 
 	FunctionsConfig Functions `yaml:"function"`
 
-	SystemPrompt string          `yaml:"system_prompt"`
-	FeatureFlag  map[string]bool `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
+	FeatureFlag map[string]bool `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
+	// LLM configs (GPT4ALL, Llama.cpp, ...)
+	LLMConfig `yaml:",inline"`
 
-	RMSNormEps float32 `yaml:"rms_norm_eps"`
-	NGQA       int32   `yaml:"ngqa"`
+	// AutoGPTQ specifics
+	AutoGPTQ AutoGPTQ `yaml:"autogptq"`
+
+	// Diffusers
+	Diffusers Diffusers `yaml:"diffusers"`
+
+	Step int `yaml:"step"`
+}
+
+type Diffusers struct {
+	PipelineType  string `yaml:"pipeline_type"`
+	SchedulerType string `yaml:"scheduler_type"`
+	CUDA          bool   `yaml:"cuda"`
+}
+
+type LLMConfig struct {
+	SystemPrompt    string   `yaml:"system_prompt"`
+	TensorSplit     string   `yaml:"tensor_split"`
+	MainGPU         string   `yaml:"main_gpu"`
+	RMSNormEps      float32  `yaml:"rms_norm_eps"`
+	NGQA            int32    `yaml:"ngqa"`
+	PromptCachePath string   `yaml:"prompt_cache_path"`
+	PromptCacheAll  bool     `yaml:"prompt_cache_all"`
+	PromptCacheRO   bool     `yaml:"prompt_cache_ro"`
+	MirostatETA     float64  `yaml:"mirostat_eta"`
+	MirostatTAU     float64  `yaml:"mirostat_tau"`
+	Mirostat        int      `yaml:"mirostat"`
+	NGPULayers      int      `yaml:"gpu_layers"`
+	MMap            bool     `yaml:"mmap"`
+	MMlock          bool     `yaml:"mmlock"`
+	LowVRAM         bool     `yaml:"low_vram"`
+	Grammar         string   `yaml:"grammar"`
+	StopWords       []string `yaml:"stopwords"`
+	Cutstrings      []string `yaml:"cutstrings"`
+	TrimSpace       []string `yaml:"trimspace"`
+	ContextSize     int      `yaml:"context_size"`
+	NUMA            bool     `yaml:"numa"`
+}
+
+type AutoGPTQ struct {
+	ModelBaseName    string `yaml:"model_base_name"`
+	Device           string `yaml:"device"`
+	Triton           bool   `yaml:"triton"`
+	UseFastTokenizer bool   `yaml:"use_fast_tokenizer"`
 }
 
 type Functions struct {

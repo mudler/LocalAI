@@ -18,7 +18,7 @@ type Falcon struct {
 }
 
 func (llm *Falcon) Load(opts *pb.ModelOptions) error {
-	model, err := transformers.NewFalcon(opts.Model)
+	model, err := transformers.NewFalcon(opts.ModelFile)
 	llm.falcon = model
 	return err
 }
