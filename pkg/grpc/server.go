@@ -127,6 +127,12 @@ func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb
 	}, err
 }
 
+func (s *server) State(ctx context.Context, in *pb.HealthMessage) (*pb.StateResponse, error) {
+	resp := pb.StateResponse{}
+
+	return &resp, nil
+}
+
 func StartServer(address string, model LLM) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {

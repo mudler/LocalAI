@@ -159,7 +159,7 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	return tresult, err
 }
 
-func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*TokenizationResponse, error) {
+func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -172,14 +172,5 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 	if err != nil {
 		return nil, err
 	}
-
-	castTokens := make([]int, len(res.Tokens))
-	for i, v := range res.Tokens {
-		castTokens[i] = int(v)
-	}
-
-	return &TokenizationResponse{
-		Length: int(res.Length),
-		Tokens: castTokens,
-	}, err
+	return res, nil
 }

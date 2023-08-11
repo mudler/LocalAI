@@ -4,18 +4,37 @@ package base
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
 	"fmt"
+	"sync"
 
-	"github.com/go-skynet/LocalAI/pkg/grpc"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/grpc/whisper/api"
 )
 
 type Base struct {
+	backendBusy sync.Mutex
+	State       pb.StateResponse_State
+}
+
+func (llm *Base) Busy() bool {
+	r := llm.backendBusy.TryLock()
+	if r {
+		llm.backendBusy.Unlock()
+	}
+	return r
+}
+
+func (llm *Base) Lock() {
+	llm.backendBusy.Lock()
+	llm.State = pb.StateResponse_BUSY
+}
+
+func (llm *Base) Unlock() {
+	llm.State = pb.StateResponse_READY
+	llm.backendBusy.Unlock()
 }
 
 func (llm *Base) Load(opts *pb.ModelOptions) error {
 	return fmt.Errorf("unimplemented")
-
 }
 
 func (llm *Base) Predict(opts *pb.PredictOptions) (string, error) {
@@ -42,6 +61,13 @@ func (llm *Base) TTS(*pb.TTSRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
-func (llm *Base) TokenizeString(opts *pb.PredictOptions) (grpc.TokenizationResponse, error) {
-	return grpc.TokenizationResponse{}, fmt.Errorf("unimplemented")
+func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
+	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) Status() (pb.StateResponse, error) {
+	return pb.StateResponse{
+		State: llm.State,
+		// 0-value for memory to indicate that we didn't even attempt?
+	}, nil
 }
