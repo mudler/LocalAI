@@ -20,7 +20,7 @@ type LLM struct {
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
 
 	if llm.Base.State != pb.StateResponse_UNINITIALIZED {
-		log.Warn().Msgf("loading %s while already in state %s!", opts.Model, llm.Base.State.String())
+		log.Warn().Msgf("llama backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
 
 	llm.Base.Lock()
@@ -183,7 +183,6 @@ func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
 
 func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
 	llm.Base.Lock()
-	defer llm.Base.Unlock()
 
 	predictOptions := buildPredictOptions(opts)
 
@@ -198,6 +197,7 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 			fmt.Println("err: ", err)
 		}
 		close(results)
+		llm.Base.Unlock()
 	}()
 
 	return nil

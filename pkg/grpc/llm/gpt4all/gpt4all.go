@@ -8,6 +8,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
+	"github.com/rs/zerolog/log"
 )
 
 type LLM struct {
@@ -17,6 +18,13 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
+	if llm.Base.State != pb.StateResponse_UNINITIALIZED {
+		log.Warn().Msgf("gpt4all backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
+	}
+
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
 	model, err := gpt4all.New(opts.ModelFile,
 		gpt4all.SetThreads(int(opts.Threads)),
 		gpt4all.SetLibrarySearchPath(opts.LibrarySearchPath))
@@ -39,10 +47,15 @@ func buildPredictOptions(opts *pb.PredictOptions) []gpt4all.PredictOption {
 }
 
 func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
 	return llm.gpt4all.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
+	llm.Base.Lock()
+
 	predictOptions := buildPredictOptions(opts)
 
 	go func() {
@@ -56,6 +69,7 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 		}
 		llm.gpt4all.SetTokenCallback(nil)
 		close(results)
+		llm.Base.Unlock()
 	}()
 
 	return nil
