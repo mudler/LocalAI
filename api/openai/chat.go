@@ -29,11 +29,16 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 		responses <- initialMessage
 
-		ComputeChoices(req, s, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
+		ComputeChoices(req, s, config, o, loader, func(s string, c *[]Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			resp := OpenAIResponse{
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []Choice{{Delta: &Message{Content: &s}, Index: 0}},
 				Object:  "chat.completion.chunk",
+				Usage: OpenAIUsage{
+					PromptTokens:     usage.Prompt,
+					CompletionTokens: usage.Completion,
+					TotalTokens:      usage.Prompt + usage.Completion,
+				},
 			}
 
 			responses <- resp

@@ -7,7 +7,7 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ComputeChoices(req *OpenAIRequest, predInput string, config *config.Config, o *options.Option, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string) bool) ([]Choice, backend.TokenUsage, error) {
+func ComputeChoices(req *OpenAIRequest, predInput string, config *config.Config, o *options.Option, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string, backend.TokenUsage) bool) ([]Choice, backend.TokenUsage, error) {
 	n := req.N // number of completions to return
 	result := []Choice{}
 

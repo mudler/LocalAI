@@ -25,7 +25,7 @@ type TokenUsage struct {
 	Completion int
 }
 
-func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	grpcOpts := gRPCModelOpts(c)
@@ -76,41 +76,37 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 		opts := gRPCPredictOpts(c, loader.ModelPath)
 		opts.Prompt = s
 
-		promptTokens := 0
-		completionTokens := 0
+		tokenUsage := TokenUsage{}
 
 		// check the per-model feature flag for usage, since tokenCallback may have a cost, but default to on.
 		if !c.FeatureFlag["usage"] {
 			userTokenCallback := tokenCallback
 			if userTokenCallback == nil {
-				userTokenCallback = func(token string) bool {
+				userTokenCallback = func(token string, usage TokenUsage) bool {
 					return true
 				}
 			}
 
 			promptInfo, pErr := inferenceModel.TokenizeString(ctx, opts)
 			if pErr == nil && promptInfo.Length > 0 {
-				promptTokens = int(promptInfo.Length)
+				tokenUsage.Prompt = int(promptInfo.Length)
 			}
 
-			tokenCallback = func(token string) bool {
-				completionTokens++
-				return userTokenCallback(token)
+			tokenCallback = func(token string, usage TokenUsage) bool {
+				tokenUsage.Completion++
+				return userTokenCallback(token, tokenUsage)
 			}
 		}
 
 		if tokenCallback != nil {
 			ss := ""
 			err := inferenceModel.PredictStream(ctx, opts, func(s []byte) {
-				tokenCallback(string(s))
+				tokenCallback(string(s), tokenUsage)
 				ss += string(s)
 			})
 			return LLMResponse{
 				Response: ss,
-				Usage: TokenUsage{
-					Prompt:     promptTokens,
-					Completion: completionTokens,
-				},
+				Usage:    tokenUsage,
 			}, err
 		} else {
 			// TODO: Is the chicken bit the only way to get here? is that acceptable?
@@ -120,10 +116,7 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 			}
 			return LLMResponse{
 				Response: string(reply.Message),
-				Usage: TokenUsage{
-					Prompt:     promptTokens,
-					Completion: completionTokens,
-				},
+				Usage:    tokenUsage,
 			}, err
 		}
 	}
