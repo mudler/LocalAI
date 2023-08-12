@@ -108,7 +108,10 @@ RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data 
 FROM requirements
 
 ARG FFMPEG
+ARG BUILD_TYPE
+ARG TARGETARCH
 
+ENV BUILD_TYPE=${BUILD_TYPE}
 ENV REBUILD=false
 ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
 
@@ -126,7 +129,10 @@ WORKDIR /build
 COPY . .
 RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
-
+# To resolve exllama import error
+RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH:-$(go env GOARCH)}" = "amd64" ]; then \
+        cp -rfv /usr/local/lib/python3.9/dist-packages/exllama extra/grpc/exllama/;\
+    fi
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f $HEALTHCHECK_ENDPOINT || exit 1
