@@ -13,8 +13,14 @@ import os
 import torch
 from torch import autocast
 from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
+from diffusers.pipelines.stable_diffusion import safety_checker
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
+
+# https://github.com/CompVis/stable-diffusion/issues/239#issuecomment-1627615287
+def sc(self, clip_input, images) : return images, [False for i in images]
+# edit the StableDiffusionSafetyChecker class so that, when called, it just returns the images and an array of True values
+safety_checker.StableDiffusionSafetyChecker.forward = sc
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
