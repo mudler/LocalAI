@@ -276,7 +276,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 
 	// Is this really needed? BackendLoader already does this
 	ml.mu.Lock()
-	if m := ml.checkIsLoaded(o.model); m != nil {
+	if m := ml.CheckIsLoaded(o.model); m != nil {
 		log.Debug().Msgf("Model '%s' already loaded", o.model)
 		ml.mu.Unlock()
 		return m, nil

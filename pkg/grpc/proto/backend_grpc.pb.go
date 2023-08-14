@@ -28,7 +28,7 @@ const (
 	Backend_AudioTranscription_FullMethodName = "/backend.Backend/AudioTranscription"
 	Backend_TTS_FullMethodName                = "/backend.Backend/TTS"
 	Backend_TokenizeString_FullMethodName     = "/backend.Backend/TokenizeString"
-	Backend_State_FullMethodName              = "/backend.Backend/State"
+	Backend_Status_FullMethodName             = "/backend.Backend/Status"
 )
 
 // BackendClient is the client API for Backend service.
@@ -44,7 +44,7 @@ type BackendClient interface {
 	AudioTranscription(ctx context.Context, in *TranscriptRequest, opts ...grpc.CallOption) (*TranscriptResult, error)
 	TTS(ctx context.Context, in *TTSRequest, opts ...grpc.CallOption) (*Result, error)
 	TokenizeString(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (*TokenizationResponse, error)
-	State(ctx context.Context, in *HealthMessage, opts ...grpc.CallOption) (*StateResponse, error)
+	Status(ctx context.Context, in *HealthMessage, opts ...grpc.CallOption) (*StatusResponse, error)
 }
 
 type backendClient struct {
@@ -159,9 +159,9 @@ func (c *backendClient) TokenizeString(ctx context.Context, in *PredictOptions, 
 	return out, nil
 }
 
-func (c *backendClient) State(ctx context.Context, in *HealthMessage, opts ...grpc.CallOption) (*StateResponse, error) {
-	out := new(StateResponse)
-	err := c.cc.Invoke(ctx, Backend_State_FullMethodName, in, out, opts...)
+func (c *backendClient) Status(ctx context.Context, in *HealthMessage, opts ...grpc.CallOption) (*StatusResponse, error) {
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, Backend_Status_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ type BackendServer interface {
 	AudioTranscription(context.Context, *TranscriptRequest) (*TranscriptResult, error)
 	TTS(context.Context, *TTSRequest) (*Result, error)
 	TokenizeString(context.Context, *PredictOptions) (*TokenizationResponse, error)
-	State(context.Context, *HealthMessage) (*StateResponse, error)
+	Status(context.Context, *HealthMessage) (*StatusResponse, error)
 	mustEmbedUnimplementedBackendServer()
 }
 
@@ -216,8 +216,8 @@ func (UnimplementedBackendServer) TTS(context.Context, *TTSRequest) (*Result, er
 func (UnimplementedBackendServer) TokenizeString(context.Context, *PredictOptions) (*TokenizationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TokenizeString not implemented")
 }
-func (UnimplementedBackendServer) State(context.Context, *HealthMessage) (*StateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method State not implemented")
+func (UnimplementedBackendServer) Status(context.Context, *HealthMessage) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 func (UnimplementedBackendServer) mustEmbedUnimplementedBackendServer() {}
 
@@ -397,20 +397,20 @@ func _Backend_TokenizeString_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Backend_State_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Backend_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HealthMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BackendServer).State(ctx, in)
+		return srv.(BackendServer).Status(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Backend_State_FullMethodName,
+		FullMethod: Backend_Status_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BackendServer).State(ctx, req.(*HealthMessage))
+		return srv.(BackendServer).Status(ctx, req.(*HealthMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -455,8 +455,8 @@ var Backend_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Backend_TokenizeString_Handler,
 		},
 		{
-			MethodName: "State",
-			Handler:    _Backend_State_Handler,
+			MethodName: "Status",
+			Handler:    _Backend_Status_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

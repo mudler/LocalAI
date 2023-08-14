@@ -19,7 +19,7 @@ type GPTNeoX struct {
 }
 
 func (llm *GPTNeoX) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StateResponse_UNINITIALIZED {
+	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
 		log.Warn().Msgf("gptneox backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
 

@@ -127,10 +127,13 @@ func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb
 	}, err
 }
 
-func (s *server) State(ctx context.Context, in *pb.HealthMessage) (*pb.StateResponse, error) {
-	resp := pb.StateResponse{}
+func (s *server) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
+	res, err := s.llm.Status()
+	if err != nil {
+		return nil, err
+	}
 
-	return &resp, nil
+	return &res, nil
 }
 
 func StartServer(address string, model LLM) error {

@@ -17,7 +17,7 @@ service Backend {
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc TTS(TTSRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
-  rpc State(HealthMessage) returns (StateResponse) {}
+  rpc Status(HealthMessage) returns (StatusResponse) {}
 }
 
 message HealthMessage {}
@@ -160,7 +160,7 @@ message MemoryUsageData {
   map<string, uint64> breakdown = 2;
 }
 
-message StateResponse {
+message StatusResponse {
   enum State {
     UNINITIALIZED = 0;
     BUSY = 1;

@@ -103,7 +103,7 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 	defer ml.mu.Unlock()
 
 	// Check if we already have a loaded model
-	if model := ml.checkIsLoaded(modelName); model != nil {
+	if model := ml.CheckIsLoaded(modelName); model != nil {
 		return model, nil
 	}
 
@@ -128,7 +128,7 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 	return model, nil
 }
 
-func (ml *ModelLoader) checkIsLoaded(s string) *grpc.Client {
+func (ml *ModelLoader) CheckIsLoaded(s string) *grpc.Client {
 	if m, ok := ml.models[s]; ok {
 		log.Debug().Msgf("Model already loaded in memory: %s", s)
 

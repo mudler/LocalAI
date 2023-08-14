@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -35,7 +36,7 @@ func NewBackendMonitor(configLoader *config.ConfigLoader, options *options.Optio
 	}
 }
 
-func (bm *BackendMonitor) SampleBackend(model string) (*BackendMonitorResponse, error) {
+func (bm *BackendMonitor) SampleLocalBackendProces(model string) (*BackendMonitorResponse, error) {
 	config, exists := bm.configLoader.GetConfig(model)
 	var backend string
 	if exists {
@@ -98,12 +99,36 @@ func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 			return err
 		}
 
-		val, err := bm.SampleBackend(input.Model)
-		if err != nil {
-			log.Warn().Msgf("backend monitor (currently only supports local node grpc backends) error during %s, %+v", input.Model, err)
-			return err
+		// val, err := bm.SampleLocalBackendProces(input.Model)
+		// if err != nil {
+		// 	log.Warn().Msgf("backend monitor (currently only supports local node grpc backends) error during %s, %+v", input.Model, err)
+		// 	return err
+		// }
+
+		config, exists := bm.configLoader.GetConfig(input.Model)
+		var backendId string
+		if exists {
+			backendId = config.Model
+		} else {
+			// Last ditch effort: use it raw, see if a backend happens to match.
+			backendId = input.Model
 		}
 
-		return c.JSON(val)
+		if !strings.HasSuffix(backendId, ".bin") {
+			backendId = fmt.Sprintf("%s.bin", backendId)
+		}
+
+		client := bm.options.Loader.CheckIsLoaded(backendId)
+
+		if client == nil {
+			return fmt.Errorf("backend %s is not currently loaded", input.Model)
+		}
+
+		status, err := client.Status(context.TODO())
+		if err != nil {
+			return fmt.Errorf("backend %s experienced an error retrieving status info: %s", input.Model, err.Error())
+		}
+
+		return c.JSON(status)
 	}
 }

@@ -174,3 +174,13 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 	}
 	return res, nil
 }
+
+func (c *Client) Status(ctx context.Context) (*pb.StatusResponse, error) {
+	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+	return client.Status(ctx, &pb.HealthMessage{})
+}
