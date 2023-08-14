@@ -39,14 +39,15 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 		_, err := inferenceModel.GenerateImage(
 			o.Context,
 			&proto.GenerateImageRequest{
-				Height:         int32(height),
-				Width:          int32(width),
-				Mode:           int32(mode),
-				Step:           int32(step),
-				Seed:           int32(seed),
-				PositivePrompt: positive_prompt,
-				NegativePrompt: negative_prompt,
-				Dst:            dst,
+				Height:           int32(height),
+				Width:            int32(width),
+				Mode:             int32(mode),
+				Step:             int32(step),
+				Seed:             int32(seed),
+				PositivePrompt:   positive_prompt,
+				NegativePrompt:   negative_prompt,
+				Dst:              dst,
+				EnableParameters: c.Diffusers.EnableParameters,
 			})
 		return err
 	}
