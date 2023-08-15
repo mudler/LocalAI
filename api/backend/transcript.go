@@ -21,6 +21,13 @@ func ModelTranscription(audio, language string, loader *model.ModelLoader, c con
 		model.WithAssetDir(o.AssetsDestination),
 	}
 
+	if c.GRPC.Attempts != 0 {
+		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
+	}
+
+	if c.GRPC.AttemptsSleepTime != 0 {
+		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
+	}
 	for k, v := range o.ExternalGRPCBackends {
 		opts = append(opts, model.WithExternalBackend(k, v))
 	}
