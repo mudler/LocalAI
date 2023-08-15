@@ -178,25 +178,25 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	app.Post("/chat/completions", auth, openai.ChatEndpoint(cl, options))
 
 	// edit
-	app.Post("/v1/edits", auth, openai.EditEndpoint(cm, options))
-	app.Post("/edits", auth, openai.EditEndpoint(cm, options))
+	app.Post("/v1/edits", auth, openai.EditEndpoint(cl, options))
+	app.Post("/edits", auth, openai.EditEndpoint(cl, options))
 
 	// completion
-	app.Post("/v1/completions", auth, openai.CompletionEndpoint(cm, options))
-	app.Post("/completions", auth, openai.CompletionEndpoint(cm, options))
-	app.Post("/v1/engines/:model/completions", auth, openai.CompletionEndpoint(cm, options))
+	app.Post("/v1/completions", auth, openai.CompletionEndpoint(cl, options))
+	app.Post("/completions", auth, openai.CompletionEndpoint(cl, options))
+	app.Post("/v1/engines/:model/completions", auth, openai.CompletionEndpoint(cl, options))
 
 	// embeddings
-	app.Post("/v1/embeddings", auth, openai.EmbeddingsEndpoint(cm, options))
-	app.Post("/embeddings", auth, openai.EmbeddingsEndpoint(cm, options))
-	app.Post("/v1/engines/:model/embeddings", auth, openai.EmbeddingsEndpoint(cm, options))
+	app.Post("/v1/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
+	app.Post("/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
+	app.Post("/v1/engines/:model/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
 
 	// audio
-	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cm, options))
-	app.Post("/tts", auth, localai.TTSEndpoint(cm, options))
+	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cl, options))
+	app.Post("/tts", auth, localai.TTSEndpoint(cl, options))
 
 	// images
-	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(cm, options))
+	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(cl, options))
 
 	if options.ImageDir != "" {
 		app.Static("/generated-images", options.ImageDir)
