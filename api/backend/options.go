@@ -14,12 +14,12 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 	if c.Batch != 0 {
 		b = c.Batch
 	}
-	return &pb.ModelOptions{
-		ContextSize: int32(c.ContextSize),
-		Seed:        int32(c.Seed),
-		NBatch:      int32(b),
-		NGQA:        c.NGQA,
 
+	return &pb.ModelOptions{
+		ContextSize:   int32(c.ContextSize),
+		Seed:          int32(c.Seed),
+		NBatch:        int32(b),
+		NGQA:          c.NGQA,
 		RMSNormEps:    c.RMSNormEps,
 		F16Memory:     c.F16,
 		MLock:         c.MMlock,

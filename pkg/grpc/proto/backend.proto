@@ -101,6 +101,7 @@ message ModelOptions {
   string PipelineType = 26;
   string SchedulerType = 27;
   bool CUDA = 28;
+  float CFGScale = 29;
 }
 
 message Result {

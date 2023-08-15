@@ -21,6 +21,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 			CUDA:          c.Diffusers.CUDA,
 			SchedulerType: c.Diffusers.SchedulerType,
 			PipelineType:  c.Diffusers.PipelineType,
+			CFGScale:      c.Diffusers.CFGScale,
 		}),
 	}
 
