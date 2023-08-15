@@ -142,6 +142,9 @@ message GenerateImageRequest {
   string positive_prompt = 6;
   string negative_prompt = 7;
   string dst = 8;
+
+  // Diffusers
+  string EnableParameters = 9;
 }
 
 message TTSRequest {
