@@ -39,6 +39,14 @@ type Config struct {
 	Diffusers Diffusers `yaml:"diffusers"`
 
 	Step int `yaml:"step"`
+
+	// GRPC Options
+	GRPC GRPC `yaml:"grpc"`
+}
+
+type GRPC struct {
+	Attempts          int `yaml:"attempts"`
+	AttemptsSleepTime int `yaml:"attempts_sleep_time"`
 }
 
 type Diffusers struct {

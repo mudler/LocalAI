@@ -16,6 +16,9 @@ type Options struct {
 	gRPCOptions *pb.ModelOptions
 
 	externalBackends map[string]string
+
+	grpcAttempts      int
+	grpcAttemptsDelay int
 }
 
 type Option func(*Options)
@@ -26,6 +29,18 @@ func WithExternalBackend(name string, uri string) Option {
 			o.externalBackends = make(map[string]string)
 		}
 		o.externalBackends[name] = uri
+	}
+}
+
+func WithGRPCAttempts(attempts int) Option {
+	return func(o *Options) {
+		o.grpcAttempts = attempts
+	}
+}
+
+func WithGRPCAttemptsDelay(delay int) Option {
+	return func(o *Options) {
+		o.grpcAttemptsDelay = delay
 	}
 }
 
@@ -67,8 +82,10 @@ func WithContext(ctx context.Context) Option {
 
 func NewOptions(opts ...Option) *Options {
 	o := &Options{
-		gRPCOptions: &pb.ModelOptions{},
-		context:     context.Background(),
+		gRPCOptions:       &pb.ModelOptions{},
+		context:           context.Background(),
+		grpcAttempts:      20,
+		grpcAttemptsDelay: 2,
 	}
 	for _, opt := range opts {
 		opt(o)
