@@ -50,10 +50,11 @@ type GRPC struct {
 }
 
 type Diffusers struct {
-	PipelineType     string `yaml:"pipeline_type"`
-	SchedulerType    string `yaml:"scheduler_type"`
-	CUDA             bool   `yaml:"cuda"`
-	EnableParameters string `yaml:"enable_parameters"` // A list of comma separated parameters to specify
+	PipelineType     string  `yaml:"pipeline_type"`
+	SchedulerType    string  `yaml:"scheduler_type"`
+	CUDA             bool    `yaml:"cuda"`
+	EnableParameters string  `yaml:"enable_parameters"` // A list of comma separated parameters to specify
+	CFGScale         float32 `yaml:"cfg_scale"`         // Classifier-Free Guidance Scale
 }
 
 type LLMConfig struct {
