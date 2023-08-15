@@ -4,3 +4,4 @@ google
 protobuf
 six
 omegaconf
+compel
