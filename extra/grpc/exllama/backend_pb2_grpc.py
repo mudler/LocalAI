@@ -54,6 +54,16 @@ class BackendStub(object):
                 request_serializer=backend__pb2.TTSRequest.SerializeToString,
                 response_deserializer=backend__pb2.Result.FromString,
                 )
+        self.TokenizeString = channel.unary_unary(
+                '/backend.Backend/TokenizeString',
+                request_serializer=backend__pb2.PredictOptions.SerializeToString,
+                response_deserializer=backend__pb2.TokenizationResponse.FromString,
+                )
+        self.Status = channel.unary_unary(
+                '/backend.Backend/Status',
+                request_serializer=backend__pb2.HealthMessage.SerializeToString,
+                response_deserializer=backend__pb2.StatusResponse.FromString,
+                )
 
 
 class BackendServicer(object):
@@ -107,6 +117,18 @@ class BackendServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TokenizeString(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Status(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_BackendServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -149,6 +171,16 @@ def add_BackendServicer_to_server(servicer, server):
                     servicer.TTS,
                     request_deserializer=backend__pb2.TTSRequest.FromString,
                     response_serializer=backend__pb2.Result.SerializeToString,
+            ),
+            'TokenizeString': grpc.unary_unary_rpc_method_handler(
+                    servicer.TokenizeString,
+                    request_deserializer=backend__pb2.PredictOptions.FromString,
+                    response_serializer=backend__pb2.TokenizationResponse.SerializeToString,
+            ),
+            'Status': grpc.unary_unary_rpc_method_handler(
+                    servicer.Status,
+                    request_deserializer=backend__pb2.HealthMessage.FromString,
+                    response_serializer=backend__pb2.StatusResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -293,5 +325,39 @@ class Backend(object):
         return grpc.experimental.unary_unary(request, target, '/backend.Backend/TTS',
             backend__pb2.TTSRequest.SerializeToString,
             backend__pb2.Result.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TokenizeString(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/backend.Backend/TokenizeString',
+            backend__pb2.PredictOptions.SerializeToString,
+            backend__pb2.TokenizationResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Status(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/backend.Backend/Status',
+            backend__pb2.HealthMessage.SerializeToString,
+            backend__pb2.StatusResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
