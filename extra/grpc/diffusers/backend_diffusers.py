@@ -15,9 +15,14 @@ from torch import autocast
 from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
 from diffusers.pipelines.stable_diffusion import safety_checker
 from compel import Compel
+from PIL import Image
+from io import BytesIO
+from diffusers import StableDiffusionImg2ImgPipeline
+from transformers import CLIPTextModel
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 COMPEL=os.environ.get("COMPEL", "1") == "1"
+CLIPSKIP=os.environ.get("CLIPSKIP", "1") == "1"
 
 # https://github.com/CompVis/stable-diffusion/issues/239#issuecomment-1627615287
 def sc(self, clip_input, images) : return images, [False for i in images]
@@ -42,39 +47,55 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             cfg_scale = 7
             if request.CFGScale != 0:
                 cfg_scale = request.CFGScale
-
+            
+            clipmodel = "runwayml/stable-diffusion-v1-5"
+            if request.CLIPModel != "":
+                clipmodel = request.CLIPModel
+            clipsubfolder = "text_encoder"
+            if request.CLIPSubfolder != "":
+                clipsubfolder = request.CLIPSubfolder
+            
             # Check if ModelFile exists
             if request.ModelFile != "":
                 if os.path.exists(request.ModelFile):
                     local = True
                     modelFile = request.ModelFile
-
+            
             fromSingleFile = request.Model.startswith("http") or request.Model.startswith("/") or local
             # If request.Model is a URL, use from_single_file
                 
-
             if request.PipelineType == "":
                 request.PipelineType == "StableDiffusionPipeline"
 
             if request.PipelineType == "StableDiffusionPipeline":
                 if fromSingleFile:
-                    self.pipe = StableDiffusionPipeline.from_single_file(modelFile,
-                                                               torch_dtype=torchType,
-                                                               guidance_scale=cfg_scale)
+                    if request.IMG2IMG:
+                        self.pipe = StableDiffusionImg2ImgPipeline.from_single_file(modelFile,
+                                    torch_dtype=torchType,
+                                    guidance_scale=cfg_scale)
+                    else:
+                        self.pipe = StableDiffusionPipeline.from_single_file(modelFile,
+                                                            torch_dtype=torchType,
+                                                            guidance_scale=cfg_scale)
                 else:
-                    self.pipe = StableDiffusionPipeline.from_pretrained(request.Model,
-                                                               torch_dtype=torchType,
-                                                               guidance_scale=cfg_scale)
-
+                    if request.IMG2IMG:
+                        self.pipe = StableDiffusionImg2ImgPipeline.from_pretrained(request.Model,
+                                    torch_dtype=torchType,
+                                    guidance_scale=cfg_scale)
+                    else:
+                        self.pipe = StableDiffusionPipeline.from_pretrained(request.Model,
+                                                            torch_dtype=torchType,
+                                                            guidance_scale=cfg_scale)
+                # https://github.com/huggingface/diffusers/issues/4446
+                # do not use text_encoder in the constructor since then
+                # https://github.com/huggingface/diffusers/issues/3212#issuecomment-1521841481
+                if CLIPSKIP and request.CLIPSkip != 0:
+                    text_encoder = CLIPTextModel.from_pretrained(clipmodel, num_hidden_layers=request.CLIPSkip,  subfolder=clipsubfolder, torch_dtype=torchType)
+                    self.pipe.text_encoder=text_encoder
             if request.PipelineType == "DiffusionPipeline":
-                if fromSingleFile:
-                    self.pipe = DiffusionPipeline.from_single_file(modelFile,
-                                                               torch_dtype=torchType,
-                                                               guidance_scale=cfg_scale)
-                else:
-                    self.pipe = DiffusionPipeline.from_pretrained(request.Model,
-                                                               torch_dtype=torchType,
-                                                               guidance_scale=cfg_scale)
+                self.pipe = DiffusionPipeline.from_pretrained(request.Model,
+                                                        torch_dtype=torchType,
+                                                        guidance_scale=cfg_scale)
 
             if request.PipelineType == "StableDiffusionXLPipeline":
                 if fromSingleFile:
@@ -117,8 +138,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             "negative_prompt":     request.negative_prompt, 
             "width":               request.width, 
             "height":              request.height,
-            "num_inference_steps": request.step
+            "num_inference_steps": request.step,
         }
+
+        if request.src != "":
+            # open the image with Image.open
+            # convert the image to RGB
+            # resize the image to the request width and height
+            # XXX: untested
+            image = Image.open(request.src).convert("RGB").resize((request.width, request.height))
+            options["image"] = image
 
         # Get the keys that we will build the args for our pipe for
         keys = options.keys()
@@ -131,6 +160,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # create a dictionary of parameters by using the keys from EnableParameters and the values from defaults
         kwargs = {key: options[key] for key in keys}
+
         image = {}
         if COMPEL:
             conditioning = self.compel.build_conditioning_tensor(prompt)

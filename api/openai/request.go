@@ -75,6 +75,10 @@ func updateConfig(config *config.Config, input *OpenAIRequest) {
 		config.Backend = input.Backend
 	}
 
+	if input.ClipSkip != 0 {
+		config.Diffusers.ClipSkip = input.ClipSkip
+	}
+
 	if input.ModelBaseName != "" {
 		config.AutoGPTQ.ModelBaseName = input.ModelBaseName
 	}
