@@ -209,13 +209,13 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		// Wait for the service to start up
 		ready := false
-		for i := 0; i < 10; i++ {
+		for i := 0; i < o.grpcAttempts; i++ {
 			if client.HealthCheck(context.Background()) {
 				log.Debug().Msgf("GRPC Service Ready")
 				ready = true
 				break
 			}
-			time.Sleep(1 * time.Second)
+			time.Sleep(time.Duration(o.grpcAttemptsDelay) * time.Second)
 		}
 
 		if !ready {

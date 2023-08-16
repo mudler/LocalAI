@@ -19,7 +19,16 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 			CUDA:          c.Diffusers.CUDA,
 			SchedulerType: c.Diffusers.SchedulerType,
 			PipelineType:  c.Diffusers.PipelineType,
+			CFGScale:      c.Diffusers.CFGScale,
 		}),
+	}
+
+	if c.GRPC.Attempts != 0 {
+		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
+	}
+
+	if c.GRPC.AttemptsSleepTime != 0 {
+		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
 	}
 
 	for k, v := range o.ExternalGRPCBackends {

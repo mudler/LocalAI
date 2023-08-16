@@ -40,13 +40,22 @@ type Config struct {
 	Diffusers Diffusers `yaml:"diffusers"`
 
 	Step int `yaml:"step"`
+
+	// GRPC Options
+	GRPC GRPC `yaml:"grpc"`
+}
+
+type GRPC struct {
+	Attempts          int `yaml:"attempts"`
+	AttemptsSleepTime int `yaml:"attempts_sleep_time"`
 }
 
 type Diffusers struct {
-	PipelineType     string `yaml:"pipeline_type"`
-	SchedulerType    string `yaml:"scheduler_type"`
-	CUDA             bool   `yaml:"cuda"`
-	EnableParameters string `yaml:"enable_parameters"` // A list of comma separated parameters to specify
+	PipelineType     string  `yaml:"pipeline_type"`
+	SchedulerType    string  `yaml:"scheduler_type"`
+	CUDA             bool    `yaml:"cuda"`
+	EnableParameters string  `yaml:"enable_parameters"` // A list of comma separated parameters to specify
+	CFGScale         float32 `yaml:"cfg_scale"`         // Classifier-Free Guidance Scale
 }
 
 type LLMConfig struct {

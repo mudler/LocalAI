@@ -9,7 +9,7 @@ require (
 	github.com/go-skynet/bloomz.cpp v0.0.0-20230529155654-1834e77b83fa
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230716133540-6abe312cded1
 	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230714203132-ffb09d7dd71e
-	github.com/go-skynet/go-llama.cpp v0.0.0-20230802220037-50cee7712066
+	github.com/go-skynet/go-llama.cpp v0.0.0-20230815201253-f03869d188b7
 	github.com/gofiber/fiber/v2 v2.48.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
@@ -20,14 +20,14 @@ require (
 	github.com/mudler/go-ggllm.cpp v0.0.0-20230709223052-862477d16eef
 	github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230811181453-4d855afe973a
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230815171941-a63093554fb5
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.10
 	github.com/otiai10/openaigo v1.5.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/rs/zerolog v1.30.0
 	github.com/sashabaranov/go-openai v1.14.2
-	github.com/tmc/langchaingo v0.0.0-20230811231558-fd8b7f099537
+	github.com/tmc/langchaingo v0.0.0-20230815194031-eb0cbd31327d
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/valyala/fasthttp v1.48.0
 	google.golang.org/grpc v1.57.0
@@ -92,23 +92,3 @@ require (
 	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/tools v0.9.3 // indirect
 )
-
-replace github.com/go-skynet/go-llama.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-llama
-
-replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang => /mnt/c/Users/campe/Projects/LocalAI/gpt4all/gpt4all-bindings/golang
-
-replace github.com/go-skynet/go-ggml-transformers.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-ggml-transformers
-
-replace github.com/donomii/go-rwkv.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-rwkv
-
-replace github.com/ggerganov/whisper.cpp => /mnt/c/Users/campe/Projects/LocalAI/whisper.cpp
-
-replace github.com/go-skynet/go-bert.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-bert
-
-replace github.com/go-skynet/bloomz.cpp => /mnt/c/Users/campe/Projects/LocalAI/bloomz
-
-replace github.com/mudler/go-stable-diffusion => /mnt/c/Users/campe/Projects/LocalAI/go-stable-diffusion
-
-replace github.com/mudler/go-piper => /mnt/c/Users/campe/Projects/LocalAI/go-piper
-
-replace github.com/mudler/go-ggllm.cpp => /mnt/c/Users/campe/Projects/LocalAI/go-ggllm
