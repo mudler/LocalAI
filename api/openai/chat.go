@@ -242,11 +242,13 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
+				usage := &OpenAIUsage{}
+
 				for ev := range responses {
+					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
 					enc.Encode(ev)
-
 					log.Debug().Msgf("Sending chunk: %s", buf.String())
 					_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
 					if err != nil {
@@ -266,6 +268,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 							Delta:        &Message{Content: &emptyMessage},
 						}},
 					Object: "chat.completion.chunk",
+					Usage:  *usage,
 				}
 				respData, _ := json.Marshal(resp)
 
