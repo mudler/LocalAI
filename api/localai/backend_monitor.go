@@ -37,7 +37,7 @@ func NewBackendMonitor(configLoader *config.ConfigLoader, options *options.Optio
 	}
 }
 
-func (bm *BackendMonitor) SampleLocalBackendProces(model string) (*BackendMonitorResponse, error) {
+func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*BackendMonitorResponse, error) {
 	config, exists := bm.configLoader.GetConfig(model)
 	var backend string
 	if exists {
@@ -122,7 +122,7 @@ func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 		status, rpcErr := client.Status(context.TODO())
 		if rpcErr != nil {
 			log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", input.Model, rpcErr.Error())
-			val, slbErr := bm.SampleLocalBackendProces(backendId)
+			val, slbErr := bm.SampleLocalBackendProcess(backendId)
 			if slbErr != nil {
 				return fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", input.Model, rpcErr.Error(), slbErr.Error())
 			}

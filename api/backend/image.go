@@ -66,20 +66,4 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	}
 
 	return fn, nil
-
-	// return func() error {
-	// 	// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
-	// 	mutexMap.Lock()
-	// 	l, ok := mutexes[c.Backend]
-	// 	if !ok {
-	// 		m := &sync.Mutex{}
-	// 		mutexes[c.Backend] = m
-	// 		l = m
-	// 	}
-	// 	mutexMap.Unlock()
-	// 	l.Lock()
-	// 	defer l.Unlock()
-
-	// 	return fn()
-	// }, nil
 }

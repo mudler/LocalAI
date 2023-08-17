@@ -87,18 +87,6 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 	}
 
 	return func() ([]float32, error) {
-		// // This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
-		// mutexMap.Lock()
-		// l, ok := mutexes[modelFile]
-		// if !ok {
-		// 	m := &sync.Mutex{}
-		// 	mutexes[modelFile] = m
-		// 	l = m
-		// }
-		// mutexMap.Unlock()
-		// l.Lock()
-		// defer l.Unlock()
-
 		embeds, err := fn()
 		if err != nil {
 			return embeds, err

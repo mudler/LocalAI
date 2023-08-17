@@ -130,22 +130,6 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 	}
 
 	return fn, nil
-
-	// return func() (LLMResponse, error) {
-	// 	// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
-	// 	mutexMap.Lock()
-	// 	l, ok := mutexes[modelFile]
-	// 	if !ok {
-	// 		m := &sync.Mutex{}
-	// 		mutexes[modelFile] = m
-	// 		l = m
-	// 	}
-	// 	mutexMap.Unlock()
-	// 	l.Lock()
-	// 	defer l.Unlock()
-
-	// 	return fn()
-	// }, nil
 }
 
 var cutstrings map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)

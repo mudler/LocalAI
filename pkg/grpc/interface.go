@@ -5,11 +5,6 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/whisper/api"
 )
 
-// type TokenizationResponse struct {
-// 	Length int   `json:"length"`
-// 	Tokens []int `json:"tokens"`
-// }
-
 type LLM interface {
 	Busy() bool
 	Predict(*pb.PredictOptions) (string, error)
