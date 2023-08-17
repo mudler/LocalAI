@@ -7,7 +7,7 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, dst string, loader *model.ModelLoader, c config.Config, o *options.Option) (func() error, error) {
+func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, c config.Config, o *options.Option) (func() error, error) {
 
 	opts := []model.Option{
 		model.WithBackendString(c.Backend),
@@ -20,6 +20,10 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 			SchedulerType: c.Diffusers.SchedulerType,
 			PipelineType:  c.Diffusers.PipelineType,
 			CFGScale:      c.Diffusers.CFGScale,
+			IMG2IMG:       c.Diffusers.IMG2IMG,
+			CLIPModel:     c.Diffusers.ClipModel,
+			CLIPSubfolder: c.Diffusers.ClipSubFolder,
+			CLIPSkip:      int32(c.Diffusers.ClipSkip),
 		}),
 	}
 
@@ -51,9 +55,11 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 				Mode:             int32(mode),
 				Step:             int32(step),
 				Seed:             int32(seed),
+				CLIPSkip:         int32(c.Diffusers.ClipSkip),
 				PositivePrompt:   positive_prompt,
 				NegativePrompt:   negative_prompt,
 				Dst:              dst,
+				Src:              src,
 				EnableParameters: c.Diffusers.EnableParameters,
 			})
 		return err

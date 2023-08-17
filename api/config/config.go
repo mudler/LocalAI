@@ -56,6 +56,10 @@ type Diffusers struct {
 	CUDA             bool    `yaml:"cuda"`
 	EnableParameters string  `yaml:"enable_parameters"` // A list of comma separated parameters to specify
 	CFGScale         float32 `yaml:"cfg_scale"`         // Classifier-Free Guidance Scale
+	IMG2IMG          bool    `yaml:"img2img"`           // Image to Image Diffuser
+	ClipSkip         int     `yaml:"clip_skip"`         // Skip every N frames
+	ClipModel        string  `yaml:"clip_model"`        // Clip model to use
+	ClipSubFolder    string  `yaml:"clip_subfolder"`    // Subfolder to use for clip model
 }
 
 type LLMConfig struct {

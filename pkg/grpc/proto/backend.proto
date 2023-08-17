@@ -104,6 +104,10 @@ message ModelOptions {
   string SchedulerType = 27;
   bool CUDA = 28;
   float CFGScale = 29;
+  bool IMG2IMG = 30;
+  string CLIPModel = 31;
+  string CLIPSubfolder = 32;
+  int32 CLIPSkip = 33;
 }
 
 message Result {
@@ -143,9 +147,11 @@ message GenerateImageRequest {
   string positive_prompt = 6;
   string negative_prompt = 7;
   string dst = 8;
+  string src = 9;
 
   // Diffusers
-  string EnableParameters = 9;
+  string EnableParameters = 10;
+  int32 CLIPSkip = 11;
 }
 
 message TTSRequest {
