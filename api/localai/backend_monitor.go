@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
+	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/gofiber/fiber/v2"
@@ -99,12 +100,6 @@ func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 			return err
 		}
 
-		// val, err := bm.SampleLocalBackendProces(input.Model)
-		// if err != nil {
-		// 	log.Warn().Msgf("backend monitor (currently only supports local node grpc backends) error during %s, %+v", input.Model, err)
-		// 	return err
-		// }
-
 		config, exists := bm.configLoader.GetConfig(input.Model)
 		var backendId string
 		if exists {
@@ -124,9 +119,22 @@ func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 			return fmt.Errorf("backend %s is not currently loaded", input.Model)
 		}
 
-		status, err := client.Status(context.TODO())
-		if err != nil {
-			return fmt.Errorf("backend %s experienced an error retrieving status info: %s", input.Model, err.Error())
+		status, rpcErr := client.Status(context.TODO())
+		if rpcErr != nil {
+			log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", input.Model, rpcErr.Error())
+			val, slbErr := bm.SampleLocalBackendProces(backendId)
+			if slbErr != nil {
+				return fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", input.Model, rpcErr.Error(), slbErr.Error())
+			}
+			return c.JSON(proto.StatusResponse{
+				State: proto.StatusResponse_ERROR,
+				Memory: &proto.MemoryUsageData{
+					Total: val.MemoryInfo.VMS,
+					Breakdown: map[string]uint64{
+						"gopsutil-RSS": val.MemoryInfo.RSS,
+					},
+				},
+			})
 		}
 
 		return c.JSON(status)
