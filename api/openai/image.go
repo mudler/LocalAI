@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -49,6 +51,37 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
+		src := ""
+		// retrieve the file data from the request
+		file, err := c.FormFile("src")
+		if err == nil {
+
+			f, err := file.Open()
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			dir, err := os.MkdirTemp("", "img2img")
+
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(dir)
+
+			dst := filepath.Join(dir, path.Base(file.Filename))
+			dstFile, err := os.Create(dst)
+			if err != nil {
+				return err
+			}
+
+			if _, err := io.Copy(dstFile, f); err != nil {
+				log.Debug().Msgf("Image file copying error %+v - %+v - err %+v", file.Filename, dst, err)
+				return err
+			}
+			src = dst
+		}
+
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
 		// XXX: Only stablediffusion is supported for now
@@ -73,7 +106,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 		if input.ResponseFormat == "b64_json" {
 			b64JSON = true
 		}
-
+		// src and clip_skip
 		var result []Item
 		for _, i := range config.PromptStrings {
 			n := input.N
@@ -121,7 +154,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 				baseURL := c.BaseURL()
 
-				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, output, o.Loader, *config, o)
+				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, o.Loader, *config, o)
 				if err != nil {
 					return err
 				}
