@@ -135,6 +135,12 @@ func main() {
 				Usage:   "List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys.",
 				EnvVars: []string{"API_KEY"},
 			},
+			&cli.BoolFlag{
+				Name:    "preload-backend-only",
+				Usage:   "If set, the api is NOT launched, and only the preloaded models / backends are started. This is intended for multi-node setups.",
+				EnvVars: []string{"PRELOAD_BACKEND_ONLY"},
+				Value:   false,
+			},
 		},
 		Description: `
 LocalAI is a drop-in replacement OpenAI API which runs inference locally.
@@ -185,6 +191,11 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 			if ctx.Bool("autoload-galleries") {
 				opts = append(opts, options.EnableGalleriesAutoload)
+			}
+
+			if ctx.Bool("preload-backend-only") {
+				_, _, err := api.Startup(opts...)
+				return err
 			}
 
 			app, err := api.App(opts...)

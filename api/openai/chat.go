@@ -29,11 +29,16 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 		responses <- initialMessage
 
-		ComputeChoices(req, s, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
+		ComputeChoices(req, s, config, o, loader, func(s string, c *[]Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			resp := OpenAIResponse{
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []Choice{{Delta: &Message{Content: &s}, Index: 0}},
 				Object:  "chat.completion.chunk",
+				Usage: OpenAIUsage{
+					PromptTokens:     usage.Prompt,
+					CompletionTokens: usage.Completion,
+					TotalTokens:      usage.Prompt + usage.Completion,
+				},
 			}
 
 			responses <- resp
@@ -237,11 +242,13 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
+				usage := &OpenAIUsage{}
+
 				for ev := range responses {
+					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
 					enc.Encode(ev)
-
 					log.Debug().Msgf("Sending chunk: %s", buf.String())
 					_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
 					if err != nil {
@@ -261,6 +268,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 							Delta:        &Message{Content: &emptyMessage},
 						}},
 					Object: "chat.completion.chunk",
+					Usage:  *usage,
 				}
 				respData, _ := json.Marshal(resp)
 
@@ -271,7 +279,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			return nil
 		}
 
-		result, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]Choice) {
+		result, tokenUsage, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]Choice) {
 			if processFunctions {
 				// As we have to change the result before processing, we can't stream the answer (yet?)
 				ss := map[string]interface{}{}
@@ -327,8 +335,8 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 						return
 					}
 
-					prediction = backend.Finetune(*config, predInput, prediction)
-					*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &prediction}})
+					fineTunedResponse := backend.Finetune(*config, predInput, prediction.Response)
+					*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &fineTunedResponse}})
 				} else {
 					// otherwise reply with the function call
 					*c = append(*c, Choice{
@@ -349,6 +357,11 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "chat.completion",
+			Usage: OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			},
 		}
 		respData, _ := json.Marshal(resp)
 		log.Debug().Msgf("Response: %s", respData)

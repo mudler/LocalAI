@@ -8,6 +8,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/go-llama.cpp"
+	"github.com/rs/zerolog/log"
 )
 
 type LLM struct {
@@ -17,6 +18,13 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
+
+	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
+		log.Warn().Msgf("llama backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
+	}
+
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
 
 	ropeFreqBase := float32(10000)
 	ropeFreqScale := float32(1)
@@ -73,6 +81,7 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 
 	model, err := llama.New(opts.ModelFile, llamaOpts...)
 	llm.llama = model
+
 	return err
 }
 
@@ -167,10 +176,14 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 }
 
 func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
 	return llm.llama.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
+	llm.Base.Lock()
+
 	predictOptions := buildPredictOptions(opts)
 
 	predictOptions = append(predictOptions, llama.SetTokenCallback(func(token string) bool {
@@ -184,12 +197,16 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 			fmt.Println("err: ", err)
 		}
 		close(results)
+		llm.Base.Unlock()
 	}()
 
 	return nil
 }
 
 func (llm *LLM) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
 	predictOptions := buildPredictOptions(opts)
 
 	if len(opts.EmbeddingTokens) > 0 {
@@ -201,4 +218,19 @@ func (llm *LLM) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
 	}
 
 	return llm.llama.Embeddings(opts.Embeddings, predictOptions...)
+}
+
+func (llm *LLM) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	predictOptions := buildPredictOptions(opts)
+	l, tokens, err := llm.llama.TokenizeString(opts.Prompt, predictOptions...)
+	if err != nil {
+		return pb.TokenizationResponse{}, err
+	}
+	return pb.TokenizationResponse{
+		Length: l,
+		Tokens: tokens,
+	}, nil
 }

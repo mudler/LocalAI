@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
+	"github.com/rs/zerolog/log"
 
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
@@ -18,17 +19,26 @@ type Falcon struct {
 }
 
 func (llm *Falcon) Load(opts *pb.ModelOptions) error {
+	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
+		log.Warn().Msgf("transformers-falcon backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
+	}
+
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
 	model, err := transformers.NewFalcon(opts.ModelFile)
 	llm.falcon = model
 	return err
 }
 
 func (llm *Falcon) Predict(opts *pb.PredictOptions) (string, error) {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
 	return llm.falcon.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
 func (llm *Falcon) PredictStream(opts *pb.PredictOptions, results chan string) error {
+	llm.Base.Lock()
 	go func() {
 		res, err := llm.falcon.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -37,6 +47,7 @@ func (llm *Falcon) PredictStream(opts *pb.PredictOptions, results chan string) e
 		}
 		results <- res
 		close(results)
+		llm.Base.Unlock()
 	}()
 
 	return nil

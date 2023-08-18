@@ -110,6 +110,32 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 	return nil
 }
 
+func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
+	res, err := s.llm.TokenizeString(in)
+	if err != nil {
+		return nil, err
+	}
+
+	castTokens := make([]int32, len(res.Tokens))
+	for i, v := range res.Tokens {
+		castTokens[i] = int32(v)
+	}
+
+	return &pb.TokenizationResponse{
+		Length: int32(res.Length),
+		Tokens: castTokens,
+	}, err
+}
+
+func (s *server) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
+	res, err := s.llm.Status()
+	if err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 func StartServer(address string, model LLM) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {

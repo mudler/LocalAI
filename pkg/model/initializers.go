@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -64,10 +65,33 @@ var AutoLoadBackends []string = []string{
 	PiperBackend,
 }
 
-func (ml *ModelLoader) StopGRPC() {
-	for _, p := range ml.grpcProcesses {
-		p.Stop()
+func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
+	p, exists := ml.grpcProcesses[id]
+	if !exists {
+		return -1, fmt.Errorf("no grpc backend found for %s", id)
 	}
+	return strconv.Atoi(p.PID)
+}
+
+type GRPCProcessFilter = func(p *process.Process) bool
+
+func includeAllProcesses(_ *process.Process) bool {
+	return true
+}
+
+func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) {
+	for _, p := range ml.grpcProcesses {
+		if filter(p) {
+			p.Stop()
+		}
+	}
+}
+
+func (ml *ModelLoader) StopAllGRPC() {
+	ml.StopGRPC(includeAllProcesses)
+	// for _, p := range ml.grpcProcesses {
+	// 	p.Stop()
+	// }
 }
 
 func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string) error {
@@ -252,7 +276,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 
 	// Is this really needed? BackendLoader already does this
 	ml.mu.Lock()
-	if m := ml.checkIsLoaded(o.model); m != nil {
+	if m := ml.CheckIsLoaded(o.model); m != nil {
 		log.Debug().Msgf("Model '%s' already loaded", o.model)
 		ml.mu.Unlock()
 		return m, nil

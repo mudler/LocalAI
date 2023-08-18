@@ -16,6 +16,8 @@ service Backend {
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc TTS(TTSRequest) returns (Result) {}
+  rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
+  rpc Status(HealthMessage) returns (StatusResponse) {}
 }
 
 message HealthMessage {}
@@ -156,4 +158,25 @@ message TTSRequest {
   string text = 1;
   string model = 2;
   string dst = 3;
+}
+
+message TokenizationResponse {
+  int32 length = 1;
+  repeated int32 tokens = 2;
+}
+
+message MemoryUsageData {
+  uint64 total = 1;
+  map<string, uint64> breakdown = 2;
+}
+
+message StatusResponse {
+  enum State {
+    UNINITIALIZED = 0;
+    BUSY = 1;
+    READY = 2;
+    ERROR = -1;
+  }
+  State state = 1;
+  MemoryUsageData memory = 2;
 }

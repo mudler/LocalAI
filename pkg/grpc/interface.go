@@ -6,6 +6,7 @@ import (
 )
 
 type LLM interface {
+	Busy() bool
 	Predict(*pb.PredictOptions) (string, error)
 	PredictStream(*pb.PredictOptions, chan string) error
 	Load(*pb.ModelOptions) error
@@ -13,6 +14,8 @@ type LLM interface {
 	GenerateImage(*pb.GenerateImageRequest) error
 	AudioTranscription(*pb.TranscriptRequest) (api.Result, error)
 	TTS(*pb.TTSRequest) error
+	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
+	Status() (pb.StatusResponse, error)
 }
 
 func newReply(s string) *pb.Reply {

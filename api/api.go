@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -19,12 +20,71 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func App(opts ...options.AppOption) (*fiber.App, error) {
+func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, error) {
 	options := options.NewOptions(opts...)
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if options.Debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
+
+	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.Loader.ModelPath)
+	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
+
+	cl := config.NewConfigLoader()
+	if err := cl.LoadConfigs(options.Loader.ModelPath); err != nil {
+		log.Error().Msgf("error loading config files: %s", err.Error())
+	}
+
+	if options.ConfigFile != "" {
+		if err := cl.LoadConfigFile(options.ConfigFile); err != nil {
+			log.Error().Msgf("error loading config file: %s", err.Error())
+		}
+	}
+
+	if options.Debug {
+		for _, v := range cl.ListConfigs() {
+			cfg, _ := cl.GetConfig(v)
+			log.Debug().Msgf("Model: %s (config: %+v)", v, cfg)
+		}
+	}
+
+	if options.AssetsDestination != "" {
+		// Extract files from the embedded FS
+		err := assets.ExtractFiles(options.BackendAssets, options.AssetsDestination)
+		log.Debug().Msgf("Extracting backend assets files to %s", options.AssetsDestination)
+		if err != nil {
+			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
+		}
+	}
+
+	if options.PreloadJSONModels != "" {
+		if err := localai.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if options.PreloadModelsFromPath != "" {
+		if err := localai.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	// turn off any process that was started by GRPC if the context is canceled
+	go func() {
+		<-options.Context.Done()
+		log.Debug().Msgf("Context canceled, shutting down")
+		options.Loader.StopAllGRPC()
+	}()
+
+	return options, cl, nil
+}
+
+func App(opts ...options.AppOption) (*fiber.App, error) {
+
+	options, cl, err := Startup(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 	}
 
 	// Return errors as JSON responses
@@ -57,36 +117,6 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		}))
 	}
 
-	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.Loader.ModelPath)
-	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
-
-	cm := config.NewConfigLoader()
-	if err := cm.LoadConfigs(options.Loader.ModelPath); err != nil {
-		log.Error().Msgf("error loading config files: %s", err.Error())
-	}
-
-	if options.ConfigFile != "" {
-		if err := cm.LoadConfigFile(options.ConfigFile); err != nil {
-			log.Error().Msgf("error loading config file: %s", err.Error())
-		}
-	}
-
-	if options.Debug {
-		for _, v := range cm.ListConfigs() {
-			cfg, _ := cm.GetConfig(v)
-			log.Debug().Msgf("Model: %s (config: %+v)", v, cfg)
-		}
-	}
-
-	if options.AssetsDestination != "" {
-		// Extract files from the embedded FS
-		err := assets.ExtractFiles(options.BackendAssets, options.AssetsDestination)
-		log.Debug().Msgf("Extracting backend assets files to %s", options.AssetsDestination)
-		if err != nil {
-			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
-		}
-	}
-
 	// Default middleware config
 	app.Use(recover.New())
 
@@ -116,18 +146,6 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		return c.Next()
 	}
 
-	if options.PreloadJSONModels != "" {
-		if err := localai.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cm, options.Galleries); err != nil {
-			return nil, err
-		}
-	}
-
-	if options.PreloadModelsFromPath != "" {
-		if err := localai.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cm, options.Galleries); err != nil {
-			return nil, err
-		}
-	}
-
 	if options.CORS {
 		var c func(ctx *fiber.Ctx) error
 		if options.CORSAllowOrigins == "" {
@@ -141,7 +159,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 	// LocalAI API endpoints
 	galleryService := localai.NewGalleryService(options.Loader.ModelPath)
-	galleryService.Start(options.Context, cm)
+	galleryService.Start(options.Context, cl)
 
 	app.Get("/version", auth, func(c *fiber.Ctx) error {
 		return c.JSON(struct {
@@ -149,36 +167,36 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		}{Version: internal.PrintableVersion()})
 	})
 
-	app.Post("/models/apply", auth, localai.ApplyModelGalleryEndpoint(options.Loader.ModelPath, cm, galleryService.C, options.Galleries))
+	app.Post("/models/apply", auth, localai.ApplyModelGalleryEndpoint(options.Loader.ModelPath, cl, galleryService.C, options.Galleries))
 	app.Get("/models/available", auth, localai.ListModelFromGalleryEndpoint(options.Galleries, options.Loader.ModelPath))
 	app.Get("/models/jobs/:uuid", auth, localai.GetOpStatusEndpoint(galleryService))
 
 	// openAI compatible API endpoint
 
 	// chat
-	app.Post("/v1/chat/completions", auth, openai.ChatEndpoint(cm, options))
-	app.Post("/chat/completions", auth, openai.ChatEndpoint(cm, options))
+	app.Post("/v1/chat/completions", auth, openai.ChatEndpoint(cl, options))
+	app.Post("/chat/completions", auth, openai.ChatEndpoint(cl, options))
 
 	// edit
-	app.Post("/v1/edits", auth, openai.EditEndpoint(cm, options))
-	app.Post("/edits", auth, openai.EditEndpoint(cm, options))
+	app.Post("/v1/edits", auth, openai.EditEndpoint(cl, options))
+	app.Post("/edits", auth, openai.EditEndpoint(cl, options))
 
 	// completion
-	app.Post("/v1/completions", auth, openai.CompletionEndpoint(cm, options))
-	app.Post("/completions", auth, openai.CompletionEndpoint(cm, options))
-	app.Post("/v1/engines/:model/completions", auth, openai.CompletionEndpoint(cm, options))
+	app.Post("/v1/completions", auth, openai.CompletionEndpoint(cl, options))
+	app.Post("/completions", auth, openai.CompletionEndpoint(cl, options))
+	app.Post("/v1/engines/:model/completions", auth, openai.CompletionEndpoint(cl, options))
 
 	// embeddings
-	app.Post("/v1/embeddings", auth, openai.EmbeddingsEndpoint(cm, options))
-	app.Post("/embeddings", auth, openai.EmbeddingsEndpoint(cm, options))
-	app.Post("/v1/engines/:model/embeddings", auth, openai.EmbeddingsEndpoint(cm, options))
+	app.Post("/v1/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
+	app.Post("/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
+	app.Post("/v1/engines/:model/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
 
 	// audio
-	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cm, options))
-	app.Post("/tts", auth, localai.TTSEndpoint(cm, options))
+	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cl, options))
+	app.Post("/tts", auth, localai.TTSEndpoint(cl, options))
 
 	// images
-	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(cm, options))
+	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(cl, options))
 
 	if options.ImageDir != "" {
 		app.Static("/generated-images", options.ImageDir)
@@ -196,16 +214,13 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	app.Get("/healthz", ok)
 	app.Get("/readyz", ok)
 
-	// models
-	app.Get("/v1/models", auth, openai.ListModelsEndpoint(options.Loader, cm))
-	app.Get("/models", auth, openai.ListModelsEndpoint(options.Loader, cm))
+	// Experimental Backend Statistics Module
+	backendMonitor := localai.NewBackendMonitor(cl, options) // Split out for now
+	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitor))
 
-	// turn off any process that was started by GRPC if the context is canceled
-	go func() {
-		<-options.Context.Done()
-		log.Debug().Msgf("Context canceled, shutting down")
-		options.Loader.StopGRPC()
-	}()
+	// models
+	app.Get("/v1/models", auth, openai.ListModelsEndpoint(options.Loader, cl))
+	app.Get("/models", auth, openai.ListModelsEndpoint(options.Loader, cl))
 
 	return app, nil
 }

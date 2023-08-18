@@ -158,3 +158,29 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	tresult.Text = res.Text
 	return tresult, err
 }
+
+func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
+	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+
+	res, err := client.TokenizeString(ctx, in, opts...)
+
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (c *Client) Status(ctx context.Context) (*pb.StatusResponse, error) {
+	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+	return client.Status(ctx, &pb.HealthMessage{})
+}
