@@ -159,17 +159,17 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 
 	backend := strings.ToLower(o.backendString)
 
-	// if an external backend is provided, use it
-	_, externalBackendExists := o.externalBackends[backend]
-	if externalBackendExists {
-		return ml.LoadModel(o.model, ml.grpcModel(backend, o))
-	}
-
 	if o.singleActiveBackend {
 		ml.mu.Lock()
 		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
 		ml.StopAllExcept(o.model)
 		ml.mu.Unlock()
+	}
+
+	// if an external backend is provided, use it
+	_, externalBackendExists := o.externalBackends[backend]
+	if externalBackendExists {
+		return ml.LoadModel(o.model, ml.grpcModel(backend, o))
 	}
 
 	switch backend {
