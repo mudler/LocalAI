@@ -190,6 +190,8 @@ github.com/tklauser/numcpus v0.6.0 h1:kebhY2Qt+3U6RNK7UqpYNA+tJ23IBEGKkB7JQBfDYm
 github.com/tklauser/numcpus v0.6.0/go.mod h1:FEZLMke0lhOUG6w2JadTzp0a+Nl8PF/GFkQ5UVIcaL4=
 github.com/tmc/langchaingo v0.0.0-20230815194031-eb0cbd31327d h1:RBu2wOoyzxNxYTitUKVNDtU1H6T4Tu5skOwvZabnPFc=
 github.com/tmc/langchaingo v0.0.0-20230815194031-eb0cbd31327d/go.mod h1:8T+nNIGBr3nYQEYFmF/YaT8t8YTKLvFYZBuVZOAYn5E=
+github.com/tmc/langchaingo v0.0.0-20230818002435-fef08210d974 h1:nlthMb2uN8S1v0XAE5bzFwz6v+Wb4wWEkTb7tdt+pOY=
+github.com/tmc/langchaingo v0.0.0-20230818002435-fef08210d974/go.mod h1:8T+nNIGBr3nYQEYFmF/YaT8t8YTKLvFYZBuVZOAYn5E=
 github.com/ulikunitz/xz v0.5.8/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
 github.com/ulikunitz/xz v0.5.9 h1:RsKRIA2MO8x56wkkcd3LbtcE/uMszhb6DpRf+3uwa3I=
 github.com/ulikunitz/xz v0.5.9/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
