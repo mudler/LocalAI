@@ -137,9 +137,7 @@ func (ml *ModelLoader) CheckIsLoaded(s string) *grpc.Client {
 			if !ml.grpcProcesses[s].IsAlive() {
 				log.Debug().Msgf("GRPC Process is not responding: %s", s)
 				// stop and delete the process, this forces to re-load the model and re-create again the service
-				ml.grpcProcesses[s].Stop()
-				delete(ml.grpcProcesses, s)
-				delete(ml.models, s)
+				ml.deleteProcess(s)
 				return nil
 			}
 		}

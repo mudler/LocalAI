@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	api_config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -33,17 +34,12 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *opt
 	if bb == "" {
 		bb = model.PiperBackend
 	}
-	opts := []model.Option{
+	opts := modelOpts(api_config.Config{}, o, []model.Option{
 		model.WithBackendString(bb),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
 		model.WithAssetDir(o.AssetsDestination),
-	}
-
-	for k, v := range o.ExternalGRPCBackends {
-		opts = append(opts, model.WithExternalBackend(k, v))
-	}
-
+	})
 	piperModel, err := o.Loader.BackendLoader(opts...)
 	if err != nil {
 		return "", nil, err

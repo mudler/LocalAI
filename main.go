@@ -50,6 +50,11 @@ func main() {
 				EnvVars: []string{"DEBUG"},
 			},
 			&cli.BoolFlag{
+				Name:    "single-active-backend",
+				EnvVars: []string{"SINGLE_ACTIVE_BACKEND"},
+				Usage:   "Allow only one backend to be running.",
+			},
+			&cli.BoolFlag{
 				Name:    "cors",
 				EnvVars: []string{"CORS"},
 			},
@@ -179,6 +184,10 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
 				options.WithApiKeys(ctx.StringSlice("api-keys")),
+			}
+
+			if ctx.Bool("single-active-backend") {
+				opts = append(opts, options.EnableSingleBackend)
 			}
 
 			externalgRPC := ctx.StringSlice("external-grpc-backends")
