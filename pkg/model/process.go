@@ -19,6 +19,7 @@ func (ml *ModelLoader) StopAllExcept(s string) {
 			for ml.models[id].IsBusy() {
 				log.Debug().Msgf("%s busy. Waiting for  to finish", id)
 			}
+			log.Debug().Msgf("[single-backend] Stopping %s", id)
 			return true
 		}
 		return false

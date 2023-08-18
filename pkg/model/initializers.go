@@ -167,6 +167,7 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 
 	if o.singleActiveBackend {
 		ml.mu.Lock()
+		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
 		ml.StopAllExcept(o.model)
 		ml.mu.Unlock()
 	}
