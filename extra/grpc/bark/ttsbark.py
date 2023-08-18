@@ -51,7 +51,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(success=True)
 
 def serve(address):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     server.add_insecure_port(address)
     server.start()

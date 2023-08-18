@@ -21,25 +21,13 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 	var inferenceModel interface{}
 	var err error
 
-	opts := []model.Option{
+	opts := modelOpts(c, o, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
-	}
-
-	if c.GRPC.Attempts != 0 {
-		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
-	}
-
-	if c.GRPC.AttemptsSleepTime != 0 {
-		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
-	}
-
-	for k, v := range o.ExternalGRPCBackends {
-		opts = append(opts, model.WithExternalBackend(k, v))
-	}
+	})
 
 	if c.Backend == "" {
 		inferenceModel, err = loader.GreedyLoader(opts...)

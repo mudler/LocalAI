@@ -18,7 +18,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/mudler/go-ggllm.cpp v0.0.0-20230709223052-862477d16eef
-	github.com/mudler/go-processmanager v0.0.0-20220724164624-c45b5c61312d
+	github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230815171941-a63093554fb5
 	github.com/onsi/ginkgo/v2 v2.11.0
@@ -40,7 +40,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/shirou/gopsutil/v3 v3.23.6
+	github.com/shirou/gopsutil/v3 v3.23.7
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
