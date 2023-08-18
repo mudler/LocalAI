@@ -1,12 +1,11 @@
 package openai
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -52,34 +51,28 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 		}
 
 		src := ""
-		// retrieve the file data from the request
-		file, err := c.FormFile("src")
-		if err == nil {
-
-			f, err := file.Open()
+		if input.File != "" {
+			//base 64 decode the file and write it somewhere
+			// that we will cleanup
+			decoded, err := base64.StdEncoding.DecodeString(input.File)
 			if err != nil {
 				return err
 			}
-			defer f.Close()
-
-			dir, err := os.MkdirTemp("", "img2img")
-
+			// Create a temporary file
+			outputFile, err := os.CreateTemp(o.ImageDir, "b64")
 			if err != nil {
 				return err
 			}
-			defer os.RemoveAll(dir)
-
-			dst := filepath.Join(dir, path.Base(file.Filename))
-			dstFile, err := os.Create(dst)
+			// write the base64 result
+			writer := bufio.NewWriter(outputFile)
+			_, err = writer.Write(decoded)
 			if err != nil {
+				outputFile.Close()
 				return err
 			}
-
-			if _, err := io.Copy(dstFile, f); err != nil {
-				log.Debug().Msgf("Image file copying error %+v - %+v - err %+v", file.Filename, dst, err)
-				return err
-			}
-			src = dst
+			outputFile.Close()
+			src = outputFile.Name()
+			defer os.RemoveAll(src)
 		}
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
