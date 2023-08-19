@@ -74,8 +74,9 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 
 		tokenUsage := TokenUsage{}
 
-		// check the per-model feature flag for usage, since tokenCallback may have a cost, but default to on.
-		if !c.FeatureFlag["usage"] {
+		// check the per-model feature flag for usage, since tokenCallback may have a cost.
+		// Defaults to off as for now it is still experimental
+		if c.FeatureFlag.Enabled("usage") {
 			userTokenCallback := tokenCallback
 			if userTokenCallback == nil {
 				userTokenCallback = func(token string, usage TokenUsage) bool {
