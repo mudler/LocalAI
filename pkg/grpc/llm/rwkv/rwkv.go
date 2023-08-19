@@ -80,3 +80,25 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 
 	return nil
 }
+
+func (llm *LLM) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	tokens, err := llm.rwkv.Tokenizer.Encode(opts.Prompt)
+	if err != nil {
+		return pb.TokenizationResponse{}, err
+	}
+
+	l := len(tokens)
+	i32Tokens := make([]int32, l)
+
+	for i, t := range tokens {
+		i32Tokens[i] = int32(t.ID)
+	}
+
+	return pb.TokenizationResponse{
+		Length: int32(l),
+		Tokens: i32Tokens,
+	}, nil
+}

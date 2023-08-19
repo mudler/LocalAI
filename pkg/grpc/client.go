@@ -184,3 +184,13 @@ func (c *Client) Status(ctx context.Context) (*pb.StatusResponse, error) {
 	client := pb.NewBackendClient(conn)
 	return client.Status(ctx, &pb.HealthMessage{})
 }
+
+func (c *Client) UnloadModel(ctx context.Context) (*pb.StatusResponse, error) {
+	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+	return client.UnloadModel(ctx, &pb.HealthMessage{})
+}

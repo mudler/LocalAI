@@ -11,6 +11,7 @@ service Backend {
   rpc Health(HealthMessage) returns (Reply) {}
   rpc Predict(PredictOptions) returns (Reply) {}
   rpc LoadModel(ModelOptions) returns (Result) {}
+  rpc UnloadModel(HealthMessage) returns (StatusResponse) {}
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}

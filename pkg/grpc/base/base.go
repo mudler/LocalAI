@@ -39,6 +39,10 @@ func (llm *Base) Load(opts *pb.ModelOptions) error {
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Unload() error {
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) Predict(opts *pb.PredictOptions) (string, error) {
 	return "", fmt.Errorf("unimplemented")
 }

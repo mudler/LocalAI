@@ -46,6 +46,14 @@ func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result
 	return &pb.Result{Message: "Loading succeeded", Success: true}, nil
 }
 
+func (s *server) Unload(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
+	err := s.llm.Unload()
+	if err != nil {
+		return nil, err
+	}
+	return s.Status(ctx, in)
+}
+
 func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
 	result, err := s.llm.Predict(in)
 	return newReply(result), err

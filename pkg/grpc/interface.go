@@ -10,6 +10,7 @@ type LLM interface {
 	Predict(*pb.PredictOptions) (string, error)
 	PredictStream(*pb.PredictOptions, chan string) error
 	Load(*pb.ModelOptions) error
+	Unload() error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
 	AudioTranscription(*pb.TranscriptRequest) (api.Result, error)
