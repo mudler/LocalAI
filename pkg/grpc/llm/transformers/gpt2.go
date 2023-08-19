@@ -51,3 +51,12 @@ func (llm *GPT2) PredictStream(opts *pb.PredictOptions, results chan string) err
 	}()
 	return nil
 }
+
+func (llm *GPT2) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.gpt2.Free()
+
+	return nil
+}

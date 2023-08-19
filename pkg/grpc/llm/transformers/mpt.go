@@ -52,3 +52,12 @@ func (llm *MPT) PredictStream(opts *pb.PredictOptions, results chan string) erro
 	}()
 	return nil
 }
+
+func (llm *MPT) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.mpt.Free()
+
+	return nil
+}

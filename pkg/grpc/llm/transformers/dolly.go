@@ -53,3 +53,12 @@ func (llm *Dolly) PredictStream(opts *pb.PredictOptions, results chan string) er
 
 	return nil
 }
+
+func (llm *Dolly) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.dolly.Free()
+
+	return nil
+}

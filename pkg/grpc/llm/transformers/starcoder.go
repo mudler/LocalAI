@@ -52,3 +52,12 @@ func (llm *Starcoder) PredictStream(opts *pb.PredictOptions, results chan string
 
 	return nil
 }
+
+func (llm *Starcoder) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.starcoder.Free()
+
+	return nil
+}

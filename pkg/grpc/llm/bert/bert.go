@@ -41,3 +41,12 @@ func (llm *Embeddings) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
 
 	return llm.bert.Embeddings(opts.Embeddings, bert.SetThreads(int(opts.Threads)))
 }
+
+func (llm *Embeddings) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.bert.Free()
+
+	return nil
+}

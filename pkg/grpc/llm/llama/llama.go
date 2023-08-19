@@ -234,3 +234,12 @@ func (llm *LLM) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse
 		Tokens: tokens,
 	}, nil
 }
+
+func (llm *LLM) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.llama.Free()
+
+	return nil
+}

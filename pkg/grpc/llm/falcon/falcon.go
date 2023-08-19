@@ -155,3 +155,12 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 
 	return nil
 }
+
+func (llm *LLM) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.falcon.Free()
+
+	return nil
+}

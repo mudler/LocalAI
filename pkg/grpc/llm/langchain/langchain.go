@@ -68,3 +68,13 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 
 	return nil
 }
+
+func (llm *LLM) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	// This only exists to override base's error, which itself exists to aid in backend development.
+	// langchain / huggingface.go do not seem to leave anything _to_ unload - which is perhaps unusual enough to override here.
+
+	return nil
+}

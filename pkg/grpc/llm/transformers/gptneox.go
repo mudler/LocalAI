@@ -51,3 +51,12 @@ func (llm *GPTNeoX) PredictStream(opts *pb.PredictOptions, results chan string) 
 	}()
 	return nil
 }
+
+func (llm *GPTNeoX) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.gptneox.Free()
+
+	return nil
+}

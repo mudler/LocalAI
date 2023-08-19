@@ -102,3 +102,12 @@ func (llm *LLM) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse
 		Tokens: i32Tokens,
 	}, nil
 }
+
+func (llm *LLM) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.rwkv.Reset() // TODO check this: This may not free everything, but it at least gets us a clean slate?
+
+	return nil
+}

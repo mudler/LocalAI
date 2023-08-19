@@ -52,3 +52,12 @@ func (llm *Falcon) PredictStream(opts *pb.PredictOptions, results chan string) e
 
 	return nil
 }
+
+func (llm *Falcon) Unload() error {
+	llm.Base.Lock()
+	defer llm.Base.Unlock()
+
+	llm.falcon.Free()
+
+	return nil
+}
