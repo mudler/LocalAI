@@ -29,7 +29,7 @@ type Config struct {
 
 	FunctionsConfig Functions `yaml:"function"`
 
-	FeatureFlag map[string]bool `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
+	FeatureFlag FeatureFlag `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 	// LLM configs (GPT4ALL, Llama.cpp, ...)
 	LLMConfig `yaml:",inline"`
 
@@ -43,6 +43,13 @@ type Config struct {
 
 	// GRPC Options
 	GRPC GRPC `yaml:"grpc"`
+}
+
+type FeatureFlag map[string]*bool
+
+func (ff FeatureFlag) Enabled(s string) bool {
+	v, exist := ff[s]
+	return exist && v != nil && *v
 }
 
 type GRPC struct {
