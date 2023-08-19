@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
+	"github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	"github.com/go-skynet/LocalAI/api/options"
@@ -92,39 +93,49 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*BackendMonit
 	}, nil
 }
 
+func (bm BackendMonitor) getClientFromCtx(c *fiber.Ctx) (*grpc.Client, string, error) {
+	input := new(BackendMonitorRequest)
+	// Get input data from the request body
+	if err := c.BodyParser(input); err != nil {
+		return nil, "", err
+	}
+
+	config, exists := bm.configLoader.GetConfig(input.Model)
+	var backendId string
+	if exists {
+		backendId = config.Model
+	} else {
+		// Last ditch effort: use it raw, see if a backend happens to match.
+		backendId = input.Model
+	}
+
+	if !strings.HasSuffix(backendId, ".bin") {
+		backendId = fmt.Sprintf("%s.bin", backendId)
+	}
+
+	client := bm.options.Loader.CheckIsLoaded(backendId)
+
+	if client == nil {
+		return nil, backendId, fmt.Errorf("backend %s is not currently loaded", input.Model)
+	}
+
+	return client, backendId, nil
+}
+
 func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		input := new(BackendMonitorRequest)
-		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
+
+		client, backendId, err := bm.getClientFromCtx(c)
+		if err != nil {
 			return err
-		}
-
-		config, exists := bm.configLoader.GetConfig(input.Model)
-		var backendId string
-		if exists {
-			backendId = config.Model
-		} else {
-			// Last ditch effort: use it raw, see if a backend happens to match.
-			backendId = input.Model
-		}
-
-		if !strings.HasSuffix(backendId, ".bin") {
-			backendId = fmt.Sprintf("%s.bin", backendId)
-		}
-
-		client := bm.options.Loader.CheckIsLoaded(backendId)
-
-		if client == nil {
-			return fmt.Errorf("backend %s is not currently loaded", input.Model)
 		}
 
 		status, rpcErr := client.Status(context.TODO())
 		if rpcErr != nil {
-			log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", input.Model, rpcErr.Error())
+			log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", backendId, rpcErr.Error())
 			val, slbErr := bm.SampleLocalBackendProcess(backendId)
 			if slbErr != nil {
-				return fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", input.Model, rpcErr.Error(), slbErr.Error())
+				return fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", backendId, rpcErr.Error(), slbErr.Error())
 			}
 			return c.JSON(proto.StatusResponse{
 				State: proto.StatusResponse_ERROR,
@@ -137,6 +148,21 @@ func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 			})
 		}
 
+		return c.JSON(status)
+	}
+}
+
+func BackendShutdownEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+
+		client, _, err := bm.getClientFromCtx(c)
+		if err != nil {
+			return err
+		}
+		status, rpcErr := client.UnloadModel(context.TODO())
+		if rpcErr != nil {
+			return rpcErr
+		}
 		return c.JSON(status)
 	}
 }

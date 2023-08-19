@@ -56,6 +56,7 @@ func (llm *Falcon) PredictStream(opts *pb.PredictOptions, results chan string) e
 func (llm *Falcon) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
+	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.falcon.Free()
 

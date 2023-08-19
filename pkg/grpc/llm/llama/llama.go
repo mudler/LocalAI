@@ -238,6 +238,7 @@ func (llm *LLM) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse
 func (llm *LLM) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
+	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.llama.Free()
 

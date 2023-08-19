@@ -46,7 +46,7 @@ func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result
 	return &pb.Result{Message: "Loading succeeded", Success: true}, nil
 }
 
-func (s *server) Unload(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
+func (s *server) UnloadModel(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
 	err := s.llm.Unload()
 	if err != nil {
 		return nil, err

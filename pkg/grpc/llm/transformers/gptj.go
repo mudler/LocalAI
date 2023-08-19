@@ -55,6 +55,7 @@ func (llm *GPTJ) PredictStream(opts *pb.PredictOptions, results chan string) err
 func (llm *GPTJ) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
+	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.gptj.Free()
 

@@ -55,6 +55,7 @@ func (llm *Replit) PredictStream(opts *pb.PredictOptions, results chan string) e
 func (llm *Replit) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
+	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.replit.Free()
 

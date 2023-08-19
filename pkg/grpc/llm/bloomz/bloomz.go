@@ -74,6 +74,7 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 func (llm *LLM) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
+	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.bloomz.Free()
 

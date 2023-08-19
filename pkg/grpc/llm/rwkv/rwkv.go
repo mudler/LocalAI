@@ -106,6 +106,7 @@ func (llm *LLM) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse
 func (llm *LLM) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
+	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.rwkv.Reset() // TODO check this: This may not free everything, but it at least gets us a clean slate?
 

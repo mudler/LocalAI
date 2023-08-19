@@ -56,6 +56,7 @@ func (llm *Starcoder) PredictStream(opts *pb.PredictOptions, results chan string
 func (llm *Starcoder) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
+	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.starcoder.Free()
 

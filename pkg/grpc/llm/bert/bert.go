@@ -45,6 +45,7 @@ func (llm *Embeddings) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
 func (llm *Embeddings) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
+	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.bert.Free()
 
