@@ -56,11 +56,3 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 
 	return nil
 }
-
-func (llm *LLM) Unload() error {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
-
-	// This only exists to reset the state variable, since it seems the langchain huggingfacego layer doesn't leave anything to free?
-	return nil
-}
