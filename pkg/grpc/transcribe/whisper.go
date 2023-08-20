@@ -10,7 +10,7 @@ import (
 )
 
 type Whisper struct {
-	base.BaseSingleton
+	base.SingleThread
 	whisper whisper.Model
 }
 

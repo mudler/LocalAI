@@ -7,22 +7,17 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/rs/zerolog/log"
 
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
 
 type GPT2 struct {
-	base.BaseSingleton
+	base.SingleThread
 
 	gpt2 *transformers.GPT2
 }
 
 func (llm *GPT2) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("gpt2 backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
-
 	model, err := transformers.New(opts.ModelFile)
 	llm.gpt2 = model
 	return err

@@ -7,22 +7,17 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/rs/zerolog/log"
 
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
 
 type Dolly struct {
-	base.BaseSingleton
+	base.SingleThread
 
 	dolly *transformers.Dolly
 }
 
 func (llm *Dolly) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("dolly backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
-
 	model, err := transformers.NewDolly(opts.ModelFile)
 	llm.dolly = model
 	return err

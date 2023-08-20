@@ -7,21 +7,17 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/bloomz.cpp"
 )
 
 type LLM struct {
-	base.BaseSingleton
+	base.SingleThread
 
 	bloomz *bloomz.Bloomz
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("bloomz backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
 	model, err := bloomz.New(opts.ModelFile)
 	llm.bloomz = model
 	return err

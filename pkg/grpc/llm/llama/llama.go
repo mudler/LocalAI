@@ -8,21 +8,15 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/go-llama.cpp"
-	"github.com/rs/zerolog/log"
 )
 
 type LLM struct {
-	base.BaseSingleton
+	base.SingleThread
 
 	llama *llama.LLama
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("llama backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
-
 	ropeFreqBase := float32(10000)
 	ropeFreqScale := float32(1)
 

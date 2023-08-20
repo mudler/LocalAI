@@ -4,22 +4,17 @@ package bert
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
 	bert "github.com/go-skynet/go-bert.cpp"
-	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 )
 
 type Embeddings struct {
-	base.BaseSingleton
+	base.SingleThread
 	bert *bert.Bert
 }
 
 func (llm *Embeddings) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("bert backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
-
 	model, err := bert.New(opts.ModelFile)
 	llm.bert = model
 	return err

@@ -13,7 +13,7 @@ import (
 )
 
 type Piper struct {
-	base.BaseSingleton
+	base.SingleThread
 	piper *PiperB
 }
 

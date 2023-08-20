@@ -7,22 +7,17 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/rs/zerolog/log"
 
 	transformers "github.com/go-skynet/go-ggml-transformers.cpp"
 )
 
 type GPTJ struct {
-	base.BaseSingleton
+	base.SingleThread
 
 	gptj *transformers.GPTJ
 }
 
 func (llm *GPTJ) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("gptj backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
-
 	model, err := transformers.NewGPTJ(opts.ModelFile)
 	llm.gptj = model
 	return err

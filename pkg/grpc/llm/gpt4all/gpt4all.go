@@ -8,20 +8,15 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
-	"github.com/rs/zerolog/log"
 )
 
 type LLM struct {
-	base.Base
+	base.SingleThread
 
 	gpt4all *gpt4all.Model
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("gpt4all backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
-
 	model, err := gpt4all.New(opts.ModelFile,
 		gpt4all.SetThreads(int(opts.Threads)),
 		gpt4all.SetLibrarySearchPath(opts.LibrarySearchPath))

@@ -8,7 +8,6 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/langchain"
-	"github.com/rs/zerolog/log"
 )
 
 type LLM struct {
@@ -19,10 +18,6 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("langchain backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
-
 	llm.langchain, _ = langchain.NewHuggingFace(opts.Model)
 	llm.model = opts.Model
 	return nil

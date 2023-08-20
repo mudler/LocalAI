@@ -7,22 +7,17 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/rs/zerolog/log"
 
 	ggllm "github.com/mudler/go-ggllm.cpp"
 )
 
 type LLM struct {
-	base.BaseSingleton
+	base.SingleThread
 
 	falcon *ggllm.Falcon
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("falcon backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
-
 	ggllmOpts := []ggllm.ModelOption{}
 	if opts.ContextSize != 0 {
 		ggllmOpts = append(ggllmOpts, ggllm.SetContext(int(opts.ContextSize)))

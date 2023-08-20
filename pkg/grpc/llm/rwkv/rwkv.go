@@ -9,21 +9,17 @@ import (
 	"github.com/donomii/go-rwkv.cpp"
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/rs/zerolog/log"
 )
 
 const tokenizerSuffix = ".tokenizer.json"
 
 type LLM struct {
-	base.BaseSingleton
+	base.SingleThread
 
 	rwkv *rwkv.RwkvState
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
-		log.Warn().Msgf("rwkv backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
-	}
 	modelPath := filepath.Dir(opts.ModelFile)
 	modelFile := filepath.Base(opts.ModelFile)
 	model := rwkv.LoadFiles(opts.ModelFile, filepath.Join(modelPath, modelFile+tokenizerSuffix), uint32(opts.GetThreads()))
