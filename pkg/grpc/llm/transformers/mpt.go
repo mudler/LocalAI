@@ -13,7 +13,7 @@ import (
 )
 
 type MPT struct {
-	base.Base
+	base.BaseSingleton
 
 	mpt *transformers.MPT
 }
@@ -22,24 +22,17 @@ func (llm *MPT) Load(opts *pb.ModelOptions) error {
 	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
 		log.Warn().Msgf("mpt backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
-
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	model, err := transformers.NewMPT(opts.ModelFile)
 	llm.mpt = model
 	return err
 }
 
 func (llm *MPT) Predict(opts *pb.PredictOptions) (string, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
-
 	return llm.mpt.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
 func (llm *MPT) PredictStream(opts *pb.PredictOptions, results chan string) error {
-	llm.Base.Lock()
 	go func() {
 		res, err := llm.mpt.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -48,7 +41,6 @@ func (llm *MPT) PredictStream(opts *pb.PredictOptions, results chan string) erro
 		}
 		results <- res
 		close(results)
-		llm.Base.Unlock()
 	}()
 	return nil
 }

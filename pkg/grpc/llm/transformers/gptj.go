@@ -13,7 +13,7 @@ import (
 )
 
 type GPTJ struct {
-	base.Base
+	base.BaseSingleton
 
 	gptj *transformers.GPTJ
 }
@@ -23,22 +23,17 @@ func (llm *GPTJ) Load(opts *pb.ModelOptions) error {
 		log.Warn().Msgf("gptj backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
 
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	model, err := transformers.NewGPTJ(opts.ModelFile)
 	llm.gptj = model
 	return err
 }
 
 func (llm *GPTJ) Predict(opts *pb.PredictOptions) (string, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	return llm.gptj.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
 func (llm *GPTJ) PredictStream(opts *pb.PredictOptions, results chan string) error {
-	llm.Base.Lock()
 	go func() {
 		res, err := llm.gptj.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -47,7 +42,6 @@ func (llm *GPTJ) PredictStream(opts *pb.PredictOptions, results chan string) err
 		}
 		results <- res
 		close(results)
-		llm.Base.Unlock()
 	}()
 	return nil
 }

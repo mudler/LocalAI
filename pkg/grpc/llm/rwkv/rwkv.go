@@ -15,7 +15,7 @@ import (
 const tokenizerSuffix = ".tokenizer.json"
 
 type LLM struct {
-	base.Base
+	base.BaseSingleton
 
 	rwkv *rwkv.RwkvState
 }
@@ -24,9 +24,6 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
 		log.Warn().Msgf("rwkv backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
-
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	modelPath := filepath.Dir(opts.ModelFile)
 	modelFile := filepath.Base(opts.ModelFile)
 	model := rwkv.LoadFiles(opts.ModelFile, filepath.Join(modelPath, modelFile+tokenizerSuffix), uint32(opts.GetThreads()))
@@ -39,9 +36,6 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 }
 
 func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
-
 	stopWord := "\n"
 	if len(opts.StopPrompts) > 0 {
 		stopWord = opts.StopPrompts[0]
@@ -57,7 +51,6 @@ func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
 }
 
 func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
-	llm.Base.Lock()
 	go func() {
 
 		stopWord := "\n"
@@ -75,7 +68,6 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 			return true
 		})
 		close(results)
-		llm.Base.Unlock()
 	}()
 
 	return nil

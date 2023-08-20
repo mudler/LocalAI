@@ -23,17 +23,12 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 		log.Warn().Msgf("langchain backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
 
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	llm.langchain, _ = langchain.NewHuggingFace(opts.Model)
 	llm.model = opts.Model
 	return nil
 }
 
 func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
-
 	o := []langchain.PredictOption{
 		langchain.SetModel(llm.model),
 		langchain.SetMaxTokens(int(opts.Tokens)),
@@ -48,7 +43,6 @@ func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
 }
 
 func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
-	llm.Base.Lock()
 	o := []langchain.PredictOption{
 		langchain.SetModel(llm.model),
 		langchain.SetMaxTokens(int(opts.Tokens)),
@@ -63,7 +57,6 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 		}
 		results <- res.Completion
 		close(results)
-		llm.Base.Unlock()
 	}()
 
 	return nil

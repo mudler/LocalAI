@@ -4,12 +4,20 @@ import (
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/api/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ComputeChoices(req *OpenAIRequest, predInput string, config *config.Config, o *options.Option, loader *model.ModelLoader, cb func(string, *[]Choice), tokenCallback func(string, backend.TokenUsage) bool) ([]Choice, backend.TokenUsage, error) {
+func ComputeChoices(
+	req *schema.OpenAIRequest,
+	predInput string,
+	config *config.Config,
+	o *options.Option,
+	loader *model.ModelLoader,
+	cb func(string, *[]schema.Choice),
+	tokenCallback func(string, backend.TokenUsage) bool) ([]schema.Choice, backend.TokenUsage, error) {
 	n := req.N // number of completions to return
-	result := []Choice{}
+	result := []schema.Choice{}
 
 	if n == 0 {
 		n = 1

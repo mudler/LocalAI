@@ -11,7 +11,7 @@ import (
 )
 
 type Embeddings struct {
-	base.Base
+	base.BaseSingleton
 	bert *bert.Bert
 }
 
@@ -20,16 +20,12 @@ func (llm *Embeddings) Load(opts *pb.ModelOptions) error {
 		log.Warn().Msgf("bert backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
 
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	model, err := bert.New(opts.ModelFile)
 	llm.bert = model
 	return err
 }
 
 func (llm *Embeddings) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 
 	if len(opts.EmbeddingTokens) > 0 {
 		tokens := []int{}

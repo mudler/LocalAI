@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/go-skynet/LocalAI/api/schema"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -100,7 +101,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			b64JSON = true
 		}
 		// src and clip_skip
-		var result []Item
+		var result []schema.Item
 		for _, i := range config.PromptStrings {
 			n := input.N
 			if input.N == 0 {
@@ -155,7 +156,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 					return err
 				}
 
-				item := &Item{}
+				item := &schema.Item{}
 
 				if b64JSON {
 					defer os.RemoveAll(output)
@@ -173,7 +174,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			}
 		}
 
-		resp := &OpenAIResponse{
+		resp := &schema.OpenAIResponse{
 			Data: result,
 		}
 

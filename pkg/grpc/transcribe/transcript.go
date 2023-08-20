@@ -1,4 +1,4 @@
-package whisper
+package transcribe
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
-	wav "github.com/go-audio/wav"
-	"github.com/go-skynet/LocalAI/pkg/grpc/whisper/api"
+	"github.com/go-audio/wav"
+	"github.com/go-skynet/LocalAI/api/schema"
 )
 
 func sh(c string) (string, error) {
@@ -29,8 +29,8 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Transcript(model whisper.Model, audiopath, language string, threads uint) (api.Result, error) {
-	res := api.Result{}
+func Transcript(model whisper.Model, audiopath, language string, threads uint) (schema.Result, error) {
+	res := schema.Result{}
 
 	dir, err := os.MkdirTemp("", "whisper")
 	if err != nil {
@@ -90,7 +90,7 @@ func Transcript(model whisper.Model, audiopath, language string, threads uint) (
 			tokens = append(tokens, t.Id)
 		}
 
-		segment := api.Segment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
+		segment := schema.Segment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
 		res.Segments = append(res.Segments, segment)
 
 		res.Text += s.Text

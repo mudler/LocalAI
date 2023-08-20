@@ -9,7 +9,7 @@ import (
 )
 
 type StableDiffusion struct {
-	base.Base
+	base.BaseSingleton
 	stablediffusion *stablediffusion.StableDiffusion
 }
 

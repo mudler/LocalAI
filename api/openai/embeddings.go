@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
+	"github.com/go-skynet/LocalAI/api/schema"
+
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -25,7 +27,7 @@ func EmbeddingsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		}
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
-		items := []Item{}
+		items := []schema.Item{}
 
 		for i, s := range config.InputToken {
 			// get the model function to call for the result
@@ -38,7 +40,7 @@ func EmbeddingsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			if err != nil {
 				return err
 			}
-			items = append(items, Item{Embedding: embeddings, Index: i, Object: "embedding"})
+			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
 		}
 
 		for i, s := range config.InputStrings {
@@ -52,10 +54,10 @@ func EmbeddingsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			if err != nil {
 				return err
 			}
-			items = append(items, Item{Embedding: embeddings, Index: i, Object: "embedding"})
+			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
 		}
 
-		resp := &OpenAIResponse{
+		resp := &schema.OpenAIResponse{
 			Model:  input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Data:   items,
 			Object: "list",

@@ -7,14 +7,18 @@ import (
 	"os"
 	"sync"
 
+	"github.com/go-skynet/LocalAI/api/schema"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/go-skynet/LocalAI/pkg/grpc/whisper/api"
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
 
 type Base struct {
 	backendBusy sync.Mutex
 	State       pb.StatusResponse_State
+}
+
+func (llm *Base) Locking() bool {
+	return false
 }
 
 func (llm *Base) Busy() bool {
@@ -55,8 +59,8 @@ func (llm *Base) GenerateImage(*pb.GenerateImageRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
-func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (api.Result, error) {
-	return api.Result{}, fmt.Errorf("unimplemented")
+func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (schema.Result, error) {
+	return schema.Result{}, fmt.Errorf("unimplemented")
 }
 
 func (llm *Base) TTS(*pb.TTSRequest) error {

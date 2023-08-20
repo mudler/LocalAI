@@ -13,7 +13,7 @@ import (
 )
 
 type GPTNeoX struct {
-	base.Base
+	base.BaseSingleton
 
 	gptneox *transformers.GPTNeoX
 }
@@ -23,22 +23,17 @@ func (llm *GPTNeoX) Load(opts *pb.ModelOptions) error {
 		log.Warn().Msgf("gptneox backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
 
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	model, err := transformers.NewGPTNeoX(opts.ModelFile)
 	llm.gptneox = model
 	return err
 }
 
 func (llm *GPTNeoX) Predict(opts *pb.PredictOptions) (string, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	return llm.gptneox.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
 func (llm *GPTNeoX) PredictStream(opts *pb.PredictOptions, results chan string) error {
-	llm.Base.Lock()
 	go func() {
 		res, err := llm.gptneox.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -47,7 +42,6 @@ func (llm *GPTNeoX) PredictStream(opts *pb.PredictOptions, results chan string) 
 		}
 		results <- res
 		close(results)
-		llm.Base.Unlock()
 	}()
 	return nil
 }

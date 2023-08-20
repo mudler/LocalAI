@@ -13,7 +13,7 @@ import (
 )
 
 type LLM struct {
-	base.Base
+	base.BaseSingleton
 
 	falcon *ggllm.Falcon
 }
@@ -22,9 +22,6 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	if llm.Base.State != pb.StatusResponse_UNINITIALIZED {
 		log.Warn().Msgf("falcon backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
-
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 
 	ggllmOpts := []ggllm.ModelOption{}
 	if opts.ContextSize != 0 {
@@ -126,13 +123,10 @@ func buildPredictOptions(opts *pb.PredictOptions) []ggllm.PredictOption {
 }
 
 func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	return llm.falcon.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) error {
-	llm.Base.Lock()
 
 	predictOptions := buildPredictOptions(opts)
 
@@ -150,7 +144,6 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 			fmt.Println("err: ", err)
 		}
 		close(results)
-		llm.Base.Unlock()
 	}()
 
 	return nil

@@ -13,7 +13,7 @@ import (
 )
 
 type GPT2 struct {
-	base.Base
+	base.BaseSingleton
 
 	gpt2 *transformers.GPT2
 }
@@ -23,22 +23,17 @@ func (llm *GPT2) Load(opts *pb.ModelOptions) error {
 		log.Warn().Msgf("gpt2 backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
 
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	model, err := transformers.New(opts.ModelFile)
 	llm.gpt2 = model
 	return err
 }
 
 func (llm *GPT2) Predict(opts *pb.PredictOptions) (string, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	return llm.gpt2.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
 func (llm *GPT2) PredictStream(opts *pb.PredictOptions, results chan string) error {
-	llm.Base.Lock()
 	go func() {
 		res, err := llm.gpt2.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -47,7 +42,6 @@ func (llm *GPT2) PredictStream(opts *pb.PredictOptions, results chan string) err
 		}
 		results <- res
 		close(results)
-		llm.Base.Unlock()
 	}()
 	return nil
 }

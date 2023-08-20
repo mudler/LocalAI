@@ -13,7 +13,7 @@ import (
 )
 
 type Starcoder struct {
-	base.Base
+	base.BaseSingleton
 
 	starcoder *transformers.Starcoder
 }
@@ -23,22 +23,17 @@ func (llm *Starcoder) Load(opts *pb.ModelOptions) error {
 		log.Warn().Msgf("starcoder backend loading %s while already in state %s!", opts.Model, llm.Base.State.String())
 	}
 
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	model, err := transformers.NewStarcoder(opts.ModelFile)
 	llm.starcoder = model
 	return err
 }
 
 func (llm *Starcoder) Predict(opts *pb.PredictOptions) (string, error) {
-	llm.Base.Lock()
-	defer llm.Base.Unlock()
 	return llm.starcoder.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
 // fallback to Predict
 func (llm *Starcoder) PredictStream(opts *pb.PredictOptions, results chan string) error {
-	llm.Base.Lock()
 	go func() {
 		res, err := llm.starcoder.Predict(opts.Prompt, buildPredictOptions(opts)...)
 
@@ -47,7 +42,6 @@ func (llm *Starcoder) PredictStream(opts *pb.PredictOptions, results chan string
 		}
 		results <- res
 		close(results)
-		llm.Base.Unlock()
 	}()
 
 	return nil

@@ -7,8 +7,10 @@ import (
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/api/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -32,7 +34,7 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			templateFile = config.TemplateConfig.Edit
 		}
 
-		var result []Choice
+		var result []schema.Choice
 		totalTokenUsage := backend.TokenUsage{}
 
 		for _, i := range config.InputStrings {
@@ -47,8 +49,8 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
-			r, tokenUsage, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]Choice) {
-				*c = append(*c, Choice{Text: s})
+			r, tokenUsage, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]schema.Choice) {
+				*c = append(*c, schema.Choice{Text: s})
 			}, nil)
 			if err != nil {
 				return err
@@ -60,11 +62,11 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			result = append(result, r...)
 		}
 
-		resp := &OpenAIResponse{
+		resp := &schema.OpenAIResponse{
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "edit",
-			Usage: OpenAIUsage{
+			Usage: schema.OpenAIUsage{
 				PromptTokens:     totalTokenUsage.Prompt,
 				CompletionTokens: totalTokenUsage.Completion,
 				TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
