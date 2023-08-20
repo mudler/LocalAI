@@ -7,7 +7,7 @@ package main
 import (
 	"flag"
 
-	falcon "github.com/go-skynet/LocalAI/pkg/grpc/llm/falcon"
+	falcon "github.com/go-skynet/LocalAI/pkg/backend/llm/falcon"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
