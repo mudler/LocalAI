@@ -6,6 +6,8 @@ BINARY_NAME=local-ai
 # llama.cpp versions
 GOLLAMA_VERSION?=f03869d188b72c8a617bea3a36cf8eb43f73445c
 
+GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
+
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
 GPT4ALL_VERSION?=36f7fb584824961dc692c9f2354ee8f60c50587b
@@ -194,17 +196,23 @@ go-llama:
 	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
 	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
 
+go-llama-stable:
+	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama-stable
+	cd go-llama-stable && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
+
 go-llama/libbinding.a: go-llama
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
+
+go-llama-stable/libbinding.a: go-llama-stable
+	$(MAKE) -C go-llama-stable BUILD_TYPE=$(BUILD_TYPE) libbinding.a
 
 go-piper/libpiper_binding.a:
 	$(MAKE) -C go-piper libpiper_binding.a example/main
 
-get-sources: go-llama go-ggllm go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
+get-sources: go-llama go-llama-stable go-ggllm go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
 	touch $@
 
 replace:
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
 	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(shell pwd)/gpt4all/gpt4all-bindings/golang
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-ggml-transformers.cpp=$(shell pwd)/go-ggml-transformers
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
@@ -222,6 +230,7 @@ prepare-sources: get-sources replace
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
 	$(MAKE) -C go-llama clean
+	$(MAKE) -C go-llama-stable clean
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ clean
 	$(MAKE) -C go-ggml-transformers clean
 	$(MAKE) -C go-rwkv clean
@@ -240,7 +249,8 @@ clean: ## Remove build related file
 	$(GOCMD) clean -cache
 	rm -f prepare
 	rm -rf ./go-llama
-	rm -rf ./gpt4all
+	rm -rf ./gpt4all	
+	rm -rf ./go-llama-stable
 	rm -rf ./go-gpt2
 	rm -rf ./go-stable-diffusion
 	rm -rf ./go-ggml-transformers
@@ -353,12 +363,18 @@ backend-assets/grpc/falcon: backend-assets/grpc go-ggllm/libggllm.a
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/falcon ./cmd/grpc/falcon/
 
 backend-assets/grpc/llama: backend-assets/grpc go-llama/libbinding.a
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama LIBRARY_PATH=$(shell pwd)/go-llama \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama ./cmd/grpc/llama/
 # TODO: every binary should have its own folder instead, so can have different metal implementations
 ifeq ($(BUILD_TYPE),metal)
 	cp go-llama/build/bin/ggml-metal.metal backend-assets/grpc/
 endif
+
+backend-assets/grpc/llama-stable: backend-assets/grpc go-llama-stable/libbinding.a
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama-stable
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama-stable LIBRARY_PATH=$(shell pwd)/go-llama \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-stable ./cmd/grpc/llama-stable/
 
 backend-assets/grpc/gpt4all: backend-assets/grpc backend-assets/gpt4all gpt4all/gpt4all-bindings/golang/libgpt4all.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ \
