@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
-	"github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	"github.com/go-skynet/LocalAI/api/options"
@@ -93,11 +92,11 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*BackendMonit
 	}, nil
 }
 
-func (bm BackendMonitor) getClientFromCtx(c *fiber.Ctx) (*grpc.Client, string, error) {
+func (bm BackendMonitor) getModelLoaderIDFromCtx(c *fiber.Ctx) (string, error) {
 	input := new(BackendMonitorRequest)
 	// Get input data from the request body
 	if err := c.BodyParser(input); err != nil {
-		return nil, "", err
+		return "", err
 	}
 
 	config, exists := bm.configLoader.GetConfig(input.Model)
@@ -113,21 +112,21 @@ func (bm BackendMonitor) getClientFromCtx(c *fiber.Ctx) (*grpc.Client, string, e
 		backendId = fmt.Sprintf("%s.bin", backendId)
 	}
 
-	client := bm.options.Loader.CheckIsLoaded(backendId)
-
-	if client == nil {
-		return nil, backendId, fmt.Errorf("backend %s is not currently loaded", input.Model)
-	}
-
-	return client, backendId, nil
+	return backendId, nil
 }
 
 func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		client, backendId, err := bm.getClientFromCtx(c)
+		backendId, err := bm.getModelLoaderIDFromCtx(c)
 		if err != nil {
 			return err
+		}
+
+		client := bm.options.Loader.CheckIsLoaded(backendId)
+
+		if client == nil {
+			return fmt.Errorf("backend %s is not currently loaded", backendId)
 		}
 
 		status, rpcErr := client.Status(context.TODO())
@@ -154,15 +153,11 @@ func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 
 func BackendShutdownEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-
-		client, _, err := bm.getClientFromCtx(c)
+		backendId, err := bm.getModelLoaderIDFromCtx(c)
 		if err != nil {
 			return err
 		}
-		status, rpcErr := client.UnloadModel(context.TODO())
-		if rpcErr != nil {
-			return rpcErr
-		}
-		return c.JSON(status)
+
+		return bm.options.Loader.UnloadModel(backendId)
 	}
 }
