@@ -10,6 +10,7 @@ import (
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/api/schema"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -21,20 +22,20 @@ import (
 func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	emptyMessage := ""
 
-	process := func(s string, req *OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
-		initialMessage := OpenAIResponse{
+	process := func(s string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+		initialMessage := schema.OpenAIResponse{
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []Choice{{Delta: &Message{Role: "assistant", Content: &emptyMessage}}},
+			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &emptyMessage}}},
 			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
 
-		ComputeChoices(req, s, config, o, loader, func(s string, c *[]Choice) {}, func(s string, usage backend.TokenUsage) bool {
-			resp := OpenAIResponse{
+		ComputeChoices(req, s, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+			resp := schema.OpenAIResponse{
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []Choice{{Delta: &Message{Content: &s}, Index: 0}},
+				Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0}},
 				Object:  "chat.completion.chunk",
-				Usage: OpenAIUsage{
+				Usage: schema.OpenAIUsage{
 					PromptTokens:     usage.Prompt,
 					CompletionTokens: usage.Completion,
 					TotalTokens:      usage.Prompt + usage.Completion,
@@ -236,13 +237,13 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 
 		if toStream {
-			responses := make(chan OpenAIResponse)
+			responses := make(chan schema.OpenAIResponse)
 
 			go process(predInput, input, config, o.Loader, responses)
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
-				usage := &OpenAIUsage{}
+				usage := &schema.OpenAIUsage{}
 
 				for ev := range responses {
 					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
@@ -259,13 +260,13 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					w.Flush()
 				}
 
-				resp := &OpenAIResponse{
+				resp := &schema.OpenAIResponse{
 					Model: input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []Choice{
+					Choices: []schema.Choice{
 						{
 							FinishReason: "stop",
 							Index:        0,
-							Delta:        &Message{Content: &emptyMessage},
+							Delta:        &schema.Message{Content: &emptyMessage},
 						}},
 					Object: "chat.completion.chunk",
 					Usage:  *usage,
@@ -279,7 +280,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			return nil
 		}
 
-		result, tokenUsage, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]Choice) {
+		result, tokenUsage, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]schema.Choice) {
 			if processFunctions {
 				// As we have to change the result before processing, we can't stream the answer (yet?)
 				ss := map[string]interface{}{}
@@ -313,7 +314,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 								message = backend.Finetune(*config, predInput, message)
 								log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
 
-								*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &message}})
+								*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &message}})
 								return
 							}
 						}
@@ -336,28 +337,28 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					}
 
 					fineTunedResponse := backend.Finetune(*config, predInput, prediction.Response)
-					*c = append(*c, Choice{Message: &Message{Role: "assistant", Content: &fineTunedResponse}})
+					*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &fineTunedResponse}})
 				} else {
 					// otherwise reply with the function call
-					*c = append(*c, Choice{
+					*c = append(*c, schema.Choice{
 						FinishReason: "function_call",
-						Message:      &Message{Role: "assistant", FunctionCall: ss},
+						Message:      &schema.Message{Role: "assistant", FunctionCall: ss},
 					})
 				}
 
 				return
 			}
-			*c = append(*c, Choice{FinishReason: "stop", Index: 0, Message: &Message{Role: "assistant", Content: &s}})
+			*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
 		}, nil)
 		if err != nil {
 			return err
 		}
 
-		resp := &OpenAIResponse{
+		resp := &schema.OpenAIResponse{
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "chat.completion",
-			Usage: OpenAIUsage{
+			Usage: schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,
 				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,

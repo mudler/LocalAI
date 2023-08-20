@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-skynet/LocalAI/api/schema"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/go-skynet/LocalAI/pkg/grpc/whisper/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -158,7 +158,7 @@ func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOp
 	return client.TTS(ctx, in, opts...)
 }
 
-func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*api.Result, error) {
+func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*schema.Result, error) {
 	c.setBusy(true)
 	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -171,14 +171,14 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	if err != nil {
 		return nil, err
 	}
-	tresult := &api.Result{}
+	tresult := &schema.Result{}
 	for _, s := range res.Segments {
 		tks := []int{}
 		for _, t := range s.Tokens {
 			tks = append(tks, int(t))
 		}
 		tresult.Segments = append(tresult.Segments,
-			api.Segment{
+			schema.Segment{
 				Text:   s.Text,
 				Id:     int(s.Id),
 				Start:  time.Duration(s.Start),

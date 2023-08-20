@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	bloomz "github.com/go-skynet/LocalAI/pkg/grpc/llm/bloomz"
+	bloomz "github.com/go-skynet/LocalAI/pkg/backend/llm/bloomz"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
