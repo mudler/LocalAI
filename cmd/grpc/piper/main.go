@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	tts "github.com/go-skynet/LocalAI/pkg/grpc/tts"
+	tts "github.com/go-skynet/LocalAI/pkg/backend/tts"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )

@@ -9,6 +9,7 @@ import (
 	"github.com/go-skynet/LocalAI/api/localai"
 	"github.com/go-skynet/LocalAI/api/openai"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/api/schema"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
 
@@ -104,8 +105,8 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 			// Send custom error page
 			return ctx.Status(code).JSON(
-				openai.ErrorResponse{
-					Error: &openai.APIError{Message: err.Error(), Code: code},
+				schema.ErrorResponse{
+					Error: &schema.APIError{Message: err.Error(), Code: code},
 				},
 			)
 		},

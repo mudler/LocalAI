@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	transcribe "github.com/go-skynet/LocalAI/pkg/grpc/transcribe"
+	transcribe "github.com/go-skynet/LocalAI/pkg/backend/transcribe"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )

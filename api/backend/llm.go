@@ -33,25 +33,13 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 	var inferenceModel *grpc.Client
 	var err error
 
-	opts := []model.Option{
+	opts := modelOpts(c, o, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)), // some models uses this to allocate threads during startup
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
-	}
-
-	if c.GRPC.Attempts != 0 {
-		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
-	}
-
-	if c.GRPC.AttemptsSleepTime != 0 {
-		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
-	}
-
-	for k, v := range o.ExternalGRPCBackends {
-		opts = append(opts, model.WithExternalBackend(k, v))
-	}
+	})
 
 	if c.Backend != "" {
 		opts = append(opts, model.WithBackendString(c.Backend))
@@ -86,8 +74,9 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 
 		tokenUsage := TokenUsage{}
 
-		// check the per-model feature flag for usage, since tokenCallback may have a cost, but default to on.
-		if !c.FeatureFlag["usage"] {
+		// check the per-model feature flag for usage, since tokenCallback may have a cost.
+		// Defaults to off as for now it is still experimental
+		if c.FeatureFlag.Enabled("usage") {
 			userTokenCallback := tokenCallback
 			if userTokenCallback == nil {
 				userTokenCallback = func(token string, usage TokenUsage) bool {

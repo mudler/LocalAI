@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	rwkv "github.com/go-skynet/LocalAI/pkg/grpc/llm/rwkv"
+	rwkv "github.com/go-skynet/LocalAI/pkg/backend/llm/rwkv"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )

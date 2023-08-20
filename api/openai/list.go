@@ -4,6 +4,7 @@ import (
 	"regexp"
 
 	config "github.com/go-skynet/LocalAI/api/config"
+	"github.com/go-skynet/LocalAI/api/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 )
@@ -16,7 +17,7 @@ func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func
 		}
 		var mm map[string]interface{} = map[string]interface{}{}
 
-		dataModels := []OpenAIModel{}
+		dataModels := []schema.OpenAIModel{}
 
 		var filterFn func(name string) bool
 		filter := c.Query("filter")
@@ -45,7 +46,7 @@ func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func
 			}
 
 			if filterFn(c.Name) {
-				dataModels = append(dataModels, OpenAIModel{ID: c.Name, Object: "model"})
+				dataModels = append(dataModels, schema.OpenAIModel{ID: c.Name, Object: "model"})
 			}
 		}
 
@@ -53,13 +54,13 @@ func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func
 		for _, m := range models {
 			// And only adds them if they shouldn't be skipped.
 			if _, exists := mm[m]; !exists && filterFn(m) {
-				dataModels = append(dataModels, OpenAIModel{ID: m, Object: "model"})
+				dataModels = append(dataModels, schema.OpenAIModel{ID: m, Object: "model"})
 			}
 		}
 
 		return c.JSON(struct {
-			Object string        `json:"object"`
-			Data   []OpenAIModel `json:"data"`
+			Object string               `json:"object"`
+			Data   []schema.OpenAIModel `json:"data"`
 		}{
 			Object: "list",
 			Data:   dataModels,

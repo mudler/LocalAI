@@ -5,8 +5,8 @@ package main
 import (
 	"flag"
 
+	bert "github.com/go-skynet/LocalAI/pkg/backend/llm/bert"
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
-	bert "github.com/go-skynet/LocalAI/pkg/grpc/llm/bert"
 )
 
 var (

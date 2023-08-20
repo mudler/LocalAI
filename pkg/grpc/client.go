@@ -4,16 +4,19 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
+	"github.com/go-skynet/LocalAI/api/schema"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/go-skynet/LocalAI/pkg/grpc/whisper/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Client struct {
 	address string
+	busy    bool
+	sync.Mutex
 }
 
 func NewClient(address string) *Client {
@@ -22,7 +25,21 @@ func NewClient(address string) *Client {
 	}
 }
 
+func (c *Client) IsBusy() bool {
+	c.Lock()
+	defer c.Unlock()
+	return c.busy
+}
+
+func (c *Client) setBusy(v bool) {
+	c.Lock()
+	c.busy = v
+	c.Unlock()
+}
+
 func (c *Client) HealthCheck(ctx context.Context) bool {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Println(err)
@@ -49,6 +66,8 @@ func (c *Client) HealthCheck(ctx context.Context) bool {
 }
 
 func (c *Client) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.EmbeddingResult, error) {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -60,6 +79,8 @@ func (c *Client) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...
 }
 
 func (c *Client) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error) {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -71,6 +92,8 @@ func (c *Client) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grp
 }
 
 func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.Result, error) {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -81,6 +104,8 @@ func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grp
 }
 
 func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
@@ -110,6 +135,8 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 }
 
 func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -120,6 +147,8 @@ func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest,
 }
 
 func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -129,7 +158,9 @@ func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOp
 	return client.TTS(ctx, in, opts...)
 }
 
-func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*api.Result, error) {
+func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*schema.Result, error) {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -140,14 +171,14 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	if err != nil {
 		return nil, err
 	}
-	tresult := &api.Result{}
+	tresult := &schema.Result{}
 	for _, s := range res.Segments {
 		tks := []int{}
 		for _, t := range s.Tokens {
 			tks = append(tks, int(t))
 		}
 		tresult.Segments = append(tresult.Segments,
-			api.Segment{
+			schema.Segment{
 				Text:   s.Text,
 				Id:     int(s.Id),
 				Start:  time.Duration(s.Start),
@@ -160,6 +191,8 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 }
 
 func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -176,6 +209,8 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 }
 
 func (c *Client) Status(ctx context.Context) (*pb.StatusResponse, error) {
+	c.setBusy(true)
+	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err

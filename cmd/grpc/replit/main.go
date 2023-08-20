@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	transformers "github.com/go-skynet/LocalAI/pkg/grpc/llm/transformers"
+	transformers "github.com/go-skynet/LocalAI/pkg/backend/llm/transformers"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )

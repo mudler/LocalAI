@@ -9,7 +9,7 @@ import (
 
 func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, c config.Config, o *options.Option) (func() error, error) {
 
-	opts := []model.Option{
+	opts := modelOpts(c, o, []model.Option{
 		model.WithBackendString(c.Backend),
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithThreads(uint32(c.Threads)),
@@ -25,19 +25,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 			CLIPSubfolder: c.Diffusers.ClipSubFolder,
 			CLIPSkip:      int32(c.Diffusers.ClipSkip),
 		}),
-	}
-
-	if c.GRPC.Attempts != 0 {
-		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
-	}
-
-	if c.GRPC.AttemptsSleepTime != 0 {
-		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
-	}
-
-	for k, v := range o.ExternalGRPCBackends {
-		opts = append(opts, model.WithExternalBackend(k, v))
-	}
+	})
 
 	inferenceModel, err := loader.BackendLoader(
 		opts...,
