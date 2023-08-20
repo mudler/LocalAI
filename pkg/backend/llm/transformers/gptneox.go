@@ -44,7 +44,6 @@ func (llm *GPTNeoX) PredictStream(opts *pb.PredictOptions, results chan string) 
 func (llm *GPTNeoX) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
-	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.gptneox.Free()
 

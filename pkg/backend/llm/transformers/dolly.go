@@ -46,7 +46,6 @@ func (llm *Dolly) PredictStream(opts *pb.PredictOptions, results chan string) er
 func (llm *Dolly) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
-	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.dolly.Free()
 

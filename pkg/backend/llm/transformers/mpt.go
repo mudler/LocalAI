@@ -44,7 +44,6 @@ func (llm *MPT) PredictStream(opts *pb.PredictOptions, results chan string) erro
 func (llm *MPT) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
-	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.mpt.Free()
 

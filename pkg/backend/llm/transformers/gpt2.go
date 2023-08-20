@@ -44,7 +44,6 @@ func (llm *GPT2) PredictStream(opts *pb.PredictOptions, results chan string) err
 func (llm *GPT2) Unload() error {
 	llm.Base.Lock()
 	defer llm.Base.Unlock()
-	llm.State = pb.StatusResponse_UNINITIALIZED
 
 	llm.gpt2.Free()
 
