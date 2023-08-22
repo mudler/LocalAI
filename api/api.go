@@ -218,6 +218,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	// Experimental Backend Statistics Module
 	backendMonitor := localai.NewBackendMonitor(cl, options) // Split out for now
 	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitor))
+	app.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitor))
 
 	// models
 	app.Get("/v1/models", auth, openai.ListModelsEndpoint(options.Loader, cl))
