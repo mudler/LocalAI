@@ -158,6 +158,6 @@ func BackendShutdownEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 			return err
 		}
 
-		return bm.options.Loader.UnloadModel(backendId)
+		return bm.options.Loader.ShutdownModel(backendId)
 	}
 }

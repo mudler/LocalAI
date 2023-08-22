@@ -128,14 +128,13 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 	return model, nil
 }
 
-func (ml *ModelLoader) UnloadModel(modelName string) error {
+func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 	if _, ok := ml.models[modelName]; !ok {
 		return fmt.Errorf("model %s not found", modelName)
 	}
 
-	delete(ml.models, modelName)
 	return ml.deleteProcess(modelName)
 }
 
