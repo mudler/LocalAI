@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.20-bullseye
+ARG GO_VERSION=1.21-bullseye
 
 FROM golang:$GO_VERSION as requirements
 

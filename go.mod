@@ -1,6 +1,6 @@
 module github.com/go-skynet/LocalAI
 
-go 1.20
+go 1.21
 
 require (
 	github.com/donomii/go-rwkv.cpp v0.0.0-20230715075832-c898cd0f62df
