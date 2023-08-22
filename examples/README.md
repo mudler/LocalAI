@@ -159,7 +159,7 @@ Allows to run any LocalAI-compatible model as a backend on the servers of https:
 
 ### Continue
 
-<img src="https://continue.dev/docs/assets/images/continue-screenshot-1f36b99467817f755739d7f4c4c08fe3.png"  width="700" height="350">
+<img src="continue/img/screen.png" width="600" height="200" alt="Screenshot">
 
 _by [@gruberdev](https://github.com/gruberdev)_
 
