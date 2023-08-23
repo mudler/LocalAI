@@ -359,7 +359,7 @@ var _ = Describe("API test", func() {
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 			})
 
-			It("runs openllama gguf", Label("llama"), func() {
+			It("runs openllama gguf", Label("llama-gguf"), func() {
 				if runtime.GOOS != "linux" {
 					Skip("test supported only on linux")
 				}
