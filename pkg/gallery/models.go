@@ -55,15 +55,23 @@ type Config struct {
 }
 
 type File struct {
-	Filename string `yaml:"filename" json:"filename"`
-	SHA256   string `yaml:"sha256" json:"sha256"`
-	URI      string `yaml:"uri" json:"uri"`
+	Filename         string            `yaml:"filename" json:"filename"`
+	SHA256           string            `yaml:"sha256" json:"sha256"`
+	UnresolvedSHA256 *UnresolvedSHA256 `yaml:"unresolved_sha256" json:"unresolved_sha256"`
+	URI              string            `yaml:"uri" json:"uri"`
+}
+
+type UnresolvedSHA256 struct {
+	URI             string `yaml:"uri" json:"uri"`
+	ExtractionRegex string `yaml:"extraction_regex" json:"extraction_regex"`
 }
 
 type PromptTemplate struct {
 	Name    string `yaml:"name"`
 	Content string `yaml:"content"`
 }
+
+var sha256ExtractionRegexStore = utils.NewRegexpStore()
 
 func GetGalleryConfigFromURL(url string) (Config, error) {
 	var config Config
@@ -118,6 +126,14 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		_, err := os.Stat(filePath)
 		if err == nil {
 			// File exists, check SHA
+			if file.SHA256 == "" && file.UnresolvedSHA256 != nil && file.UnresolvedSHA256.URI != "" {
+				// Resolve the unknown SHA256 hash first if required.
+				resolvedSHA, err := resolveSHA(file.UnresolvedSHA256)
+				if err != nil {
+					return fmt.Errorf("failed to retrieve SHA for file %q: %v", file.Filename, err)
+				}
+				file.SHA256 = resolvedSHA
+			}
 			if file.SHA256 != "" {
 				// Verify SHA
 				calculatedSHA, err := calculateSHA(filePath)
@@ -314,4 +330,33 @@ func calculateSHA(filePath string) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+func resolveSHA(unresolved *UnresolvedSHA256) (string, error) {
+	resp, err := http.Get(unresolved.URI)
+	if err != nil {
+		return "", fmt.Errorf("resolveSHA: failed to GET %s, error: %v", unresolved.URI, err)
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("resolveSHA: invalid status code %d while GET %s", resp.StatusCode, unresolved.URI)
+	}
+
+	htmlData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("resolveSHA: failed to read response body")
+	}
+
+	shaRegex, err := sha256ExtractionRegexStore.Get(unresolved.ExtractionRegex)
+	if err != nil {
+		return "", fmt.Errorf("resolveSHA: error in regex %s", unresolved.ExtractionRegex)
+	}
+
+	match := shaRegex.FindSubmatch(htmlData)
+	if len(match) < 2 {
+		return "", fmt.Errorf("resolveSHA: ExtractionRegex not found in the HTML.")
+	}
+
+	sha := string(match[1])
+	return sha, nil
 }
