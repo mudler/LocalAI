@@ -44,4 +44,7 @@ type PredictionOptions struct {
 
 	// Diffusers
 	ClipSkip int `json:"clip_skip" yaml:"clip_skip"`
+
+	// RWKV (?)
+	Tokenizer string `json:"tokenizer" yaml:"tokenizer"`
 }

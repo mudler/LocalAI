@@ -60,6 +60,8 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		Device:           c.AutoGPTQ.Device,
 		UseTriton:        c.AutoGPTQ.Triton,
 		UseFastTokenizer: c.AutoGPTQ.UseFastTokenizer,
+		// RWKV
+		Tokenizer: c.Tokenizer,
 	}
 }
 

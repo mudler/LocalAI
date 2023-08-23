@@ -157,6 +157,16 @@ Allows to run any LocalAI-compatible model as a backend on the servers of https:
 
 [Check it out here](https://runpod.io/gsc?template=uv9mtqnrd0&ref=984wlcra)
 
+### Continue
+
+<img src="continue/img/screen.png" width="600" height="200" alt="Screenshot">
+
+_by [@gruberdev](https://github.com/gruberdev)_
+
+Demonstrates how to integrate an open-source copilot alternative that enhances code analysis, completion, and improvements. This approach seamlessly integrates with any LocalAI model, offering a more user-friendly experience.
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/continue/)
+
 ## Want to contribute?
 
 Create an issue, and put `Example: <description>` in the title! We will post your examples here.
