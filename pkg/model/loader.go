@@ -128,6 +128,16 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 	return model, nil
 }
 
+func (ml *ModelLoader) ShutdownModel(modelName string) error {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	if _, ok := ml.models[modelName]; !ok {
+		return fmt.Errorf("model %s not found", modelName)
+	}
+
+	return ml.deleteProcess(modelName)
+}
+
 func (ml *ModelLoader) CheckIsLoaded(s string) *grpc.Client {
 	if m, ok := ml.models[s]; ok {
 		log.Debug().Msgf("Model already loaded in memory: %s", s)
