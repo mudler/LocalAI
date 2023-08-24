@@ -20,7 +20,7 @@ require (
 	github.com/mudler/go-ggllm.cpp v0.0.0-20230709223052-862477d16eef
 	github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
-	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230817205628-36f7fb584824
+	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230823205330-27a8b020c36b
 	github.com/onsi/ginkgo/v2 v2.12.0
 	github.com/onsi/gomega v1.27.10
 	github.com/otiai10/openaigo v1.5.2
