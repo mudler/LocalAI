@@ -21,7 +21,7 @@ require (
 	github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230817205628-36f7fb584824
-	github.com/onsi/ginkgo/v2 v2.11.0
+	github.com/onsi/ginkgo/v2 v2.12.0
 	github.com/onsi/gomega v1.27.10
 	github.com/otiai10/openaigo v1.5.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -87,8 +87,8 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/net v0.12.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
-	golang.org/x/tools v0.9.3 // indirect
+	golang.org/x/net v0.14.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/tools v0.12.0 // indirect
 )
