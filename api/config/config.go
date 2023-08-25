@@ -91,6 +91,9 @@ type LLMConfig struct {
 	TrimSpace       []string `yaml:"trimspace"`
 	ContextSize     int      `yaml:"context_size"`
 	NUMA            bool     `yaml:"numa"`
+	LoraAdapter     string   `yaml:"lora_adapter"`
+	LoraBase        string   `yaml:"lora_base"`
+	NoMulMatQ       bool     `yaml:"no_mulmatq"`
 }
 
 type AutoGPTQ struct {
