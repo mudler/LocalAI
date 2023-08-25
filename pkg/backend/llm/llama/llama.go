@@ -32,6 +32,18 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 		llama.WithRopeFreqScale(ropeFreqScale),
 	}
 
+	if opts.NoMulMatQ {
+		llamaOpts = append(llamaOpts, llama.SetMulMatQ(false))
+	}
+
+	if opts.LoraAdapter != "" {
+		llamaOpts = append(llamaOpts, llama.SetLoraAdapter(opts.LoraAdapter))
+	}
+
+	if opts.LoraBase != "" {
+		llamaOpts = append(llamaOpts, llama.SetLoraBase(opts.LoraBase))
+	}
+
 	if opts.ContextSize != 0 {
 		llamaOpts = append(llamaOpts, llama.SetContext(int(opts.ContextSize)))
 	}

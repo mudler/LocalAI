@@ -111,6 +111,11 @@ message ModelOptions {
 
   // RWKV
   string Tokenizer = 34;
+
+  // LLM (llama.cpp)
+  string LoraBase = 35;
+  string LoraAdapter = 36;
+  bool NoMulMatQ = 37;
 }
 
 message Result {
