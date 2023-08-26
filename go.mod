@@ -23,7 +23,7 @@ require (
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20230823205330-27a8b020c36b
 	github.com/onsi/ginkgo/v2 v2.12.0
 	github.com/onsi/gomega v1.27.10
-	github.com/otiai10/openaigo v1.5.2
+	github.com/otiai10/openaigo v1.6.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/rs/zerolog v1.30.0
 	github.com/sashabaranov/go-openai v1.14.2
