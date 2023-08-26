@@ -43,6 +43,8 @@ github.com/go-skynet/go-llama.cpp v0.0.0-20230815201253-f03869d188b7 h1:d/FXe1a5
 github.com/go-skynet/go-llama.cpp v0.0.0-20230815201253-f03869d188b7/go.mod h1:fiJBto+Le1XLtD/cID5SAKs8cKE7wFXJKfTT3wvPQRA=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230825165210-bf63302a2be7 h1:tWzT53oxcuw1xKCd058IX19eItt96WPdQPeqi574CHo=
 github.com/go-skynet/go-llama.cpp v0.0.0-20230825165210-bf63302a2be7/go.mod h1:yEf77qqgs/YqcrFmgzLiPIvaeteeII/y/YfcQ66b1rM=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230826202707-9072315164dc h1:FEECizfVZVllDQvKo2Yd3L7eOZaTcZh/4oKtfRuftrI=
+github.com/go-skynet/go-llama.cpp v0.0.0-20230826202707-9072315164dc/go.mod h1:VGPpMv2UMxRgBiDIFrs7AGMzrX884K0Vy8tqYu3if/Q=
 github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0/go.mod h1:fyg7847qk6SyHyPtNmDHnmrv/HOrqktSC+C9fM+CJOE=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 h1:tfuBGBXKqDEevZMzYi5KSi8KkcZtzBcTgAUUtapy0OI=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572/go.mod h1:9Pwr4B2jHnOSGXyyzV8ROjYa2ojvAY6HCGYYfMoC3Ls=
