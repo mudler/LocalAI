@@ -4,6 +4,7 @@ package llama
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
@@ -36,12 +37,15 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 		llamaOpts = append(llamaOpts, llama.SetMulMatQ(false))
 	}
 
+	// Get base path of opts.ModelFile and use the same for lora (assume the same path)
+	basePath := filepath.Dir(opts.ModelFile)
+
 	if opts.LoraAdapter != "" {
-		llamaOpts = append(llamaOpts, llama.SetLoraAdapter(opts.LoraAdapter))
+		llamaOpts = append(llamaOpts, llama.SetLoraAdapter(filepath.Join(basePath, opts.LoraAdapter)))
 	}
 
 	if opts.LoraBase != "" {
-		llamaOpts = append(llamaOpts, llama.SetLoraBase(opts.LoraBase))
+		llamaOpts = append(llamaOpts, llama.SetLoraBase(filepath.Join(basePath, opts.LoraBase)))
 	}
 
 	if opts.ContextSize != 0 {
