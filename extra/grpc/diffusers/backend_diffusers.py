@@ -216,7 +216,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe.to('cuda')
             # Assume directory from request.ModelFile.
             # Only if request.LoraAdapter it's not an absolute path
-            if request.ModelFile != "" and not os.path.isabs(request.LoraAdapter) and request.LoraAdapter:
+            if request.LoraAdapter and request.ModelFile != "" and not os.path.isabs(request.LoraAdapter) and request.LoraAdapter:
                 # get base path of modelFile
                 modelFileBase = os.path.dirname(request.ModelFile)
                 # modify LoraAdapter to be relative to modelFileBase
