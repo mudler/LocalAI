@@ -20,6 +20,8 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 			SchedulerType: c.Diffusers.SchedulerType,
 			PipelineType:  c.Diffusers.PipelineType,
 			CFGScale:      c.Diffusers.CFGScale,
+			LoraAdapter:   c.LoraAdapter,
+			LoraBase:      c.LoraBase,
 			IMG2IMG:       c.Diffusers.IMG2IMG,
 			CLIPModel:     c.Diffusers.ClipModel,
 			CLIPSubfolder: c.Diffusers.ClipSubFolder,
