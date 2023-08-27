@@ -278,7 +278,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # get elements for this layer
             weight_up = elems['lora_up.weight'].to(dtype)
             weight_down = elems['lora_down.weight'].to(dtype)
-            alpha = elems['alpha']
+            alpha = elems['alpha'] if 'alpha' in elems else None
             if alpha:
                 alpha = alpha.item() / weight_up.shape[1]
             else:
