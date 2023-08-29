@@ -29,7 +29,7 @@ require (
 	github.com/sashabaranov/go-openai v1.14.2
 	github.com/tmc/langchaingo v0.0.0-20230829032728-c85d3967da08
 	github.com/urfave/cli/v2 v2.25.7
-	github.com/valyala/fasthttp v1.48.0
+	github.com/valyala/fasthttp v1.49.0
 	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v2 v2.4.0
