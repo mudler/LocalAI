@@ -363,9 +363,10 @@ var _ = Describe("API test", func() {
 				if runtime.GOOS != "linux" {
 					Skip("test supported only on linux")
 				}
+				modelName := "codellama"
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					URL:       "github:go-skynet/model-gallery/openllama-3b-gguf.yaml",
-					Name:      "openllama_3b_gguf",
+					URL:       "github:go-skynet/model-gallery/codellama-7b-instruct.yaml",
+					Name:      modelName,
 					Overrides: map[string]interface{}{"backend": "llama", "mmap": true, "f16": true, "context_size": 128},
 				})
 
@@ -378,17 +379,22 @@ var _ = Describe("API test", func() {
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
-				By("testing completion")
-				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "openllama_3b_gguf", Prompt: "Count up to five: one, two, three, four, "})
+				By("testing chat")
+				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: modelName, Messages: []openai.ChatCompletionMessage{
+					{
+						Role:    "user",
+						Content: "How much is 2+2?",
+					},
+				}})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices)).To(Equal(1))
-				Expect(resp.Choices[0].Text).To(ContainSubstring("five"))
+				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("4"), ContainSubstring("four")))
 
 				By("testing functions")
 				resp2, err := client.CreateChatCompletion(
 					context.TODO(),
 					openai.ChatCompletionRequest{
-						Model: "openllama_3b_gguf",
+						Model: modelName,
 						Messages: []openai.ChatCompletionMessage{
 							{
 								Role:    "user",
@@ -424,7 +430,7 @@ var _ = Describe("API test", func() {
 				var res map[string]string
 				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res["location"]).To(Equal("San Francisco, California"), fmt.Sprint(res))
+				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 			})
