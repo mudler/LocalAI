@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
@@ -97,9 +98,23 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 
 		if tokenCallback != nil {
 			ss := ""
-			err := inferenceModel.PredictStream(ctx, opts, func(s []byte) {
-				tokenCallback(string(s), tokenUsage)
-				ss += string(s)
+
+			var partialRune []byte
+			err := inferenceModel.PredictStream(ctx, opts, func(chars []byte) {
+				partialRune = append(partialRune, chars...)
+
+				for len(partialRune) > 0 {
+					r, size := utf8.DecodeRune(partialRune)
+					if r == utf8.RuneError {
+						// incomplete rune, wait for more bytes
+						break
+					}
+
+					tokenCallback(string(r), tokenUsage)
+					ss += string(r)
+
+					partialRune = partialRune[size:]
+				}
 			})
 			return LLMResponse{
 				Response: ss,
