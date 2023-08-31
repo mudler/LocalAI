@@ -27,6 +27,7 @@ type galleryOp struct {
 }
 
 type galleryOpStatus struct {
+	FileName           string  `json:"file_name"`
 	Error              error   `json:"error"`
 	Processed          bool    `json:"processed"`
 	Message            string  `json:"message"`
@@ -76,6 +77,13 @@ func (g *galleryApplier) getStatus(s string) *galleryOpStatus {
 	return g.statuses[s]
 }
 
+func (g *galleryApplier) getAllStatus() map[string]*galleryOpStatus {
+	g.Lock()
+	defer g.Unlock()
+
+	return g.statuses
+}
+
 func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 	go func() {
 		for {
@@ -94,7 +102,7 @@ func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 
 				// displayDownload displays the download progress
 				progressCallback := func(fileName string, current string, total string, percentage float64) {
-					g.updateStatus(op.id, &galleryOpStatus{Message: "processing", Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
+					g.updateStatus(op.id, &galleryOpStatus{Message: "processing", FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current})
 					utils.DisplayDownloadFunction(fileName, current, total, percentage)
 				}
 
@@ -187,6 +195,12 @@ func GetOpStatusEndpoint(g *galleryApplier) func(c *fiber.Ctx) error {
 		}
 
 		return c.JSON(status)
+	}
+}
+
+func GetAllStatusEndpoint(g *galleryApplier) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		return c.JSON(g.getAllStatus())
 	}
 }
 
