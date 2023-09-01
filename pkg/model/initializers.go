@@ -4,23 +4,19 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/hashicorp/go-multierror"
-	"github.com/hpcloud/tail"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
-
-	process "github.com/mudler/go-processmanager"
 )
 
 const (
 	LlamaBackend        = "llama"
+	LlamaStableBackend  = "llama-stable"
 	BloomzBackend       = "bloomz"
 	StarcoderBackend    = "starcoder"
 	GPTJBackend         = "gptj"
@@ -46,6 +42,7 @@ const (
 
 var AutoLoadBackends []string = []string{
 	LlamaBackend,
+	LlamaStableBackend,
 	Gpt4All,
 	FalconBackend,
 	GPTNeoXBackend,
@@ -62,66 +59,6 @@ var AutoLoadBackends []string = []string{
 	WhisperBackend,
 	StableDiffusionBackend,
 	PiperBackend,
-}
-
-func (ml *ModelLoader) StopGRPC() {
-	for _, p := range ml.grpcProcesses {
-		p.Stop()
-	}
-}
-
-func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string) error {
-	// Make sure the process is executable
-	if err := os.Chmod(grpcProcess, 0755); err != nil {
-		return err
-	}
-
-	log.Debug().Msgf("Loading GRPC Process: %s", grpcProcess)
-
-	log.Debug().Msgf("GRPC Service for %s will be running at: '%s'", id, serverAddress)
-
-	grpcControlProcess := process.New(
-		process.WithTemporaryStateDir(),
-		process.WithName(grpcProcess),
-		process.WithArgs("--addr", serverAddress),
-		process.WithEnvironment(os.Environ()...),
-	)
-
-	ml.grpcProcesses[id] = grpcControlProcess
-
-	if err := grpcControlProcess.Run(); err != nil {
-		return err
-	}
-
-	log.Debug().Msgf("GRPC Service state dir: %s", grpcControlProcess.StateDir())
-	// clean up process
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		<-c
-		grpcControlProcess.Stop()
-	}()
-
-	go func() {
-		t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})
-		if err != nil {
-			log.Debug().Msgf("Could not tail stderr")
-		}
-		for line := range t.Lines {
-			log.Debug().Msgf("GRPC(%s): stderr %s", strings.Join([]string{id, serverAddress}, "-"), line.Text)
-		}
-	}()
-	go func() {
-		t, err := tail.TailFile(grpcControlProcess.StdoutPath(), tail.Config{Follow: true})
-		if err != nil {
-			log.Debug().Msgf("Could not tail stdout")
-		}
-		for line := range t.Lines {
-			log.Debug().Msgf("GRPC(%s): stdout %s", strings.Join([]string{id, serverAddress}, "-"), line.Text)
-		}
-	}()
-
-	return nil
 }
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
@@ -224,6 +161,13 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 
 	backend := strings.ToLower(o.backendString)
 
+	if o.singleActiveBackend {
+		ml.mu.Lock()
+		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
+		ml.StopAllExcept(o.model)
+		ml.mu.Unlock()
+	}
+
 	// if an external backend is provided, use it
 	_, externalBackendExists := o.externalBackends[backend]
 	if externalBackendExists {
@@ -231,7 +175,7 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 	}
 
 	switch backend {
-	case LlamaBackend, GPTJBackend, DollyBackend,
+	case LlamaBackend, LlamaStableBackend, GPTJBackend, DollyBackend,
 		MPTBackend, Gpt2Backend, FalconBackend,
 		GPTNeoXBackend, ReplitBackend, StarcoderBackend, BloomzBackend,
 		RwkvBackend, LCHuggingFaceBackend, BertEmbeddingsBackend, FalconGGMLBackend, StableDiffusionBackend, WhisperBackend:
@@ -250,14 +194,21 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 	o := NewOptions(opts...)
 
-	// Is this really needed? BackendLoader already does this
 	ml.mu.Lock()
-	if m := ml.checkIsLoaded(o.model); m != nil {
+	// Return earlier if we have a model already loaded
+	// (avoid looping through all the backends)
+	if m := ml.CheckIsLoaded(o.model); m != nil {
 		log.Debug().Msgf("Model '%s' already loaded", o.model)
 		ml.mu.Unlock()
 		return m, nil
 	}
+	// If we can have only one backend active, kill all the others (except external backends)
+	if o.singleActiveBackend {
+		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
+		ml.StopAllExcept(o.model)
+	}
 	ml.mu.Unlock()
+
 	var err error
 
 	// autoload also external backends

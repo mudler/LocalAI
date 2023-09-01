@@ -5,9 +5,31 @@ import (
 	"path/filepath"
 
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
+	model "github.com/go-skynet/LocalAI/pkg/model"
 
 	config "github.com/go-skynet/LocalAI/api/config"
+	"github.com/go-skynet/LocalAI/api/options"
 )
+
+func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.Option {
+	if o.SingleBackend {
+		opts = append(opts, model.WithSingleActiveBackend())
+	}
+
+	if c.GRPC.Attempts != 0 {
+		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
+	}
+
+	if c.GRPC.AttemptsSleepTime != 0 {
+		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
+	}
+
+	for k, v := range o.ExternalGRPCBackends {
+		opts = append(opts, model.WithExternalBackend(k, v))
+	}
+
+	return opts
+}
 
 func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 	b := 512
@@ -19,6 +41,9 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		ContextSize:   int32(c.ContextSize),
 		Seed:          int32(c.Seed),
 		NBatch:        int32(b),
+		NoMulMatQ:     c.NoMulMatQ,
+		LoraAdapter:   c.LoraAdapter,
+		LoraBase:      c.LoraBase,
 		NGQA:          c.NGQA,
 		RMSNormEps:    c.RMSNormEps,
 		F16Memory:     c.F16,
@@ -38,6 +63,8 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		Device:           c.AutoGPTQ.Device,
 		UseTriton:        c.AutoGPTQ.Triton,
 		UseFastTokenizer: c.AutoGPTQ.UseFastTokenizer,
+		// RWKV
+		Tokenizer: c.Tokenizer,
 	}
 }
 

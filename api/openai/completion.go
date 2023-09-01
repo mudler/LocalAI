@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/api/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -17,17 +19,22 @@ import (
 
 // https://platform.openai.com/docs/api-reference/completions
 func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
-	process := func(s string, req *OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan OpenAIResponse) {
-		ComputeChoices(req, s, config, o, loader, func(s string, c *[]Choice) {}, func(s string) bool {
-			resp := OpenAIResponse{
+	process := func(s string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+		ComputeChoices(req, s, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+			resp := schema.OpenAIResponse{
 				Model: req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []Choice{
+				Choices: []schema.Choice{
 					{
 						Index: 0,
 						Text:  s,
 					},
 				},
 				Object: "text_completion",
+				Usage: schema.OpenAIUsage{
+					PromptTokens:     usage.Prompt,
+					CompletionTokens: usage.Completion,
+					TotalTokens:      usage.Prompt + usage.Completion,
+				},
 			}
 			log.Debug().Msgf("Sending goroutine: %s", s)
 
@@ -84,7 +91,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 				log.Debug().Msgf("Template found, input modified to: %s", predInput)
 			}
 
-			responses := make(chan OpenAIResponse)
+			responses := make(chan schema.OpenAIResponse)
 
 			go process(predInput, input, config, o.Loader, responses)
 
@@ -100,9 +107,9 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 					w.Flush()
 				}
 
-				resp := &OpenAIResponse{
+				resp := &schema.OpenAIResponse{
 					Model: input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []Choice{
+					Choices: []schema.Choice{
 						{
 							Index:        0,
 							FinishReason: "stop",
@@ -119,7 +126,10 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			return nil
 		}
 
-		var result []Choice
+		var result []schema.Choice
+
+		totalTokenUsage := backend.TokenUsage{}
+
 		for k, i := range config.PromptStrings {
 			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
@@ -131,20 +141,29 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
-			r, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]Choice) {
-				*c = append(*c, Choice{Text: s, FinishReason: "stop", Index: k})
-			}, nil)
+			r, tokenUsage, err := ComputeChoices(
+				input, i, config, o, o.Loader, func(s string, c *[]schema.Choice) {
+					*c = append(*c, schema.Choice{Text: s, FinishReason: "stop", Index: k})
+				}, nil)
 			if err != nil {
 				return err
 			}
 
+			totalTokenUsage.Prompt += tokenUsage.Prompt
+			totalTokenUsage.Completion += tokenUsage.Completion
+
 			result = append(result, r...)
 		}
 
-		resp := &OpenAIResponse{
+		resp := &schema.OpenAIResponse{
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "text_completion",
+			Usage: schema.OpenAIUsage{
+				PromptTokens:     totalTokenUsage.Prompt,
+				CompletionTokens: totalTokenUsage.Completion,
+				TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
+			},
 		}
 
 		jsonResult, _ := json.Marshal(resp)

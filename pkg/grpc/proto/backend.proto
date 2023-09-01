@@ -16,6 +16,8 @@ service Backend {
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc TTS(TTSRequest) returns (Result) {}
+  rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
+  rpc Status(HealthMessage) returns (StatusResponse) {}
 }
 
 message HealthMessage {}
@@ -102,6 +104,18 @@ message ModelOptions {
   string SchedulerType = 27;
   bool CUDA = 28;
   float CFGScale = 29;
+  bool IMG2IMG = 30;
+  string CLIPModel = 31;
+  string CLIPSubfolder = 32;
+  int32 CLIPSkip = 33;
+
+  // RWKV
+  string Tokenizer = 34;
+
+  // LLM (llama.cpp)
+  string LoraBase = 35;
+  string LoraAdapter = 36;
+  bool NoMulMatQ = 37;
 }
 
 message Result {
@@ -141,13 +155,36 @@ message GenerateImageRequest {
   string positive_prompt = 6;
   string negative_prompt = 7;
   string dst = 8;
+  string src = 9;
 
   // Diffusers
-  string EnableParameters = 9;
+  string EnableParameters = 10;
+  int32 CLIPSkip = 11;
 }
 
 message TTSRequest {
   string text = 1;
   string model = 2;
   string dst = 3;
+}
+
+message TokenizationResponse {
+  int32 length = 1;
+  repeated int32 tokens = 2;
+}
+
+message MemoryUsageData {
+  uint64 total = 1;
+  map<string, uint64> breakdown = 2;
+}
+
+message StatusResponse {
+  enum State {
+    UNINITIALIZED = 0;
+    BUSY = 1;
+    READY = 2;
+    ERROR = -1;
+  }
+  State state = 1;
+  MemoryUsageData memory = 2;
 }

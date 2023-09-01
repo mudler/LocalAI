@@ -50,6 +50,11 @@ func main() {
 				EnvVars: []string{"DEBUG"},
 			},
 			&cli.BoolFlag{
+				Name:    "single-active-backend",
+				EnvVars: []string{"SINGLE_ACTIVE_BACKEND"},
+				Usage:   "Allow only one backend to be running.",
+			},
+			&cli.BoolFlag{
 				Name:    "cors",
 				EnvVars: []string{"CORS"},
 			},
@@ -135,6 +140,12 @@ func main() {
 				Usage:   "List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys.",
 				EnvVars: []string{"API_KEY"},
 			},
+			&cli.BoolFlag{
+				Name:    "preload-backend-only",
+				Usage:   "If set, the api is NOT launched, and only the preloaded models / backends are started. This is intended for multi-node setups.",
+				EnvVars: []string{"PRELOAD_BACKEND_ONLY"},
+				Value:   false,
+			},
 		},
 		Description: `
 LocalAI is a drop-in replacement OpenAI API which runs inference locally.
@@ -175,6 +186,10 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithApiKeys(ctx.StringSlice("api-keys")),
 			}
 
+			if ctx.Bool("single-active-backend") {
+				opts = append(opts, options.EnableSingleBackend)
+			}
+
 			externalgRPC := ctx.StringSlice("external-grpc-backends")
 			// split ":" to get backend name and the uri
 			for _, v := range externalgRPC {
@@ -185,6 +200,11 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 			if ctx.Bool("autoload-galleries") {
 				opts = append(opts, options.EnableGalleriesAutoload)
+			}
+
+			if ctx.Bool("preload-backend-only") {
+				_, _, err := api.Startup(opts...)
+				return err
 			}
 
 			app, err := api.App(opts...)

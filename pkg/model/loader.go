@@ -103,7 +103,7 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 	defer ml.mu.Unlock()
 
 	// Check if we already have a loaded model
-	if model := ml.checkIsLoaded(modelName); model != nil {
+	if model := ml.CheckIsLoaded(modelName); model != nil {
 		return model, nil
 	}
 
@@ -128,7 +128,17 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 	return model, nil
 }
 
-func (ml *ModelLoader) checkIsLoaded(s string) *grpc.Client {
+func (ml *ModelLoader) ShutdownModel(modelName string) error {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	if _, ok := ml.models[modelName]; !ok {
+		return fmt.Errorf("model %s not found", modelName)
+	}
+
+	return ml.deleteProcess(modelName)
+}
+
+func (ml *ModelLoader) CheckIsLoaded(s string) *grpc.Client {
 	if m, ok := ml.models[s]; ok {
 		log.Debug().Msgf("Model already loaded in memory: %s", s)
 
@@ -137,9 +147,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *grpc.Client {
 			if !ml.grpcProcesses[s].IsAlive() {
 				log.Debug().Msgf("GRPC Process is not responding: %s", s)
 				// stop and delete the process, this forces to re-load the model and re-create again the service
-				ml.grpcProcesses[s].Stop()
-				delete(ml.grpcProcesses, s)
-				delete(ml.models, s)
+				ml.deleteProcess(s)
 				return nil
 			}
 		}

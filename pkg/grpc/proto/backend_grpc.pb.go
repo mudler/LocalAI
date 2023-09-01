@@ -30,6 +30,8 @@ type BackendClient interface {
 	GenerateImage(ctx context.Context, in *GenerateImageRequest, opts ...grpc.CallOption) (*Result, error)
 	AudioTranscription(ctx context.Context, in *TranscriptRequest, opts ...grpc.CallOption) (*TranscriptResult, error)
 	TTS(ctx context.Context, in *TTSRequest, opts ...grpc.CallOption) (*Result, error)
+	TokenizeString(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (*TokenizationResponse, error)
+	Status(ctx context.Context, in *HealthMessage, opts ...grpc.CallOption) (*StatusResponse, error)
 }
 
 type backendClient struct {
@@ -135,6 +137,24 @@ func (c *backendClient) TTS(ctx context.Context, in *TTSRequest, opts ...grpc.Ca
 	return out, nil
 }
 
+func (c *backendClient) TokenizeString(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (*TokenizationResponse, error) {
+	out := new(TokenizationResponse)
+	err := c.cc.Invoke(ctx, "/backend.Backend/TokenizeString", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *backendClient) Status(ctx context.Context, in *HealthMessage, opts ...grpc.CallOption) (*StatusResponse, error) {
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, "/backend.Backend/Status", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BackendServer is the server API for Backend service.
 // All implementations must embed UnimplementedBackendServer
 // for forward compatibility
@@ -147,6 +167,8 @@ type BackendServer interface {
 	GenerateImage(context.Context, *GenerateImageRequest) (*Result, error)
 	AudioTranscription(context.Context, *TranscriptRequest) (*TranscriptResult, error)
 	TTS(context.Context, *TTSRequest) (*Result, error)
+	TokenizeString(context.Context, *PredictOptions) (*TokenizationResponse, error)
+	Status(context.Context, *HealthMessage) (*StatusResponse, error)
 	mustEmbedUnimplementedBackendServer()
 }
 
@@ -177,6 +199,12 @@ func (UnimplementedBackendServer) AudioTranscription(context.Context, *Transcrip
 }
 func (UnimplementedBackendServer) TTS(context.Context, *TTSRequest) (*Result, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TTS not implemented")
+}
+func (UnimplementedBackendServer) TokenizeString(context.Context, *PredictOptions) (*TokenizationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TokenizeString not implemented")
+}
+func (UnimplementedBackendServer) Status(context.Context, *HealthMessage) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 func (UnimplementedBackendServer) mustEmbedUnimplementedBackendServer() {}
 
@@ -338,6 +366,42 @@ func _Backend_TTS_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Backend_TokenizeString_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PredictOptions)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BackendServer).TokenizeString(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/backend.Backend/TokenizeString",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BackendServer).TokenizeString(ctx, req.(*PredictOptions))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Backend_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HealthMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BackendServer).Status(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/backend.Backend/Status",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BackendServer).Status(ctx, req.(*HealthMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Backend_ServiceDesc is the grpc.ServiceDesc for Backend service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -372,6 +436,14 @@ var Backend_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TTS",
 			Handler:    _Backend_TTS_Handler,
+		},
+		{
+			MethodName: "TokenizeString",
+			Handler:    _Backend_TokenizeString_Handler,
+		},
+		{
+			MethodName: "Status",
+			Handler:    _Backend_Status_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

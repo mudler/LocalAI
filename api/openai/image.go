@@ -1,9 +1,11 @@
 package openai
 
 import (
+	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/go-skynet/LocalAI/api/schema"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -49,6 +51,31 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
+		src := ""
+		if input.File != "" {
+			//base 64 decode the file and write it somewhere
+			// that we will cleanup
+			decoded, err := base64.StdEncoding.DecodeString(input.File)
+			if err != nil {
+				return err
+			}
+			// Create a temporary file
+			outputFile, err := os.CreateTemp(o.ImageDir, "b64")
+			if err != nil {
+				return err
+			}
+			// write the base64 result
+			writer := bufio.NewWriter(outputFile)
+			_, err = writer.Write(decoded)
+			if err != nil {
+				outputFile.Close()
+				return err
+			}
+			outputFile.Close()
+			src = outputFile.Name()
+			defer os.RemoveAll(src)
+		}
+
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
 		// XXX: Only stablediffusion is supported for now
@@ -73,8 +100,8 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 		if input.ResponseFormat == "b64_json" {
 			b64JSON = true
 		}
-
-		var result []Item
+		// src and clip_skip
+		var result []schema.Item
 		for _, i := range config.PromptStrings {
 			n := input.N
 			if input.N == 0 {
@@ -121,7 +148,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 				baseURL := c.BaseURL()
 
-				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, output, o.Loader, *config, o)
+				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, o.Loader, *config, o)
 				if err != nil {
 					return err
 				}
@@ -129,7 +156,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 					return err
 				}
 
-				item := &Item{}
+				item := &schema.Item{}
 
 				if b64JSON {
 					defer os.RemoveAll(output)
@@ -147,7 +174,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			}
 		}
 
-		resp := &OpenAIResponse{
+		resp := &schema.OpenAIResponse{
 			Data: result,
 		}
 

@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	image "github.com/go-skynet/LocalAI/pkg/grpc/image"
+	image "github.com/go-skynet/LocalAI/pkg/backend/image"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )

@@ -29,6 +29,7 @@ type Config struct {
 
 	FunctionsConfig Functions `yaml:"function"`
 
+	FeatureFlag FeatureFlag `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 	// LLM configs (GPT4ALL, Llama.cpp, ...)
 	LLMConfig `yaml:",inline"`
 
@@ -44,6 +45,13 @@ type Config struct {
 	GRPC GRPC `yaml:"grpc"`
 }
 
+type FeatureFlag map[string]*bool
+
+func (ff FeatureFlag) Enabled(s string) bool {
+	v, exist := ff[s]
+	return exist && v != nil && *v
+}
+
 type GRPC struct {
 	Attempts          int `yaml:"attempts"`
 	AttemptsSleepTime int `yaml:"attempts_sleep_time"`
@@ -55,6 +63,10 @@ type Diffusers struct {
 	CUDA             bool    `yaml:"cuda"`
 	EnableParameters string  `yaml:"enable_parameters"` // A list of comma separated parameters to specify
 	CFGScale         float32 `yaml:"cfg_scale"`         // Classifier-Free Guidance Scale
+	IMG2IMG          bool    `yaml:"img2img"`           // Image to Image Diffuser
+	ClipSkip         int     `yaml:"clip_skip"`         // Skip every N frames
+	ClipModel        string  `yaml:"clip_model"`        // Clip model to use
+	ClipSubFolder    string  `yaml:"clip_subfolder"`    // Subfolder to use for clip model
 }
 
 type LLMConfig struct {
@@ -79,6 +91,9 @@ type LLMConfig struct {
 	TrimSpace       []string `yaml:"trimspace"`
 	ContextSize     int      `yaml:"context_size"`
 	NUMA            bool     `yaml:"numa"`
+	LoraAdapter     string   `yaml:"lora_adapter"`
+	LoraBase        string   `yaml:"lora_base"`
+	NoMulMatQ       bool     `yaml:"no_mulmatq"`
 }
 
 type AutoGPTQ struct {

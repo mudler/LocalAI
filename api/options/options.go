@@ -33,6 +33,8 @@ type Option struct {
 	ExternalGRPCBackends map[string]string
 
 	AutoloadGalleries bool
+
+	SingleBackend bool
 }
 
 type AppOption func(*Option)
@@ -56,6 +58,10 @@ func WithCors(b bool) AppOption {
 	return func(o *Option) {
 		o.CORS = b
 	}
+}
+
+var EnableSingleBackend = func(o *Option) {
+	o.SingleBackend = true
 }
 
 var EnableGalleriesAutoload = func(o *Option) {

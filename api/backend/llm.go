@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
@@ -15,7 +16,17 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
-func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string) bool) (func() (string, error), error) {
+type LLMResponse struct {
+	Response string // should this be []byte?
+	Usage    TokenUsage
+}
+
+type TokenUsage struct {
+	Prompt     int
+	Completion int
+}
+
+func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	grpcOpts := gRPCModelOpts(c)
@@ -23,25 +34,13 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 	var inferenceModel *grpc.Client
 	var err error
 
-	opts := []model.Option{
+	opts := modelOpts(c, o, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 		model.WithThreads(uint32(c.Threads)), // some models uses this to allocate threads during startup
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
-	}
-
-	if c.GRPC.Attempts != 0 {
-		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
-	}
-
-	if c.GRPC.AttemptsSleepTime != 0 {
-		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
-	}
-
-	for k, v := range o.ExternalGRPCBackends {
-		opts = append(opts, model.WithExternalBackend(k, v))
-	}
+	})
 
 	if c.Backend != "" {
 		opts = append(opts, model.WithBackendString(c.Backend))
@@ -70,40 +69,71 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 	}
 
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
-	fn := func() (string, error) {
+	fn := func() (LLMResponse, error) {
 		opts := gRPCPredictOpts(c, loader.ModelPath)
 		opts.Prompt = s
+
+		tokenUsage := TokenUsage{}
+
+		// check the per-model feature flag for usage, since tokenCallback may have a cost.
+		// Defaults to off as for now it is still experimental
+		if c.FeatureFlag.Enabled("usage") {
+			userTokenCallback := tokenCallback
+			if userTokenCallback == nil {
+				userTokenCallback = func(token string, usage TokenUsage) bool {
+					return true
+				}
+			}
+
+			promptInfo, pErr := inferenceModel.TokenizeString(ctx, opts)
+			if pErr == nil && promptInfo.Length > 0 {
+				tokenUsage.Prompt = int(promptInfo.Length)
+			}
+
+			tokenCallback = func(token string, usage TokenUsage) bool {
+				tokenUsage.Completion++
+				return userTokenCallback(token, tokenUsage)
+			}
+		}
+
 		if tokenCallback != nil {
 			ss := ""
-			err := inferenceModel.PredictStream(ctx, opts, func(s []byte) {
-				tokenCallback(string(s))
-				ss += string(s)
+
+			var partialRune []byte
+			err := inferenceModel.PredictStream(ctx, opts, func(chars []byte) {
+				partialRune = append(partialRune, chars...)
+
+				for len(partialRune) > 0 {
+					r, size := utf8.DecodeRune(partialRune)
+					if r == utf8.RuneError {
+						// incomplete rune, wait for more bytes
+						break
+					}
+
+					tokenCallback(string(r), tokenUsage)
+					ss += string(r)
+
+					partialRune = partialRune[size:]
+				}
 			})
-			return ss, err
+			return LLMResponse{
+				Response: ss,
+				Usage:    tokenUsage,
+			}, err
 		} else {
+			// TODO: Is the chicken bit the only way to get here? is that acceptable?
 			reply, err := inferenceModel.Predict(ctx, opts)
 			if err != nil {
-				return "", err
+				return LLMResponse{}, err
 			}
-			return string(reply.Message), err
+			return LLMResponse{
+				Response: string(reply.Message),
+				Usage:    tokenUsage,
+			}, err
 		}
 	}
 
-	return func() (string, error) {
-		// This is still needed, see: https://github.com/ggerganov/llama.cpp/discussions/784
-		mutexMap.Lock()
-		l, ok := mutexes[modelFile]
-		if !ok {
-			m := &sync.Mutex{}
-			mutexes[modelFile] = m
-			l = m
-		}
-		mutexMap.Unlock()
-		l.Lock()
-		defer l.Unlock()
-
-		return fn()
-	}, nil
+	return fn, nil
 }
 
 var cutstrings map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)

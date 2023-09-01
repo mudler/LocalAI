@@ -17,8 +17,9 @@ type Options struct {
 
 	externalBackends map[string]string
 
-	grpcAttempts      int
-	grpcAttemptsDelay int
+	grpcAttempts        int
+	grpcAttemptsDelay   int
+	singleActiveBackend bool
 }
 
 type Option func(*Options)
@@ -77,6 +78,12 @@ func WithAssetDir(assetDir string) Option {
 func WithContext(ctx context.Context) Option {
 	return func(o *Options) {
 		o.context = ctx
+	}
+}
+
+func WithSingleActiveBackend() Option {
+	return func(o *Options) {
+		o.singleActiveBackend = true
 	}
 }
 

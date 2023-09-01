@@ -296,7 +296,7 @@ var _ = Describe("API test", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       "github:go-skynet/model-gallery/openllama_3b.yaml",
 					Name:      "openllama_3b",
-					Overrides: map[string]interface{}{"backend": "llama", "mmap": true, "f16": true, "context_size": 128},
+					Overrides: map[string]interface{}{"backend": "llama-stable", "mmap": true, "f16": true, "context_size": 128},
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -355,6 +355,82 @@ var _ = Describe("API test", func() {
 				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res["location"]).To(Equal("San Francisco, California, United States"), fmt.Sprint(res))
+				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
+				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
+			})
+
+			It("runs openllama gguf", Label("llama-gguf"), func() {
+				if runtime.GOOS != "linux" {
+					Skip("test supported only on linux")
+				}
+				modelName := "codellama"
+				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+					URL:       "github:go-skynet/model-gallery/codellama-7b-instruct.yaml",
+					Name:      modelName,
+					Overrides: map[string]interface{}{"backend": "llama", "mmap": true, "f16": true, "context_size": 128},
+				})
+
+				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+
+				uuid := response["uuid"].(string)
+
+				Eventually(func() bool {
+					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					return response["processed"].(bool)
+				}, "360s", "10s").Should(Equal(true))
+
+				By("testing chat")
+				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: modelName, Messages: []openai.ChatCompletionMessage{
+					{
+						Role:    "user",
+						Content: "How much is 2+2?",
+					},
+				}})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Choices)).To(Equal(1))
+				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("4"), ContainSubstring("four")))
+
+				By("testing functions")
+				resp2, err := client.CreateChatCompletion(
+					context.TODO(),
+					openai.ChatCompletionRequest{
+						Model: modelName,
+						Messages: []openai.ChatCompletionMessage{
+							{
+								Role:    "user",
+								Content: "What is the weather like in San Francisco (celsius)?",
+							},
+						},
+						Functions: []openai.FunctionDefinition{
+							openai.FunctionDefinition{
+								Name:        "get_current_weather",
+								Description: "Get the current weather",
+								Parameters: jsonschema.Definition{
+									Type: jsonschema.Object,
+									Properties: map[string]jsonschema.Definition{
+										"location": {
+											Type:        jsonschema.String,
+											Description: "The city and state, e.g. San Francisco, CA",
+										},
+										"unit": {
+											Type: jsonschema.String,
+											Enum: []string{"celcius", "fahrenheit"},
+										},
+									},
+									Required: []string{"location"},
+								},
+							},
+						},
+					})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp2.Choices)).To(Equal(1))
+				Expect(resp2.Choices[0].Message.FunctionCall).ToNot(BeNil())
+				Expect(resp2.Choices[0].Message.FunctionCall.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.FunctionCall.Name)
+
+				var res map[string]string
+				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 			})

@@ -10,14 +10,15 @@ import (
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	options "github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/api/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
-func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *OpenAIRequest, error) {
+func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *schema.OpenAIRequest, error) {
 	loader := o.Loader
-	input := new(OpenAIRequest)
+	input := new(schema.OpenAIRequest)
 	ctx, cancel := context.WithCancel(o.Context)
 	input.Context = ctx
 	input.Cancel = cancel
@@ -60,7 +61,7 @@ func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *Open
 	return modelFile, input, nil
 }
 
-func updateConfig(config *config.Config, input *OpenAIRequest) {
+func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
 	if input.Echo {
 		config.Echo = input.Echo
 	}
@@ -73,6 +74,10 @@ func updateConfig(config *config.Config, input *OpenAIRequest) {
 
 	if input.Backend != "" {
 		config.Backend = input.Backend
+	}
+
+	if input.ClipSkip != 0 {
+		config.Diffusers.ClipSkip = input.ClipSkip
 	}
 
 	if input.ModelBaseName != "" {
@@ -214,7 +219,7 @@ func updateConfig(config *config.Config, input *OpenAIRequest) {
 	}
 }
 
-func readConfig(modelFile string, input *OpenAIRequest, cm *config.ConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.Config, *OpenAIRequest, error) {
+func readConfig(modelFile string, input *schema.OpenAIRequest, cm *config.ConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.Config, *schema.OpenAIRequest, error) {
 	// Load a config file if present after the model name
 	modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
 
