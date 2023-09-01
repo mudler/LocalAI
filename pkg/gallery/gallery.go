@@ -98,8 +98,8 @@ func InstallModelFromGalleryByName(galleries []Gallery, name string, basePath st
 }
 
 // List available models
-// Models galleries are a list of json files that are hosted on a remote server (for example github).
-// Each json file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
+// Models galleries are a list of yaml files that are hosted on a remote server (for example github).
+// Each yaml file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
 func AvailableGalleryModels(galleries []Gallery, basePath string) ([]*GalleryModel, error) {
 	var models []*GalleryModel
 

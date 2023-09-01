@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -51,7 +52,6 @@ func NewGalleryService(modelPath string) *galleryApplier {
 	}
 }
 
-// prepareModel applies a
 func prepareModel(modelPath string, req gallery.GalleryModel, cm *config.ConfigLoader, downloadStatus func(string, string, string, float64)) error {
 
 	config, err := gallery.GetGalleryConfigFromURL(req.URL)
@@ -184,24 +184,12 @@ func ApplyGalleryFromString(modelPath, s string, cm *config.ConfigLoader, galler
 	return processRequests(modelPath, s, cm, galleries, requests)
 }
 
-/// Endpoints
+/// Endpoint Service
 
-func GetOpStatusEndpoint(g *galleryApplier) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-
-		status := g.getStatus(c.Params("uuid"))
-		if status == nil {
-			return fmt.Errorf("could not find any status for ID")
-		}
-
-		return c.JSON(status)
-	}
-}
-
-func GetAllStatusEndpoint(g *galleryApplier) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		return c.JSON(g.getAllStatus())
-	}
+type ModelGalleryService struct {
+	galleries      []gallery.Gallery
+	modelPath      string
+	galleryApplier *galleryApplier
 }
 
 type GalleryModel struct {
@@ -209,7 +197,31 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func ApplyModelGalleryEndpoint(modelPath string, cm *config.ConfigLoader, g chan galleryOp, galleries []gallery.Gallery) func(c *fiber.Ctx) error {
+func CreateModelGalleryService(galleries []gallery.Gallery, modelPath string, galleryApplier *galleryApplier) ModelGalleryService {
+	return ModelGalleryService{
+		galleries:      galleries,
+		modelPath:      modelPath,
+		galleryApplier: galleryApplier,
+	}
+}
+
+func (mgs *ModelGalleryService) GetOpStatusEndpoint() func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		status := mgs.galleryApplier.getStatus(c.Params("uuid"))
+		if status == nil {
+			return fmt.Errorf("could not find any status for ID")
+		}
+		return c.JSON(status)
+	}
+}
+
+func (mgs *ModelGalleryService) GetAllStatusEndpoint() func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		return c.JSON(mgs.galleryApplier.getAllStatus())
+	}
+}
+
+func (mgs *ModelGalleryService) ApplyModelGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		input := new(GalleryModel)
 		// Get input data from the request body
@@ -221,11 +233,11 @@ func ApplyModelGalleryEndpoint(modelPath string, cm *config.ConfigLoader, g chan
 		if err != nil {
 			return err
 		}
-		g <- galleryOp{
+		mgs.galleryApplier.C <- galleryOp{
 			req:         input.GalleryModel,
 			id:          uuid.String(),
 			galleryName: input.ID,
-			galleries:   galleries,
+			galleries:   mgs.galleries,
 		}
 		return c.JSON(struct {
 			ID        string `json:"uuid"`
@@ -234,11 +246,11 @@ func ApplyModelGalleryEndpoint(modelPath string, cm *config.ConfigLoader, g chan
 	}
 }
 
-func ListModelFromGalleryEndpoint(galleries []gallery.Gallery, basePath string) func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryService) ListModelFromGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		log.Debug().Msgf("Listing models from galleries: %+v", galleries)
+		log.Debug().Msgf("Listing models from galleries: %+v", mgs.galleries)
 
-		models, err := gallery.AvailableGalleryModels(galleries, basePath)
+		models, err := gallery.AvailableGalleryModels(mgs.galleries, mgs.modelPath)
 		if err != nil {
 			return err
 		}
@@ -251,5 +263,58 @@ func ListModelFromGalleryEndpoint(galleries []gallery.Gallery, basePath string) 
 			return err
 		}
 		return c.Send(dat)
+	}
+}
+
+// NOTE: This is different (and much simpler!) than above! This JUST lists the model galleries that have been loaded, not their contents!
+func (mgs *ModelGalleryService) ListModelGalleriesEndpoint() func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		log.Debug().Msgf("Listing model galleries %+v", mgs.galleries)
+		dat, err := json.Marshal(mgs.galleries)
+		if err != nil {
+			return err
+		}
+		return c.Send(dat)
+	}
+}
+
+func (mgs *ModelGalleryService) AddModelGalleryEndpoint() func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		input := new(gallery.Gallery)
+		// Get input data from the request body
+		if err := c.BodyParser(input); err != nil {
+			return err
+		}
+		if slices.ContainsFunc(mgs.galleries, func(gallery gallery.Gallery) bool {
+			return gallery.Name == input.Name
+		}) {
+			return fmt.Errorf("%s already exists", input.Name)
+		}
+		dat, err := json.Marshal(mgs.galleries)
+		if err != nil {
+			return err
+		}
+		log.Debug().Msgf("Adding %+v to gallery list", *input)
+		mgs.galleries = append(mgs.galleries, *input)
+		return c.Send(dat)
+	}
+}
+
+func (mgs *ModelGalleryService) RemoveModelGalleryEndpoint() func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		input := new(gallery.Gallery)
+		// Get input data from the request body
+		if err := c.BodyParser(input); err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(mgs.galleries, func(gallery gallery.Gallery) bool {
+			return gallery.Name == input.Name
+		}) {
+			return fmt.Errorf("%s is not currently registered", input.Name)
+		}
+		mgs.galleries = slices.DeleteFunc(mgs.galleries, func(gallery gallery.Gallery) bool {
+			return gallery.Name == input.Name
+		})
+		return c.Send(nil)
 	}
 }

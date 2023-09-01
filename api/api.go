@@ -168,10 +168,14 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		}{Version: internal.PrintableVersion()})
 	})
 
-	app.Post("/models/apply", auth, localai.ApplyModelGalleryEndpoint(options.Loader.ModelPath, cl, galleryService.C, options.Galleries))
-	app.Get("/models/available", auth, localai.ListModelFromGalleryEndpoint(options.Galleries, options.Loader.ModelPath))
-	app.Get("/models/jobs/:uuid", auth, localai.GetOpStatusEndpoint(galleryService))
-	app.Get("/models/jobs", auth, localai.GetAllStatusEndpoint(galleryService))
+	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.Loader.ModelPath, galleryService)
+	app.Post("/models/apply", auth, modelGalleryService.ApplyModelGalleryEndpoint())
+	app.Get("/models/available", auth, modelGalleryService.ListModelFromGalleryEndpoint())
+	app.Get("/models/galleries", auth, modelGalleryService.ListModelGalleriesEndpoint())
+	app.Post("/models/galleries", auth, modelGalleryService.AddModelGalleryEndpoint())
+	app.Delete("/models/galleries", auth, modelGalleryService.RemoveModelGalleryEndpoint())
+	app.Get("/models/jobs/:uuid", auth, modelGalleryService.GetOpStatusEndpoint())
+	app.Get("/models/jobs", auth, modelGalleryService.GetAllStatusEndpoint())
 
 	// openAI compatible API endpoint
 
