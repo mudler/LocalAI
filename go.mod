@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.3.1
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hpcloud/tail v1.0.0
-	github.com/imdario/mergo v0.3.16
+	github.com/imdario/mergo v1.0.0
 	github.com/json-iterator/go v1.1.12
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/mudler/go-ggllm.cpp v0.0.0-20230709223052-862477d16eef
