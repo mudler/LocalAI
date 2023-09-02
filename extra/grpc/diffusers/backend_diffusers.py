@@ -300,6 +300,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             "width":               request.width, 
             "height":              request.height,
             "num_inference_steps": request.step,
+            "seed":                request.seed,
         }
 
         if request.src != "":
@@ -317,6 +318,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # create a dictionary of parameters by using the keys from EnableParameters and the values from defaults
         kwargs = {key: options[key] for key in keys}
+
+        # Set seed
+        if request.seed > 0:
+            kwargs["generator"] = torch.Generator(device="cuda").manual_seed(
+                request.seed
+            )
 
         image = {}
         if COMPEL:
