@@ -99,6 +99,7 @@ func WithStringGalleries(galls string) AppOption {
 	return func(o *Option) {
 		if galls == "" {
 			log.Debug().Msgf("no galleries to load")
+			o.Galleries = []gallery.Gallery{}
 			return
 		}
 		var galleries []gallery.Gallery

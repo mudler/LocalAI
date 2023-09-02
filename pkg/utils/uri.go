@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -32,8 +33,13 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 
 	if strings.HasPrefix(url, "file://") {
 		rawURL := strings.TrimPrefix(url, "file://")
+		// checks if the file is symbolic, and resolve if so - otherwise, this function returns the path unmodified.
+		resolvedFile, err := filepath.EvalSymlinks(rawURL)
+		if err != nil {
+			return err
+		}
 		// Read the response body
-		body, err := os.ReadFile(rawURL)
+		body, err := os.ReadFile(resolvedFile)
 		if err != nil {
 			return err
 		}
