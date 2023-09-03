@@ -25,14 +25,14 @@ jobs:
             ffmpeg: ''
           - build-type: 'cublas'
             cuda-major-version: 11
-            cuda-minor-version: 7
+            cuda-minor-version: 6
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda11'
             ffmpeg: ''
           - build-type: 'cublas'
             cuda-major-version: 12
-            cuda-minor-version: 1
+            cuda-minor-version: 0
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12'
@@ -44,14 +44,14 @@ jobs:
             ffmpeg: 'true'
           - build-type: 'cublas'
             cuda-major-version: 11
-            cuda-minor-version: 7
+            cuda-minor-version: 6
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda11-ffmpeg'
             ffmpeg: 'true'
           - build-type: 'cublas'
             cuda-major-version: 12
-            cuda-minor-version: 1
+            cuda-minor-version: 0
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12-ffmpeg'
@@ -98,7 +98,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: quay.io/go-skynet/local-ai
+          images: registry.cn-hangzhou.aliyuncs.com/roweb/local-ai
           tags: |
             type=ref,event=branch
             type=semver,pattern={{raw}}
@@ -120,7 +120,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v2
         with:
-          registry: quay.io
+          registry: registry.cn-hangzhou.aliyuncs.com
           username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
           password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
