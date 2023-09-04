@@ -42,6 +42,7 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		Seed:          int32(c.Seed),
 		NBatch:        int32(b),
 		NoMulMatQ:     c.NoMulMatQ,
+		AudioPath:     c.VallE.AudioPath,
 		LoraAdapter:   c.LoraAdapter,
 		LoraBase:      c.LoraBase,
 		NGQA:          c.NGQA,

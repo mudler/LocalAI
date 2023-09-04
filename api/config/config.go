@@ -43,6 +43,13 @@ type Config struct {
 
 	// GRPC Options
 	GRPC GRPC `yaml:"grpc"`
+
+	// Vall-e-x
+	VallE VallE `yaml:"vall-e"`
+}
+
+type VallE struct {
+	AudioPath string `yaml:"audio_path"`
 }
 
 type FeatureFlag map[string]*bool
