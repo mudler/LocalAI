@@ -96,6 +96,7 @@ jobs:
 
       - name: Docker meta
         id: meta
+        if: github.event_name != 'pull_request'
         uses: docker/metadata-action@v4
         with:
           images: quay.io/go-skynet/local-ai
@@ -106,7 +107,14 @@ jobs:
           flavor: |
             latest=${{ matrix.tag-latest }}
             suffix=${{ matrix.tag-suffix }}
-
+      - name: Docker meta (ttl.sh)
+        id: meta_pr
+        if: github.event_name == 'pull_request'
+        uses: docker/metadata-action@v4
+        with:
+          images: ttl.sh/local-ai-${{ github.sha }}${{ matrix.tag-suffix }}
+          tags: |
+            type=raw,value=12h
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -136,6 +144,6 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platforms }}
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: true
+          tags:  ${{ github.event_name == 'pull_request' && steps.meta_pr.outputs.tags || steps.meta.outputs.tags }}
+          labels: ${{ github.event_name == 'pull_request' && steps.meta_pr.output.labels || steps.meta.outputs.labels }}
