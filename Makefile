@@ -66,7 +66,7 @@ endif
 
 # workaround for rwkv.cpp
 ifeq ($(UNAME_S),Darwin)
-        CGO_LDFLAGS += -lcblas -framework Accelerate 
+	CGO_LDFLAGS += -lcblas -framework Accelerate
 endif
 
 ifeq ($(BUILD_TYPE),openblas)
@@ -242,14 +242,14 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-ggllm clean
 	$(MAKE) build
 
-prepare: prepare-sources $(OPTIONAL_TARGETS) 
+prepare: prepare-sources $(OPTIONAL_TARGETS)
 	touch $@
 
 clean: ## Remove build related file
 	$(GOCMD) clean -cache
 	rm -f prepare
 	rm -rf ./go-llama
-	rm -rf ./gpt4all	
+	rm -rf ./gpt4all
 	rm -rf ./go-llama-stable
 	rm -rf ./go-gpt2
 	rm -rf ./go-stable-diffusion
