@@ -357,6 +357,7 @@ protogen-python:
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/exllama/ --grpc_python_out=extra/grpc/exllama/ pkg/grpc/proto/backend.proto
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/bark/ --grpc_python_out=extra/grpc/bark/ pkg/grpc/proto/backend.proto
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/diffusers/ --grpc_python_out=extra/grpc/diffusers/ pkg/grpc/proto/backend.proto
+	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/vall-e-x/ --grpc_python_out=extra/grpc/vall-e-x/ pkg/grpc/proto/backend.proto
 
 ## GRPC
 
