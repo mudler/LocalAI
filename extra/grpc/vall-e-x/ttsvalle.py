@@ -26,7 +26,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print("Preparing models, please wait", file=sys.stderr)
             # download and load all models
             preload_models()
-
+            # Assume directory from request.ModelFile.
+            # Only if request.LoraAdapter it's not an absolute path
+            if request.AudioPath and request.ModelFile != "" and not os.path.isabs(request.AudioPath):
+                # get base path of modelFile
+                modelFileBase = os.path.dirname(request.ModelFile)
+                # modify LoraAdapter to be relative to modelFileBase
+                request.AudioPath = os.path.join(modelFileBase, request.AudioPath)
             if request.AudioPath != "":
                 print("Generating model", file=sys.stderr)
                 make_prompt(name=model_name, audio_prompt_path=request.AudioPath)
