@@ -28,7 +28,7 @@ For a live demonstration, please click on the link below:
 3. Type `/config` within Continue's VSCode extension, or edit the file located at `~/.continue/config.py` on your system with the following configuration:
 
     ```py
-    from continuedev.src.continuedev.libs.llm.openai import OpenAI, OpenAIServerInfo
+    from continuedev.src.continuedev.libs.llm.openai import OpenAI
 
     config = ContinueConfig(
        ...
@@ -36,10 +36,7 @@ For a live demonstration, please click on the link below:
             default=OpenAI(
                api_key="my-api-key",
                model="gpt-3.5-turbo",
-               openai_server_info=OpenAIServerInfo(
-                  api_base="http://localhost:8080",
-                  model="gpt-3.5-turbo"
-               )
+               api_base="http://localhost:8080",
             )
        ),
     )
