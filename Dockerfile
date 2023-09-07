@@ -11,7 +11,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py,autogptq:/build/extra/grpc/autogptq/autogptq.py,bark:/build/extra/grpc/bark/ttsbark.py,diffusers:/build/extra/grpc/diffusers/backend_diffusers.py,exllama:/build/extra/grpc/exllama/exllama.py"
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py,autogptq:/build/extra/grpc/autogptq/autogptq.py,bark:/build/extra/grpc/bark/ttsbark.py,diffusers:/build/extra/grpc/diffusers/backend_diffusers.py,exllama:/build/extra/grpc/exllama/exllama.py,vall-e-x:/build/extra/grpc/vall-e-x/ttsvalle.py"
 ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
 ARG GO_TAGS="stablediffusion tts"
 
@@ -46,6 +46,9 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
         pip install torch && pip install auto-gptq https://github.com/jllllll/exllama/releases/download/0.0.10/exllama-0.0.10+cu${CUDA_MAJOR_VERSION}${CUDA_MINOR_VERSION}-cp39-cp39-linux_x86_64.whl;\
     fi
 RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
+
+# Vall-e-X
+RUN git clone https://github.com/Plachtaa/VALL-E-X.git /usr/lib/vall-e-x && cd /usr/lib/vall-e-x && pip install -r requirements.txt
 
 WORKDIR /build
 
@@ -130,6 +133,10 @@ WORKDIR /build
 COPY . .
 RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
+
+# Copy VALLE-X as it's not a real "lib"
+RUN cp -rfv /usr/lib/vall-e-x/* extra/grpc/vall-e-x/
+
 # To resolve exllama import error
 RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH:-$(go env GOARCH)}" = "amd64" ]; then \
         cp -rfv /usr/local/lib/python3.9/dist-packages/exllama extra/grpc/exllama/;\

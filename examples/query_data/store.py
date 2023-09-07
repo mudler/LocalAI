@@ -15,7 +15,7 @@ llm_predictor = LLMPredictor(llm=OpenAI(temperature=0, model_name="gpt-3.5-turbo
 # Configure prompt parameters and initialise helper
 max_input_size = 400
 num_output = 400
-max_chunk_overlap = 30
+max_chunk_overlap = 0.3
 
 prompt_helper = PromptHelper(max_input_size, num_output, max_chunk_overlap)
 

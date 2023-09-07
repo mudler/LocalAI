@@ -221,8 +221,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 modelFileBase = os.path.dirname(request.ModelFile)
                 # modify LoraAdapter to be relative to modelFileBase
                 request.LoraAdapter = os.path.join(modelFileBase, request.LoraAdapter)
+            device = "cpu" if not request.CUDA else "cuda"
+            self.device = device
             if request.LoraAdapter:
-                device = "cpu" if not request.CUDA else "cuda"
                 # Check if its a local file and not a directory ( we load lora differently for a safetensor file )
                 if os.path.exists(request.LoraAdapter) and not os.path.isdir(request.LoraAdapter):
                     self.load_lora_weights(request.LoraAdapter, 1, device, torchType)
@@ -317,6 +318,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # create a dictionary of parameters by using the keys from EnableParameters and the values from defaults
         kwargs = {key: options[key] for key in keys}
+
+        # Set seed
+        if request.seed > 0:
+            kwargs["generator"] = torch.Generator(device=self.device).manual_seed(
+                request.seed
+            )
 
         image = {}
         if COMPEL:

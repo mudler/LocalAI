@@ -4,7 +4,7 @@ GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
 # llama.cpp versions
-GOLLAMA_VERSION?=d8c85474ad3c0631ee918b3cf64f512653027348
+GOLLAMA_VERSION?=371ecd13c7fe00d281cb19c6588574134d7091b1
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
@@ -66,7 +66,7 @@ endif
 
 # workaround for rwkv.cpp
 ifeq ($(UNAME_S),Darwin)
-        CGO_LDFLAGS += -lcblas -framework Accelerate 
+	CGO_LDFLAGS += -lcblas -framework Accelerate
 endif
 
 ifeq ($(BUILD_TYPE),openblas)
@@ -242,14 +242,14 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C go-ggllm clean
 	$(MAKE) build
 
-prepare: prepare-sources $(OPTIONAL_TARGETS) 
+prepare: prepare-sources $(OPTIONAL_TARGETS)
 	touch $@
 
 clean: ## Remove build related file
 	$(GOCMD) clean -cache
 	rm -f prepare
 	rm -rf ./go-llama
-	rm -rf ./gpt4all	
+	rm -rf ./gpt4all
 	rm -rf ./go-llama-stable
 	rm -rf ./go-gpt2
 	rm -rf ./go-stable-diffusion
@@ -357,6 +357,7 @@ protogen-python:
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/exllama/ --grpc_python_out=extra/grpc/exllama/ pkg/grpc/proto/backend.proto
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/bark/ --grpc_python_out=extra/grpc/bark/ pkg/grpc/proto/backend.proto
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/diffusers/ --grpc_python_out=extra/grpc/diffusers/ pkg/grpc/proto/backend.proto
+	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/vall-e-x/ --grpc_python_out=extra/grpc/vall-e-x/ pkg/grpc/proto/backend.proto
 
 ## GRPC
 
