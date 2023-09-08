@@ -4,7 +4,7 @@ GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
 # llama.cpp versions
-GOLLAMA_VERSION?=371ecd13c7fe00d281cb19c6588574134d7091b1
+GOLLAMA_VERSION?=05dc4b6210cde186ce47369fa0a8296390950851
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
@@ -38,6 +38,7 @@ STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
 GOGGLLM_VERSION?=862477d16eefb0805261c19c9b0d053e3b2b684b
 
 export BUILD_TYPE?=
+export CMAKE_ARGS?=
 CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
@@ -64,9 +65,12 @@ ifndef UNAME_S
 UNAME_S := $(shell uname -s)
 endif
 
-# workaround for rwkv.cpp
 ifeq ($(UNAME_S),Darwin)
 	CGO_LDFLAGS += -lcblas -framework Accelerate
+ifneq ($(BUILD_TYPE),metal)
+    # explicit disable metal if on Darwin and metal is disabled
+	CMAKE_ARGS+=-DLLAMA_METAL=OFF
+endif
 endif
 
 ifeq ($(BUILD_TYPE),openblas)
