@@ -114,6 +114,19 @@ See the [documentation](https://localai.io/basics/getting_started/#example-use-g
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
 - [Projects integrating LocalAI](https://localai.io/integrations/)
 
+## Citation
+
+If you utilize this repository, data in a downstream project, please consider citing it with:
+
+@misc{localai,
+  author = {Ettore Di Giacinto},
+  title = {LocalAI: The free, Open source OpenAI alternative},
+  year = {2023},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/go-skynet/LocalAI}},
+}
+
 ## ❤️ Sponsors
 
 > Do you find LocalAI useful?
