@@ -118,6 +118,7 @@ See the [documentation](https://localai.io/basics/getting_started/#example-use-g
 
 If you utilize this repository, data in a downstream project, please consider citing it with:
 
+```
 @misc{localai,
   author = {Ettore Di Giacinto},
   title = {LocalAI: The free, Open source OpenAI alternative},
@@ -125,7 +126,7 @@ If you utilize this repository, data in a downstream project, please consider ci
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/go-skynet/LocalAI}},
-}
+```
 
 ## ❤️ Sponsors
 
