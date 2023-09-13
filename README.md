@@ -99,6 +99,7 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 - [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)
 - [Question Answering on Documents locally with LangChain, LocalAI, Chroma, and GPT4All](https://mudler.pm/posts/localai-question-answering/)
 - [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65)
+- [Demo of LocalAI and ChatBotUI answering developer's questions securely in Backstage](https://youtu.be/oiuBPnOBKx0)
 
 ## 💻 Usage
 
