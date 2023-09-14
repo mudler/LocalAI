@@ -14,7 +14,8 @@ import (
 type LLM struct {
 	base.SingleThread
 
-	llama *llama.LLama
+	llama      *llama.LLama
+	draftModel *llama.LLama
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
@@ -78,7 +79,21 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 		llamaOpts = append(llamaOpts, llama.EnabelLowVRAM)
 	}
 
+	if opts.DraftModel != "" {
+		// https://github.com/ggerganov/llama.cpp/blob/71ca2fad7d6c0ef95ef9944fb3a1a843e481f314/examples/speculative/speculative.cpp#L40
+		llamaOpts = append(llamaOpts, llama.SetPerplexity(true))
+	}
+
 	model, err := llama.New(opts.ModelFile, llamaOpts...)
+
+	if opts.DraftModel != "" {
+		draftModel, err := llama.New(opts.DraftModel, llamaOpts...)
+		if err != nil {
+			return err
+		}
+		llm.draftModel = draftModel
+	}
+
 	llm.llama = model
 
 	return err
@@ -162,6 +177,9 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 		predictOptions = append(predictOptions, llama.SetSeed(int(opts.Seed)))
 	}
 
+	if opts.NDraft != 0 {
+		predictOptions = append(predictOptions, llama.SetNDraft(int(opts.NDraft)))
+	}
 	//predictOptions = append(predictOptions, llama.SetLogitBias(c.Seed))
 
 	predictOptions = append(predictOptions, llama.SetFrequencyPenalty(opts.FrequencyPenalty))
@@ -175,6 +193,9 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 }
 
 func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {
+	if llm.draftModel != nil {
+		return llm.llama.SpeculativeSampling(llm.draftModel, opts.Prompt, buildPredictOptions(opts)...)
+	}
 	return llm.llama.Predict(opts.Prompt, buildPredictOptions(opts)...)
 }
 
@@ -187,7 +208,13 @@ func (llm *LLM) PredictStream(opts *pb.PredictOptions, results chan string) erro
 	}))
 
 	go func() {
-		_, err := llm.llama.Predict(opts.Prompt, predictOptions...)
+		var err error
+		if llm.draftModel != nil {
+			_, err = llm.llama.SpeculativeSampling(llm.draftModel, opts.Prompt, buildPredictOptions(opts)...)
+		} else {
+			_, err = llm.llama.Predict(opts.Prompt, predictOptions...)
+		}
+
 		if err != nil {
 			fmt.Println("err: ", err)
 		}
