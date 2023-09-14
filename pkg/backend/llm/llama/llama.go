@@ -87,6 +87,12 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	model, err := llama.New(opts.ModelFile, llamaOpts...)
 
 	if opts.DraftModel != "" {
+		// opts.DraftModel is relative to opts.ModelFile, so we need to get the basepath of opts.ModelFile
+		if !filepath.IsAbs(opts.DraftModel) {
+			dir := filepath.Dir(opts.ModelFile)
+			opts.DraftModel = filepath.Join(dir, opts.DraftModel)
+		}
+
 		draftModel, err := llama.New(opts.DraftModel, llamaOpts...)
 		if err != nil {
 			return err
