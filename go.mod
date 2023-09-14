@@ -30,7 +30,7 @@ require (
 	github.com/tmc/langchaingo v0.0.0-20230910230029-9c8845b2b019
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/valyala/fasthttp v1.49.0
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.58.1
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -61,7 +61,7 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.2 // indirect
 	github.com/ulikunitz/xz v0.5.9 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
