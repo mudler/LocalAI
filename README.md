@@ -104,15 +104,17 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 
 Check out the [Getting started](https://localai.io/basics/getting_started/index.html) section in our documentation.
 
-### 💡 Example: Use GPT4ALL-J model
+### 💡 Example: Use Luna AI Llama2 model
 
-See the [documentation](https://localai.io/basics/getting_started/#example-use-gpt4all-j-model-with-docker-compose)
+See the [How To Pages](https://localai.io/howtos/)
 
 ### 🔗 Resources
 
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
 - [Projects integrating LocalAI](https://localai.io/integrations/)
+- [Easy How to setup CPU Docker](https://localai.io/howtos/easy-setup-docker-cpu/)
+- [Demo How to](https://localai.io/howtos/easy-setup-full/)
 
 ## Citation
 
