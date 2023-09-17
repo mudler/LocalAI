@@ -141,6 +141,11 @@ A huge thank you to our generous sponsors who support this project:
 |  [Spectro Cloud](https://www.spectrocloud.com/)  |  
 |  Spectro Cloud kindly supports LocalAI by providing GPU and computing resources to run tests on lamdalabs!  |
 
+And a huge shout-out to individuals sponsoring the project by donating hardware or backing the project. 
+
+- [Sponsor list](https://github.com/sponsors/mudler)
+- JDAM00 (donating HW for the CI)
+
 ## 🌟 Star history
 
 [![LocalAI Star history Chart](https://api.star-history.com/svg?repos=go-skynet/LocalAI&type=Date)](https://star-history.com/#go-skynet/LocalAI&Date)
