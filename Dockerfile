@@ -135,7 +135,7 @@ RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
 
 # Copy VALLE-X as it's not a real "lib"
-RUN cp -rfv /usr/lib/vall-e-x/* extra/grpc/vall-e-x/
+RUN cp -rfv /usr/lib/vall-e-x/* ./
 
 # To resolve exllama import error
 RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH:-$(go env GOARCH)}" = "amd64" ]; then \
