@@ -19,6 +19,9 @@ from exllama.tokenizer import ExLlamaTokenizer
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
+# If MAX_WORKERS are specified in the environment use it, otherwise default to 1
+MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
+
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
     def generate(self,prompt, max_new_tokens):
@@ -110,7 +113,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
 
 def serve(address):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))
     backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     server.add_insecure_port(address)
     server.start()
