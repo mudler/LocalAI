@@ -45,8 +45,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
     def LoadModel(self, request, context):
         try:
-            # https://github.com/vllm-project/vllm/blob/main/examples/offline_inference.py
-            self.llm = LLM(model=request.Model)
+            if request.Quantization != "":
+                self.llm = LLM(model=request.Model, quantization=request.Quantization)
+            else:
+                self.llm = LLM(model=request.Model)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         return backend_pb2.Result(message="Model loaded successfully", success=True)
