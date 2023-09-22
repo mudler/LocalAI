@@ -1,0 +1,83 @@
+---
+name: 'GPU tests'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+concurrency:
+  group: ci-gpu-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu-latest:
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        go-version: ['1.21.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v3
+        with: 
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y make wget
+      # - name: Dependencies
+      #   run: |
+      #     # This fixes libc6-dev installations errors on containers...
+      #     sudo rm -rfv /run/systemd/system
+
+      #     sudo apt-get update
+      #     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential ffmpeg nvidia-cuda-toolkit cmake
+          
+      #     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates cmake curl patch
+      #     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libopencv-dev 
+      #     [ ! -e /usr/include/opencv2 ] && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+      #     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y pip wget
+      #     sudo pip install -r extra/requirements.txt
+      #     if [ ! -d /build ]; then
+      #       sudo mkdir /build && \
+      #       sudo chmod -R 777 /build && cd /build && \
+      #       curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz" | \
+      #       tar -xzvf - && \
+      #       mkdir -p "spdlog-1.11.0/build" && \
+      #       cd "spdlog-1.11.0/build" && \
+      #       cmake ..  && \
+      #       make -j8 && \
+      #       sudo cmake --install . --prefix /usr && mkdir -p "lib/Linux-$(uname -m)" && \
+      #       cd /build && \
+      #       mkdir -p "lib/Linux-$(uname -m)/piper_phonemize" && \
+      #       curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v1.0.0/libpiper_phonemize-amd64.tar.gz" | \
+      #       tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
+      #       sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
+      #       sudo ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
+      #       sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
+      #     fi
+      - name: Build
+        run: |
+          if [ ! -e /run/systemd/system ]; then
+            sudo mkdir /run/systemd/system
+          fi
+          make prepare-e2e run-e2e-image test-e2e
+      - name: Release space from worker ♻
+        if: always()
+        run: |
+          sudo rm -rf build || true
+          sudo rm -rf bin || true
+          sudo rm -rf dist || true
+          make clean || true
+          make teardown-e2e || true
+          docker system prune -f -a --volumes || true

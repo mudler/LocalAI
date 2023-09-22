@@ -1,0 +1,19 @@
+context_size: 2048
+mirostat: 2
+mirostat_tau: 5.0
+mirostat_eta: 0.1
+f16: true
+threads: 1
+gpu_layers: 90
+name: gpt-4
+mmap: true
+parameters:
+  model: ggllm-test-model.bin
+  #model: llama2-22b-daydreamer-v3.ggmlv3.q6_K.bin
+  #model: wizardlm-30b-uncensored.ggmlv3.q4_K_M.bin
+  #model: upstage-llama-2-70b-instruct-v2.ggmlv3.q2_K.bin
+  rope_freq_base: 10000 
+  rope_freq_scale: 1
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
