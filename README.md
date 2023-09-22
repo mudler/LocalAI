@@ -104,9 +104,9 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 
 Check out the [Getting started](https://localai.io/basics/getting_started/index.html) section in our documentation.
 
-### 💡 Example: Use GPT4ALL-J model
+### 💡 Example: Use Luna-AI Llama model
 
-See the [documentation](https://localai.io/basics/getting_started/#example-use-gpt4all-j-model-with-docker-compose)
+See the [documentation](https://localai.io/basics/getting_started)
 
 ### 🔗 Resources
 
