@@ -103,6 +103,7 @@ type LLMConfig struct {
 	NoMulMatQ       bool     `yaml:"no_mulmatq"`
 	DraftModel      string   `yaml:"draft_model"`
 	NDraft          int32    `yaml:"n_draft"`
+	Quantization    string   `yaml:"quantization"`
 }
 
 type AutoGPTQ struct {

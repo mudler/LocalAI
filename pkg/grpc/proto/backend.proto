@@ -120,6 +120,9 @@ message ModelOptions {
   string DraftModel = 39;
   
   string AudioPath = 38;
+
+  // vllm
+  string Quantization = 40;
 }
 
 message Result {
