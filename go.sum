@@ -188,6 +188,8 @@ github.com/tklauser/numcpus v0.6.1 h1:ng9scYS7az0Bk4OZLvrNXNSAO2Pxr1XXRAPyjhIx+F
 github.com/tklauser/numcpus v0.6.1/go.mod h1:1XfjsgE2zo8GVw7POkMbHENHzVg3GzmoZ9fESEdAacY=
 github.com/tmc/langchaingo v0.0.0-20230910230029-9c8845b2b019 h1:hKNvPanCqhpVszNBKYBzwknU2iJhhE29P04wpdpu/uY=
 github.com/tmc/langchaingo v0.0.0-20230910230029-9c8845b2b019/go.mod h1:vCdA1t5qnS5YPkDsznowOziBHFn0Ul11ZqfJ2GOAi0s=
+github.com/tmc/langchaingo v0.0.0-20230923172951-2c309cf27956 h1:N6H+Jd6Hf9vL57N25s0nHYYouDj4wUpLDd6rMNDfU+Y=
+github.com/tmc/langchaingo v0.0.0-20230923172951-2c309cf27956/go.mod h1:vCdA1t5qnS5YPkDsznowOziBHFn0Ul11ZqfJ2GOAi0s=
 github.com/ulikunitz/xz v0.5.8/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
 github.com/ulikunitz/xz v0.5.9 h1:RsKRIA2MO8x56wkkcd3LbtcE/uMszhb6DpRf+3uwa3I=
 github.com/ulikunitz/xz v0.5.9/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
