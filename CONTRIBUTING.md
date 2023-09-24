@@ -1,6 +1,6 @@
 # Contributing to localAI
 
-Thank you for your interest in contributing to localAI! We appreciate your time and effort in helping to improve our project. Before you get started, please take a moment to review these guidelines.
+Thank you for your interest in contributing to LocalAI! We appreciate your time and effort in helping to improve our project. Before you get started, please take a moment to review these guidelines.
 
 ## Table of Contents
 
