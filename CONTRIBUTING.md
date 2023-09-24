@@ -30,7 +30,7 @@ Thank you for your interest in contributing to LocalAI! We appreciate your time 
 1. Clone the repository: `git clone https://github.com/go-skynet/LocalAI.git`
 2. Navigate to the project directory: `cd LocalAI`
 3. Install the required dependencies: `make prepare`
-4. Run localAI: `make run`
+4. Run LocalAI: `make run`
 
 ## Contributing
 
