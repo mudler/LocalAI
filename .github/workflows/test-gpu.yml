@@ -78,6 +78,9 @@ jobs:
           sudo rm -rf build || true
           sudo rm -rf bin || true
           sudo rm -rf dist || true
+          sudo docker logs $(sudo docker ps -q --filter ancestor=localai-tests) > logs.txt
+          sudo cat logs.txt || true
+          sudo rm -rf logs.txt
           make clean || true
           make teardown-e2e || true
           docker system prune -f -a --volumes || true

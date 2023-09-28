@@ -34,7 +34,7 @@ var _ = Describe("E2E test", func() {
 		// Check that the GPU was used
 		AfterEach(func() {
 			// Execute docker logs $$(docker ps -q --filter ancestor=localai-tests) as a command and check the output
-			cmd := exec.Command("/bin/bash", "-xce", "docker logs $$(docker ps -q --filter ancestor=localai-tests)")
+			cmd := exec.Command("/bin/bash", "-xce", "docker logs $(docker ps -q --filter ancestor=localai-tests)")
 			out, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(out)).To(ContainSubstring("found 1 CUDA devices"))
@@ -45,7 +45,7 @@ var _ = Describe("E2E test", func() {
 			It("streams chat tokens", func() {
 				models, err := client.ListModels(context.TODO())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(models.Models).ToNot(BeEmpty())
+				Expect(models.Models).ToNot(BeEmpty(), models.Models)
 
 				model := models.Models[0].ID
 				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{
