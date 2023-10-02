@@ -10,12 +10,16 @@ git clone https://github.com/go-skynet/LocalAI
 
 cd LocalAI/examples/autoGPT
 
+cp -rfv .env.example .env
+
+# Edit the .env file to set a different model by editing `PRELOAD_MODELS`.
+vim .env
+
 docker-compose run --rm auto-gpt
 ```
 
 Note: The example automatically downloads the `gpt4all` model as it is under a permissive license. The GPT4All model does not seem to be enough to run AutoGPT. WizardLM-7b-uncensored seems to perform better (with `f16: true`).
 
-See the `.env` configuration file to set a different model with the [model-gallery](https://github.com/go-skynet/model-gallery) by editing `PRELOAD_MODELS`.
 
 ## Without docker
 
