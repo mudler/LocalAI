@@ -2,14 +2,13 @@ version: '3.6'
 
 services:
   api:
-    image: quay.io/go-skynet/local-ai:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: quay.io/go-skynet/local-ai:master
+    tty: true
+    restart: always
     ports:
       - 8080:8080
     env_file:
       - .env
     volumes:
-      - ./models:/models:cached
+      - ./models:/models
     command: ["/usr/bin/local-ai" ]
