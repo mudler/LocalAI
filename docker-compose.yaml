@@ -13,5 +13,4 @@ services:
     volumes:
       - ./models:/models:cached
     command: ["/usr/bin/local-ai" ]
-    environment:
-      - DEBUG
+    environment: []  # Use .env file
