@@ -12,4 +12,5 @@ services:
       - .env
     volumes:
       - ./models:/models:cached
+      - ./images/:/tmp/generated/images/
     command: ["/usr/bin/local-ai" ]
