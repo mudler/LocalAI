@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-import grpc
 from concurrent import futures
-import time
-import backend_pb2
-import backend_pb2_grpc
 import argparse
 import signal
 import sys
 import os
-from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
-from pathlib import Path
+import time
+
+import grpc
+import backend_pb2
+import backend_pb2_grpc
+from auto_gptq import AutoGPTQForCausalLM
 from transformers import AutoTokenizer
 from transformers import TextGenerationPipeline
 
