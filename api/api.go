@@ -3,7 +3,7 @@ package api
 import (
 	"errors"
 
-	_ "github.com/go-skynet/LocalAI/docs/swagger"
+	_ "github.com/go-skynet/LocalAI/docs"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
