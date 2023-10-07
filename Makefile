@@ -409,6 +409,10 @@ protogen-python:
 
 ## GRPC
 
+prepare-extra-conda-environments:
+	$(MAKE) -C extra/grpc/autogptq
+	$(MAKE) -C extra/grpc/bark
+
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
 
