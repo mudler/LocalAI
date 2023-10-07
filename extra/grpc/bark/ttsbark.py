@@ -1,17 +1,22 @@
+"""
+This is the extra gRPC server of LocalAI
+"""
+
 #!/usr/bin/env python3
-import grpc
 from concurrent import futures
 import time
-import backend_pb2
-import backend_pb2_grpc
 import argparse
 import signal
 import sys
 import os
-from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
-from pathlib import Path
-from bark import SAMPLE_RATE, generate_audio, preload_models
 from scipy.io.wavfile import write as write_wav
+
+import backend_pb2
+import backend_pb2_grpc
+from bark import SAMPLE_RATE, generate_audio, preload_models
+
+import grpc
+
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -20,6 +25,9 @@ MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
+    """
+    BackendServicer is the class that implements the gRPC service
+    """
     def Health(self, request, context):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
     def LoadModel(self, request, context):
