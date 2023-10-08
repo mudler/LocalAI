@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-import grpc
 from concurrent import futures
 import time
-import backend_pb2
-import backend_pb2_grpc
 import argparse
 import signal
 import sys
-import os, glob
+import os
 
-from pathlib import Path
+import backend_pb2
+import backend_pb2_grpc
+
+import grpc
 from vllm import LLM, SamplingParams
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -19,7 +19,20 @@ MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
+    """
+    A gRPC servicer that implements the Backend service defined in backend.proto.
+    """
     def generate(self,prompt, max_new_tokens):
+        """
+        Generates text based on the given prompt and maximum number of new tokens.
+
+        Args:
+            prompt (str): The prompt to generate text from.
+            max_new_tokens (int): The maximum number of new tokens to generate.
+
+        Returns:
+            str: The generated text.
+        """
         self.generator.end_beam_search()
 
         # Tokenizing the input
@@ -41,9 +54,31 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if token.item() == self.generator.tokenizer.eos_token_id:
                 break
         return decoded_text
+
     def Health(self, request, context):
+        """
+        Returns a health check message.
+
+        Args:
+            request: The health check request.
+            context: The gRPC context.
+
+        Returns:
+            backend_pb2.Reply: The health check reply.
+        """
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
+
     def LoadModel(self, request, context):
+        """
+        Loads a language model.
+
+        Args:
+            request: The load model request.
+            context: The gRPC context.
+
+        Returns:
+            backend_pb2.Result: The load model result.
+        """
         try:
             if request.Quantization != "":
                 self.llm = LLM(model=request.Model, quantization=request.Quantization)
@@ -54,6 +89,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     def Predict(self, request, context):
+        """
+        Generates text based on the given prompt and sampling parameters.
+
+        Args:
+            request: The predict request.
+            context: The gRPC context.
+
+        Returns:
+            backend_pb2.Result: The predict result.
+        """
         if request.TopP == 0:
             request.TopP = 0.9
 
@@ -68,6 +113,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message=bytes(generated_text, encoding='utf-8'))
 
     def PredictStream(self, request, context):
+        """
+        Generates text based on the given prompt and sampling parameters, and streams the results.
+
+        Args:
+            request: The predict stream request.
+            context: The gRPC context.
+
+        Returns:
+            backend_pb2.Result: The predict stream result.
+        """
         # Implement PredictStream RPC
         #for reply in some_data_generator():
         #    yield reply
