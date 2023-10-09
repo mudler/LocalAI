@@ -384,6 +384,7 @@ prepare-extra-conda-environments:
 	$(MAKE) -C extra/grpc/bark
 	$(MAKE) -C extra/grpc/diffusers
 	$(MAKE) -C extra/grpc/vllm
+	$(MAKE) -C extra/grpc/huggingface
 
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
