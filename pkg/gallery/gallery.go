@@ -137,13 +137,36 @@ func AvailableGalleryModels(galleries []Gallery, basePath string) ([]*GalleryMod
 	return models, nil
 }
 
+func findGalleryURLFromReferenceURL(url string) (string, error) {
+	var refFile string
+	err := utils.GetURI(url, func(url string, d []byte) error {
+		refFile = string(d)
+		if len(refFile) == 0 {
+			return fmt.Errorf("invalid reference file at url %s: %s", url, d)
+		}
+		cutPoint := strings.LastIndex(url, "/")
+		refFile = url[:cutPoint+1] + refFile
+		return nil
+	})
+	return refFile, err
+}
+
 func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error) {
 	var models []*GalleryModel = []*GalleryModel{}
+
+	if strings.HasSuffix(gallery.URL, ".ref") {
+		var err error
+		gallery.URL, err = findGalleryURLFromReferenceURL(gallery.URL)
+		if err != nil {
+			return models, err
+		}
+	}
 
 	err := utils.GetURI(gallery.URL, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {
+
 		return models, err
 	}
 
