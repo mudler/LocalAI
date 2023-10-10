@@ -1,0 +1,24 @@
+meta {
+  name: -completions
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/completions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "model": "{{DEFAULT_MODEL}}",
+      "prompt": "function downloadFile(string url, string outputPath) {",
+      "max_tokens": 256,
+      "temperature": 0.5
+  }
+}
