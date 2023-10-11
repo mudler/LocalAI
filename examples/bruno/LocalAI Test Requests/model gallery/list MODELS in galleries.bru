@@ -1,0 +1,11 @@
+meta {
+  name: list MODELS in galleries
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/models/available
+  body: none
+  auth: none
+}

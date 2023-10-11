@@ -1,0 +1,11 @@
+meta {
+  name: backend monitor
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/backend/monitor
+  body: none
+  auth: none
+}

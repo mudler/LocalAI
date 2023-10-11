@@ -1,0 +1,22 @@
+meta {
+  name: model gallery apply
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/models/apply
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "id": "dave@TheBloke__CodeLlama-7B-Instruct-GGML__codellama-7b-instruct.ggmlv3.Q3_K_S.bin",
+      "name": "codellama7b"
+  }
+}

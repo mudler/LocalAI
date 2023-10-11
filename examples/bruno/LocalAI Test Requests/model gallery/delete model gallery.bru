@@ -1,0 +1,21 @@
+meta {
+  name: delete model gallery
+  type: http
+  seq: 11
+}
+
+delete {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/models/galleries
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "name": "test"
+  }
+}
