@@ -228,7 +228,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						Action: func(ctx *cli.Context) error {
 							var galleries []gallery.Gallery
 							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
-								log.Error().Msgf("failed loading galleries: %s", err.Error())
+								log.Error().Msgf("unable to load galleries: %s", err.Error())
 							}
 
 							models, err := gallery.AvailableGalleryModels(galleries, ctx.String("models-path"))
@@ -253,7 +253,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 							var galleries []gallery.Gallery
 							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
-								log.Error().Msgf("failed loading galleries: %s", err.Error())
+								log.Error().Msgf("unable to load galleries: %s", err.Error())
 							}
 
 							progressBar := progressbar.NewOptions(
