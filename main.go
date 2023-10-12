@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -10,9 +12,11 @@ import (
 	api "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/internal"
+	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	progressbar "github.com/schollz/progressbar/v3"
 	"github.com/urfave/cli/v2"
 )
 
@@ -164,7 +168,6 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 		UsageText: `local-ai [options]`,
 		Copyright: "Ettore Di Giacinto",
 		Action: func(ctx *cli.Context) error {
-
 			opts := []options.AppOption{
 				options.WithConfigFile(ctx.String("config-file")),
 				options.WithJSONStringPreload(ctx.String("preload-models")),
@@ -213,6 +216,64 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			}
 
 			return app.Listen(ctx.String("address"))
+		},
+		Commands: []*cli.Command{
+			{
+				Name:  "models",
+				Usage: "List or install models",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "list",
+						Usage: "List the models avaiable in your galleries",
+						Action: func(ctx *cli.Context) error {
+							var galleries []gallery.Gallery
+							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
+								log.Error().Msgf("unable to load galleries: %s", err.Error())
+							}
+
+							models, err := gallery.AvailableGalleryModels(galleries, ctx.String("models-path"))
+							if err != nil {
+								return err
+							}
+							for _, model := range models {
+								if model.Installed {
+									fmt.Printf(" * %s@%s (installed)\n", model.Gallery.Name, model.Name)
+								} else {
+									fmt.Printf(" - %s@%s\n", model.Gallery.Name, model.Name)
+								}
+							}
+							return nil
+						},
+					},
+					{
+						Name:  "install",
+						Usage: "Install a model from the gallery",
+						Action: func(ctx *cli.Context) error {
+							modelName := ctx.Args().First()
+
+							var galleries []gallery.Gallery
+							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
+								log.Error().Msgf("unable to load galleries: %s", err.Error())
+							}
+
+							progressBar := progressbar.NewOptions(
+								1000,
+								progressbar.OptionSetDescription(fmt.Sprintf("downloading model %s", modelName)),
+								progressbar.OptionShowBytes(false),
+								progressbar.OptionClearOnFinish(),
+							)
+							progressCallback := func(fileName string, current string, total string, percentage float64) {
+								progressBar.Set(int(percentage * 10))
+							}
+							err = gallery.InstallModelFromGallery(galleries, modelName, ctx.String("models-path"), gallery.GalleryModel{}, progressCallback)
+							if err != nil {
+								return err
+							}
+							return nil
+						},
+					},
+				},
+			},
 		},
 	}
 
