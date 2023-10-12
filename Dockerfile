@@ -14,7 +14,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/run.sh,autogptq:/build/extra/grpc/autogptq/run.sh,bark:/build/extra/grpc/bark/run.sh,diffusers:/build/extra/grpc/diffusers/run.sh,exllama:/build/extra/grpc/exllama/exllama.py,vall-e-x:/build/extra/grpc/vall-e-x/ttsvalle.py,vllm:/build/extra/grpc/vllm/run.sh"
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/run.sh,autogptq:/build/extra/grpc/autogptq/run.sh,bark:/build/extra/grpc/bark/run.sh,diffusers:/build/extra/grpc/diffusers/run.sh,exllama:/build/extra/grpc/exllama/exllama.py,vall-e-x:/build/extra/grpc/vall-e-x/run.sh,vllm:/build/extra/grpc/vllm/run.sh"
 ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
 ARG GO_TAGS="stablediffusion tts"
 

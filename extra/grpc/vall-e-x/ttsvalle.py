@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-import grpc
+
 from concurrent import futures
-import time
-import backend_pb2
-import backend_pb2_grpc
 import argparse
 import signal
 import sys
 import os
-from pathlib import Path
+import time
+import backend_pb2
+import backend_pb2_grpc
+
+import grpc
 
 from utils.generation import SAMPLE_RATE, generate_audio, preload_models
 from scipy.io.wavfile import write as write_wav
@@ -21,9 +22,34 @@ MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
+    """
+    gRPC servicer for backend services.
+    """
     def Health(self, request, context):
+        """
+        Health check service.
+
+        Args:
+            request: A backend_pb2.HealthRequest instance.
+            context: A grpc.ServicerContext instance.
+
+        Returns:
+            A backend_pb2.Reply instance with message "OK".
+        """
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
+
     def LoadModel(self, request, context):
+        """
+        Load model service.
+
+        Args:
+            request: A backend_pb2.LoadModelRequest instance.
+            context: A grpc.ServicerContext instance.
+
+        Returns:
+            A backend_pb2.Result instance with message "Model loaded successfully" and success=True if successful.
+            A backend_pb2.Result instance with success=False and error message if unsuccessful.
+        """
         model_name = request.Model
         try:
             print("Preparing models, please wait", file=sys.stderr)
@@ -49,6 +75,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     def TTS(self, request, context):
+        """
+        Text-to-speech service.
+
+        Args:
+            request: A backend_pb2.TTSRequest instance.
+            context: A grpc.ServicerContext instance.
+
+        Returns:
+            A backend_pb2.Result instance with success=True if successful.
+            A backend_pb2.Result instance with success=False and error message if unsuccessful.
+        """
         model = request.model
         print(request, file=sys.stderr)
         try:
