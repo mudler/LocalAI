@@ -3,10 +3,12 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/schema"
+	"github.com/google/uuid"
 
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/gofiber/fiber/v2"
@@ -57,10 +59,14 @@ func EmbeddingsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
 		}
 
+		id := uuid.New().String()
+		created := int(time.Now().Unix())
 		resp := &schema.OpenAIResponse{
-			Model:  input.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Data:   items,
-			Object: "list",
+			ID:      id,
+			Created: created,
+			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Data:    items,
+			Object:  "list",
 		}
 
 		jsonResult, _ := json.Marshal(resp)

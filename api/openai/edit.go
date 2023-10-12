@@ -3,6 +3,7 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-skynet/LocalAI/api/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	"github.com/rs/zerolog/log"
 )
@@ -62,7 +64,11 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			result = append(result, r...)
 		}
 
+		id := uuid.New().String()
+		created := int(time.Now().Unix())
 		resp := &schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "edit",

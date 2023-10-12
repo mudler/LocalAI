@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -13,16 +14,22 @@ import (
 	"github.com/go-skynet/LocalAI/api/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
 
 // https://platform.openai.com/docs/api-reference/completions
 func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+
 	process := func(s string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		ComputeChoices(req, s, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			resp := schema.OpenAIResponse{
-				Model: req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{
 					{
 						Index: 0,
@@ -108,7 +115,9 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 				}
 
 				resp := &schema.OpenAIResponse{
-					Model: input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					ID:      id,
+					Created: created,
+					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: []schema.Choice{
 						{
 							Index:        0,
@@ -156,6 +165,8 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		}
 
 		resp := &schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "text_completion",
