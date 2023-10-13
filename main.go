@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -10,6 +12,7 @@ import (
 	"syscall"
 
 	api "github.com/go-skynet/LocalAI/api"
+	"github.com/go-skynet/LocalAI/api/backend"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
@@ -272,6 +275,68 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 							return nil
 						},
 					},
+				},
+			},
+			{
+				Name:  "tts",
+				Usage: "Convert text to speach",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "backend",
+						Value:   "piper",
+						Aliases: []string{"b"},
+						Usage:   "Backend to run the TTS model",
+					},
+					&cli.StringFlag{
+						Name:     "model",
+						Aliases:  []string{"m"},
+						Usage:    "Model name to run the TTS",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:    "output-file",
+						Aliases: []string{"o"},
+						Usage:   "The path to write the output wav file",
+					},
+				},
+				Action: func(ctx *cli.Context) error {
+					modelOption := ctx.String("model")
+					if modelOption == "" {
+						return errors.New("--model parameter is required")
+					}
+					backendOption := ctx.String("backend")
+					if backendOption == "" {
+						backendOption = "piper"
+					}
+					outputFile := ctx.String("output-file")
+					outputDir := ctx.String("backend-assets-path")
+					if outputFile != "" {
+						outputDir = filepath.Dir(outputFile)
+					}
+
+					text := strings.Join(ctx.Args().Slice(), " ")
+
+					opts := &options.Option{
+						Loader:            model.NewModelLoader(ctx.String("models-path")),
+						Context:           context.Background(),
+						AudioDir:          outputDir,
+						AssetsDestination: ctx.String("backend-assets-path"),
+					}
+
+					loader := model.NewModelLoader(ctx.String("models-path"))
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, loader, opts)
+					if err != nil {
+						return err
+					}
+					if outputFile != "" {
+						if err := os.Rename(filePath, outputFile); err != nil {
+							return err
+						}
+						fmt.Printf("Generate file %s\n", outputFile)
+					} else {
+						fmt.Printf("Generate file %s\n", filePath)
+					}
+					return nil
 				},
 			},
 		},
