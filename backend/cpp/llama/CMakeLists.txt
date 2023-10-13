@@ -5,11 +5,16 @@ set(_PROTOBUF_LIBPROTOBUF libprotobuf)
 set(_REFLECTION grpc++_reflection)
 
 find_package(absl REQUIRED)
-find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_program(_PROTOBUF_PROTOC protoc)
 set(_GRPC_GRPCPP grpc++)
 find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
+
+# find_package(Protobuf CONFIG REQUIRED) is not working, see:
+# https://gitlab.kitware.com/cmake/cmake/-/issues/24321
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG 1)
+find_package(Protobuf)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${Protobuf_INCLUDE_DIRS})
 
