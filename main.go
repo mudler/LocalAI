@@ -323,8 +323,9 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						AssetsDestination: ctx.String("backend-assets-path"),
 					}
 
-					loader := model.NewModelLoader(ctx.String("models-path"))
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, loader, opts)
+					defer opts.Loader.StopAllGRPC()
+
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, opts.Loader, opts)
 					if err != nil {
 						return err
 					}
