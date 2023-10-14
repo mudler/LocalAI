@@ -68,10 +68,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
           
-          sudo apt-get install -y ca-certificates cmake curl patch libabsl-dev libprotobuf-dev protobuf-compiler
+          sudo apt-get install -y ca-certificates cmake curl patch
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
           sudo pip install -r extra/requirements.txt
-
+          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+          cd grpc && mkdir -p cmake/build && cd cmake/build && \
+          cmake -DgRPC_INSTALL=ON \
+          -DgRPC_BUILD_TESTS=OFF \
+          -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
+          ../.. && \
+          make install
+          
           sudo mkdir /build && sudo chmod -R 777 /build && cd /build && \
           curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz" | \
           tar -xzvf - && \

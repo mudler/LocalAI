@@ -16,8 +16,16 @@ ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/i
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates cmake curl patch pip libabsl-dev protobuf-compiler-grpc grpc-proto libprotobuf-dev protobuf-compiler
-
+    apt-get install -y ca-certificates cmake curl patch pip
+    
+# gRPC requirements
+RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+          cd grpc && mkdir -p cmake/build && cd cmake/build && \
+          cmake -DgRPC_INSTALL=ON \
+          -DgRPC_BUILD_TESTS=OFF \
+          -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
+          ../.. && \
+          make install
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"

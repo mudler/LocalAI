@@ -4,24 +4,9 @@ set(TARGET grpc-server)
 set(_PROTOBUF_LIBPROTOBUF libprotobuf)
 set(_REFLECTION grpc++_reflection)
 
-option(USE_SYSTEM_GRPC "Use system installed gRPC" OFF)
-
-if(USE_SYSTEM_GRPC)
-  # Find system-installed gRPC
-  find_package(gRPC CONFIG REQUIRED)
-else()
-  include(FetchContent)
-  FetchContent_Declare(
-    gRPC
-    GIT_REPOSITORY https://github.com/grpc/grpc
-    GIT_TAG        v1.58.0
-  )
-  set(FETCHCONTENT_QUIET OFF)
-  FetchContent_MakeAvailable(gRPC)
-endif()
-
-find_package(Protobuf CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
 
 find_program(_PROTOBUF_PROTOC protoc)
 set(_GRPC_GRPCPP grpc++)

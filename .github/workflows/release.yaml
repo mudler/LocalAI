@@ -28,7 +28,15 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg libabsl-dev protobuf-compiler-grpc grpc-proto libprotobuf-dev protobuf-compiler
+          sudo apt-get install build-essential ffmpeg
+          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+          cd grpc && mkdir -p cmake/build && cd cmake/build && \
+          cmake -DgRPC_INSTALL=ON \
+          -DgRPC_BUILD_TESTS=OFF \
+          -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
+          ../.. && \
+          make install
+
       - name: Build
         id: build
         env:
