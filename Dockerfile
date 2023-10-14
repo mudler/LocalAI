@@ -24,7 +24,7 @@ RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules htt
     cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
       -DgRPC_BUILD_TESTS=OFF \
        ../.. && make -j12 install
-
+RUN rm -rf grpc
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"

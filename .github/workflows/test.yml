@@ -115,10 +115,7 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-            git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-            cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-            -DgRPC_BUILD_TESTS=OFF \
-            ../.. && sudo make -j12 install
+          brew install grpc abseil protobuf
       - name: Test
         run: |
           CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
