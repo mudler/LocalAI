@@ -19,14 +19,17 @@ RUN apt-get update && \
     apt-get install -y ca-certificates cmake curl patch pip
 
 
-RUN apt-get install --no-install-recommends -y build-essential git autoconf libtool wget unzip zlib1g-dev pkg-config cmake
-RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protoc-3.19.1-linux-x86_64.zip  -O protobuf.zip \
-    && unzip protobuf.zip && rm protobuf.zip && \
-    cp bin/protoc /usr/local/bin/ && \
-    cp -r include/* /usr/local/include/ && \
-    git clone --depth 1 https://github.com/grpc/grpc.git && \
-    cd grpc && git submodule update --depth 1 --init && \
-    mkdir -p cmake/build && cd cmake/build && cmake ../.. && make -j12 install
+RUN apt-get install --no-install-recommends -y build-essential git autoconf libtool wget unzip zlib1g-dev pkg-config 
+
+RUN  wget -q -O cmake-linux.sh https://github.com/Kitware/CMake/releases/download/v3.19.6/cmake-3.19.6-Linux-x86_64.sh && \
+     chmod +x cmake-linux.sh && \
+     ./cmake-linux.sh --skip-license --prefix=/usr/ && \
+     rm cmake-linux.sh
+
+RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+      -DgRPC_BUILD_TESTS=OFF \
+       ../.. && make -j12 install
 
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
