@@ -72,6 +72,12 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: '>=1.21.0'
+      - name: Dependencies
+        run: |
+          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+                -DgRPC_BUILD_TESTS=OFF \
+                ../.. && sudo make -j12 install
       - name: Build
         id: build
         env:
