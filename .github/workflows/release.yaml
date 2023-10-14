@@ -74,14 +74,14 @@ jobs:
           go-version: '>=1.21.0'
       - name: Dependencies
         run: |
-          brew install grpc abseil protobuf
+          brew install grpc abseil protobuf autoconf automake libtool pkg-config
       - name: Build
         id: build
         env:
           CMAKE_ARGS: "${{ matrix.defines }}"
           BUILD_ID: "${{ matrix.build }}"
         run: |
-          make dist
+         CMAKE_PREFIX_PATH=/usr/local/Cellar/protobuf/24.3 make dist
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.build }}

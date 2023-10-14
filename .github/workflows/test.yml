@@ -118,4 +118,4 @@ jobs:
           brew install grpc abseil protobuf
       - name: Test
         run: |
-          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
+          CMAKE_PREFIX_PATH=/usr/local/Cellar/protobuf/24.3 CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
