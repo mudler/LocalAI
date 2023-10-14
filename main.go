@@ -279,7 +279,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			},
 			{
 				Name:  "tts",
-				Usage: "Convert text to speach",
+				Usage: "Convert text to speech",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "backend",
