@@ -17,63 +17,16 @@ ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
     apt-get install -y ca-certificates cmake curl patch pip
-    
 
-# #### Abseil
 
-# ```bash
-WORKDIR /var/tmp/build/abseil-cpp
-RUN curl -fsSL https://github.com/abseil/abseil-cpp/archive/20230802.1.tar.gz | \
-    tar -xzf - --strip-components=1 && \
-    sed -i 's/^#define ABSL_OPTION_USE_\(.*\) 2/#define ABSL_OPTION_USE_\1 0/' "absl/base/options.h" && \
-    cmake \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DABSL_BUILD_TESTING=OFF \
-      -DBUILD_SHARED_LIBS=yes \
-      -S . -B cmake-out && \
-    cmake --build cmake-out -- -j ${NCPU:-4} && \
-    cmake --build cmake-out --target install -- -j ${NCPU:-4} && \
-    ldconfig
-# ```
-
-# #### Protobuf
-# ```bash
-WORKDIR /var/tmp/build/protobuf
-RUN curl -fsSL https://github.com/protocolbuffers/protobuf/archive/v24.4.tar.gz | \
-    tar -xzf - --strip-components=1 && \
-    cmake \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=yes \
-        -Dprotobuf_BUILD_TESTS=OFF \
-        -Dprotobuf_ABSL_PROVIDER=package \
-        -S . -B cmake-out && \
-    cmake --build cmake-out --target install -- -j ${NCPU:-4} && \
-    ldconfig
-# ```
-
-# #### gRPC
-
-# Finally, we build gRPC from source:
-
-# ```bash
-WORKDIR /var/tmp/build/grpc
-RUN curl -fsSL https://github.com/grpc/grpc/archive/v1.59.1.tar.gz | \
-    tar -xzf - --strip-components=1 && \
-    cmake \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=yes \
-        -DgRPC_INSTALL=ON \
-        -DgRPC_BUILD_TESTS=OFF \
-        -DgRPC_ABSL_PROVIDER=package \
-        -DgRPC_CARES_PROVIDER=package \
-        -DgRPC_PROTOBUF_PROVIDER=package \
-        -DgRPC_RE2_PROVIDER=package \
-        -DgRPC_SSL_PROVIDER=package \
-        -DgRPC_ZLIB_PROVIDER=package \
-        -S . -B cmake-out && \
-    cmake --build cmake-out --target install -- -j ${NCPU:-4} && \
-    ldconfig
-# ```
+RUN apt-get install --no-install-recommends -y build-essential git autoconf libtool wget unzip zlib1g-dev pkg-config cmake
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protoc-3.19.1-linux-x86_64.zip  -O protobuf.zip \
+    && unzip protobuf.zip && rm protobuf.zip && \
+    cp bin/protoc /usr/local/bin/ && \
+    cp -r include/* /usr/local/include/ && \
+    git clone --depth 1 https://github.com/grpc/grpc.git && \
+    cd grpc && git submodule update --depth 1 --init && \
+    mkdir -p cmake/build && cd cmake/build && cmake ../.. && make -j12 install
 
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
