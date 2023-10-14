@@ -16,8 +16,7 @@ ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/i
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates cmake curl patch pip
-
+    apt-get install -y ca-certificates curl patch pip
 
 RUN apt-get install --no-install-recommends -y build-essential git autoconf libtool wget unzip zlib1g-dev pkg-config 
 
