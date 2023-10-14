@@ -16,7 +16,7 @@ ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/i
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates cmake curl patch pip libabsl-dev libprotobuf-dev protobuf-compiler
+    apt-get install -y ca-certificates cmake curl patch pip libabsl-dev protobuf-compiler-grpc grpc-proto libprotobuf-dev protobuf-compiler
 
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"

@@ -28,7 +28,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg libabsl-dev  libprotobuf-dev protobuf-compiler
+          sudo apt-get install build-essential ffmpeg libabsl-dev protobuf-compiler-grpc grpc-proto libprotobuf-dev protobuf-compiler
       - name: Build
         id: build
         env:

@@ -4,14 +4,12 @@ set(TARGET grpc-server)
 set(_PROTOBUF_LIBPROTOBUF libprotobuf)
 set(_REFLECTION grpc++_reflection)
 
-
-
 # find_package(Protobuf CONFIG REQUIRED) is not working, see:
 # https://gitlab.kitware.com/cmake/cmake/-/issues/24321
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG 1)
-find_package(Protobuf)
-find_package(absl)
-find_package(gRPC)
+find_package(Protobuf CONFIG REQUIRED)
+find_package(absl CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
 
 find_program(_PROTOBUF_PROTOC protoc)
 set(_GRPC_GRPCPP grpc++)
