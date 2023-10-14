@@ -29,14 +29,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build && cd cmake/build && \
-          cmake -DgRPC_INSTALL=ON \
-          -DgRPC_BUILD_TESTS=OFF \
-          -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
-          ../.. && \
-          make install
-
+      - uses: eWaterCycle/setup-grpc@v5
+        with:
+          grpc-version: 1.58.0
       - name: Build
         id: build
         env:
