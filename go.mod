@@ -25,12 +25,16 @@ require (
 	github.com/onsi/gomega v1.28.0
 	github.com/otiai10/openaigo v1.6.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
+	github.com/prometheus/client_golang v1.17.0
 	github.com/rs/zerolog v1.31.0
 	github.com/sashabaranov/go-openai v1.16.0
 	github.com/schollz/progressbar/v3 v3.13.1
 	github.com/tmc/langchaingo v0.0.0-20230929160525-e16b77704b8d
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/valyala/fasthttp v1.50.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.42.0
+	go.opentelemetry.io/otel/metric v1.19.0
+	go.opentelemetry.io/otel/sdk/metric v1.19.0
 	google.golang.org/grpc v1.58.3
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -49,23 +53,31 @@ require (
 )
 
 require (
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dlclark/regexp2 v1.8.1 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
-	github.com/kr/text v0.2.0 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
-	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.2 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.2 // indirect
+	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
+	github.com/prometheus/common v0.44.0 // indirect
+	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/ulikunitz/xz v0.5.9 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
+	go.opentelemetry.io/otel v1.19.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.19.0 // indirect
+	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	golang.org/x/term v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 )

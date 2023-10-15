@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/rs/zerolog/log"
 )
 
@@ -24,6 +25,7 @@ type Option struct {
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
+	Metrics                             *metrics.Metrics
 
 	Galleries []gallery.Gallery
 
@@ -196,5 +198,11 @@ func WithImageDir(imageDir string) AppOption {
 func WithApiKeys(apiKeys []string) AppOption {
 	return func(o *Option) {
 		o.ApiKeys = apiKeys
+	}
+}
+
+func WithMetrics(meter *metrics.Metrics) AppOption {
+	return func(o *Option) {
+		o.Metrics = meter
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	progressbar "github.com/schollz/progressbar/v3"
@@ -213,6 +214,12 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				_, _, err := api.Startup(opts...)
 				return err
 			}
+
+			metrics, err := metrics.SetupMetrics()
+			if err != nil {
+				return err
+			}
+			opts = append(opts, options.WithMetrics(metrics))
 
 			app, err := api.App(opts...)
 			if err != nil {
