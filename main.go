@@ -13,6 +13,7 @@ import (
 
 	api "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/api/backend"
+	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
@@ -336,6 +337,74 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						fmt.Printf("Generate file %s\n", outputFile)
 					} else {
 						fmt.Printf("Generate file %s\n", filePath)
+					}
+					return nil
+				},
+			},
+			{
+				Name:  "transcript",
+				Usage: "Convert audio to text",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "backend",
+						Value:   "whisper",
+						Aliases: []string{"b"},
+						Usage:   "Backend to run the transcription model",
+					},
+					&cli.StringFlag{
+						Name:    "model",
+						Aliases: []string{"m"},
+						Usage:   "Model name to run the transcription",
+					},
+					&cli.StringFlag{
+						Name:    "language",
+						Aliases: []string{"l"},
+						Usage:   "Language of the audio file",
+					},
+					&cli.IntFlag{
+						Name:    "threads",
+						Aliases: []string{"t"},
+						Usage:   "Threads to use",
+						Value:   1,
+					},
+					&cli.StringFlag{
+						Name:    "output-file",
+						Aliases: []string{"o"},
+						Usage:   "The path to write the output wav file",
+					},
+				},
+				Action: func(ctx *cli.Context) error {
+					modelOption := ctx.String("model")
+					filename := ctx.Args().First()
+					language := ctx.String("language")
+					threads := ctx.Int("threads")
+
+					opts := &options.Option{
+						Loader:            model.NewModelLoader(ctx.String("models-path")),
+						Context:           context.Background(),
+						AssetsDestination: ctx.String("backend-assets-path"),
+					}
+
+					cl := config.NewConfigLoader()
+					if err := cl.LoadConfigs(ctx.String("models-path")); err != nil {
+						return err
+					}
+
+					c, exists := cl.GetConfig(modelOption)
+					if !exists {
+						return errors.New("model not found")
+					}
+
+					c.Threads = threads
+
+					defer opts.Loader.StopAllGRPC()
+
+					tr, err := backend.ModelTranscription(filename, language, opts.Loader, c, opts)
+					if err != nil {
+						return err
+					}
+					for _, segment := range tr.Segments {
+						fmt.Println(segment.Start.String(), "-", segment.Text)
 					}
 					return nil
 				},
