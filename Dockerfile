@@ -105,8 +105,8 @@ RUN make prepare
 COPY . .
 COPY .git .
 
-# piper does not tolerate a newer version of abseil, build only the piper backend
-RUN GRPC_BACKENDS=backend-assets/grpc/piper ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
+# stablediffusion does not tolerate a newer version of abseil, build it first
+RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
 RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
     cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
@@ -114,7 +114,7 @@ RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules htt
        ../.. && make -j12 install && rm -rf grpc
 
 # Rebuild with defaults backends
-RUN make build
+RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
 
 ###################################
 ###################################
