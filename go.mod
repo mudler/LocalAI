@@ -28,7 +28,7 @@ require (
 	github.com/rs/zerolog v1.31.0
 	github.com/sashabaranov/go-openai v1.16.0
 	github.com/schollz/progressbar/v3 v3.13.1
-	github.com/tmc/langchaingo v0.0.0-20230929160525-e16b77704b8d
+	github.com/tmc/langchaingo v0.0.0-20231016073620-a02d4fdc0f3a
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/valyala/fasthttp v1.50.0
 	google.golang.org/grpc v1.58.3
@@ -63,7 +63,7 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.2 // indirect
 	github.com/ulikunitz/xz v0.5.9 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	golang.org/x/term v0.11.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
@@ -90,8 +90,8 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/net v0.14.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
 )
