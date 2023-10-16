@@ -29,6 +29,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
+
+          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+                -DgRPC_BUILD_TESTS=OFF \
+                ../.. && sudo make -j12 install
+
       - name: Build
         id: build
         env:
@@ -66,12 +72,20 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: '>=1.21.0'
+      - name: Dependencies
+        run: |
+          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+                -DgRPC_BUILD_TESTS=OFF \
+                ../.. && make -j12 install && rm -rf grpc
       - name: Build
         id: build
         env:
           CMAKE_ARGS: "${{ matrix.defines }}"
           BUILD_ID: "${{ matrix.build }}"
         run: |
+          export C_INCLUDE_PATH=/usr/local/include
+          export CPLUS_INCLUDE_PATH=/usr/local/include
           make dist
       - uses: actions/upload-artifact@v3
         with:

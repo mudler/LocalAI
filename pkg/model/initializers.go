@@ -17,6 +17,7 @@ import (
 const (
 	LlamaBackend        = "llama"
 	LlamaStableBackend  = "llama-stable"
+	LLamaCPP            = "llama-cpp"
 	BloomzBackend       = "bloomz"
 	StarcoderBackend    = "starcoder"
 	GPTJBackend         = "gptj"
@@ -41,8 +42,9 @@ const (
 )
 
 var AutoLoadBackends []string = []string{
-	LlamaBackend,
+	LLamaCPP,
 	LlamaStableBackend,
+	LlamaBackend,
 	Gpt4All,
 	FalconBackend,
 	GPTNeoXBackend,
@@ -175,11 +177,6 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 	}
 
 	switch backend {
-	case LlamaBackend, LlamaStableBackend, GPTJBackend, DollyBackend,
-		MPTBackend, Gpt2Backend, FalconBackend,
-		GPTNeoXBackend, ReplitBackend, StarcoderBackend, BloomzBackend,
-		RwkvBackend, LCHuggingFaceBackend, BertEmbeddingsBackend, FalconGGMLBackend, StableDiffusionBackend, WhisperBackend:
-		return ml.LoadModel(o.model, ml.grpcModel(backend, o))
 	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
 		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "gpt4all")
 		return ml.LoadModel(o.model, ml.grpcModel(Gpt4All, o))
@@ -187,7 +184,7 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "espeak-ng-data")
 		return ml.LoadModel(o.model, ml.grpcModel(PiperBackend, o))
 	default:
-		return nil, fmt.Errorf("backend unsupported: %s", o.backendString)
+		return ml.LoadModel(o.model, ml.grpcModel(backend, o))
 	}
 }
 

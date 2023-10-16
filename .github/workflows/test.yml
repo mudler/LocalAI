@@ -67,10 +67,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          
+
           sudo apt-get install -y ca-certificates cmake curl patch
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
           sudo pip install -r extra/requirements.txt
+
+
+          # Pre-build stable diffusion before we install a newever version of abseil (not compatible with stablediffusion-ncn)
+          GO_TAGS="tts stablediffusion" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
           sudo mkdir /build && sudo chmod -R 777 /build && cd /build && \
           curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz" | \
@@ -87,6 +91,12 @@ jobs:
           sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
           sudo ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
           sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
+
+          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+                -DgRPC_BUILD_TESTS=OFF \
+                ../.. && sudo make -j12 install
+
       - name: Test
         run: |
           ESPEAK_DATA="/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data" GO_TAGS="tts stablediffusion" make test
@@ -108,6 +118,14 @@ jobs:
       # You can test your matrix by printing the current Go version
       - name: Display Go version
         run: go version
+      - name: Dependencies
+        run: |
+          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+                -DgRPC_BUILD_TESTS=OFF \
+                ../.. && make -j12 install && rm -rf grpc
       - name: Test
         run: |
+          export C_INCLUDE_PATH=/usr/local/include
+          export CPLUS_INCLUDE_PATH=/usr/local/include
           CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test

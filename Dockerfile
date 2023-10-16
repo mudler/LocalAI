@@ -16,7 +16,8 @@ ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/i
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates cmake curl patch pip
+    apt-get install -y ca-certificates curl patch pip cmake
+
 
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
@@ -104,6 +105,15 @@ RUN make prepare
 COPY . .
 COPY .git .
 
+# stablediffusion does not tolerate a newer version of abseil, build it first
+RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+
+RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+      -DgRPC_BUILD_TESTS=OFF \
+       ../.. && make -j12 install && rm -rf grpc
+
+# Rebuild with defaults backends
 RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
 
 ###################################
@@ -132,7 +142,12 @@ WORKDIR /build
 # https://github.com/go-skynet/LocalAI/pull/434
 COPY . .
 RUN make prepare-sources
+
+# Copy the binary
 COPY --from=builder /build/local-ai ./
+
+# do not let piper rebuild (requires an older version of absl)
+COPY --from=builder /build/backend-assets/grpc/piper ./backend-assets/grpc/piper
 
 # Copy VALLE-X as it's not a real "lib"
 RUN cp -rfv /usr/lib/vall-e-x/* ./
