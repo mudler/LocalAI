@@ -120,22 +120,12 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          export MY_INSTALL_DIR=$HOME/.local
-          mkdir -p $MY_INSTALL_DIR
-          export PATH="$MY_INSTALL_DIR/bin:$PATH"
-          brew install autoconf automake libtool pkg-config
-          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc
-          cd grpc
-          mkdir -p cmake/build
-          pushd cmake/build
-          cmake -DgRPC_INSTALL=ON \
+          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
                 -DgRPC_BUILD_TESTS=OFF \
-                -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
-                ../..
-          make -j 4
-          make install
-          popd
+                ../.. && make -j12 install && rm -rf grpc
       - name: Test
         run: |
-          export MY_INSTALL_DIR=$HOME/.local
-          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$MY_INSTALL_DIR -DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
+          export C_INCLUDE_PATH=/usr/local/include
+          export CPLUS_INCLUDE_PATH=/usr/local/include
+          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
