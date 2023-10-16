@@ -121,7 +121,9 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 	// Default middleware config
 	app.Use(recover.New())
-	app.Use(metrics.APIMiddleware(options.Metrics))
+	if options.Metrics != nil {
+		app.Use(metrics.APIMiddleware(options.Metrics))
+	}
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {

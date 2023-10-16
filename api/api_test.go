@@ -15,6 +15,7 @@ import (
 
 	. "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -162,8 +163,12 @@ var _ = Describe("API test", func() {
 				},
 			}
 
+			metricsService, err := metrics.SetupMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
 			app, err = App(
 				append(commonOpts,
+					options.WithMetrics(metricsService),
 					options.WithContext(c),
 					options.WithGalleries(galleries),
 					options.WithModelLoader(modelLoader), options.WithBackendAssets(backendAssets), options.WithBackendAssetsOutput(tmpdir))...)
@@ -479,9 +484,13 @@ var _ = Describe("API test", func() {
 				},
 			}
 
+			metricsService, err := metrics.SetupMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
 			app, err = App(
 				append(commonOpts,
 					options.WithContext(c),
+					options.WithMetrics(metricsService),
 					options.WithAudioDir(tmpdir),
 					options.WithImageDir(tmpdir),
 					options.WithGalleries(galleries),
@@ -583,12 +592,15 @@ var _ = Describe("API test", func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
 			c, cancel = context.WithCancel(context.Background())
 
-			var err error
+			metricsService, err := metrics.SetupMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
 			app, err = App(
 				append(commonOpts,
 					options.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
 					options.WithContext(c),
 					options.WithModelLoader(modelLoader),
+					options.WithMetrics(metricsService),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
@@ -792,10 +804,13 @@ var _ = Describe("API test", func() {
 			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
 			c, cancel = context.WithCancel(context.Background())
 
-			var err error
+			metricsService, err := metrics.SetupMetrics()
+			Expect(err).ToNot(HaveOccurred())
+
 			app, err = App(
 				append(commonOpts,
 					options.WithContext(c),
+					options.WithMetrics(metricsService),
 					options.WithModelLoader(modelLoader),
 					options.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
