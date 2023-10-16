@@ -19,7 +19,8 @@ jobs:
       matrix:
         include:
           - build-type: ''
-            platforms: 'linux/amd64,linux/arm64'
+            #platforms: 'linux/amd64,linux/arm64'
+            platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: ''
             ffmpeg: ''
@@ -38,7 +39,7 @@ jobs:
             tag-suffix: '-cublas-cuda12'
             ffmpeg: ''
           - build-type: ''
-            platforms: 'linux/amd64,linux/arm64'
+            platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-ffmpeg'
             ffmpeg: 'true'
