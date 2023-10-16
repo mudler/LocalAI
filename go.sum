@@ -130,6 +130,8 @@ github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20231012185707-10f9b4
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20231012185707-10f9b49313d0/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20231013181651-22de3c56bdd4 h1:82J4t94Mmt0lva/OoxNlHkKrMSdSUZXkAjTFnlFFsow=
 github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20231013181651-22de3c56bdd4/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
+github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20231016205817-9a19c740ee84 h1:AiFzd+M2Uxz67fdn4nCnKR70me5yf88rXhoqhvfRDak=
+github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20231016205817-9a19c740ee84/go.mod h1:4T3CHXyrt+7FQHXaxULZfPjHbD8/99WuDDJa0YVZARI=
 github.com/nwaples/rardecode v1.1.0 h1:vSxaY8vQhOcVr4mm5e8XllHWTiM4JF507A0Katqw7MQ=
 github.com/nwaples/rardecode v1.1.0/go.mod h1:5DzqNKiOdpKKBH87u8VlvAnPZMXcGRhxWkRpHbbfGS0=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
