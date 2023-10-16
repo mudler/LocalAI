@@ -11,8 +11,9 @@ type GalleryModel struct {
 	URLs        []string `json:"urls,omitempty" yaml:"urls,omitempty"`
 	Icon        string   `json:"icon,omitempty" yaml:"icon,omitempty"`
 	Tags        []string `json:"tags,omitempty" yaml:"tags,omitempty"`
-
-	// Overrides are used to override the configuration of the model
+	// config_file is read in the situation where URL is blank - and therefore this is a base config.
+	ConfigFile map[string]interface{} `json:"config_file,omitempty" yaml:"config_file,omitempty"`
+	// Overrides are used to override the configuration of the model located at URL
 	Overrides map[string]interface{} `json:"overrides,omitempty" yaml:"overrides,omitempty"`
 	// AdditionalFiles are used to add additional files to the model
 	AdditionalFiles []File `json:"files,omitempty" yaml:"files,omitempty"`
@@ -21,7 +22,3 @@ type GalleryModel struct {
 	// Installed is used to indicate if the model is installed or not
 	Installed bool `json:"installed,omitempty" yaml:"installed,omitempty"`
 }
-
-const (
-	githubURI = "github:"
-)

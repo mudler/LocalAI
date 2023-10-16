@@ -21,9 +21,31 @@ func InstallModelFromGallery(galleries []Gallery, name string, basePath string, 
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
-		config, err := GetGalleryConfigFromURL(model.URL)
-		if err != nil {
-			return err
+		var config Config
+
+		if len(model.URL) > 0 {
+			var err error
+			config, err = GetGalleryConfigFromURL(model.URL)
+			if err != nil {
+				return err
+			}
+		} else if len(model.ConfigFile) > 0 {
+			// TODO: is this worse than using the override method with a blank cfg yaml?
+			reYamlConfig, err := yaml.Marshal(model.ConfigFile)
+			if err != nil {
+				return err
+			}
+			config = Config{
+				ConfigFile:  string(reYamlConfig),
+				Description: model.Description,
+				License:     model.License,
+				URLs:        model.URLs,
+				Name:        model.Name,
+				Files:       make([]File, 0), // Real values get added below, must be blank
+				// Prompt Template Skipped for now - I expect in this mode that they will be delivered as files.
+			}
+		} else {
+			return fmt.Errorf("invalid gallery model %+v", model)
 		}
 
 		installName := model.Name
@@ -115,13 +137,36 @@ func AvailableGalleryModels(galleries []Gallery, basePath string) ([]*GalleryMod
 	return models, nil
 }
 
+func findGalleryURLFromReferenceURL(url string) (string, error) {
+	var refFile string
+	err := utils.GetURI(url, func(url string, d []byte) error {
+		refFile = string(d)
+		if len(refFile) == 0 {
+			return fmt.Errorf("invalid reference file at url %s: %s", url, d)
+		}
+		cutPoint := strings.LastIndex(url, "/")
+		refFile = url[:cutPoint+1] + refFile
+		return nil
+	})
+	return refFile, err
+}
+
 func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error) {
 	var models []*GalleryModel = []*GalleryModel{}
+
+	if strings.HasSuffix(gallery.URL, ".ref") {
+		var err error
+		gallery.URL, err = findGalleryURLFromReferenceURL(gallery.URL)
+		if err != nil {
+			return models, err
+		}
+	}
 
 	err := utils.GetURI(gallery.URL, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {
+
 		return models, err
 	}
 

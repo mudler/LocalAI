@@ -4,7 +4,7 @@ GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
 # llama.cpp versions
-GOLLAMA_VERSION?=371ecd13c7fe00d281cb19c6588574134d7091b1
+GOLLAMA_VERSION?=1676dcd7a139b6cdfbaea5fd67f46dc25d9d8bcf
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
@@ -38,6 +38,8 @@ STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
 GOGGLLM_VERSION?=862477d16eefb0805261c19c9b0d053e3b2b684b
 
 export BUILD_TYPE?=
+export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
+export CMAKE_ARGS?=
 CGO_LDFLAGS?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
@@ -64,9 +66,12 @@ ifndef UNAME_S
 UNAME_S := $(shell uname -s)
 endif
 
-# workaround for rwkv.cpp
 ifeq ($(UNAME_S),Darwin)
 	CGO_LDFLAGS += -lcblas -framework Accelerate
+ifneq ($(BUILD_TYPE),metal)
+    # explicit disable metal if on Darwin and metal is disabled
+	CMAKE_ARGS+=-DLLAMA_METAL=OFF
+endif
 endif
 
 ifeq ($(BUILD_TYPE),openblas)
@@ -76,6 +81,18 @@ endif
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 	export LLAMA_CUBLAS=1
+endif
+
+ifeq ($(BUILD_TYPE),hipblas)
+	ROCM_HOME ?= /opt/rocm
+	export CXX=$(ROCM_HOME)/llvm/bin/clang++
+	export CC=$(ROCM_HOME)/llvm/bin/clang
+	# Llama-stable has no hipblas support, so override it here.
+	export STABLE_BUILD_TYPE=
+	GPU_TARGETS ?= gfx900,gfx90a,gfx1030,gfx1031,gfx1100
+	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
+	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
+	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link
 endif
 
 ifeq ($(BUILD_TYPE),metal)
@@ -204,7 +221,7 @@ go-llama/libbinding.a: go-llama
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
 
 go-llama-stable/libbinding.a: go-llama-stable
-	$(MAKE) -C go-llama-stable BUILD_TYPE=$(BUILD_TYPE) libbinding.a
+	$(MAKE) -C go-llama-stable BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
 
 go-piper/libpiper_binding.a:
 	$(MAKE) -C go-piper libpiper_binding.a example/main
@@ -358,6 +375,7 @@ protogen-python:
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/bark/ --grpc_python_out=extra/grpc/bark/ pkg/grpc/proto/backend.proto
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/diffusers/ --grpc_python_out=extra/grpc/diffusers/ pkg/grpc/proto/backend.proto
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/vall-e-x/ --grpc_python_out=extra/grpc/vall-e-x/ pkg/grpc/proto/backend.proto
+	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/vllm/ --grpc_python_out=extra/grpc/vllm/ pkg/grpc/proto/backend.proto
 
 ## GRPC
 

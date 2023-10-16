@@ -1,0 +1,21 @@
+meta {
+  name: backend-shutdown
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/backend/shutdown
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "model": "{{DEFAULT_MODEL}}"
+  }
+}

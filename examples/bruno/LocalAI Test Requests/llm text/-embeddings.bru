@@ -1,0 +1,22 @@
+meta {
+  name: -embeddings
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/embeddings
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "model": "{{DEFAULT_MODEL}}",
+      "input": "A STRANGE GAME.\nTHE ONLY WINNING MOVE IS NOT TO PLAY.\n\nHOW ABOUT A NICE GAME OF CHESS?"
+  }
+}

@@ -101,6 +101,9 @@ type LLMConfig struct {
 	LoraAdapter     string   `yaml:"lora_adapter"`
 	LoraBase        string   `yaml:"lora_base"`
 	NoMulMatQ       bool     `yaml:"no_mulmatq"`
+	DraftModel      string   `yaml:"draft_model"`
+	NDraft          int32    `yaml:"n_draft"`
+	Quantization    string   `yaml:"quantization"`
 }
 
 type AutoGPTQ struct {

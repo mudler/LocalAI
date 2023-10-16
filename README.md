@@ -27,7 +27,7 @@
 
 [![tests](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml)[![Build and Release](https://github.com/go-skynet/LocalAI/actions/workflows/release.yaml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/release.yaml)[![build container images](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml)[![Bump dependencies](https://github.com/go-skynet/LocalAI/actions/workflows/bump_deps.yaml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/bump_deps.yaml)[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/localai)](https://artifacthub.io/packages/search?repo=localai)
 
-**LocalAI** is a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families that are compatible with the ggml format. Does not require GPU.
+**LocalAI** is a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families that are compatible with the ggml format, pytorch and more. Does not require GPU.
 
 <p align="center"><b>Follow LocalAI </b></p>
 
@@ -104,15 +104,30 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 
 Check out the [Getting started](https://localai.io/basics/getting_started/index.html) section in our documentation.
 
-### 💡 Example: Use GPT4ALL-J model
+### 💡 Example: Use Luna-AI Llama model
 
-See the [documentation](https://localai.io/basics/getting_started/#example-use-gpt4all-j-model-with-docker-compose)
+See the [documentation](https://localai.io/basics/getting_started)
 
 ### 🔗 Resources
 
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
 - [Projects integrating LocalAI](https://localai.io/integrations/)
+- [How tos section](https://localai.io/howtos/) (curated by our community)
+  
+## Citation
+
+If you utilize this repository, data in a downstream project, please consider citing it with:
+
+```
+@misc{localai,
+  author = {Ettore Di Giacinto},
+  title = {LocalAI: The free, Open source OpenAI alternative},
+  year = {2023},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/go-skynet/LocalAI}},
+```
 
 ## ❤️ Sponsors
 
@@ -126,6 +141,11 @@ A huge thank you to our generous sponsors who support this project:
 |:-----------------------------------------------:|
 |  [Spectro Cloud](https://www.spectrocloud.com/)  |  
 |  Spectro Cloud kindly supports LocalAI by providing GPU and computing resources to run tests on lamdalabs!  |
+
+And a huge shout-out to individuals sponsoring the project by donating hardware or backing the project. 
+
+- [Sponsor list](https://github.com/sponsors/mudler)
+- JDAM00 (donating HW for the CI)
 
 ## 🌟 Star history
 

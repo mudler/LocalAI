@@ -42,7 +42,9 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		Seed:          int32(c.Seed),
 		NBatch:        int32(b),
 		NoMulMatQ:     c.NoMulMatQ,
+		DraftModel:    c.DraftModel,
 		AudioPath:     c.VallE.AudioPath,
+		Quantization:  c.Quantization,
 		LoraAdapter:   c.LoraAdapter,
 		LoraBase:      c.LoraBase,
 		NGQA:          c.NGQA,
@@ -79,6 +81,7 @@ func gRPCPredictOpts(c config.Config, modelPath string) *pb.PredictOptions {
 	return &pb.PredictOptions{
 		Temperature:         float32(c.Temperature),
 		TopP:                float32(c.TopP),
+		NDraft:              c.NDraft,
 		TopK:                int32(c.TopK),
 		Tokens:              int32(c.Maxtokens),
 		Threads:             int32(c.Threads),

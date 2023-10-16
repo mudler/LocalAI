@@ -20,10 +20,13 @@ docker-compose up --pull always
 # docker-compose up -d --build
 ```
 
+Then browse to `http://localhost:3000` to view the Web UI.
+
 ## Pointing chatbot-ui to a separately managed LocalAI service
 
-If you want to use the [chatbot-ui example](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) with an externally managed LocalAI service, you can alter the `docker-compose` file so that it looks like the below. You will notice the file is smaller, because we have removed the section that would normally start the LocalAI service. Take care to update the IP address (or FQDN) that the chatbot-ui service tries to access (marked `<<LOCALAI_IP>>` below):
-```
+If you want to use the [chatbot-ui example](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) with an externally managed LocalAI service, you can alter the `docker-compose.yaml` file so that it looks like the below. You will notice the file is smaller, because we have removed the section that would normally start the LocalAI service. Take care to update the IP address (or FQDN) that the chatbot-ui service tries to access (marked `<<LOCALAI_IP>>` below):
+
+```yaml
 version: '3.6'
 
 services:
@@ -36,9 +39,8 @@ services:
       - 'OPENAI_API_HOST=http://<<LOCALAI_IP>>:8080'
 ```
 
-Once you've edited the Dockerfile, you can start it with `docker compose up`, then browse to `http://localhost:3000`.
+Once you've edited the `docker-compose.yaml`, you can start it with `docker compose up`, then browse to `http://localhost:3000` to view the Web UI.
 
 ## Accessing chatbot-ui
 
 Open http://localhost:3000 for the Web UI.
-

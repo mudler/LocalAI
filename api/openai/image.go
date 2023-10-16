@@ -5,11 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/go-skynet/LocalAI/api/schema"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/go-skynet/LocalAI/api/schema"
+	"github.com/google/uuid"
 
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -174,8 +177,12 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			}
 		}
 
+		id := uuid.New().String()
+		created := int(time.Now().Unix())
 		resp := &schema.OpenAIResponse{
-			Data: result,
+			ID:      id,
+			Created: created,
+			Data:    result,
 		}
 
 		jsonResult, _ := json.Marshal(resp)

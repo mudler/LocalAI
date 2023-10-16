@@ -1,0 +1,7 @@
+# Ignore everything but predefined models
+*
+!.gitignore
+!completion.tmpl
+!embeddings.yaml
+!gpt4all.tmpl
+!gpt-3.5-turbo.yaml

@@ -159,13 +159,23 @@ Allows to run any LocalAI-compatible model as a backend on the servers of https:
 
 ### Continue
 
-<img src="continue/img/screen.png" width="600" height="200" alt="Screenshot">
-
 _by [@gruberdev](https://github.com/gruberdev)_
+
+<img src="continue/img/screen.png" width="600" height="200" alt="Screenshot">
 
 Demonstrates how to integrate an open-source copilot alternative that enhances code analysis, completion, and improvements. This approach seamlessly integrates with any LocalAI model, offering a more user-friendly experience.
 
 [Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/continue/)
+
+### Streamlit bot
+
+_by [@majoshi1](https://github.com/majoshi1)_
+
+![Screenshot](streamlit-bot/streamlit-bot.png)
+
+A chat bot made using `Streamlit` & LocalAI.
+
+[Check it out here](https://github.com/go-skynet/LocalAI/tree/master/examples/streamlit-bot/)
 
 ## Want to contribute?
 

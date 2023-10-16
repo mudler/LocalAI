@@ -1,0 +1,22 @@
+meta {
+  name: add model gallery
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/models/galleries
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "url": "file:///home/dave/projects/model-gallery/huggingface/TheBloke__CodeLlama-7B-Instruct-GGML.yaml",
+      "name": "test"
+  }
+}

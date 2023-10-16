@@ -1,0 +1,24 @@
+meta {
+  name: chat completion -simple- 1 message-
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/chat/completions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+       "model": "{{DEFAULT_MODEL}}",
+       "messages": [{"role": "user", "content": "How could one use friction to cook an egg?"}],
+       "max_tokens": 256,
+       "temperature": 0.2
+  }
+}

@@ -1,0 +1,23 @@
+meta {
+  name: -edits
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/edits
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "model": "{{DEFAULT_MODEL}}",
+      "input": "What day of the wek is it?",
+      "instruction": "Fix the spelling mistakes"
+  }
+}

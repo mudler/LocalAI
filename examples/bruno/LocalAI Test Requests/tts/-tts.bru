@@ -1,0 +1,22 @@
+meta {
+  name: -tts
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/tts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "model": "{{DEFAULT_MODEL}}",
+      "input": "A STRANGE GAME.\nTHE ONLY WINNING MOVE IS NOT TO PLAY.\n\nHOW ABOUT A NICE GAME OF CHESS?"
+  }
+}

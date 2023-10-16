@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -8,11 +12,15 @@ import (
 	"syscall"
 
 	api "github.com/go-skynet/LocalAI/api"
+	"github.com/go-skynet/LocalAI/api/backend"
+	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/internal"
+	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	progressbar "github.com/schollz/progressbar/v3"
 	"github.com/urfave/cli/v2"
 )
 
@@ -164,7 +172,6 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 		UsageText: `local-ai [options]`,
 		Copyright: "Ettore Di Giacinto",
 		Action: func(ctx *cli.Context) error {
-
 			opts := []options.AppOption{
 				options.WithConfigFile(ctx.String("config-file")),
 				options.WithJSONStringPreload(ctx.String("preload-models")),
@@ -213,6 +220,195 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			}
 
 			return app.Listen(ctx.String("address"))
+		},
+		Commands: []*cli.Command{
+			{
+				Name:  "models",
+				Usage: "List or install models",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "list",
+						Usage: "List the models avaiable in your galleries",
+						Action: func(ctx *cli.Context) error {
+							var galleries []gallery.Gallery
+							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
+								log.Error().Msgf("unable to load galleries: %s", err.Error())
+							}
+
+							models, err := gallery.AvailableGalleryModels(galleries, ctx.String("models-path"))
+							if err != nil {
+								return err
+							}
+							for _, model := range models {
+								if model.Installed {
+									fmt.Printf(" * %s@%s (installed)\n", model.Gallery.Name, model.Name)
+								} else {
+									fmt.Printf(" - %s@%s\n", model.Gallery.Name, model.Name)
+								}
+							}
+							return nil
+						},
+					},
+					{
+						Name:  "install",
+						Usage: "Install a model from the gallery",
+						Action: func(ctx *cli.Context) error {
+							modelName := ctx.Args().First()
+
+							var galleries []gallery.Gallery
+							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
+								log.Error().Msgf("unable to load galleries: %s", err.Error())
+							}
+
+							progressBar := progressbar.NewOptions(
+								1000,
+								progressbar.OptionSetDescription(fmt.Sprintf("downloading model %s", modelName)),
+								progressbar.OptionShowBytes(false),
+								progressbar.OptionClearOnFinish(),
+							)
+							progressCallback := func(fileName string, current string, total string, percentage float64) {
+								progressBar.Set(int(percentage * 10))
+							}
+							err = gallery.InstallModelFromGallery(galleries, modelName, ctx.String("models-path"), gallery.GalleryModel{}, progressCallback)
+							if err != nil {
+								return err
+							}
+							return nil
+						},
+					},
+				},
+			},
+			{
+				Name:  "tts",
+				Usage: "Convert text to speech",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "backend",
+						Value:   "piper",
+						Aliases: []string{"b"},
+						Usage:   "Backend to run the TTS model",
+					},
+					&cli.StringFlag{
+						Name:     "model",
+						Aliases:  []string{"m"},
+						Usage:    "Model name to run the TTS",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:    "output-file",
+						Aliases: []string{"o"},
+						Usage:   "The path to write the output wav file",
+					},
+				},
+				Action: func(ctx *cli.Context) error {
+					modelOption := ctx.String("model")
+					if modelOption == "" {
+						return errors.New("--model parameter is required")
+					}
+					backendOption := ctx.String("backend")
+					if backendOption == "" {
+						backendOption = "piper"
+					}
+					outputFile := ctx.String("output-file")
+					outputDir := ctx.String("backend-assets-path")
+					if outputFile != "" {
+						outputDir = filepath.Dir(outputFile)
+					}
+
+					text := strings.Join(ctx.Args().Slice(), " ")
+
+					opts := &options.Option{
+						Loader:            model.NewModelLoader(ctx.String("models-path")),
+						Context:           context.Background(),
+						AudioDir:          outputDir,
+						AssetsDestination: ctx.String("backend-assets-path"),
+					}
+
+					defer opts.Loader.StopAllGRPC()
+
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, opts.Loader, opts)
+					if err != nil {
+						return err
+					}
+					if outputFile != "" {
+						if err := os.Rename(filePath, outputFile); err != nil {
+							return err
+						}
+						fmt.Printf("Generate file %s\n", outputFile)
+					} else {
+						fmt.Printf("Generate file %s\n", filePath)
+					}
+					return nil
+				},
+			},
+			{
+				Name:  "transcript",
+				Usage: "Convert audio to text",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "backend",
+						Value:   "whisper",
+						Aliases: []string{"b"},
+						Usage:   "Backend to run the transcription model",
+					},
+					&cli.StringFlag{
+						Name:    "model",
+						Aliases: []string{"m"},
+						Usage:   "Model name to run the transcription",
+					},
+					&cli.StringFlag{
+						Name:    "language",
+						Aliases: []string{"l"},
+						Usage:   "Language of the audio file",
+					},
+					&cli.IntFlag{
+						Name:    "threads",
+						Aliases: []string{"t"},
+						Usage:   "Threads to use",
+						Value:   1,
+					},
+					&cli.StringFlag{
+						Name:    "output-file",
+						Aliases: []string{"o"},
+						Usage:   "The path to write the output wav file",
+					},
+				},
+				Action: func(ctx *cli.Context) error {
+					modelOption := ctx.String("model")
+					filename := ctx.Args().First()
+					language := ctx.String("language")
+					threads := ctx.Int("threads")
+
+					opts := &options.Option{
+						Loader:            model.NewModelLoader(ctx.String("models-path")),
+						Context:           context.Background(),
+						AssetsDestination: ctx.String("backend-assets-path"),
+					}
+
+					cl := config.NewConfigLoader()
+					if err := cl.LoadConfigs(ctx.String("models-path")); err != nil {
+						return err
+					}
+
+					c, exists := cl.GetConfig(modelOption)
+					if !exists {
+						return errors.New("model not found")
+					}
+
+					c.Threads = threads
+
+					defer opts.Loader.StopAllGRPC()
+
+					tr, err := backend.ModelTranscription(filename, language, opts.Loader, c, opts)
+					if err != nil {
+						return err
+					}
+					for _, segment := range tr.Segments {
+						fmt.Println(segment.Start.String(), "-", segment.Text)
+					}
+					return nil
+				},
+			},
 		},
 	}
 
