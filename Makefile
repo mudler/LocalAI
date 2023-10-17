@@ -339,7 +339,9 @@ prepare-e2e:
 	docker build --build-arg BUILD_TYPE=cublas --build-arg CUDA_MAJOR_VERSION=11 --build-arg CUDA_MINOR_VERSION=7 --build-arg FFMPEG=true -t localai-tests .
 
 run-e2e-image:
-	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(abspath ./tests/e2e-fixtures):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
+	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml models/
+	ls -liah $(abspath ./models)
+	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(abspath ./models):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
 
 test-e2e:
 	@echo 'Running e2e tests'

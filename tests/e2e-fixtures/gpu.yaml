@@ -9,9 +9,6 @@ name: gpt-4
 mmap: true
 parameters:
   model: ggllm-test-model.bin
-  #model: llama2-22b-daydreamer-v3.ggmlv3.q6_K.bin
-  #model: wizardlm-30b-uncensored.ggmlv3.q4_K_M.bin
-  #model: upstage-llama-2-70b-instruct-v2.ggmlv3.q2_K.bin
   rope_freq_base: 10000 
   rope_freq_scale: 1
   temperature: 0.2
