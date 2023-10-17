@@ -11,6 +11,7 @@ import (
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/api/schema"
 	"github.com/go-skynet/LocalAI/internal"
+	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/assets"
 
 	"github.com/gofiber/fiber/v2"
@@ -120,6 +121,9 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 	// Default middleware config
 	app.Use(recover.New())
+	if options.Metrics != nil {
+		app.Use(metrics.APIMiddleware(options.Metrics))
+	}
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
@@ -228,6 +232,8 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	// models
 	app.Get("/v1/models", auth, openai.ListModelsEndpoint(options.Loader, cl))
 	app.Get("/models", auth, openai.ListModelsEndpoint(options.Loader, cl))
+
+	app.Get("/metrics", metrics.MetricsHandler())
 
 	return app, nil
 }
