@@ -3,7 +3,7 @@ check:
 	@echo "Checking..."
 	@cargo check
 
-.POHNY: build
+.PHONY: build
 build:
 	@echo "Building..."
 	@cargo build
