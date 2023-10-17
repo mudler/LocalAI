@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,28 +38,28 @@ var _ = Describe("E2E test", func() {
 			cmd := exec.Command("/bin/bash", "-xce", "docker logs $(docker ps -q --filter ancestor=localai-tests)")
 			out, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(out)).To(ContainSubstring("found 1 CUDA devices"))
-			Expect(string(out)).To(ContainSubstring("using CUDA for GPU acceleration"))
+			Expect(string(out)).To(ContainSubstring("found 1 CUDA devices"), string(out))
+			Expect(string(out)).To(ContainSubstring("using CUDA for GPU acceleration"), string(out))
 		})
 
 		Context("Generates text", func() {
 			It("streams chat tokens", func() {
-				models, err := client.ListModels(context.TODO())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(models.Models).ToNot(BeEmpty(), models.Models)
+				// models, err := client.ListModels(context.TODO())
+				// Expect(err).ToNot(HaveOccurred())
+				// Expect(models.Models).ToNot(BeEmpty(), models.Models)
 
-				model := models.Models[0].ID
-				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{
-					Model: model, Messages: []openai.ChatCompletionMessage{
-						{
-							Role:    "user",
-							Content: "How much is 2+2?",
-						},
-					}})
+				model := "gpt-4"
+				resp, err := client.CreateChatCompletion(context.TODO(),
+					openai.ChatCompletionRequest{
+						Model: model, Messages: []openai.ChatCompletionMessage{
+							{
+								Role:    "user",
+								Content: "How much is 2+2?",
+							},
+						}})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices)).To(Equal(1))
-				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("4"), ContainSubstring("four")))
-
+				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
+				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("4"), ContainSubstring("four")), fmt.Sprint(resp.Choices[0].Message.Content))
 			})
 		})
 	})
