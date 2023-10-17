@@ -3,6 +3,8 @@ version: '3.6'
 services:
   api:
     image: quay.io/go-skynet/local-ai:latest
+    tty: true
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile
