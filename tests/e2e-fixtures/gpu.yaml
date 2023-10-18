@@ -10,6 +10,7 @@ mmap: true
 parameters:
   model: ggllm-test-model.bin
   rope_freq_base: 10000 
+  max_tokens: 20
   rope_freq_scale: 1
   temperature: 0.2
   top_k: 40

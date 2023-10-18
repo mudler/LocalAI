@@ -335,13 +335,12 @@ test: prepare test-models/testmodel grpcs
 	$(MAKE) test-stablediffusion
 
 prepare-e2e:
-	wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(abspath ./tests/e2e-fixtures)/ggllm-test-model.bin
-	docker build --build-arg BUILD_TYPE=cublas --build-arg CUDA_MAJOR_VERSION=11 --build-arg CUDA_MINOR_VERSION=7 --build-arg FFMPEG=true -t localai-tests .
+	test -e $(abspath ./tests/e2e-fixtures)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(abspath ./tests/e2e-fixtures)/ggllm-test-model.bin
+	docker build --build-arg BUILD_GRPC=true --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=11 --build-arg CUDA_MINOR_VERSION=7 --build-arg FFMPEG=true -t localai-tests .
 
 run-e2e-image:
-	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml models/
-	ls -liah $(abspath ./models)
-	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(abspath ./models):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
+	ls -liah $(abspath ./tests/e2e-fixtures)
+	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(abspath ./tests/e2e-fixtures):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
 
 test-e2e:
 	@echo 'Running e2e tests'
