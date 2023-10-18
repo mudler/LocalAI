@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,12 +35,19 @@ var _ = Describe("E2E test", func() {
 
 		// Check that the GPU was used
 		AfterEach(func() {
-			// Execute docker logs $$(docker ps -q --filter ancestor=localai-tests) as a command and check the output
 			cmd := exec.Command("/bin/bash", "-xce", "docker logs $(docker ps -q --filter ancestor=localai-tests)")
 			out, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(out))
-			Expect(string(out)).To(ContainSubstring("found 1 CUDA devices"), string(out))
-			Expect(string(out)).To(ContainSubstring("using CUDA for GPU acceleration"), string(out))
+			// Execute docker logs $$(docker ps -q --filter ancestor=localai-tests) as a command and check the output
+			if os.Getenv("BUILD_TYPE") == "cublas" {
+
+				Expect(string(out)).To(ContainSubstring("found 1 CUDA devices"), string(out))
+				Expect(string(out)).To(ContainSubstring("using CUDA for GPU acceleration"), string(out))
+			} else {
+				fmt.Println("Skipping GPU check")
+				Expect(string(out)).To(ContainSubstring("[llama-cpp] Loads OK"), string(out))
+				Expect(string(out)).To(ContainSubstring("llama_model_loader"), string(out))
+			}
 		})
 
 		Context("Generates text", func() {

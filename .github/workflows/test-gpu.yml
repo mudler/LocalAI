@@ -71,7 +71,7 @@ jobs:
           if [ ! -e /run/systemd/system ]; then
             sudo mkdir /run/systemd/system
           fi
-          make prepare-e2e run-e2e-image test-e2e
+          make BUILD_TYPE=cublas prepare-e2e run-e2e-image test-e2e
       - name: Release space from worker ♻
         if: always()
         run: |

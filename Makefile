@@ -344,7 +344,9 @@ run-e2e-image:
 
 test-e2e:
 	@echo 'Running e2e tests'
-	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390/v1 $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts 5 -v -r ./tests/e2e
+	BUILD_TYPE=$(BUILD_TYPE) \
+	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390/v1 \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts 5 -v -r ./tests/e2e
 
 teardown-e2e:
 	rm -rf ./tests/e2e-fixtures/ggllm-test-model.bin
