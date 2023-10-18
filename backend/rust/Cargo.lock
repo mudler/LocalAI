@@ -171,6 +171,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
 
 [[package]]
+name = "bunker"
+version = "0.1.0"
+dependencies = [
+ "async-stream 0.2.1",
+ "async-trait",
+ "prost",
+ "rand 0.7.3",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-build",
+]
+
+[[package]]
 name = "bytes"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -786,21 +802,6 @@ name = "regex-syntax"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
-
-[[package]]
-name = "rust"
-version = "0.1.0"
-dependencies = [
- "async-stream 0.2.1",
- "prost",
- "rand 0.7.3",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tonic",
- "tonic-build",
-]
 
 [[package]]
 name = "rustc-demangle"
