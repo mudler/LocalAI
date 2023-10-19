@@ -1,6 +1,9 @@
 ARG GO_VERSION=1.21-bullseye
+ARG IMAGE_TYPE=extras
+# extras or core
 
-FROM golang:$GO_VERSION as requirements
+
+FROM golang:$GO_VERSION as requirements-core
 
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
@@ -35,24 +38,6 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     ; fi
 ENV PATH /usr/local/cuda/bin:${PATH}
 
-# Extras requirements
-COPY extra/requirements.txt /build/extra/requirements.txt
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN pip install --upgrade pip
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-        pip install git+https://github.com/suno-ai/bark.git diffusers invisible_watermark transformers accelerate safetensors;\
-    fi
-RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
-        pip install torch vllm && pip install auto-gptq https://github.com/jllllll/exllama/releases/download/0.0.10/exllama-0.0.10+cu${CUDA_MAJOR_VERSION}${CUDA_MINOR_VERSION}-cp39-cp39-linux_x86_64.whl;\
-    fi
-RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
-
-# Vall-e-X
-RUN git clone https://github.com/Plachtaa/VALL-E-X.git /usr/lib/vall-e-x && cd /usr/lib/vall-e-x && pip install -r requirements.txt
-
-WORKDIR /build
-
 # OpenBLAS requirements
 RUN apt-get install -y libopenblas-dev
 
@@ -60,6 +45,8 @@ RUN apt-get install -y libopenblas-dev
 RUN apt-get install -y libopencv-dev && \
     ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
+
+WORKDIR /build
 
 # piper requirements
 # Use pre-compiled Piper phonemization library (includes onnxruntime)
@@ -80,17 +67,40 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
     tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
     ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
-    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
+    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/ && \
+    rm spdlog-${SPDLOG_VERSION} -rf && \
+    rm /build/lib/Linux-$(uname -m)/piper_phonemize -rf
+
+# Extras requirements
+FROM requirements-core as requirements-extras
+
+COPY extra/requirements.txt /build/extra/requirements.txt
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN pip install --upgrade pip
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        pip install git+https://github.com/suno-ai/bark.git diffusers invisible_watermark transformers accelerate safetensors;\
+    fi
+RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
+        pip install torch vllm && pip install auto-gptq https://github.com/jllllll/exllama/releases/download/0.0.10/exllama-0.0.10+cu${CUDA_MAJOR_VERSION}${CUDA_MINOR_VERSION}-cp39-cp39-linux_x86_64.whl;\
+    fi
+RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
+
+# Vall-e-X
+RUN git clone https://github.com/Plachtaa/VALL-E-X.git /usr/lib/vall-e-x && cd /usr/lib/vall-e-x && pip install -r requirements.txt
+
 # \
 #    ; fi
 
 ###################################
 ###################################
 
-FROM requirements as builder
+FROM requirements-${IMAGE_TYPE} as builder
 
 ARG GO_TAGS="stablediffusion tts"
-
+ARG GRPC_BACKENDS
+ARG BUILD_GRPC=true
+ENV GRPC_BACKENDS=${GRPC_BACKENDS}
 ENV GO_TAGS=${GO_TAGS}
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
@@ -108,10 +118,12 @@ COPY .git .
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
-RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+RUN if [ "${BUILD_GRPC}" = "true" ]; then \
+    git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
     cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
       -DgRPC_BUILD_TESTS=OFF \
-       ../.. && make -j12 install && rm -rf grpc
+       ../.. && make -j12 install && rm -rf grpc \
+    ; fi
 
 # Rebuild with defaults backends
 RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
@@ -119,7 +131,7 @@ RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data 
 ###################################
 ###################################
 
-FROM requirements
+FROM requirements-${IMAGE_TYPE}
 
 ARG FFMPEG
 ARG BUILD_TYPE
@@ -128,6 +140,11 @@ ARG TARGETARCH
 ENV BUILD_TYPE=${BUILD_TYPE}
 ENV REBUILD=false
 ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
+
+ARG CUDA_MAJOR_VERSION=11
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
+ENV NVIDIA_VISIBLE_DEVICES=all
 
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
@@ -146,16 +163,19 @@ RUN make prepare-sources
 # Copy the binary
 COPY --from=builder /build/local-ai ./
 
-# do not let piper rebuild (requires an older version of absl)
-COPY --from=builder /build/backend-assets/grpc/piper ./backend-assets/grpc/piper
+# do not let stablediffusion rebuild (requires an older version of absl)
+COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
 # Copy VALLE-X as it's not a real "lib"
-RUN cp -rfv /usr/lib/vall-e-x/* ./
+RUN if [ -d /usr/lib/vall-e-x ]; then \
+    cp -rfv /usr/lib/vall-e-x/* ./ ; \ 
+    fi
 
-# To resolve exllama import error
-RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH:-$(go env GOARCH)}" = "amd64" ]; then \
+# we also copy exllama libs over to resolve exllama import error
+RUN if [ -d /usr/local/lib/python3.9/dist-packages/exllama ]; then \
         cp -rfv /usr/local/lib/python3.9/dist-packages/exllama extra/grpc/exllama/;\
     fi
+
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f $HEALTHCHECK_ENDPOINT || exit 1
