@@ -30,10 +30,8 @@ macOS
 brew install protobuf
 ```
 
-### Generating the server side code
-
-> Rust backend uses the same proto file with the other backends, so we should keep the same interface of the backend. So, the output file of backend.rs is in the /target folder and do not need to be managed by git.
+### Cargo fmt all the code
 
 ```
-make build
+cargo fmt --all --check
 ```

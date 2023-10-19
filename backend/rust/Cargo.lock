@@ -183,24 +183,19 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
- "tonic-build",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
 name = "burn"
 version = "0.1.0"
 dependencies = [
- "async-stream 0.2.1",
+ "async-trait",
  "bunker",
- "prost",
- "rand 0.7.3",
- "serde",
- "serde_json",
  "tokio",
  "tokio-stream",
  "tonic",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -223,6 +218,13 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "codegen"
+version = "0.1.0"
+dependencies = [
+ "tonic-build",
+]
 
 [[package]]
 name = "either"

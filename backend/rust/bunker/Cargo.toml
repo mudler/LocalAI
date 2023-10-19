@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = "0.10"
+tonic = { version = "0.10", features = [] }
 prost = "0.12"
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "sync", "time"] }
 tokio-stream = "0.1"
@@ -16,6 +16,5 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rand = "0.7"
 async-trait = "0.1.74"
-
-[build-dependencies]
-tonic-build = "0.10"
+tracing-subscriber = "0.3.17"
+tracing = "0.1.39"
