@@ -416,6 +416,7 @@ prepare-extra-conda-environments:
 	$(MAKE) -C extra/grpc/vllm
 	$(MAKE) -C extra/grpc/huggingface
 	$(MAKE) -C extra/grpc/vall-e-x
+	$(MAKE) -C extra/grpc/exllama
 
 
 backend-assets/grpc:
