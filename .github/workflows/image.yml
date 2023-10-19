@@ -93,7 +93,7 @@ jobs:
           sudo rm -rfv build || true
           df -h
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Docker meta
         id: meta
