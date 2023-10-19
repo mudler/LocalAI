@@ -47,6 +47,8 @@ CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
 BUILD_ID?=git
 
+TEST_DIR=/tmp/test
+
 RANDOM := $(shell bash -c 'echo $$RANDOM')
 
 VERSION?=$(shell git describe --always --tags || echo "dev" )
@@ -335,12 +337,14 @@ test: prepare test-models/testmodel grpcs
 	$(MAKE) test-stablediffusion
 
 prepare-e2e:
-	test -e $(abspath ./tests/e2e-fixtures)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(abspath ./tests/e2e-fixtures)/ggllm-test-model.bin
+	mkdir -p $(TEST_DIR)
+	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
+	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
 	docker build --build-arg BUILD_GRPC=true --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=11 --build-arg CUDA_MINOR_VERSION=7 --build-arg FFMPEG=true -t localai-tests .
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
-	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(abspath ./tests/e2e-fixtures):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
+	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
 
 test-e2e:
 	@echo 'Running e2e tests'
@@ -349,7 +353,7 @@ test-e2e:
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts 5 -v -r ./tests/e2e
 
 teardown-e2e:
-	rm -rf ./tests/e2e-fixtures/ggllm-test-model.bin
+	rm -rf $(TEST_DIR) || true
 	docker stop $$(docker ps -q --filter ancestor=localai-tests)
 
 test-gpt4all: prepare-test

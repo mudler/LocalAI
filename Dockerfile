@@ -166,14 +166,14 @@ COPY --from=builder /build/local-ai ./
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
-# To run only if we are building extras
 # Copy VALLE-X as it's not a real "lib"
-# and we also copy exllama libs over to resolve exllama import error
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+RUN if [ -d /usr/lib/vall-e-x ]; then \
     cp -rfv /usr/lib/vall-e-x/* ./ ; \ 
-    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH:-$(go env GOARCH)}" = "amd64" ]; then \
+    fi
+
+# we also copy exllama libs over to resolve exllama import error
+RUN if [ -d /usr/local/lib/python3.9/dist-packages/exllama ]; then \
         cp -rfv /usr/local/lib/python3.9/dist-packages/exllama extra/grpc/exllama/;\
-    fi ;\
     fi
 
 # Define the health check command
