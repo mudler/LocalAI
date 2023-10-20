@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=1676dcd7a139b6cdfbaea5fd67f46dc25d9d8bcf
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=24ba3d829e31a6eda3fa1723f692608c2fa3adda
+CPPLLAMA_VERSION?=465219b9143ac01db0990bbcb0a081ef72ec2008
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
