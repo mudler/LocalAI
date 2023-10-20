@@ -3,7 +3,8 @@ use bunker::pb::{
     EmbeddingResult, GenerateImageRequest, HealthMessage, ModelOptions, PredictOptions, Reply,
     StatusResponse, TokenizationResponse, TranscriptRequest, TranscriptResult, TtsRequest,
 };
-use bunker::service::BackendService;
+
+use bunker::BackendService;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
@@ -14,7 +15,9 @@ use async_trait::async_trait;
 struct BurnBackend;
 
 #[async_trait]
-impl BackendService<ReceiverStream<Result<Reply, Status>>> for BurnBackend {
+impl BackendService for BurnBackend {
+    type PredictStreamStream = ReceiverStream<Result<Reply, Status>>;
+
     async fn health(&self, request: Request<HealthMessage>) -> Result<Response<Reply>, Status> {
         // return a Result<Response<Reply>,Status>
         let reply = Reply {
@@ -84,5 +87,6 @@ impl BackendService<ReceiverStream<Result<Reply, Status>>> for BurnBackend {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // call bunker::run with BurnBackend
     todo!()
 }
