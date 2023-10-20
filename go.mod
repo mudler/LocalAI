@@ -29,7 +29,7 @@ require (
 	github.com/rs/zerolog v1.31.0
 	github.com/sashabaranov/go-openai v1.16.0
 	github.com/schollz/progressbar/v3 v3.13.1
-	github.com/tmc/langchaingo v0.0.0-20231016073620-a02d4fdc0f3a
+	github.com/tmc/langchaingo v0.0.0-20231019140956-c636b3da7701
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/valyala/fasthttp v1.50.0
 	go.opentelemetry.io/otel v1.19.0
