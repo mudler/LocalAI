@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use bunker::pb::Result as PbResult;
 use bunker::pb::{
     EmbeddingResult, GenerateImageRequest, HealthMessage, ModelOptions, PredictOptions, Reply,
@@ -12,6 +14,7 @@ use async_trait::async_trait;
 
 // implement BackendService trait in bunker
 
+#[derive(Default, Debug)]
 struct BurnBackend;
 
 #[async_trait]
@@ -88,5 +91,13 @@ impl BackendService for BurnBackend {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // call bunker::run with BurnBackend
-    todo!()
+    let burn_backend = BurnBackend {};
+    let addr = "[::1]:50051"
+        .parse::<SocketAddr>()
+        .expect("Failed to parse address");
+
+    // Implmenet Into<SocketAddr> for addr
+    let result = bunker::run(burn_backend, addr).await?;
+
+    Ok(result)
 }

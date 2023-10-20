@@ -35,3 +35,20 @@ brew install protobuf
 ```
 cargo fmt --all --check
 ```
+
+### Check the gRPC backend status
+
+It will return base64 encoded string of the `OK`.
+
+
+```bash
+make burn
+
+make test
+```
+
+```
+{
+  "message": "T0s="
+}
+```

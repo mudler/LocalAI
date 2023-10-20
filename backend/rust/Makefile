@@ -7,7 +7,7 @@ all: fmt check
 .PHONY: fmt
 fmt:
 	@echo "Formatting code..."
-	@cargo fmt --all -- --check
+	@cargo fmt --all --check
 
 .PHONY: build
 build:
@@ -28,3 +28,13 @@ check:
 clean:
 	@echo "Cleaning..."
 	@cargo clean
+
+.PHONY: burn
+burn:
+	@echo "Burning..."
+	@cargo run --bin server --package burn
+
+.PHONY: health
+health:
+	@echo "Burning..."
+	grpcurl -plaintext -import-path ../../pkg/grpc/proto -proto backend.proto -d '{}' '[::1]:50051' backend.Backend/Health

@@ -3,15 +3,15 @@ check:
 	@echo "Checking..."
 	@cargo check
 
+.PHONY: fmt
+fmt:
+	@echo "Formatting code..."
+	@cargo fmt
+
 .PHONY: build
 build:
 	@echo "Building..."
 	@cargo build
-
-.PHONY: run
-run:
-	@echo "Running..."
-	@cargo run --release
 
 .PHONY: doc
 doc:
