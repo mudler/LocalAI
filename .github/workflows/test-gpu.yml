@@ -21,7 +21,7 @@ jobs:
         go-version: ['1.21.x']
     steps:
       - name: Clone
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with: 
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
