@@ -68,8 +68,7 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
     ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
     cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/ && \
-    rm spdlog-${SPDLOG_VERSION} -rf && \
-    rm /build/lib/Linux-$(uname -m)/piper_phonemize -rf
+    rm spdlog-${SPDLOG_VERSION} -rf
 
 # Extras requirements
 FROM requirements-core as requirements-extras

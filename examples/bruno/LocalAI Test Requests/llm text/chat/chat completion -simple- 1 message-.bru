@@ -16,9 +16,15 @@ headers {
 
 body:json {
   {
-       "model": "{{DEFAULT_MODEL}}",
-       "messages": [{"role": "user", "content": "How could one use friction to cook an egg?"}],
-       "max_tokens": 256,
-       "temperature": 0.2
+    "model": "{{DEFAULT_MODEL}}",
+    "messages": [
+      {
+        "role": "user",
+        "content": "How could one use friction to cook an egg?"
+      }
+    ],
+    "max_tokens": 256,
+    "temperature": 0.2,
+    "grammar": ""
   }
 }

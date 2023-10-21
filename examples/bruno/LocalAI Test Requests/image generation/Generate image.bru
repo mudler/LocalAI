@@ -1,0 +1,25 @@
+meta {
+  name: Generate image
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/v1/images/generations
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "prompt": "<positive prompt>|<negative prompt>",
+    "model": "model-name",
+    "step": 51,
+    "size": "1024x1024",
+    "image": ""
+  }
+}
