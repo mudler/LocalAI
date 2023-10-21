@@ -88,6 +88,7 @@ static size_t find_partial_stop_string(const std::string &stop,
     return std::string::npos;
 }
 
+
 template <class Iter>
 static std::string tokens_to_str(llama_context *ctx, Iter begin, Iter end)
 {
@@ -128,17 +129,15 @@ struct llama_server_context
     size_t n_past = 0;
     size_t n_remain = 0;
 
-   // json prompt;
     std::vector<llama_token> embd;
-    std::vector<llama_token> last_n_tokens;
+
+    gpt_params params;
 
     llama_model *model = nullptr;
     llama_context *ctx = nullptr;
-    gpt_params params;
-    int n_ctx;
+    llama_sampling_context *ctx_sampling = nullptr;
 
-    grammar_parser::parse_state parsed_grammar;
-    llama_grammar *grammar = nullptr;
+    int n_ctx;
 
     bool truncated = false;
     bool stopped_eos = false;
@@ -171,7 +170,7 @@ struct llama_server_context
     void rewind()
     {
         params.antiprompt.clear();
-        params.grammar.clear();
+        params.sparams.grammar.clear();
         num_prompt_tokens = 0;
         num_tokens_predicted = 0;
         generated_text = "";
@@ -185,100 +184,87 @@ struct llama_server_context
         multibyte_pending = 0;
         n_remain = 0;
         n_past = 0;
+        params.sparams.n_prev = n_ctx;
+    }
 
-        if (grammar != nullptr) {
-            llama_grammar_free(grammar);
-            grammar = nullptr;
+    void initSampling() {
+        if (ctx_sampling != nullptr) {
+            llama_sampling_free(ctx_sampling);
         }
+        ctx_sampling = llama_sampling_init(params.sparams);
     }
 
     bool loadModel(const gpt_params &params_)
     {
-                    printf("load model %s\n", params_.model.c_str());
-
         params = params_;
         std::tie(model, ctx) = llama_init_from_gpt_params(params);
         if (model == nullptr)
         {
-            printf("unable to load model %s\n", params_.model.c_str());
             return false;
         }
         n_ctx = llama_n_ctx(ctx);
-        last_n_tokens.resize(n_ctx);
-        std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
         return true;
     }
-
-     std::vector<llama_token> tokenize_array(const char **prompts, bool add_bos) const
-    {
-        // If `add_bos` is true, we only add BOS, when json_prompt is a string,
+    std::vector<llama_token> tokenize_string(const char *prompt, bool add_bos) const {
+       // If `add_bos` is true, we only add BOS, when json_prompt is a string,
         // or the first element of the json_prompt array is a string.
-        std::vector<llama_token> prompt_tokens;
-
-  
-        bool first = true;
-        // Iterate over prompts
-        for (const char **p = prompts; *p != nullptr; ++p)
-        {
-            auto s = std::string(*p);
-            std::vector<llama_token> pp;
-            if (first)
-            {
-                pp = ::llama_tokenize(ctx, s, add_bos);
-                first = false;
-            }
-            else
-            {
-                pp = ::llama_tokenize(ctx, s, false);
-            }
-            prompt_tokens.insert(prompt_tokens.end(), pp.begin(), pp.end());
-        }
-        
-
-        return prompt_tokens;
-    }
-
-    std::vector<llama_token> tokenize_string(const char *prompt, bool add_bos) const
-    {
-        // If `add_bos` is true, we only add BOS, when json_prompt is a string,
-        // or the first element of the json_prompt array is a string.
-        std::vector<llama_token> prompt_tokens;
-  
+        std::vector<llama_token> prompt_tokens; 
         auto s = std::string(prompt);
         prompt_tokens = ::llama_tokenize(ctx, s, add_bos);
-    
         return prompt_tokens;
     }
+     std::vector<llama_token> tokenize_array(const char **prompts, bool add_bos) const {
+                std::vector<llama_token> prompt_tokens; 
 
-    bool loadGrammar()
-    {
-        if (!params.grammar.empty()) {
-            parsed_grammar = grammar_parser::parse(params.grammar.c_str());
-            // will be empty (default) if there are parse errors
-            if (parsed_grammar.rules.empty()) {
-                printf("grammar parse error");
-                return false;
-            }
-            grammar_parser::print_grammar(stderr, parsed_grammar);
-
-            {
-                auto it = params.logit_bias.find(llama_token_eos(ctx));
-                if (it != params.logit_bias.end() && it->second == -INFINITY) {
-                    printf("EOS token is disabled, which will cause most grammars to fail");
+            bool first = true;
+            bool is_string = true;
+            for (const char **p = prompts; *p != nullptr; ++p)
+              {
+                if (is_string)
+                {
+                    auto s = std::string(*p);
+                    std::vector<llama_token> p;
+                    if (first)
+                    {
+                        p = ::llama_tokenize(ctx, s, add_bos);
+                        first = false;
+                    }
+                    else
+                    {
+                        p = ::llama_tokenize(ctx, s, false);
+                    }
+                    prompt_tokens.insert(prompt_tokens.end(), p.begin(), p.end());
+                }
+                else
+                {
+                    if (first)
+                    {
+                        first = false;
+                    }
+                    //prompt_tokens.push_back(p.template get<llama_token>());
                 }
             }
+            return prompt_tokens;
+     }
 
-            std::vector<const llama_grammar_element *> grammar_rules(parsed_grammar.c_rules());
-            grammar = llama_grammar_init(
-                grammar_rules.data(), grammar_rules.size(), parsed_grammar.symbol_ids.at("root"));
-        }
-        return true;
+    void truncatePrompt(std::vector<llama_token> &prompt_tokens) {
+        const int n_left = n_ctx - params.n_keep;
+        const int n_block_size = n_left / 2;
+        const int erased_blocks = (prompt_tokens.size() - params.n_keep - n_block_size) / n_block_size;
+
+        // Keep n_keep tokens at start of prompt (at most n_ctx - 4)
+        std::vector<llama_token> new_tokens(prompt_tokens.begin(), prompt_tokens.begin() + params.n_keep);
+
+        new_tokens.insert(new_tokens.end(), prompt_tokens.begin() + params.n_keep + erased_blocks * n_block_size, prompt_tokens.end());
+
+        truncated = true;
+        prompt_tokens = new_tokens;
     }
 
     void loadInfill()
     {
         bool suff_rm_leading_spc = true;
-        if (params.input_suffix.find_first_of(" ") == 0 && params.input_suffix.size() > 1) {
+        if (params.input_suffix.find_first_of(' ') == 0 && params.input_suffix.size() > 1) {
             params.input_suffix.erase(0, 1);
             suff_rm_leading_spc = false;
         }
@@ -294,6 +280,7 @@ struct llama_server_context
         prefix_tokens.insert(prefix_tokens.end(), llama_token_suffix(ctx));
         prefix_tokens.insert(prefix_tokens.end(), suffix_tokens.begin(), suffix_tokens.end());
         prefix_tokens.push_back(llama_token_middle(ctx));
+
         auto prompt_tokens = prefix_tokens;
 
         num_prompt_tokens = prompt_tokens.size();
@@ -305,29 +292,24 @@ struct llama_server_context
         params.n_keep = std::min(params.n_ctx - 4, params.n_keep);
 
         // if input prompt is too big, truncate like normal
-        if (num_prompt_tokens >= (size_t)params.n_ctx)
+        if (num_prompt_tokens >= (size_t) n_ctx)
         {
-            printf("Input prompt is too big, truncating. Can only take %d tokens but got %zu\n", params.n_ctx, num_prompt_tokens);
-            // todo we probably want to cut from both sides
-            const int n_left = (params.n_ctx - params.n_keep) / 2;
-            std::vector<llama_token> new_tokens(prompt_tokens.begin(), prompt_tokens.begin() + params.n_keep);
-            const int erased_blocks = (num_prompt_tokens - params.n_keep - n_left - 1) / n_left;
-            new_tokens.insert(new_tokens.end(), prompt_tokens.begin() + params.n_keep + erased_blocks * n_left, prompt_tokens.end());
-            std::copy(prompt_tokens.end() - params.n_ctx, prompt_tokens.end(), last_n_tokens.begin());
+            truncatePrompt(prompt_tokens);
+            num_prompt_tokens = prompt_tokens.size();
 
-            truncated = true;
-            prompt_tokens = new_tokens;
+            GGML_ASSERT(num_prompt_tokens < (size_t)n_ctx);
         }
-        else
+
+        // push the prompt into the sampling context (do not apply grammar)
+        for (auto & token : prompt_tokens)
         {
-            const size_t ps = num_prompt_tokens;
-            std::fill(last_n_tokens.begin(), last_n_tokens.end() - ps, 0);
-            std::copy(prompt_tokens.begin(), prompt_tokens.end(), last_n_tokens.end() - ps);
+            llama_sampling_accept(ctx_sampling, ctx, token, false);
         }
 
         // compare the evaluated prompt with the new prompt
         n_past = common_part(embd, prompt_tokens);
         embd = prompt_tokens;
+
         if (n_past == num_prompt_tokens)
         {
             // we have to evaluate at least 1 token to generate logits.
@@ -335,6 +317,7 @@ struct llama_server_context
             n_past--;
         }
 
+        // since #3228 we now have to manually manage the KV cache
         llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
 
         has_next_token = true;
@@ -352,28 +335,22 @@ struct llama_server_context
         params.n_keep = std::min(n_ctx - 4, params.n_keep);
 
         // if input prompt is too big, truncate like normal
-        if (num_prompt_tokens >= (size_t)n_ctx)
+        if (num_prompt_tokens >= (size_t) n_ctx)
         {
-            const int n_left = (n_ctx - params.n_keep) / 2;
-            std::vector<llama_token> new_tokens(prompt_tokens.begin(), prompt_tokens.begin() + params.n_keep);
-            const int erased_blocks = (num_prompt_tokens - params.n_keep - n_left - 1) / n_left;
-            new_tokens.insert(new_tokens.end(), prompt_tokens.begin() + params.n_keep + erased_blocks * n_left, prompt_tokens.end());
-            std::copy(prompt_tokens.end() - n_ctx, prompt_tokens.end(), last_n_tokens.begin());
+            truncatePrompt(prompt_tokens);
+            num_prompt_tokens = prompt_tokens.size();
 
-
-            truncated = true;
-            prompt_tokens = new_tokens;
+            GGML_ASSERT(num_prompt_tokens < (size_t)n_ctx);
         }
-        else
+
+        // push the prompt into the sampling context (do not apply grammar)
+        for (auto & token : prompt_tokens)
         {
-            const size_t ps = num_prompt_tokens;
-            std::fill(last_n_tokens.begin(), last_n_tokens.end() - ps, 0);
-            std::copy(prompt_tokens.begin(), prompt_tokens.end(), last_n_tokens.end() - ps);
+            llama_sampling_accept(ctx_sampling, ctx, token, false);
         }
 
         // compare the evaluated prompt with the new prompt
         n_past = common_part(embd, prompt_tokens);
-
 
         embd = prompt_tokens;
         if (n_past == num_prompt_tokens)
@@ -381,9 +358,10 @@ struct llama_server_context
             // we have to evaluate at least 1 token to generate logits.
             n_past--;
         }
-        // since #3228 we now have to manually manage the KV cache
 
+        // since #3228 we now have to manually manage the KV cache
         llama_kv_cache_seq_rm(ctx, 0, n_past, -1);
+
         has_next_token = true;
     }
 
@@ -418,7 +396,6 @@ struct llama_server_context
             n_past -= n_discard;
 
             truncated = true;
-       
         }
 
         bool tg = true;
@@ -433,7 +410,6 @@ struct llama_server_context
 
             if (llama_decode(ctx, llama_batch_get_one(&embd[n_past], n_eval, n_past, 0)))
             {
-             
                 has_next_token = false;
                 return result;
             }
@@ -449,27 +425,24 @@ struct llama_server_context
 
         {
             // out of user input, sample next token
-            std::vector<llama_token_data> candidates;
-            candidates.reserve(llama_n_vocab(model));
+            result.tok = llama_sampling_sample(ctx_sampling, ctx, NULL);
 
-            result.tok = llama_sample_token(ctx, NULL, grammar, params, last_n_tokens, candidates);
+            llama_token_data_array cur_p = { ctx_sampling->cur.data(), ctx_sampling->cur.size(), false };
 
-            llama_token_data_array candidates_p = { candidates.data(), candidates.size(), false };
-
-            const int32_t n_probs = params.n_probs;
-            if (params.temp <= 0 && n_probs > 0)
+            const int32_t n_probs = params.sparams.n_probs;
+            if (params.sparams.temp <= 0 && n_probs > 0)
             {
                 // For llama_sample_token_greedy we need to sort candidates
-                llama_sample_softmax(ctx, &candidates_p);
+                llama_sample_softmax(ctx, &cur_p);
             }
 
-            for (size_t i = 0; i < std::min(candidates_p.size, (size_t)n_probs); ++i)
+            for (size_t i = 0; i < std::min(cur_p.size, (size_t)n_probs); ++i)
             {
-                result.probs.push_back({candidates_p.data[i].id, candidates_p.data[i].p});
+                result.probs.push_back({cur_p.data[i].id, cur_p.data[i].p});
             }
 
-            last_n_tokens.erase(last_n_tokens.begin());
-            last_n_tokens.push_back(result.tok);
+            llama_sampling_accept(ctx_sampling, ctx, result.tok, true);
+
             if (tg) {
                 num_tokens_predicted++;
             }
@@ -531,7 +504,7 @@ struct llama_server_context
         const std::string token_text = token_with_probs.tok == -1 ? "" : llama_token_to_piece(ctx, token_with_probs.tok);
         generated_text += token_text;
 
-        if (params.n_probs > 0)
+        if (params.sparams.n_probs > 0)
         {
             generated_token_probs.push_back(token_with_probs);
         }
@@ -583,7 +556,6 @@ struct llama_server_context
         static const int n_embd = llama_n_embd(model);
         if (!params.embedding)
         {
-            printf("embedding disabled");
             return std::vector<float>(n_embd, 0.0f);
         }
         const float *data = llama_get_embeddings(ctx);
@@ -599,30 +571,30 @@ static void parse_options_completion(bool streaming,const backend::PredictOption
 
     llama.stream = streaming;
     llama.params.n_predict = predict->tokens() == 0 ? -1 : predict->tokens();
-    llama.params.top_k = predict->topk();
-    llama.params.top_p = predict->topp();
-    llama.params.tfs_z = predict->tailfreesamplingz();
-    llama.params.typical_p = predict->typicalp();
-    llama.params.repeat_last_n = predict->repeat();
-    llama.params.temp = predict->temperature();
-    llama.params.repeat_penalty = predict->penalty();
-    llama.params.presence_penalty = predict->presencepenalty();
-    llama.params.frequency_penalty = predict->frequencypenalty();
-    llama.params.mirostat = predict->mirostat();
-    llama.params.mirostat_tau = predict->mirostattau();
-    llama.params.mirostat_eta = predict->mirostateta();
-    llama.params.penalize_nl = predict->penalizenl();
+    llama.params.sparams.top_k = predict->topk();
+    llama.params.sparams.top_p = predict->topp();
+    llama.params.sparams.tfs_z = predict->tailfreesamplingz();
+    llama.params.sparams.typical_p = predict->typicalp();
+    llama.params.sparams.penalty_last_n = predict->repeat();
+    llama.params.sparams.temp = predict->temperature();
+    llama.params.sparams.penalty_repeat = predict->penalty();
+    llama.params.sparams.penalty_present = predict->presencepenalty();
+    llama.params.sparams.penalty_freq = predict->frequencypenalty();
+    llama.params.sparams.mirostat = predict->mirostat();
+    llama.params.sparams.mirostat_tau = predict->mirostattau();
+    llama.params.sparams.mirostat_eta = predict->mirostateta();
+    llama.params.sparams.penalize_nl = predict->penalizenl();
     llama.params.n_keep = predict->nkeep();
     llama.params.seed = predict->seed();
-    llama.params.grammar = predict->grammar();
+    llama.params.sparams.grammar = predict->grammar();
     // llama.params.n_probs = predict->
     llama.params.prompt = predict->prompt();
 
-    llama.params.logit_bias.clear();
+    llama.params.sparams.logit_bias.clear();
 
     if (predict->ignoreeos())
     {
-        llama.params.logit_bias[llama_token_eos(llama.ctx)] = -INFINITY;
+        llama.params.sparams.logit_bias[llama_token_eos(llama.ctx)] = -INFINITY;
     }
 
     // const auto &logit_bias = body.find("logit_bias");
@@ -801,12 +773,7 @@ public:
 
         parse_options_completion(false, request, llama);
 
-        if (!llama.loadGrammar())
-        {
-            //res.status = 400;
-            return Status::CANCELLED;
-        }
-
+        llama.initSampling();
         llama.loadPrompt(request->prompt());
         llama.beginCompletion();
         size_t sent_count = 0;
@@ -848,7 +815,7 @@ public:
 
                 std::vector<completion_token_output> probs_output = {};
 
-                if (llama.params.n_probs > 0) {
+                if (llama.params.sparams.n_probs > 0) {
                     const std::vector<llama_token> to_send_toks = llama_tokenize(llama.ctx, to_send, false);
                     size_t probs_pos = std::min(sent_token_probs_index, llama.generated_token_probs.size());
                     size_t probs_stop_pos = std::min(sent_token_probs_index + to_send_toks.size(), llama.generated_token_probs.size());
@@ -879,12 +846,7 @@ public:
         llama_reset_timings(llama.ctx);
         parse_options_completion(false, request, llama);
 
-        if (!llama.loadGrammar())
-        {
-            //res.status = 400;
-            return Status::CANCELLED;
-        }
-
+        llama.initSampling();
         llama.loadPrompt(request->prompt());
         llama.beginCompletion();
 
@@ -915,7 +877,7 @@ public:
         }
 
         auto probs = llama.generated_token_probs;
-        if (llama.params.n_probs > 0 && llama.stopped_word) {
+        if (llama.params.sparams.n_probs > 0 && llama.stopped_word) {
             const std::vector<llama_token> stop_word_toks = llama_tokenize(llama.ctx, llama.stopping_word, false);
             probs = std::vector<completion_token_output>(llama.generated_token_probs.begin(), llama.generated_token_probs.end() - stop_word_toks.size());
         }
