@@ -19,7 +19,7 @@ ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/i
 ARG GO_TAGS="stablediffusion tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates curl patch pip cmake
+    apt-get install -y ca-certificates curl patch pip cmake && apt-get clean
 
 
 # Use the variables in subsequent instructions
@@ -34,17 +34,18 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     dpkg -i cuda-keyring_1.0-1_all.deb && \
     rm -f cuda-keyring_1.0-1_all.deb && \
     apt-get update && \
-    apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+    apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}  && apt-get clean \
     ; fi
 ENV PATH /usr/local/cuda/bin:${PATH}
 
-# OpenBLAS requirements
-RUN apt-get install -y libopenblas-dev
+# OpenBLAS requirements and stable diffusion
+RUN apt-get install -y \
+    libopenblas-dev \
+    libopencv-dev \ 
+    && apt-get clean
 
-# Stable Diffusion requirements
-RUN apt-get install -y libopencv-dev && \
-    ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
-
+# Set up OpenCV
+RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
 WORKDIR /build
 
