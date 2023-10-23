@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   ubuntu-latest:
-    runs-on: self-hosted
+    runs-on: gpu
     strategy:
       matrix:
         go-version: ['1.21.x']
