@@ -41,4 +41,5 @@ release/
 backend-assets/
 prepare
 /ggml-metal.metal
-/backend/rust/target/
+backend/rust/target/
+backend/rust/*.lock
