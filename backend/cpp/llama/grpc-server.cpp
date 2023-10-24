@@ -275,11 +275,11 @@ struct llama_server_context
         if (suff_rm_leading_spc  && suffix_tokens[0] == space_token) {
             suffix_tokens.erase(suffix_tokens.begin());
         }
-        prefix_tokens.insert(prefix_tokens.begin(), llama_token_prefix(ctx));
-        prefix_tokens.insert(prefix_tokens.begin(), llama_token_bos(ctx)); // always add BOS
-        prefix_tokens.insert(prefix_tokens.end(), llama_token_suffix(ctx));
+        prefix_tokens.insert(prefix_tokens.begin(), llama_token_prefix(model));
+        prefix_tokens.insert(prefix_tokens.begin(), llama_token_bos(model)); // always add BOS
+        prefix_tokens.insert(prefix_tokens.end(), llama_token_suffix(model));
         prefix_tokens.insert(prefix_tokens.end(), suffix_tokens.begin(), suffix_tokens.end());
-        prefix_tokens.push_back(llama_token_middle(ctx));
+        prefix_tokens.push_back(llama_token_middle(model));
 
         auto prompt_tokens = prefix_tokens;
 
@@ -419,7 +419,7 @@ struct llama_server_context
         if (params.n_predict == 0)
         {
             has_next_token = false;
-            result.tok = llama_token_eos(ctx);
+            result.tok = llama_token_eos(model);
             return result;
         }
 
@@ -453,7 +453,7 @@ struct llama_server_context
         // decrement remaining sampling budget
         --n_remain;
 
-        if (!embd.empty() && embd.back() == llama_token_eos(ctx))
+        if (!embd.empty() && embd.back() == llama_token_eos(model))
         {
             // stopping_word = llama_token_to_piece(ctx, embd.back());
             has_next_token = false;
@@ -594,7 +594,7 @@ static void parse_options_completion(bool streaming,const backend::PredictOption
 
     if (predict->ignoreeos())
     {
-        llama.params.sparams.logit_bias[llama_token_eos(llama.ctx)] = -INFINITY;
+        llama.params.sparams.logit_bias[llama_token_eos(llama.model)] = -INFINITY;
     }
 
     // const auto &logit_bias = body.find("logit_bias");
@@ -676,7 +676,7 @@ static void params_parse(const backend::ModelOptions* request,
 }
 
 static bool is_at_eob(llama_server_context &server_context, const llama_token *tokens, const size_t n_tokens) {
-    return n_tokens && tokens[n_tokens-1] == llama_token_eos(server_context.ctx);
+    return n_tokens && tokens[n_tokens-1] == llama_token_eos(server_context.model);
 }
 
 // Function matching type llama_beam_search_callback_fn_t.
