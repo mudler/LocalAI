@@ -13,7 +13,11 @@ path = "src/server.rs"
 
 # import bunker here
 bunker = { path = "../bunker" }
+
 tokio = "1.33.0"
 async-trait = "0.1.74"
 tonic = "0.10.2"
 tokio-stream = "0.1.14"
+
+tracing = "0.1"
+tracing-subscriber = "0.3"

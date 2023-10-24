@@ -12,6 +12,8 @@ use tonic::{Request, Response, Status};
 
 use async_trait::async_trait;
 
+use tracing::{event, span, Level};
+
 // implement BackendService trait in bunker
 
 #[derive(Default, Debug)]
@@ -21,6 +23,7 @@ struct BurnBackend;
 impl BackendService for BurnBackend {
     type PredictStreamStream = ReceiverStream<Result<Reply, Status>>;
 
+    #[tracing::instrument]
     async fn health(&self, request: Request<HealthMessage>) -> Result<Response<Reply>, Status> {
         // return a Result<Response<Reply>,Status>
         let reply = Reply {
@@ -30,10 +33,12 @@ impl BackendService for BurnBackend {
         Ok(res)
     }
 
+    #[tracing::instrument]
     async fn predict(&self, request: Request<PredictOptions>) -> Result<Response<Reply>, Status> {
         todo!()
     }
 
+    #[tracing::instrument]
     async fn load_model(
         &self,
         request: Request<ModelOptions>,
@@ -41,6 +46,7 @@ impl BackendService for BurnBackend {
         todo!()
     }
 
+    #[tracing::instrument]
     async fn predict_stream(
         &self,
         request: Request<PredictOptions>,
@@ -48,6 +54,7 @@ impl BackendService for BurnBackend {
         todo!()
     }
 
+    #[tracing::instrument]
     async fn embedding(
         &self,
         request: Request<PredictOptions>,
@@ -55,6 +62,7 @@ impl BackendService for BurnBackend {
         todo!()
     }
 
+    #[tracing::instrument]
     async fn generate_image(
         &self,
         request: Request<GenerateImageRequest>,
@@ -62,6 +70,7 @@ impl BackendService for BurnBackend {
         todo!()
     }
 
+    #[tracing::instrument]
     async fn audio_transcription(
         &self,
         request: Request<TranscriptRequest>,
@@ -69,10 +78,12 @@ impl BackendService for BurnBackend {
         todo!()
     }
 
+    #[tracing::instrument]
     async fn tts(&self, request: Request<TtsRequest>) -> Result<Response<PbResult>, Status> {
         todo!()
     }
 
+    #[tracing::instrument]
     async fn tokenize_string(
         &self,
         request: Request<PredictOptions>,
@@ -80,6 +91,7 @@ impl BackendService for BurnBackend {
         todo!()
     }
 
+    #[tracing::instrument]
     async fn status(
         &self,
         request: Request<HealthMessage>,
@@ -90,6 +102,16 @@ impl BackendService for BurnBackend {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let subscriber = tracing_subscriber::fmt()
+        .compact()
+        .with_file(true)
+        .with_line_number(true)
+        .with_thread_ids(true)
+        .with_target(false)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber)?;
+
     // call bunker::run with BurnBackend
     let burn_backend = BurnBackend {};
     let addr = "[::1]:50051"
@@ -98,6 +120,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Implmenet Into<SocketAddr> for addr
     let result = bunker::run(burn_backend, addr).await?;
+
+    event!(Level::INFO, "Burn Server is starting");
+
+    let span = span!(Level::INFO, "Burn Server");
+    let _enter = span.enter();
+
+    event!(Level::INFO, "Burn Server started successfully");
 
     Ok(result)
 }
