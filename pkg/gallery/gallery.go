@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
 
@@ -166,7 +167,9 @@ func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error)
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {
-
+		if yamlErr, ok := err.(*yaml.TypeError); ok {
+			log.Debug().Msgf("YAML errors: %s", strings.Join(yamlErr.Errors, "\n"))
+		}
 		return models, err
 	}
 
