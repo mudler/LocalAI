@@ -1,0 +1,3 @@
+<|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}
+{{if .Content}}{{.Content}}{{end}}
+<|im_end|>
