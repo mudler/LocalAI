@@ -1,0 +1,16 @@
+name: mistral
+mmap: true
+parameters:
+  model: mistral-7b-openorca.Q6_K.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+template:
+  chat_message: chatml
+  chat: chatml-block
+  completion: completion
+context_size: 4096
+f16: true
+stopwords:
+- <|im_end|>
+threads: 4
