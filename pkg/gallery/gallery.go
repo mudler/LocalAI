@@ -168,7 +168,7 @@ func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error)
 	})
 	if err != nil {
 		if yamlErr, ok := err.(*yaml.TypeError); ok {
-			log.Debug().Msgf("YAML errors: %s", strings.Join(yamlErr.Errors, "\n"))
+			log.Debug().Msgf("YAML errors: %s\n\nwreckage of models: %+v", strings.Join(yamlErr.Errors, "\n"), models)
 		}
 		return models, err
 	}
