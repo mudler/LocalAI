@@ -11,7 +11,7 @@ require (
 	github.com/go-skynet/go-ggml-transformers.cpp v0.0.0-20230714203132-ffb09d7dd71e
 	github.com/go-skynet/go-llama.cpp v0.0.0-20231009155254-aeba71ee8428
 	github.com/gofiber/fiber/v2 v2.50.0
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.4.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hpcloud/tail v1.0.0
 	github.com/imdario/mergo v0.3.16
