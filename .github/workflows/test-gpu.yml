@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   ubuntu-latest:
-    runs-on: self-hosted
+    runs-on: gpu
     strategy:
       matrix:
         go-version: ['1.21.x']
@@ -59,5 +59,5 @@ jobs:
           make \
             TEST_DIR="/host/tests/${{ github.head_ref || github.ref }}" \
             teardown-e2e || true
-          sudo rm -rf /host/tests/${{ github.head_ref || github.ref }}
+          sudo rm -rf /host/tests/${{ github.head_ref || github.ref }} || true
           docker system prune -f -a --volumes || true
