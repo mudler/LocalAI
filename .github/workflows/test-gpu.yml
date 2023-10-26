@@ -40,6 +40,8 @@ jobs:
           if [ ! -e /run/systemd/system ]; then
             sudo mkdir /run/systemd/system
           fi
+          sudo mkdir -p /host/tests/${{ github.head_ref || github.ref }}
+          sudo chmod -R 777 /host/tests/${{ github.head_ref || github.ref }}
           make \
             TEST_DIR="/host/tests/${{ github.head_ref || github.ref }}" \
             BUILD_TYPE=cublas \
@@ -57,4 +59,5 @@ jobs:
           make \
             TEST_DIR="/host/tests/${{ github.head_ref || github.ref }}" \
             teardown-e2e || true
+          sudo rm -rf /host/tests/${{ github.head_ref || github.ref }} || true
           docker system prune -f -a --volumes || true
