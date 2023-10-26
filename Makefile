@@ -30,14 +30,8 @@ BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
 # go-piper version
 PIPER_VERSION?=56b8a81b4760a6fbee1a82e62f007ae7e8f010a7
 
-# go-bloomz version
-BLOOMZ_VERSION?=1834e77b83faafe912ad4092ccf7f77937349e2f
-
 # stablediffusion version
 STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
-
-# Go-ggllm
-GOGGLLM_VERSION?=862477d16eefb0805261c19c9b0d053e3b2b684b
 
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
@@ -129,7 +123,7 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
 endif
 
-ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/falcon backend-assets/grpc/bloomz backend-assets/grpc/llama backend-assets/grpc/llama-cpp backend-assets/grpc/llama-stable backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
+ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/llama backend-assets/grpc/llama-cpp backend-assets/grpc/llama-stable backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
 
 # If empty, then we build all
@@ -145,14 +139,6 @@ all: help
 gpt4all:
 	git clone --recurse-submodules $(GPT4ALL_REPO) gpt4all
 	cd gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
-
-## go-ggllm
-go-ggllm:
-	git clone --recurse-submodules https://github.com/mudler/go-ggllm.cpp go-ggllm
-	cd go-ggllm && git checkout -b build $(GOGGLLM_VERSION) && git submodule update --init --recursive --depth 1
-
-go-ggllm/libggllm.a: go-ggllm
-	$(MAKE) -C go-ggllm BUILD_TYPE=$(BUILD_TYPE) libggllm.a
 
 ## go-piper
 go-piper:
@@ -179,14 +165,6 @@ go-rwkv:
 
 go-rwkv/librwkv.a: go-rwkv
 	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
-
-## bloomz
-bloomz:
-	git clone --recurse-submodules https://github.com/go-skynet/bloomz.cpp bloomz
-	cd bloomz && git checkout -b build $(BLOOMZ_VERSION) && git submodule update --init --recursive --depth 1
-
-bloomz/libbloomz.a: bloomz
-	cd bloomz && make libbloomz.a
 
 go-bert/libgobert.a: go-bert
 	$(MAKE) -C go-bert libgobert.a
@@ -241,7 +219,7 @@ go-llama-stable/libbinding.a: go-llama-stable
 go-piper/libpiper_binding.a: go-piper
 	$(MAKE) -C go-piper libpiper_binding.a example/main
 
-get-sources: go-llama go-llama-stable go-ggllm go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert bloomz go-stable-diffusion
+get-sources: go-llama go-llama-stable go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert go-stable-diffusion
 	touch $@
 
 replace:
@@ -250,10 +228,8 @@ replace:
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(shell pwd)/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/go-bert
-	$(GOCMD) mod edit -replace github.com/go-skynet/bloomz.cpp=$(shell pwd)/bloomz
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/go-piper
-	$(GOCMD) mod edit -replace github.com/mudler/go-ggllm.cpp=$(shell pwd)/go-ggllm
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
@@ -269,9 +245,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C whisper.cpp clean
 	$(MAKE) -C go-stable-diffusion clean
 	$(MAKE) -C go-bert clean
-	$(MAKE) -C bloomz clean
 	$(MAKE) -C go-piper clean
-	$(MAKE) -C go-ggllm clean
 	$(MAKE) build
 
 prepare: prepare-sources $(OPTIONAL_TARGETS)
@@ -289,10 +263,8 @@ clean: ## Remove build related file
 	rm -rf ./backend-assets
 	rm -rf ./go-rwkv
 	rm -rf ./go-bert
-	rm -rf ./bloomz
 	rm -rf ./whisper.cpp
 	rm -rf ./go-piper
-	rm -rf ./go-ggllm
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
 	$(MAKE) -C backend/cpp/llama clean
@@ -418,10 +390,6 @@ protogen-python:
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
 
-backend-assets/grpc/falcon: backend-assets/grpc go-ggllm/libggllm.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggllm LIBRARY_PATH=$(shell pwd)/go-ggllm \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/falcon ./cmd/grpc/falcon/
-
 backend-assets/grpc/llama: backend-assets/grpc go-llama/libbinding.a
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama LIBRARY_PATH=$(shell pwd)/go-llama \
@@ -485,10 +453,6 @@ backend-assets/grpc/starcoder: backend-assets/grpc go-ggml-transformers/libtrans
 backend-assets/grpc/rwkv: backend-assets/grpc go-rwkv/librwkv.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-rwkv LIBRARY_PATH=$(shell pwd)/go-rwkv \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/rwkv ./cmd/grpc/rwkv/
-
-backend-assets/grpc/bloomz: backend-assets/grpc bloomz/libbloomz.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/bloomz LIBRARY_PATH=$(shell pwd)/bloomz \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bloomz ./cmd/grpc/bloomz/
 
 backend-assets/grpc/bert-embeddings: backend-assets/grpc go-bert/libgobert.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-bert LIBRARY_PATH=$(shell pwd)/go-bert \

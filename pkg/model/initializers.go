@@ -18,7 +18,6 @@ const (
 	LlamaBackend        = "llama"
 	LlamaStableBackend  = "llama-stable"
 	LLamaCPP            = "llama-cpp"
-	BloomzBackend       = "bloomz"
 	StarcoderBackend    = "starcoder"
 	GPTJBackend         = "gptj"
 	DollyBackend        = "dolly"
@@ -30,7 +29,6 @@ const (
 	Gpt4AllMptBackend   = "gpt4all-mpt"
 	Gpt4AllJBackend     = "gpt4all-j"
 	Gpt4All             = "gpt4all"
-	FalconBackend       = "falcon"
 	FalconGGMLBackend   = "falcon-ggml"
 
 	BertEmbeddingsBackend  = "bert-embeddings"
@@ -46,7 +44,6 @@ var AutoLoadBackends []string = []string{
 	LlamaStableBackend,
 	LlamaBackend,
 	Gpt4All,
-	FalconBackend,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,
 	FalconGGMLBackend,
@@ -56,7 +53,6 @@ var AutoLoadBackends []string = []string{
 	MPTBackend,
 	ReplitBackend,
 	StarcoderBackend,
-	BloomzBackend,
 	RwkvBackend,
 	WhisperBackend,
 	StableDiffusionBackend,
