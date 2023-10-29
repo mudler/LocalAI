@@ -687,7 +687,7 @@ var _ = Describe("API test", func() {
 					Input: []string{"sun", "cat"},
 				},
 			)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), err)
 			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 384))
 			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 384))
 
