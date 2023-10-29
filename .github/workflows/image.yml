@@ -184,7 +184,10 @@ jobs:
           registry: quay.io
           username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
           password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
