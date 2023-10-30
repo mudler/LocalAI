@@ -24,42 +24,16 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: ''
             ffmpeg: ''
-          - build-type: 'cublas'
-            cuda-major-version: 11
-            cuda-minor-version: 7
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-cublas-cuda11'
-            ffmpeg: ''
-          - build-type: 'cublas'
-            cuda-major-version: 12
-            cuda-minor-version: 1
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-cublas-cuda12'
-            ffmpeg: ''
           - build-type: ''
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-ffmpeg'
             ffmpeg: 'true'
-          - build-type: 'cublas'
-            cuda-major-version: 11
-            cuda-minor-version: 7
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-cublas-cuda11-ffmpeg'
-            ffmpeg: 'true'
-          - build-type: 'cublas'
-            cuda-major-version: 12
-            cuda-minor-version: 1
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-cublas-cuda12-ffmpeg'
-            ffmpeg: 'true'
 
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Release space from worker
         run: |
           echo "Listing top largest packages"
@@ -96,9 +70,6 @@ jobs:
           echo
           sudo rm -rfv build || true
           df -h
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -144,3 +115,99 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+
+  docker-gpu:
+    strategy:
+      matrix:
+        include:
+          - build-type: 'cublas'
+            cuda-major-version: 11
+            cuda-minor-version: 7
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-cublas-cuda11'
+            ffmpeg: ''
+          - build-type: 'cublas'
+            cuda-major-version: 12
+            cuda-minor-version: 1
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-cublas-cuda12'
+            ffmpeg: ''
+          - build-type: 'cublas'
+            cuda-major-version: 11
+            cuda-minor-version: 7
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-cublas-cuda11-ffmpeg'
+            ffmpeg: 'true'
+          - build-type: 'cublas'
+            cuda-major-version: 12
+            cuda-minor-version: 1
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-cublas-cuda12-ffmpeg'
+            ffmpeg: 'true'
+
+    runs-on: arc-runner-set 
+    steps:
+      - name: Force Install GIT latest
+        run: |
+          sudo apt-get update \
+          && sudo apt-get install -y software-properties-common \
+          && sudo apt-get update \
+          && sudo add-apt-repository -y ppa:git-core/ppa \
+          && sudo apt-get update \
+          && sudo apt-get install -y git
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: quay.io/go-skynet/local-ai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=${{ matrix.tag-latest }}
+            suffix=${{ matrix.tag-suffix }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BUILD_TYPE=${{ matrix.build-type }}
+            CUDA_MAJOR_VERSION=${{ matrix.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ matrix.cuda-minor-version }}
+            FFMPEG=${{ matrix.ffmpeg }}
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Release space from worker ♻
+        if: always()
+        run: |
+          docker system prune -f -a --volumes || true
