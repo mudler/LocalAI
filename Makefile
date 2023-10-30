@@ -267,6 +267,9 @@ clean: ## Remove build related file
 	rm -rf ./go-piper
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
+	rm -rf ./backend/cpp/grpc/grpc_repo
+	rm -rf ./backend/cpp/grpc/build
+	rm -rf ./backend/cpp/grpc/installed_packages
 	$(MAKE) -C backend/cpp/llama clean
 
 ## Build:
@@ -399,9 +402,28 @@ ifeq ($(BUILD_TYPE),metal)
 	cp go-llama/build/bin/ggml-metal.metal backend-assets/grpc/
 endif
 
-backend/cpp/llama/grpc-server:
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
+## BACKEND CPP LLAMA 
+# Sets the variables in case it has to build the gRPC locally.
+INSTALLED_PACKAGES=$(CURDIR)/backend/cpp/grpc/installed_packages
+INSTALLED_LIB_CMAKE=$(INSTALLED_PACKAGES)/lib/cmake
+ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
+                 -DProtobuf_DIR=${INSTALLED_LIB_CMAKE}/protobuf \
+                 -Dutf8_range_DIR=${INSTALLED_LIB_CMAKE}/utf8_range \
+                 -DgRPC_DIR=${INSTALLED_LIB_CMAKE}/grpc \
+                 -DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=${INSTALLED_PACKAGES}/include
 
+backend/cpp/llama/grpc-server:			
+ifdef BUILD_GRPC
+	backend/cpp/grpc/script/build_grpc.sh ${INSTALLED_PACKAGES}
+	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto && \
+	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin && \
+	export PATH=${PATH}:${INSTALLED_PACKAGES}/bin && \
+	CMAKE_ARGS="${ADDED_CMAKE_ARGS}" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server 
+else
+	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server			
+endif
+		
+##
 backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/grpc-server
 	cp -rfv backend/cpp/llama/grpc-server backend-assets/grpc/llama-cpp
 # TODO: every binary should have its own folder instead, so can have different metal implementations
