@@ -24,6 +24,103 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: ''
             ffmpeg: ''
+          - build-type: ''
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-ffmpeg'
+            ffmpeg: 'true'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Release space from worker
+        run: |
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          df -h
+          echo
+          sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+          sudo apt-get remove --auto-remove android-sdk-platform-tools || true
+          sudo apt-get purge --auto-remove android-sdk-platform-tools || true
+          sudo rm -rf /usr/local/lib/android
+          sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+          sudo rm -rf /usr/share/dotnet
+          sudo apt-get remove -y '^mono-.*' || true
+          sudo apt-get remove -y '^ghc-.*' || true
+          sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+          sudo apt-get remove -y 'php.*' || true
+          sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+          sudo apt-get remove -y '^google-.*' || true
+          sudo apt-get remove -y azure-cli || true
+          sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+          sudo apt-get remove -y '^gfortran-.*' || true
+          sudo apt-get remove -y microsoft-edge-stable || true
+          sudo apt-get remove -y firefox || true
+          sudo apt-get remove -y powershell || true
+          sudo apt-get remove -y r-base-core || true
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          echo
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          sudo rm -rfv build || true
+          df -h
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: quay.io/go-skynet/local-ai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=${{ matrix.tag-latest }}
+            suffix=${{ matrix.tag-suffix }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BUILD_TYPE=${{ matrix.build-type }}
+            CUDA_MAJOR_VERSION=${{ matrix.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ matrix.cuda-minor-version }}
+            FFMPEG=${{ matrix.ffmpeg }}
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+
+  docker-gpu:
+    strategy:
+      matrix:
+        include:
           - build-type: 'cublas'
             cuda-major-version: 11
             cuda-minor-version: 7
@@ -38,11 +135,6 @@ jobs:
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12'
             ffmpeg: ''
-          - build-type: ''
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-ffmpeg'
-            ffmpeg: 'true'
           - build-type: 'cublas'
             cuda-major-version: 11
             cuda-minor-version: 7
@@ -58,8 +150,16 @@ jobs:
             tag-suffix: '-cublas-cuda12-ffmpeg'
             ffmpeg: 'true'
 
-    runs-on: docker-build
+    runs-on: arc-runner-set 
     steps:
+      - name: Force Install GIT latest
+        run: |
+          sudo apt-get update \
+          && sudo apt-get install -y software-properties-common \
+          && sudo apt-get update \
+          && sudo add-apt-repository -y ppa:git-core/ppa \
+          && sudo apt-get update \
+          && sudo apt-get install -y git
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -92,7 +192,6 @@ jobs:
           registry: quay.io
           username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
           password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
