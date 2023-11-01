@@ -1,5 +1,5 @@
 [package]
-name = "burn"
+name = "backend-burn"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [[bin]]
 name = "server"
-path = "src/server.rs"
+path = "src/main.rs"
 
 [dependencies]
 

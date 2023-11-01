@@ -32,7 +32,7 @@ clean:
 .PHONY: burn
 burn:
 	@echo "Burning..."
-	@cargo run --bin server --package burn
+	@cargo run --bin server --package backend-burn
 
 .PHONY: health
 health:
