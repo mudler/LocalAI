@@ -22,6 +22,9 @@ RUN apt-get update && \
     apt-get install -y ca-certificates curl patch pip cmake && apt-get clean
 
 
+COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"

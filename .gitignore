@@ -10,6 +10,8 @@ go-ggllm
 __pycache__/
 *.a
 get-sources
+/backend/cpp/llama/grpc-server
+/backend/cpp/llama/llama.cpp
 
 go-ggml-transformers
 go-gpt2
