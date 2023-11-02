@@ -77,6 +77,8 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
 # Extras requirements
 FROM requirements-core as requirements-extras
 
+ARG IMAGE_TYPE=extras
+
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
     curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
     install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
