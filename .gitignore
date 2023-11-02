@@ -43,3 +43,4 @@ prepare
 /ggml-metal.metal
 target/
 Cargo.lock
+model.bin

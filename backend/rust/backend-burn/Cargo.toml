@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 # import bunker here
 bunker = { path = "../bunker" }
+models = { path = "../models" }
 
 tokio = "1.33.0"
 async-trait = "0.1.74"

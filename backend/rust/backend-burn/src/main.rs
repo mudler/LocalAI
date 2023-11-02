@@ -14,6 +14,7 @@ use async_trait::async_trait;
 
 use tracing::{event, span, Level};
 
+use models::*;
 // implement BackendService trait in bunker
 
 #[derive(Default, Debug)]
@@ -35,7 +36,25 @@ impl BackendService for BurnBackend {
 
     #[tracing::instrument]
     async fn predict(&self, request: Request<PredictOptions>) -> Result<Response<Reply>, Status> {
-        todo!()
+        let mut models: Vec<Box<dyn LLM>> = vec![Box::new(models::MNINST::new())];
+        let result = models[0].predict(request.into_inner());
+
+        match result {
+            Ok(res) => {
+                let reply = Reply {
+                    message: res.into(),
+                };
+                let res = Response::new(reply);
+                Ok(res)
+            }
+            Err(e) => {
+                let reply = Reply {
+                    message: e.to_string().into(),
+                };
+                let res = Response::new(reply);
+                Ok(res)
+            }
+        }
     }
 
     #[tracing::instrument]

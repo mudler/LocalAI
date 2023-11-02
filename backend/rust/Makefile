@@ -34,6 +34,16 @@ burn:
 	@echo "Burning..."
 	@cargo run --bin server --package backend-burn
 
+
+############################################################################################################
+# gRPC testing commands
+
+
+.PHONY: list
+list:
+	@echo "Burning..."
+	@grpcurl -plaintext -import-path ../../../pkg/grpc/proto -proto backend.proto list backend.Backend
+
 .PHONY: health
 health:
 	@echo "Burning..."
