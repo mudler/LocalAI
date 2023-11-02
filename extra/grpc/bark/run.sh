@@ -1,6 +1,6 @@
 ##
 ## A bash script wrapper that runs the ttsbark server with conda
-
+PATH=$PATH:/opt/conda/bin
 # Activate conda environment
 source activate ttsbark
 

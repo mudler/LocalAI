@@ -1,6 +1,8 @@
 ##
 ## A bash script wrapper that runs the diffusers server with conda
 
+PATH=$PATH:/opt/conda/bin
+
 # Activate conda environment
 source activate vllm
 

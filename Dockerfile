@@ -179,7 +179,7 @@ COPY --from=builder /build/local-ai ./
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make prepare-extra-conda-environments \
+    PATH=$PATH:/opt/conda/bin make prepare-extra-conda-environments \
     ; fi
 
 # Copy VALLE-X as it's not a real "lib"
