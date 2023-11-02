@@ -70,8 +70,7 @@ jobs:
 
           sudo apt-get install -y ca-certificates cmake curl patch
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
-          sudo pip install -r extra/requirements.txt
-
+          make -C extra/grpc/huggingface
 
           # Pre-build stable diffusion before we install a newever version of abseil (not compatible with stablediffusion-ncn)
           GO_TAGS="tts stablediffusion" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
@@ -96,7 +95,6 @@ jobs:
               cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
                 -DgRPC_BUILD_TESTS=OFF \
                 ../.. && sudo make -j12 install
-          make prepare-extra-conda-environments
       - name: Test
         run: |
           ESPEAK_DATA="/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data" GO_TAGS="tts stablediffusion" make test
