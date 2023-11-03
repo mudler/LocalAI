@@ -1,3 +1,4 @@
+#!/bin/bash
 ##
 ## A bash script wrapper that runs the huggingface server with conda
 

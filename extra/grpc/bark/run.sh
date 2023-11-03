@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ##
 ## A bash script wrapper that runs the ttsbark server with conda
 PATH=$PATH:/opt/conda/bin

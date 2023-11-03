@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ##
 ## A bash script wrapper that runs the exllama server with conda
 
