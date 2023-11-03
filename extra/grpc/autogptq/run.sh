@@ -3,7 +3,7 @@
 ##
 ## A bash script wrapper that runs the autogptq server with conda
 
-PATH=$PATH:/opt/conda/bin
+export PATH=$PATH:/opt/conda/bin
 
 # Activate conda environment
 source activate autogptq
