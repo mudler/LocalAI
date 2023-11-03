@@ -1,0 +1,16 @@
+localAI:
+  temperature: 0
+  modelName: gpt-3.5-turbo
+  apiBase: http://local-ai.default
+  apiKey: stub
+  streaming: True
+weviate:
+  url: http://weviate.local
+  index: AIChroma
+query:
+  mode: hybrid
+  topK: 1
+  alpha: 0.0
+  chunkSize: 1024
+embedding:
+  model: BAAI/bge-small-en-v1.5
