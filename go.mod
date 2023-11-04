@@ -107,3 +107,19 @@ require (
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
 )
+
+replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang => /home/minguzzi/ssh_repo/LocalAI/gpt4all/gpt4all-bindings/golang
+
+replace github.com/go-skynet/go-ggml-transformers.cpp => /home/minguzzi/ssh_repo/LocalAI/go-ggml-transformers
+
+replace github.com/donomii/go-rwkv.cpp => /home/minguzzi/ssh_repo/LocalAI/go-rwkv
+
+replace github.com/ggerganov/whisper.cpp => /home/minguzzi/ssh_repo/LocalAI/whisper.cpp
+
+replace github.com/go-skynet/go-bert.cpp => /home/minguzzi/ssh_repo/LocalAI/go-bert
+
+replace github.com/mudler/go-stable-diffusion => /home/minguzzi/ssh_repo/LocalAI/go-stable-diffusion
+
+replace github.com/mudler/go-piper => /home/minguzzi/ssh_repo/LocalAI/go-piper
+
+replace github.com/go-skynet/go-llama.cpp => /home/minguzzi/ssh_repo/LocalAI/go-llama-stable

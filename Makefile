@@ -413,7 +413,7 @@ ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
                  -DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=${INSTALLED_PACKAGES}/include
 
 backend/cpp/llama/grpc-server:			
-ifdef BUILD_GRPC
+ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	backend/cpp/grpc/script/build_grpc.sh ${INSTALLED_PACKAGES}
 	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto && \
 	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin && \
