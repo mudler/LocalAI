@@ -76,15 +76,10 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+          
+          sudo rm -rfv /usr/bin/conda || true
+          PATH=$PATH:/opt/conda/bin make -C extra/grpc/huggingface
 
-          make -C extra/grpc/huggingface
-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-      - name: Dependencies
-        run: |
           # Pre-build stable diffusion before we install a newever version of abseil (not compatible with stablediffusion-ncn)
           GO_TAGS="tts stablediffusion" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
