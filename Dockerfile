@@ -14,7 +14,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/huggingface.py,autogptq:/build/extra/grpc/autogptq/autogptq.py,bark:/build/extra/grpc/bark/ttsbark.py,diffusers:/build/extra/grpc/diffusers/backend_diffusers.py,exllama:/build/extra/grpc/exllama/exllama.py,vall-e-x:/build/extra/grpc/vall-e-x/ttsvalle.py,vllm:/build/extra/grpc/vllm/backend_vllm.py"
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/run.sh,autogptq:/build/extra/grpc/autogptq/run.sh,bark:/build/extra/grpc/bark/run.sh,diffusers:/build/extra/grpc/diffusers/run.sh,exllama:/build/extra/grpc/exllama/run.sh,vall-e-x:/build/extra/grpc/vall-e-x/run.sh,vllm:/build/extra/grpc/vllm/run.sh"
 ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
 ARG GO_TAGS="stablediffusion tts"
 
@@ -77,17 +77,25 @@ RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSIO
 # Extras requirements
 FROM requirements-core as requirements-extras
 
+RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
+    install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
+    gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list && \
+    apt-get update && \
+    apt-get install -y conda
+
 COPY extra/requirements.txt /build/extra/requirements.txt
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN pip install --upgrade pip
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-        pip install git+https://github.com/suno-ai/bark.git diffusers invisible_watermark transformers accelerate safetensors;\
-    fi
-RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
-        pip install torch vllm && pip install auto-gptq https://github.com/jllllll/exllama/releases/download/0.0.10/exllama-0.0.10+cu${CUDA_MAJOR_VERSION}${CUDA_MINOR_VERSION}-cp39-cp39-linux_x86_64.whl;\
-    fi
-RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
+#RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+#        pip install git+https://github.com/suno-ai/bark.git diffusers invisible_watermark transformers accelerate safetensors;\
+#    fi
+#RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
+#        pip install torch vllm && pip install auto-gptq https://github.com/jllllll/exllama/releases/download/0.0.10/exllama-0.0.10+cu${CUDA_MAJOR_VERSION}${CUDA_MINOR_VERSION}-cp39-cp39-linux_x86_64.whl;\
+ #   fi
+#RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
 
 # Vall-e-X
 RUN git clone https://github.com/Plachtaa/VALL-E-X.git /usr/lib/vall-e-x && cd /usr/lib/vall-e-x && pip install -r requirements.txt
@@ -139,6 +147,7 @@ FROM requirements-${IMAGE_TYPE}
 ARG FFMPEG
 ARG BUILD_TYPE
 ARG TARGETARCH
+ARG IMAGE_TYPE=extras
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 ENV REBUILD=false
@@ -168,6 +177,10 @@ COPY --from=builder /build/local-ai ./
 
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
+
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+    PATH=$PATH:/opt/conda/bin make prepare-extra-conda-environments \
+    ; fi
 
 # Copy VALLE-X as it's not a real "lib"
 RUN if [ -d /usr/lib/vall-e-x ]; then \
