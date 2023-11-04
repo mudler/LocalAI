@@ -79,6 +79,12 @@ jobs:
 
           make -C extra/grpc/huggingface
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+      - name: Dependencies
+        run: |
           # Pre-build stable diffusion before we install a newever version of abseil (not compatible with stablediffusion-ncn)
           GO_TAGS="tts stablediffusion" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
