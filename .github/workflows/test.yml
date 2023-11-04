@@ -20,6 +20,10 @@ jobs:
       matrix:
         go-version: ['1.21.x']
     steps:
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
       - name: Release space from worker
         run: |
           echo "Listing top largest packages"
@@ -65,11 +69,15 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
+          whereis conda
+          whereis activate
+          exit 1
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
 
           sudo apt-get install -y ca-certificates cmake curl patch
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+
           make -C extra/grpc/huggingface
 
           # Pre-build stable diffusion before we install a newever version of abseil (not compatible with stablediffusion-ncn)
