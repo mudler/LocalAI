@@ -412,14 +412,16 @@ ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
                  -DgRPC_DIR=${INSTALLED_LIB_CMAKE}/grpc \
                  -DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=${INSTALLED_PACKAGES}/include
 
-backend/cpp/llama/grpc-server:			
+backend/cpp/llama/grpc-server:
 ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
+	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is defined."
 	backend/cpp/grpc/script/build_grpc.sh ${INSTALLED_PACKAGES}
 	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto && \
 	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin && \
 	export PATH=${PATH}:${INSTALLED_PACKAGES}/bin && \
 	CMAKE_ARGS="${ADDED_CMAKE_ARGS}" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server 
 else
+	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server			
 endif
 		
