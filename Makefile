@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=aeba71ee842819da681ea537e78846dc75949ac0
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=238657db2364cfb728c694470a4a81702afea760
+CPPLLAMA_VERSION?=629f917cd6b96ba1274c49a8aab163b1b189229d
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -293,12 +293,12 @@ run: prepare ## run local-ai
 test-models/testmodel:
 	mkdir test-models
 	mkdir test-dir
-	wget https://huggingface.co/nnakasato/ggml-model-test/resolve/main/ggml-model-q4.bin -O test-models/testmodel
-	wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
-	wget https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
-	wget https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
-	wget https://huggingface.co/mudler/rwkv-4-raven-1.5B-ggml/resolve/main/RWKV-4-Raven-1B5-v11-Eng99%2525-Other1%2525-20230425-ctx4096_Q4_0.bin -O test-models/rwkv
-	wget https://raw.githubusercontent.com/saharNooby/rwkv.cpp/5eb8f09c146ea8124633ab041d9ea0b1f1db4459/rwkv/20B_tokenizer.json -O test-models/rwkv.tokenizer.json
+	wget -q https://huggingface.co/nnakasato/ggml-model-test/resolve/main/ggml-model-q4.bin -O test-models/testmodel
+	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
+	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
+	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
+	wget -q https://huggingface.co/mudler/rwkv-4-raven-1.5B-ggml/resolve/main/RWKV-4-Raven-1B5-v11-Eng99%2525-Other1%2525-20230425-ctx4096_Q4_0.bin -O test-models/rwkv
+	wget -q https://raw.githubusercontent.com/saharNooby/rwkv.cpp/5eb8f09c146ea8124633ab041d9ea0b1f1db4459/rwkv/20B_tokenizer.json -O test-models/rwkv.tokenizer.json
 	cp tests/models_fixtures/* test-models
 
 prepare-test: grpcs
@@ -309,8 +309,8 @@ test: prepare test-models/testmodel grpcs
 	@echo 'Running tests'
 	export GO_TAGS="tts stablediffusion"
 	$(MAKE) prepare-test
-	HUGGINGFACE_GRPC=$(abspath ./)/extra/grpc/huggingface/huggingface.py TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf" --flake-attempts 5 -v -r ./api ./pkg
+	HUGGINGFACE_GRPC=$(abspath ./)/extra/grpc/huggingface/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf" --fail-fast -v -r ./api ./pkg
 	$(MAKE) test-gpt4all
 	$(MAKE) test-llama
 	$(MAKE) test-llama-gguf
@@ -389,6 +389,16 @@ protogen-python:
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/vllm/ --grpc_python_out=extra/grpc/vllm/ pkg/grpc/proto/backend.proto
 
 ## GRPC
+
+prepare-extra-conda-environments:
+	$(MAKE) -C extra/grpc/autogptq
+	$(MAKE) -C extra/grpc/bark
+	$(MAKE) -C extra/grpc/diffusers
+	$(MAKE) -C extra/grpc/vllm
+	$(MAKE) -C extra/grpc/huggingface
+	$(MAKE) -C extra/grpc/vall-e-x
+	$(MAKE) -C extra/grpc/exllama
+
 
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc

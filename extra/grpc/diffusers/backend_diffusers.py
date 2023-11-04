@@ -1,27 +1,32 @@
 #!/usr/bin/env python3
-import grpc
 from concurrent import futures
-import time
-import backend_pb2
-import backend_pb2_grpc
+
 import argparse
+from collections import defaultdict
+from enum import Enum
 import signal
 import sys
+import time
 import os
 
-# import diffusers
-import torch
-from torch import autocast
-from diffusers import StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
-from diffusers.pipelines.stable_diffusion import safety_checker
-from compel import Compel
 from PIL import Image
-from io import BytesIO
+import torch
+
+import backend_pb2
+import backend_pb2_grpc
+
+import grpc
+
+from diffusers import StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
 from diffusers import StableDiffusionImg2ImgPipeline
+from diffusers.pipelines.stable_diffusion import safety_checker
+
+from compel import Compel
+
 from transformers import CLIPTextModel
-from enum import Enum
-from collections import defaultdict
 from safetensors.torch import load_file
+
+
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 COMPEL=os.environ.get("COMPEL", "1") == "1"
 CLIPSKIP=os.environ.get("CLIPSKIP", "1") == "1"
