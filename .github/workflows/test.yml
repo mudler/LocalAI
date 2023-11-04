@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ubuntu-latest:
+  tests-linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -67,8 +67,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          # Remove old conda and install new one
-          sudo apt-get remove conda
           curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
              sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
               gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
@@ -108,7 +106,7 @@ jobs:
         run: |
           ESPEAK_DATA="/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data" GO_TAGS="tts stablediffusion" make test
 
-  macOS-latest:
+  tests-apple:
     runs-on: macOS-latest
     strategy:
       matrix:
