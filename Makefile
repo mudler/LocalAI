@@ -412,7 +412,7 @@ ifeq ($(BUILD_TYPE),metal)
 	cp go-llama/build/bin/ggml-metal.metal backend-assets/grpc/
 endif
 
-## BACKEND CPP LLAMA 
+## BACKEND CPP LLAMA START
 # Sets the variables in case it has to build the gRPC locally.
 INSTALLED_PACKAGES=$(CURDIR)/backend/cpp/grpc/installed_packages
 INSTALLED_LIB_CMAKE=$(INSTALLED_PACKAGES)/lib/cmake
@@ -424,7 +424,6 @@ ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
 
 backend/cpp/llama/grpc-server:
 ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
-	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is defined."
 	backend/cpp/grpc/script/build_grpc.sh ${INSTALLED_PACKAGES}
 	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto && \
 	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin && \
@@ -434,6 +433,7 @@ else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server			
 endif
+## BACKEND CPP LLAMA END
 		
 ##
 backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/grpc-server
