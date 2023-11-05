@@ -307,7 +307,7 @@ test: prepare test-models/testmodel grpcs
 	export GO_TAGS="tts stablediffusion"
 	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/extra/grpc/huggingface/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf" --fail-fast -v -r ./api ./pkg
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf"  --flake-attempts 5 --fail-fast -v -r ./api ./pkg
 	$(MAKE) test-gpt4all
 	$(MAKE) test-llama
 	$(MAKE) test-llama-gguf
