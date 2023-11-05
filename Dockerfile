@@ -178,8 +178,27 @@ COPY --from=builder /build/local-ai ./
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
+## Duplicated from Makefile to avoid having a big layer that's hard to push
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    PATH=$PATH:/opt/conda/bin make prepare-extra-conda-environments \
+	PATH=$PATH:/opt/conda/bin make -C extra/grpc/autogptq \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C extra/grpc/bark \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C extra/grpc/diffusers \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C extra/grpc/vllm \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C extra/grpc/huggingface \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C extra/grpc/vall-e-x \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C extra/grpc/vall-e-x \
     ; fi
 
 # Copy VALLE-X as it's not a real "lib"
