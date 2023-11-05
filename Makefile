@@ -389,7 +389,7 @@ protogen-python:
 	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=extra/grpc/vllm/ --grpc_python_out=extra/grpc/vllm/ pkg/grpc/proto/backend.proto
 
 ## GRPC
-
+# Note: it is duplicated in the Dockerfile
 prepare-extra-conda-environments:
 	$(MAKE) -C extra/grpc/autogptq
 	$(MAKE) -C extra/grpc/bark
