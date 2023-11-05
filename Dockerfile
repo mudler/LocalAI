@@ -198,7 +198,7 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C extra/grpc/vall-e-x \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C extra/grpc/vall-e-x \
+	PATH=$PATH:/opt/conda/bin make -C extra/grpc/exllama \
     ; fi
 
 # Copy VALLE-X as it's not a real "lib"
