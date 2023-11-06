@@ -27,12 +27,18 @@ dependencies:
   - pip:
       - certifi==2023.7.22
       - charset-normalizer==3.3.2
+      - contourpy==1.2.0
+      - cycler==0.12.1
       - filelock==3.13.1
+      - fonttools==4.44.0
       - fsspec==2023.10.0
       - grpcio==1.59.2
+      - huggingface-hub==0.18.0
       - idna==3.4
       - jinja2==3.1.2
+      - kiwisolver==1.4.5
       - markupsafe==2.1.3
+      - matplotlib==3.8.1
       - mpmath==1.3.0
       - networkx==3.2.1
       - numpy==1.26.1
@@ -48,13 +54,21 @@ dependencies:
       - nvidia-nccl-cu12==2.18.1
       - nvidia-nvjitlink-cu12==12.3.52
       - nvidia-nvtx-cu12==12.1.105
+      - packaging==23.2
       - pillow==10.1.0
       - protobuf==4.25.0
+      - pyparsing==3.1.1
+      - python-dateutil==2.8.2
+      - pyyaml==6.0.1
       - requests==2.31.0
+      - safetensors==0.4.0
       - segment-anything-hq==0.3
+      - six==1.16.0
       - sympy==1.12
+      - timm==0.9.10
       - torch==2.1.0
       - torchvision==0.16.0
+      - tqdm==4.66.1
       - triton==2.1.0
       - typing-extensions==4.8.0
       - urllib3==2.0.7
