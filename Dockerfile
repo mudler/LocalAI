@@ -8,8 +8,6 @@ FROM golang:$GO_VERSION as requirements-core
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
 ARG CUDA_MINOR_VERSION=7
-ARG SPDLOG_VERSION="1.11.0"
-ARG PIPER_PHONEMIZE_VERSION='1.0.0'
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -52,27 +50,8 @@ RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
 WORKDIR /build
 
-# piper requirements
-# Use pre-compiled Piper phonemization library (includes onnxruntime)
-#RUN if echo "${GO_TAGS}" | grep -q "tts"; then \
 RUN test -n "$TARGETARCH" \
     || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
-
-RUN curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSION}.tar.gz" | \
-    tar -xzvf - && \
-    mkdir -p "spdlog-${SPDLOG_VERSION}/build" && \
-    cd "spdlog-${SPDLOG_VERSION}/build" && \
-    cmake ..  && \
-    make -j8 && \
-    cmake --install . --prefix /usr && mkdir -p "lib/Linux-$(uname -m)" && \
-    cd /build && \
-    mkdir -p "lib/Linux-$(uname -m)/piper_phonemize" && \
-    curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v${PIPER_PHONEMIZE_VERSION}/libpiper_phonemize-${TARGETARCH:-$(go env GOARCH)}${TARGETVARIANT}.tar.gz" | \
-    tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
-    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
-    ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
-    cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/ && \
-    rm spdlog-${SPDLOG_VERSION} -rf
 
 # Extras requirements
 FROM requirements-core as requirements-extras
@@ -137,7 +116,7 @@ RUN if [ "${BUILD_GRPC}" = "true" ]; then \
     ; fi
 
 # Rebuild with defaults backends
-RUN ESPEAK_DATA=/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data make build
+RUN make build
 
 ###################################
 ###################################
@@ -174,6 +153,9 @@ RUN make prepare-sources
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
+
+# Copy shared libraries for piper
+COPY --from=builder /build/go-piper/piper/build/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion

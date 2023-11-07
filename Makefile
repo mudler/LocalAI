@@ -28,7 +28,7 @@ WHISPER_CPP_VERSION?=85ed71aaec8e0612a84c0b67804bde75aa75a273
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
 
 # go-piper version
-PIPER_VERSION?=56b8a81b4760a6fbee1a82e62f007ae7e8f010a7
+PIPER_VERSION?=736f6fb639ab8e3397356e48eeb6bdcb9da88a78
 
 # stablediffusion version
 STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
@@ -52,7 +52,6 @@ override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Version=$(VERSION
 override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
 
 OPTIONAL_TARGETS?=
-ESPEAK_DATA?=
 
 OS := $(shell uname -s)
 ARCH := $(shell uname -m)
@@ -120,6 +119,8 @@ endif
 ifeq ($(findstring tts,$(GO_TAGS)),tts)
 #	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
 #	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
+	PIPER_CGO_CXXFLAGS+=-I$(shell pwd)/go-piper/piper/src/cpp -I$(shell pwd)/go-piper/piper/build/fi/include -I$(shell pwd)/go-piper/piper/build/pi/include -I$(shell pwd)/go-piper/piper/build/si/include
+ 	PIPER_CGO_LDFLAGS+=-L$(shell pwd)/go-piper/piper/build/fi/lib -L$(shell pwd)/go-piper/piper/build/pi/lib -L$(shell pwd)/go-piper/piper/build/si/lib -lfmt -lspdlog
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
 endif
 
@@ -175,14 +176,10 @@ backend-assets/gpt4all: gpt4all/gpt4all-bindings/golang/libgpt4all.a
 	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dylib backend-assets/gpt4all/ || true
 	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
 
-backend-assets/espeak-ng-data:
+backend-assets/espeak-ng-data: go-piper
 	mkdir -p backend-assets/espeak-ng-data
-ifdef ESPEAK_DATA
-	@cp -rf $(ESPEAK_DATA)/. backend-assets/espeak-ng-data
-else
-	@echo "ESPEAK_DATA not set, skipping tts. Note that this will break the tts functionality."
-	@touch backend-assets/espeak-ng-data/keep
-endif
+	$(MAKE) -C go-piper piper.o
+	@cp -rf go-piper/piper/build/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
 
 gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ libgpt4all.a
@@ -503,7 +500,7 @@ backend-assets/grpc/stablediffusion: backend-assets/grpc
 	fi
 
 backend-assets/grpc/piper: backend-assets/grpc backend-assets/espeak-ng-data go-piper/libpiper_binding.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(shell pwd)/go-piper \
+	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(shell pwd)/go-piper \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./cmd/grpc/piper/
 
 backend-assets/grpc/whisper: backend-assets/grpc whisper.cpp/libwhisper.a
