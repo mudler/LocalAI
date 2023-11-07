@@ -16,7 +16,6 @@ import backend_pb2
 import backend_pb2_grpc
 
 from ctransformers import AutoModelForCausalLM
-from ctransformer.llm import Config
 
 # Adapted from https://github.com/marella/ctransformers/tree/main#supported-models
 # License: MIT
@@ -60,7 +59,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     def Predict(self, request, context):
-        #TODO
         return super().Predict(request, context)
 
     def PredictStream(self, request, context):
