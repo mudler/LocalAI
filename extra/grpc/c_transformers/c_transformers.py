@@ -16,6 +16,7 @@ import backend_pb2
 import backend_pb2_grpc
 
 from ctransformers import AutoModelForCausalLM
+from ctransformer.llm import Config
 
 # Adapted from https://github.com/marella/ctransformers/tree/main#supported-models
 # License: MIT
@@ -48,10 +49,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             model_path = request.Model
             if not os.path.exists(model_path):
                 return backend_pb2.Result(success=False, message=f"Model path {model_path} does not exist")
-
             model_type = request.ModelType
             if model_type not in ModelType.__dict__.values():
                 return backend_pb2.Result(success=False, message=f"Model type {model_type} not supported")
+            
             llm = AutoModelForCausalLM.from_pretrained(model_file=model_path, model_type=model_type)
             self.model=llm
         except Exception as err:
@@ -67,11 +68,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def TokenizeString(self, request, context):
         try:
-            token: List[int]=self.model.tokenize(request.prompt, add_bos_token=False)
-            l=len(token)
+            tokens: List[int]=self.model.tokenize(request.prompt, add_bos_token=False)
+            l=len(tokens)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
-        return backend_pb2.TokenizationResponse(length=l, token=token)
+        return backend_pb2.TokenizationResponse(length=l, tokens=tokens)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))
