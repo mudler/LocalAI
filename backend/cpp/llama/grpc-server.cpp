@@ -1,9 +1,9 @@
 // llama.cpp gRPC C++ backend server
 //
-// Ettore Di Giacinto <mudler@localai.io>
+// Ettore Di Giacinto <mudler@localai.io> and llama.cpp authors
 //
 // This is a gRPC server for llama.cpp compatible with the LocalAI proto
-// Note: this is a re-adaptation of the original llama.cpp example/server.cpp for HTTP, 
+// Note: this is a re-adaptation of the original llama.cpp example/server.cpp for HTTP (https://github.com/ggerganov/llama.cpp/tree/master/examples/server), 
 // but modified to work with gRPC
 //
 
@@ -39,7 +39,7 @@ using grpc::Status;
 using backend::HealthMessage;
 
 
-///// LLAMA.CPP server
+///// LLAMA.CPP server code below
 
 using json = nlohmann::json;
 
@@ -1809,7 +1809,9 @@ static void append_to_generated_text_from_generated_token_probs(llama_server_con
 
 /////////////////////////////////
 ////////////////////////////////
-//////// LOCALAI
+//////// LOCALAI code starts below here
+/////////////////////////////////
+////////////////////////////////
 
 bool loaded_model; // TODO: add a mutex for this, but happens only once loading the model
 
@@ -1879,6 +1881,16 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     data["grammar"] = predict->grammar();
     data["prompt"] = predict->prompt();
     data["ignore_eos"] = predict->ignoreeos();
+
+    // for each image in the request, add the image data
+    //
+    for (int i = 0; i < predict->images_size(); i++) {
+        data["image_data"].push_back(json
+            {
+                {"id", i},
+                {"data",    predict->images(i)},
+            });
+    }
 
     data["stop"] = predict->stopprompts();
     // data["n_probs"] = predict->nprobs();
@@ -1953,14 +1965,17 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
 //     }
 // }
 
-
-
 static void params_parse(const backend::ModelOptions* request,
                                 gpt_params & params) {
    
     // this is comparable to: https://github.com/ggerganov/llama.cpp/blob/d9b33fe95bd257b36c84ee5769cc048230067d6f/examples/server/server.cpp#L1809
 
     params.model = request->modelfile();
+    if (!request->mmproj().empty()) {
+    // get the directory of modelfile
+      std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
+      params.mmproj = model_dir + request->mmproj();
+    }
     //  params.model_alias ??
     params.model_alias =  request->modelfile();
     params.n_ctx = request->contextsize();
@@ -2071,16 +2086,6 @@ public:
                 break;
             }
         }
-        return grpc::Status::OK;
-                   
-
-                    // auto on_complete = [task_id, &llama] (bool)
-                    // {
-                    //     // cancel
-                    //     llama.request_cancel(task_id);
-                    // };
-
- 
 
         return grpc::Status::OK;
     }

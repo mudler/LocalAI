@@ -55,11 +55,21 @@ type Choice struct {
 	Text         string   `json:"text,omitempty"`
 }
 
+type Content struct {
+	Type     string `json:"type" yaml:"type"`
+	Text     string `json:"text" yaml:"text"`
+	ImageURL string `json:"image_url" yaml:"image_url"`
+}
+
 type Message struct {
 	// The message role
 	Role string `json:"role,omitempty" yaml:"role"`
 	// The message content
-	Content *string `json:"content" yaml:"content"`
+	Content interface{} `json:"content" yaml:"content"`
+
+	StringContent string   `json:"string_content,omitempty" yaml:"string_content,omitempty"`
+	StringImages  []string `json:"string_images,omitempty" yaml:"string_images,omitempty"`
+
 	// A result of a function call
 	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`
 }
