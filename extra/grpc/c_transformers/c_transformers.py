@@ -15,7 +15,7 @@ import grpc
 import backend_pb2
 import backend_pb2_grpc
 
-from ctransformers import AutoModelForCausalLM
+from ctransformers import AutoModelForCausalLM, AutoConfig, Config
 
 # Adapted from https://github.com/marella/ctransformers/tree/main#supported-models
 # License: MIT
@@ -50,8 +50,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 return backend_pb2.Result(success=False, message=f"Model path {model_path} does not exist")
             model_type = request.ModelType
             if model_type not in ModelType.__dict__.values():
-                return backend_pb2.Result(success=False, message=f"Model type {model_type} not supported")
-            
+                return backend_pb2.Result(success=False, message=f"Model type {model_type} not supported")            
             llm = AutoModelForCausalLM.from_pretrained(model_file=model_path, model_type=model_type)
             self.model=llm
         except Exception as err:
@@ -59,7 +58,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     def Predict(self, request, context):
-        return super().Predict(request, context)
+        try:
+            generated_text=self.model(request.prompt)
+        except Exception as err:
+            return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
+        return backend_pb2.Result(message=bytes(generated_text), encoding="utf-8")
 
     def PredictStream(self, request, context):
         return super().PredictStream(request, context)
