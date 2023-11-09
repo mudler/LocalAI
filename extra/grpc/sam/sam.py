@@ -1,8 +1,8 @@
 #! /usr/bin/env python3
-from __future__ import annotations
 
 from concurrent import futures
 import argparse
+from enum import Enum
 import os
 import signal
 import sys
@@ -28,7 +28,7 @@ IMAGE_SIZE = 1024
 VIT_PATCH_SIZE=16
 
 # Enum for sam model type
-class SamModelType:
+class SamModelType(str, Enum):
     default = "sam_hq_vit_h.pth"
     vit_h = "sam_hq_vit_h.pth"
     vit_l = "sam_hq_vit_l.pth"
