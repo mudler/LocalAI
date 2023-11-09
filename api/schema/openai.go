@@ -56,9 +56,13 @@ type Choice struct {
 }
 
 type Content struct {
-	Type     string `json:"type" yaml:"type"`
-	Text     string `json:"text" yaml:"text"`
-	ImageURL string `json:"image_url" yaml:"image_url"`
+	Type     string     `json:"type" yaml:"type"`
+	Text     string     `json:"text" yaml:"text"`
+	ImageURL ContentURL `json:"image_url" yaml:"image_url"`
+}
+
+type ContentURL struct {
+	URL string `json:"url" yaml:"url"`
 }
 
 type Message struct {

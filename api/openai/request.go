@@ -27,7 +27,7 @@ func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *sche
 	input.Cancel = cancel
 	// Get input data from the request body
 	if err := c.BodyParser(input); err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("failed parsing request body: %w", err)
 	}
 
 	modelFile := input.Model
@@ -165,7 +165,7 @@ func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
 
 	// Decode each request's message content
 	index := 0
-	for _, m := range input.Messages {
+	for i, m := range input.Messages {
 		switch content := m.Content.(type) {
 		case string:
 			m.StringContent = content
@@ -175,14 +175,14 @@ func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
 			json.Unmarshal(dat, &c)
 			for _, pp := range c {
 				if pp.Type == "text" {
-					m.StringContent = pp.Text
+					input.Messages[i].StringContent = pp.Text
 				} else if pp.Type == "image_url" {
 					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
-					base64, err := getBase64Image(pp.ImageURL)
+					base64, err := getBase64Image(pp.ImageURL.URL)
 					if err == nil {
-						m.StringImages = append(m.StringImages, base64) // TODO: make sure that we only return base64 stuff
+						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
 						// set a placeholder for each image
-						m.StringContent = m.StringContent + fmt.Sprintf("[img-%d]", index)
+						input.Messages[i].StringContent = input.Messages[i].StringContent + fmt.Sprintf("[img-%d]", index)
 						index++
 					} else {
 						fmt.Print("Failed encoding image", err)

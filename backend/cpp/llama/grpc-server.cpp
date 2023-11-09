@@ -1974,7 +1974,7 @@ static void params_parse(const backend::ModelOptions* request,
     if (!request->mmproj().empty()) {
     // get the directory of modelfile
       std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
-      params.mmproj = model_dir + request->mmproj();
+      params.mmproj = model_dir + "/"+ request->mmproj();
     }
     //  params.model_alias ??
     params.model_alias =  request->modelfile();
