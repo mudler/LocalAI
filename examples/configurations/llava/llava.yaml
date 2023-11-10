@@ -1,0 +1,34 @@
+
+context_size: 4096
+#mirostat: 2
+#mirostat_tau: 5.0
+#mirostat_eta: 0.1
+f16: true
+#low_vram: true
+threads: 11
+gpu_layers: 90
+
+name: llava
+mmap: true
+backend: llama-cpp
+roles:
+  user: "USER:"
+  assistant: "ASSISTANT:"
+
+  system: "SYSTEM:"
+parameters:
+  #model: openbuddy-llama2-34b-v11.1-bf16.Q3_K_S.gguf
+  #model: openbuddy-mistral-7b-v13.Q6_K.gguf
+  model: ggml-model-q4_k.gguf
+  #model: openbuddy-llama2-13b-v11.1.Q6_K.gguf
+  #model: openbuddy-llama2-34b-v11.1-bf16.Q4_K_S.gguf
+  #model: llama2-22b-daydreamer-v3.ggmlv3.q6_K.bin
+
+  temperature: 0.2
+
+  top_k: 40
+  top_p: 0.95
+  #ngqa: 8
+template:
+  chat: chat-simple
+mmproj: mmproj-model-f16.gguf
