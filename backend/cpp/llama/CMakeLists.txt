@@ -49,8 +49,11 @@ add_library(hw_grpc_proto
   ${hw_grpc_hdrs}
   ${hw_proto_srcs}
   ${hw_proto_hdrs})
-
+target_compile_definitions(${TARGET} PRIVATE
+    SERVER_VERBOSE=$<BOOL:${LLAMA_SERVER_VERBOSE}>
+)
 add_executable(${TARGET} grpc-server.cpp json.hpp)
+install(TARGETS ${TARGET} RUNTIME)
 target_link_libraries(${TARGET} PRIVATE common llama clip ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
   absl::flags_parse
   gRPC::${_REFLECTION}
