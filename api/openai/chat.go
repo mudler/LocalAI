@@ -170,7 +170,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			if content == "" {
 				if r != "" {
 					if contentExists {
-						content = fmt.Sprint(r, " ", i.StringContent)
+						content = fmt.Sprint(r, i.StringContent)
 					}
 					if i.FunctionCall != nil {
 						j, err := json.Marshal(i.FunctionCall)

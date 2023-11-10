@@ -182,7 +182,7 @@ func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
 					if err == nil {
 						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
 						// set a placeholder for each image
-						input.Messages[i].StringContent = input.Messages[i].StringContent + fmt.Sprintf("[img-%d]", index)
+						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
 						index++
 					} else {
 						fmt.Print("Failed encoding image", err)
