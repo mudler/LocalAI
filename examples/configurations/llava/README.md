@@ -1,3 +1,4 @@
+![llava](https://github.com/mudler/LocalAI/assets/2420543/cb0a0897-3b58-4350-af66-e6f4387b58d3)
 
 ## Setup
 

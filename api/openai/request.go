@@ -168,7 +168,7 @@ func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
 	for i, m := range input.Messages {
 		switch content := m.Content.(type) {
 		case string:
-			m.StringContent = content
+			input.Messages[i].StringContent = content
 		case []interface{}:
 			dat, _ := json.Marshal(content)
 			c := []schema.Content{}
