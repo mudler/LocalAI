@@ -118,7 +118,7 @@ message ModelOptions {
   string LoraBase = 35;
   string LoraAdapter = 36;
   float LoraScale = 42;
-  
+
   bool NoMulMatQ = 37;
   string DraftModel = 39;
   
@@ -128,6 +128,12 @@ message ModelOptions {
   string Quantization = 40;
 
   string MMProj = 41;
+
+  string RopeScaling = 43;
+  float YarnExtFactor = 44;
+  float YarnAttnFactor = 45;
+  float YarnBetaFast = 46;
+  float YarnBetaSlow = 47;
 }
 
 message Result {

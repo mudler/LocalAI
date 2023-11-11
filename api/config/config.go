@@ -106,6 +106,12 @@ type LLMConfig struct {
 	NDraft          int32    `yaml:"n_draft"`
 	Quantization    string   `yaml:"quantization"`
 	MMProj          string   `yaml:"mmproj"`
+
+	RopeScaling    string  `yaml:"rope_scaling"`
+	YarnExtFactor  float32 `yaml:"yarn_ext_factor"`
+	YarnAttnFactor float32 `yaml:"yarn_attn_factor"`
+	YarnBetaFast   float32 `yaml:"yarn_beta_fast"`
+	YarnBetaSlow   float32 `yaml:"yarn_beta_slow"`
 }
 
 type AutoGPTQ struct {
