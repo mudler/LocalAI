@@ -63,7 +63,7 @@ var AutoLoadBackends []string = []string{
 // It also loads the model
 func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string) (*grpc.Client, error) {
 	return func(modelName, modelFile string) (*grpc.Client, error) {
-		log.Debug().Msgf("Loading GRPC Model %s: %+v", backend, *o)
+		log.Debug().Msgf("Loading Model %s with gRPC (file: %s) (backend: %s): %+v", modelName, modelFile, backend, *o)
 
 		var client *grpc.Client
 

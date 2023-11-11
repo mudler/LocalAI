@@ -26,7 +26,7 @@ type TokenUsage struct {
 	Completion int
 }
 
-func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	grpcOpts := gRPCModelOpts(c)
@@ -72,6 +72,7 @@ func ModelInference(ctx context.Context, s string, loader *model.ModelLoader, c 
 	fn := func() (LLMResponse, error) {
 		opts := gRPCPredictOpts(c, loader.ModelPath)
 		opts.Prompt = s
+		opts.Images = images
 
 		tokenUsage := TokenUsage{}
 

@@ -80,24 +80,13 @@ jobs:
           sudo rm -rfv /usr/bin/conda || true
           PATH=$PATH:/opt/conda/bin make -C extra/grpc/huggingface
 
-          # Pre-build stable diffusion before we install a newever version of abseil (not compatible with stablediffusion-ncn)
-          GO_TAGS="tts stablediffusion" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+          # Pre-build piper before we start tests in order to have shared libraries in place
+          make go-piper && \
+          GO_TAGS="tts" make -C go-piper piper.o && \
+          sudo cp -rfv go-piper/piper/build/pi/lib/. /usr/lib/ && \
 
-          sudo mkdir /build && sudo chmod -R 777 /build && cd /build && \
-          curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz" | \
-          tar -xzvf - && \
-          mkdir -p "spdlog-1.11.0/build" && \
-          cd "spdlog-1.11.0/build" && \
-          cmake ..  && \
-          make -j8 && \
-          sudo cmake --install . --prefix /usr && mkdir -p "lib/Linux-$(uname -m)" && \
-          cd /build && \
-          mkdir -p "lib/Linux-$(uname -m)/piper_phonemize" && \
-          curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v1.0.0/libpiper_phonemize-amd64.tar.gz" | \
-          tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
-          sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
-          sudo ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
-          sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
+          # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
+          GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
           git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
               cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
@@ -105,7 +94,7 @@ jobs:
                 ../.. && sudo make -j12 install
       - name: Test
         run: |
-          ESPEAK_DATA="/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data" GO_TAGS="tts stablediffusion" make test
+          GO_TAGS="stablediffusion tts" make test
 
   tests-apple:
     runs-on: macOS-latest
