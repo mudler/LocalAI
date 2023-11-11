@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	gpt4all "github.com/go-skynet/LocalAI/pkg/backend/llm/gpt4all"
+	gpt4all "github.com/go-skynet/LocalAI/backend/go/llm/gpt4all"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )

@@ -12,7 +12,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/extra/grpc/huggingface/run.sh,autogptq:/build/extra/grpc/autogptq/run.sh,bark:/build/extra/grpc/bark/run.sh,diffusers:/build/extra/grpc/diffusers/run.sh,exllama:/build/extra/grpc/exllama/run.sh,vall-e-x:/build/extra/grpc/vall-e-x/run.sh,vllm:/build/extra/grpc/vllm/run.sh"
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/backend/python/huggingface/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh"
 ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
 ARG GO_TAGS="stablediffusion tts"
 
@@ -64,20 +64,10 @@ RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmo
     apt-get update && \
     apt-get install -y conda
 
-COPY extra/requirements.txt /build/extra/requirements.txt
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN pip install --upgrade pip
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-#RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-#        pip install git+https://github.com/suno-ai/bark.git diffusers invisible_watermark transformers accelerate safetensors;\
-#    fi
-#RUN if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "amd64" ]; then \
-#        pip install torch vllm && pip install auto-gptq https://github.com/jllllll/exllama/releases/download/0.0.10/exllama-0.0.10+cu${CUDA_MAJOR_VERSION}${CUDA_MINOR_VERSION}-cp39-cp39-linux_x86_64.whl;\
- #   fi
-#RUN pip install -r /build/extra/requirements.txt && rm -rf /build/extra/requirements.txt
 
-# Vall-e-X
-RUN git clone https://github.com/Plachtaa/VALL-E-X.git /usr/lib/vall-e-x && cd /usr/lib/vall-e-x && pip install -r requirements.txt
 
 # \
 #    ; fi
@@ -162,25 +152,25 @@ COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/
 
 ## Duplicated from Makefile to avoid having a big layer that's hard to push
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C extra/grpc/autogptq \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/autogptq \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C extra/grpc/bark \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/bark \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C extra/grpc/diffusers \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/diffusers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C extra/grpc/vllm \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/vllm \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C extra/grpc/huggingface \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/huggingface \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C extra/grpc/vall-e-x \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/vall-e-x \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C extra/grpc/exllama \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/exllama \
     ; fi
 
 # Copy VALLE-X as it's not a real "lib"
@@ -190,7 +180,7 @@ RUN if [ -d /usr/lib/vall-e-x ]; then \
 
 # we also copy exllama libs over to resolve exllama import error
 RUN if [ -d /usr/local/lib/python3.9/dist-packages/exllama ]; then \
-        cp -rfv /usr/local/lib/python3.9/dist-packages/exllama extra/grpc/exllama/;\
+        cp -rfv /usr/local/lib/python3.9/dist-packages/exllama backend/python/exllama/;\
     fi
 
 # Define the health check command

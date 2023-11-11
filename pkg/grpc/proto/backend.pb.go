@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v4.23.4
-// source: pkg/grpc/proto/backend.proto
+// source: backend/backend.proto
 
 package proto
 

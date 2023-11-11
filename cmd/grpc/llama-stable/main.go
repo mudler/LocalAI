@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	llama "github.com/go-skynet/LocalAI/pkg/backend/llm/llama-stable"
+	llama "github.com/go-skynet/LocalAI/backend/go/llm/llama-stable"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )

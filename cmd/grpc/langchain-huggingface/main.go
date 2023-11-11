@@ -5,7 +5,7 @@ package main
 import (
 	"flag"
 
-	langchain "github.com/go-skynet/LocalAI/pkg/backend/llm/langchain"
+	langchain "github.com/go-skynet/LocalAI/backend/go/llm/langchain"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
