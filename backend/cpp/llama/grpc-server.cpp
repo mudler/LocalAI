@@ -2020,6 +2020,17 @@ static void params_parse(const backend::ModelOptions* request,
     // TODO: lora needs also a scale factor
     //params.lora_adapter = request->loraadapter();
     //params.lora_base = request->lorabase();
+   // params.lora_adapter = 0;
+    if (!request->loraadapter().empty() && !request->lorabase().empty()) {
+     float scale_factor = 1.0f;
+     if (request->lorascale() != 0.0f) {
+        scale_factor = request->lorascale();
+     }
+     // get the directory of modelfile
+     std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
+     params.lora_adapter.push_back(std::make_tuple(model_dir + "/"+request->loraadapter(), scale_factor));
+     params.lora_base  =  model_dir + "/"+request->lorabase();
+    }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();
     params.embedding = request->embeddings();

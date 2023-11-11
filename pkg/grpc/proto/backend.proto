@@ -117,6 +117,8 @@ message ModelOptions {
   // LLM (llama.cpp)
   string LoraBase = 35;
   string LoraAdapter = 36;
+  float LoraScale = 42;
+  
   bool NoMulMatQ = 37;
   string DraftModel = 39;
   

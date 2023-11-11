@@ -100,6 +100,7 @@ type LLMConfig struct {
 	NUMA            bool     `yaml:"numa"`
 	LoraAdapter     string   `yaml:"lora_adapter"`
 	LoraBase        string   `yaml:"lora_base"`
+	LoraScale       float32  `yaml:"lora_scale"`
 	NoMulMatQ       bool     `yaml:"no_mulmatq"`
 	DraftModel      string   `yaml:"draft_model"`
 	NDraft          int32    `yaml:"n_draft"`

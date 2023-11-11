@@ -48,6 +48,7 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		MMProj:        c.MMProj,
 		LoraAdapter:   c.LoraAdapter,
 		LoraBase:      c.LoraBase,
+		LoraScale:     c.LoraScale,
 		NGQA:          c.NGQA,
 		RMSNormEps:    c.RMSNormEps,
 		F16Memory:     c.F16,
