@@ -104,6 +104,7 @@ type LLMConfig struct {
 	DraftModel      string   `yaml:"draft_model"`
 	NDraft          int32    `yaml:"n_draft"`
 	Quantization    string   `yaml:"quantization"`
+	MMProj          string   `yaml:"mmproj"`
 }
 
 type AutoGPTQ struct {

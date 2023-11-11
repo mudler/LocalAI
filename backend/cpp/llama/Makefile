@@ -1,5 +1,5 @@
 
-LLAMA_VERSION?=
+LLAMA_VERSION?=d9b33fe95bd257b36c84ee5769cc048230067d6f
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
@@ -27,11 +27,17 @@ llama.cpp/examples/grpc-server:
 	mkdir -p llama.cpp/examples/grpc-server
 	cp -r $(abspath ./)/CMakeLists.txt llama.cpp/examples/grpc-server/
 	cp -r $(abspath ./)/grpc-server.cpp llama.cpp/examples/grpc-server/
+	cp -rfv $(abspath ./)/json.hpp llama.cpp/examples/grpc-server/
 	echo "add_subdirectory(grpc-server)" >> llama.cpp/examples/CMakeLists.txt
+## XXX: In some versions of CMake clip wasn't being built before llama.
+## This is an hack for now, but it should be fixed in the future.
+	cp -rfv llama.cpp/examples/llava/clip.h llama.cpp/examples/grpc-server/clip.h
+	cp -rfv llama.cpp/examples/llava/clip.cpp llama.cpp/examples/grpc-server/clip.cpp
 
 rebuild:
 	cp -rfv $(abspath ./)/CMakeLists.txt llama.cpp/examples/grpc-server/
 	cp -rfv $(abspath ./)/grpc-server.cpp llama.cpp/examples/grpc-server/
+	cp -rfv $(abspath ./)/json.hpp llama.cpp/examples/grpc-server/
 	rm -rf grpc-server
 	$(MAKE) grpc-server
 

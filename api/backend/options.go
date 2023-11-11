@@ -45,6 +45,7 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		DraftModel:    c.DraftModel,
 		AudioPath:     c.VallE.AudioPath,
 		Quantization:  c.Quantization,
+		MMProj:        c.MMProj,
 		LoraAdapter:   c.LoraAdapter,
 		LoraBase:      c.LoraBase,
 		NGQA:          c.NGQA,
