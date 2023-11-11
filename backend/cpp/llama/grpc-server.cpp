@@ -2017,12 +2017,41 @@ static void params_parse(const backend::ModelOptions* request,
     if (!request->maingpu().empty()) {
         params.main_gpu = std::stoi(request->maingpu());
     }
-    // TODO: lora needs also a scale factor
-    //params.lora_adapter = request->loraadapter();
-    //params.lora_base = request->lorabase();
+    if (!request->loraadapter().empty() && !request->lorabase().empty()) {
+     float scale_factor = 1.0f;
+     if (request->lorascale() != 0.0f) {
+        scale_factor = request->lorascale();
+     }
+     // get the directory of modelfile
+     std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
+     params.lora_adapter.push_back(std::make_tuple(model_dir + "/"+request->loraadapter(), scale_factor));
+     params.lora_base  =  model_dir + "/"+request->lorabase();
+    }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();
     params.embedding = request->embeddings();
+
+    if (request->ropescaling() == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_NONE; }
+    else if (request->ropescaling() == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_YARN; }
+    else { params.rope_scaling_type = LLAMA_ROPE_SCALING_LINEAR; }
+    if ( request->yarnextfactor() != 0.0f ) {
+        params.yarn_ext_factor = request->yarnextfactor();
+    }
+    if ( request->yarnattnfactor() != 0.0f ) {
+        params.yarn_attn_factor = request->yarnattnfactor();
+    }
+    if ( request->yarnbetafast() != 0.0f ) {
+        params.yarn_beta_fast = request->yarnbetafast();
+    }
+    if ( request->yarnbetaslow() != 0.0f ) {
+        params.yarn_beta_slow = request->yarnbetaslow();
+    }
+    if ( request->ropefreqbase() != 0.0f ) {
+        params.rope_freq_base = request->ropefreqbase();
+    }
+    if ( request->ropefreqscale() != 0.0f ) {
+        params.rope_freq_scale = request->ropefreqscale();
+    }
 }
 
 
