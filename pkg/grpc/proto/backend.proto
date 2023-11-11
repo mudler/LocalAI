@@ -64,6 +64,7 @@ message PredictOptions {
   float NegativePromptScale = 39;
   string NegativePrompt = 40;
   int32 NDraft = 41;
+  repeated string Images = 42;
 }
 
 // The response message containing the result
@@ -123,6 +124,8 @@ message ModelOptions {
 
   // vllm
   string Quantization = 40;
+
+  string MMProj = 41;
 }
 
 message Result {
