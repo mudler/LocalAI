@@ -64,6 +64,7 @@ message PredictOptions {
   float NegativePromptScale = 39;
   string NegativePrompt = 40;
   int32 NDraft = 41;
+  repeated string Images = 42;
 }
 
 // The response message containing the result
@@ -116,6 +117,8 @@ message ModelOptions {
   // LLM (llama.cpp)
   string LoraBase = 35;
   string LoraAdapter = 36;
+  float LoraScale = 42;
+
   bool NoMulMatQ = 37;
   string DraftModel = 39;
   
@@ -123,6 +126,14 @@ message ModelOptions {
 
   // vllm
   string Quantization = 40;
+
+  string MMProj = 41;
+
+  string RopeScaling = 43;
+  float YarnExtFactor = 44;
+  float YarnAttnFactor = 45;
+  float YarnBetaFast = 46;
+  float YarnBetaSlow = 47;
 }
 
 message Result {
