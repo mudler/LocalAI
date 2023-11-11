@@ -32,7 +32,6 @@ class BackendStub(object):
         self.PredictStream = channel.unary_stream(
                 '/backend.Backend/PredictStream',
                 request_serializer=backend__pb2.PredictOptions.SerializeToString,
-                
                 response_deserializer=backend__pb2.Reply.FromString,
                 )
         self.Embedding = channel.unary_unary(
