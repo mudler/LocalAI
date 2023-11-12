@@ -1,4 +1,4 @@
-package transcribe
+package main
 
 // This is a wrapper to statisfy the GRPC service interface
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)

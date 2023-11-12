@@ -5,7 +5,6 @@ package main
 import (
 	"flag"
 
-	bert "github.com/go-skynet/LocalAI/backend/go/llm/bert"
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
 
@@ -16,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := grpc.StartServer(*addr, &bert.Embeddings{}); err != nil {
+	if err := grpc.StartServer(*addr, &LLM{}); err != nil {
 		panic(err)
 	}
 }

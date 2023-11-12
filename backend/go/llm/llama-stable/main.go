@@ -1,11 +1,7 @@
 package main
 
-// Note: this is started internally by LocalAI and a server is allocated for each model
-
 import (
 	"flag"
-
-	rwkv "github.com/go-skynet/LocalAI/backend/go/llm/rwkv"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
@@ -17,7 +13,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := grpc.StartServer(*addr, &rwkv.LLM{}); err != nil {
+	if err := grpc.StartServer(*addr, &LLM{}); err != nil {
 		panic(err)
 	}
 }

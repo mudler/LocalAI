@@ -1,13 +1,9 @@
 package main
 
-// GRPC Falcon server
-
 // Note: this is started internally by LocalAI and a server is allocated for each model
 
 import (
 	"flag"
-
-	llama "github.com/go-skynet/LocalAI/backend/go/llm/llama"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
@@ -19,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := grpc.StartServer(*addr, &llama.LLM{}); err != nil {
+	if err := grpc.StartServer(*addr, &Piper{}); err != nil {
 		panic(err)
 	}
 }

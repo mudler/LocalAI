@@ -5,8 +5,6 @@ package main
 import (
 	"flag"
 
-	transcribe "github.com/go-skynet/LocalAI/backend/go/transcribe"
-
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
 
@@ -17,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := grpc.StartServer(*addr, &transcribe.Whisper{}); err != nil {
+	if err := grpc.StartServer(*addr, &LLM{}); err != nil {
 		panic(err)
 	}
 }

@@ -5,8 +5,6 @@ package main
 import (
 	"flag"
 
-	langchain "github.com/go-skynet/LocalAI/backend/go/llm/langchain"
-
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
 
@@ -17,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := grpc.StartServer(*addr, &langchain.LLM{}); err != nil {
+	if err := grpc.StartServer(*addr, &LLM{}); err != nil {
 		panic(err)
 	}
 }

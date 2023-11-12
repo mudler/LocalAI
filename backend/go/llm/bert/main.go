@@ -5,8 +5,6 @@ package main
 import (
 	"flag"
 
-	gpt4all "github.com/go-skynet/LocalAI/backend/go/llm/gpt4all"
-
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
 
@@ -17,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := grpc.StartServer(*addr, &gpt4all.LLM{}); err != nil {
+	if err := grpc.StartServer(*addr, &Embeddings{}); err != nil {
 		panic(err)
 	}
 }

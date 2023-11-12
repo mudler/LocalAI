@@ -5,8 +5,6 @@ package main
 import (
 	"flag"
 
-	image "github.com/go-skynet/LocalAI/backend/go/image"
-
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 )
 
@@ -17,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := grpc.StartServer(*addr, &image.StableDiffusion{}); err != nil {
+	if err := grpc.StartServer(*addr, &Whisper{}); err != nil {
 		panic(err)
 	}
 }

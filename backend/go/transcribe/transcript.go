@@ -1,4 +1,4 @@
-package transcribe
+package main
 
 import (
 	"fmt"
