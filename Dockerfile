@@ -118,6 +118,11 @@ RUN if [ "${BUILD_GRPC}" = "true" ]; then \
 # Rebuild with defaults backends
 RUN make build
 
+RUN if [ ! -d "/build/go-piper/piper/build/pi/lib/" ]; then \
+    mkdir -p /build/go-piper/piper/build/pi/lib/ \
+    touch /build/go-piper/piper/build/pi/lib/keep \
+    ; fi
+
 ###################################
 ###################################
 
