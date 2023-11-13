@@ -1,7 +1,0 @@
-sentence_transformers
-grpcio
-google
-protobuf
-six
-omegaconf
-compel
