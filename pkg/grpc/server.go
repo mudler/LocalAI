@@ -181,3 +181,23 @@ func StartServer(address string, model LLM) error {
 
 	return nil
 }
+
+func RunServer(address string, model LLM) (func() error, error) {
+	lis, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+	s := grpc.NewServer()
+	pb.RegisterBackendServer(s, &server{llm: model})
+	log.Printf("gRPC Server listening at %v", lis.Addr())
+	if err = s.Serve(lis); err != nil {
+		return func() error {
+			return lis.Close()
+		}, err
+	}
+
+	return func() error {
+		s.GracefulStop()
+		return nil
+	}, nil
+}
