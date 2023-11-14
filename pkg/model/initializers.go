@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	LlamaBackend        = "llama"
-	LlamaStableBackend  = "llama-stable"
+	GoLlamaBackend      = "llama"
+	LlamaGGML           = "llama-ggml"
 	LLamaCPP            = "llama-cpp"
 	StarcoderBackend    = "starcoder"
 	GPTJBackend         = "gptj"
@@ -41,8 +41,8 @@ const (
 
 var AutoLoadBackends []string = []string{
 	LLamaCPP,
-	LlamaStableBackend,
-	LlamaBackend,
+	LlamaGGML,
+	GoLlamaBackend,
 	Gpt4All,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,

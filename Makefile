@@ -89,7 +89,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_HOME ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	# Llama-stable has no hipblas support, so override it here.
+	# llama-ggml has no hipblas support, so override it here.
 	export STABLE_BUILD_TYPE=
 	GPU_TARGETS ?= gfx900,gfx90a,gfx1030,gfx1031,gfx1100
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
@@ -124,7 +124,7 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
 endif
 
-ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/llama backend-assets/grpc/llama-cpp backend-assets/grpc/llama-stable backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
+ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/llama backend-assets/grpc/llama-cpp backend-assets/grpc/llama-ggml backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
 
 # If empty, then we build all
@@ -203,20 +203,20 @@ go-llama:
 	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
 	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
 
-go-llama-stable:
-	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama-stable
-	cd go-llama-stable && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
+go-llama-ggml:
+	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama-ggml
+	cd go-llama-ggml && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
 
 go-llama/libbinding.a: go-llama
 	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
 
-go-llama-stable/libbinding.a: go-llama-stable
-	$(MAKE) -C go-llama-stable BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
+go-llama-ggml/libbinding.a: go-llama-ggml
+	$(MAKE) -C go-llama-ggml BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
 
 go-piper/libpiper_binding.a: go-piper
 	$(MAKE) -C go-piper libpiper_binding.a example/main
 
-get-sources: go-llama go-llama-stable go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert go-stable-diffusion
+get-sources: go-llama go-llama-ggml go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert go-stable-diffusion
 	touch $@
 
 replace:
@@ -235,7 +235,7 @@ prepare-sources: get-sources replace
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
 	$(MAKE) -C go-llama clean
-	$(MAKE) -C go-llama-stable clean
+	$(MAKE) -C go-llama-ggml clean
 	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ clean
 	$(MAKE) -C go-ggml-transformers clean
 	$(MAKE) -C go-rwkv clean
@@ -253,7 +253,7 @@ clean: ## Remove build related file
 	rm -f prepare
 	rm -rf ./go-llama
 	rm -rf ./gpt4all
-	rm -rf ./go-llama-stable
+	rm -rf ./go-llama-ggml
 	rm -rf ./go-gpt2
 	rm -rf ./go-stable-diffusion
 	rm -rf ./go-ggml-transformers
@@ -440,10 +440,10 @@ ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama/llama.cpp/build/bin/ggml-metal.metal backend-assets/grpc/
 endif
 
-backend-assets/grpc/llama-stable: backend-assets/grpc go-llama-stable/libbinding.a
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama-stable
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama-stable LIBRARY_PATH=$(shell pwd)/go-llama \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-stable ./backend/go/llm/llama-stable/
+backend-assets/grpc/llama-ggml: backend-assets/grpc go-llama-ggml/libbinding.a
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama-ggml
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama-ggml LIBRARY_PATH=$(shell pwd)/go-llama \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
 
 backend-assets/grpc/gpt4all: backend-assets/grpc backend-assets/gpt4all gpt4all/gpt4all-bindings/golang/libgpt4all.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ \
