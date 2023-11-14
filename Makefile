@@ -178,7 +178,7 @@ backend-assets/gpt4all: sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a
 
 backend-assets/espeak-ng-data: sources/go-piper
 	mkdir -p backend-assets/espeak-ng-data
-	$(MAKE) -C go-piper piper.o
+	$(MAKE) -C sources/go-piper piper.o
 	@cp -rf sources/go-piper/piper/build/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
 
 sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
@@ -196,7 +196,7 @@ sources/whisper.cpp:
 	git clone https://github.com/ggerganov/whisper.cpp.git sources/whisper.cpp
 	cd sources/whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
 
-sources/whisper.cpp/libwhisper.a: whisper.cpp
+sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && make libwhisper.a
 
 sources/go-llama:
