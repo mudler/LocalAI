@@ -432,7 +432,7 @@ endif
 
 backend-assets/grpc/llama-ggml: backend-assets/grpc sources/go-llama-ggml/libbinding.a
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/sources/go-llama-ggml
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-llama-ggml LIBRARY_PATH=$(shell pwd)/sources/go-llama \
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-llama-ggml LIBRARY_PATH=$(shell pwd)/sources/go-llama-ggml \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
 
 backend-assets/grpc/gpt4all: backend-assets/grpc backend-assets/gpt4all sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a
