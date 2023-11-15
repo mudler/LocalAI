@@ -65,7 +65,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		if input.ResponseFormat == "json_object" {
+		if input.ResponseFormat.Type == "json_object" {
 			input.Grammar = grammar.JSONBNF
 		}
 
