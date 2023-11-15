@@ -74,6 +74,7 @@ func (m ModelAddress) GRPC() *grpc.Client {
 func NewModelLoader(modelPath string) *ModelLoader {
 	nml := &ModelLoader{
 		ModelPath:     modelPath,
+		grpcClients:   make(map[string]*grpc.Client),
 		models:        make(map[string]ModelAddress),
 		templates:     make(map[TemplateType]map[string]*template.Template),
 		grpcProcesses: make(map[string]*process.Process),
