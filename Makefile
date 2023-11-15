@@ -157,7 +157,7 @@ sources/go-stable-diffusion:
 	cd sources/go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
 
 sources/go-stable-diffusion/libstablediffusion.a:
-	$(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
+	cd sources/go-stable-diffusion; make libstablediffusion.a
 
 ## RWKV
 sources/go-rwkv:
