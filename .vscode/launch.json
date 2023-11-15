@@ -28,6 +28,15 @@
                 "LIBRARY_PATH": "${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
                 "DEBUG": "true"
             }
+        },
+        {
+            "name":"Launch outlines",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/backend/python/backend_outlines/backend_outlines.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {}
         }
     ]
 }
