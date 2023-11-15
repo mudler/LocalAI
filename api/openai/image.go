@@ -100,7 +100,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 		}
 
 		b64JSON := false
-		if input.ResponseFormat == "b64_json" {
+		if input.ResponseFormat.Type == "b64_json" {
 			b64JSON = true
 		}
 		// src and clip_skip

@@ -83,6 +83,12 @@ type OpenAIModel struct {
 	Object string `json:"object"`
 }
 
+type ChatCompletionResponseFormatType string
+
+type ChatCompletionResponseFormat struct {
+	Type ChatCompletionResponseFormatType `json:"type,omitempty"`
+}
+
 type OpenAIRequest struct {
 	config.PredictionOptions
 
@@ -92,7 +98,7 @@ type OpenAIRequest struct {
 	// whisper
 	File string `json:"file" validate:"required"`
 	//whisper/image
-	ResponseFormat string `json:"response_format"`
+	ResponseFormat ChatCompletionResponseFormat `json:"response_format"`
 	// image
 	Size string `json:"size"`
 	// Prompt is read only by completion/image API calls
