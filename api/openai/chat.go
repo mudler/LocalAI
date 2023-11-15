@@ -81,7 +81,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
 		}
 
-		if input.ResponseFormat == "json_object" {
+		if input.ResponseFormat.Type == "json_object" {
 			input.Grammar = grammar.JSONBNF
 		}
 
