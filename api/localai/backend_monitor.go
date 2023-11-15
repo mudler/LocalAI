@@ -125,11 +125,11 @@ func BackendMonitorEndpoint(bm BackendMonitor) func(c *fiber.Ctx) error {
 
 		client := bm.options.Loader.CheckIsLoaded(backendId)
 
-		if client == nil {
+		if client == "" {
 			return fmt.Errorf("backend %s is not currently loaded", backendId)
 		}
 
-		status, rpcErr := client.Status(context.TODO())
+		status, rpcErr := client.GRPC().Status(context.TODO())
 		if rpcErr != nil {
 			log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", backendId, rpcErr.Error())
 			val, slbErr := bm.SampleLocalBackendProcess(backendId)
