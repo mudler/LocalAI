@@ -67,8 +67,8 @@ type ModelLoader struct {
 
 type ModelAddress string
 
-func (m ModelAddress) GRPC() *grpc.Client {
-	return grpc.NewClient(string(m))
+func (m ModelAddress) GRPC(parallel bool) *grpc.Client {
+	return grpc.NewClient(string(m), parallel)
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
@@ -147,10 +147,16 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) ModelAddress {
+	var client *grpc.Client
 	if m, ok := ml.models[s]; ok {
 		log.Debug().Msgf("Model already loaded in memory: %s", s)
+		if c, ok := ml.grpcClients[s]; ok {
+			client = c
+		} else {
+			client = m.GRPC(false)
+		}
 
-		if !m.GRPC().HealthCheck(context.Background()) {
+		if !client.HealthCheck(context.Background()) {
 			log.Debug().Msgf("GRPC Model not responding: %s", s)
 			if !ml.grpcProcesses[s].IsAlive() {
 				log.Debug().Msgf("GRPC Process is not responding: %s", s)

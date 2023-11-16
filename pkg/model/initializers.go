@@ -121,7 +121,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		// Wait for the service to start up
 		ready := false
 		for i := 0; i < o.grpcAttempts; i++ {
-			if client.GRPC().HealthCheck(context.Background()) {
+			if client.GRPC(o.parallelRequests).HealthCheck(context.Background()) {
 				log.Debug().Msgf("GRPC Service Ready")
 				ready = true
 				break
@@ -140,7 +140,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		log.Debug().Msgf("GRPC: Loading model with options: %+v", options)
 
-		res, err := client.GRPC().LoadModel(o.context, &options)
+		res, err := client.GRPC(o.parallelRequests).LoadModel(o.context, &options)
 		if err != nil {
 			return "", fmt.Errorf("could not load model: %w", err)
 		}
@@ -154,11 +154,11 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 func (ml *ModelLoader) resolveAddress(addr ModelAddress, parallel bool) (*grpc.Client, error) {
 	if parallel {
-		return addr.GRPC(), nil
+		return addr.GRPC(parallel), nil
 	}
 
 	if _, ok := ml.grpcClients[string(addr)]; !ok {
-		ml.grpcClients[string(addr)] = addr.GRPC()
+		ml.grpcClients[string(addr)] = addr.GRPC(parallel)
 	}
 	return ml.grpcClients[string(addr)], nil
 }
