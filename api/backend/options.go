@@ -16,6 +16,10 @@ func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.
 		opts = append(opts, model.WithSingleActiveBackend())
 	}
 
+	if o.ParallelBackendRequests {
+		opts = append(opts, model.EnableParallelRequests)
+	}
+
 	if c.GRPC.Attempts != 0 {
 		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
 	}

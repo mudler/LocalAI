@@ -20,9 +20,14 @@ type Options struct {
 	grpcAttempts        int
 	grpcAttemptsDelay   int
 	singleActiveBackend bool
+	parallelRequests    bool
 }
 
 type Option func(*Options)
+
+var EnableParallelRequests = func(o *Options) {
+	o.parallelRequests = true
+}
 
 func WithExternalBackend(name string, uri string) Option {
 	return func(o *Options) {
