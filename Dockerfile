@@ -145,7 +145,7 @@ RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
 
 # Copy shared libraries for piper
-COPY --from=builder /build/go-piper/piper/build/pi/lib/* /usr/lib/
+COPY --from=builder /build/sources/go-piper/piper/build/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
