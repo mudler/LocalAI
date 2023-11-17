@@ -277,7 +277,7 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 	}
 	for _, file := range files {
 		// Skip templates, YAML and .keep files
-		if !strings.Contains(file.Name(), ".yaml") {
+		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
 			continue
 		}
 		c, err := ReadConfig(filepath.Join(path, file.Name()))
