@@ -26,6 +26,12 @@ docker compose restart
 
 See also the getting started: https://localai.io/basics/getting_started/
 
+You can also start LocalAI just with docker:
+
+```
+docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:master --models-path /models --threads 4
+```
+
 ### Mistral
 
 To setup mistral copy the files inside `mistral` in the `models` folder:
@@ -50,7 +56,6 @@ wget https://huggingface.co/TheBloke/Mistral-7B-OpenOrca-GGUF/resolve/main/mistr
 cp -r examples/configurations/llava/* models/
 wget https://huggingface.co/mys/ggml_bakllava-1/resolve/main/ggml-model-q4_k.gguf -O models/ggml-model-q4_k.gguf
 wget https://huggingface.co/mys/ggml_bakllava-1/resolve/main/mmproj-model-f16.gguf -O models/mmproj-model-f16.gguf
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:master --models-path /models --threads 4
 ```
 
 ## Try it out
