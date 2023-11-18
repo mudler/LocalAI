@@ -1,14 +1,20 @@
 use crate::LLM;
-use bunker::pb::{ModelOptions, PredictOptions};
 
 pub(crate) mod mnist;
+
+use mnist::MNINST;
+
+use bunker::pb::{ModelOptions, PredictOptions};
 
 #[cfg(feature = "ndarray")]
 pub type Backend = burn::backend::NdArrayBackend<f32>;
 
-impl LLM for mnist::MNINST<Backend> {
+impl LLM for MNINST<Backend> {
     fn load_model(&mut self, request: ModelOptions) -> Result<String, Box<dyn std::error::Error>> {
-        todo!("load model")
+        let model = request.model_file;
+        let instance = MNINST::<Backend>::new(&model);
+        *self = instance;
+        Ok("".to_string())
     }
 
     fn predict(&mut self, pre_ops: PredictOptions) -> Result<String, Box<dyn std::error::Error>> {

@@ -4,7 +4,7 @@
 //! Adapter by Aisuko
 
 use burn::{
-    backend::wgpu::{compute::init_async, AutoGraphicsApi, WgpuDevice},
+    backend::wgpu::{AutoGraphicsApi, WgpuDevice},
     module::Module,
     nn::{self, BatchNorm, PaddingConfig2d},
     record::{BinBytesRecorder, FullPrecisionSettings, Recorder},
@@ -12,7 +12,6 @@ use burn::{
 };
 
 // https://github.com/burn-rs/burn/blob/main/examples/mnist-inference-web/model.bin
-static STATE_ENCODED: &[u8] = include_bytes!("model.bin");
 
 const NUM_CLASSES: usize = 10;
 
@@ -36,7 +35,7 @@ pub struct MNINST<B: Backend> {
 }
 
 impl<B: Backend> MNINST<B> {
-    pub fn new() -> Self {
+    pub fn new(model_name: &str) -> Self {
         let conv1 = ConvBlock::new([1, 8], [3, 3]); // 1 input channel, 8 output channels, 3x3 kernel size
         let conv2 = ConvBlock::new([8, 16], [3, 3]); // 8 input channels, 16 output channels, 3x3 kernel size
         let conv3 = ConvBlock::new([16, 24], [3, 3]); // 16 input channels, 24 output channels, 3x3 kernel size
@@ -59,8 +58,9 @@ impl<B: Backend> MNINST<B> {
             fc2: fc2,
             activation: nn::GELU::new(),
         };
+        let state_encoded: &[u8] = &std::fs::read(model_name).expect("Failed to load model");
         let record = BinBytesRecorder::<FullPrecisionSettings>::default()
-            .load(STATE_ENCODED.to_vec())
+            .load(state_encoded.to_vec())
             .expect("Failed to decode state");
 
         instance.load_record(record)
@@ -178,7 +178,7 @@ mod tests {
     pub type Backend = burn::backend::NdArrayBackend<f32>;
     #[test]
     fn test_inference() {
-        let mut model = MNINST::<Backend>::new();
+        let mut model = MNINST::<Backend>::new("model.bin");
         let output = model.inference(&[0.0; 28 * 28]).unwrap();
         assert_eq!(output.len(), 10);
     }

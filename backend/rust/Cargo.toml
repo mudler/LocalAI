@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "bunker",
-    "backend-burn",
+    "backend",
     "codegen",
     "models",
 ]
