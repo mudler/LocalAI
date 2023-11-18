@@ -50,7 +50,7 @@ wget https://huggingface.co/TheBloke/Mistral-7B-OpenOrca-GGUF/resolve/main/mistr
 
 ![llava](https://github.com/mudler/LocalAI/assets/2420543/cb0a0897-3b58-4350-af66-e6f4387b58d3)
 
-## Setup
+#### Setup
 
 ```
 cp -r examples/configurations/llava/* models/
@@ -58,7 +58,7 @@ wget https://huggingface.co/mys/ggml_bakllava-1/resolve/main/ggml-model-q4_k.ggu
 wget https://huggingface.co/mys/ggml_bakllava-1/resolve/main/mmproj-model-f16.gguf -O models/mmproj-model-f16.gguf
 ```
 
-## Try it out
+#### Try it out
 
 ```
 curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
