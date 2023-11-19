@@ -58,7 +58,10 @@ impl<B: Backend> MNINST<B> {
             fc2: fc2,
             activation: nn::GELU::new(),
         };
-        let state_encoded: &[u8] = &std::fs::read(model_name).expect("Failed to load model");
+        use std::path::Path;
+        let path_name=Path::new(model_name);
+
+        let state_encoded: &[u8] = &std::fs::read(&path_name).expect("Failed to read model file");
         let record = BinBytesRecorder::<FullPrecisionSettings>::default()
             .load(state_encoded.to_vec())
             .expect("Failed to decode state");

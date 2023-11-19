@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::process::{id, Command};
 use std::sync::{Arc, Mutex};
 
 use bunker::pb::Result as PbResult;
@@ -19,8 +18,10 @@ use async_trait::async_trait;
 use tracing::{event, span, Level};
 
 use models::*;
-// implement BackendService trait in bunker
 
+
+/// TODO: In order to use the model, we need to add some common attributes like: model, device, tokenizer, embeddings, etc.
+/// And these attributes should be thread safe.
 #[derive(Default, Debug)]
 pub struct BurnBackend;
 
@@ -41,24 +42,7 @@ impl BackendService for BurnBackend {
     #[tracing::instrument]
     async fn predict(&self, request: Request<PredictOptions>) -> Result<Response<Reply>, Status> {
         // TODO: How to get model from load_model function?
-        let mut model= MNINST::new("model.bin");
-        let result = model.predict(request.get_ref().clone());
-        match result {
-            Ok(output) => {
-                let reply = Reply {
-                    message: output.into_bytes(),
-                };
-                let res = Response::new(reply);
-                Ok(res)
-            }
-            Err(e) => {
-                let result = PbResult {
-                    message: format!("Failed to predict: {}", e),
-                    success: false,
-                };
-                Err(Status::internal(result.message))
-            }
-        }
+        todo!("How to get model from load_model function?")
     }
 
     #[tracing::instrument]
@@ -66,35 +50,21 @@ impl BackendService for BurnBackend {
         &self,
         request: Request<ModelOptions>,
     ) -> Result<Response<PbResult>, Status> {
-        let result= match request.get_ref().model.as_str() {
+        let result = match request.get_ref().model.as_str() {
             "mnist" => {
-                let mut model = MNINST::new("model.bin");
-                let result = model.load_model(request.get_ref().clone());
-                match result {
-                    Ok(_) => {
-                        let model = Arc::new(Mutex::new(model));
-                        let model = model.clone();
-                        let result = PbResult {
-                            message: "Model loaded successfully".into(),
-                            success: true,
-                        };
-                        Ok(Response::new(result))
-                    }
-                    Err(e) => {
-                        let result = PbResult {
-                            message: format!("Failed to load model: {}", e),
-                            success: false,
-                        };
-                        Err(Status::internal(result.message))
-                    }
-                }
+                let model = MNINST::load_model(request.get_ref().clone());
+                let result= PbResult {
+                    message: format!("Model {} loaded successfully", request.get_ref().model),
+                    success: true,
+                };
+                Ok(Response::new(result))
             }
             _ => {
                 let result = PbResult {
                     message: format!("Model {} not found", request.get_ref().model),
                     success: false,
                 };
-                Err(Status::internal(result.message))
+                Ok(Response::new(result))
             }
         };
         // TODO: add model to backend, how to transfer model to backend and let predict funciton can use it?
@@ -155,31 +125,9 @@ impl BackendService for BurnBackend {
         let mut breakdown = HashMap::new();
         let mut memory_usage: u64 = 0;
 
-        #[cfg(target_os = "linux")]
-        {
-            let pid = id();
-            let stat = fs::read_to_string(format!("/proc/{}/stat", pid))
-                .expect("Failed to read stat file");
-
-            let stats: Vec<&str> = stat.split_whitespace().collect();
-            memory_usage = stats[23].parse::<u64>().expect("Failed to parse RSS");
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            let output = Command::new("ps")
-                .arg("-p")
-                .arg(id().to_string())
-                .arg("-o")
-                .arg("rss=")
-                .output()
-                .expect("failed to execute process");
-
-            memory_usage = String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .parse::<u64>()
-                .expect("Failed to parse memory usage");
-        }
+        use nix::sys::resource::{getrusage, UsageWho};
+        let usage = getrusage(UsageWho::RUSAGE_SELF).expect("Failed to fet usage");
+        memory_usage = usage.as_ref().ru_maxrss as u64;
         breakdown.insert("RSS".to_string(), memory_usage);
 
         let memory_usage = Option::from(MemoryUsageData {
@@ -221,13 +169,15 @@ mod tests {
         assert!(response.is_ok());
         let response = response.unwrap();
         let state = response.get_ref().state;
+        let memory = response.get_ref().memory.clone();
         assert_eq!(state, 0);
+        assert!(memory.is_some());
     }
 
     #[tokio::test]
     async fn test_load_model() {
         let backend = BurnBackend::default();
-        let request = Request::new(ModelOptions {
+        let model_options = ModelOptions {
             model: "test".to_string(),
             context_size: 0,
             seed: 0,
@@ -248,7 +198,7 @@ mod tests {
             rope_freq_scale: 0.0,
             rms_norm_eps: 0.0,
             ngqa: 0,
-            model_file: "".to_string(),
+            model_file: "models/src/mnist/model.bin".to_string(),
             device: "".to_string(),
             use_triton: false,
             model_base_name: "".to_string(),
@@ -268,8 +218,83 @@ mod tests {
             draft_model: "".to_string(),
             audio_path: "".to_string(),
             quantization: "".to_string(),
-        });
+        };
+
+        // Load the wrong model
+        let request = Request::new(model_options.clone());
         let response = backend.load_model(request).await;
+
+        assert!(response.is_ok());
+        let response = response.unwrap();
+        let message_str = response.get_ref().message.clone();
+        assert_eq!(
+            message_str,
+            format!("Model {} not found", model_options.model.clone())
+        );
+
+        // Load the correct model
+        let mut model_options2=model_options.clone();
+        model_options2.model="mnist".to_string();
+        model_options2.model_file="models/src/mnist/model.bin".to_string();
+
+        let request = Request::new(model_options2.clone());
+        let response = backend.load_model(request).await;
+
+        assert!(response.is_ok());
+        let response = response.unwrap();
+        let message_str = response.get_ref().message.clone();
+        assert_eq!(
+            message_str,
+            format!("Model {} loaded successfully", model_options2.model.clone())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_predict() {
+        let backend = BurnBackend::default();
+        let request = Request::new(PredictOptions {
+            prompt: "test".to_string(),
+            seed: 100,
+            threads: 1,
+            tokens: 10,
+            temperature: 0.0,
+            top_k: 0,
+            top_p: 0.0,
+            repeat: 0,
+            batch: 1,
+            n_keep: 0,
+            penalty: 0.0,
+            f16kv: false,
+            debug_mode: false,
+            stop_prompts: vec!["".to_string()],
+            ignore_eos: false,
+            tail_free_sampling_z: 0.0,
+            typical_p: 0.0,
+            frequency_penalty: 0.0,
+            presence_penalty: 0.0,
+            mirostat: 0,
+            mirostat_eta: 0.0,
+            mirostat_tau: 0.0,
+            penalize_nl: false,
+            logit_bias: "".to_string(),
+            m_lock: false,
+            m_map: false,
+            prompt_cache_all: false,
+            prompt_cache_ro: false,
+            grammar: "".to_string(),
+            main_gpu: "".to_string(),
+            tensor_split: "".to_string(),
+            prompt_cache_path: "".to_string(),
+            debug: false,
+            embedding_tokens: vec![0],
+            embeddings: "".to_string(),
+            rope_freq_base: 0.0,
+            rope_freq_scale: 0.0,
+            negative_prompt_scale: 0.0,
+            negative_prompt: "".to_string(),
+            n_draft: 0,
+        });
+        let response: Result<Response<Reply>, Status> = backend.predict(request).await;
 
         assert!(response.is_ok());
         let response = response.unwrap();

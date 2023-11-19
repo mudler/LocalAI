@@ -22,3 +22,4 @@ tokio-stream = "0.1.14"
 
 tracing = "0.1"
 tracing-subscriber = "0.3"
+nix = { version="0.27.1", features=["resource"]}
