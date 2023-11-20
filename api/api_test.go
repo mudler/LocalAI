@@ -704,7 +704,7 @@ var _ = Describe("API test", func() {
 		})
 
 		Context("External gRPC calls", func() {
-			It("calculate embeddings with huggingface", func() {
+			It("calculate embeddings with sentencetransformers", func() {
 				if runtime.GOOS != "linux" {
 					Skip("test supported only on linux")
 				}

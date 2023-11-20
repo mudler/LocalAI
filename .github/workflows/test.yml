@@ -78,7 +78,7 @@ jobs:
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
           
           sudo rm -rfv /usr/bin/conda || true
-          PATH=$PATH:/opt/conda/bin make -C backend/python/huggingface
+          PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers
 
           # Pre-build piper before we start tests in order to have shared libraries in place
           make sources/go-piper && \
