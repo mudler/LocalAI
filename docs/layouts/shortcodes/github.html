@@ -1,0 +1,5 @@
+{{ if .IsNamedParams }}
+<a target="_blank" href="http://github.com/{{ .Get "user" }}" alt="">{{ .Get "user" }}</a>
+{{ else }}
+<a target="_blank" href="http://github.com/{{ .Get 0 }}" alt="">{{ .Get 0 }}</a>
+{{ end }}
