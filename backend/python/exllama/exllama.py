@@ -63,6 +63,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             config = ExLlamaConfig(model_config_path)               # create config from config.json
             config.model_path = model_path                          # supply path to model weights file
+            if (request.ContextSize):
+                config.max_seq_len = request.ContextSize            # override max sequence length
+                config.max_attention_size = request.ContextSize**2  # Should be set to context_size^2. 
+                # https://github.com/turboderp/exllama/issues/220#issuecomment-1720324163
 
             model = ExLlama(config)                                 # create ExLlama instance and load the weights
             tokenizer = ExLlamaTokenizer(tokenizer_path)            # create tokenizer from tokenizer model file
