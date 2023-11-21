@@ -68,6 +68,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 config.max_attention_size = request.ContextSize**2  # Should be set to context_size^2. 
                 # https://github.com/turboderp/exllama/issues/220#issuecomment-1720324163
 
+            # Set Rope scaling.
+            if (request.RopeFreqScale):
+                # Alpha value for Rope scaling. 
+                # Higher value increases context but adds perplexity.
+                # alpha_value and compress_pos_emb are mutually exclusive.
+                # https://github.com/turboderp/exllama/issues/115
+                config.alpha_value = request.RopeFreqScale
+                config.calculate_rotary_embedding_base()
+
             model = ExLlama(config)                                 # create ExLlama instance and load the weights
             tokenizer = ExLlamaTokenizer(tokenizer_path)            # create tokenizer from tokenizer model file
 
