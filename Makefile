@@ -283,6 +283,19 @@ dist: build
 	mkdir -p release
 	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH)
 
+build-signed: build
+	if [ "$(OS)" != "Darwin" ]; then \
+		exit 1; \
+	fi
+	echo "OSX: Signing Binary"; \
+	if [ -z "$(SIGNING_IDENTITY)" ]; then \
+		echo "Setting SIGNING_IDENTITY to the first available signing identity..."; \
+		SIGNING_IDENTITY=$(security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*\)".*/\1/'); \
+		export SIGNING_IDENTITY; \
+	fi
+	echo "Signing as $(SIGNING_IDENTITY)";
+	codesign -s "$(SIGNING_IDENTITY)" "./$(BINARY_NAME)"; \
+
 ## Run
 run: prepare ## run local-ai
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./
