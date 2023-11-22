@@ -12,6 +12,7 @@ import (
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/api/schema"
+	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -62,6 +63,10 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		config, input, err := readConfig(modelFile, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
+		}
+
+		if input.ResponseFormat.Type == "json_object" {
+			input.Grammar = grammar.JSONBNF
 		}
 
 		log.Debug().Msgf("Parameter Config: %+v", config)

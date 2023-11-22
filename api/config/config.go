@@ -100,10 +100,18 @@ type LLMConfig struct {
 	NUMA            bool     `yaml:"numa"`
 	LoraAdapter     string   `yaml:"lora_adapter"`
 	LoraBase        string   `yaml:"lora_base"`
+	LoraScale       float32  `yaml:"lora_scale"`
 	NoMulMatQ       bool     `yaml:"no_mulmatq"`
 	DraftModel      string   `yaml:"draft_model"`
 	NDraft          int32    `yaml:"n_draft"`
 	Quantization    string   `yaml:"quantization"`
+	MMProj          string   `yaml:"mmproj"`
+
+	RopeScaling    string  `yaml:"rope_scaling"`
+	YarnExtFactor  float32 `yaml:"yarn_ext_factor"`
+	YarnAttnFactor float32 `yaml:"yarn_attn_factor"`
+	YarnBetaFast   float32 `yaml:"yarn_beta_fast"`
+	YarnBetaSlow   float32 `yaml:"yarn_beta_slow"`
 }
 
 type AutoGPTQ struct {
@@ -269,7 +277,7 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 	}
 	for _, file := range files {
 		// Skip templates, YAML and .keep files
-		if !strings.Contains(file.Name(), ".yaml") {
+		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
 			continue
 		}
 		c, err := ReadConfig(filepath.Join(path, file.Name()))

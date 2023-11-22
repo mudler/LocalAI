@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ubuntu-latest:
+  tests-linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -67,41 +67,35 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-
+          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
+             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
+              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
+             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
+             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
+             sudo apt-get update && \
+             sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
-          sudo pip install -r extra/requirements.txt
+          
+          sudo rm -rfv /usr/bin/conda || true
+          PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers
 
-
-          # Pre-build stable diffusion before we install a newever version of abseil (not compatible with stablediffusion-ncn)
-          GO_TAGS="tts stablediffusion" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
-
-          sudo mkdir /build && sudo chmod -R 777 /build && cd /build && \
-          curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz" | \
-          tar -xzvf - && \
-          mkdir -p "spdlog-1.11.0/build" && \
-          cd "spdlog-1.11.0/build" && \
-          cmake ..  && \
-          make -j8 && \
-          sudo cmake --install . --prefix /usr && mkdir -p "lib/Linux-$(uname -m)" && \
-          cd /build && \
-          mkdir -p "lib/Linux-$(uname -m)/piper_phonemize" && \
-          curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v1.0.0/libpiper_phonemize-amd64.tar.gz" | \
-          tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
-          sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
-          sudo ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
-          sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
+          # Pre-build piper before we start tests in order to have shared libraries in place
+          make sources/go-piper && \
+          GO_TAGS="tts" make -C sources/go-piper piper.o && \
+          sudo cp -rfv sources/go-piper/piper/build/pi/lib/. /usr/lib/ && \
+          # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
+          GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
           git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
               cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
                 -DgRPC_BUILD_TESTS=OFF \
                 ../.. && sudo make -j12 install
-
       - name: Test
         run: |
-          ESPEAK_DATA="/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data" GO_TAGS="tts stablediffusion" make test
+          GO_TAGS="stablediffusion tts" make test
 
-  macOS-latest:
+  tests-apple:
     runs-on: macOS-latest
     strategy:
       matrix:

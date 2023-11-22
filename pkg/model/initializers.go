@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	LlamaBackend        = "llama"
-	LlamaStableBackend  = "llama-stable"
+	GoLlamaBackend      = "llama"
+	LlamaGGML           = "llama-ggml"
 	LLamaCPP            = "llama-cpp"
 	StarcoderBackend    = "starcoder"
 	GPTJBackend         = "gptj"
@@ -41,8 +41,8 @@ const (
 
 var AutoLoadBackends []string = []string{
 	LLamaCPP,
-	LlamaStableBackend,
-	LlamaBackend,
+	LlamaGGML,
+	GoLlamaBackend,
 	Gpt4All,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,
@@ -61,11 +61,11 @@ var AutoLoadBackends []string = []string{
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
 // It also loads the model
-func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string) (*grpc.Client, error) {
-	return func(modelName, modelFile string) (*grpc.Client, error) {
-		log.Debug().Msgf("Loading GRPC Model %s: %+v", backend, *o)
+func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string) (ModelAddress, error) {
+	return func(modelName, modelFile string) (ModelAddress, error) {
+		log.Debug().Msgf("Loading Model %s with gRPC (file: %s) (backend: %s): %+v", modelName, modelFile, backend, *o)
 
-		var client *grpc.Client
+		var client ModelAddress
 
 		getFreeAddress := func() (string, error) {
 			port, err := freeport.GetFreePort()
@@ -82,46 +82,46 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			if _, err := os.Stat(uri); err == nil {
 				serverAddress, err := getFreeAddress()
 				if err != nil {
-					return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
+					return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
 				}
 				// Make sure the process is executable
 				if err := ml.startProcess(uri, o.model, serverAddress); err != nil {
-					return nil, err
+					return "", err
 				}
 
 				log.Debug().Msgf("GRPC Service Started")
 
-				client = grpc.NewClient(serverAddress)
+				client = ModelAddress(serverAddress)
 			} else {
 				// address
-				client = grpc.NewClient(uri)
+				client = ModelAddress(uri)
 			}
 		} else {
 			grpcProcess := filepath.Join(o.assetDir, "backend-assets", "grpc", backend)
 			// Check if the file exists
 			if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
-				return nil, fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
+				return "", fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
 			}
 
 			serverAddress, err := getFreeAddress()
 			if err != nil {
-				return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
+				return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
 			}
 
 			// Make sure the process is executable
 			if err := ml.startProcess(grpcProcess, o.model, serverAddress); err != nil {
-				return nil, err
+				return "", err
 			}
 
 			log.Debug().Msgf("GRPC Service Started")
 
-			client = grpc.NewClient(serverAddress)
+			client = ModelAddress(serverAddress)
 		}
 
 		// Wait for the service to start up
 		ready := false
 		for i := 0; i < o.grpcAttempts; i++ {
-			if client.HealthCheck(context.Background()) {
+			if client.GRPC(o.parallelRequests).HealthCheck(context.Background()) {
 				log.Debug().Msgf("GRPC Service Ready")
 				ready = true
 				break
@@ -131,7 +131,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		if !ready {
 			log.Debug().Msgf("GRPC Service NOT ready")
-			return nil, fmt.Errorf("grpc service not ready")
+			return "", fmt.Errorf("grpc service not ready")
 		}
 
 		options := *o.gRPCOptions
@@ -140,19 +140,30 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		log.Debug().Msgf("GRPC: Loading model with options: %+v", options)
 
-		res, err := client.LoadModel(o.context, &options)
+		res, err := client.GRPC(o.parallelRequests).LoadModel(o.context, &options)
 		if err != nil {
-			return nil, fmt.Errorf("could not load model: %w", err)
+			return "", fmt.Errorf("could not load model: %w", err)
 		}
 		if !res.Success {
-			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
+			return "", fmt.Errorf("could not load model (no success): %s", res.Message)
 		}
 
 		return client, nil
 	}
 }
 
-func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err error) {
+func (ml *ModelLoader) resolveAddress(addr ModelAddress, parallel bool) (*grpc.Client, error) {
+	if parallel {
+		return addr.GRPC(parallel), nil
+	}
+
+	if _, ok := ml.grpcClients[string(addr)]; !ok {
+		ml.grpcClients[string(addr)] = addr.GRPC(parallel)
+	}
+	return ml.grpcClients[string(addr)], nil
+}
+
+func (ml *ModelLoader) BackendLoader(opts ...Option) (client *grpc.Client, err error) {
 	o := NewOptions(opts...)
 
 	log.Debug().Msgf("Loading model %s from %s", o.backendString, o.model)
@@ -166,22 +177,25 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (model *grpc.Client, err er
 		ml.mu.Unlock()
 	}
 
-	// if an external backend is provided, use it
-	_, externalBackendExists := o.externalBackends[backend]
-	if externalBackendExists {
-		return ml.LoadModel(o.model, ml.grpcModel(backend, o))
-	}
+	var backendToConsume string
 
 	switch backend {
 	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
 		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "gpt4all")
-		return ml.LoadModel(o.model, ml.grpcModel(Gpt4All, o))
+		backendToConsume = Gpt4All
 	case PiperBackend:
 		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "espeak-ng-data")
-		return ml.LoadModel(o.model, ml.grpcModel(PiperBackend, o))
+		backendToConsume = PiperBackend
 	default:
-		return ml.LoadModel(o.model, ml.grpcModel(backend, o))
+		backendToConsume = backend
 	}
+
+	addr, err := ml.LoadModel(o.model, ml.grpcModel(backendToConsume, o))
+	if err != nil {
+		return nil, err
+	}
+
+	return ml.resolveAddress(addr, o.parallelRequests)
 }
 
 func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
@@ -190,10 +204,11 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 	ml.mu.Lock()
 	// Return earlier if we have a model already loaded
 	// (avoid looping through all the backends)
-	if m := ml.CheckIsLoaded(o.model); m != nil {
+	if m := ml.CheckIsLoaded(o.model); m != "" {
 		log.Debug().Msgf("Model '%s' already loaded", o.model)
 		ml.mu.Unlock()
-		return m, nil
+
+		return ml.resolveAddress(m, o.parallelRequests)
 	}
 	// If we can have only one backend active, kill all the others (except external backends)
 	if o.singleActiveBackend {

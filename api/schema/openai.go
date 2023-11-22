@@ -55,11 +55,25 @@ type Choice struct {
 	Text         string   `json:"text,omitempty"`
 }
 
+type Content struct {
+	Type     string     `json:"type" yaml:"type"`
+	Text     string     `json:"text" yaml:"text"`
+	ImageURL ContentURL `json:"image_url" yaml:"image_url"`
+}
+
+type ContentURL struct {
+	URL string `json:"url" yaml:"url"`
+}
+
 type Message struct {
 	// The message role
 	Role string `json:"role,omitempty" yaml:"role"`
 	// The message content
-	Content *string `json:"content" yaml:"content"`
+	Content interface{} `json:"content" yaml:"content"`
+
+	StringContent string   `json:"string_content,omitempty" yaml:"string_content,omitempty"`
+	StringImages  []string `json:"string_images,omitempty" yaml:"string_images,omitempty"`
+
 	// A result of a function call
 	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`
 }
@@ -67,6 +81,12 @@ type Message struct {
 type OpenAIModel struct {
 	ID     string `json:"id"`
 	Object string `json:"object"`
+}
+
+type ChatCompletionResponseFormatType string
+
+type ChatCompletionResponseFormat struct {
+	Type ChatCompletionResponseFormatType `json:"type,omitempty"`
 }
 
 type OpenAIRequest struct {
@@ -78,7 +98,7 @@ type OpenAIRequest struct {
 	// whisper
 	File string `json:"file" validate:"required"`
 	//whisper/image
-	ResponseFormat string `json:"response_format"`
+	ResponseFormat ChatCompletionResponseFormat `json:"response_format"`
 	// image
 	Size string `json:"size"`
 	// Prompt is read only by completion/image API calls

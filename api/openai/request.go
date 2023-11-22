@@ -2,8 +2,11 @@ package openai
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +27,7 @@ func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *sche
 	input.Cancel = cancel
 	// Get input data from the request body
 	if err := c.BodyParser(input); err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("failed parsing request body: %w", err)
 	}
 
 	modelFile := input.Model
@@ -59,6 +62,37 @@ func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *sche
 		modelFile = bearer
 	}
 	return modelFile, input, nil
+}
+
+// this function check if the string is an URL, if it's an URL downloads the image in memory
+// encodes it in base64 and returns the base64 string
+func getBase64Image(s string) (string, error) {
+	if strings.HasPrefix(s, "http") {
+		// download the image
+		resp, err := http.Get(s)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+
+		// read the image data into memory
+		data, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+
+		// encode the image data in base64
+		encoded := base64.StdEncoding.EncodeToString(data)
+
+		// return the base64 string
+		return encoded, nil
+	}
+
+	// if the string instead is prefixed with "data:image/jpeg;base64,", drop it
+	if strings.HasPrefix(s, "data:image/jpeg;base64,") {
+		return strings.ReplaceAll(s, "data:image/jpeg;base64,", ""), nil
+	}
+	return "", fmt.Errorf("not valid string")
 }
 
 func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
@@ -125,6 +159,35 @@ func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
 		for _, pp := range stop {
 			if s, ok := pp.(string); ok {
 				config.StopWords = append(config.StopWords, s)
+			}
+		}
+	}
+
+	// Decode each request's message content
+	index := 0
+	for i, m := range input.Messages {
+		switch content := m.Content.(type) {
+		case string:
+			input.Messages[i].StringContent = content
+		case []interface{}:
+			dat, _ := json.Marshal(content)
+			c := []schema.Content{}
+			json.Unmarshal(dat, &c)
+			for _, pp := range c {
+				if pp.Type == "text" {
+					input.Messages[i].StringContent = pp.Text
+				} else if pp.Type == "image_url" {
+					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
+					base64, err := getBase64Image(pp.ImageURL.URL)
+					if err == nil {
+						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
+						// set a placeholder for each image
+						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
+						index++
+					} else {
+						fmt.Print("Failed encoding image", err)
+					}
+				}
 			}
 		}
 	}

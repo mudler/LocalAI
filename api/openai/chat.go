@@ -81,6 +81,10 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
 		}
 
+		if input.ResponseFormat.Type == "json_object" {
+			input.Grammar = grammar.JSONBNF
+		}
+
 		// process functions if we have any defined or if we have a function call string
 		if len(input.Functions) > 0 && config.ShouldUseFunctions() {
 			log.Debug().Msgf("Response needs to process functions")
@@ -140,14 +144,14 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				}
 			}
 			r := config.Roles[role]
-			contentExists := i.Content != nil && *i.Content != ""
+			contentExists := i.Content != nil && i.StringContent != ""
 			// First attempt to populate content via a chat message specific template
 			if config.TemplateConfig.ChatMessage != "" {
 				chatMessageData := model.ChatMessageTemplateData{
 					SystemPrompt: config.SystemPrompt,
 					Role:         r,
 					RoleName:     role,
-					Content:      *i.Content,
+					Content:      i.StringContent,
 					MessageIndex: messageIndex,
 				}
 				templatedChatMessage, err := o.Loader.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
@@ -166,7 +170,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			if content == "" {
 				if r != "" {
 					if contentExists {
-						content = fmt.Sprint(r, " ", *i.Content)
+						content = fmt.Sprint(r, i.StringContent)
 					}
 					if i.FunctionCall != nil {
 						j, err := json.Marshal(i.FunctionCall)
@@ -180,7 +184,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					}
 				} else {
 					if contentExists {
-						content = fmt.Sprint(*i.Content)
+						content = fmt.Sprint(i.StringContent)
 					}
 					if i.FunctionCall != nil {
 						j, err := json.Marshal(i.FunctionCall)
@@ -334,7 +338,11 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					// Otherwise ask the LLM to understand the JSON output and the context, and return a message
 					// Note: This costs (in term of CPU) another computation
 					config.Grammar = ""
-					predFunc, err := backend.ModelInference(input.Context, predInput, o.Loader, *config, o, nil)
+					images := []string{}
+					for _, m := range input.Messages {
+						images = append(images, m.StringImages...)
+					}
+					predFunc, err := backend.ModelInference(input.Context, predInput, images, o.Loader, *config, o, nil)
 					if err != nil {
 						log.Error().Msgf("inference error: %s", err.Error())
 						return

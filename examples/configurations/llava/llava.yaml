@@ -1,0 +1,19 @@
+backend: llama-cpp
+context_size: 4096
+f16: true
+threads: 11
+gpu_layers: 90
+mmap: true
+name: llava
+roles:
+  user: "USER:"
+  assistant: "ASSISTANT:"
+  system: "SYSTEM:"
+parameters:
+  model: ggml-model-q4_k.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+template:
+  chat: chat-simple
+mmproj: mmproj-model-f16.gguf

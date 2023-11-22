@@ -59,15 +59,23 @@ type ModelLoader struct {
 	ModelPath string
 	mu        sync.Mutex
 	// TODO: this needs generics
-	models        map[string]*grpc.Client
+	grpcClients   map[string]*grpc.Client
+	models        map[string]ModelAddress
 	grpcProcesses map[string]*process.Process
 	templates     map[TemplateType]map[string]*template.Template
+}
+
+type ModelAddress string
+
+func (m ModelAddress) GRPC(parallel bool) *grpc.Client {
+	return grpc.NewClient(string(m), parallel)
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
 	nml := &ModelLoader{
 		ModelPath:     modelPath,
-		models:        make(map[string]*grpc.Client),
+		grpcClients:   make(map[string]*grpc.Client),
+		models:        make(map[string]ModelAddress),
 		templates:     make(map[TemplateType]map[string]*template.Template),
 		grpcProcesses: make(map[string]*process.Process),
 	}
@@ -98,12 +106,12 @@ func (ml *ModelLoader) ListModels() ([]string, error) {
 	return models, nil
 }
 
-func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (*grpc.Client, error)) (*grpc.Client, error) {
+func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (ModelAddress, error)) (ModelAddress, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
 	// Check if we already have a loaded model
-	if model := ml.CheckIsLoaded(modelName); model != nil {
+	if model := ml.CheckIsLoaded(modelName); model != "" {
 		return model, nil
 	}
 
@@ -113,7 +121,7 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 
 	model, err := loader(modelName, modelFile)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// TODO: Add a helper method to iterate all prompt templates associated with a config if and only if it's YAML?
@@ -138,24 +146,30 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	return ml.deleteProcess(modelName)
 }
 
-func (ml *ModelLoader) CheckIsLoaded(s string) *grpc.Client {
+func (ml *ModelLoader) CheckIsLoaded(s string) ModelAddress {
+	var client *grpc.Client
 	if m, ok := ml.models[s]; ok {
 		log.Debug().Msgf("Model already loaded in memory: %s", s)
+		if c, ok := ml.grpcClients[s]; ok {
+			client = c
+		} else {
+			client = m.GRPC(false)
+		}
 
-		if !m.HealthCheck(context.Background()) {
+		if !client.HealthCheck(context.Background()) {
 			log.Debug().Msgf("GRPC Model not responding: %s", s)
 			if !ml.grpcProcesses[s].IsAlive() {
 				log.Debug().Msgf("GRPC Process is not responding: %s", s)
 				// stop and delete the process, this forces to re-load the model and re-create again the service
 				ml.deleteProcess(s)
-				return nil
+				return ""
 			}
 		}
 
 		return m
 	}
 
-	return nil
+	return ""
 }
 
 func (ml *ModelLoader) EvaluateTemplateForPrompt(templateType TemplateType, templateName string, in PromptTemplateData) (string, error) {
