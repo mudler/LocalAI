@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "🆕 Vall-E-X"
+title = "Vall-E-X"
 weight = 4
 +++
 
