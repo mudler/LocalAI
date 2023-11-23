@@ -3,6 +3,9 @@ use bunker::pb::{ModelOptions, PredictOptions};
 pub(crate) mod mnist;
 pub use mnist::mnist::MNINST;
 
+pub(crate) mod llama;
+
+
 /// Trait for implementing a Language Model.
 pub trait LLM {
 
