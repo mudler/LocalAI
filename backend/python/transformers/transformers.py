@@ -1,7 +1,7 @@
-"""
-Extra gRPC server for HuggingFace SentenceTransformer models.
-"""
 #!/usr/bin/env python3
+"""
+Extra gRPC server for HuggingFace AutoModel models.
+"""
 from concurrent import futures
 
 import argparse

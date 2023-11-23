@@ -1,8 +1,7 @@
+#!/usr/bin/env python3
 """
 This is the extra gRPC server of LocalAI
 """
-
-#!/usr/bin/env python3
 from concurrent import futures
 import time
 import argparse
