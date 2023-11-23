@@ -20,7 +20,7 @@ title = "LocalAI"
 
 > 💡 Get help - [❓FAQ](https://localai.io/faq/) [❓How tos](https://localai.io/howtos/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [💭Discord](https://discord.gg/uJAeKSAGDy)
 >
-> [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/)
+> [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/) [ 🚀 Roadmap ](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
 **LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families that are compatible with the ggml format. Does not require GPU. It is maintained by [mudler](https://github.com/mudler).
 
@@ -84,37 +84,15 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 - 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
+- 🆕 [Vision API](https://localai.io/features/gpt-vision/)
+
 
 ## 🔥🔥 Hot topics / Roadmap
 
-- Backend rework for LocalAI v2 https://github.com/go-skynet/LocalAI/issues/1126
-- Roadmap: https://github.com/go-skynet/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap
+- [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-Some items:
-
-- [ ] Enable gallery management directly from the webui. https://github.com/go-skynet/LocalAI/issues/918
-- [x] llama.cpp lora adapters: https://github.com/go-skynet/LocalAI/issues/919
-- [ ] image variants and edits: https://github.com/go-skynet/LocalAI/issues/921
-- [ ] esrgan for diffusers: https://github.com/go-skynet/LocalAI/issues/917
-- [ ] ggml-stablediffusion: https://github.com/go-skynet/LocalAI/issues/916
-- [ ] SAM: https://github.com/go-skynet/LocalAI/issues/915
-- [x] diffusers lora adapters: https://github.com/go-skynet/LocalAI/issues/914
-- [ ] resource management and control: https://github.com/go-skynet/LocalAI/issues/912
-- [ ] ChatGLM: https://github.com/go-skynet/LocalAI/issues/754
-- [ ] text-to-video : https://github.com/go-skynet/LocalAI/issues/933
-- [ ] rustformers: https://github.com/go-skynet/LocalAI/issues/939
-- [x] Vall-e: https://github.com/go-skynet/LocalAI/issues/985
-- [ ] Speculative sampling: https://github.com/go-skynet/LocalAI/issues/1013
-- [ ] Falcon/GPTNeoX on llama.cpp: https://github.com/go-skynet/LocalAI/issues/1009
-- [ ] transformers/vllm: https://github.com/go-skynet/LocalAI/issues/1015
-- [ ] TortoiseTTS: https://github.com/go-skynet/LocalAI/issues/1016
-- [ ] Exllama2: https://github.com/go-skynet/LocalAI/issues/1053
-- [ ] ctransformers: https://github.com/go-skynet/LocalAI/issues/1056
-- [ ] GPTQ for LLama: https://github.com/go-skynet/LocalAI/issues/1055
-- [ ] LLaVA and miniGPT-4: https://github.com/go-skynet/LocalAI/issues/1054
-- [ ] Test generation inference: https://github.com/go-skynet/LocalAI/issues/1042
-- [ ] docs - extending LocalAI with external backends: https://github.com/go-skynet/LocalAI/issues/1057
-
+Hot topics:
+- https://github.com/mudler/LocalAI/issues/1126
 
 ## How does it work?
 

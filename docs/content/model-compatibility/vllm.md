@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "🆕 vLLM"
+title = "vLLM"
 weight = 4
 +++
 
