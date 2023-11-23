@@ -106,6 +106,12 @@ ifeq ($(BUILD_TYPE),clblas)
 	CGO_LDFLAGS+=-lOpenCL -lclblast
 endif
 
+ifeq ($(OS),Darwin)
+	ifeq ($(OSX_SIGNING_IDENTITY),)
+		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
+	endif
+endif
+
 # glibc-static or glibc-devel-static required
 ifeq ($(STATIC),true)
 	LD_FLAGS=-linkmode external -extldflags -static
@@ -272,6 +278,9 @@ build: grpcs prepare ## Build the project
 dist: build
 	mkdir -p release
 	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH)
+
+osx-signed: build
+	codesign --deep --force --sign "$(OSX_SIGNING_IDENTITY)" --entitlements "./Entitlements.plist" "./$(BINARY_NAME)"
 
 ## Run
 run: prepare ## run local-ai
