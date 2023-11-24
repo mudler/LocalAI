@@ -61,7 +61,7 @@ curl http://localhost:8080/embeddings -X POST -H "Content-Type: application/json
 
 ## Huggingface embeddings
 
-To use `sentence-formers` and models in `huggingface` you can use the `huggingface` embedding backend.
+To use `sentence-transformers` and models in `huggingface` you can use the `huggingface` embedding backend.
 
 ```yaml
 name: text-embedding-ada-002
@@ -75,7 +75,7 @@ The `huggingface` backend uses Python [sentence-transformers](https://github.com
 
 {{% notice note %}}
 
-- The `huggingface` backend is an optional backend of LocalAI and uses Python. If you are running `LocalAI` from the containers you are good to go and should be already configured for use. If you are running `LocalAI` manually you must install the python dependencies (`pip install -r /path/to/LocalAI/extra/requirements`) and specify the extra backend in the `EXTERNAL_GRPC_BACKENDS` environment variable ( `EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/path/to/LocalAI/extra/grpc/huggingface/huggingface.py"` ) .
+- The `huggingface` backend is an optional backend of LocalAI and uses Python. If you are running `LocalAI` from the containers you are good to go and should be already configured for use. If you are running `LocalAI` manually you must install the python dependencies (`pip install -r /path/to/LocalAI/extra/requirements`) and specify the extra backend in the `EXTERNAL_GRPC_BACKENDS` environment variable ( `EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/path/to/LocalAI/backend/python/sentencetransformers/sentencetransformers.py"` ) .
 - The `huggingface` backend does support only embeddings of text, and not of tokens. If you need to embed tokens you can use the `bert` backend or `llama.cpp`.
 - No models are required to be downloaded before using the `huggingface` backend. The models will be downloaded automatically the first time the API is used.
 
