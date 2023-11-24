@@ -222,7 +222,10 @@ sources/go-llama-ggml/libbinding.a: sources/go-llama-ggml
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main
 
-get-sources: sources/go-llama sources/go-llama-ggml sources/go-ggml-transformers sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion
+backend/cpp/llama/llama.cpp:
+	$(MAKE) -C backend/cpp/llama llama.cpp	
+
+get-sources: backend/cpp/llama/llama.cpp sources/go-llama sources/go-llama-ggml sources/go-ggml-transformers sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion
 	touch $@
 
 replace:
@@ -236,6 +239,7 @@ replace:
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
+	touch $@
 
 ## GENERIC
 rebuild: ## Rebuilds the project

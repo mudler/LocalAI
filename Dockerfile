@@ -88,12 +88,9 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 
 WORKDIR /build
 
-COPY Makefile .
-RUN make get-sources
-COPY go.mod .
-RUN make prepare
 COPY . .
 COPY .git .
+RUN make prepare
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
@@ -102,7 +99,7 @@ RUN if [ "${BUILD_GRPC}" = "true" ]; then \
     git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
     cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
       -DgRPC_BUILD_TESTS=OFF \
-       ../.. && make -j12 install && rm -rf grpc \
+       ../.. && make -j12 install \
     ; fi
 
 # Rebuild with defaults backends
@@ -144,7 +141,11 @@ WORKDIR /build
 # see https://github.com/go-skynet/LocalAI/pull/658#discussion_r1241971626 and
 # https://github.com/go-skynet/LocalAI/pull/434
 COPY . .
-RUN make prepare-sources
+
+COPY --from=builder /build/sources ./sources/
+COPY --from=builder /build/grpc ./grpc/
+
+RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf grpc
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
