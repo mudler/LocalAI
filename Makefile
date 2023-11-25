@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=aeba71ee842819da681ea537e78846dc75949ac0
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=8e672efe632bb6a7333964a255c4b96f018b9a65
+CPPLLAMA_VERSION?=e9c13ff78114af6fc6a4f27cc8dcdda0f3d389fb
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -104,6 +104,12 @@ endif
 
 ifeq ($(BUILD_TYPE),clblas)
 	CGO_LDFLAGS+=-lOpenCL -lclblast
+endif
+
+ifeq ($(OS),Darwin)
+	ifeq ($(OSX_SIGNING_IDENTITY),)
+		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
+	endif
 endif
 
 # glibc-static or glibc-devel-static required
@@ -216,7 +222,10 @@ sources/go-llama-ggml/libbinding.a: sources/go-llama-ggml
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main
 
-get-sources: sources/go-llama sources/go-llama-ggml sources/go-ggml-transformers sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion
+backend/cpp/llama/llama.cpp:
+	$(MAKE) -C backend/cpp/llama llama.cpp	
+
+get-sources: backend/cpp/llama/llama.cpp sources/go-llama sources/go-llama-ggml sources/go-ggml-transformers sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion
 	touch $@
 
 replace:
@@ -230,6 +239,7 @@ replace:
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
+	touch $@
 
 ## GENERIC
 rebuild: ## Rebuilds the project
@@ -272,6 +282,9 @@ build: grpcs prepare ## Build the project
 dist: build
 	mkdir -p release
 	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH)
+
+osx-signed: build
+	codesign --deep --force --sign "$(OSX_SIGNING_IDENTITY)" --entitlements "./Entitlements.plist" "./$(BINARY_NAME)"
 
 ## Run
 run: prepare ## run local-ai
@@ -417,7 +430,7 @@ ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto && \
 	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin && \
 	export PATH=${PATH}:${INSTALLED_PACKAGES}/bin && \
-	CMAKE_ARGS="${ADDED_CMAKE_ARGS}" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server 
+	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
 else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server			

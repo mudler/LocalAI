@@ -1,7 +1,7 @@
+#!/usr/bin/env python3
 """
 Extra gRPC server for HuggingFace SentenceTransformer models.
 """
-#!/usr/bin/env python3
 from concurrent import futures
 
 import argparse
