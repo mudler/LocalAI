@@ -63,12 +63,13 @@ type ModelLoader struct {
 	models        map[string]ModelAddress
 	grpcProcesses map[string]*process.Process
 	templates     map[TemplateType]map[string]*template.Template
+	wd            *WatchDog
 }
 
 type ModelAddress string
 
-func (m ModelAddress) GRPC(parallel bool) *grpc.Client {
-	return grpc.NewClient(string(m), parallel)
+func (m ModelAddress) GRPC(parallel bool, wd *WatchDog) *grpc.Client {
+	return grpc.NewClient(string(m), parallel, wd)
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
@@ -79,8 +80,14 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		templates:     make(map[TemplateType]map[string]*template.Template),
 		grpcProcesses: make(map[string]*process.Process),
 	}
+	//nml.wd = NewWatchDog(time.Hour, nml)
+
 	nml.initializeTemplateMap()
 	return nml
+}
+
+func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
+	ml.wd = wd
 }
 
 func (ml *ModelLoader) ExistsInModelPath(s string) bool {
@@ -153,7 +160,7 @@ func (ml *ModelLoader) CheckIsLoaded(s string) ModelAddress {
 		if c, ok := ml.grpcClients[s]; ok {
 			client = c
 		} else {
-			client = m.GRPC(false)
+			client = m.GRPC(false, ml.wd)
 		}
 
 		if !client.HealthCheck(context.Background()) {

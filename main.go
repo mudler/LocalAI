@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	api "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/api/backend"
@@ -155,6 +156,18 @@ func main() {
 				EnvVars: []string{"API_KEY"},
 			},
 			&cli.BoolFlag{
+				Name:    "enable-watchdog",
+				Usage:   "Enable watchdog. This will restart the backend if it crashes.",
+				EnvVars: []string{"WATCHDOG"},
+				Value:   false,
+			},
+			&cli.StringFlag{
+				Name:    "watchdog-timeout",
+				Usage:   "Watchdog timeout. This will restart the backend if it crashes.",
+				EnvVars: []string{"WATCHDOG_TIMEOUT"},
+				Value:   "5m",
+			},
+			&cli.BoolFlag{
 				Name:    "preload-backend-only",
 				Usage:   "If set, the api is NOT launched, and only the preloaded models / backends are started. This is intended for multi-node setups.",
 				EnvVars: []string{"PRELOAD_BACKEND_ONLY"},
@@ -197,6 +210,14 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
 				options.WithApiKeys(ctx.StringSlice("api-keys")),
+			}
+			if ctx.Bool("watchdog") {
+				opts = append(opts, options.EnableWatchDog)
+				dur, err := time.ParseDuration(ctx.String("watchdog-timeout"))
+				if err != nil {
+					return err
+				}
+				opts = append(opts, options.SetWatchDogTimeout(dur))
 			}
 			if ctx.Bool("parallel-requests") {
 				opts = append(opts, options.EnableParallelBackendRequests)

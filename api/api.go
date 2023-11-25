@@ -13,6 +13,7 @@ import (
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/assets"
+	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -78,6 +79,17 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 		log.Debug().Msgf("Context canceled, shutting down")
 		options.Loader.StopAllGRPC()
 	}()
+
+	if options.WatchDog {
+		wd := model.NewWatchDog(options.WatchDogTimeout, options.Loader)
+		options.Loader.SetWatchDog(wd)
+		go wd.Run()
+		go func() {
+			<-options.Context.Done()
+			log.Debug().Msgf("Context canceled, shutting down")
+			wd.Shutdown()
+		}()
+	}
 
 	return options, cl, nil
 }

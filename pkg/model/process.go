@@ -17,7 +17,7 @@ import (
 func (ml *ModelLoader) StopAllExcept(s string) {
 	ml.StopGRPC(func(id string, p *process.Process) bool {
 		if id != s {
-			for ml.models[id].GRPC(false).IsBusy() {
+			for ml.models[id].GRPC(false, ml.wd).IsBusy() {
 				log.Debug().Msgf("%s busy. Waiting.", id)
 				time.Sleep(2 * time.Second)
 			}
@@ -79,6 +79,11 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		process.WithArgs("--addr", serverAddress),
 		process.WithEnvironment(os.Environ()...),
 	)
+
+	if ml.wd != nil {
+		ml.wd.Add(serverAddress, grpcControlProcess)
+		ml.wd.AddAddressModelMap(serverAddress, id)
+	}
 
 	ml.grpcProcesses[id] = grpcControlProcess
 
