@@ -1,11 +1,10 @@
-
+backend: llama-cpp
 context_size: 4096
 f16: true
 threads: 11
 gpu_layers: 90
-name: llava
 mmap: true
-backend: llama-cpp
+name: llava
 roles:
   user: "USER:"
   assistant: "ASSISTANT:"

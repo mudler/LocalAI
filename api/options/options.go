@@ -5,9 +5,9 @@ import (
 	"embed"
 	"encoding/json"
 
+	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/rs/zerolog/log"
 )
 
@@ -36,7 +36,8 @@ type Option struct {
 
 	AutoloadGalleries bool
 
-	SingleBackend bool
+	SingleBackend           bool
+	ParallelBackendRequests bool
 }
 
 type AppOption func(*Option)
@@ -64,6 +65,10 @@ func WithCors(b bool) AppOption {
 
 var EnableSingleBackend = func(o *Option) {
 	o.SingleBackend = true
+}
+
+var EnableParallelBackendRequests = func(o *Option) {
+	o.ParallelBackendRequests = true
 }
 
 var EnableGalleriesAutoload = func(o *Option) {

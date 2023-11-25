@@ -1,4 +1,4 @@
-name: huggingface
+name: sentencetransformers
 channels:
   - defaults
 dependencies:
@@ -74,4 +74,4 @@ dependencies:
       - triton==2.1.0
       - typing-extensions==4.8.0
       - urllib3==2.0.6
-prefix: /opt/conda/envs/huggingface
+prefix: /opt/conda/envs/sentencetransformers

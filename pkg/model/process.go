@@ -17,7 +17,7 @@ import (
 func (ml *ModelLoader) StopAllExcept(s string) {
 	ml.StopGRPC(func(id string, p *process.Process) bool {
 		if id != s {
-			for ml.models[id].IsBusy() {
+			for ml.models[id].GRPC(false).IsBusy() {
 				log.Debug().Msgf("%s busy. Waiting.", id)
 				time.Sleep(2 * time.Second)
 			}

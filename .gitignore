@@ -1,12 +1,5 @@
 # go-llama build artifacts
-go-llama
-go-llama-stable
-/gpt4all
-go-stable-diffusion
-go-piper
-/go-bert
-go-ggllm
-/piper
+/sources/
 __pycache__/
 *.a
 get-sources

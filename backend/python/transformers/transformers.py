@@ -1,7 +1,7 @@
-"""
-Extra gRPC server for HuggingFace SentenceTransformer models.
-"""
 #!/usr/bin/env python3
+"""
+Extra gRPC server for HuggingFace AutoModel models.
+"""
 from concurrent import futures
 
 import argparse
@@ -15,7 +15,7 @@ import backend_pb2_grpc
 
 import grpc
 
-from sentence_transformers import SentenceTransformer
+from transformers import AutoModel
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -55,7 +55,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         model_name = request.Model
         try:
-            self.model = SentenceTransformer(model_name)
+            self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True) # trust_remote_code is needed to use the encode method with embeddings models like jinai-v2
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
 

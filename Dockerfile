@@ -12,7 +12,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/backend/python/huggingface/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh"
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh"
 ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
 ARG GO_TAGS="stablediffusion tts"
 
@@ -88,12 +88,9 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 
 WORKDIR /build
 
-COPY Makefile .
-RUN make get-sources
-COPY go.mod .
-RUN make prepare
 COPY . .
 COPY .git .
+RUN make prepare
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
@@ -102,11 +99,16 @@ RUN if [ "${BUILD_GRPC}" = "true" ]; then \
     git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
     cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
       -DgRPC_BUILD_TESTS=OFF \
-       ../.. && make -j12 install && rm -rf grpc \
+       ../.. && make -j12 install \
     ; fi
 
 # Rebuild with defaults backends
 RUN make build
+
+RUN if [ ! -d "/build/sources/go-piper/piper/build/pi/lib/" ]; then \
+    mkdir -p /build/sources/go-piper/piper/build/pi/lib/ \
+    touch /build/sources/go-piper/piper/build/pi/lib/keep \
+    ; fi
 
 ###################################
 ###################################
@@ -139,13 +141,17 @@ WORKDIR /build
 # see https://github.com/go-skynet/LocalAI/pull/658#discussion_r1241971626 and
 # https://github.com/go-skynet/LocalAI/pull/434
 COPY . .
-RUN make prepare-sources
+
+COPY --from=builder /build/sources ./sources/
+COPY --from=builder /build/grpc ./grpc/
+
+RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf grpc
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
 
 # Copy shared libraries for piper
-COPY --from=builder /build/go-piper/piper/build/pi/lib/* /usr/lib/
+COPY --from=builder /build/sources/go-piper/piper/build/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
@@ -164,7 +170,10 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/vllm \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/huggingface \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/transformers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/vall-e-x \

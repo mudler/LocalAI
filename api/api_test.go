@@ -301,7 +301,7 @@ var _ = Describe("API test", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       "github:go-skynet/model-gallery/openllama_3b.yaml",
 					Name:      "openllama_3b",
-					Overrides: map[string]interface{}{"backend": "llama-stable", "mmap": true, "f16": true, "context_size": 128},
+					Overrides: map[string]interface{}{"backend": "llama-ggml", "mmap": true, "f16": true, "context_size": 128},
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -704,7 +704,7 @@ var _ = Describe("API test", func() {
 		})
 
 		Context("External gRPC calls", func() {
-			It("calculate embeddings with huggingface", func() {
+			It("calculate embeddings with sentencetransformers", func() {
 				if runtime.GOOS != "linux" {
 					Skip("test supported only on linux")
 				}

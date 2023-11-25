@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=aeba71ee842819da681ea537e78846dc75949ac0
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=bd90eca237b498dd106d315dcb9ad3e6fae3906f
+CPPLLAMA_VERSION?=e9c13ff78114af6fc6a4f27cc8dcdda0f3d389fb
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -28,10 +28,10 @@ WHISPER_CPP_VERSION?=85ed71aaec8e0612a84c0b67804bde75aa75a273
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
 
 # go-piper version
-PIPER_VERSION?=736f6fb639ab8e3397356e48eeb6bdcb9da88a78
+PIPER_VERSION?=7fe05263b4ca3ffa93a53e2737643a6a6afb9a7b
 
 # stablediffusion version
-STABLEDIFFUSION_VERSION?=d89260f598afb809279bc72aa0107b4292587632
+STABLEDIFFUSION_VERSION?=902db5f066fd137697e3b69d0fa10d4782bd2c2f
 
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
@@ -89,7 +89,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_HOME ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	# Llama-stable has no hipblas support, so override it here.
+	# llama-ggml has no hipblas support, so override it here.
 	export STABLE_BUILD_TYPE=
 	GPU_TARGETS ?= gfx900,gfx90a,gfx1030,gfx1031,gfx1100
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
@@ -106,6 +106,12 @@ ifeq ($(BUILD_TYPE),clblas)
 	CGO_LDFLAGS+=-lOpenCL -lclblast
 endif
 
+ifeq ($(OS),Darwin)
+	ifeq ($(OSX_SIGNING_IDENTITY),)
+		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
+	endif
+endif
+
 # glibc-static or glibc-devel-static required
 ifeq ($(STATIC),true)
 	LD_FLAGS=-linkmode external -extldflags -static
@@ -119,12 +125,12 @@ endif
 ifeq ($(findstring tts,$(GO_TAGS)),tts)
 #	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
 #	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
-	PIPER_CGO_CXXFLAGS+=-I$(shell pwd)/go-piper/piper/src/cpp -I$(shell pwd)/go-piper/piper/build/fi/include -I$(shell pwd)/go-piper/piper/build/pi/include -I$(shell pwd)/go-piper/piper/build/si/include
- 	PIPER_CGO_LDFLAGS+=-L$(shell pwd)/go-piper/piper/build/fi/lib -L$(shell pwd)/go-piper/piper/build/pi/lib -L$(shell pwd)/go-piper/piper/build/si/lib -lfmt -lspdlog
+	PIPER_CGO_CXXFLAGS+=-I$(shell pwd)/sources/go-piper/piper/src/cpp -I$(shell pwd)/sources/go-piper/piper/build/fi/include -I$(shell pwd)/sources/go-piper/piper/build/pi/include -I$(shell pwd)/sources/go-piper/piper/build/si/include
+ 	PIPER_CGO_LDFLAGS+=-L$(shell pwd)/sources/go-piper/piper/build/fi/lib -L$(shell pwd)/sources/go-piper/piper/build/pi/lib -L$(shell pwd)/sources/go-piper/piper/build/si/lib -lfmt -lspdlog
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
 endif
 
-ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/llama backend-assets/grpc/llama-cpp backend-assets/grpc/llama-stable backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
+ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface backend-assets/grpc/falcon-ggml backend-assets/grpc/bert-embeddings backend-assets/grpc/llama backend-assets/grpc/llama-cpp backend-assets/grpc/llama-ggml backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gpt2 backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/starcoder backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
 
 # If empty, then we build all
@@ -137,112 +143,116 @@ endif
 all: help
 
 ## GPT4ALL
-gpt4all:
-	git clone --recurse-submodules $(GPT4ALL_REPO) gpt4all
-	cd gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
+sources/gpt4all:
+	git clone --recurse-submodules $(GPT4ALL_REPO) sources/gpt4all
+	cd sources/gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
 
 ## go-piper
-go-piper:
-	git clone --recurse-submodules https://github.com/mudler/go-piper go-piper
-	cd go-piper && git checkout -b build $(PIPER_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-piper:
+	git clone --recurse-submodules https://github.com/mudler/go-piper sources/go-piper
+	cd sources/go-piper && git checkout -b build $(PIPER_VERSION) && git submodule update --init --recursive --depth 1
 
 ## BERT embeddings
-go-bert:
-	git clone --recurse-submodules https://github.com/go-skynet/go-bert.cpp go-bert
-	cd go-bert && git checkout -b build $(BERT_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-bert:
+	git clone --recurse-submodules https://github.com/go-skynet/go-bert.cpp sources/go-bert
+	cd sources/go-bert && git checkout -b build $(BERT_VERSION) && git submodule update --init --recursive --depth 1
 
 ## stable diffusion
-go-stable-diffusion:
-	git clone --recurse-submodules https://github.com/mudler/go-stable-diffusion go-stable-diffusion
-	cd go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-stable-diffusion:
+	git clone --recurse-submodules https://github.com/mudler/go-stable-diffusion sources/go-stable-diffusion
+	cd sources/go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
 
-go-stable-diffusion/libstablediffusion.a:
-	$(MAKE) -C go-stable-diffusion libstablediffusion.a
+sources/go-stable-diffusion/libstablediffusion.a:
+	$(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
 
 ## RWKV
-go-rwkv:
-	git clone --recurse-submodules $(RWKV_REPO) go-rwkv
-	cd go-rwkv && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-rwkv:
+	git clone --recurse-submodules $(RWKV_REPO) sources/go-rwkv
+	cd sources/go-rwkv && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
 
-go-rwkv/librwkv.a: go-rwkv
-	cd go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
+sources/go-rwkv/librwkv.a: sources/go-rwkv
+	cd sources/go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
 
-go-bert/libgobert.a: go-bert
-	$(MAKE) -C go-bert libgobert.a
+sources/go-bert/libgobert.a: sources/go-bert
+	$(MAKE) -C sources/go-bert libgobert.a
 
-backend-assets/gpt4all: gpt4all/gpt4all-bindings/golang/libgpt4all.a
+backend-assets/gpt4all: sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a
 	mkdir -p backend-assets/gpt4all
-	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.so backend-assets/gpt4all/ || true
-	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dylib backend-assets/gpt4all/ || true
-	@cp gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
+	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.so backend-assets/gpt4all/ || true
+	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.dylib backend-assets/gpt4all/ || true
+	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
 
-backend-assets/espeak-ng-data: go-piper
+backend-assets/espeak-ng-data: sources/go-piper
 	mkdir -p backend-assets/espeak-ng-data
-	$(MAKE) -C go-piper piper.o
-	@cp -rf go-piper/piper/build/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
+	$(MAKE) -C sources/go-piper piper.o
+	@cp -rf sources/go-piper/piper/build/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
 
-gpt4all/gpt4all-bindings/golang/libgpt4all.a: gpt4all
-	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ libgpt4all.a
+sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
+	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
 
 ## CEREBRAS GPT
-go-ggml-transformers:
-	git clone --recurse-submodules https://github.com/go-skynet/go-ggml-transformers.cpp go-ggml-transformers
-	cd go-ggml-transformers && git checkout -b build $(GOGPT2_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-ggml-transformers:
+	git clone --recurse-submodules https://github.com/go-skynet/go-ggml-transformers.cpp sources/go-ggml-transformers
+	cd sources/go-ggml-transformers && git checkout -b build $(GOGPT2_VERSION) && git submodule update --init --recursive --depth 1
 
-go-ggml-transformers/libtransformers.a: go-ggml-transformers
-	$(MAKE) -C go-ggml-transformers BUILD_TYPE=$(BUILD_TYPE) libtransformers.a
+sources/go-ggml-transformers/libtransformers.a: sources/go-ggml-transformers
+	$(MAKE) -C sources/go-ggml-transformers BUILD_TYPE=$(BUILD_TYPE) libtransformers.a
 
-whisper.cpp:
-	git clone https://github.com/ggerganov/whisper.cpp.git
-	cd whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
+sources/whisper.cpp:
+	git clone https://github.com/ggerganov/whisper.cpp.git sources/whisper.cpp
+	cd sources/whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
 
-whisper.cpp/libwhisper.a: whisper.cpp
-	cd whisper.cpp && make libwhisper.a
+sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
+	cd sources/whisper.cpp && make libwhisper.a
 
-go-llama:
-	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama
-	cd go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-llama:
+	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp sources/go-llama
+	cd sources/go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
 
-go-llama-stable:
-	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp go-llama-stable
-	cd go-llama-stable && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-llama-ggml:
+	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp sources/go-llama-ggml
+	cd sources/go-llama-ggml && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
 
-go-llama/libbinding.a: go-llama
-	$(MAKE) -C go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
+sources/go-llama/libbinding.a: sources/go-llama
+	$(MAKE) -C sources/go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
 
-go-llama-stable/libbinding.a: go-llama-stable
-	$(MAKE) -C go-llama-stable BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
+sources/go-llama-ggml/libbinding.a: sources/go-llama-ggml
+	$(MAKE) -C sources/go-llama-ggml BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
 
-go-piper/libpiper_binding.a: go-piper
-	$(MAKE) -C go-piper libpiper_binding.a example/main
+sources/go-piper/libpiper_binding.a: sources/go-piper
+	$(MAKE) -C sources/go-piper libpiper_binding.a example/main
 
-get-sources: go-llama go-llama-stable go-ggml-transformers gpt4all go-piper go-rwkv whisper.cpp go-bert go-stable-diffusion
+backend/cpp/llama/llama.cpp:
+	$(MAKE) -C backend/cpp/llama llama.cpp	
+
+get-sources: backend/cpp/llama/llama.cpp sources/go-llama sources/go-llama-ggml sources/go-ggml-transformers sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion
 	touch $@
 
 replace:
-	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(shell pwd)/gpt4all/gpt4all-bindings/golang
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-ggml-transformers.cpp=$(shell pwd)/go-ggml-transformers
-	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/go-rwkv
-	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(shell pwd)/whisper.cpp
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/go-bert
-	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/go-stable-diffusion
-	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/go-piper
+	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(shell pwd)/sources/gpt4all/gpt4all-bindings/golang
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-ggml-transformers.cpp=$(shell pwd)/sources/go-ggml-transformers
+	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/sources/go-rwkv
+	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(shell pwd)/sources/whisper.cpp
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/sources/go-bert
+	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/sources/go-stable-diffusion
+	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/sources/go-piper
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
+	touch $@
 
 ## GENERIC
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
-	$(MAKE) -C go-llama clean
-	$(MAKE) -C go-llama-stable clean
-	$(MAKE) -C gpt4all/gpt4all-bindings/golang/ clean
-	$(MAKE) -C go-ggml-transformers clean
-	$(MAKE) -C go-rwkv clean
-	$(MAKE) -C whisper.cpp clean
-	$(MAKE) -C go-stable-diffusion clean
-	$(MAKE) -C go-bert clean
-	$(MAKE) -C go-piper clean
+	$(MAKE) -C sources/go-llama clean
+	$(MAKE) -C sources/go-llama-ggml clean
+	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ clean
+	$(MAKE) -C sources/go-ggml-transformers clean
+	$(MAKE) -C sources/go-rwkv clean
+	$(MAKE) -C sources/whisper.cpp clean
+	$(MAKE) -C sources/go-stable-diffusion clean
+	$(MAKE) -C sources/go-bert clean
+	$(MAKE) -C sources/go-piper clean
 	$(MAKE) build
 
 prepare: prepare-sources $(OPTIONAL_TARGETS)
@@ -251,17 +261,7 @@ prepare: prepare-sources $(OPTIONAL_TARGETS)
 clean: ## Remove build related file
 	$(GOCMD) clean -cache
 	rm -f prepare
-	rm -rf ./go-llama
-	rm -rf ./gpt4all
-	rm -rf ./go-llama-stable
-	rm -rf ./go-gpt2
-	rm -rf ./go-stable-diffusion
-	rm -rf ./go-ggml-transformers
-	rm -rf ./backend-assets
-	rm -rf ./go-rwkv
-	rm -rf ./go-bert
-	rm -rf ./whisper.cpp
-	rm -rf ./go-piper
+	rm -rf ./sources
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
 	rm -rf ./backend/cpp/grpc/grpc_repo
@@ -282,6 +282,9 @@ build: grpcs prepare ## Build the project
 dist: build
 	mkdir -p release
 	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH)
+
+osx-signed: build
+	codesign --deep --force --sign "$(OSX_SIGNING_IDENTITY)" --entitlements "./Entitlements.plist" "./$(BINARY_NAME)"
 
 ## Run
 run: prepare ## run local-ai
@@ -306,7 +309,7 @@ test: prepare test-models/testmodel grpcs
 	@echo 'Running tests'
 	export GO_TAGS="tts stablediffusion"
 	$(MAKE) prepare-test
-	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/huggingface/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
+	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/sentencetransformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf"  --flake-attempts 5 --fail-fast -v -r ./api ./pkg
 	$(MAKE) test-gpt4all
 	$(MAKE) test-llama
@@ -377,13 +380,14 @@ protogen-go:
     backend/backend.proto
 
 protogen-python:
-	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=backend/python/huggingface/ --grpc_python_out=backend/python/huggingface/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=backend/python/autogptq/ --grpc_python_out=backend/python/autogptq/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=backend/python/exllama/ --grpc_python_out=backend/python/exllama/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=backend/python/bark/ --grpc_python_out=backend/python/bark/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=backend/python/diffusers/ --grpc_python_out=backend/python/diffusers/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=backend/python/vall-e-x/ --grpc_python_out=backend/python/vall-e-x/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ipkg/grpc/proto/ --python_out=backend/python/vllm/ --grpc_python_out=backend/python/vllm/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/sentencetransformers/ --grpc_python_out=backend/python/sentencetransformers/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/transformers/ --grpc_python_out=backend/python/transformers/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/autogptq/ --grpc_python_out=backend/python/autogptq/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/exllama/ --grpc_python_out=backend/python/exllama/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/bark/ --grpc_python_out=backend/python/bark/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/diffusers/ --grpc_python_out=backend/python/diffusers/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vall-e-x/ --grpc_python_out=backend/python/vall-e-x/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vllm/ --grpc_python_out=backend/python/vllm/ backend/backend.proto
 
 ## GRPC
 # Note: it is duplicated in the Dockerfile
@@ -392,7 +396,8 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/bark
 	$(MAKE) -C backend/python/diffusers
 	$(MAKE) -C backend/python/vllm
-	$(MAKE) -C backend/python/huggingface
+	$(MAKE) -C backend/python/sentencetransformers
+	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/vall-e-x
 	$(MAKE) -C backend/python/exllama
 
@@ -400,9 +405,9 @@ prepare-extra-conda-environments:
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
 
-backend-assets/grpc/llama: backend-assets/grpc go-llama/libbinding.a
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama LIBRARY_PATH=$(shell pwd)/go-llama \
+backend-assets/grpc/llama: backend-assets/grpc sources/go-llama/libbinding.a
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/sources/go-llama
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-llama LIBRARY_PATH=$(shell pwd)/sources/go-llama \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama ./backend/go/llm/llama/
 # TODO: every binary should have its own folder instead, so can have different metal implementations
 ifeq ($(BUILD_TYPE),metal)
@@ -440,53 +445,53 @@ ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama/llama.cpp/build/bin/ggml-metal.metal backend-assets/grpc/
 endif
 
-backend-assets/grpc/llama-stable: backend-assets/grpc go-llama-stable/libbinding.a
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/go-llama-stable
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-llama-stable LIBRARY_PATH=$(shell pwd)/go-llama \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-stable ./backend/go/llm/llama-stable/
+backend-assets/grpc/llama-ggml: backend-assets/grpc sources/go-llama-ggml/libbinding.a
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/sources/go-llama-ggml
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-llama-ggml LIBRARY_PATH=$(shell pwd)/sources/go-llama-ggml \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
 
-backend-assets/grpc/gpt4all: backend-assets/grpc backend-assets/gpt4all gpt4all/gpt4all-bindings/golang/libgpt4all.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(shell pwd)/gpt4all/gpt4all-bindings/golang/ \
+backend-assets/grpc/gpt4all: backend-assets/grpc backend-assets/gpt4all sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(shell pwd)/sources/gpt4all/gpt4all-bindings/golang/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gpt4all ./backend/go/llm/gpt4all/
 
-backend-assets/grpc/dolly: backend-assets/grpc go-ggml-transformers/libtransformers.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/go-ggml-transformers \
+backend-assets/grpc/dolly: backend-assets/grpc sources/go-ggml-transformers/libtransformers.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/sources/go-ggml-transformers \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/dolly ./backend/go/llm/dolly/
 
-backend-assets/grpc/gpt2: backend-assets/grpc go-ggml-transformers/libtransformers.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/go-ggml-transformers \
+backend-assets/grpc/gpt2: backend-assets/grpc sources/go-ggml-transformers/libtransformers.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/sources/go-ggml-transformers \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gpt2 ./backend/go/llm/gpt2/
 
-backend-assets/grpc/gptj: backend-assets/grpc go-ggml-transformers/libtransformers.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/go-ggml-transformers \
+backend-assets/grpc/gptj: backend-assets/grpc sources/go-ggml-transformers/libtransformers.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/sources/go-ggml-transformers \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gptj ./backend/go/llm/gptj/
 
-backend-assets/grpc/gptneox: backend-assets/grpc go-ggml-transformers/libtransformers.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/go-ggml-transformers \
+backend-assets/grpc/gptneox: backend-assets/grpc sources/go-ggml-transformers/libtransformers.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/sources/go-ggml-transformers \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gptneox ./backend/go/llm/gptneox/
 
-backend-assets/grpc/mpt: backend-assets/grpc go-ggml-transformers/libtransformers.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/go-ggml-transformers \
+backend-assets/grpc/mpt: backend-assets/grpc sources/go-ggml-transformers/libtransformers.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/sources/go-ggml-transformers \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/mpt ./backend/go/llm/mpt/
 
-backend-assets/grpc/replit: backend-assets/grpc go-ggml-transformers/libtransformers.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/go-ggml-transformers \
+backend-assets/grpc/replit: backend-assets/grpc sources/go-ggml-transformers/libtransformers.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/sources/go-ggml-transformers \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/replit ./backend/go/llm/replit/
 
-backend-assets/grpc/falcon-ggml: backend-assets/grpc go-ggml-transformers/libtransformers.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/go-ggml-transformers \
+backend-assets/grpc/falcon-ggml: backend-assets/grpc sources/go-ggml-transformers/libtransformers.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/sources/go-ggml-transformers \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/falcon-ggml ./backend/go/llm/falcon-ggml/
 
-backend-assets/grpc/starcoder: backend-assets/grpc go-ggml-transformers/libtransformers.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/go-ggml-transformers \
+backend-assets/grpc/starcoder: backend-assets/grpc sources/go-ggml-transformers/libtransformers.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-ggml-transformers LIBRARY_PATH=$(shell pwd)/sources/go-ggml-transformers \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/starcoder ./backend/go/llm/starcoder/
 
-backend-assets/grpc/rwkv: backend-assets/grpc go-rwkv/librwkv.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-rwkv LIBRARY_PATH=$(shell pwd)/go-rwkv \
+backend-assets/grpc/rwkv: backend-assets/grpc sources/go-rwkv/librwkv.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-rwkv LIBRARY_PATH=$(shell pwd)/sources/go-rwkv \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/rwkv ./backend/go/llm/rwkv
 
-backend-assets/grpc/bert-embeddings: backend-assets/grpc go-bert/libgobert.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-bert LIBRARY_PATH=$(shell pwd)/go-bert \
+backend-assets/grpc/bert-embeddings: backend-assets/grpc sources/go-bert/libgobert.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-bert LIBRARY_PATH=$(shell pwd)/sources/go-bert \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bert-embeddings ./backend/go/llm/bert/
 
 backend-assets/grpc/langchain-huggingface: backend-assets/grpc
@@ -494,17 +499,17 @@ backend-assets/grpc/langchain-huggingface: backend-assets/grpc
 
 backend-assets/grpc/stablediffusion: backend-assets/grpc
 	if [ ! -f backend-assets/grpc/stablediffusion ]; then \
-		$(MAKE) go-stable-diffusion/libstablediffusion.a; \
-		CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/go-stable-diffusion/ LIBRARY_PATH=$(shell pwd)/go-stable-diffusion/ \
+		$(MAKE) sources/go-stable-diffusion/libstablediffusion.a; \
+		CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-stable-diffusion/ LIBRARY_PATH=$(shell pwd)/sources/go-stable-diffusion/ \
 		$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/; \
 	fi
 
-backend-assets/grpc/piper: backend-assets/grpc backend-assets/espeak-ng-data go-piper/libpiper_binding.a
-	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(shell pwd)/go-piper \
+backend-assets/grpc/piper: backend-assets/grpc backend-assets/espeak-ng-data sources/go-piper/libpiper_binding.a
+	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(shell pwd)/sources/go-piper \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
 
-backend-assets/grpc/whisper: backend-assets/grpc whisper.cpp/libwhisper.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/whisper.cpp LIBRARY_PATH=$(shell pwd)/whisper.cpp \
+backend-assets/grpc/whisper: backend-assets/grpc sources/whisper.cpp/libwhisper.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/whisper.cpp LIBRARY_PATH=$(shell pwd)/sources/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
 
 grpcs: prepare $(GRPC_BACKENDS)

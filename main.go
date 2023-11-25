@@ -16,9 +16,9 @@ import (
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/internal"
+	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	progressbar "github.com/schollz/progressbar/v3"
@@ -62,6 +62,11 @@ func main() {
 				Name:    "single-active-backend",
 				EnvVars: []string{"SINGLE_ACTIVE_BACKEND"},
 				Usage:   "Allow only one backend to be running.",
+			},
+			&cli.BoolFlag{
+				Name:    "parallel-requests",
+				EnvVars: []string{"PARALLEL_REQUESTS"},
+				Usage:   "Enable backends to handle multiple requests in parallel. This is for backends that supports multiple requests in parallel, like llama.cpp or vllm",
 			},
 			&cli.BoolFlag{
 				Name:    "cors",
@@ -193,7 +198,9 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
 				options.WithApiKeys(ctx.StringSlice("api-keys")),
 			}
-
+			if ctx.Bool("parallel-requests") {
+				opts = append(opts, options.EnableParallelBackendRequests)
+			}
 			if ctx.Bool("single-active-backend") {
 				opts = append(opts, options.EnableSingleBackend)
 			}

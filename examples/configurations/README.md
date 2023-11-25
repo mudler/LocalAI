@@ -26,6 +26,12 @@ docker compose restart
 
 See also the getting started: https://localai.io/basics/getting_started/
 
+You can also start LocalAI just with docker:
+
+```
+docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:master --models-path /models --threads 4
+```
+
 ### Mistral
 
 To setup mistral copy the files inside `mistral` in the `models` folder:
@@ -40,3 +46,22 @@ Now download the model:
 wget https://huggingface.co/TheBloke/Mistral-7B-OpenOrca-GGUF/resolve/main/mistral-7b-openorca.Q6_K.gguf -O models/mistral-7b-openorca.Q6_K.gguf
 ```
 
+### LLaVA
+
+![llava](https://github.com/mudler/LocalAI/assets/2420543/cb0a0897-3b58-4350-af66-e6f4387b58d3)
+
+#### Setup
+
+```
+cp -r examples/configurations/llava/* models/
+wget https://huggingface.co/mys/ggml_bakllava-1/resolve/main/ggml-model-q4_k.gguf -O models/ggml-model-q4_k.gguf
+wget https://huggingface.co/mys/ggml_bakllava-1/resolve/main/mmproj-model-f16.gguf -O models/mmproj-model-f16.gguf
+```
+
+#### Try it out
+
+```
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "llava",
+     "messages": [{"role": "user", "content": [{"type":"text", "text": "What is in the image?"}, {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" }}], "temperature": 0.9}]}'
+```
