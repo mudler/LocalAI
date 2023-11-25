@@ -233,6 +233,8 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/sources/go-bert
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/sources/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/sources/go-piper
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/sources/go-llama
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama-ggml.cpp=$(shell pwd)/sources/go-llama-ggml
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
