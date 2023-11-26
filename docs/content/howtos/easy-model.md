@@ -112,7 +112,7 @@ template:
   completion: lunademo-completion
 ```
 
-Now that we got that setup, lets test it out but sending a request by using [Curl]({{%relref "easy-request-curl" %}}) Or use the [OpenAI Python API]({{%relref "easy-request-openai-v1" %}})! 
+Now that we got that setup, lets test it out but sending a [request]({{%relref "easy-request" %}}) to Localai! 
 
 ## Adv Stuff
 Alright now that we have learned how to set up our own models, here is how to use the gallery to do alot of this for us. This command will download and set up (mostly, we will **always** need to edit our yaml file to fit our computer / hardware)
