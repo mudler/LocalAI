@@ -1,6 +1,6 @@
 
 +++
-disableToc = false
+disableToc = true
 title = "Easy Request - Openai V1"
 weight = 2
 +++
