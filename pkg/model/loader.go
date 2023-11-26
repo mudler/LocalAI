@@ -154,11 +154,12 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 }
 
 func (ml *ModelLoader) StopModel(modelName string) error {
+	defer ml.deleteProcess(modelName)
 	if _, ok := ml.models[modelName]; !ok {
 		return fmt.Errorf("model %s not found", modelName)
 	}
-
-	return ml.deleteProcess(modelName)
+	return nil
+	//return ml.deleteProcess(modelName)
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) ModelAddress {
