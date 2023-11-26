@@ -18,6 +18,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 ```
 
 ###Openai V1 - Recommended
+
 This is for Python, ``OpenAI``=>``V1``
 
 OpenAI Chat API Python -
@@ -40,6 +41,7 @@ print(completion.choices[0].message)
 See [OpenAI API](https://platform.openai.com/docs/api-reference) for more info!
 
 ###Openai V0 - Not Recommended
+
 This is for Python, ``OpenAI``=``0.28.1``
 
 OpenAI Chat API Python -
