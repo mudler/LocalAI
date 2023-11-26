@@ -27,7 +27,10 @@ type WatchDog interface {
 	UnMark(address string)
 }
 
-func NewClient(address string, parallel bool, wd WatchDog) *Client {
+func NewClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) *Client {
+	if !enableWatchDog {
+		wd = nil
+	}
 	return &Client{
 		address:  address,
 		parallel: parallel,

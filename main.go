@@ -211,7 +211,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
 				options.WithApiKeys(ctx.StringSlice("api-keys")),
 			}
-			if ctx.Bool("watchdog") {
+			if ctx.Bool("enable-watchdog") {
 				opts = append(opts, options.EnableWatchDog)
 				dur, err := time.ParseDuration(ctx.String("watchdog-timeout"))
 				if err != nil {

@@ -69,7 +69,11 @@ type ModelLoader struct {
 type ModelAddress string
 
 func (m ModelAddress) GRPC(parallel bool, wd *WatchDog) *grpc.Client {
-	return grpc.NewClient(string(m), parallel, wd)
+	enableWD := false
+	if wd != nil {
+		enableWD = true
+	}
+	return grpc.NewClient(string(m), parallel, wd,enableWD)
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
@@ -80,7 +84,6 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		templates:     make(map[TemplateType]map[string]*template.Template),
 		grpcProcesses: make(map[string]*process.Process),
 	}
-	//nml.wd = NewWatchDog(time.Hour, nml)
 
 	nml.initializeTemplateMap()
 	return nml
