@@ -18,24 +18,30 @@ import (
 
 type WatchDog struct {
 	sync.Mutex
-	timetable       map[string]time.Time
-	timeout         time.Duration
-	addressMap      map[string]*process.Process
-	addressModelMap map[string]string
-	pm              ProcessManager
-	stop            chan bool
+	timetable            map[string]time.Time
+	idleTime             map[string]time.Time
+	timeout, idletimeout time.Duration
+	addressMap           map[string]*process.Process
+	addressModelMap      map[string]string
+	pm                   ProcessManager
+	stop                 chan bool
+
+	busyCheck, idleCheck bool
 }
 
 type ProcessManager interface {
 	ShutdownModel(modelName string) error
 }
 
-func NewWatchDog(timeout time.Duration, pm ProcessManager) *WatchDog {
+func NewWatchDog(timeout time.Duration, pm ProcessManager, busy, idle bool) *WatchDog {
 	return &WatchDog{
 		timeout:         timeout,
 		pm:              pm,
 		timetable:       make(map[string]time.Time),
+		idleTime:        make(map[string]time.Time),
 		addressMap:      make(map[string]*process.Process),
+		busyCheck:       busy,
+		idleCheck:       idle,
 		addressModelMap: make(map[string]string),
 	}
 }
@@ -62,12 +68,14 @@ func (wd *WatchDog) Mark(address string) {
 	wd.Lock()
 	defer wd.Unlock()
 	wd.timetable[address] = time.Now()
+	delete(wd.idleTime, address)
 }
 
 func (wd *WatchDog) UnMark(ModelAddress string) {
 	wd.Lock()
 	defer wd.Unlock()
 	delete(wd.timetable, ModelAddress)
+	wd.idleTime[ModelAddress] = time.Now()
 }
 
 func (wd *WatchDog) Run() {
@@ -80,7 +88,35 @@ func (wd *WatchDog) Run() {
 			return
 		case <-time.After(5 * time.Second):
 			log.Debug().Msg("[WatchDog] Watchdog checks for stale backends")
-			wd.checkBusy()
+			if wd.busyCheck {
+				wd.checkBusy()
+			}
+			if wd.idleCheck {
+				wd.checkIdle()
+			}
+		}
+	}
+}
+
+func (wd *WatchDog) checkIdle() {
+	wd.Lock()
+	defer wd.Unlock()
+	for address, t := range wd.idleTime {
+		log.Debug().Msgf("[WatchDog] %s: idle connection", address)
+
+		if time.Since(t) > wd.idletimeout {
+			log.Warn().Msgf("[WatchDog] Address %s is idle for too long, killing it", address)
+			p, ok := wd.addressModelMap[address]
+			if ok {
+				if err := wd.pm.ShutdownModel(p); err != nil {
+					log.Error().Msgf("[watchdog] Error shutting down model %s: %v", p, err)
+				}
+				delete(wd.timetable, address)
+				delete(wd.addressModelMap, address)
+				delete(wd.addressMap, address)
+			} else {
+				log.Warn().Msgf("[WatchDog] Address %s unresolvable", address)
+			}
 		}
 	}
 }
