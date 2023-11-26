@@ -89,6 +89,8 @@ func (wd *WatchDog) checkBusy() {
 	wd.Lock()
 	defer wd.Unlock()
 	for address, t := range wd.timetable {
+		log.Debug().Msgf("[WatchDog] %s: active connection", address)
+
 		if time.Since(t) > wd.timeout {
 
 			model, ok := wd.addressModelMap[address]
