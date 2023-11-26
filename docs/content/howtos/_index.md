@@ -10,11 +10,9 @@ This section includes LocalAI end-to-end examples, tutorial and how-tos curated 
 
 - [Setup LocalAI with Docker on CPU]({{%relref "howtos/easy-setup-docker-cpu" %}})
 - [Setup LocalAI with Docker With CUDA]({{%relref "howtos/easy-setup-docker-gpu" %}})
-- [Seting up a Model]({{%relref "howtos/easy-model-import-downloaded" %}})
+- [Seting up a Model]({{%relref "howtos/easy-model" %}})
 - [Making requests via Autogen]({{%relref "howtos/easy-request-autogen" %}})
-- [Making requests via OpenAi API V0]({{%relref "howtos/easy-request-openai-v0" %}})
-- [Making requests via OpenAi API V1]({{%relref "howtos/easy-request-openai-v1" %}})
-- [Making requests via Curl]({{%relref "howtos/easy-request-curl" %}})
+- [Making requests to LocalAI]({{%relref "howtos/easy-request" %}})
   
 ## Programs and Demos
 
