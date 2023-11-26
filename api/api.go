@@ -81,7 +81,12 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 	}()
 
 	if options.WatchDog {
-		wd := model.NewWatchDog(options.WatchDogTimeout, options.Loader)
+		wd := model.NewWatchDog(
+			options.Loader,
+			options.WatchDogBusyTimeout,
+			options.WatchDogIdleTimeout,
+			options.WatchDogBusy,
+			options.WatchDogIdle)
 		options.Loader.SetWatchDog(wd)
 		go wd.Run()
 		go func() {

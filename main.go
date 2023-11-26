@@ -156,16 +156,28 @@ func main() {
 				EnvVars: []string{"API_KEY"},
 			},
 			&cli.BoolFlag{
-				Name:    "enable-watchdog",
-				Usage:   "Enable watchdog. This will restart the backend if it crashes.",
-				EnvVars: []string{"WATCHDOG"},
+				Name:    "enable-watchdog-idle",
+				Usage:   "Enable watchdog for stopping idle backends. This will stop the backends if are in idle state for too long.",
+				EnvVars: []string{"WATCHDOG_IDLE"},
+				Value:   false,
+			},
+			&cli.BoolFlag{
+				Name:    "enable-watchdog-busy",
+				Usage:   "Enable watchdog for stopping busy backends that exceed a defined threshold.",
+				EnvVars: []string{"WATCHDOG_BUSY"},
 				Value:   false,
 			},
 			&cli.StringFlag{
-				Name:    "watchdog-timeout",
+				Name:    "watchdog-busy-timeout",
 				Usage:   "Watchdog timeout. This will restart the backend if it crashes.",
-				EnvVars: []string{"WATCHDOG_TIMEOUT"},
+				EnvVars: []string{"WATCHDOG_BUSY_TIMEOUT"},
 				Value:   "5m",
+			},
+			&cli.StringFlag{
+				Name:    "watchdog-idle-timeout",
+				Usage:   "Watchdog idle timeout. This will restart the backend if it crashes.",
+				EnvVars: []string{"WATCHDOG_IDLE_TIMEOUT"},
+				Value:   "15m",
 			},
 			&cli.BoolFlag{
 				Name:    "preload-backend-only",
@@ -211,13 +223,25 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
 				options.WithApiKeys(ctx.StringSlice("api-keys")),
 			}
-			if ctx.Bool("enable-watchdog") {
+
+			idleWatchDog := ctx.Bool("enable-watchdog-idle")
+			busyWatchDog := ctx.Bool("enable-watchdog-busy")
+			if idleWatchDog || busyWatchDog {
 				opts = append(opts, options.EnableWatchDog)
-				dur, err := time.ParseDuration(ctx.String("watchdog-timeout"))
-				if err != nil {
-					return err
+				if idleWatchDog {
+					dur, err := time.ParseDuration(ctx.String("watchdog-idle-timeout"))
+					if err != nil {
+						return err
+					}
+					opts = append(opts, options.SetWatchDogIdleTimeout(dur))
 				}
-				opts = append(opts, options.SetWatchDogTimeout(dur))
+				if busyWatchDog {
+					dur, err := time.ParseDuration(ctx.String("watchdog-busy-timeout"))
+					if err != nil {
+						return err
+					}
+					opts = append(opts, options.SetWatchDogBusyTimeout(dur))
+				}
 			}
 			if ctx.Bool("parallel-requests") {
 				opts = append(opts, options.EnableParallelBackendRequests)

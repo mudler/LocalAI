@@ -33,9 +33,10 @@ type ProcessManager interface {
 	ShutdownModel(modelName string) error
 }
 
-func NewWatchDog(timeout time.Duration, pm ProcessManager, busy, idle bool) *WatchDog {
+func NewWatchDog(pm ProcessManager, timeoutBusy, timeoutIdle time.Duration, busy, idle bool) *WatchDog {
 	return &WatchDog{
-		timeout:         timeout,
+		timeout:         timeoutBusy,
+		idletimeout:     timeoutIdle,
 		pm:              pm,
 		timetable:       make(map[string]time.Time),
 		idleTime:        make(map[string]time.Time),

@@ -39,9 +39,11 @@ type Option struct {
 
 	SingleBackend           bool
 	ParallelBackendRequests bool
-	WatchDog                bool
 
-	WatchDogTimeout time.Duration
+	WatchDogIdle                             bool
+	WatchDogBusy                             bool
+	WatchDog                                 bool
+	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
 }
 
 type AppOption func(*Option)
@@ -54,7 +56,6 @@ func NewOptions(o ...AppOption) *Option {
 		ContextSize:    512,
 		Debug:          true,
 		DisableMessage: true,
-		WatchDog:       false,
 	}
 	for _, oo := range o {
 		oo(opt)
@@ -72,9 +73,25 @@ var EnableWatchDog = func(o *Option) {
 	o.WatchDog = true
 }
 
-func SetWatchDogTimeout(t time.Duration) AppOption {
+var EnableWatchDogIdleCheck = func(o *Option) {
+	o.WatchDog = true
+	o.WatchDogIdle = true
+}
+
+var EnableWatchDogBusyCheck = func(o *Option) {
+	o.WatchDog = true
+	o.WatchDogBusy = true
+}
+
+func SetWatchDogBusyTimeout(t time.Duration) AppOption {
 	return func(o *Option) {
-		o.WatchDogTimeout = t
+		o.WatchDogBusyTimeout = t
+	}
+}
+
+func SetWatchDogIdleTimeout(t time.Duration) AppOption {
+	return func(o *Option) {
+		o.WatchDogIdleTimeout = t
 	}
 }
 
