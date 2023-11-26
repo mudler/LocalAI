@@ -143,4 +143,4 @@ Output will look like this:
 
 ![](https://cdn.discordapp.com/attachments/1116933141895053322/1134037542845566976/image.png)
 
-Now that we got that setup, lets go setup a [model]({{%relref "easy-model-import-downloaded" %}})
+Now that we got that setup, lets go setup a [model]({{%relref "easy-model" %}})
