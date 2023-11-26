@@ -149,6 +149,11 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
+
+	return ml.StopModel(modelName)
+}
+
+func (ml *ModelLoader) StopModel(modelName string) error {
 	if _, ok := ml.models[modelName]; !ok {
 		return fmt.Errorf("model %s not found", modelName)
 	}

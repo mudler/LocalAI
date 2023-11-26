@@ -30,7 +30,7 @@ type WatchDog struct {
 }
 
 type ProcessManager interface {
-	ShutdownModel(modelName string) error
+	StopModel(modelName string) error
 }
 
 func NewWatchDog(pm ProcessManager, timeoutBusy, timeoutIdle time.Duration, busy, idle bool) *WatchDog {
@@ -112,7 +112,7 @@ func (wd *WatchDog) checkIdle() {
 			log.Warn().Msgf("[WatchDog] Address %s is idle for too long, killing it", address)
 			p, ok := wd.addressModelMap[address]
 			if ok {
-				if err := wd.pm.ShutdownModel(p); err != nil {
+				if err := wd.pm.StopModel(p); err != nil {
 					log.Error().Msgf("[watchdog] Error shutting down model %s: %v", p, err)
 				}
 				delete(wd.idleTime, address)
@@ -139,7 +139,7 @@ func (wd *WatchDog) checkBusy() {
 			model, ok := wd.addressModelMap[address]
 			if ok {
 				log.Warn().Msgf("[WatchDog] Model %s is busy for too long, killing it", model)
-				if err := wd.pm.ShutdownModel(model); err != nil {
+				if err := wd.pm.StopModel(model); err != nil {
 					log.Error().Msgf("[watchdog] Error shutting down model %s: %v", model, err)
 				}
 				delete(wd.timetable, address)
