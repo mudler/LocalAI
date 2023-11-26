@@ -87,7 +87,7 @@ func (wd *WatchDog) Run() {
 		case <-wd.stop:
 			log.Info().Msg("[WatchDog] Stopping watchdog")
 			return
-		case <-time.After(5 * time.Second):
+		case <-time.After(30 * time.Second):
 			log.Debug().Msg("[WatchDog] Watchdog checks for stale backends")
 			if wd.busyCheck {
 				wd.checkBusy()
