@@ -73,7 +73,7 @@ func (m ModelAddress) GRPC(parallel bool, wd *WatchDog) *grpc.Client {
 	if wd != nil {
 		enableWD = true
 	}
-	return grpc.NewClient(string(m), parallel, wd,enableWD)
+	return grpc.NewClient(string(m), parallel, wd, enableWD)
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {

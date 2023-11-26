@@ -88,7 +88,10 @@ func (wd *WatchDog) Run() {
 			log.Info().Msg("[WatchDog] Stopping watchdog")
 			return
 		case <-time.After(30 * time.Second):
-			log.Debug().Msg("[WatchDog] Watchdog checks for stale backends")
+			if !wd.busyCheck && !wd.idleCheck {
+				log.Info().Msg("[WatchDog] No checks enabled, stopping watchdog")
+				return
+			}
 			if wd.busyCheck {
 				wd.checkBusy()
 			}
@@ -102,9 +105,9 @@ func (wd *WatchDog) Run() {
 func (wd *WatchDog) checkIdle() {
 	wd.Lock()
 	defer wd.Unlock()
+	log.Debug().Msg("[WatchDog] Watchdog checks for idle connections")
 	for address, t := range wd.idleTime {
 		log.Debug().Msgf("[WatchDog] %s: idle connection", address)
-
 		if time.Since(t) > wd.idletimeout {
 			log.Warn().Msgf("[WatchDog] Address %s is idle for too long, killing it", address)
 			p, ok := wd.addressModelMap[address]
@@ -112,11 +115,12 @@ func (wd *WatchDog) checkIdle() {
 				if err := wd.pm.ShutdownModel(p); err != nil {
 					log.Error().Msgf("[watchdog] Error shutting down model %s: %v", p, err)
 				}
-				delete(wd.timetable, address)
+				delete(wd.idleTime, address)
 				delete(wd.addressModelMap, address)
 				delete(wd.addressMap, address)
 			} else {
 				log.Warn().Msgf("[WatchDog] Address %s unresolvable", address)
+				delete(wd.idleTime, address)
 			}
 		}
 	}
@@ -125,6 +129,8 @@ func (wd *WatchDog) checkIdle() {
 func (wd *WatchDog) checkBusy() {
 	wd.Lock()
 	defer wd.Unlock()
+	log.Debug().Msg("[WatchDog] Watchdog checks for busy connections")
+
 	for address, t := range wd.timetable {
 		log.Debug().Msgf("[WatchDog] %s: active connection", address)
 
@@ -141,6 +147,7 @@ func (wd *WatchDog) checkBusy() {
 				delete(wd.addressMap, address)
 			} else {
 				log.Warn().Msgf("[WatchDog] Address %s unresolvable", address)
+				delete(wd.timetable, address)
 			}
 
 		}

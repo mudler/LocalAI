@@ -229,6 +229,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			if idleWatchDog || busyWatchDog {
 				opts = append(opts, options.EnableWatchDog)
 				if idleWatchDog {
+					opts = append(opts, options.EnableWatchDogIdleCheck)
 					dur, err := time.ParseDuration(ctx.String("watchdog-idle-timeout"))
 					if err != nil {
 						return err
@@ -236,6 +237,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 					opts = append(opts, options.SetWatchDogIdleTimeout(dur))
 				}
 				if busyWatchDog {
+					opts = append(opts, options.EnableWatchDogBusyCheck)
 					dur, err := time.ParseDuration(ctx.String("watchdog-busy-timeout"))
 					if err != nil {
 						return err
