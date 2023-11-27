@@ -388,6 +388,7 @@ protogen-python:
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/diffusers/ --grpc_python_out=backend/python/diffusers/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vall-e-x/ --grpc_python_out=backend/python/vall-e-x/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vllm/ --grpc_python_out=backend/python/vllm/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/petals/ --grpc_python_out=backend/python/petals/ backend/backend.proto
 
 ## GRPC
 # Note: it is duplicated in the Dockerfile
@@ -400,6 +401,7 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/vall-e-x
 	$(MAKE) -C backend/python/exllama
+	$(MAKE) -C backend/python/petals
 
 
 backend-assets/grpc:
