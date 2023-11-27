@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"time"
 
 	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
@@ -38,6 +39,11 @@ type Option struct {
 
 	SingleBackend           bool
 	ParallelBackendRequests bool
+
+	WatchDogIdle                             bool
+	WatchDogBusy                             bool
+	WatchDog                                 bool
+	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
 }
 
 type AppOption func(*Option)
@@ -60,6 +66,32 @@ func NewOptions(o ...AppOption) *Option {
 func WithCors(b bool) AppOption {
 	return func(o *Option) {
 		o.CORS = b
+	}
+}
+
+var EnableWatchDog = func(o *Option) {
+	o.WatchDog = true
+}
+
+var EnableWatchDogIdleCheck = func(o *Option) {
+	o.WatchDog = true
+	o.WatchDogIdle = true
+}
+
+var EnableWatchDogBusyCheck = func(o *Option) {
+	o.WatchDog = true
+	o.WatchDogBusy = true
+}
+
+func SetWatchDogBusyTimeout(t time.Duration) AppOption {
+	return func(o *Option) {
+		o.WatchDogBusyTimeout = t
+	}
+}
+
+func SetWatchDogIdleTimeout(t time.Duration) AppOption {
+	return func(o *Option) {
+		o.WatchDogIdleTimeout = t
 	}
 }
 
