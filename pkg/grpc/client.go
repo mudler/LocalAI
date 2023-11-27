@@ -27,17 +27,6 @@ type WatchDog interface {
 	UnMark(address string)
 }
 
-func NewClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) *Client {
-	if !enableWatchDog {
-		wd = nil
-	}
-	return &Client{
-		address:  address,
-		parallel: parallel,
-		wd:       wd,
-	}
-}
-
 func (c *Client) IsBusy() bool {
 	c.Lock()
 	defer c.Unlock()

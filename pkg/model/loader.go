@@ -59,7 +59,7 @@ type ModelLoader struct {
 	ModelPath string
 	mu        sync.Mutex
 	// TODO: this needs generics
-	grpcClients   map[string]*grpc.Client
+	grpcClients   map[string]grpc.Backend
 	models        map[string]ModelAddress
 	grpcProcesses map[string]*process.Process
 	templates     map[TemplateType]map[string]*template.Template
@@ -68,7 +68,7 @@ type ModelLoader struct {
 
 type ModelAddress string
 
-func (m ModelAddress) GRPC(parallel bool, wd *WatchDog) *grpc.Client {
+func (m ModelAddress) GRPC(parallel bool, wd *WatchDog) grpc.Backend {
 	enableWD := false
 	if wd != nil {
 		enableWD = true
@@ -79,7 +79,7 @@ func (m ModelAddress) GRPC(parallel bool, wd *WatchDog) *grpc.Client {
 func NewModelLoader(modelPath string) *ModelLoader {
 	nml := &ModelLoader{
 		ModelPath:     modelPath,
-		grpcClients:   make(map[string]*grpc.Client),
+		grpcClients:   make(map[string]grpc.Backend),
 		models:        make(map[string]ModelAddress),
 		templates:     make(map[TemplateType]map[string]*template.Template),
 		grpcProcesses: make(map[string]*process.Process),
@@ -163,7 +163,7 @@ func (ml *ModelLoader) StopModel(modelName string) error {
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) ModelAddress {
-	var client *grpc.Client
+	var client grpc.Backend
 	if m, ok := ml.models[s]; ok {
 		log.Debug().Msgf("Model already loaded in memory: %s", s)
 		if c, ok := ml.grpcClients[s]; ok {

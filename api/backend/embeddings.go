@@ -41,7 +41,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 
 	var fn func() ([]float32, error)
 	switch model := inferenceModel.(type) {
-	case *grpc.Client:
+	case grpc.Backend:
 		fn = func() ([]float32, error) {
 			predictOptions := gRPCPredictOpts(c, loader.ModelPath)
 			if len(tokens) > 0 {

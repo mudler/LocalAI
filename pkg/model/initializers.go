@@ -152,7 +152,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 	}
 }
 
-func (ml *ModelLoader) resolveAddress(addr ModelAddress, parallel bool) (*grpc.Client, error) {
+func (ml *ModelLoader) resolveAddress(addr ModelAddress, parallel bool) (grpc.Backend, error) {
 	if parallel {
 		return addr.GRPC(parallel, ml.wd), nil
 	}
@@ -163,7 +163,7 @@ func (ml *ModelLoader) resolveAddress(addr ModelAddress, parallel bool) (*grpc.C
 	return ml.grpcClients[string(addr)], nil
 }
 
-func (ml *ModelLoader) BackendLoader(opts ...Option) (client *grpc.Client, err error) {
+func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 
 	log.Debug().Msgf("Loading model %s from %s", o.backendString, o.model)
@@ -198,7 +198,7 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client *grpc.Client, err e
 	return ml.resolveAddress(addr, o.parallelRequests)
 }
 
-func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
+func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 	o := NewOptions(opts...)
 
 	ml.mu.Lock()

@@ -31,7 +31,7 @@ func ModelInference(ctx context.Context, s string, images []string, loader *mode
 
 	grpcOpts := gRPCModelOpts(c)
 
-	var inferenceModel *grpc.Client
+	var inferenceModel grpc.Backend
 	var err error
 
 	opts := modelOpts(c, o, []model.Option{
