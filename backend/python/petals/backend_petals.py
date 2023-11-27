@@ -75,6 +75,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         inputs = self.tokenizer(request.Prompt, return_tensors="pt")["input_ids"]
         if self.cuda:
             inputs = inputs.cuda()
+ 
+        if request.Tokens == 0:
+            # Max to max value if tokens are not specified
+            request.Tokens = 8192
+
+        # TODO: kwargs and map all parameters
         outputs = self.model.generate(inputs, max_new_tokens=request.Tokens)
 
         generated_text = self.tokenizer.decode(outputs[0])
