@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=aeba71ee842819da681ea537e78846dc75949ac0
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=f837c3a992b2b6146936cb120871a8cf9d0e3857
+CPPLLAMA_VERSION?=3e73d31d9cc0232882ce61c64742aff3ecfec416
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -388,6 +388,7 @@ protogen-python:
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/diffusers/ --grpc_python_out=backend/python/diffusers/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vall-e-x/ --grpc_python_out=backend/python/vall-e-x/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vllm/ --grpc_python_out=backend/python/vllm/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/petals/ --grpc_python_out=backend/python/petals/ backend/backend.proto
 
 ## GRPC
 # Note: it is duplicated in the Dockerfile
@@ -400,6 +401,7 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/vall-e-x
 	$(MAKE) -C backend/python/exllama
+	$(MAKE) -C backend/python/petals
 
 
 backend-assets/grpc:

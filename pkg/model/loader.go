@@ -63,12 +63,17 @@ type ModelLoader struct {
 	models        map[string]ModelAddress
 	grpcProcesses map[string]*process.Process
 	templates     map[TemplateType]map[string]*template.Template
+	wd            *WatchDog
 }
 
 type ModelAddress string
 
-func (m ModelAddress) GRPC(parallel bool) *grpc.Client {
-	return grpc.NewClient(string(m), parallel)
+func (m ModelAddress) GRPC(parallel bool, wd *WatchDog) *grpc.Client {
+	enableWD := false
+	if wd != nil {
+		enableWD = true
+	}
+	return grpc.NewClient(string(m), parallel, wd, enableWD)
 }
 
 func NewModelLoader(modelPath string) *ModelLoader {
@@ -79,8 +84,13 @@ func NewModelLoader(modelPath string) *ModelLoader {
 		templates:     make(map[TemplateType]map[string]*template.Template),
 		grpcProcesses: make(map[string]*process.Process),
 	}
+
 	nml.initializeTemplateMap()
 	return nml
+}
+
+func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
+	ml.wd = wd
 }
 
 func (ml *ModelLoader) ExistsInModelPath(s string) bool {
@@ -139,11 +149,17 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
+
+	return ml.StopModel(modelName)
+}
+
+func (ml *ModelLoader) StopModel(modelName string) error {
+	defer ml.deleteProcess(modelName)
 	if _, ok := ml.models[modelName]; !ok {
 		return fmt.Errorf("model %s not found", modelName)
 	}
-
-	return ml.deleteProcess(modelName)
+	return nil
+	//return ml.deleteProcess(modelName)
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) ModelAddress {
@@ -153,7 +169,7 @@ func (ml *ModelLoader) CheckIsLoaded(s string) ModelAddress {
 		if c, ok := ml.grpcClients[s]; ok {
 			client = c
 		} else {
-			client = m.GRPC(false)
+			client = m.GRPC(false, ml.wd)
 		}
 
 		if !client.HealthCheck(context.Background()) {
