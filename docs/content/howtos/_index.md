@@ -18,4 +18,3 @@ This section includes LocalAI end-to-end examples, tutorial and how-tos curated 
 
 This section includes other programs and how to setup, install, and use of LocalAI.
 - [Python LocalAI Demo]({{%relref "howtos/easy-setup-full" %}}) - [lunamidori5](https://github.com/lunamidori5)
-- [Autogen]({{%relref "howtos/autogen-setup" %}}) - [lunamidori5](https://github.com/lunamidori5)
