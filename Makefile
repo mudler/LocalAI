@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=aeba71ee842819da681ea537e78846dc75949ac0
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=3e73d31d9cc0232882ce61c64742aff3ecfec416
+CPPLLAMA_VERSION?=64e64aa2557d97490b2fe1262b313e2f4a1607e3
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -28,7 +28,7 @@ WHISPER_CPP_VERSION?=85ed71aaec8e0612a84c0b67804bde75aa75a273
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
 
 # go-piper version
-PIPER_VERSION?=7fe05263b4ca3ffa93a53e2737643a6a6afb9a7b
+PIPER_VERSION?=5a4c9e28c84bac09ab6baa9f88457d852cb46bb2
 
 # stablediffusion version
 STABLEDIFFUSION_VERSION?=902db5f066fd137697e3b69d0fa10d4782bd2c2f
@@ -126,7 +126,7 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 #	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
 #	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
 	PIPER_CGO_CXXFLAGS+=-I$(shell pwd)/sources/go-piper/piper/src/cpp -I$(shell pwd)/sources/go-piper/piper/build/fi/include -I$(shell pwd)/sources/go-piper/piper/build/pi/include -I$(shell pwd)/sources/go-piper/piper/build/si/include
- 	PIPER_CGO_LDFLAGS+=-L$(shell pwd)/sources/go-piper/piper/build/fi/lib -L$(shell pwd)/sources/go-piper/piper/build/pi/lib -L$(shell pwd)/sources/go-piper/piper/build/si/lib -lfmt -lspdlog
+ 	PIPER_CGO_LDFLAGS+=-L$(shell pwd)/sources/go-piper/piper/build/fi/lib -L$(shell pwd)/sources/go-piper/piper/build/pi/lib -L$(shell pwd)/sources/go-piper/piper/build/si/lib -lfmt -lspdlog -lucd
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
 endif
 

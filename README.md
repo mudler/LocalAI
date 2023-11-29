@@ -109,9 +109,17 @@ Hot topics:
 
 Check out the [Getting started](https://localai.io/basics/getting_started/index.html) section in our documentation.
 
-### 💡 Example: Use Luna-AI Llama model
+### Community
 
-See the [documentation](https://localai.io/basics/getting_started)
+WebUI
+- https://github.com/Jirubizu/localai-admin
+- https://github.com/go-skynet/LocalAI-frontend
+
+Model galleries
+- https://github.com/go-skynet/model-gallery
+
+Other:
+- Helm chart https://github.com/go-skynet/helm-charts
 
 ### 🔗 Resources
 
