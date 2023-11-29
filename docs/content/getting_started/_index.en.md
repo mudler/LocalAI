@@ -14,16 +14,33 @@ See also our [How to]({{%relref "howtos" %}}) section for end-to-end guided exam
 
 The easiest way to run LocalAI is by using [`docker compose`](https://docs.docker.com/compose/install/) or with [Docker](https://docs.docker.com/engine/install/) (to build locally, see the [build section]({{%relref "build" %}})).
 
+{{% notice note %}}
+To run with GPU Accelleration, see [GPU acceleration]({{%relref "features/gpu-acceleration" %}}).
+{{% /notice %}}
+
 {{< tabs >}}
 {{% tab name="Docker" %}}
 
 ```bash
 # Prepare the models into the `model` directory
 mkdir models
+
 # copy your models to it
 cp your-model.bin models/
+
 # run the LocalAI container
 docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
+# You should see:
+# 
+# ┌───────────────────────────────────────────────────┐
+# │                   Fiber v2.42.0                   │
+# │               http://127.0.0.1:8080               │
+# │       (bound on host 0.0.0.0 and port 8080)       │
+# │                                                   │
+# │ Handlers ............. 1  Processes ........... 1 │
+# │ Prefork ....... Disabled  PID ................. 1 │
+# └───────────────────────────────────────────────────┘
+
 # Try the endpoint with curl
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.bin",
@@ -32,13 +49,16 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
+{{% notice note %}}
+- If running on Apple Silicon (ARM) it is **not** suggested to run on Docker due to emulation. Follow the [build instructions]({{%relref "build" %}}) to use Metal acceleration for full GPU support.
+- If you are running Apple x86_64 you can use `docker`, there is no additional gain into building it from source.
+{{% /notice %}}
+
 {{% /tab %}}
 {{% tab name="Docker compose" %}}
 
-
-
 ```bash
-
+# Clone LocalAI
 git clone https://github.com/go-skynet/LocalAI
 
 cd LocalAI
@@ -67,21 +87,40 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
      "temperature": 0.7
    }'
 ```
+
+Note: If you are on Windows, please run ``docker-compose`` not ``docker compose`` and make sure the project is in the Linux Filesystem, otherwise loading models might be slow. For more Info: [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems)
+
+{{% /tab %}}
+
+{{% tab name="Kubernetes" %}}
+
+For installing LocalAI in Kubernetes, you can use the following helm chart:
+
+```bash
+# Install the helm repository
+helm repo add go-skynet https://go-skynet.github.io/helm-charts/
+# Update the repositories
+helm repo update
+# Get the values
+helm show values go-skynet/local-ai > values.yaml
+
+# Edit the values value if needed
+# vim values.yaml ...
+
+# Install the helm chart
+helm install local-ai go-skynet/local-ai -f values.yaml
+```
+
 {{% /tab %}}
 
 {{< /tabs >}}
 
-### Example: Use luna-ai-llama2 model with `docker compose`
+
+### Example: Use luna-ai-llama2 model with `docker`
 
 
 ```bash
-# Clone LocalAI
-git clone https://github.com/go-skynet/LocalAI
-
-cd LocalAI
-
-# (optional) Checkout a specific LocalAI tag
-# git checkout -b build <TAG>
+mkdir models
 
 # Download luna-ai-llama2 to models/
 wget https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF/resolve/main/luna-ai-llama2-uncensored.Q4_0.gguf -O models/luna-ai-llama2
@@ -89,13 +128,8 @@ wget https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF/resolve/main
 # Use a template from the examples
 cp -rf prompt-templates/getting_started.tmpl models/luna-ai-llama2.tmpl
 
-# (optional) Edit the .env file to set things like context size and threads
-# vim .env
+docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
 
-# start with docker compose
-docker compose up -d --pull always
-# or you can build the images with:
-# docker compose up -d --build
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
 # {"object":"list","data":[{"id":"luna-ai-llama2","object":"model"}]}
@@ -109,11 +143,8 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 # {"model":"luna-ai-llama2","choices":[{"message":{"role":"assistant","content":"I'm doing well, thanks. How about you?"}}]}
 ```
 
-{{% notice note %}}
-- If running on Apple Silicon (ARM) it is **not** suggested to run on Docker due to emulation. Follow the [build instructions]({{%relref "build" %}}) to use Metal acceleration for full GPU support.
-- If you are running Apple x86_64 you can use `docker`, there is no additional gain into building it from source.
-- If you are on Windows, please run ``docker-compose`` not ``docker compose`` and make sure the project is in the Linux Filesystem, otherwise loading models might be slow. For more Info: [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems)
-{{% /notice %}}
+To see other model configurations, see also the example section [here](https://github.com/mudler/LocalAI/tree/master/examples/configurations).
+
 
 ### From binaries
 
@@ -121,13 +152,7 @@ LocalAI binary releases are available in [Github](https://github.com/go-skynet/L
 
 You can control LocalAI with command line arguments, to specify a binding address, or the number of threads.
 
-<details>
-
-Usage:
-
-```
-local-ai --models-path <model_path> [--address <address>] [--threads <num_threads>]
-```
+### CLI parameters
 
 | Parameter                      | Environmental Variable          | Default Variable                                   | Description                                                         |
 | ------------------------------ | ------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------- |
@@ -145,10 +170,16 @@ local-ai --models-path <model_path> [--address <address>] [--threads <num_thread
 | --context-size value           | $CONTEXT_SIZE                   | 512                 | Default context size of the model                                   |
 | --upload-limit value           | $UPLOAD_LIMIT                   | 15                         | Default upload limit in megabytes (audio file upload)                                  |
 | --galleries                    | $GALLERIES                      |                                                    | Allows to set galleries from command line                           |
+|--parallel-requests              | $PARALLEL_REQUESTS     |   false |            Enable backends to handle multiple requests in parallel. This is for backends that supports multiple requests in parallel, like llama.cpp or vllm |
+| --single-active-backend   | $SINGLE_ACTIVE_BACKEND |  false |    Allow only one backend to be running |
+| --api-keys value |   $API_KEY | empty |  List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys.
+| --enable-watchdog-idle | $WATCHDOG_IDLE | false | Enable watchdog for stopping idle backends. This will stop the backends if are in idle state for too long. (default: false) [$WATCHDOG_IDLE]
+| --enable-watchdog-busy   |     $WATCHDOG_BUSY | false |         Enable watchdog for stopping busy backends that exceed a defined threshold.|
+| --watchdog-busy-timeout value | $WATCHDOG_BUSY_TIMEOUT | 5m | Watchdog timeout. This will restart the backend if it crashes.  |
+| --watchdog-idle-timeout value | $WATCHDOG_IDLE_TIMEOUT | 15m | Watchdog idle timeout. This will restart the backend if it crashes. |
+| --preload-backend-only | $PRELOAD_BACKEND_ONLY | false | If set, the api is NOT launched, and only the preloaded models / backends are started. This is intended for multi-node setups. |
 
-</details>
-
-### Docker
+### Container images
 
 LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags):
 
@@ -166,24 +197,6 @@ Example:
 - CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v1.40.0-cublas-cuda11-ffmpeg`
 - CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v1.40.0-cublas-cuda12-ffmpeg`
 
-Example of starting the API with `docker`:
-
-```bash
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
-```
-
-You should see:
-```
-┌───────────────────────────────────────────────────┐
-│                   Fiber v2.42.0                   │
-│               http://127.0.0.1:8080               │
-│       (bound on host 0.0.0.0 and port 8080)       │
-│                                                   │
-│ Handlers ............. 1  Processes ........... 1 │
-│ Prefork ....... Disabled  PID ................. 1 │
-└───────────────────────────────────────────────────┘
-```
-
 {{% notice note %}}
 Note: the binary inside the image is pre-compiled, and might not suite all CPUs.
 To enable CPU optimizations for the execution environment,
@@ -193,82 +206,6 @@ set the environment variable `REBUILD` to `false`.
 
 See [docs on all environment variables]({{%relref "advanced#environment-variables" %}})
 for more info.
-{{% /notice %}}
-
-#### CUDA:
-
-Requirement: nvidia-container-toolkit (installation instructions [1](https://www.server-world.info/en/note?os=Ubuntu_22.04&p=nvidia&f=2) [2](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
-
-You need to run the image with `--gpus all`, and
-
-```
-docker run --rm -ti --gpus all -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e PRELOAD_MODELS='[{"url": "github:go-skynet/model-gallery/openllama_7b.yaml", "name": "gpt-3.5-turbo", "overrides": { "f16":true, "gpu_layers": 35, "mmap": true, "batch": 512 } } ]' -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:v1.40.0-cublas-cuda12
-```
-
-In the terminal where LocalAI was started, you should see:
-
-```
-5:13PM DBG Config overrides map[gpu_layers:10]
-5:13PM DBG Checking "open-llama-7b-q4_0.bin" exists and matches SHA
-5:13PM DBG Downloading "https://huggingface.co/SlyEcho/open_llama_7b_ggml/resolve/main/open-llama-7b-q4_0.bin"
-5:13PM DBG Downloading open-llama-7b-q4_0.bin: 393.4 MiB/3.5 GiB (10.88%) ETA: 40.965550709s
-5:13PM DBG Downloading open-llama-7b-q4_0.bin: 870.8 MiB/3.5 GiB (24.08%) ETA: 31.526866642s
-5:13PM DBG Downloading open-llama-7b-q4_0.bin: 1.3 GiB/3.5 GiB (36.26%) ETA: 26.37351405s
-5:13PM DBG Downloading open-llama-7b-q4_0.bin: 1.7 GiB/3.5 GiB (48.64%) ETA: 21.11682624s
-5:13PM DBG Downloading open-llama-7b-q4_0.bin: 2.2 GiB/3.5 GiB (61.49%) ETA: 15.656029361s
-5:14PM DBG Downloading open-llama-7b-q4_0.bin: 2.6 GiB/3.5 GiB (74.33%) ETA: 10.360950226s
-5:14PM DBG Downloading open-llama-7b-q4_0.bin: 3.1 GiB/3.5 GiB (87.05%) ETA: 5.205663978s
-5:14PM DBG Downloading open-llama-7b-q4_0.bin: 3.5 GiB/3.5 GiB (99.85%) ETA: 61.269714ms
-5:14PM DBG File "open-llama-7b-q4_0.bin" downloaded and verified
-5:14PM DBG Prompt template "openllama-completion" written
-5:14PM DBG Prompt template "openllama-chat" written
-5:14PM DBG Written config file /models/gpt-3.5-turbo.yaml
-```
-
-LocalAI will download automatically the OpenLLaMa model and run with GPU. Wait for the download to complete. You can also avoid automatic download of the model by not specifying a `PRELOAD_MODELS` variable. For compatible models with GPU support see the [model compatibility table]({{%relref "model-compatibility" %}}).
-
-To test that the API is working run in another terminal:
-
-```
-curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-     "model": "gpt-3.5-turbo",
-     "messages": [{"role": "user", "content": "What is an alpaca?"}],
-     "temperature": 0.1
-   }'
-```
-
-And if the GPU inferencing is working, you should be able to see something like:
-
-```
-5:22PM DBG Loading model in memory from file: /models/open-llama-7b-q4_0.bin
-ggml_init_cublas: found 1 CUDA devices:
-  Device 0: Tesla T4
-llama.cpp: loading model from /models/open-llama-7b-q4_0.bin
-llama_model_load_internal: format     = ggjt v3 (latest)
-llama_model_load_internal: n_vocab    = 32000
-llama_model_load_internal: n_ctx      = 1024
-llama_model_load_internal: n_embd     = 4096
-llama_model_load_internal: n_mult     = 256
-llama_model_load_internal: n_head     = 32
-llama_model_load_internal: n_layer    = 32
-llama_model_load_internal: n_rot      = 128
-llama_model_load_internal: ftype      = 2 (mostly Q4_0)
-llama_model_load_internal: n_ff       = 11008
-llama_model_load_internal: n_parts    = 1
-llama_model_load_internal: model size = 7B
-llama_model_load_internal: ggml ctx size =    0.07 MB
-llama_model_load_internal: using CUDA for GPU acceleration
-llama_model_load_internal: mem required  = 4321.77 MB (+ 1026.00 MB per state)
-llama_model_load_internal: allocating batch_size x 1 MB = 512 MB VRAM for the scratch buffer
-llama_model_load_internal: offloading 10 repeating layers to GPU
-llama_model_load_internal: offloaded 10/35 layers to GPU
-llama_model_load_internal: total VRAM used: 1598 MB
-...................................................................................................
-llama_init_from_file: kv self size  =  512.00 MB
-```
-
-{{% notice note %}}
-When enabling GPU inferencing, set the number of GPU layers to offload with: `gpu_layers: 1` to your YAML model config file and `f16: true`. You might also need to set `low_vram: true` if the device has low VRAM.
 {{% /notice %}}
 
 ### Run LocalAI in Kubernetes
