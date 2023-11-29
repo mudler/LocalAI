@@ -59,9 +59,6 @@ What this does is tell ``LocalAI`` how to load the model. Then we are going to *
 name: lunademo
 parameters:
   model: luna-ai-llama2-uncensored.Q4_K_M.gguf
-  temperature: 0.2
-  top_k: 40
-  top_p: 0.65
 ```
 
 Now that we have the model set up, there a few things we should add to the yaml file to make it run better, for this model it uses the following roles.
@@ -100,9 +97,6 @@ context_size: 2000
 name: lunademo
 parameters:
   model: luna-ai-llama2-uncensored.Q4_K_M.gguf
-  temperature: 0.2
-  top_k: 40
-  top_p: 0.65
 roles:
   assistant: 'ASSISTANT:'
   system: 'SYSTEM:'
