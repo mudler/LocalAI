@@ -14,7 +14,7 @@ Here are answers to some of the most common questions.
 
 <details>
 
-Most ggml-based models should work, but newer models may require additions to the API. If a model doesn't work, please feel free to open up issues. However, be cautious about downloading models from the internet and directly onto your machine, as there may be security vulnerabilities in lama.cpp or ggml that could be maliciously exploited. Some models can be found on Hugging Face: https://huggingface.co/models?search=ggml, or models from gpt4all are compatible too: https://github.com/nomic-ai/gpt4all.
+Most gguf-based models should work, but newer models may require additions to the API. If a model doesn't work, please feel free to open up issues. However, be cautious about downloading models from the internet and directly onto your machine, as there may be security vulnerabilities in lama.cpp or ggml that could be maliciously exploited. Some models can be found on Hugging Face: https://huggingface.co/models?search=gguf, or models from gpt4all are compatible too: https://github.com/nomic-ai/gpt4all.
 
 </details>
 
@@ -87,6 +87,14 @@ You can also specify `--debug` in the command line.
 
 This typically happens when your prompt exceeds the context size. Try to reduce the prompt size, or increase the context size.
 
+</details>
+
+### I'm getting a 'SIGILL' error, what's wrong?
+
+<details>
+
+Your CPU probably does not have support for certain instructions that are compiled by default in the pre-built binaries. If you are running in a container, try setting `REBUILD=true` and disable the CPU instructions that are not compatible with your CPU. For instance: `CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make build`
+  
 </details>
 
 ### I'm getting a 'SIGILL' error, what's wrong?
