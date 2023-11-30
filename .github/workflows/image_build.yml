@@ -1,5 +1,5 @@
 ---
-name: 'build container images'
+name: 'build container images (reusable)'
 
 on:
   workflow_call:
