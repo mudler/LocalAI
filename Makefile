@@ -77,10 +77,9 @@ ifeq ($(OS),Darwin)
 	# on OSX, if BUILD_TYPE is blank, we should default to use Metal
 	ifeq ($(BUILD_TYPE),)
 		BUILD_TYPE=metal
+	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
-		    # explicit disable metal if on Darwin and any other value is explicitly passed.
-			CMAKE_ARGS+=-DLLAMA_METAL=OFF
-		endif
+		CMAKE_ARGS+=-DLLAMA_METAL=OFF
 	endif
 endif
 
