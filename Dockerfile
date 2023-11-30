@@ -12,7 +12,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh"
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh"
 ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
 ARG GO_TAGS="stablediffusion tts"
 
@@ -181,13 +181,18 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/exllama \
     ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/petals \
+    ; fi
 
 # Copy VALLE-X as it's not a real "lib"
+# TODO: this is wrong - we should copy the lib into the conda env path
 RUN if [ -d /usr/lib/vall-e-x ]; then \
     cp -rfv /usr/lib/vall-e-x/* ./ ; \ 
     fi
 
 # we also copy exllama libs over to resolve exllama import error
+# TODO: check if this is still needed
 RUN if [ -d /usr/local/lib/python3.9/dist-packages/exllama ]; then \
         cp -rfv /usr/local/lib/python3.9/dist-packages/exllama backend/python/exllama/;\
     fi

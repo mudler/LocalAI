@@ -1,0 +1,147 @@
+---
+name: 'build container images (reusable)'
+
+on:
+  workflow_call:
+    inputs:
+      build-type:
+        description: 'Build type'
+        default: ''
+        type: string
+      cuda-major-version:
+        description: 'CUDA major version'
+        default: "11"
+        type: string
+      cuda-minor-version:
+        description: 'CUDA minor version'
+        default: "7"
+        type: string
+      platforms:
+        description: 'Platforms'
+        default: ''
+        type: string
+      tag-latest:
+        description: 'Tag latest'
+        default: ''
+        type: string
+      tag-suffix:
+        description: 'Tag suffix'
+        default: ''
+        type: string
+      ffmpeg:
+        description: 'FFMPEG'
+        default: ''
+        type: string
+      image-type:
+        description: 'Image type'
+        default: ''
+        type: string
+      runs-on:
+        description: 'Runs on'
+        required: true
+        default: ''
+        type: string
+    secrets:
+      dockerUsername:
+        required: true
+      dockerPassword:
+        required: true
+jobs:
+  reusable_image-build:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Force Install GIT latest
+        run: |
+          sudo apt-get update \
+          && sudo apt-get install -y software-properties-common \
+          && sudo apt-get update \
+          && sudo add-apt-repository -y ppa:git-core/ppa \
+          && sudo apt-get update \
+          && sudo apt-get install -y git
+      - name: Checkout
+        uses: actions/checkout@v4
+      # - name: Release space from worker
+      #   run: |
+      #     echo "Listing top largest packages"
+      #     pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+      #     head -n 30 <<< "${pkgs}"
+      #     echo
+      #     df -h
+      #     echo
+      #     sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+      #     sudo apt-get remove --auto-remove android-sdk-platform-tools || true
+      #     sudo apt-get purge --auto-remove android-sdk-platform-tools || true
+      #     sudo rm -rf /usr/local/lib/android
+      #     sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+      #     sudo rm -rf /usr/share/dotnet
+      #     sudo apt-get remove -y '^mono-.*' || true
+      #     sudo apt-get remove -y '^ghc-.*' || true
+      #     sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+      #     sudo apt-get remove -y 'php.*' || true
+      #     sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+      #     sudo apt-get remove -y '^google-.*' || true
+      #     sudo apt-get remove -y azure-cli || true
+      #     sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+      #     sudo apt-get remove -y '^gfortran-.*' || true
+      #     sudo apt-get remove -y microsoft-edge-stable || true
+      #     sudo apt-get remove -y firefox || true
+      #     sudo apt-get remove -y powershell || true
+      #     sudo apt-get remove -y r-base-core || true
+      #     sudo apt-get autoremove -y
+      #     sudo apt-get clean
+      #     echo
+      #     echo "Listing top largest packages"
+      #     pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+      #     head -n 30 <<< "${pkgs}"
+      #     echo
+      #     sudo rm -rfv build || true
+      #     df -h
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: quay.io/go-skynet/local-ai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.dockerUsername }}
+          password: ${{ secrets.dockerPassword }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            FFMPEG=${{ inputs.ffmpeg }}
+            IMAGE_TYPE=${{ inputs.image-type }}
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: job summary
+        run: |
+          echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
