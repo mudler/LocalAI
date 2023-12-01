@@ -15,7 +15,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 
 ### Hardware requirements
 
-Depending on the model you are attempting to run might need more RAM or CPU resources. Check out also [here](https://github.com/ggerganov/llama.cpp#memorydisk-requirements) for `ggml` based backends. `rwkv` is less expensive on resources.
+Depending on the model you are attempting to run might need more RAM or CPU resources. Check out also [here](https://github.com/ggerganov/llama.cpp#memorydisk-requirements) for `gguf` based backends. `rwkv` is less expensive on resources.
 
 ### Model compatibility table
 

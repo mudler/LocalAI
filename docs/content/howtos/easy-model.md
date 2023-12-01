@@ -59,9 +59,6 @@ What this does is tell ``LocalAI`` how to load the model. Then we are going to *
 name: lunademo
 parameters:
   model: luna-ai-llama2-uncensored.Q4_K_M.gguf
-  temperature: 0.2
-  top_k: 40
-  top_p: 0.65
 ```
 
 Now that we have the model set up, there a few things we should add to the yaml file to make it run better, for this model it uses the following roles.
@@ -100,9 +97,6 @@ context_size: 2000
 name: lunademo
 parameters:
   model: luna-ai-llama2-uncensored.Q4_K_M.gguf
-  temperature: 0.2
-  top_k: 40
-  top_p: 0.65
 roles:
   assistant: 'ASSISTANT:'
   system: 'SYSTEM:'
@@ -112,7 +106,7 @@ template:
   completion: lunademo-completion
 ```
 
-Now that we got that setup, lets test it out but sending a request by using [Curl]({{%relref "easy-request-curl" %}}) Or use the [OpenAI Python API]({{%relref "easy-request-openai-v1" %}})! 
+Now that we got that setup, lets test it out but sending a [request]({{%relref "easy-request" %}}) to Localai! 
 
 ## Adv Stuff
 Alright now that we have learned how to set up our own models, here is how to use the gallery to do alot of this for us. This command will download and set up (mostly, we will **always** need to edit our yaml file to fit our computer / hardware)

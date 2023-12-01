@@ -26,7 +26,7 @@ To run with GPU Accelleration, see [GPU acceleration]({{%relref "features/gpu-ac
 mkdir models
 
 # copy your models to it
-cp your-model.bin models/
+cp your-model.gguf models/
 
 # run the LocalAI container
 docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
@@ -43,7 +43,7 @@ docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-
 
 # Try the endpoint with curl
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
-     "model": "your-model.bin",
+     "model": "your-model.gguf",
      "prompt": "A long time ago in a galaxy far, far away",
      "temperature": 0.7
    }'
@@ -67,7 +67,7 @@ cd LocalAI
 # git checkout -b build <TAG>
 
 # copy your models to models/
-cp your-model.bin models/
+cp your-model.gguf models/
 
 # (optional) Edit the .env file to set things like context size and threads
 # vim .env
@@ -79,10 +79,10 @@ docker compose up -d --pull always
 
 # Now API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
-# {"object":"list","data":[{"id":"your-model.bin","object":"model"}]}
+# {"object":"list","data":[{"id":"your-model.gguf","object":"model"}]}
 
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
-     "model": "your-model.bin",
+     "model": "your-model.gguf",
      "prompt": "A long time ago in a galaxy far, far away",
      "temperature": 0.7
    }'
