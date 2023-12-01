@@ -81,10 +81,15 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 
 ## 🔥🔥 Hot topics / Roadmap
 
-- [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
+[Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-Hot topics:
-- https://github.com/mudler/LocalAI/issues/1126
+🆕 New! [LLM finetuning guide](https://localai.io/advanced/fine-tuning/)
+
+Hot topics (looking for contributors):
+- Backends v2: https://github.com/mudler/LocalAI/issues/1126
+- Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
+
+If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
 
 ## 🚀 [Features](https://localai.io/features/)
 
@@ -98,20 +103,13 @@ Hot topics:
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
 - 🆕 [Vision API](https://localai.io/features/gpt-vision/)
 
-## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
-
-- [Create a slackbot for teams and OSS projects that answer to documentation](https://mudler.pm/posts/smart-slackbot-for-teams/)
-- [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)
-- [Question Answering on Documents locally with LangChain, LocalAI, Chroma, and GPT4All](https://mudler.pm/posts/localai-question-answering/)
-- [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65)
-
 ## 💻 Usage
 
 Check out the [Getting started](https://localai.io/basics/getting_started/index.html) section in our documentation.
 
-### Community
+### 🔗 Community and integrations
 
-WebUI
+WebUIs:
 - https://github.com/Jirubizu/localai-admin
 - https://github.com/go-skynet/LocalAI-frontend
 
@@ -123,11 +121,19 @@ Other:
 
 ### 🔗 Resources
 
+- 🆕 New! [LLM finetuning guide](https://localai.io/advanced/fine-tuning/)
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
 - [Projects integrating LocalAI](https://localai.io/integrations/)
 - [How tos section](https://localai.io/howtos/) (curated by our community)
   
+## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
+
+- [Create a slackbot for teams and OSS projects that answer to documentation](https://mudler.pm/posts/smart-slackbot-for-teams/)
+- [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)
+- [Question Answering on Documents locally with LangChain, LocalAI, Chroma, and GPT4All](https://mudler.pm/posts/localai-question-answering/)
+- [Tutorial to use k8sgpt with LocalAI](https://medium.com/@tyler_97636/k8sgpt-localai-unlock-kubernetes-superpowers-for-free-584790de9b65)
+
 ## Citation
 
 If you utilize this repository, data in a downstream project, please consider citing it with:

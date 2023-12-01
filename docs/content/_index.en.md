@@ -89,10 +89,15 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 
 ## 🔥🔥 Hot topics / Roadmap
 
-- [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
+[Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-Hot topics:
-- https://github.com/mudler/LocalAI/issues/1126
+🆕 New! [LLM finetuning guide](https://localai.io/advanced/fine-tuning/)
+
+Hot topics (looking for contributors):
+- Backends v2: https://github.com/mudler/LocalAI/issues/1126
+- Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
+
+If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
 
 ## How does it work?
 
