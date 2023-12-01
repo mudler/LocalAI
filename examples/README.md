@@ -41,6 +41,14 @@ This example show how to use LocalAI inside Kubernetes with [k8sgpt](https://k8s
 
 ![Screenshot from 2023-06-19 23-58-47](https://github.com/go-skynet/go-ggml-transformers.cpp/assets/2420543/cab87409-ee68-44ae-8d53-41627fb49509)
 
+### Fine-tuning a model and convert it to gguf to use it with LocalAI
+
+_by [@mudler](https://github.com/mudler)_
+
+This example is an e2e example on how to fine-tune a model with [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl) and convert it to gguf to use it with LocalAI.
+
+[Check it out here](https://github.com/mudler/LocalAI/tree/master/examples/e2e-fine-tuning/)
+
 ### Flowise
 
 _by [@mudler](https://github.com/mudler)_
