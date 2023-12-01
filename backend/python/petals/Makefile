@@ -1,10 +1,10 @@
-.PONY: petals
+.PHONY: petals
 petals:
 	@echo "Creating virtual environment..."
 	@conda env create --name petals --file petals.yml
 	@echo "Virtual environment created."
 
-.PONY: run
+.PHONY: run
 run:
 	@echo "Running petals..."
 	bash run.sh
