@@ -11,6 +11,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/rs/zerolog/log"
 )
 
 func generateUniqueFileName(dir, baseName, ext string) string {
@@ -59,11 +60,17 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *opt
 	// If the model file is not empty, we pass it joined with the model path
 	modelPath := ""
 	if modelFile != "" {
-		modelPath = filepath.Join(o.Loader.ModelPath, modelFile)
-		if err := utils.VerifyPath(modelPath, o.Loader.ModelPath); err != nil {
-			return "", nil, err
+		if bb != model.TransformersMusicGen {
+			modelPath = filepath.Join(o.Loader.ModelPath, modelFile)
+			if err := utils.VerifyPath(modelPath, o.Loader.ModelPath); err != nil {
+				return "", nil, err
+			}
+		} else {
+			modelPath = modelFile
 		}
 	}
+
+	log.Debug().Msgf("before call to piperModel.TTS with backend: %s", backend)
 
 	res, err := piperModel.TTS(context.Background(), &proto.TTSRequest{
 		Text:  text,
