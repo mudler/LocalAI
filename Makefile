@@ -22,7 +22,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=c898cd0f62df8f2a7830e53d1d513bef4f6f792b
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=85ed71aaec8e0612a84c0b67804bde75aa75a273
+WHISPER_CPP_VERSION?=9d6ebd877ce7d99053423d186e6f5387a4a4753c
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
@@ -85,11 +85,13 @@ endif
 
 ifeq ($(BUILD_TYPE),openblas)
 	CGO_LDFLAGS+=-lopenblas
+	export WHISPER_OPENBLAS=1
 endif
 
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 	export LLAMA_CUBLAS=1
+	export WHISPER_CUBLAS=1
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -98,6 +100,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	export CC=$(ROCM_HOME)/llvm/bin/clang
 	# llama-ggml has no hipblas support, so override it here.
 	export STABLE_BUILD_TYPE=
+	export WHISPER_HIPBLAS=1
 	GPU_TARGETS ?= gfx900,gfx90a,gfx1030,gfx1031,gfx1100
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
@@ -107,10 +110,12 @@ endif
 ifeq ($(BUILD_TYPE),metal)
 	CGO_LDFLAGS+=-framework Foundation -framework Metal -framework MetalKit -framework MetalPerformanceShaders
 	export LLAMA_METAL=1
+	export WHISPER_METAL=1
 endif
 
 ifeq ($(BUILD_TYPE),clblas)
 	CGO_LDFLAGS+=-lOpenCL -lclblast
+	export WHISPER_CLBLAST=1
 endif
 
 # glibc-static or glibc-devel-static required
@@ -234,6 +239,7 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-ggml-transformers.cpp=$(shell pwd)/sources/go-ggml-transformers
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(shell pwd)/sources/go-rwkv
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(shell pwd)/sources/whisper.cpp
+	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(shell pwd)/sources/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/sources/go-bert
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/sources/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/sources/go-piper
