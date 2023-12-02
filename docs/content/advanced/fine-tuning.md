@@ -11,7 +11,7 @@ Section under construction
 
 This section covers how to fine-tune a language model for text generation and consume it in LocalAI.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]([https://colab.research.google.com/github/huggingface/autotrain-advanced/blob/main/colabs/AutoTrain_LLM.ipynb](https://colab.research.google.com/github/mudler/LocalAI/blob/master/examples/e2e-fine-tuning/notebook.ipynb))
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mudler/LocalAI/blob/master/examples/e2e-fine-tuning/notebook.ipynb)
 
 ## Requirements
 
