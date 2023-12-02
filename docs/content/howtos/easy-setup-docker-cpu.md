@@ -102,7 +102,8 @@ services:
 Make sure to save that in the root of the `LocalAI` folder. Then lets spin up the Docker run this in a `CMD` or `BASH`
 
 ```bash
-docker-compose up -d --pull always
+docker-compose up -d --pull always ##Windows
+docker compose up -d --pull always ##Linux
 ```
 
 
@@ -128,4 +129,4 @@ Output will look like this:
 
 ![](https://cdn.discordapp.com/attachments/1116933141895053322/1134037542845566976/image.png)
 
-Now that we got that setup, lets go setup a [model]({{%relref "easy-model-import-downloaded" %}})
+Now that we got that setup, lets go setup a [model]({{%relref "easy-model" %}})

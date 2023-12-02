@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=aeba71ee842819da681ea537e78846dc75949ac0
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=1f5cd83275fabb43f2ae92c30033b384a3eb37b4
+CPPLLAMA_VERSION?=5a7d3125e7c24f223659b7f0b7aa7736986e92c0
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -68,12 +68,19 @@ ifndef UNAME_S
 UNAME_S := $(shell uname -s)
 endif
 
-ifeq ($(UNAME_S),Darwin)
+ifeq ($(OS),Darwin)
 	CGO_LDFLAGS += -lcblas -framework Accelerate
-ifneq ($(BUILD_TYPE),metal)
-    # explicit disable metal if on Darwin and metal is disabled
-	CMAKE_ARGS+=-DLLAMA_METAL=OFF
-endif
+	ifeq ($(OSX_SIGNING_IDENTITY),)
+		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
+	endif
+
+	# on OSX, if BUILD_TYPE is blank, we should default to use Metal
+	ifeq ($(BUILD_TYPE),)
+		BUILD_TYPE=metal
+	# disable metal if on Darwin and any other value is explicitly passed.
+	else ifneq ($(BUILD_TYPE),metal)
+		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+	endif
 endif
 
 ifeq ($(BUILD_TYPE),openblas)
@@ -104,12 +111,6 @@ endif
 
 ifeq ($(BUILD_TYPE),clblas)
 	CGO_LDFLAGS+=-lOpenCL -lclblast
-endif
-
-ifeq ($(OS),Darwin)
-	ifeq ($(OSX_SIGNING_IDENTITY),)
-		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
-	endif
 endif
 
 # glibc-static or glibc-devel-static required
@@ -413,9 +414,9 @@ backend-assets/grpc/llama: backend-assets/grpc sources/go-llama/libbinding.a
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(shell pwd)/sources/go-llama
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-llama LIBRARY_PATH=$(shell pwd)/sources/go-llama \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama ./backend/go/llm/llama/
-# TODO: every binary should have its own folder instead, so can have different metal implementations
+# TODO: every binary should have its own folder instead, so can have different  implementations
 ifeq ($(BUILD_TYPE),metal)
-	cp go-llama/build/bin/ggml-metal.metal backend-assets/grpc/
+	cp backend/cpp/llama/llama.cpp/ggml-metal.metal backend-assets/grpc/
 endif
 
 ## BACKEND CPP LLAMA START
