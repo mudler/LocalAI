@@ -2,7 +2,7 @@ This is an example of fine-tuning a LLM model to use with [LocalAI](https://gith
 
 Specifically, this example shows how to use [axolotl](https://github.com/OpenAccess-AI-Collective/axolotl) to fine-tune a LLM model to consume with LocalAI as a `gguf` model.
 
-A notebook is provided that currently works on _very small_ datasets on Google colab on the free instance. It is far from producing good models, but it gives a sense of how to use the code to use with a better dataset and configurations, and how to use the model produced with LocalAI.
+A notebook is provided that currently works on _very small_ datasets on Google colab on the free instance. It is far from producing good models, but it gives a sense of how to use the code to use with a better dataset and configurations, and how to use the model produced with LocalAI. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mudler/LocalAI/blob/master/examples/e2e-fine-tuning/notebook.ipynb)
 
 ## Requirements
 
