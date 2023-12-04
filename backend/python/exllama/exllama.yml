@@ -52,4 +52,5 @@ dependencies:
       - torch==2.1.0
       - triton==2.1.0
       - typing-extensions==4.8.0
+      - numpy
 prefix: /opt/conda/envs/exllama

@@ -185,12 +185,6 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/petals \
     ; fi
 
-# we also copy exllama libs over to resolve exllama import error
-# TODO: check if this is still needed
-RUN if [ -d /usr/local/lib/python3.9/dist-packages/exllama ]; then \
-        cp -rfv /usr/local/lib/python3.9/dist-packages/exllama backend/python/exllama/;\
-    fi
-
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f $HEALTHCHECK_ENDPOINT || exit 1
