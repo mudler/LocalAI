@@ -53,7 +53,6 @@ dependencies:
       - torchvision==0.16.0
       - tqdm==4.66.1
       - transformers==4.34.0
-      - triton==2.1.0
       - typing-extensions==4.8.0
       - urllib3==2.0.6
 prefix: /opt/conda/envs/transformers-musicgen
