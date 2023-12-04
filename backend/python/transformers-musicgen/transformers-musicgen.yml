@@ -2,7 +2,7 @@ name: transformers-musicgen
 channels:
   - defaults
 dependencies:
-  - python==>=3.10, <3.11
+  - python>=3.10, <3.11
   - bzip2=1.0.8
   - ca-certificates=2023.08.22
   - libffi=3.4.4
