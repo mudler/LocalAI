@@ -3,6 +3,7 @@ transformers-musicgen:
 	@echo "Creating virtual environment..."
 	@conda env create --name transformers-musicgen --file transformers-musicgen.yml
 	@echo "Virtual environment created."
+# TODO: check the variable to re-enable NVIDIA
 
 .PHONY: run
 run:
