@@ -188,12 +188,6 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/petals \
     ; fi
 
-# Copy VALLE-X as it's not a real "lib"
-# TODO: this is wrong - we should copy the lib into the conda env path
-RUN if [ -d /usr/lib/vall-e-x ]; then \
-    cp -rfv /usr/lib/vall-e-x/* ./ ; \ 
-    fi
-
 # we also copy exllama libs over to resolve exllama import error
 # TODO: check if this is still needed
 RUN if [ -d /usr/local/lib/python3.9/dist-packages/exllama ]; then \
