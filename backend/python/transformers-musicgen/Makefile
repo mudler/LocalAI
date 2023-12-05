@@ -1,9 +1,15 @@
+
+TRANSFORMERS_MUSICGEN_CONDA_PATH = "transformers-musicgen.yml"
+
+ifeq($(BUILD_TYPE), cublas)
+	TRANSFORMERS_MUSICGEN_CONDA_PATH = "transformers-musicgen-nvidia.yml"
+endif
+
 .PHONY: transformers-musicgen
 transformers-musicgen:
 	@echo "Creating virtual environment..."
-	@conda env create --name transformers-musicgen --file transformers-musicgen.yml
+	@conda env create --name transformers-musicgen --file $(TRANSFORMERS_MUSICGEN_CONDA_PATH)
 	@echo "Virtual environment created."
-# TODO: check the variable to re-enable NVIDIA
 
 .PHONY: run
 run:
