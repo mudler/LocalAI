@@ -1,8 +1,10 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -144,28 +146,46 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
-		if len(options.ApiKeys) > 0 {
-			authHeader := c.Get("Authorization")
-			if authHeader == "" {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
-			}
-			authHeaderParts := strings.Split(authHeader, " ")
-			if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
+		if len(options.ApiKeys) == 0 {
+			return c.Next()
+		}
+
+		// Check for api_keys.json file
+		fileContent, err := os.ReadFile("api_keys.json")
+		if err == nil {
+			// Parse JSON content from the file
+			var fileKeys []string
+			err := json.Unmarshal(fileContent, &fileKeys)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Error parsing api_keys.json"})
 			}
 
-			apiKey := authHeaderParts[1]
-			validApiKey := false
-			for _, key := range options.ApiKeys {
-				if apiKey == key {
-					validApiKey = true
-				}
-			}
-			if !validApiKey {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+			// Add file keys to options.ApiKeys
+			options.ApiKeys = append(options.ApiKeys, fileKeys...)
+		}
+
+		if len(options.ApiKeys) == 0 {
+			return c.Next()
+		}
+
+		authHeader := c.Get("Authorization")
+		if authHeader == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
+		}
+		authHeaderParts := strings.Split(authHeader, " ")
+		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
+		}
+
+		apiKey := authHeaderParts[1]
+		for _, key := range options.ApiKeys {
+			if apiKey == key {
+				return c.Next()
 			}
 		}
-		return c.Next()
+
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+
 	}
 
 	if options.CORS {
