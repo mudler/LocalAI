@@ -1,10 +1,10 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"encoding/json"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -151,7 +151,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		}
 
 		// Check for api_keys.json file
-		fileContent, err := ioutil.ReadFile("api_keys.json")
+		fileContent, err := os.ReadFile("api_keys.json")
 		if err == nil {
 			// Parse JSON content from the file
 			var fileKeys []string
@@ -164,6 +164,10 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 			options.ApiKeys = append(options.ApiKeys, fileKeys...)
 		}
 
+		if len(options.ApiKeys) == 0 {
+			return c.Next()
+		}
+
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
@@ -174,19 +178,15 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		}
 
 		apiKey := authHeaderParts[1]
-		validApiKey := false
 		for _, key := range options.ApiKeys {
 			if apiKey == key {
-				validApiKey = true
+				return c.Next()
 			}
 		}
-		if !validApiKey {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
-		}
 
-		return c.Next()
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+
 	}
-
 
 	if options.CORS {
 		var c func(ctx *fiber.Ctx) error
