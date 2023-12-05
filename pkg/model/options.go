@@ -38,6 +38,25 @@ func WithExternalBackend(name string, uri string) Option {
 	}
 }
 
+// Currently, LocalAI isn't ready for backends to be yanked out from under it - so this is a little overcomplicated to allow non-overwriting updates
+func WithExternalBackends(backends map[string]string, overwrite bool) Option {
+	return func(o *Options) {
+		if backends == nil {
+			return
+		}
+		if o.externalBackends == nil {
+			o.externalBackends = backends
+			return
+		}
+		for name, url := range backends {
+			_, exists := o.externalBackends[name]
+			if !exists || overwrite {
+				o.externalBackends[name] = url
+			}
+		}
+	}
+}
+
 func WithGRPCAttempts(attempts int) Option {
 	return func(o *Options) {
 		o.grpcAttempts = attempts

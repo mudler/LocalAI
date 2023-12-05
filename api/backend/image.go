@@ -28,6 +28,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 			CLIPSubfolder: c.Diffusers.ClipSubFolder,
 			CLIPSkip:      int32(c.Diffusers.ClipSkip),
 		}),
+		model.WithExternalBackends(o.ExternalGRPCBackends, false),
 	})
 
 	inferenceModel, err := loader.BackendLoader(

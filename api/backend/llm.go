@@ -40,6 +40,7 @@ func ModelInference(ctx context.Context, s string, images []string, loader *mode
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
+		model.WithExternalBackends(o.ExternalGRPCBackends, false),
 	})
 
 	if c.Backend != "" {

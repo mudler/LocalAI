@@ -20,6 +20,7 @@ func ModelTranscription(audio, language string, loader *model.ModelLoader, c con
 		model.WithContext(o.Context),
 		model.WithThreads(uint32(c.Threads)),
 		model.WithAssetDir(o.AssetsDestination),
+		model.WithExternalBackends(o.ExternalGRPCBackends, false),
 	})
 
 	whisperModel, err := o.Loader.BackendLoader(opts...)

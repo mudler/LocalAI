@@ -27,6 +27,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
+		model.WithExternalBackends(o.ExternalGRPCBackends, false),
 	})
 
 	if c.Backend == "" {

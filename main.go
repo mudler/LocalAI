@@ -185,6 +185,12 @@ func main() {
 				EnvVars: []string{"PRELOAD_BACKEND_ONLY"},
 				Value:   false,
 			},
+			&cli.StringFlag{
+				Name:    "localai-config-dir",
+				Usage:   "Directory to use for the configuration files of LocalAI itself. This is NOT where model files should be placed.",
+				EnvVars: []string{"LOCALAI_CONFIG_DIR"},
+				Value:   "./config",
+			},
 		},
 		Description: `
 LocalAI is a drop-in replacement OpenAI API which runs inference locally.
@@ -275,7 +281,16 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			}
 			opts = append(opts, options.WithMetrics(metrics))
 
-			app, err := api.App(opts...)
+			options, cl, err := api.Startup(opts...)
+			if err != nil {
+				return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
+			}
+
+			closeConfigWatcherFn, err := config.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
+
+			defer closeConfigWatcherFn()
+
+			app, err := api.App(options, cl)
 			if err != nil {
 				return err
 			}

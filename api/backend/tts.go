@@ -39,6 +39,7 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *opt
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
 		model.WithAssetDir(o.AssetsDestination),
+		model.WithExternalBackends(o.ExternalGRPCBackends, false),
 	})
 	piperModel, err := o.Loader.BackendLoader(opts...)
 	if err != nil {

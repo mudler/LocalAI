@@ -166,12 +166,15 @@ var _ = Describe("API test", func() {
 			metricsService, err := metrics.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(
+			options, cl, err := Startup(
 				append(commonOpts,
 					options.WithMetrics(metricsService),
 					options.WithContext(c),
 					options.WithGalleries(galleries),
 					options.WithModelLoader(modelLoader), options.WithBackendAssets(backendAssets), options.WithBackendAssetsOutput(tmpdir))...)
+
+			Expect(err).ToNot(HaveOccurred())
+			app, err = App(options, cl)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -487,7 +490,7 @@ var _ = Describe("API test", func() {
 			metricsService, err := metrics.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(
+			options, cl, err := Startup(
 				append(commonOpts,
 					options.WithContext(c),
 					options.WithMetrics(metricsService),
@@ -499,6 +502,7 @@ var _ = Describe("API test", func() {
 					options.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
+			app, err = App(options, cl)
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -595,13 +599,15 @@ var _ = Describe("API test", func() {
 			metricsService, err := metrics.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(
+			options, cl, err := Startup(
 				append(commonOpts,
 					options.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
 					options.WithContext(c),
 					options.WithModelLoader(modelLoader),
 					options.WithMetrics(metricsService),
 				)...)
+			Expect(err).ToNot(HaveOccurred())
+			app, err = App(options, cl)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -807,13 +813,15 @@ var _ = Describe("API test", func() {
 			metricsService, err := metrics.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(
+			options, cl, err := Startup(
 				append(commonOpts,
 					options.WithContext(c),
 					options.WithMetrics(metricsService),
 					options.WithModelLoader(modelLoader),
 					options.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
+			Expect(err).ToNot(HaveOccurred())
+			app, err = App(options, cl)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 

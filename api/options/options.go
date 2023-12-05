@@ -44,6 +44,8 @@ type Option struct {
 	WatchDogBusy                             bool
 	WatchDog                                 bool
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+
+	LocalAIConfigDir string
 }
 
 type AppOption func(*Option)
@@ -241,5 +243,11 @@ func WithApiKeys(apiKeys []string) AppOption {
 func WithMetrics(meter *metrics.Metrics) AppOption {
 	return func(o *Option) {
 		o.Metrics = meter
+	}
+}
+
+func WithLocalAIConfigDir(configDir string) AppOption {
+	return func(o *Option) {
+		o.LocalAIConfigDir = configDir
 	}
 }
