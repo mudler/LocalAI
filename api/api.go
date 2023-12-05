@@ -77,17 +77,14 @@ func App(options *options.Option, cl *config.ConfigLoader) (*fiber.App, error) {
 		}
 
 		apiKey := authHeaderParts[1]
-		validApiKey := false
 		for _, key := range options.ApiKeys {
 			if apiKey == key {
-				validApiKey = true
+				return c.Next()
 			}
 		}
-		if !validApiKey {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
-		}
 
-		return c.Next()
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+
 	}
 
 	if options.CORS {
