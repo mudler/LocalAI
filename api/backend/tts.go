@@ -11,7 +11,6 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
 )
 
 func generateUniqueFileName(dir, baseName, ext string) string {
