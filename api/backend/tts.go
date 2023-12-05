@@ -70,8 +70,6 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *opt
 		}
 	}
 
-	log.Debug().Msgf("before call to piperModel.TTS with backend: %s", backend)
-
 	res, err := piperModel.TTS(context.Background(), &proto.TTSRequest{
 		Text:  text,
 		Model: modelPath,
