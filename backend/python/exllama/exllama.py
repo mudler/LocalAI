@@ -13,9 +13,10 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from torch import version as torch_version
-from exllama.generator import ExLlamaGenerator
-from exllama.model import ExLlama, ExLlamaCache, ExLlamaConfig
-from exllama.tokenizer import ExLlamaTokenizer
+
+from tokenizer import ExLlamaTokenizer
+from generator import ExLlamaGenerator
+from model import ExLlama, ExLlamaCache, ExLlamaConfig
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
