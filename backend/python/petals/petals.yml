@@ -15,7 +15,7 @@ dependencies:
   # - ncurses=6.4=h6a678d5_0
   # - openssl=3.0.11=h7f8727e_2
   # - pip=23.2.1=py311h06a4308_0
-  # - python=3.11.5=h955ad1f_0
+  - python=3.11.5=h955ad1f_0
   # - readline=8.2=h5eee18b_0
   # - setuptools=68.0.0=py311h06a4308_0
   # - sqlite=3.41.2=h5eee18b_0
@@ -25,5 +25,6 @@ dependencies:
   # - xz=5.4.2=h5eee18b_0
   # - zlib=1.2.13=h5eee18b_0
   - pip:
+      - torch==2.1.0
       - git+https://github.com/bigscience-workshop/petals
 prefix: /opt/conda/envs/petals
