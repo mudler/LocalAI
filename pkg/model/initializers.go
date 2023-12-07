@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
+	"github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/hashicorp/go-multierror"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
@@ -61,7 +61,7 @@ var AutoLoadBackends []string = []string{
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
 // It also loads the model
-func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string) (ModelAddress, error) {
+func (ml *ModelLoader) grpcModel(backend string, o *ModelOptions) func(string, string) (ModelAddress, error) {
 	return func(modelName, modelFile string) (ModelAddress, error) {
 		log.Debug().Msgf("Loading Model %s with gRPC (file: %s) (backend: %s): %+v", modelName, modelFile, backend, *o)
 

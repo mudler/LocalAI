@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-skynet/LocalAI/api/schema"
+	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
@@ -53,8 +53,9 @@ func (llm *Base) GenerateImage(*pb.GenerateImageRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
-func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (schema.Result, error) {
-	return schema.Result{}, fmt.Errorf("unimplemented")
+// TODO CHECK THIS
+func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (datamodel.Result, error) {
+	return datamodel.Result{}, fmt.Errorf("unimplemented")
 }
 
 func (llm *Base) TTS(*pb.TTSRequest) error {
