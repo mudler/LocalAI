@@ -178,9 +178,6 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/transformers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/transformers-musicgen \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/vall-e-x \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
@@ -191,6 +188,10 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/petals \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+    pwd; \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/transformers-musicgen \
     ; fi
 
 # Define the health check command
