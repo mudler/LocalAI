@@ -183,20 +183,48 @@ You can control LocalAI with command line arguments, to specify a binding addres
 
 LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags):
 
-- Vanilla images tags: `master`, `v1.40.0`, `latest`, ...
-- FFmpeg images tags: `master-ffmpeg`, `v1.40.0-ffmpeg`, ...
-- CUDA `11` tags: `master-cublas-cuda11`, `v1.40.0-cublas-cuda11`, ...
-- CUDA `12` tags: `master-cublas-cuda12`, `v1.40.0-cublas-cuda12`, ...
-- CUDA `11` + FFmpeg tags: `master-cublas-cuda11-ffmpeg`, `v1.40.0-cublas-cuda11-ffmpeg`, ...
-- CUDA `12` + FFmpeg tags: `master-cublas-cuda12-ffmpeg`, `v1.40.0-cublas-cuda12-ffmpeg`, ...
-- Core images (smaller images without python dependencies): `master-core`, `v1.40.0-core`, ...
+{{< tabs >}}
+{{% tab name="Vanilla / CPU Images" %}}
+- `master`
+- `latest`
+- `v2.0.0`
+- `v2.0.0-ffmpeg`
+- `v2.0.0-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+{{% /tab %}}
+
+{{% tab name="GPU Images CUDA 11" %}}
+- `master-cublas-cuda11`
+- `master-cublas-cuda11-core`
+- `v2.0.0-cublas-cuda11`
+- `v2.0.0-cublas-cuda11-core`
+- `v2.0.0-cublas-cuda11-ffmpeg`
+- `v2.0.0-cublas-cuda11-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+{{% /tab %}}
+
+{{% tab name="GPU Images CUDA 12" %}}
+- `master-cublas-cuda12`
+- `master-cublas-cuda12-core`
+- `v2.0.0-cublas-cuda12`
+- `v2.0.0-cublas-cuda12-core`
+- `v2.0.0-cublas-cuda12-ffmpeg`
+- `v2.0.0-cublas-cuda12-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 Example:
 
 - Standard (GPT + `stablediffusion`): `quay.io/go-skynet/local-ai:latest`
-- FFmpeg: `quay.io/go-skynet/local-ai:v1.40.0-ffmpeg`
-- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v1.40.0-cublas-cuda11-ffmpeg`
-- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v1.40.0-cublas-cuda12-ffmpeg`
+- FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-ffmpeg`
+- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-cublas-cuda11-ffmpeg`
+- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-cublas-cuda12-ffmpeg`
 
 {{% notice note %}}
 Note: the binary inside the image is pre-compiled, and might not suite all CPUs.
@@ -237,7 +265,7 @@ Deploy a single LocalAI pod with 6GB of persistent storage serving up a `ggml-gp
 replicaCount: 1
 
 deployment:
-  image: quay.io/go-skynet/local-ai:latest ##(This is for CPU only, to use GPU change it to a image that supports GPU IE "v1.40.0-cublas-cuda12")
+  image: quay.io/go-skynet/local-ai:latest ##(This is for CPU only, to use GPU change it to a image that supports GPU IE "v2.0.0-cublas-cuda12-core")
   env:
     threads: 4
     context_size: 512
