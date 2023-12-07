@@ -83,7 +83,7 @@ jobs:
           # Pre-build piper before we start tests in order to have shared libraries in place
           make sources/go-piper && \
           GO_TAGS="tts" make -C sources/go-piper piper.o && \
-          sudo cp -rfv sources/go-piper/piper/build/pi/lib/. /usr/lib/ && \
+          sudo cp -rfv sources/go-piper/piper-phonemize/pi/lib/. /usr/lib/ && \
           # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
           GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
