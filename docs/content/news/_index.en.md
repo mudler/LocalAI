@@ -23,6 +23,7 @@ New:
 - Watchdog for backends ( {{< pr "1341"  >}}). As https://github.com/ggerganov/llama.cpp/issues/3969 is hitting LocalAI's llama-cpp implementation, we have now a watchdog that can be used to make sure backends are not stalling. This is a generic mechanism that can be enabled for all the backends now.
 - Whisper.cpp updates ( {{< pr "1302" >}} )
 - Petals backend ( {{< pr "1350" >}} )
+- Full LLM fine-tuning example to use with LocalAI: https://localai.io/advanced/fine-tuning/
 
 Due to the python dependencies size of images grew in size. 
 If you still want to use smaller images without python dependencies, you can use the corresponding images tags ending with `-core`.
