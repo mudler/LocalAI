@@ -6,6 +6,26 @@ url = '/basics/news/'
 
 +++
 
+## 04-12-2023: __v2.0.0__
+
+This release brings a major overhaul in some backends. 
+
+Breaking changes:
+- Backend rename: `llama-stable` renamed to `llama-ggml` https://github.com/mudler/LocalAI/pull/1287
+- Prompt template changes: https://github.com/mudler/LocalAI/pull/1254 (extra space in roles)
+
+New:
+
+- Added support for LLaVa and OpenAI Vision API support (https://github.com/mudler/LocalAI/pull/1254)
+- Python based backends are now using conda to track env dependencies ( https://github.com/mudler/LocalAI/pull/1144 )
+- Support for parallel requests (https://github.com/mudler/LocalAI/pull/1290)
+- Support for transformers-embeddings (https://github.com/mudler/LocalAI/pull/1308)
+- Watchdog for backends (https://github.com/mudler/LocalAI/pull/1341). As https://github.com/ggerganov/llama.cpp/issues/3969 is hitting LocalAI's llama-cpp implementation, we have now a watchdog that can be used to make sure backends are not stalling. This is a generic mechanism that can be enabled for all the backends now.
+- Whisper.cpp updates (https://github.com/mudler/LocalAI/pull/1302)
+
+Due to the python dependencies size of images grew in size. 
+If you still want to use smaller images without python dependencies, you can use the corresponding images tags ending with `-core`.
+
 ## 30-10-2023: __v1.40.0__
 
 This release is a preparation before v2 - the efforts now will be to refactor, polish and add new backends. Follow up on: https://github.com/mudler/LocalAI/issues/1126
