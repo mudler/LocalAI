@@ -10,18 +10,19 @@ url = '/basics/news/'
 
 This release brings a major overhaul in some backends. 
 
-Breaking changes:
-- Backend rename: `llama-stable` renamed to `llama-ggml` https://github.com/mudler/LocalAI/pull/1287
-- Prompt template changes: https://github.com/mudler/LocalAI/pull/1254 (extra space in roles)
+Breaking/important changes:
+- Backend rename: `llama-stable` renamed to `llama-ggml` {{< pr "1287" >}}
+- Prompt template changes: {{< pr "1254" >}} (extra space in roles)
+- Apple metal bugfixes: {{< pr "1365" >}}
 
 New:
-
-- Added support for LLaVa and OpenAI Vision API support (https://github.com/mudler/LocalAI/pull/1254)
-- Python based backends are now using conda to track env dependencies ( https://github.com/mudler/LocalAI/pull/1144 )
-- Support for parallel requests (https://github.com/mudler/LocalAI/pull/1290)
-- Support for transformers-embeddings (https://github.com/mudler/LocalAI/pull/1308)
-- Watchdog for backends (https://github.com/mudler/LocalAI/pull/1341). As https://github.com/ggerganov/llama.cpp/issues/3969 is hitting LocalAI's llama-cpp implementation, we have now a watchdog that can be used to make sure backends are not stalling. This is a generic mechanism that can be enabled for all the backends now.
-- Whisper.cpp updates (https://github.com/mudler/LocalAI/pull/1302)
+- Added support for LLaVa and OpenAI Vision API support ({{< pr "1254" >}})
+- Python based backends are now using conda to track env dependencies ( {{< pr "1144" >}} )
+- Support for parallel requests ( {{< pr "1290"  >}} )
+- Support for transformers-embeddings ( {{< pr "1308"  >}})
+- Watchdog for backends ( {{< pr "1341"  >}}). As https://github.com/ggerganov/llama.cpp/issues/3969 is hitting LocalAI's llama-cpp implementation, we have now a watchdog that can be used to make sure backends are not stalling. This is a generic mechanism that can be enabled for all the backends now.
+- Whisper.cpp updates ( {{< pr "1302" >}} )
+- Petals backend ( {{< pr "1350" >}} )
 
 Due to the python dependencies size of images grew in size. 
 If you still want to use smaller images without python dependencies, you can use the corresponding images tags ending with `-core`.
@@ -38,7 +39,7 @@ This release now brings the `llama-cpp` backend which is a c++ backend tied to l
 
 ### Support for  ROCm/HIPBLAS 
 
-This release bring support for AMD thanks to @65a .  See more details in https://github.com/mudler/LocalAI/pull/1100
+This release bring support for AMD thanks to @65a .  See more details in {{< pr "1100" >}}
 
 ### More CLI commands
 
