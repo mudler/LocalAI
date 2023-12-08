@@ -52,6 +52,20 @@ Note:
 - The model name is case sensitive.
 - LocalAI must be compiled with the `GO_TAGS=tts` flag.
 
+LocalAI also has experimental support for `transformers-musicgen` for the generation of short musical compositions. Currently, this is implemented via the same requests used for text to speech:
+
+```
+curl --request POST \
+  --url http://localhost:8080/tts \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "backend": "transformers-musicgen",
+    "model": "facebook/musicgen-medium",
+    "input": "Cello Rave"
+}' | aplay```
+
+Future versions of LocalAI will expose additional control over audio generation beyond the text prompt.
+
 #### Configuration
 
 Audio models can be configured via `YAML` files. This allows to configure specific setting for each backend. For instance, backends might be specifying a voice or supports voice cloning which must be specified in the configuration file.

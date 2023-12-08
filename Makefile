@@ -389,6 +389,7 @@ protogen-go:
 protogen-python:
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/sentencetransformers/ --grpc_python_out=backend/python/sentencetransformers/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/transformers/ --grpc_python_out=backend/python/transformers/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/transformers-musicgen/ --grpc_python_out=backend/python/transformers-musicgen/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/autogptq/ --grpc_python_out=backend/python/autogptq/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/exllama/ --grpc_python_out=backend/python/exllama/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/bark/ --grpc_python_out=backend/python/bark/ backend/backend.proto
@@ -407,6 +408,7 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/sentencetransformers
 	$(MAKE) -C backend/python/transformers
+	$(MAKE) -C backend/python/transformers-musicgen
 	$(MAKE) -C backend/python/vall-e-x
 	$(MAKE) -C backend/python/exllama
 	$(MAKE) -C backend/python/petals
