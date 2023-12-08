@@ -348,6 +348,7 @@ there are additional environment variables available that modify the behavior of
 | `BUILD_TYPE`               |         | Build type. Available: `cublas`, `openblas`, `clblas`                                                      |
 | `GO_TAGS`                  |         | Go tags. Available: `stablediffusion`                                                                      |
 | `HUGGINGFACEHUB_API_TOKEN` |         | Special token for interacting with HuggingFace Inference API, required only when using the `langchain-huggingface` backend |
+| `EXTRA_BACKENDS`          |         | A space separated list of backends to prepare. For example `EXTRA_BACKENDS="backend/python/diffusers backend/python/transformers"` prepares the conda environment on start |
 
 Here is how to configure these variables:
 
@@ -372,7 +373,7 @@ By default, all the backends are built.
 
 LocalAI can be extended with extra backends. The backends are implemented as `gRPC` services and can be written in any language. The container images that are built and published on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags) contain a set of images split in core and extra. By default Images bring all the dependencies and backends supported by LocalAI (we call those `extra` images). The `-core` images instead bring only the strictly necessary dependencies to run LocalAI without only a core set of backends.
 
-If you wish to build a custom container image with extra backends, you can use the core images and build only the backends you are interested into. For instance, to use the diffusers backend:
+If you wish to build a custom container image with extra backends, you can use the core images and build only the backends you are interested into or prepare the environment on startup by using the `EXTRA_BACKENDS` environment variable. For instance, to use the diffusers backend:
 
 ```Dockerfile
 FROM quay.io/go-skynet/local-ai:master-ffmpeg-core
@@ -395,3 +396,11 @@ ENV EXTERNAL_GRPC_BACKENDS="diffusers:/build/backend/python/diffusers/run.sh"
 You can specify remote external backends or path to local files. The syntax is `backend-name:/path/to/backend` or `backend-name:host:port`.
 
 {{% /notice %}}
+
+#### In runtime
+
+When using the `-core` container image it is possible to prepare the python backends you are interested into by using the `EXTRA_BACKENDS` variable, for instance:
+
+```bash
+docker run --env EXTRA_BACKENDS="backend/python/diffusers" quay.io/go-skynet/local-ai:master-ffmpeg-core
+```
