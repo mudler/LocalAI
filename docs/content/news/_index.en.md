@@ -26,6 +26,8 @@ New:
 Due to the python dependencies size of images grew in size. 
 If you still want to use smaller images without python dependencies, you can use the corresponding images tags ending with `-core`.
 
+Full changelog: https://github.com/mudler/LocalAI/releases/tag/v2.0.0
+
 ## 30-10-2023: __v1.40.0__
 
 This release is a preparation before v2 - the efforts now will be to refactor, polish and add new backends. Follow up on: https://github.com/mudler/LocalAI/issues/1126
