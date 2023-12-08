@@ -178,6 +178,7 @@ You can control LocalAI with command line arguments, to specify a binding addres
 | --watchdog-busy-timeout value | $WATCHDOG_BUSY_TIMEOUT | 5m | Watchdog timeout. This will restart the backend if it crashes.  |
 | --watchdog-idle-timeout value | $WATCHDOG_IDLE_TIMEOUT | 15m | Watchdog idle timeout. This will restart the backend if it crashes. |
 | --preload-backend-only | $PRELOAD_BACKEND_ONLY | false | If set, the api is NOT launched, and only the preloaded models / backends are started. This is intended for multi-node setups. |
+| --external-grpc-backends | EXTERNAL_GRPC_BACKENDS | none | Comma separated list of external gRPC backends to use. Format: `name:host:port` or `name:/path/to/file` |
 
 ### Container images
 
