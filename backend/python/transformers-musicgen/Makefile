@@ -1,7 +1,7 @@
 
 TRANSFORMERS_MUSICGEN_CONDA_PATH = "transformers-musicgen.yml"
 
-ifeq($(BUILD_TYPE), cublas)
+ifeq ($(BUILD_TYPE), cublas)
 	TRANSFORMERS_MUSICGEN_CONDA_PATH = "transformers-musicgen-nvidia.yml"
 endif
 

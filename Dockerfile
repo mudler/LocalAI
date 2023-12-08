@@ -190,7 +190,6 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/petals \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    pwd; \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/transformers-musicgen \
     ; fi
 
