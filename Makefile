@@ -28,7 +28,7 @@ WHISPER_CPP_VERSION?=3c28d1a5712e4c06b0380166e6f482ca2b525970
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
 
 # go-piper version
-PIPER_VERSION?=5a4c9e28c84bac09ab6baa9f88457d852cb46bb2
+PIPER_VERSION?=5386f3ed8e8ff6d9474832aa9a9a6a8d7b337d6a
 
 # stablediffusion version
 STABLEDIFFUSION_VERSION?=902db5f066fd137697e3b69d0fa10d4782bd2c2f
@@ -191,7 +191,7 @@ backend-assets/gpt4all: sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a
 backend-assets/espeak-ng-data: sources/go-piper
 	mkdir -p backend-assets/espeak-ng-data
 	$(MAKE) -C sources/go-piper piper.o
-	@cp -rf sources/go-piper/piper/build/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
+	@cp -rf sources/go-piper/piper-phonemize/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
 
 sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
