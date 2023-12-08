@@ -207,6 +207,9 @@ lora_adapter: "/path/to/lora/adapter"
 lora_base: "/path/to/lora/base"
 # Disable mulmatq (CUDA)
 no_mulmatq: true
+
+# Diffusers/transformers
+cuda: true
 ```
 
 ### Prompt templates 

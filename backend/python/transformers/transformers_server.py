@@ -56,14 +56,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         model_name = request.Model
         try:
             self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True) # trust_remote_code is needed to use the encode method with embeddings models like jinai-v2
-            try:
-                # TODO: also tensorflow, make configurable
-                import torch.cuda
-                if torch.cuda.is_available():
-                    print("Loading model", model_name, "to CUDA.", file=sys.stderr)
-                    self.model = self.model.to("cuda")
-            except Exception as err:
-                print("Not using CUDA:", err, file=sys.stderr)
+            if request.CUDA:
+                try:
+                    # TODO: also tensorflow, make configurable
+                    import torch.cuda
+                    if torch.cuda.is_available():
+                        print("Loading model", model_name, "to CUDA.", file=sys.stderr)
+                        self.model = self.model.to("cuda")
+                except Exception as err:
+                    print("Not using CUDA:", err, file=sys.stderr)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         # Implement your logic here for the LoadModel service

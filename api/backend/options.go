@@ -46,6 +46,7 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		Seed:           int32(c.Seed),
 		NBatch:         int32(b),
 		NoMulMatQ:      c.NoMulMatQ,
+		CUDA:           c.CUDA, // diffusers, transformers
 		DraftModel:     c.DraftModel,
 		AudioPath:      c.VallE.AudioPath,
 		Quantization:   c.Quantization,
