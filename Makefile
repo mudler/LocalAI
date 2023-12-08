@@ -414,6 +414,11 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/petals
 	$(MAKE) -C backend/python/exllama2
 
+prepare-test-extra:
+	$(MAKE) -C backend/python/transformers
+
+test-extra: prepare-test-extra
+	$(MAKE) -C backend/python/transformers test
 
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc

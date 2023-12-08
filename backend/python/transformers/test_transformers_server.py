@@ -31,7 +31,7 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the server starts up successfully
         """
-        time.sleep(2)
+        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
@@ -48,11 +48,12 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the model is loaded successfully
         """
+        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="bert-base-nli-mean-tokens"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="bert-base-cased"))
                 self.assertTrue(response.success)
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:
@@ -65,11 +66,12 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the embeddings are generated successfully
         """
+        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="bert-base-nli-mean-tokens"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="bert-base-cased"))
                 print(response.message)
                 self.assertTrue(response.success)
                 embedding_request = backend_pb2.PredictOptions(Embeddings="This is a test sentence.")
