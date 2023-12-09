@@ -33,6 +33,9 @@ PIPER_VERSION?=d6b6275ba037dabdba4a8b65dfdf6b2a73a67f07
 # stablediffusion version
 STABLEDIFFUSION_VERSION?=902db5f066fd137697e3b69d0fa10d4782bd2c2f
 
+# tinydream version
+TINYDREAM_VERSION?=772a9c0d9aaf768290e63cca3c904fe69faf677a
+
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
 export CMAKE_ARGS?=
@@ -129,6 +132,11 @@ ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
 	OPTIONAL_GRPC+=backend-assets/grpc/stablediffusion
 endif
 
+ifeq ($(findstring tinydream,$(GO_TAGS)),tinydream)
+#	OPTIONAL_TARGETS+=go-tiny-dream/libtinydream.a
+	OPTIONAL_GRPC+=backend-assets/grpc/tinydream
+endif
+
 ifeq ($(findstring tts,$(GO_TAGS)),tts)
 #	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
 #	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
@@ -171,6 +179,14 @@ sources/go-stable-diffusion:
 
 sources/go-stable-diffusion/libstablediffusion.a:
 	$(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
+
+## tiny-dream
+sources/go-tiny-dream:
+	git clone --recurse-submodules https://github.com/M0Rf30/go-tiny-dream sources/go-tiny-dream
+	cd sources/go-tiny-dream && git checkout -b build $(TINYDREAM_VERSION) && git submodule update --init --recursive --depth 1
+
+sources/go-tiny-dream/libtinydream.a:
+	$(MAKE) -C sources/go-tiny-dream libtinydream.a
 
 ## RWKV
 sources/go-rwkv:
@@ -232,7 +248,7 @@ sources/go-piper/libpiper_binding.a: sources/go-piper
 backend/cpp/llama/llama.cpp:
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama llama.cpp	
 
-get-sources: backend/cpp/llama/llama.cpp sources/go-llama sources/go-llama-ggml sources/go-ggml-transformers sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion
+get-sources: backend/cpp/llama/llama.cpp sources/go-llama sources/go-llama-ggml sources/go-ggml-transformers sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion sources/go-tiny-dream
 	touch $@
 
 replace:
@@ -243,6 +259,7 @@ replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(shell pwd)/sources/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(shell pwd)/sources/go-bert
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(shell pwd)/sources/go-stable-diffusion
+	$(GOCMD) mod edit -replace github.com/M0Rf30/go-tiny-dream=$(shell pwd)/sources/go-tiny-dream
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(shell pwd)/sources/go-piper
 
 prepare-sources: get-sources replace
@@ -261,6 +278,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C sources/go-stable-diffusion clean
 	$(MAKE) -C sources/go-bert clean
 	$(MAKE) -C sources/go-piper clean
+	$(MAKE) -C sources/go-tiny-dream clean
 	$(MAKE) build
 
 prepare: prepare-sources $(OPTIONAL_TARGETS)
@@ -522,8 +540,12 @@ backend-assets/grpc/stablediffusion: backend-assets/grpc
 	if [ ! -f backend-assets/grpc/stablediffusion ]; then \
 		$(MAKE) sources/go-stable-diffusion/libstablediffusion.a; \
 		CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(shell pwd)/sources/go-stable-diffusion/ LIBRARY_PATH=$(shell pwd)/sources/go-stable-diffusion/ \
-		$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/; \
+		$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/stablediffusion; \
 	fi
+
+backend-assets/grpc/tinydream: backend-assets/grpc sources/go-tiny-dream/libtinydream.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(shell pwd)/go-tiny-dream \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
 
 backend-assets/grpc/piper: backend-assets/grpc backend-assets/espeak-ng-data sources/go-piper/libpiper_binding.a
 	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(shell pwd)/sources/go-piper \
