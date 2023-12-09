@@ -42,7 +42,7 @@ THREADS=2
 GALLERIES=[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]
 
 ## Default path for models
-MODELS_PATH=/models
+MODELS_PATH=/build/models
 
 ## Enable debug mode
 # DEBUG=true
@@ -125,7 +125,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./models:/models
+      - ./models:/build/models
       - ./images/:/tmp/generated/images/
     command: ["/usr/bin/local-ai" ]
 ```
