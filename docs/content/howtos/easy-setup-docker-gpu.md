@@ -33,7 +33,7 @@ mkdir -p "images"
 {{% /tab %}}
 {{< /tabs >}}
 
-At this point we want to set up our `.env` file, here is a copy for you to use if you wish, please make sure to set it to the same as in the `docker-compose` file for later.
+At this point we want to set up our `.env` file, here is a copy for you to use if you wish, Make sure this is in the ``LocalAI`` folder.
 
 ```bash
 ## Set number of threads.
