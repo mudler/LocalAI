@@ -2,10 +2,13 @@ package backend
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c datamodel.Config, o *datamodel.StartupOptions) (func() ([]float32, error), error) {
@@ -88,5 +91,53 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c datamod
 			}
 		}
 		return embeds, nil
+	}, nil
+}
+
+func EmbeddingOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
+	}
+
+	log.Debug().Msgf("Parameter Config: %+v", config)
+	items := []datamodel.Item{}
+
+	for i, s := range config.InputToken {
+		// get the model function to call for the result
+		embedFn, err := ModelEmbedding("", s, ml, *config, startupOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		embeddings, err := embedFn()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, datamodel.Item{Embedding: embeddings, Index: i, Object: "embedding"})
+	}
+
+	for i, s := range config.InputStrings {
+		// get the model function to call for the result
+		embedFn, err := ModelEmbedding(s, []int{}, ml, *config, startupOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		embeddings, err := embedFn()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, datamodel.Item{Embedding: embeddings, Index: i, Object: "embedding"})
+	}
+
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+	return &datamodel.OpenAIResponse{
+		ID:      id,
+		Created: created,
+		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+		Data:    items,
+		Object:  "list",
 	}, nil
 }

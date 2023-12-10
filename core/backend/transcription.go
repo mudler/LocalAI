@@ -9,7 +9,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ModelTranscription(audio, language string, loader *model.ModelLoader, c datamodel.Config, o *datamodel.StartupOptions) (*datamodel.Result, error) {
+func ModelTranscription(audio, language string, loader *model.ModelLoader, c datamodel.Config, o *datamodel.StartupOptions) (*datamodel.WhisperResult, error) {
 
 	opts := modelOpts(c, o, []model.Option{
 		model.WithBackendString(model.WhisperBackend),
@@ -34,4 +34,18 @@ func ModelTranscription(audio, language string, loader *model.ModelLoader, c dat
 		Language: language,
 		Threads:  uint32(c.Threads),
 	})
+}
+
+func TranscriptionOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, audioFilePath string, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.WhisperResult, error) {
+	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
+	}
+
+	tr, err := ModelTranscription(audioFilePath, input.Language, ml, *config, startupOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return tr, nil
 }

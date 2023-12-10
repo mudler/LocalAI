@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/core/backend"
 	metrics "github.com/go-skynet/LocalAI/core/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/servers/http"
@@ -287,7 +286,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 			}
 
-			closeConfigWatcherFn, err := core.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
+			closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
 
 			defer closeConfigWatcherFn()
 

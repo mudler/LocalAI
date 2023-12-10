@@ -29,8 +29,8 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Transcript(model whisper.Model, audiopath, language string, threads uint) (datamodel.Result, error) {
-	res := datamodel.Result{}
+func Transcript(model whisper.Model, audiopath, language string, threads uint) (datamodel.WhisperResult, error) {
+	res := datamodel.WhisperResult{}
 
 	dir, err := os.MkdirTemp("", "whisper")
 	if err != nil {
@@ -90,7 +90,7 @@ func Transcript(model whisper.Model, audiopath, language string, threads uint) (
 			tokens = append(tokens, t.Id)
 		}
 
-		segment := datamodel.Segment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
+		segment := datamodel.WhisperSegment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
 		res.Segments = append(res.Segments, segment)
 
 		res.Text += s.Text

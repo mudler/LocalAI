@@ -2,17 +2,25 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
+	"github.com/go-skynet/LocalAI/pkg/grammar"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type LLMResponse struct {
@@ -20,10 +28,16 @@ type LLMResponse struct {
 	Usage    TokenUsage
 }
 
+// TODO: Test removing this and using datamodel?
 type TokenUsage struct {
 	Prompt     int
 	Completion int
 }
+
+type LLMStreamProcessor func(s string, req *datamodel.OpenAIRequest, config *datamodel.Config, loader *model.ModelLoader, responses chan datamodel.OpenAIResponse)
+
+const DEFAULT_NO_ACTION_NAME = "answer"
+const DEFAULT_NO_ACTION_DESCRIPTION = "use this action to answer without performing any action"
 
 func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c datamodel.Config, o *datamodel.StartupOptions, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
@@ -161,4 +175,664 @@ func Finetune(config datamodel.Config, input, prediction string) string {
 	}
 	return prediction
 
+}
+
+func ReadConfigFromFileAndCombineWithOpenAIRequest(modelFile string, input *datamodel.OpenAIRequest, cm *ConfigLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, *datamodel.OpenAIRequest, error) {
+	// Load a config file if present after the model name
+	modelConfig := filepath.Join(startupOptions.ModelPath, modelFile+".yaml")
+
+	var cfg *datamodel.Config
+
+	defaults := func() {
+		cfg = datamodel.DefaultConfig(modelFile)
+		cfg.ContextSize = startupOptions.ContextSize
+		cfg.Threads = startupOptions.Threads
+		cfg.F16 = startupOptions.F16
+		cfg.Debug = startupOptions.Debug
+	}
+
+	cfgExisting, exists := cm.GetConfig(modelFile)
+	if !exists {
+		if _, err := os.Stat(modelConfig); err == nil {
+			if err := cm.LoadConfig(modelConfig); err != nil {
+				return nil, nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
+			}
+			cfgExisting, exists = cm.GetConfig(modelFile)
+			if exists {
+				cfg = &cfgExisting
+			} else {
+				defaults()
+			}
+		} else {
+			defaults()
+		}
+	} else {
+		cfg = &cfgExisting
+	}
+
+	// Set the parameters for the language model prediction
+	datamodel.UpdateConfigFromOpenAIRequest(cfg, input)
+
+	// Don't allow 0 as setting
+	if cfg.Threads == 0 {
+		if startupOptions.Threads != 0 {
+			cfg.Threads = startupOptions.Threads
+		} else {
+			cfg.Threads = 4
+		}
+	}
+
+	// Enforce debug flag if passed from CLI
+	if startupOptions.Debug {
+		cfg.Debug = true
+	}
+
+	return cfg, input, nil
+}
+
+func ComputeChoices(
+	req *datamodel.OpenAIRequest,
+	predInput string,
+	config *datamodel.Config,
+	o *datamodel.StartupOptions,
+	loader *model.ModelLoader,
+	cb func(string, *[]datamodel.Choice),
+	tokenCallback func(string, TokenUsage) bool) ([]datamodel.Choice, TokenUsage, error) {
+	n := req.N // number of completions to return
+	result := []datamodel.Choice{}
+
+	if n == 0 {
+		n = 1
+	}
+
+	images := []string{}
+	for _, m := range req.Messages {
+		images = append(images, m.StringImages...)
+	}
+
+	// get the model function to call for the result
+	predFunc, err := ModelInference(req.Context, predInput, images, loader, *config, o, tokenCallback)
+	if err != nil {
+		return result, TokenUsage{}, err
+	}
+
+	tokenUsage := TokenUsage{}
+
+	for i := 0; i < n; i++ {
+		prediction, err := predFunc()
+		if err != nil {
+			return result, TokenUsage{}, err
+		}
+
+		tokenUsage.Prompt += prediction.Usage.Prompt
+		tokenUsage.Completion += prediction.Usage.Completion
+
+		finetunedResponse := Finetune(*config, predInput, prediction.Response)
+		cb(finetunedResponse, &result)
+
+		//result = append(result, Choice{Text: prediction})
+
+	}
+	return result, tokenUsage, err
+}
+
+// TODO: For round one of the refactor, give each of the three primary text endpoints their own function?
+// Can cleanup into a common form later if possible easier if they are all here for now
+// If they remain different, extract each of these named segments to a seperate file
+
+func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
+	}
+
+	log.Debug().Msgf("Parameter Config: %+v", config)
+
+	if config.TemplateConfig.Edit == "" {
+		config.TemplateConfig.Edit = config.Model
+	}
+
+	var result []datamodel.Choice
+	totalTokenUsage := TokenUsage{}
+
+	for _, i := range config.InputStrings {
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		templatedInput, err := ml.EvaluateTemplateForPrompt(model.EditPromptTemplate, config.TemplateConfig.Edit, model.PromptTemplateData{
+			Input:        i,
+			Instruction:  input.Instruction,
+			SystemPrompt: config.SystemPrompt,
+		})
+		if err == nil {
+			i = templatedInput
+			log.Debug().Msgf("Template found, input modified to: %s", i)
+		}
+
+		r, tokenUsage, err := ComputeChoices(input, i, config, startupOptions, ml, func(s string, c *[]datamodel.Choice) {
+			*c = append(*c, datamodel.Choice{Text: s})
+		}, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		totalTokenUsage.Prompt += tokenUsage.Prompt
+		totalTokenUsage.Completion += tokenUsage.Completion
+
+		result = append(result, r...)
+	}
+
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+	return &datamodel.OpenAIResponse{
+		ID:      id,
+		Created: created,
+		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+		Choices: result,
+		Object:  "edit",
+		Usage: datamodel.OpenAIUsage{
+			PromptTokens:     totalTokenUsage.Prompt,
+			CompletionTokens: totalTokenUsage.Completion,
+			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
+		},
+	}, nil
+}
+
+// /
+// /
+// /
+// /
+// /  SCROLL BLOCK
+// /
+// /
+// /
+// /
+func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, string, bool, error) {
+
+	// IMPORTANT DEFS
+	funcs := grammar.Functions{}
+
+	// The Basic Begining
+
+	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("failed reading parameters from request:%w", err)
+	}
+	log.Debug().Msgf("Configuration read: %+v", config)
+
+	// Special Input/Config Handling
+
+	// Allow the user to set custom actions via config file
+	// to be "embedded" in each model - but if they are missing, use defaults.
+	if config.FunctionsConfig.NoActionFunctionName == "" {
+		config.FunctionsConfig.NoActionFunctionName = DEFAULT_NO_ACTION_NAME
+	}
+	if config.FunctionsConfig.NoActionDescriptionName == "" {
+		config.FunctionsConfig.NoActionDescriptionName = DEFAULT_NO_ACTION_DESCRIPTION
+	}
+
+	if input.ResponseFormat.Type == "json_object" {
+		input.Grammar = grammar.JSONBNF
+	}
+
+	processFunctions := len(input.Functions) > 0 && config.ShouldUseFunctions()
+
+	if processFunctions {
+		log.Debug().Msgf("Response needs to process functions")
+
+		noActionGrammar := grammar.Function{
+			Name:        config.FunctionsConfig.NoActionFunctionName,
+			Description: config.FunctionsConfig.NoActionDescriptionName,
+			Parameters: map[string]interface{}{
+				"properties": map[string]interface{}{
+					"message": map[string]interface{}{
+						"type":        "string",
+						"description": "The message to reply the user with",
+					}},
+			},
+		}
+
+		// Append the no action function
+		funcs = append(funcs, input.Functions...)
+		if !config.FunctionsConfig.DisableNoAction {
+			funcs = append(funcs, noActionGrammar)
+		}
+
+		// Force picking one of the functions by the request
+		if config.FunctionToCall() != "" {
+			funcs = funcs.Select(config.FunctionToCall())
+		}
+
+		// Update input grammar
+		jsStruct := funcs.ToJSONStructure()
+		config.Grammar = jsStruct.Grammar("")
+	} else if input.JSONFunctionGrammarObject != nil {
+		config.Grammar = input.JSONFunctionGrammarObject.Grammar("")
+	}
+
+	log.Debug().Msgf("Parameters: %+v", config)
+
+	var predInput string
+
+	suppressConfigSystemPrompt := false
+	mess := []string{}
+	for messageIndex, i := range input.Messages {
+		var content string
+		role := i.Role
+
+		// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
+		// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
+		if i.FunctionCall != nil && i.Role == "assistant" {
+			roleFn := "assistant_function_call"
+			r := config.Roles[roleFn]
+			if r != "" {
+				role = roleFn
+			}
+		}
+		r := config.Roles[role]
+		contentExists := i.Content != nil && i.StringContent != ""
+		// First attempt to populate content via a chat message specific template
+		if config.TemplateConfig.ChatMessage != "" {
+			chatMessageData := model.ChatMessageTemplateData{
+				SystemPrompt: config.SystemPrompt,
+				Role:         r,
+				RoleName:     role,
+				Content:      i.StringContent,
+				MessageIndex: messageIndex,
+			}
+			templatedChatMessage, err := ml.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
+			if err != nil {
+				log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, config.TemplateConfig.ChatMessage, err)
+			} else {
+				if templatedChatMessage == "" {
+					log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", config.TemplateConfig.ChatMessage, chatMessageData)
+					continue // TODO: This continue is here intentionally to skip over the line `mess = append(mess, content)` below, and to prevent the sprintf
+				}
+				log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
+				content = templatedChatMessage
+			}
+		}
+		// If this model doesn't have such a template, or if that template fails to return a value, template at the message level.
+		if content == "" {
+			if r != "" {
+				if contentExists {
+					content = fmt.Sprint(r, i.StringContent)
+				}
+				if i.FunctionCall != nil {
+					j, err := json.Marshal(i.FunctionCall)
+					if err == nil {
+						if contentExists {
+							content += "\n" + fmt.Sprint(r, " ", string(j))
+						} else {
+							content = fmt.Sprint(r, " ", string(j))
+						}
+					}
+				}
+			} else {
+				if contentExists {
+					content = fmt.Sprint(i.StringContent)
+				}
+				if i.FunctionCall != nil {
+					j, err := json.Marshal(i.FunctionCall)
+					if err == nil {
+						if contentExists {
+							content += "\n" + string(j)
+						} else {
+							content = string(j)
+						}
+					}
+				}
+			}
+			// Special Handling: System. We care if it was printed at all, not the r branch, so check seperately
+			if contentExists && role == "system" {
+				suppressConfigSystemPrompt = true
+			}
+		}
+
+		mess = append(mess, content)
+	}
+
+	predInput = strings.Join(mess, "\n")
+	log.Debug().Msgf("Prompt (before templating): %s", predInput)
+
+	templateFile := config.Model
+
+	if config.TemplateConfig.Chat != "" && !processFunctions {
+		templateFile = config.TemplateConfig.Chat
+	}
+
+	if config.TemplateConfig.Functions != "" && processFunctions {
+		templateFile = config.TemplateConfig.Functions
+	}
+
+	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+	templatedInput, err := ml.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
+		SystemPrompt:         config.SystemPrompt,
+		SuppressSystemPrompt: suppressConfigSystemPrompt,
+		Input:                predInput,
+		Functions:            funcs,
+	})
+	if err == nil {
+		predInput = templatedInput
+		log.Debug().Msgf("Template found, input modified to: %s", predInput)
+	} else {
+		log.Debug().Msgf("Template failed loading: %s", err.Error())
+	}
+
+	log.Debug().Msgf("Prompt (after templating): %s", predInput)
+	if processFunctions {
+		log.Debug().Msgf("Grammar: %+v", config.Grammar)
+	}
+
+	return config, predInput, processFunctions, nil
+
+}
+
+// TODO: No functions???? Commonize on the above?
+func prepareCompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, error) {
+	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
+	}
+
+	if input.ResponseFormat.Type == "json_object" {
+		input.Grammar = grammar.JSONBNF
+	}
+
+	log.Debug().Msgf("Parameter Config: %+v", config)
+
+	if config.TemplateConfig.Completion == "" {
+		config.TemplateConfig.Completion = config.Model
+	}
+	if config.TemplateConfig.Completion == "" {
+		return nil, fmt.Errorf(("failed to find templateConfig"))
+	}
+
+	return config, nil
+}
+
+func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+
+	// var processor LLMStreamProcessor = nil
+
+	// DEFS
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+
+	// Prepare
+	config, predInput, processFunctions, err := prepareChatGenerationOpenAIRequest(modelName, input, cl, ml, startupOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	result, tokenUsage, err := ComputeChoices(input, predInput, config, startupOptions, ml, func(s string, c *[]datamodel.Choice) {
+		if processFunctions {
+			// As we have to change the result before processing, we can't stream the answer (yet?)
+			ss := map[string]interface{}{}
+			// This prevent newlines to break JSON parsing for clients
+			s = utils.EscapeNewLines(s)
+			json.Unmarshal([]byte(s), &ss)
+			log.Debug().Msgf("Function return: %s %+v", s, ss)
+
+			// The grammar defines the function name as "function", while OpenAI returns "name"
+			func_name := ss["function"]
+			// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
+			args := ss["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+			d, _ := json.Marshal(args)
+
+			ss["arguments"] = string(d)
+			ss["name"] = func_name
+
+			// if do nothing, reply with a message
+			if func_name == config.FunctionsConfig.NoActionFunctionName {
+				log.Debug().Msgf("nothing to do, computing a reply")
+
+				// If there is a message that the LLM already sends as part of the JSON reply, use it
+				arguments := map[string]interface{}{}
+				json.Unmarshal([]byte(d), &arguments)
+				m, exists := arguments["message"]
+				if exists {
+					switch message := m.(type) {
+					case string:
+						if message != "" {
+							log.Debug().Msgf("Reply received from LLM: %s", message)
+							message = Finetune(*config, predInput, message)
+							log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
+
+							*c = append(*c, datamodel.Choice{Message: &datamodel.Message{Role: "assistant", Content: &message}})
+							return
+						}
+					}
+				}
+
+				log.Debug().Msgf("No action received from LLM, without a message, computing a reply")
+				// Otherwise ask the LLM to understand the JSON output and the context, and return a message
+				// Note: This costs (in term of CPU) another computation
+				config.Grammar = ""
+				images := []string{}
+				for _, m := range input.Messages {
+					images = append(images, m.StringImages...)
+				}
+				predFunc, err := ModelInference(input.Context, predInput, images, ml, *config, startupOptions, nil)
+				if err != nil {
+					log.Error().Msgf("inference error: %s", err.Error())
+					return
+				}
+
+				prediction, err := predFunc()
+				if err != nil {
+					log.Error().Msgf("inference error: %s", err.Error())
+					return
+				}
+
+				fineTunedResponse := Finetune(*config, predInput, prediction.Response)
+				*c = append(*c, datamodel.Choice{Message: &datamodel.Message{Role: "assistant", Content: &fineTunedResponse}})
+			} else {
+				// otherwise reply with the function call
+				*c = append(*c, datamodel.Choice{
+					FinishReason: "function_call",
+					Message:      &datamodel.Message{Role: "assistant", FunctionCall: ss},
+				})
+			}
+
+			return
+		}
+		*c = append(*c, datamodel.Choice{FinishReason: "stop", Index: 0, Message: &datamodel.Message{Role: "assistant", Content: &s}})
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &datamodel.OpenAIResponse{
+		ID:      id,
+		Created: created,
+		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+		Choices: result,
+		Object:  "chat.completion",
+		Usage: datamodel.OpenAIUsage{
+			PromptTokens:     tokenUsage.Prompt,
+			CompletionTokens: tokenUsage.Completion,
+			TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+		},
+	}, nil
+
+}
+
+func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+	// Prepare
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+
+	config, err := prepareCompletionGenerationOpenAIRequest(modelName, input, cl, ml, startupOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []datamodel.Choice
+
+	totalTokenUsage := TokenUsage{}
+
+	for k, i := range config.PromptStrings {
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, config.TemplateConfig.Completion, model.PromptTemplateData{
+			SystemPrompt: config.SystemPrompt,
+			Input:        i,
+		})
+		if err == nil {
+			i = templatedInput
+			log.Debug().Msgf("Template found, input modified to: %s", i)
+		}
+
+		r, tokenUsage, err := ComputeChoices(
+			input, i, config, startupOptions, ml, func(s string, c *[]datamodel.Choice) {
+				*c = append(*c, datamodel.Choice{Text: s, FinishReason: "stop", Index: k})
+			}, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		totalTokenUsage.Prompt += tokenUsage.Prompt
+		totalTokenUsage.Completion += tokenUsage.Completion
+
+		result = append(result, r...)
+	}
+
+	return &datamodel.OpenAIResponse{
+		ID:      id,
+		Created: created,
+		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+		Choices: result,
+		Object:  "text_completion",
+		Usage: datamodel.OpenAIUsage{
+			PromptTokens:     totalTokenUsage.Prompt,
+			CompletionTokens: totalTokenUsage.Completion,
+			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
+		},
+	}, nil
+}
+
+func StreamingChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (chan datamodel.OpenAIResponse, error) {
+
+	// DEFS
+	emptyMessage := ""
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+
+	// Prepare
+	config, predInput, processFunctions, err := prepareChatGenerationOpenAIRequest(modelName, input, cl, ml, startupOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	if processFunctions {
+		// TODO: unused variable means I did something wrong. investigate once stable
+		log.Debug().Msgf("StreamingChatGenerationOpenAIRequest with processFunctions=true for %s?", config.Name)
+	}
+
+	processor := func(s string, req *datamodel.OpenAIRequest, config *datamodel.Config, loader *model.ModelLoader, responses chan datamodel.OpenAIResponse) {
+		initialMessage := datamodel.OpenAIResponse{
+			ID:      id,
+			Created: created,
+			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Choices: []datamodel.Choice{{Delta: &datamodel.Message{Role: "assistant", Content: &emptyMessage}}},
+			Object:  "chat.completion.chunk",
+		}
+		responses <- initialMessage
+
+		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]datamodel.Choice) {}, func(s string, usage TokenUsage) bool {
+			resp := datamodel.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []datamodel.Choice{{Delta: &datamodel.Message{Content: &s}, Index: 0}},
+				Object:  "chat.completion.chunk",
+				Usage: datamodel.OpenAIUsage{
+					PromptTokens:     usage.Prompt,
+					CompletionTokens: usage.Completion,
+					TotalTokens:      usage.Prompt + usage.Completion,
+				},
+			}
+
+			responses <- resp
+			return true
+		})
+		close(responses)
+	}
+	log.Trace().Msg("StreamingChatGenerationOpenAIRequest :: About to create response channel")
+
+	responses := make(chan datamodel.OpenAIResponse)
+
+	log.Trace().Msg("StreamingChatGenerationOpenAIRequest :: About to start processor goroutine")
+
+	go processor(predInput, input, config, ml, responses)
+
+	log.Trace().Msg("StreamingChatGenerationOpenAIRequest :: DONE! successfully returning to caller!")
+
+	return responses, nil
+
+}
+
+func StreamingCompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (chan datamodel.OpenAIResponse, error) {
+	// DEFS
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+
+	// Prepare
+	config, err := prepareCompletionGenerationOpenAIRequest(modelName, input, cl, ml, startupOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	processor := func(s string, req *datamodel.OpenAIRequest, config *datamodel.Config, loader *model.ModelLoader, responses chan datamodel.OpenAIResponse) {
+		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]datamodel.Choice) {}, func(s string, usage TokenUsage) bool {
+			resp := datamodel.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []datamodel.Choice{
+					{
+						Index: 0,
+						Text:  s,
+					},
+				},
+				Object: "text_completion",
+				Usage: datamodel.OpenAIUsage{
+					PromptTokens:     usage.Prompt,
+					CompletionTokens: usage.Completion,
+					TotalTokens:      usage.Prompt + usage.Completion,
+				},
+			}
+			log.Debug().Msgf("Sending goroutine: %s", s)
+
+			responses <- resp
+			return true
+		})
+		close(responses)
+	}
+
+	if len(config.PromptStrings) > 1 {
+		return nil, errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
+
+	}
+
+	predInput := config.PromptStrings[0]
+
+	//A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+	templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, config.TemplateConfig.Completion, model.PromptTemplateData{
+		Input: predInput,
+	})
+	if err == nil {
+		predInput = templatedInput
+		log.Debug().Msgf("Template found, input modified to: %s", predInput)
+	}
+
+	log.Trace().Msg("StreamingCompletionGenerationOpenAIRequest :: About to create response channel")
+
+	responses := make(chan datamodel.OpenAIResponse)
+
+	log.Trace().Msg("StreamingCompletionGenerationOpenAIRequest :: About to start processor goroutine")
+
+	go processor(predInput, input, config, ml, responses)
+
+	log.Trace().Msg("StreamingCompletionGenerationOpenAIRequest :: DONE! successfully returning to caller!")
+
+	return responses, nil
 }

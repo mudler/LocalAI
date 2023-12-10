@@ -223,7 +223,7 @@ func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOp
 	return client.TTS(ctx, in, opts...)
 }
 
-func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*datamodel.Result, error) {
+func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*datamodel.WhisperResult, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()
@@ -244,14 +244,14 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	if err != nil {
 		return nil, err
 	}
-	tresult := &datamodel.Result{}
+	tresult := &datamodel.WhisperResult{}
 	for _, s := range res.Segments {
 		tks := []int{}
 		for _, t := range s.Tokens {
 			tks = append(tks, int(t))
 		}
 		tresult.Segments = append(tresult.Segments,
-			datamodel.Segment{
+			datamodel.WhisperSegment{
 				Text:   s.Text,
 				Id:     int(s.Id),
 				Start:  time.Duration(s.Start),

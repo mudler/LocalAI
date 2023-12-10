@@ -2,7 +2,7 @@ package datamodel
 
 import "time"
 
-type Segment struct {
+type WhisperSegment struct {
 	Id     int           `json:"id"`
 	Start  time.Duration `json:"start"`
 	End    time.Duration `json:"end"`
@@ -10,7 +10,7 @@ type Segment struct {
 	Tokens []int         `json:"tokens"`
 }
 
-type Result struct {
-	Segments []Segment `json:"segments"`
-	Text     string    `json:"text"`
+type WhisperResult struct {
+	Segments []WhisperSegment `json:"segments"`
+	Text     string           `json:"text"`
 }

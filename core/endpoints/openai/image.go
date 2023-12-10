@@ -1,21 +1,13 @@
 package openai
 
 import (
-	"bufio"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -36,150 +28,14 @@ import (
 */
 func ImageEndpoint(cl *backend.ConfigLoader, ml *model.ModelLoader, so *datamodel.StartupOptions) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readInput(c, so, ml, true)
+		modelName, input, err := readInput(c, so, ml, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		if m == "" {
-			m = model.StableDiffusionBackend
-		}
-		log.Debug().Msgf("Loading model: %+v", m)
-
-		config, input, err := readConfig(m, input, cl, ml, so.Debug, 0, 0, false)
+		resp, err := backend.ImageGenerationOpenAIRequest(modelName, input, cl, ml, so)
 		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
-		}
-
-		src := ""
-		if input.File != "" {
-			//base 64 decode the file and write it somewhere
-			// that we will cleanup
-			decoded, err := base64.StdEncoding.DecodeString(input.File)
-			if err != nil {
-				return err
-			}
-			// Create a temporary file
-			outputFile, err := os.CreateTemp(so.ImageDir, "b64")
-			if err != nil {
-				return err
-			}
-			// write the base64 result
-			writer := bufio.NewWriter(outputFile)
-			_, err = writer.Write(decoded)
-			if err != nil {
-				outputFile.Close()
-				return err
-			}
-			outputFile.Close()
-			src = outputFile.Name()
-			defer os.RemoveAll(src)
-		}
-
-		log.Debug().Msgf("Parameter Config: %+v", config)
-
-		// XXX: Only stablediffusion is supported for now
-		if config.Backend == "" {
-			config.Backend = model.StableDiffusionBackend
-		}
-
-		sizeParts := strings.Split(input.Size, "x")
-		if len(sizeParts) != 2 {
-			return fmt.Errorf("Invalid value for 'size'")
-		}
-		width, err := strconv.Atoi(sizeParts[0])
-		if err != nil {
-			return fmt.Errorf("Invalid value for 'size'")
-		}
-		height, err := strconv.Atoi(sizeParts[1])
-		if err != nil {
-			return fmt.Errorf("Invalid value for 'size'")
-		}
-
-		b64JSON := false
-		if input.ResponseFormat.Type == "b64_json" {
-			b64JSON = true
-		}
-		// src and clip_skip
-		var result []datamodel.Item
-		for _, i := range config.PromptStrings {
-			n := input.N
-			if input.N == 0 {
-				n = 1
-			}
-			for j := 0; j < n; j++ {
-				prompts := strings.Split(i, "|")
-				positive_prompt := prompts[0]
-				negative_prompt := ""
-				if len(prompts) > 1 {
-					negative_prompt = prompts[1]
-				}
-
-				mode := 0
-				step := config.Step
-				if step == 0 {
-					step = 15
-				}
-
-				if input.Mode != 0 {
-					mode = input.Mode
-				}
-
-				if input.Step != 0 {
-					step = input.Step
-				}
-
-				tempDir := ""
-				if !b64JSON {
-					tempDir = so.ImageDir
-				}
-				// Create a temporary file
-				outputFile, err := os.CreateTemp(tempDir, "b64")
-				if err != nil {
-					return err
-				}
-				outputFile.Close()
-				output := outputFile.Name() + ".png"
-				// Rename the temporary file
-				err = os.Rename(outputFile.Name(), output)
-				if err != nil {
-					return err
-				}
-
-				baseURL := c.BaseURL()
-
-				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, ml, *config, so)
-				if err != nil {
-					return err
-				}
-				if err := fn(); err != nil {
-					return err
-				}
-
-				item := &datamodel.Item{}
-
-				if b64JSON {
-					defer os.RemoveAll(output)
-					data, err := os.ReadFile(output)
-					if err != nil {
-						return err
-					}
-					item.B64JSON = base64.StdEncoding.EncodeToString(data)
-				} else {
-					base := filepath.Base(output)
-					item.URL = baseURL + "/generated-images/" + base
-				}
-
-				result = append(result, *item)
-			}
-		}
-
-		id := uuid.New().String()
-		created := int(time.Now().Unix())
-		resp := &datamodel.OpenAIResponse{
-			ID:      id,
-			Created: created,
-			Data:    result,
+			return fmt.Errorf("error generating image request: +%w", err)
 		}
 
 		jsonResult, _ := json.Marshal(resp)

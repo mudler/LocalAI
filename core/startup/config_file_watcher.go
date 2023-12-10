@@ -1,4 +1,4 @@
-package core
+package startup
 
 import (
 	"encoding/json"

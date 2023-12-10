@@ -1,9 +1,21 @@
 package backend
 
 import (
+	"encoding/base64"
+	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, c datamodel.Config, o *datamodel.StartupOptions) (func() error, error) {
@@ -57,4 +69,129 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	}
 
 	return fn, nil
+}
+
+func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+
+	if modelName == "" {
+		modelName = model.StableDiffusionBackend
+	}
+	log.Debug().Msgf("Loading model: %+v", modelName)
+
+	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading parameters from request: %w", err)
+	}
+
+	src := ""
+	if input.File != "" {
+		src, err = utils.CreateTempFileFromBase64(input.File, "", "base64-image-src")
+		if err != nil {
+			return nil, fmt.Errorf("error creating temporary image source file: %w", err)
+		}
+	}
+
+	log.Debug().Msgf("Parameter Config: %+v", config)
+
+	// XXX: Only stablediffusion is supported for now
+	if config.Backend == "" {
+		config.Backend = model.StableDiffusionBackend
+	}
+
+	sizeParts := strings.Split(input.Size, "x")
+	if len(sizeParts) != 2 {
+		return nil, fmt.Errorf("invalid value for 'size'")
+	}
+	width, err := strconv.Atoi(sizeParts[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for 'size'")
+	}
+	height, err := strconv.Atoi(sizeParts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for 'size'")
+	}
+
+	b64JSON := false
+	if input.ResponseFormat.Type == "b64_json" {
+		b64JSON = true
+	}
+	// src and clip_skip
+	var result []datamodel.Item
+	for _, i := range config.PromptStrings {
+		n := input.N
+		if input.N == 0 {
+			n = 1
+		}
+		for j := 0; j < n; j++ {
+			prompts := strings.Split(i, "|")
+			positive_prompt := prompts[0]
+			negative_prompt := ""
+			if len(prompts) > 1 {
+				negative_prompt = prompts[1]
+			}
+
+			mode := 0
+			step := config.Step
+			if step == 0 {
+				step = 15
+			}
+
+			if input.Mode != 0 {
+				mode = input.Mode
+			}
+
+			if input.Step != 0 {
+				step = input.Step
+			}
+
+			tempDir := ""
+			if !b64JSON {
+				tempDir = startupOptions.ImageDir
+			}
+			// Create a temporary file
+			outputFile, err := os.CreateTemp(tempDir, "b64")
+			if err != nil {
+				return nil, err
+			}
+			outputFile.Close()
+			output := outputFile.Name() + ".png"
+			// Rename the temporary file
+			err = os.Rename(outputFile.Name(), output)
+			if err != nil {
+				return nil, err
+			}
+
+			fn, err := ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, ml, *config, startupOptions)
+			if err != nil {
+				return nil, err
+			}
+			if err := fn(); err != nil {
+				return nil, err
+			}
+
+			item := &datamodel.Item{}
+
+			if b64JSON {
+				defer os.RemoveAll(output)
+				data, err := os.ReadFile(output)
+				if err != nil {
+					return nil, err
+				}
+				item.B64JSON = base64.StdEncoding.EncodeToString(data)
+			} else {
+				base := filepath.Base(output)
+				item.URL = path.Join(startupOptions.ImageDir, base)
+			}
+
+			result = append(result, *item)
+		}
+	}
+
+	return &datamodel.OpenAIResponse{
+		ID:      id,
+		Created: created,
+		Data:    result,
+	}, nil
 }

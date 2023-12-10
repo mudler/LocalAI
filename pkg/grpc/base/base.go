@@ -54,8 +54,8 @@ func (llm *Base) GenerateImage(*pb.GenerateImageRequest) error {
 }
 
 // TODO CHECK THIS
-func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (datamodel.Result, error) {
-	return datamodel.Result{}, fmt.Errorf("unimplemented")
+func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (datamodel.WhisperResult, error) {
+	return datamodel.WhisperResult{}, fmt.Errorf("unimplemented")
 }
 
 func (llm *Base) TTS(*pb.TTSRequest) error {
