@@ -12,20 +12,26 @@ weight = 2
 
 We are going to run `LocalAI` with `Docker compose` for this set up.
 
-
-Lets clone `LocalAI` with git.
-
-```bash
-git clone https://github.com/go-skynet/LocalAI
-```
-
-
-Then we will cd into the `LocalAI` folder.
-
-```bash
+Lets Setup our folders for ``LocalAI``
+{{< tabs >}}
+{{% tab name="Windows (Batch)" %}}
+```batch
+mkdir "LocalAI"
 cd LocalAI
+mkdir "models"
+mkdir "images"
 ```
+{{% /tab %}}
 
+{{% tab name="Linux (Bash / WSL)" %}}
+```bash
+mkdir -p "LocalAI"
+cd LocalAI
+mkdir -p "models"
+mkdir -p "images"
+```
+{{% /tab %}}
+{{< /tabs >}}
 
 At this point we want to set up our `.env` file, here is a copy for you to use if you wish, please make sure to set it to the same as in the `docker-compose` file for later.
 
