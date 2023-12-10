@@ -18,7 +18,7 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method sets up the gRPC service by starting the server
         """
-        self.service = subprocess.Popen(["python3", "transformers_server.py", "--addr", "localhost:50051"])
+        self.service = subprocess.Popen(["python3", "backend_diffusers.py", "--addr", "localhost:50051"])
 
     def tearDown(self) -> None:
         """
@@ -53,7 +53,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="bert-base-cased"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="runwayml/stable-diffusion-v1-5", PipelineType="StableDiffusionPipeline"))
                 self.assertTrue(response.success)
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:
@@ -62,23 +62,23 @@ class TestBackendServicer(unittest.TestCase):
         finally:
             self.tearDown()
 
-    def test_embedding(self):
+    def test(self):
         """
-        This method tests if the embeddings are generated successfully
+        This method tests if the backend can generate images
         """
         time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="bert-base-cased"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="runwayml/stable-diffusion-v1-5", PipelineType="StableDiffusionPipeline"))
                 print(response.message)
                 self.assertTrue(response.success)
-                embedding_request = backend_pb2.PredictOptions(Embeddings="This is a test sentence.")
-                embedding_response = stub.Embedding(embedding_request)
-                self.assertIsNotNone(embedding_response.embeddings)
+                image_req = backend_pb2.GenerateImageRequest(positive_prompt="cat", width=16,height=16, dst="test.jpg")
+                re = stub.GenerateImage(image_req)
+                self.assertTrue(re.success)
         except Exception as err:
             print(err)
-            self.fail("Embedding service failed")
+            self.fail("Image gen service failed")
         finally:
             self.tearDown()
