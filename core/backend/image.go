@@ -27,7 +27,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 		model.WithContext(o.Context),
 		model.WithModel(c.Model),
 		model.WithLoadGRPCLoadModelOpts(&proto.ModelOptions{
-			CUDA:          c.Diffusers.CUDA,
+			CUDA:          c.CUDA,
 			SchedulerType: c.Diffusers.SchedulerType,
 			PipelineType:  c.Diffusers.PipelineType,
 			CFGScale:      c.Diffusers.CFGScale,
