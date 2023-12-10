@@ -22,7 +22,8 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     include_directories("/opt/homebrew/include")
 endif()
 
-find_package(absl CONFIG REQUIRED)
+find_package(absl CONFIG 
+find_package(absl REQUIRED)
 find_package(Protobuf CONFIG)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
@@ -35,6 +36,9 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${Protobuf_INCLUDE_DIRS})
 
 message(STATUS "Using protobuf version ${Protobuf_VERSION} | Protobuf_INCLUDE_DIRS: ${Protobuf_INCLUDE_DIRS} | CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+
+# Proto Hack?
+set(protobuf_MODULE_COMPATIBLE true)
 
 # Proto file
 get_filename_component(hw_proto "../../../../../../backend/backend.proto" ABSOLUTE)
