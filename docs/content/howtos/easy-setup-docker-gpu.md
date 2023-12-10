@@ -7,10 +7,10 @@ weight = 2
 
 {{% notice Note %}}
 - You will need about 10gb of RAM Free
-- You will need about 15gb of space free on C drive for ``Docker-compose``
+- You will need about 15gb of space free on C drive for ``Docker compose``
 {{% /notice %}}
 
-We are going to run `LocalAI` with `docker-compose` for this set up.
+We are going to run `LocalAI` with `Docker compose` for this set up.
 
 
 Lets clone `LocalAI` with git.
@@ -134,8 +134,7 @@ services:
 Make sure to save that in the root of the `LocalAI` folder. Then lets spin up the Docker run this in a `CMD` or `BASH`
 
 ```bash
-docker-compose up -d --pull always ##Windows
-docker compose up -d --pull always ##Linux
+docker compose up -d --pull always
 ```
 
 
