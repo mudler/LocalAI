@@ -22,7 +22,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     include_directories("/opt/homebrew/include")
 endif()
 
-find_package(absl CONFIG 
+find_package(absl CONFIG)
 find_package(absl REQUIRED)
 find_package(Protobuf CONFIG)
 find_package(Protobuf REQUIRED)
