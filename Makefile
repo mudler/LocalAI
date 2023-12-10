@@ -69,7 +69,11 @@ UNAME_S := $(shell uname -s)
 endif
 
 ifeq ($(OS),Darwin)
+	export BUILD_GRPC_FOR_BACKEND_LLAMA=true
+	export C_INCLUDE_PATH=/opt/homebrew/include:/usr/local/include
+    export CPLUS_INCLUDE_PATH=/opt/homebrew/include:/usr/local/include
 	CGO_LDFLAGS += -lcblas -framework Accelerate
+
 	ifeq ($(OSX_SIGNING_IDENTITY),)
 		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
 	endif
@@ -81,6 +85,7 @@ ifeq ($(OS),Darwin)
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DLLAMA_METAL=OFF
 	endif
+ 	
 endif
 
 ifeq ($(BUILD_TYPE),openblas)
