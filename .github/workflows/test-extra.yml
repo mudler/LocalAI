@@ -1,5 +1,5 @@
 ---
-name: 'tests'
+name: 'Tests extras backends'
 
 on:
   pull_request:
@@ -10,15 +10,12 @@ on:
       - '*'
 
 concurrency:
-  group: ci-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  group: ci-tests-extra-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 
 jobs:
   tests-linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ['1.21.x']
     steps:
       - name: Release space from worker
         run: |
@@ -56,13 +53,6 @@ jobs:
         uses: actions/checkout@v4
         with: 
           submodules: true
-      - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ matrix.go-version }}
-      # You can test your matrix by printing the current Go version
-      - name: Display Go version
-        run: go version
       - name: Dependencies
         run: |
           sudo apt-get update
@@ -78,48 +68,8 @@ jobs:
           sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
           
           sudo rm -rfv /usr/bin/conda || true
-          PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers
 
-          # Pre-build piper before we start tests in order to have shared libraries in place
-          make sources/go-piper && \
-          GO_TAGS="tts" make -C sources/go-piper piper.o && \
-          sudo cp -rfv sources/go-piper/piper-phonemize/pi/lib/. /usr/lib/ && \
-          # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
-          GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
-
-          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-                -DgRPC_BUILD_TESTS=OFF \
-                ../.. && sudo make -j12 install
       - name: Test
         run: |
-          GO_TAGS="stablediffusion tts" make test
-
-  tests-apple:
-    runs-on: macOS-latest
-    strategy:
-      matrix:
-        go-version: ['1.21.x']
-    steps:
-      - name: Clone
-        uses: actions/checkout@v4
-        with: 
-          submodules: true
-      - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ matrix.go-version }}
-      # You can test your matrix by printing the current Go version
-      - name: Display Go version
-        run: go version
-      - name: Dependencies
-        run: |
-          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-                -DgRPC_BUILD_TESTS=OFF \
-                ../.. && make -j12 install && rm -rf grpc
-      - name: Test
-        run: |
-          export C_INCLUDE_PATH=/usr/local/include
-          export CPLUS_INCLUDE_PATH=/usr/local/include
-          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
+           PATH=$PATH:/opt/conda/bin make test-extra
+ 

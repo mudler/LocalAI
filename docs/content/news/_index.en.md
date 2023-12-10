@@ -6,6 +6,30 @@ url = '/basics/news/'
 
 +++
 
+## 04-12-2023: __v2.0.0__
+
+This release brings a major overhaul in some backends. 
+
+Breaking/important changes:
+- Backend rename: `llama-stable` renamed to `llama-ggml` {{< pr "1287" >}}
+- Prompt template changes: {{< pr "1254" >}} (extra space in roles)
+- Apple metal bugfixes: {{< pr "1365" >}}
+
+New:
+- Added support for LLaVa and OpenAI Vision API support ({{< pr "1254" >}})
+- Python based backends are now using conda to track env dependencies ( {{< pr "1144" >}} )
+- Support for parallel requests ( {{< pr "1290"  >}} )
+- Support for transformers-embeddings ( {{< pr "1308"  >}})
+- Watchdog for backends ( {{< pr "1341"  >}}). As https://github.com/ggerganov/llama.cpp/issues/3969 is hitting LocalAI's llama-cpp implementation, we have now a watchdog that can be used to make sure backends are not stalling. This is a generic mechanism that can be enabled for all the backends now.
+- Whisper.cpp updates ( {{< pr "1302" >}} )
+- Petals backend ( {{< pr "1350" >}} )
+- Full LLM fine-tuning example to use with LocalAI: https://localai.io/advanced/fine-tuning/
+
+Due to the python dependencies size of images grew in size. 
+If you still want to use smaller images without python dependencies, you can use the corresponding images tags ending with `-core`.
+
+Full changelog: https://github.com/mudler/LocalAI/releases/tag/v2.0.0
+
 ## 30-10-2023: __v1.40.0__
 
 This release is a preparation before v2 - the efforts now will be to refactor, polish and add new backends. Follow up on: https://github.com/mudler/LocalAI/issues/1126
@@ -16,7 +40,7 @@ This release now brings the `llama-cpp` backend which is a c++ backend tied to l
 
 ### Support for  ROCm/HIPBLAS 
 
-This release bring support for AMD thanks to @65a .  See more details in https://github.com/mudler/LocalAI/pull/1100
+This release bring support for AMD thanks to @65a .  See more details in {{< pr "1100" >}}
 
 ### More CLI commands
 

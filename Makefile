@@ -22,13 +22,13 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=c898cd0f62df8f2a7830e53d1d513bef4f6f792b
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=3c28d1a5712e4c06b0380166e6f482ca2b525970
+WHISPER_CPP_VERSION?=885b5563d0e3465a45f27d4b59f1e00a4335b0d9
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
 
 # go-piper version
-PIPER_VERSION?=5a4c9e28c84bac09ab6baa9f88457d852cb46bb2
+PIPER_VERSION?=5386f3ed8e8ff6d9474832aa9a9a6a8d7b337d6a
 
 # stablediffusion version
 STABLEDIFFUSION_VERSION?=902db5f066fd137697e3b69d0fa10d4782bd2c2f
@@ -191,7 +191,7 @@ backend-assets/gpt4all: sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a
 backend-assets/espeak-ng-data: sources/go-piper
 	mkdir -p backend-assets/espeak-ng-data
 	$(MAKE) -C sources/go-piper piper.o
-	@cp -rf sources/go-piper/piper/build/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
+	@cp -rf sources/go-piper/piper-phonemize/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
 
 sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
@@ -388,6 +388,7 @@ protogen-go:
 protogen-python:
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/sentencetransformers/ --grpc_python_out=backend/python/sentencetransformers/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/transformers/ --grpc_python_out=backend/python/transformers/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/transformers-musicgen/ --grpc_python_out=backend/python/transformers-musicgen/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/autogptq/ --grpc_python_out=backend/python/autogptq/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/exllama/ --grpc_python_out=backend/python/exllama/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/bark/ --grpc_python_out=backend/python/bark/ backend/backend.proto
@@ -406,11 +407,17 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/sentencetransformers
 	$(MAKE) -C backend/python/transformers
+	$(MAKE) -C backend/python/transformers-musicgen
 	$(MAKE) -C backend/python/vall-e-x
 	$(MAKE) -C backend/python/exllama
 	$(MAKE) -C backend/python/petals
 	$(MAKE) -C backend/python/exllama2
 
+prepare-test-extra:
+	$(MAKE) -C backend/python/transformers
+
+test-extra: prepare-test-extra
+	$(MAKE) -C backend/python/transformers test
 
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc

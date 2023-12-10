@@ -59,9 +59,13 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *dat
 	// If the model file is not empty, we pass it joined with the model path
 	modelPath := ""
 	if modelFile != "" {
-		modelPath = filepath.Join(loader.ModelPath, modelFile)
-		if err := utils.VerifyPath(modelPath, loader.ModelPath); err != nil {
-			return "", nil, err
+		if bb != model.TransformersMusicGen {
+			modelPath = filepath.Join(o.ModelPath, modelFile)
+			if err := utils.VerifyPath(modelPath, o.ModelPath); err != nil {
+				return "", nil, err
+			}
+		} else {
+			modelPath = modelFile
 		}
 	}
 

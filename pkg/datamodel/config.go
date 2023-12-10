@@ -44,6 +44,10 @@ type Config struct {
 
 	// Vall-e-x
 	VallE VallE `yaml:"vall-e"`
+
+	// CUDA
+	// Explicitly enable CUDA or not (some backends might need it)
+	CUDA bool `yaml:"cuda"`
 }
 
 type VallE struct {
@@ -65,7 +69,6 @@ type GRPC struct {
 type Diffusers struct {
 	PipelineType     string  `yaml:"pipeline_type"`
 	SchedulerType    string  `yaml:"scheduler_type"`
-	CUDA             bool    `yaml:"cuda"`
 	EnableParameters string  `yaml:"enable_parameters"` // A list of comma separated parameters to specify
 	CFGScale         float32 `yaml:"cfg_scale"`         // Classifier-Free Guidance Scale
 	IMG2IMG          bool    `yaml:"img2img"`           // Image to Image Diffuser

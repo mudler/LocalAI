@@ -12,7 +12,9 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,exllama2:/build/backend/python/exllama2/run.sh"
+
+ENV EXTERNAL_GRPC_BACKENDS="huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh"
+
 ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
 ARG GO_TAGS="stablediffusion tts"
 
@@ -105,9 +107,9 @@ RUN if [ "${BUILD_GRPC}" = "true" ]; then \
 # Rebuild with defaults backends
 RUN make build
 
-RUN if [ ! -d "/build/sources/go-piper/piper/build/pi/lib/" ]; then \
-    mkdir -p /build/sources/go-piper/piper/build/pi/lib/ \
-    touch /build/sources/go-piper/piper/build/pi/lib/keep \
+RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
+    mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
+    touch /build/sources/go-piper/piper-phonemize/pi/lib/keep \
     ; fi
 
 ###################################
@@ -151,7 +153,7 @@ RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf
 COPY --from=builder /build/local-ai ./
 
 # Copy shared libraries for piper
-COPY --from=builder /build/sources/go-piper/piper/build/pi/lib/* /usr/lib/
+COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
@@ -186,6 +188,9 @@ RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
 	PATH=$PATH:/opt/conda/bin make -C backend/python/petals \
+    ; fi
+RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
+	PATH=$PATH:/opt/conda/bin make -C backend/python/transformers-musicgen \
     ; fi
 
 # Define the health check command

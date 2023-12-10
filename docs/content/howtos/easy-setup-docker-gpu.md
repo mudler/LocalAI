@@ -81,12 +81,29 @@ It will use a container from [quay.io](https://quay.io/repository/go-skynet/loca
 Also note this `docker-compose` file is for `CUDA` only.
 
 Please change the image to what you need.
-```
-Cuda 11 - v1.40.0-cublas-cuda11
-Cuda 12 - v1.40.0-cublas-cuda12
-Cuda 11 with TTS - v1.40.0-cublas-cuda11-ffmpeg
-Cuda 12 with TTS - v1.40.0-cublas-cuda12-ffmpeg
-```
+{{< tabs >}}
+{{% tab name="GPU Images CUDA 11" %}}
+- `master-cublas-cuda11`
+- `master-cublas-cuda11-core`
+- `v2.0.0-cublas-cuda11`
+- `v2.0.0-cublas-cuda11-core`
+- `v2.0.0-cublas-cuda11-ffmpeg`
+- `v2.0.0-cublas-cuda11-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+{{% /tab %}}
+
+{{% tab name="GPU Images CUDA 12" %}}
+- `master-cublas-cuda12`
+- `master-cublas-cuda12-core`
+- `v2.0.0-cublas-cuda12`
+- `v2.0.0-cublas-cuda12-core`
+- `v2.0.0-cublas-cuda12-ffmpeg`
+- `v2.0.0-cublas-cuda12-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+{{% /tab %}}
+{{< /tabs >}}
 
 ```docker
 version: '3.6'
