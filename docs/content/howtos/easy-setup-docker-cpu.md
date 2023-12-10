@@ -26,6 +26,8 @@ Then we will cd into the ``LocalAI`` folder.
 cd LocalAI
 ```
 
+We need to make a folder called ``models``
+
 
 At this point we want to set up our `.env` file, here is a copy for you to use if you wish, please make sure to set it to the same as in the `docker-compose` file for later.
 
