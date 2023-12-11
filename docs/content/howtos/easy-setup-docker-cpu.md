@@ -10,7 +10,7 @@ weight = 2
 - You will need about 15gb of space free on C drive for ``Docker compose``
 {{% /notice %}}
 
-We are going to run `LocalAI` with `Docker compose` for this set up.
+We are going to run `LocalAI` with `docker compose` for this set up.
 
 Lets Setup our folders for ``LocalAI``
 {{< tabs >}}
