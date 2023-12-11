@@ -12,7 +12,7 @@ weight = 2
 
 We are going to run `LocalAI` with `docker compose` for this set up.
 
-Lets Setup our folders for ``LocalAI``
+Lets setup our folders for ``LocalAI``
 {{< tabs >}}
 {{% tab name="Windows (Batch)" %}}
 ```batch
