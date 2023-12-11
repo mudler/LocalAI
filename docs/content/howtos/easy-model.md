@@ -5,7 +5,7 @@ title = "Easy Model Setup"
 weight = 2
 +++
 
-Lets Learn how to setup a model, for this ``How To`` we are going to use the ``Dolphin 2.2.1 Mistral 7B`` model.
+Lets learn how to setup a model, for this ``How To`` we are going to use the ``Dolphin 2.2.1 Mistral 7B`` model.
 
 To download the model to your models folder, run this command in a commandline of your picking.
 ```bash
