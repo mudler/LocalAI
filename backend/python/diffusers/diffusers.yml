@@ -25,15 +25,15 @@ dependencies:
   - xz=5.4.2=h5eee18b_0
   - zlib=1.2.13=h5eee18b_0
   - pip:
-      - accelerate==0.23.0
+      - accelerate>=0.11.0
       - certifi==2023.7.22
       - charset-normalizer==3.3.0
       - compel==2.0.2
-      - diffusers==0.21.4
+      - diffusers==0.24.0
       - filelock==3.12.4
       - fsspec==2023.9.2
       - grpcio==1.59.0
-      - huggingface-hub==0.17.3
+      - huggingface-hub>=0.19.4
       - idna==3.4
       - importlib-metadata==6.8.0
       - jinja2==3.1.2
@@ -63,10 +63,9 @@ dependencies:
       - requests==2.31.0
       - safetensors==0.4.0
       - sympy==1.12
-      - tokenizers==0.14.1
       - torch==2.1.0
       - tqdm==4.66.1
-      - transformers==4.34.0
+      - transformers>=4.25.1
       - triton==2.1.0
       - typing-extensions==4.8.0
       - urllib3==2.0.6
