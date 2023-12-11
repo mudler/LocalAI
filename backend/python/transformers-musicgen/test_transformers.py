@@ -71,7 +71,7 @@ class TestBackendServicer(unittest.TestCase):
                 stub = backend_pb2_grpc.BackendStub(channel)
                 response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
                 self.assertTrue(response.success)
-                tts_request = backend_pb2.TTSRequest(Model="facebook/musicgen-small", Input="80s TV news production music hit for tonight's biggest story")
+                tts_request = backend_pb2.TTSRequest(text="80s TV news production music hit for tonight's biggest story")
                 tts_response = stub.TTS(tts_request)
                 self.assertIsNotNone(tts_response)
         except Exception as err:
