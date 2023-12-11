@@ -19,6 +19,7 @@ class TestBackendServicer(unittest.TestCase):
         This method sets up the gRPC service by starting the server
         """
         self.service = subprocess.Popen(["python3", "transformers_server.py", "--addr", "localhost:50051"])
+        time.sleep(10)
 
     def tearDown(self) -> None:
         """
@@ -31,7 +32,6 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the server starts up successfully
         """
-        time.sleep(2)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
@@ -71,7 +71,7 @@ class TestBackendServicer(unittest.TestCase):
                 stub = backend_pb2_grpc.BackendStub(channel)
                 response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
                 self.assertTrue(response.success)
-                tts_request = backend_pb2.TTSRequest(Model="facebook/musicgen-small", Input="80s TV news production music hit for tonight's biggest story")
+                tts_request = backend_pb2.TTSRequest(text="80s TV news production music hit for tonight's biggest story")
                 tts_response = stub.TTS(tts_request)
                 self.assertIsNotNone(tts_response)
         except Exception as err:
