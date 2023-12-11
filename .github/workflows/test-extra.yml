@@ -164,6 +164,7 @@ jobs:
 
            
   # Below tests needs GPU. Commented out for now
+  # TODO: Re-enable as soon as we have GPU nodes
   # tests-vllm:
   #   runs-on: ubuntu-latest
   #   steps:
