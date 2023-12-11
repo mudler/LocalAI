@@ -416,9 +416,11 @@ prepare-extra-conda-environments:
 
 prepare-test-extra:
 	$(MAKE) -C backend/python/transformers
+	$(MAKE) -C backend/python/diffusers
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
+	$(MAKE) -C backend/python/diffusers test
 
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
