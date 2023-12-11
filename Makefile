@@ -22,13 +22,13 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=c898cd0f62df8f2a7830e53d1d513bef4f6f792b
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=885b5563d0e3465a45f27d4b59f1e00a4335b0d9
+WHISPER_CPP_VERSION?=6335933a5b2dfdac8541d3e748201d1bc1e3ec50
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
 
 # go-piper version
-PIPER_VERSION?=5386f3ed8e8ff6d9474832aa9a9a6a8d7b337d6a
+PIPER_VERSION?=6e687b16e88f9451c2ece5b8ff3627ecf54c4a68
 
 # stablediffusion version
 STABLEDIFFUSION_VERSION?=902db5f066fd137697e3b69d0fa10d4782bd2c2f
@@ -416,9 +416,11 @@ prepare-extra-conda-environments:
 
 prepare-test-extra:
 	$(MAKE) -C backend/python/transformers
+	$(MAKE) -C backend/python/diffusers
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
+	$(MAKE) -C backend/python/diffusers test
 
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc

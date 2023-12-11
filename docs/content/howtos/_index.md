@@ -11,7 +11,8 @@ This section includes LocalAI end-to-end examples, tutorial and how-tos curated 
 - [Setup LocalAI with Docker on CPU]({{%relref "howtos/easy-setup-docker-cpu" %}})
 - [Setup LocalAI with Docker With CUDA]({{%relref "howtos/easy-setup-docker-gpu" %}})
 - [Seting up a Model]({{%relref "howtos/easy-model" %}})
-- [Making requests to LocalAI]({{%relref "howtos/easy-request" %}})
+- [Making Text / LLM requests to LocalAI]({{%relref "howtos/easy-request" %}})
+- [Making Photo / SD requests to LocalAI]({{%relref "howtos/easy-setup-sd" %}})
   
 ## Programs and Demos
 
