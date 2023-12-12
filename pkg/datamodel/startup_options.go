@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
-	// "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
 

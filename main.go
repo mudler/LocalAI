@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	metrics "github.com/go-skynet/LocalAI/core/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/servers/http"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/core/startup"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
@@ -275,7 +275,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				return err
 			}
 
-			metrics, err := metrics.SetupMetrics()
+			metrics, err := services.SetupMetrics()
 			if err != nil {
 				return err
 			}
@@ -289,6 +289,9 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
 
 			defer closeConfigWatcherFn()
+			if err != nil {
+				return fmt.Errorf("failed while watching configuration directory %s", ctx.String("localai-config-dir"))
+			}
 
 			appHTTP, err := http.App(cl, ml, options)
 			if err != nil {

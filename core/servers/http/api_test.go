@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/go-skynet/LocalAI/core/endpoints/localai"
 	server "github.com/go-skynet/LocalAI/core/servers/http"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/core/startup"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
@@ -162,7 +162,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			metricsService, err := localai.SetupMetrics()
+			metricsService, err := services.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
@@ -487,7 +487,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			metricsService, err := localai.SetupMetrics()
+			metricsService, err := services.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
@@ -595,7 +595,7 @@ var _ = Describe("API test", func() {
 		BeforeEach(func() {
 			c, cancel = context.WithCancel(context.Background())
 
-			metricsService, err := localai.SetupMetrics()
+			metricsService, err := services.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
@@ -808,7 +808,7 @@ var _ = Describe("API test", func() {
 		BeforeEach(func() {
 			c, cancel = context.WithCancel(context.Background())
 
-			metricsService, err := localai.SetupMetrics()
+			metricsService, err := services.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(

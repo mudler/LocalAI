@@ -7,6 +7,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/endpoints/openai"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -157,7 +158,7 @@ func App(cl *backend.ConfigLoader, ml *model.ModelLoader, options *datamodel.Sta
 
 	app.Get("/metrics", localai.MetricsHandler())
 
-	backendMonitor := localai.NewBackendMonitor(cl, ml, options)
+	backendMonitor := services.NewBackendMonitor(cl, ml, options)
 	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitor))
 	app.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitor))
 
