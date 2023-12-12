@@ -136,7 +136,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print(f"Loading model {request.Model}...", file=sys.stderr)
             print(f"Request {request}", file=sys.stderr)
             torchType = torch.float32
-            variant = ""
+            variant = None
 
             if request.F16Memory:
                 torchType = torch.float16
@@ -165,8 +165,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             fromSingleFile = request.Model.startswith("http") or request.Model.startswith("/") or local
             
 
+            # If PipelineType is not defined, defaults to AutoPipelineForText2Image
             if request.PipelineType == "":
-                request.PipelineType == "AutoPipelineForText2Image"
+                request.PipelineType = "AutoPipelineForText2Image"
 
             ## img2img
             if (request.PipelineType == "StableDiffusionImg2ImgPipeline") or (request.IMG2IMG and request.PipelineType == ""):
