@@ -88,7 +88,7 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
-Note: If you are on Windows, please run ``docker-compose`` not ``docker compose`` and make sure the project is in the Linux Filesystem, otherwise loading models might be slow. For more Info: [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems)
+Note: If you are on Windows, please make sure the project is on the Linux Filesystem, otherwise loading models might be slow. For more Info: [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems)
 
 {{% /tab %}}
 
@@ -115,9 +115,65 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 
 {{< /tabs >}}
 
+### Container images
+
+LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags):
+
+{{< tabs >}}
+{{% tab name="Vanilla / CPU Images" %}}
+- `master`
+- `latest`
+- `v2.0.0`
+- `v2.0.0-ffmpeg`
+- `v2.0.0-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+{{% /tab %}}
+
+{{% tab name="GPU Images CUDA 11" %}}
+- `master-cublas-cuda11`
+- `master-cublas-cuda11-core`
+- `v2.0.0-cublas-cuda11`
+- `v2.0.0-cublas-cuda11-core`
+- `v2.0.0-cublas-cuda11-ffmpeg`
+- `v2.0.0-cublas-cuda11-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+{{% /tab %}}
+
+{{% tab name="GPU Images CUDA 12" %}}
+- `master-cublas-cuda12`
+- `master-cublas-cuda12-core`
+- `v2.0.0-cublas-cuda12`
+- `v2.0.0-cublas-cuda12-core`
+- `v2.0.0-cublas-cuda12-ffmpeg`
+- `v2.0.0-cublas-cuda12-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+Example:
+
+- Standard (GPT + `stablediffusion`): `quay.io/go-skynet/local-ai:latest`
+- FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-ffmpeg`
+- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-cublas-cuda11-ffmpeg`
+- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-cublas-cuda12-ffmpeg`
+
+{{% notice note %}}
+Note: the binary inside the image is pre-compiled, and might not suite all CPUs.
+To enable CPU optimizations for the execution environment,
+the default behavior is to rebuild when starting the container.
+To disable this auto-rebuild behavior,
+set the environment variable `REBUILD` to `false`.
+
+See [docs on all environment variables]({{%relref "advanced#environment-variables" %}})
+for more info.
+{{% /notice %}}
 
 ### Example: Use luna-ai-llama2 model with `docker`
-
 
 ```bash
 mkdir models
@@ -179,64 +235,6 @@ You can control LocalAI with command line arguments, to specify a binding addres
 | --watchdog-idle-timeout value | $WATCHDOG_IDLE_TIMEOUT | 15m | Watchdog idle timeout. This will restart the backend if it crashes. |
 | --preload-backend-only | $PRELOAD_BACKEND_ONLY | false | If set, the api is NOT launched, and only the preloaded models / backends are started. This is intended for multi-node setups. |
 | --external-grpc-backends | EXTERNAL_GRPC_BACKENDS | none | Comma separated list of external gRPC backends to use. Format: `name:host:port` or `name:/path/to/file` |
-
-### Container images
-
-LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags):
-
-{{< tabs >}}
-{{% tab name="Vanilla / CPU Images" %}}
-- `master`
-- `latest`
-- `v2.0.0`
-- `v2.0.0-ffmpeg`
-- `v2.0.0-ffmpeg-core`
-
-Core Images - Smaller images without predownload python dependencies
-{{% /tab %}}
-
-{{% tab name="GPU Images CUDA 11" %}}
-- `master-cublas-cuda11`
-- `master-cublas-cuda11-core`
-- `v2.0.0-cublas-cuda11`
-- `v2.0.0-cublas-cuda11-core`
-- `v2.0.0-cublas-cuda11-ffmpeg`
-- `v2.0.0-cublas-cuda11-ffmpeg-core`
-
-Core Images - Smaller images without predownload python dependencies
-{{% /tab %}}
-
-{{% tab name="GPU Images CUDA 12" %}}
-- `master-cublas-cuda12`
-- `master-cublas-cuda12-core`
-- `v2.0.0-cublas-cuda12`
-- `v2.0.0-cublas-cuda12-core`
-- `v2.0.0-cublas-cuda12-ffmpeg`
-- `v2.0.0-cublas-cuda12-ffmpeg-core`
-
-Core Images - Smaller images without predownload python dependencies
-
-{{% /tab %}}
-
-{{< /tabs >}}
-
-Example:
-
-- Standard (GPT + `stablediffusion`): `quay.io/go-skynet/local-ai:latest`
-- FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-ffmpeg`
-- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-cublas-cuda11-ffmpeg`
-- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-cublas-cuda12-ffmpeg`
-
-{{% notice note %}}
-Note: the binary inside the image is pre-compiled, and might not suite all CPUs.
-To enable CPU optimizations for the execution environment,
-the default behavior is to rebuild when starting the container.
-To disable this auto-rebuild behavior,
-set the environment variable `REBUILD` to `false`.
-
-See [docs on all environment variables]({{%relref "advanced#environment-variables" %}})
-for more info.
-{{% /notice %}}
 
 ### Run LocalAI in Kubernetes
 

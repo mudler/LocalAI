@@ -1,3 +1,6 @@
+"""
+A test script to test the gRPC service
+"""
 import unittest
 import subprocess
 import time
@@ -6,28 +9,29 @@ import backend_pb2_grpc
 
 import grpc
 
-import unittest
-import subprocess
-import time
-import grpc
-import backend_pb2_grpc
-import backend_pb2
 
 class TestBackendServicer(unittest.TestCase):
     """
-    TestBackendServicer is the class that tests the gRPC service.
-
-    This class contains methods to test the startup and shutdown of the gRPC service.
+    TestBackendServicer is the class that tests the gRPC service
     """
     def setUp(self):
-        self.service = subprocess.Popen(["python", "backend_vllm.py", "--addr", "localhost:50051"])
-        time.sleep(10)
+        """
+        This method sets up the gRPC service by starting the server
+        """
+        self.service = subprocess.Popen(["python3", "backend_diffusers.py", "--addr", "localhost:50051"])
 
     def tearDown(self) -> None:
-        self.service.terminate()
+        """
+        This method tears down the gRPC service by terminating the server
+        """
+        self.service.kill()
         self.service.wait()
 
     def test_server_startup(self):
+        """
+        This method tests if the server starts up successfully
+        """
+        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
@@ -39,15 +43,17 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("Server failed to start")
         finally:
             self.tearDown()
+
     def test_load_model(self):
         """
         This method tests if the model is loaded successfully
         """
+        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="runwayml/stable-diffusion-v1-5", PipelineType="StableDiffusionPipeline"))
                 self.assertTrue(response.success)
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:
@@ -56,21 +62,23 @@ class TestBackendServicer(unittest.TestCase):
         finally:
             self.tearDown()
 
-    def test_text(self):
+    def test(self):
         """
-        This method tests if the embeddings are generated successfully
+        This method tests if the backend can generate images
         """
+        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="runwayml/stable-diffusion-v1-5", PipelineType="StableDiffusionPipeline"))
+                print(response.message)
                 self.assertTrue(response.success)
-                req = backend_pb2.PredictOptions(prompt="The capital of France is")
-                resp = stub.Predict(req)
-                self.assertIsNotNone(resp.message)
+                image_req = backend_pb2.GenerateImageRequest(positive_prompt="cat", width=16,height=16, dst="test.jpg")
+                re = stub.GenerateImage(image_req)
+                self.assertTrue(re.success)
         except Exception as err:
             print(err)
-            self.fail("text service failed")
+            self.fail("Image gen service failed")
         finally:
             self.tearDown()

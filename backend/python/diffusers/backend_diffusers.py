@@ -303,12 +303,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         prompt = request.positive_prompt
 
+        steps = 1
+
+        if request.step != 0:
+            steps = request.step
+
         # create a dictionary of values for the parameters
         options = {
             "negative_prompt":     request.negative_prompt, 
             "width":               request.width, 
             "height":              request.height,
-            "num_inference_steps": request.step,
+            "num_inference_steps": steps,
         }
 
         if request.src != "":

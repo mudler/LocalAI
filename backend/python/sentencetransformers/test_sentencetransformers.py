@@ -19,19 +19,19 @@ class TestBackendServicer(unittest.TestCase):
         This method sets up the gRPC service by starting the server
         """
         self.service = subprocess.Popen(["python3", "sentencetransformers.py", "--addr", "localhost:50051"])
+        time.sleep(10)
 
     def tearDown(self) -> None:
         """
         This method tears down the gRPC service by terminating the server
         """
-        self.service.terminate()
+        self.service.kill()
         self.service.wait()
 
     def test_server_startup(self):
         """
         This method tests if the server starts up successfully
         """
-        time.sleep(2)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:

@@ -24,7 +24,7 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tears down the gRPC service by terminating the server
         """
-        self.service.terminate()
+        self.service.kill()
         self.service.wait()
 
     def test_server_startup(self):

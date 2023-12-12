@@ -7,27 +7,33 @@ weight = 2
 
 {{% notice Note %}}
 - You will need about 10gb of RAM Free
-- You will need about 15gb of space free on C drive for ``Docker-compose``
+- You will need about 15gb of space free on C drive for ``Docker compose``
 {{% /notice %}}
 
-We are going to run `LocalAI` with `docker-compose` for this set up.
+We are going to run `LocalAI` with `docker compose` for this set up.
 
-
-Lets clone `LocalAI` with git.
-
-```bash
-git clone https://github.com/go-skynet/LocalAI
-```
-
-
-Then we will cd into the `LocalAI` folder.
-
-```bash
+Lets Setup our folders for ``LocalAI``
+{{< tabs >}}
+{{% tab name="Windows (Batch)" %}}
+```batch
+mkdir "LocalAI"
 cd LocalAI
+mkdir "models"
+mkdir "images"
 ```
+{{% /tab %}}
 
+{{% tab name="Linux (Bash / WSL)" %}}
+```bash
+mkdir -p "LocalAI"
+cd LocalAI
+mkdir -p "models"
+mkdir -p "images"
+```
+{{% /tab %}}
+{{< /tabs >}}
 
-At this point we want to set up our `.env` file, here is a copy for you to use if you wish, please make sure to set it to the same as in the `docker-compose` file for later.
+At this point we want to set up our `.env` file, here is a copy for you to use if you wish, Make sure this is in the ``LocalAI`` folder.
 
 ```bash
 ## Set number of threads.
@@ -134,8 +140,7 @@ services:
 Make sure to save that in the root of the `LocalAI` folder. Then lets spin up the Docker run this in a `CMD` or `BASH`
 
 ```bash
-docker-compose up -d --pull always ##Windows
-docker compose up -d --pull always ##Linux
+docker compose up -d --pull always
 ```
 
 
