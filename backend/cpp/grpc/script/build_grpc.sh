@@ -26,7 +26,7 @@ GIT_CLONE_DEPTH=1
 NUM_BUILD_THREADS=$(nproc --ignore=1)
 
 # Google gRPC --------------------------------------------------------------------------------------
-TAG_LIB_GRPC="v1.59.0"
+TAG_LIB_GRPC="v1.60.0"
 GIT_REPO_LIB_GRPC="https://github.com/grpc/grpc.git"
 GRPC_REPO_DIR="${SCRIPT_DIR}/../grpc_repo"
 GRPC_BUILD_DIR="${SCRIPT_DIR}/../grpc_build"
