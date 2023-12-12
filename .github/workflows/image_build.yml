@@ -108,7 +108,7 @@ jobs:
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
-
+              echo 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -125,7 +125,10 @@ jobs:
           registry: quay.io
           username: ${{ secrets.dockerUsername }}
           password: ${{ secrets.dockerPassword }}
-
+        env: 
+          VERSION: "dev"
+      - name: Capture VERSION
+        run: echo "VERSION=$(git describe --always --tags || echo "dev")" >> "$GITHUB_ENV"
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -137,7 +140,7 @@ jobs:
             FFMPEG=${{ inputs.ffmpeg }}
             IMAGE_TYPE=${{ inputs.image-type }}
             COMMIT_HASH=${{ github.sha }}
-            VERSION="TODOTEST"
+            VERSION=${{ env.VERSION }}
           context: .
           file: ./Dockerfile
           platforms: ${{ inputs.platforms }}
