@@ -11,7 +11,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// TODO: For now, it is the caller's responsibility to delete the temporary directory? A callback seems... dumb.
 func CreateTempFileFromMultipartFile(file *multipart.FileHeader, tempDir string, tempPattern string) (string, error) {
 
 	f, err := file.Open()

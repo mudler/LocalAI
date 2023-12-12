@@ -12,8 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// TODO: Does this belong in package startup?
-
 type WatchConfigDirectoryCloser func() error
 
 func ReadApiKeysJson(configDir string, options *datamodel.StartupOptions) error {
