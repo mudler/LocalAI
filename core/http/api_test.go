@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	server "github.com/go-skynet/LocalAI/core/servers/http"
+	server "github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/core/startup"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -71,7 +72,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	return fn, nil
 }
 
-func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 

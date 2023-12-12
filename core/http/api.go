@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 	"github.com/go-skynet/LocalAI/core/services"
@@ -18,7 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
-func App(cl *backend.ConfigLoader, ml *model.ModelLoader, options *datamodel.StartupOptions) (*fiber.App, error) {
+func App(cl *services.ConfigLoader, ml *model.ModelLoader, options *datamodel.StartupOptions) (*fiber.App, error) {
 
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{

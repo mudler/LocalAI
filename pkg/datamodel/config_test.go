@@ -3,7 +3,7 @@ package datamodel_test
 import (
 	"os"
 
-	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +27,7 @@ var _ = Describe("Test cases for config related functions", func() {
 		})
 
 		It("Test LoadConfigs", func() {
-			cm := backend.NewConfigLoader()
+			cm := services.NewConfigLoader()
 			err := cm.LoadConfigs(os.Getenv("MODELS_PATH"))
 			Expect(err).To(BeNil())
 			Expect(cm.ListConfigs()).ToNot(BeNil())

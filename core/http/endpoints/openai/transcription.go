@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -16,7 +17,7 @@ import (
 )
 
 // https://platform.openai.com/docs/api-reference/audio/create
-func TranscriptEndpoint(cl *backend.ConfigLoader, ml *model.ModelLoader, so *datamodel.StartupOptions) func(c *fiber.Ctx) error {
+func TranscriptEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, so *datamodel.StartupOptions) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		modelName, input, err := readInput(c, so, ml, true)
 		if err != nil {

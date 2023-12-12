@@ -13,6 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
@@ -177,7 +178,7 @@ func Finetune(config datamodel.Config, input, prediction string) string {
 
 }
 
-func ReadConfigFromFileAndCombineWithOpenAIRequest(modelFile string, input *datamodel.OpenAIRequest, cm *ConfigLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, *datamodel.OpenAIRequest, error) {
+func ReadConfigFromFileAndCombineWithOpenAIRequest(modelFile string, input *datamodel.OpenAIRequest, cm *services.ConfigLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, *datamodel.OpenAIRequest, error) {
 	// Load a config file if present after the model name
 	modelConfig := filepath.Join(startupOptions.ModelPath, modelFile+".yaml")
 
@@ -280,7 +281,7 @@ func ComputeChoices(
 // Can cleanup into a common form later if possible easier if they are all here for now
 // If they remain different, extract each of these named segments to a seperate file
 
-func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
 	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
@@ -345,7 +346,7 @@ func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 // /
 // /
 // /
-func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, string, bool, error) {
+func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, string, bool, error) {
 
 	// IMPORTANT DEFS
 	funcs := grammar.Functions{}
@@ -527,7 +528,7 @@ func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenA
 }
 
 // TODO: No functions???? Commonize on the above?
-func prepareCompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, error) {
+func prepareCompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, error) {
 	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
@@ -549,7 +550,7 @@ func prepareCompletionGenerationOpenAIRequest(modelName string, input *datamodel
 	return config, nil
 }
 
-func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
 
 	// var processor LLMStreamProcessor = nil
 
@@ -656,7 +657,7 @@ func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 
 }
 
-func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
 	// Prepare
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
@@ -709,7 +710,7 @@ func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAI
 	}, nil
 }
 
-func StreamingChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (chan datamodel.OpenAIResponse, error) {
+func StreamingChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (chan datamodel.OpenAIResponse, error) {
 
 	// DEFS
 	emptyMessage := ""
@@ -770,7 +771,7 @@ func StreamingChatGenerationOpenAIRequest(modelName string, input *datamodel.Ope
 
 }
 
-func StreamingCompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (chan datamodel.OpenAIResponse, error) {
+func StreamingCompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (chan datamodel.OpenAIResponse, error) {
 	// DEFS
 	id := uuid.New().String()
 	created := int(time.Now().Unix())

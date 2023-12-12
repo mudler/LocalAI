@@ -1,7 +1,6 @@
 package startup
 
 import (
-	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
@@ -11,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Startup(opts ...datamodel.AppOption) (*backend.ConfigLoader, *model.ModelLoader, *datamodel.StartupOptions, error) {
+func Startup(opts ...datamodel.AppOption) (*services.ConfigLoader, *model.ModelLoader, *datamodel.StartupOptions, error) {
 	options := datamodel.NewStartupOptions(opts...)
 
 	ml := model.NewModelLoader(options.ModelPath)
@@ -24,7 +23,7 @@ func Startup(opts ...datamodel.AppOption) (*backend.ConfigLoader, *model.ModelLo
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
 
-	cl := backend.NewConfigLoader()
+	cl := services.NewConfigLoader()
 	if err := cl.LoadConfigs(options.ModelPath); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())
 	}

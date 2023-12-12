@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -15,12 +14,12 @@ import (
 )
 
 type BackendMonitor struct {
-	configLoader *backend.ConfigLoader
+	configLoader *ConfigLoader
 	modelLoader  *model.ModelLoader
 	options      *datamodel.StartupOptions // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
 
-func NewBackendMonitor(configLoader *backend.ConfigLoader, modelLoader *model.ModelLoader, options *datamodel.StartupOptions) *BackendMonitor {
+func NewBackendMonitor(configLoader *ConfigLoader, modelLoader *model.ModelLoader, options *datamodel.StartupOptions) *BackendMonitor {
 	return &BackendMonitor{
 		configLoader: configLoader,
 		modelLoader:  modelLoader,

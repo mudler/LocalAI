@@ -468,7 +468,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					ml := model.NewModelLoader(opts.ModelPath)
 
-					cl := backend.NewConfigLoader()
+					cl := services.NewConfigLoader()
 					if err := cl.LoadConfigs(ctx.String("models-path")); err != nil {
 						return err
 					}

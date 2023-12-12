@@ -1,7 +1,7 @@
 package mqtt
 
 import (
-	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
 )
@@ -9,11 +9,11 @@ import (
 // PLACEHOLDER DURING PART 1 OF THE REFACTOR
 
 type Manager struct {
-	configLoader *backend.ConfigLoader
+	configLoader *services.ConfigLoader
 	modelLoader  *model.ModelLoader
 }
 
-func NewManager(cl *backend.ConfigLoader, ml *model.ModelLoader, options *datamodel.StartupOptions) (*Manager, error) {
+func NewManager(cl *services.ConfigLoader, ml *model.ModelLoader, options *datamodel.StartupOptions) (*Manager, error) {
 
 	return &Manager{
 		configLoader: cl,

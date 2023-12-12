@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -94,7 +95,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c datamod
 	}, nil
 }
 
-func EmbeddingOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func EmbeddingOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
 	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading parameters from request:%w", err)

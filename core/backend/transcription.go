@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -36,7 +37,7 @@ func ModelTranscription(audio, language string, loader *model.ModelLoader, c dat
 	})
 }
 
-func TranscriptionOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, audioFilePath string, cl *ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.WhisperResult, error) {
+func TranscriptionOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, audioFilePath string, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.WhisperResult, error) {
 	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading parameters from request:%w", err)

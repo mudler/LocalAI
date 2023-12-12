@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
@@ -14,7 +15,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func ChatEndpoint(cl *backend.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) func(c *fiber.Ctx) error {
+func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) func(c *fiber.Ctx) error {
 
 	emptyMessage := ""
 

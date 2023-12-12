@@ -3,13 +3,13 @@ package openai
 import (
 	"regexp"
 
-	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 )
 
-func ListModelsEndpoint(cl *backend.ConfigLoader, ml *model.ModelLoader) func(ctx *fiber.Ctx) error {
+func ListModelsEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader) func(ctx *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		models, err := ml.ListModels()
 		if err != nil {
