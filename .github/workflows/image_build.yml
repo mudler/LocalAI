@@ -108,7 +108,6 @@ jobs:
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
-              echo 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
