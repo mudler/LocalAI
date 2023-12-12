@@ -28,9 +28,15 @@ find_package(Protobuf CONFIG)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
-find_program(_PROTOBUF_PROTOC protoc)
-set(_GRPC_GRPCPP grpc++)
-find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
+if(NOT DEFINED _PROTOBUF_PROTOC)
+  find_program(_PROTOBUF_PROTOC protoc)
+endif()
+if(NOT DEFINED _GRPC_GRPCPP)
+  set(_GRPC_GRPCPP grpc++)
+endif()
+if(NOT DEFINED _GRPC_CPP_PLUGIN_EXECUTABLE)
+  find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
+endif()
 
 # Proto Hack?
 set(protobuf_MODULE_COMPATIBLE ON)
