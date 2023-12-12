@@ -18,7 +18,7 @@ parameters:
   model: dreamlike-art/dreamlike-anime-1.0
 backend: diffusers
 
-f16: true # Force CPU usage - set to true for GPU
+f16: true # Force GPU usage - set to false for CPU
 threads: 10
 low_vram: true
 mmap: false
@@ -26,7 +26,7 @@ mmlock: false
 
 diffusers:
   pipeline_type: StableDiffusionPipeline
-  cuda: true # Enable for GPU usage (CUDA)
+  cuda: true # Force GPU usage - set to false for CPU
   scheduler_type: dpm_2_a
   enable_parameters: "negative_prompt,num_inference_steps"
 ```
