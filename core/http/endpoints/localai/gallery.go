@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -14,10 +14,10 @@ import (
 
 /// Endpoint Service
 
-type ModelGalleryService struct {
+type ModelGalleryEndpointService struct {
 	galleries      []gallery.Gallery
 	modelPath      string
-	galleryApplier *backend.GalleryApplier
+	galleryApplier *services.GalleryApplier
 }
 
 type GalleryModel struct {
@@ -25,15 +25,15 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func CreateModelGalleryService(galleries []gallery.Gallery, modelPath string, galleryApplier *backend.GalleryApplier) ModelGalleryService {
-	return ModelGalleryService{
+func CreateModelGalleryEndpointService(galleries []gallery.Gallery, modelPath string, galleryApplier *services.GalleryApplier) ModelGalleryEndpointService {
+	return ModelGalleryEndpointService{
 		galleries:      galleries,
 		modelPath:      modelPath,
 		galleryApplier: galleryApplier,
 	}
 }
 
-func (mgs *ModelGalleryService) GetOpStatusEndpoint() func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		status := mgs.galleryApplier.GetStatus(c.Params("uuid"))
 		if status == nil {
@@ -43,13 +43,13 @@ func (mgs *ModelGalleryService) GetOpStatusEndpoint() func(c *fiber.Ctx) error {
 	}
 }
 
-func (mgs *ModelGalleryService) GetAllStatusEndpoint() func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		return c.JSON(mgs.galleryApplier.GetAllStatus())
 	}
 }
 
-func (mgs *ModelGalleryService) ApplyModelGalleryEndpoint() func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		input := new(GalleryModel)
 		// Get input data from the request body
@@ -74,7 +74,7 @@ func (mgs *ModelGalleryService) ApplyModelGalleryEndpoint() func(c *fiber.Ctx) e
 	}
 }
 
-func (mgs *ModelGalleryService) ListModelFromGalleryEndpoint() func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		log.Debug().Msgf("Listing models from galleries: %+v", mgs.galleries)
 
@@ -95,7 +95,7 @@ func (mgs *ModelGalleryService) ListModelFromGalleryEndpoint() func(c *fiber.Ctx
 }
 
 // NOTE: This is different (and much simpler!) than above! This JUST lists the model galleries that have been loaded, not their contents!
-func (mgs *ModelGalleryService) ListModelGalleriesEndpoint() func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) ListModelGalleriesEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		log.Debug().Msgf("Listing model galleries %+v", mgs.galleries)
 		dat, err := json.Marshal(mgs.galleries)
@@ -106,7 +106,7 @@ func (mgs *ModelGalleryService) ListModelGalleriesEndpoint() func(c *fiber.Ctx) 
 	}
 }
 
-func (mgs *ModelGalleryService) AddModelGalleryEndpoint() func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) AddModelGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		input := new(gallery.Gallery)
 		// Get input data from the request body
@@ -128,7 +128,7 @@ func (mgs *ModelGalleryService) AddModelGalleryEndpoint() func(c *fiber.Ctx) err
 	}
 }
 
-func (mgs *ModelGalleryService) RemoveModelGalleryEndpoint() func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) RemoveModelGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		input := new(gallery.Gallery)
 		// Get input data from the request body

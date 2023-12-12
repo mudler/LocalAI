@@ -2,6 +2,7 @@ package startup
 
 import (
 	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
@@ -51,13 +52,13 @@ func Startup(opts ...datamodel.AppOption) (*backend.ConfigLoader, *model.ModelLo
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := backend.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
+		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
 			return nil, nil, nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := backend.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
+		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
 			return nil, nil, nil, err
 		}
 	}

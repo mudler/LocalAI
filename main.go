@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/servers/http"
+	"github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/core/startup"
 	"github.com/go-skynet/LocalAI/internal"

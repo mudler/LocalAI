@@ -1,4 +1,5 @@
 .idea
+.git
 models
 examples/chatbot-ui/models
 examples/rwkv/models

@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/endpoints/localai"
-	"github.com/go-skynet/LocalAI/core/endpoints/openai"
+	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
+	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
@@ -95,7 +95,7 @@ func App(cl *backend.ConfigLoader, ml *model.ModelLoader, options *datamodel.Sta
 	}
 
 	// LocalAI API endpoints
-	galleryService := backend.NewGalleryApplier(options.ModelPath)
+	galleryService := services.NewGalleryApplier(options.ModelPath)
 	galleryService.Start(options.Context, cl)
 
 	app.Get("/version", auth, func(c *fiber.Ctx) error {
@@ -104,7 +104,7 @@ func App(cl *backend.ConfigLoader, ml *model.ModelLoader, options *datamodel.Sta
 		}{Version: internal.PrintableVersion()})
 	})
 
-	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.ModelPath, galleryService)
+	modelGalleryService := localai.CreateModelGalleryEndpointService(options.Galleries, options.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryService.ApplyModelGalleryEndpoint())
 	app.Get("/models/available", auth, modelGalleryService.ListModelFromGalleryEndpoint())
 	app.Get("/models/galleries", auth, modelGalleryService.ListModelGalleriesEndpoint())

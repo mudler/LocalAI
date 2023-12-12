@@ -19,8 +19,8 @@ LocalAI
 local-ai
 # prevent above rules from omitting the helm chart
 !charts/*
-# prevent above rules from omitting the core/endpoints/localai folder
-!core/endpoints/localai
+# prevent above rules from omitting the core/**/localai folder
+!core/**/localai
 
 # Ignore models
 models/*
