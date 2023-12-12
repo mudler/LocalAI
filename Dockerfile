@@ -82,6 +82,8 @@ FROM requirements-${IMAGE_TYPE} as builder
 ARG GO_TAGS="stablediffusion tts"
 ARG GRPC_BACKENDS
 ARG BUILD_GRPC=true
+ARG VERSION
+ARG COMMIT_HASH
 ENV GRPC_BACKENDS=${GRPC_BACKENDS}
 ENV GO_TAGS=${GO_TAGS}
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -91,7 +93,7 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 WORKDIR /build
 
 COPY . .
-COPY .git .
+# COPY .git .
 RUN make prepare
 
 # stablediffusion does not tolerate a newer version of abseil, build it first

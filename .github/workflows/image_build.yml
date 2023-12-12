@@ -136,6 +136,8 @@ jobs:
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             FFMPEG=${{ inputs.ffmpeg }}
             IMAGE_TYPE=${{ inputs.image-type }}
+            COMMIT_HASH=${{ github.sha }}
+            VERSION="TODOTEST"
           context: .
           file: ./Dockerfile
           platforms: ${{ inputs.platforms }}

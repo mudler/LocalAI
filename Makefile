@@ -46,10 +46,11 @@ TEST_DIR=/tmp/test
 RANDOM := $(shell bash -c 'echo $$RANDOM')
 
 VERSION?=$(shell git describe --always --tags || echo "dev" )
+COMMIT_HASH?=$(shell git rev-parse HEAD)
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=
 override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Version=$(VERSION)"
-override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
+override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Commit=$(COMMIT_HASH)"
 
 OPTIONAL_TARGETS?=
 
