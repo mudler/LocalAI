@@ -31,7 +31,6 @@ backend: diffusers
 # Force CPU usage - set to true for GPU
 f16: false
 diffusers:
-  pipeline_type: StableDiffusionXLPipeline
   cuda: false # Enable for GPU usage (CUDA)
   scheduler_type: euler_a
 ```
@@ -69,7 +68,7 @@ The following parameters are available in the configuration file:
 | `scheduler_type` | Scheduler type | `k_dpp_sde` |
 | `cfg_scale` | Configuration scale | `8` |
 | `clip_skip` | Clip skip | None |
-| `pipeline_type` | Pipeline type | `StableDiffusionPipeline` |
+| `pipeline_type` | Pipeline type | `AutoPipelineForText2Image` |
 
 There are available several types of schedulers:
 
