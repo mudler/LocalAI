@@ -388,7 +388,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         image.save(buffered, format="JPEG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
  
-        return backend_pb2.Result(message="Model loaded successfully", success=True, blob=img_str)
+        return backend_pb2.BlobResult(message="Model loaded successfully", success=True, blob=img_str)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))
