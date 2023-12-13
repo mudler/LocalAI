@@ -39,6 +39,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 			CLIPModel:     c.Diffusers.ClipModel,
 			CLIPSubfolder: c.Diffusers.ClipSubFolder,
 			CLIPSkip:      int32(c.Diffusers.ClipSkip),
+			ControlNet:    c.Diffusers.ControlNet,
 		}),
 		model.WithExternalBackends(o.ExternalGRPCBackends, false),
 	})
