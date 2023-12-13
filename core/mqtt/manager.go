@@ -8,15 +8,17 @@ import (
 
 // PLACEHOLDER DURING PART 1 OF THE REFACTOR
 
-type Manager struct {
-	configLoader *services.ConfigLoader
-	modelLoader  *model.ModelLoader
+type MQTTManager struct {
+	configLoader   *services.ConfigLoader
+	modelLoader    *model.ModelLoader
+	startupOptions *datamodel.StartupOptions
 }
 
-func NewManager(cl *services.ConfigLoader, ml *model.ModelLoader, options *datamodel.StartupOptions) (*Manager, error) {
+func NewMQTTManager(cl *services.ConfigLoader, ml *model.ModelLoader, options *datamodel.StartupOptions) (*MQTTManager, error) {
 
-	return &Manager{
-		configLoader: cl,
-		modelLoader:  ml,
+	return &MQTTManager{
+		configLoader:   cl,
+		modelLoader:    ml,
+		startupOptions: options,
 	}, nil
 }

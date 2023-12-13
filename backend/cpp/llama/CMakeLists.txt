@@ -44,6 +44,7 @@ set(protobuf_MODULE_COMPATIBLE ON)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${Protobuf_INCLUDE_DIRS})
 
+message(STATUS "Current system path: ${PATH}")
 message(STATUS "Using protobuf version ${Protobuf_VERSION} | Protobuf_INCLUDE_DIRS: ${Protobuf_INCLUDE_DIRS} | CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR} | C_INCLUDE_PATH: ${C_INCLUDE_PATH}")
 
 
