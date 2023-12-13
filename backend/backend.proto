@@ -110,6 +110,7 @@ message ModelOptions {
   string CLIPModel = 31;
   string CLIPSubfolder = 32;
   int32 CLIPSkip = 33;
+  string ControlNet = 48;
 
   // RWKV
   string Tokenizer = 34;
