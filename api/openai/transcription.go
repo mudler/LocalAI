@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
-	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/api/backend"
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -48,15 +46,10 @@ func TranscriptEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		}
 		defer os.RemoveAll(dir)
 
-		dst := filepath.Join(dir, path.Base(file.Filename))
-		dstFile, err := os.Create(dst)
-		if err != nil {
-			return err
-		}
 		b := bytes.NewBufferString("")
 		audio := base64.NewEncoder(base64.StdEncoding, b)
 		if _, err := io.Copy(audio, f); err != nil {
-			log.Debug().Msgf("Audio file copying error %+v - %+v - err %+v", file.Filename, dst, err)
+			log.Debug().Msgf("Audio file encoding error %+v - err %+v", file.Filename, err)
 			return err
 		}
 
