@@ -56,27 +56,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 		src := ""
 		if input.File != "" {
-			//base 64 decode the file and write it somewhere
-			// that we will cleanup
-			decoded, err := base64.StdEncoding.DecodeString(input.File)
-			if err != nil {
-				return err
-			}
-			// Create a temporary file
-			outputFile, err := os.CreateTemp(o.ImageDir, "b64")
-			if err != nil {
-				return err
-			}
-			// write the base64 result
-			writer := bufio.NewWriter(outputFile)
-			_, err = writer.Write(decoded)
-			if err != nil {
-				outputFile.Close()
-				return err
-			}
-			outputFile.Close()
-			src = outputFile.Name()
-			defer os.RemoveAll(src)
+			src = input.File
 		}
 
 		log.Debug().Msgf("Parameter Config: %+v", config)

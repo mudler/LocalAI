@@ -341,7 +341,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         }
 
         if request.src != "" and not self.controlnet:
-            image = Image.open(request.src)
+            # request.src is a base64 encoded image, so we need to decode it first
+            image = Image.open(io.BytesIO(base64.b64decode(request.src)))
             options["image"] = image
         elif self.controlnet and request.src:
             pose_image = load_image(request.src)

@@ -1,6 +1,8 @@
 package openai
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,15 +53,16 @@ func TranscriptEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		if err != nil {
 			return err
 		}
-
-		if _, err := io.Copy(dstFile, f); err != nil {
+		b := bytes.NewBufferString("")
+		audio := base64.NewEncoder(base64.StdEncoding, b)
+		if _, err := io.Copy(audio, f); err != nil {
 			log.Debug().Msgf("Audio file copying error %+v - %+v - err %+v", file.Filename, dst, err)
 			return err
 		}
 
-		log.Debug().Msgf("Audio file copied to: %+v", dst)
+		log.Debug().Msgf("Audio file encoded")
 
-		tr, err := backend.ModelTranscription(dst, input.Language, o.Loader, *config, o)
+		tr, err := backend.ModelTranscription(b.String(), input.Language, o.Loader, *config, o)
 		if err != nil {
 			return err
 		}

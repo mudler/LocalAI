@@ -3,6 +3,9 @@ package main
 // This is a wrapper to statisfy the GRPC service interface
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
+	"encoding/base64"
+	"os"
+
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	"github.com/go-skynet/LocalAI/api/schema"
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
@@ -22,5 +25,22 @@ func (sd *Whisper) Load(opts *pb.ModelOptions) error {
 }
 
 func (sd *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (schema.Result, error) {
-	return Transcript(sd.whisper, opts.Dst, opts.Language, uint(opts.Threads))
+	f, err := os.CreateTemp("", "whisper")
+	if err != nil {
+		return schema.Result{}, err
+	}
+
+	data, err := base64.StdEncoding.DecodeString(opts.Dst)
+	if err != nil {
+		return schema.Result{}, err
+	}
+	_, err = f.Write(data)
+	if err != nil {
+		return schema.Result{}, err
+	}
+
+	defer f.Close()
+	defer os.RemoveAll(f.Name())
+
+	return Transcript(sd.whisper, f.Name(), opts.Language, uint(opts.Threads))
 }
