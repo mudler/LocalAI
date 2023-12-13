@@ -147,20 +147,24 @@ make BUILD_TYPE=cublas build
 
 More informations available in the upstream PR: https://github.com/ggerganov/llama.cpp/pull/1412
 
-#### Hipblas (AMD GPU)
 
-AMD GPU Acceleration
+#### Hipblas (AMD GPU with ROCm on Arch Linux)
 
-Requirement: ROCm
-
+Packages:
 ```
-make BUILD_TYPE=hipblas build
+pacman -S base-devel git rocm-hip-sdk rocm-opencl-sdk opencv clblast grpc
 ```
 
-Specific GPU targets can be specified with `GPU_TARGETS`:
-  
+Library links:
 ```
-make BUILD_TYPE=hipblas GPU_TARGETS=gfx90a build
+export CGO_CFLAGS="-I/usr/include/opencv4"
+export CGO_CXXFLAGS="-I/usr/include/opencv4"
+export CGO_LDFLAGS="-L/opt/rocm/hip/lib -lamdhip64 -L/opt/rocm/lib -lOpenCL -L/usr/lib -lclblast -lrocblas -lhipblas -lrocrand -lomp -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link"
+```
+
+Build:
+```
+make BUILD_TYPE=hipblas GPU_TARGETS=gfx1030
 ```
 
 #### ClBLAS
