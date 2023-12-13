@@ -13,9 +13,9 @@ service Backend {
   rpc LoadModel(ModelOptions) returns (Result) {}
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
-  rpc GenerateImage(GenerateImageRequest) returns (Result) {}
+  rpc GenerateImage(GenerateImageRequest) returns (BlobResult) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
-  rpc TTS(TTSRequest) returns (Result) {}
+  rpc TTS(TTSRequest) returns (BlobResult) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
 }
@@ -140,6 +140,12 @@ message ModelOptions {
 message Result {
   string message = 1;
   bool success = 2;
+}
+
+message BlobResult {
+  string message = 1;
+  bool success = 2;
+  string blob = 3;
 }
 
 message EmbeddingResult {

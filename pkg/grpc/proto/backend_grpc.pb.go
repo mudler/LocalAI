@@ -27,9 +27,9 @@ type BackendClient interface {
 	LoadModel(ctx context.Context, in *ModelOptions, opts ...grpc.CallOption) (*Result, error)
 	PredictStream(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (Backend_PredictStreamClient, error)
 	Embedding(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (*EmbeddingResult, error)
-	GenerateImage(ctx context.Context, in *GenerateImageRequest, opts ...grpc.CallOption) (*Result, error)
+	GenerateImage(ctx context.Context, in *GenerateImageRequest, opts ...grpc.CallOption) (*BlobResult, error)
 	AudioTranscription(ctx context.Context, in *TranscriptRequest, opts ...grpc.CallOption) (*TranscriptResult, error)
-	TTS(ctx context.Context, in *TTSRequest, opts ...grpc.CallOption) (*Result, error)
+	TTS(ctx context.Context, in *TTSRequest, opts ...grpc.CallOption) (*BlobResult, error)
 	TokenizeString(ctx context.Context, in *PredictOptions, opts ...grpc.CallOption) (*TokenizationResponse, error)
 	Status(ctx context.Context, in *HealthMessage, opts ...grpc.CallOption) (*StatusResponse, error)
 }
@@ -110,8 +110,8 @@ func (c *backendClient) Embedding(ctx context.Context, in *PredictOptions, opts 
 	return out, nil
 }
 
-func (c *backendClient) GenerateImage(ctx context.Context, in *GenerateImageRequest, opts ...grpc.CallOption) (*Result, error) {
-	out := new(Result)
+func (c *backendClient) GenerateImage(ctx context.Context, in *GenerateImageRequest, opts ...grpc.CallOption) (*BlobResult, error) {
+	out := new(BlobResult)
 	err := c.cc.Invoke(ctx, "/backend.Backend/GenerateImage", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -128,8 +128,8 @@ func (c *backendClient) AudioTranscription(ctx context.Context, in *TranscriptRe
 	return out, nil
 }
 
-func (c *backendClient) TTS(ctx context.Context, in *TTSRequest, opts ...grpc.CallOption) (*Result, error) {
-	out := new(Result)
+func (c *backendClient) TTS(ctx context.Context, in *TTSRequest, opts ...grpc.CallOption) (*BlobResult, error) {
+	out := new(BlobResult)
 	err := c.cc.Invoke(ctx, "/backend.Backend/TTS", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -164,9 +164,9 @@ type BackendServer interface {
 	LoadModel(context.Context, *ModelOptions) (*Result, error)
 	PredictStream(*PredictOptions, Backend_PredictStreamServer) error
 	Embedding(context.Context, *PredictOptions) (*EmbeddingResult, error)
-	GenerateImage(context.Context, *GenerateImageRequest) (*Result, error)
+	GenerateImage(context.Context, *GenerateImageRequest) (*BlobResult, error)
 	AudioTranscription(context.Context, *TranscriptRequest) (*TranscriptResult, error)
-	TTS(context.Context, *TTSRequest) (*Result, error)
+	TTS(context.Context, *TTSRequest) (*BlobResult, error)
 	TokenizeString(context.Context, *PredictOptions) (*TokenizationResponse, error)
 	Status(context.Context, *HealthMessage) (*StatusResponse, error)
 	mustEmbedUnimplementedBackendServer()
@@ -191,13 +191,13 @@ func (UnimplementedBackendServer) PredictStream(*PredictOptions, Backend_Predict
 func (UnimplementedBackendServer) Embedding(context.Context, *PredictOptions) (*EmbeddingResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Embedding not implemented")
 }
-func (UnimplementedBackendServer) GenerateImage(context.Context, *GenerateImageRequest) (*Result, error) {
+func (UnimplementedBackendServer) GenerateImage(context.Context, *GenerateImageRequest) (*BlobResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateImage not implemented")
 }
 func (UnimplementedBackendServer) AudioTranscription(context.Context, *TranscriptRequest) (*TranscriptResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AudioTranscription not implemented")
 }
-func (UnimplementedBackendServer) TTS(context.Context, *TTSRequest) (*Result, error) {
+func (UnimplementedBackendServer) TTS(context.Context, *TTSRequest) (*BlobResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TTS not implemented")
 }
 func (UnimplementedBackendServer) TokenizeString(context.Context, *PredictOptions) (*TokenizationResponse, error) {

@@ -136,39 +136,46 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 				if !b64JSON {
 					tempDir = o.ImageDir
 				}
-				// Create a temporary file
-				outputFile, err := os.CreateTemp(tempDir, "b64")
-				if err != nil {
-					return err
-				}
-				outputFile.Close()
-				output := outputFile.Name() + ".png"
-				// Rename the temporary file
-				err = os.Rename(outputFile.Name(), output)
-				if err != nil {
-					return err
-				}
 
 				baseURL := c.BaseURL()
 
-				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, o.Loader, *config, o)
+				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, o.Loader, *config, o)
 				if err != nil {
 					return err
 				}
-				if err := fn(); err != nil {
+				img, err := fn()
+				if err != nil {
 					return err
 				}
 
 				item := &schema.Item{}
 
 				if b64JSON {
-					defer os.RemoveAll(output)
-					data, err := os.ReadFile(output)
+					item.B64JSON = img
+				} else {
+					// Create a temporary file
+					outputFile, err := os.CreateTemp(tempDir, "b64")
 					if err != nil {
 						return err
 					}
-					item.B64JSON = base64.StdEncoding.EncodeToString(data)
-				} else {
+					outputFile.Close()
+					output := outputFile.Name() + ".png"
+
+					// Decode and write the base64 result
+					decoded, err := base64.StdEncoding.DecodeString(img)
+					if err != nil {
+						return err
+					}
+					writer := bufio.NewWriter(outputFile)
+					_, err = writer.Write(decoded)
+					if err != nil {
+						return err
+					}
+					// Rename the temporary file
+					err = os.Rename(outputFile.Name(), output)
+					if err != nil {
+						return err
+					}
 					base := filepath.Base(output)
 					item.URL = baseURL + "/generated-images/" + base
 				}

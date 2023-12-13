@@ -5,7 +5,7 @@ import (
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 )
 
-type LLM interface {
+type Backend interface {
 	Busy() bool
 	Lock()
 	Unlock()
@@ -14,9 +14,9 @@ type LLM interface {
 	PredictStream(*pb.PredictOptions, chan string) error
 	Load(*pb.ModelOptions) error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
-	GenerateImage(*pb.GenerateImageRequest) error
+	GenerateImage(*pb.GenerateImageRequest) (string, error)
 	AudioTranscription(*pb.TranscriptRequest) (schema.Result, error)
-	TTS(*pb.TTSRequest) error
+	TTS(*pb.TTSRequest) (string, error)
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
 	Status() (pb.StatusResponse, error)
 }

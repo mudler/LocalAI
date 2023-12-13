@@ -3,6 +3,7 @@ package main
 // This is a wrapper to statisfy the GRPC service interface
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func (sd *Piper) Load(opts *pb.ModelOptions) error {
 	return err
 }
 
-func (sd *Piper) TTS(opts *pb.TTSRequest) error {
+func (sd *Piper) TTS(opts *pb.TTSRequest) (string, error) {
 	return sd.piper.TTS(opts.Text, opts.Model, opts.Dst)
 }
 
@@ -44,6 +45,20 @@ func New(assetDir string) (*PiperB, error) {
 	}, nil
 }
 
-func (s *PiperB) TTS(text, model, dst string) error {
-	return piper.TextToWav(text, model, s.assetDir, "", dst)
+func (s *PiperB) TTS(text, model, dst string) (string, error) {
+	f, err := os.CreateTemp("", "piper")
+	if err != nil {
+		return "", err
+	}
+	err = piper.TextToWav(text, model, s.assetDir, "", f.Name())
+	if err != nil {
+		return "", err
+	}
+	d, err := os.ReadFile(f.Name())
+	defer os.RemoveAll(f.Name())
+	if err != nil {
+		return "", err
+	}
+	base64Str := base64.StdEncoding.EncodeToString(d)
+	return base64Str, nil
 }

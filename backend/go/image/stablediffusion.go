@@ -3,6 +3,9 @@ package main
 // This is a wrapper to statisfy the GRPC service interface
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
+	"encoding/base64"
+	"os"
+
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
@@ -20,8 +23,14 @@ func (sd *StableDiffusion) Load(opts *pb.ModelOptions) error {
 	return err
 }
 
-func (sd *StableDiffusion) GenerateImage(opts *pb.GenerateImageRequest) error {
-	return sd.stablediffusion.GenerateImage(
+func (sd *StableDiffusion) GenerateImage(opts *pb.GenerateImageRequest) (string, error) {
+	// Temporary file from os.Tempdir
+	f, err := os.CreateTemp("", "stablediffusion")
+	if err != nil {
+		return "", err
+	}
+
+	err = sd.stablediffusion.GenerateImage(
 		int(opts.Height),
 		int(opts.Width),
 		int(opts.Mode),
@@ -29,5 +38,15 @@ func (sd *StableDiffusion) GenerateImage(opts *pb.GenerateImageRequest) error {
 		int(opts.Seed),
 		opts.PositivePrompt,
 		opts.NegativePrompt,
-		opts.Dst)
+		f.Name())
+	if err != nil {
+		return "", err
+	}
+
+	d, err := os.ReadFile(f.Name())
+	if err != nil {
+		return "", err
+	}
+	//Base64 encode it
+	return base64.StdEncoding.EncodeToString(d), nil
 }

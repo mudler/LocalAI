@@ -8,7 +8,9 @@ import signal
 import sys
 import time
 import os
+import base64
 
+import io
 from PIL import Image
 import torch
 
@@ -18,9 +20,9 @@ import backend_pb2_grpc
 import grpc
 
 from diffusers import StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
-from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel
+from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
-from diffusers.utils import load_image
+from diffusers.utils import load_image, export_to_video
 from compel import Compel
 
 from transformers import CLIPTextModel
@@ -174,11 +176,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     self.pipe = StableDiffusionImg2ImgPipeline.from_pretrained(request.Model,
                                 torch_dtype=torchType,
                                 guidance_scale=cfg_scale)
-
             elif request.PipelineType == "StableDiffusionDepth2ImgPipeline":
                 self.pipe = StableDiffusionDepth2ImgPipeline.from_pretrained(request.Model,
                             torch_dtype=torchType,
                             guidance_scale=cfg_scale)
+            # Image to Video Generation
+            elif request.PipelineType == "StableVideoDiffusionPipeline":
+                self.pipe = StableVideoDiffusionPipeline.from_pretrained(request.Model,
+                            torch_dtype=torchType,
+                            guidance_scale=cfg_scale)
+                self.pipe.enable_model_cpu_offload()
+                # remove following line if xFormers is not installed or you have PyTorch 2.0 or higher installed
+                #pipeline.enable_xformers_memory_efficient_attention()
             ## text2img
             elif request.PipelineType == "AutoPipelineForText2Image" or request.PipelineType == "":
                 self.pipe = AutoPipelineForText2Image.from_pretrained(request.Model,
@@ -373,11 +382,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 prompt, 
                 **kwargs
                 ).images[0]
-
-        # save the result
-        image.save(request.dst)
-
-        return backend_pb2.Result(message="Model loaded successfully", success=True)
+            
+        buffered = io.BytesIO()
+        image.save(buffered, format="JPEG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+ 
+        return backend_pb2.Result(message="Model loaded successfully", success=True, blob=img_str)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))

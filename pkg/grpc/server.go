@@ -22,7 +22,7 @@ import (
 // server is used to implement helloworld.GreeterServer.
 type server struct {
 	pb.UnimplementedBackendServer
-	llm LLM
+	backend Backend
 }
 
 func (s *server) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, error) {
@@ -30,11 +30,11 @@ func (s *server) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, e
 }
 
 func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
-	if s.llm.Locking() {
-		s.llm.Lock()
-		defer s.llm.Unlock()
+	if s.backend.Locking() {
+		s.backend.Lock()
+		defer s.backend.Unlock()
 	}
-	embeds, err := s.llm.Embeddings(in)
+	embeds, err := s.backend.Embeddings(in)
 	if err != nil {
 		return nil, err
 	}
@@ -43,11 +43,11 @@ func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.Embe
 }
 
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
-	if s.llm.Locking() {
-		s.llm.Lock()
-		defer s.llm.Unlock()
+	if s.backend.Locking() {
+		s.backend.Lock()
+		defer s.backend.Unlock()
 	}
-	err := s.llm.Load(in)
+	err := s.backend.Load(in)
 	if err != nil {
 		return &pb.Result{Message: fmt.Sprintf("Error loading model: %s", err.Error()), Success: false}, err
 	}
@@ -55,44 +55,44 @@ func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result
 }
 
 func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
-	if s.llm.Locking() {
-		s.llm.Lock()
-		defer s.llm.Unlock()
+	if s.backend.Locking() {
+		s.backend.Lock()
+		defer s.backend.Unlock()
 	}
-	result, err := s.llm.Predict(in)
+	result, err := s.backend.Predict(in)
 	return newReply(result), err
 }
 
-func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {
-	if s.llm.Locking() {
-		s.llm.Lock()
-		defer s.llm.Unlock()
+func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.BlobResult, error) {
+	if s.backend.Locking() {
+		s.backend.Lock()
+		defer s.backend.Unlock()
 	}
-	err := s.llm.GenerateImage(in)
+	blob, err := s.backend.GenerateImage(in)
 	if err != nil {
-		return &pb.Result{Message: fmt.Sprintf("Error generating image: %s", err.Error()), Success: false}, err
+		return &pb.BlobResult{Blob: blob, Message: fmt.Sprintf("Error generating image: %s", err.Error()), Success: false}, err
 	}
-	return &pb.Result{Message: "Image generated", Success: true}, nil
+	return &pb.BlobResult{Blob: blob, Message: "Image generated", Success: true}, nil
 }
 
-func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
-	if s.llm.Locking() {
-		s.llm.Lock()
-		defer s.llm.Unlock()
+func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.BlobResult, error) {
+	if s.backend.Locking() {
+		s.backend.Lock()
+		defer s.backend.Unlock()
 	}
-	err := s.llm.TTS(in)
+	b64, err := s.backend.TTS(in)
 	if err != nil {
-		return &pb.Result{Message: fmt.Sprintf("Error generating audio: %s", err.Error()), Success: false}, err
+		return &pb.BlobResult{Blob: b64, Message: fmt.Sprintf("Error generating audio: %s", err.Error()), Success: false}, err
 	}
-	return &pb.Result{Message: "Audio generated", Success: true}, nil
+	return &pb.BlobResult{Blob: b64, Message: "Audio generated", Success: true}, nil
 }
 
 func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
-	if s.llm.Locking() {
-		s.llm.Lock()
-		defer s.llm.Unlock()
+	if s.backend.Locking() {
+		s.backend.Lock()
+		defer s.backend.Unlock()
 	}
-	result, err := s.llm.AudioTranscription(in)
+	result, err := s.backend.AudioTranscription(in)
 	if err != nil {
 		return nil, err
 	}
@@ -117,9 +117,9 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 }
 
 func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
-	if s.llm.Locking() {
-		s.llm.Lock()
-		defer s.llm.Unlock()
+	if s.backend.Locking() {
+		s.backend.Lock()
+		defer s.backend.Unlock()
 	}
 	resultChan := make(chan string)
 
@@ -131,18 +131,18 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 		done <- true
 	}()
 
-	s.llm.PredictStream(in, resultChan)
+	s.backend.PredictStream(in, resultChan)
 	<-done
 
 	return nil
 }
 
 func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
-	if s.llm.Locking() {
-		s.llm.Lock()
-		defer s.llm.Unlock()
+	if s.backend.Locking() {
+		s.backend.Lock()
+		defer s.backend.Unlock()
 	}
-	res, err := s.llm.TokenizeString(in)
+	res, err := s.backend.TokenizeString(in)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb
 }
 
 func (s *server) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {
-	res, err := s.llm.Status()
+	res, err := s.backend.Status()
 	if err != nil {
 		return nil, err
 	}
@@ -167,13 +167,13 @@ func (s *server) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusRe
 	return &res, nil
 }
 
-func StartServer(address string, model LLM) error {
+func StartServer(address string, model Backend) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
 	s := grpc.NewServer()
-	pb.RegisterBackendServer(s, &server{llm: model})
+	pb.RegisterBackendServer(s, &server{backend: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		return err

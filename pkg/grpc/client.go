@@ -183,7 +183,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 	return nil
 }
 
-func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...grpc.CallOption) (*pb.BlobResult, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()
@@ -203,7 +203,7 @@ func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest,
 	return client.GenerateImage(ctx, in, opts...)
 }
 
-func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.BlobResult, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()

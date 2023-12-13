@@ -80,14 +80,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             audio_values = self.model.generate(**inputs, max_new_tokens=tokens)
             print("[transformers-musicgen] TTS generated!", file=sys.stderr)
             sampling_rate = self.model.config.audio_encoder.sampling_rate
-            write_wav(request.dst, rate=sampling_rate, data=audio_values[0, 0].numpy())
-            print("[transformers-musicgen] TTS saved to", request.dst, file=sys.stderr)
+
+
+            import os, tempfile
+            tmp = tempfile.NamedTemporaryFile(delete=False)
+            write_wav(tmp.name, rate=sampling_rate, data=audio_values[0, 0].numpy())
             print("[transformers-musicgen] TTS for", file=sys.stderr)
-            print(request, file=sys.stderr)
+            with open(tmp.name, "rb") as f:
+                    audio_bytes = f.read()
+                    os.unlink(tmp.name)
+                    # convert to base64
+                    base64 = audio_bytes.encode("base64")
+                    # return the base64 encoded audio
+                    return backend_pb2.BlobResult(success=True,blob=base64)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
-        return backend_pb2.Result(success=True)
-
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))

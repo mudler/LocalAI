@@ -42,7 +42,7 @@ class BackendStub(object):
         self.GenerateImage = channel.unary_unary(
                 '/backend.Backend/GenerateImage',
                 request_serializer=backend__pb2.GenerateImageRequest.SerializeToString,
-                response_deserializer=backend__pb2.Result.FromString,
+                response_deserializer=backend__pb2.BlobResult.FromString,
                 )
         self.AudioTranscription = channel.unary_unary(
                 '/backend.Backend/AudioTranscription',
@@ -52,7 +52,7 @@ class BackendStub(object):
         self.TTS = channel.unary_unary(
                 '/backend.Backend/TTS',
                 request_serializer=backend__pb2.TTSRequest.SerializeToString,
-                response_deserializer=backend__pb2.Result.FromString,
+                response_deserializer=backend__pb2.BlobResult.FromString,
                 )
         self.TokenizeString = channel.unary_unary(
                 '/backend.Backend/TokenizeString',
@@ -160,7 +160,7 @@ def add_BackendServicer_to_server(servicer, server):
             'GenerateImage': grpc.unary_unary_rpc_method_handler(
                     servicer.GenerateImage,
                     request_deserializer=backend__pb2.GenerateImageRequest.FromString,
-                    response_serializer=backend__pb2.Result.SerializeToString,
+                    response_serializer=backend__pb2.BlobResult.SerializeToString,
             ),
             'AudioTranscription': grpc.unary_unary_rpc_method_handler(
                     servicer.AudioTranscription,
@@ -170,7 +170,7 @@ def add_BackendServicer_to_server(servicer, server):
             'TTS': grpc.unary_unary_rpc_method_handler(
                     servicer.TTS,
                     request_deserializer=backend__pb2.TTSRequest.FromString,
-                    response_serializer=backend__pb2.Result.SerializeToString,
+                    response_serializer=backend__pb2.BlobResult.SerializeToString,
             ),
             'TokenizeString': grpc.unary_unary_rpc_method_handler(
                     servicer.TokenizeString,
@@ -290,7 +290,7 @@ class Backend(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/backend.Backend/GenerateImage',
             backend__pb2.GenerateImageRequest.SerializeToString,
-            backend__pb2.Result.FromString,
+            backend__pb2.BlobResult.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -324,7 +324,7 @@ class Backend(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/backend.Backend/TTS',
             backend__pb2.TTSRequest.SerializeToString,
-            backend__pb2.Result.FromString,
+            backend__pb2.BlobResult.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

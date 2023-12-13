@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func generateUniqueFileName(dir, baseName, ext string) string {
 	}
 }
 
-func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *options.Option) (string, *proto.Result, error) {
+func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *options.Option) (string, *proto.BlobResult, error) {
 	bb := backend
 	if bb == "" {
 		bb = model.PiperBackend
@@ -69,11 +70,21 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *opt
 		}
 	}
 
-	res, err := piperModel.TTS(context.Background(), &proto.TTSRequest{
+	response, err := piperModel.TTS(context.Background(), &proto.TTSRequest{
 		Text:  text,
 		Model: modelPath,
 		Dst:   filePath,
 	})
+	if err != nil {
+		return "", response, err
+	}
 
-	return filePath, res, err
+	// decode base64 res.Blob and write it to filePath
+	b, err := base64.StdEncoding.DecodeString(response.Blob)
+	if err != nil {
+		return "", response, err
+	}
+	err = os.WriteFile(filePath, b, 0644)
+
+	return filePath, response, err
 }

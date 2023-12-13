@@ -76,6 +76,7 @@ class TestBackendServicer(unittest.TestCase):
                 self.assertTrue(response.success)
                 image_req = backend_pb2.GenerateImageRequest(positive_prompt="cat", width=16,height=16, dst="test.jpg")
                 re = stub.GenerateImage(image_req)
+                print(re)
                 self.assertTrue(re.success)
         except Exception as err:
             print(err)
