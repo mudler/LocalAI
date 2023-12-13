@@ -38,8 +38,7 @@ type Config struct {
 
 	// Diffusers
 	Diffusers Diffusers `yaml:"diffusers"`
-
-	Step int `yaml:"step"`
+	Step      int       `yaml:"step"`
 
 	// GRPC Options
 	GRPC GRPC `yaml:"grpc"`
@@ -77,6 +76,7 @@ type Diffusers struct {
 	ClipSkip         int     `yaml:"clip_skip"`         // Skip every N frames
 	ClipModel        string  `yaml:"clip_model"`        // Clip model to use
 	ClipSubFolder    string  `yaml:"clip_subfolder"`    // Subfolder to use for clip model
+	ControlNet       string  `yaml:"control_net"`
 }
 
 type LLMConfig struct {
