@@ -164,11 +164,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             
             fromSingleFile = request.Model.startswith("http") or request.Model.startswith("/") or local
             
-
-            # If PipelineType is not defined, defaults to AutoPipelineForText2Image
-            if request.PipelineType == "":
-                request.PipelineType = "AutoPipelineForText2Image"
-
             ## img2img
             if (request.PipelineType == "StableDiffusionImg2ImgPipeline") or (request.IMG2IMG and request.PipelineType == ""):
                 if fromSingleFile:
@@ -185,7 +180,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                             torch_dtype=torchType,
                             guidance_scale=cfg_scale)
             ## text2img
-            elif request.PipelineType == "AutoPipelineForText2Image":
+            elif request.PipelineType == "AutoPipelineForText2Image" or request.PipelineType == "":
                 self.pipe = AutoPipelineForText2Image.from_pretrained(request.Model,
                                                     torch_dtype=torchType,
                                                     use_safetensors=SAFETENSORS, 
