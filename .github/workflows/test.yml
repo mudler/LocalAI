@@ -112,12 +112,13 @@ jobs:
       # You can test your matrix by printing the current Go version
       - name: Display Go version
         run: go version
-      - name: Dependencies
-        run: |
-          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-                -DgRPC_BUILD_TESTS=OFF \
-                ../.. && make -j12 install && rm -rf grpc
+      # Temporarily remove this step: OSX Makefile now rebuilds gRPC by default to increase success rate
+      # - name: Dependencies
+      #   run: |
+      #     git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+      #         cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+      #           -DgRPC_BUILD_TESTS=OFF \
+      #           ../.. && make -j12 install && rm -rf grpc
       - name: Build
         run: |
           CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make build
