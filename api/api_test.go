@@ -582,7 +582,7 @@ var _ = Describe("API test", func() {
 			dat, err := io.ReadAll(resp.Body)
 			Expect(err).ToNot(HaveOccurred(), string(dat))
 			Expect(string(dat)).To(ContainSubstring("http://127.0.0.1:9090/"), string(dat))
-			Expect(string(dat)).To(ContainSubstring(".png"), string(dat))
+			Expect(string(dat)).To(ContainSubstring("generated-images"), string(dat))
 
 		})
 	})
