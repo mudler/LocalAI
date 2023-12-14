@@ -30,6 +30,15 @@ func (sd *StableDiffusion) GenerateImage(opts *pb.GenerateImageRequest) (string,
 		return "", err
 	}
 
+	f.Close()
+	output := f.Name() + ".jpg"
+
+	// Rename the temporary file
+	err = os.Rename(f.Name(), output)
+	if err != nil {
+		return "", err
+	}
+
 	err = sd.stablediffusion.GenerateImage(
 		int(opts.Height),
 		int(opts.Width),
@@ -38,12 +47,12 @@ func (sd *StableDiffusion) GenerateImage(opts *pb.GenerateImageRequest) (string,
 		int(opts.Seed),
 		opts.PositivePrompt,
 		opts.NegativePrompt,
-		f.Name())
+		output)
 	if err != nil {
 		return "", err
 	}
 
-	d, err := os.ReadFile(f.Name())
+	d, err := os.ReadFile(output)
 	if err != nil {
 		return "", err
 	}

@@ -1,7 +1,6 @@
 package openai
 
 import (
-	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -138,26 +137,37 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 					if err != nil {
 						return err
 					}
-					outputFile.Close()
-					output := outputFile.Name() + ".png"
-
-					// Decode and write the base64 result
+					defer outputFile.Close()
 					decoded, err := base64.StdEncoding.DecodeString(img)
 					if err != nil {
 						return err
 					}
-					writer := bufio.NewWriter(outputFile)
-					_, err = writer.Write(decoded)
+					_, err = outputFile.Write(decoded)
 					if err != nil {
 						return err
 					}
-					// Rename the temporary file
-					err = os.Rename(outputFile.Name(), output)
-					if err != nil {
-						return err
-					}
-					base := filepath.Base(output)
+					base := filepath.Base(outputFile.Name())
 					item.URL = baseURL + "/generated-images/" + base
+					// outputFile.Close()
+					// output := outputFile.Name() + ".jpg"
+
+					// // Decode and write the base64 result
+					// decoded, err := base64.StdEncoding.DecodeString(img)
+					// if err != nil {
+					// 	return err
+					// }
+					// writer := bufio.NewWriter(outputFile)
+					// _, err = writer.Write(decoded)
+					// if err != nil {
+					// 	return err
+					// }
+					// // Rename the temporary file
+					// err = os.Rename(outputFile.Name(), output)
+					// if err != nil {
+					// 	return err
+					// }
+					// base := filepath.Base(output)
+					// item.URL = baseURL + "/generated-images/" + base
 				}
 
 				result = append(result, *item)
