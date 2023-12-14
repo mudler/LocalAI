@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -21,6 +23,26 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
+
+func downloadFile(url string) (string, error) {
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	// Create the file
+	out, err := os.CreateTemp("", "image")
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return out.Name(), err
+}
 
 // https://platform.openai.com/docs/api-reference/images/create
 
@@ -56,12 +78,31 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 		src := ""
 		if input.File != "" {
-			//base 64 decode the file and write it somewhere
-			// that we will cleanup
-			decoded, err := base64.StdEncoding.DecodeString(input.File)
-			if err != nil {
-				return err
+
+			fileData := []byte{}
+			// check if input.File is an URL, if so download it and save it
+			// to a temporary file
+			if strings.HasPrefix(input.File, "http://") || strings.HasPrefix(input.File, "https://") {
+				out, err := downloadFile(input.File)
+				if err != nil {
+					return fmt.Errorf("failed downloading file:%w", err)
+				}
+				defer os.RemoveAll(out)
+
+				fileData, err = os.ReadFile(out)
+				if err != nil {
+					return fmt.Errorf("failed reading file:%w", err)
+				}
+
+			} else {
+				// base 64 decode the file and write it somewhere
+				// that we will cleanup
+				fileData, err = base64.StdEncoding.DecodeString(input.File)
+				if err != nil {
+					return err
+				}
 			}
+
 			// Create a temporary file
 			outputFile, err := os.CreateTemp(o.ImageDir, "b64")
 			if err != nil {
@@ -69,7 +110,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			}
 			// write the base64 result
 			writer := bufio.NewWriter(outputFile)
-			_, err = writer.Write(decoded)
+			_, err = writer.Write(fileData)
 			if err != nil {
 				outputFile.Close()
 				return err
