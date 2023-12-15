@@ -140,7 +140,7 @@ diffusers:
 
 ```bash
 IMAGE_PATH=/path/to/your/image
-(echo -n '{"image": "'; base64 $IMAGE_PATH; echo '", "prompt": "a sky background","size": "512x512","model":"stablediffusion-edit"}') |
+(echo -n '{"file": "'; base64 $IMAGE_PATH; echo '", "prompt": "a sky background","size": "512x512","model":"stablediffusion-edit"}') |
 curl -H "Content-Type: application/json" -d @-  http://localhost:8080/v1/images/generations
 ```
 
@@ -164,6 +164,6 @@ diffusers:
 ```
 
 ```bash
-(echo -n '{"image": "'; base64 ~/path/to/image.jpeg; echo '", "prompt": "a sky background","size": "512x512","model":"stablediffusion-depth"}') |
+(echo -n '{"file": "'; base64 ~/path/to/image.jpeg; echo '", "prompt": "a sky background","size": "512x512","model":"stablediffusion-depth"}') |
 curl -H "Content-Type: application/json" -d @-  http://localhost:8080/v1/images/generations
 ```
