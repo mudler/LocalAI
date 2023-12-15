@@ -23,22 +23,24 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif()
 
 find_package(absl CONFIG REQUIRED)
-include(FindProtobuf)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
 if(NOT DEFINED _PROTOBUF_PROTOC)
+  message(STATUS "_PROTOBUF_PROTOC not set, defaulting via find_program")
   find_program(_PROTOBUF_PROTOC protoc)
 endif()
 if(NOT DEFINED _GRPC_GRPCPP)
+  message(STATUS "_GRPC_GRPCPP not set, defaulting via find_program")
   set(_GRPC_GRPCPP grpc++)
 endif()
 if(NOT DEFINED _GRPC_CPP_PLUGIN_EXECUTABLE)
+  message(STATUS "_GRPC_CPP_PLUGIN_EXECUTABLE not set, defaulting via find_program")
   find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 endif()
 
 # Proto Hack?
-set(protobuf_MODULE_COMPATIBLE ON)
+# set(protobuf_MODULE_COMPATIBLE ON)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${Protobuf_INCLUDE_DIRS})
