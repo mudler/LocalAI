@@ -167,6 +167,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             
             fromSingleFile = request.Model.startswith("http") or request.Model.startswith("/") or local
             self.img2vid=False
+            self.txt2vid=False
             ## img2img
             if (request.PipelineType == "StableDiffusionImg2ImgPipeline") or (request.IMG2IMG and request.PipelineType == ""):
                 if fromSingleFile:
@@ -207,6 +208,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                         torch_dtype=torchType,
                                                         guidance_scale=cfg_scale)
             elif request.PipelineType == "DiffusionPipeline":
+                self.pipe = DiffusionPipeline.from_pretrained(request.Model,
+                                                        torch_dtype=torchType,
+                                                        guidance_scale=cfg_scale)
+            elif request.PipelineType == "VideoDiffusionPipeline":
+                self.txt2vid=True
                 self.pipe = DiffusionPipeline.from_pretrained(request.Model,
                                                         torch_dtype=torchType,
                                                         guidance_scale=cfg_scale)
@@ -379,6 +385,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             generator = torch.manual_seed(request.seed)
             frames = self.pipe(image, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
             export_to_video(frames, request.dst, fps=FPS)
+            return backend_pb2.Result(message="Media generated successfully", success=True)
+
+        if self.txt2vid:
+            video_frames = self.pipe(prompt, num_inference_steps=steps).frames
+            export_to_video(video_frames, request.dst)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
         image = {}
