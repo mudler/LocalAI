@@ -33,6 +33,7 @@ CLIPSKIP=os.environ.get("CLIPSKIP", "1") == "1"
 SAFETENSORS=os.environ.get("SAFETENSORS", "1") == "1"
 CHUNK_SIZE=os.environ.get("CHUNK_SIZE", "8")
 FPS=os.environ.get("FPS", "7")
+DISABLE_CPU_OFFLOAD=os.environ.get("DISABLE_CPU_OFFLOAD", "0") == "1"
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
@@ -187,7 +188,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe = StableVideoDiffusionPipeline.from_pretrained(
                     request.Model, torch_dtype=torchType, variant=variant
                 )
-                self.pipe.enable_model_cpu_offload()
+                if not DISABLE_CPU_OFFLOAD:
+                    self.pipe.enable_model_cpu_offload()
             ## text2img
             elif request.PipelineType == "AutoPipelineForText2Image" or request.PipelineType == "":
                 self.pipe = AutoPipelineForText2Image.from_pretrained(request.Model,
@@ -231,7 +233,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.SchedulerType != "":
                 self.pipe.scheduler = get_scheduler(request.SchedulerType, self.pipe.scheduler.config)
                 
-            self.compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
+            if not self.img2vid:
+                self.compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
 
 
             if request.ControlNet:
@@ -340,7 +343,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             "num_inference_steps": steps,
         }
 
-        if request.src != "" and not self.controlnet:
+        if request.src != "" and not self.controlnet and not self.img2vid:
             image = Image.open(request.src)
             options["image"] = image
         elif self.controlnet and request.src:
@@ -374,7 +377,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             image = image.resize((1024, 576))
 
             generator = torch.manual_seed(request.seed)
-            frames = pipe(image, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
+            frames = self.pipe(image, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
             export_to_video(frames, request.dst, fps=FPS)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
