@@ -34,6 +34,7 @@ SAFETENSORS=os.environ.get("SAFETENSORS", "1") == "1"
 CHUNK_SIZE=os.environ.get("CHUNK_SIZE", "8")
 FPS=os.environ.get("FPS", "7")
 DISABLE_CPU_OFFLOAD=os.environ.get("DISABLE_CPU_OFFLOAD", "0") == "1"
+FRAMES=os.environ.get("FRAMES", "64")
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
@@ -388,7 +389,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
         if self.txt2vid:
-            video_frames = self.pipe(prompt, num_inference_steps=steps).frames
+            video_frames = self.pipe(prompt, num_inference_steps=steps, num_frames=int(FRAMES)).frames
             export_to_video(video_frames, request.dst)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
