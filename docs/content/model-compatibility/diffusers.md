@@ -167,6 +167,12 @@ curl -H "Content-Type: application/json" -d @-  http://localhost:8080/v1/images/
 
 ## img2vid
 
+{{% notice note %}}
+
+Experimental and available only on master builds. See: https://github.com/mudler/LocalAI/pull/1442
+
+{{% /notice %}}
+
 ```yaml
 name: img2vid
 parameters:
@@ -186,6 +192,12 @@ curl -H "Content-Type: application/json" -X POST -d @- http://localhost:8080/v1/
 ```
 
 ## txt2vid
+
+{{% notice note %}}
+
+Experimental and available only on master builds. See: https://github.com/mudler/LocalAI/pull/1442
+
+{{% /notice %}}
 
 ```yaml
 name: txt2vid
