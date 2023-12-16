@@ -50,4 +50,7 @@ clean:
 
 grpc-server: llama.cpp llama.cpp/examples/grpc-server
 	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release
+	ls llama.cpp
+	ls llama.cpp/build
+	ls llama.cpp/build/bin
 	cp llama.cpp/build/bin/grpc-server .
