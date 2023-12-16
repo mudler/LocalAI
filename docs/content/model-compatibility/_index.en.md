@@ -50,6 +50,8 @@ Besides llama based models, LocalAI is compatible also with other architectures.
 | `diffusers`  | SD,...                   | no                       | Image generation    | no                               | no                   | N/A |
 | `vall-e-x` | Vall-E    | no                       | Audio generation and Voice cloning    | no                               | no                   | CPU/CUDA |
 | `vllm` | Various GPTs and quantization formats | yes                      | GPT             | no | no                  | CPU/CUDA |
+| `exllama2`  | GPTQ                   | yes                       | GPT only                  | no                               | no                   | N/A |
+| `transformers-musicgen`  |                    | no                       | Audio generation                | no                               | no                   | N/A |
 
 Note: any backend name listed above can be used in the `backend` field of the model configuration file (See [the advanced section]({{%relref "advanced" %}})).
 
