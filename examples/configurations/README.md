@@ -64,4 +64,21 @@ wget https://huggingface.co/mys/ggml_bakllava-1/resolve/main/mmproj-model-f16.gg
 curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
      "model": "llava",
      "messages": [{"role": "user", "content": [{"type":"text", "text": "What is in the image?"}, {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" }}], "temperature": 0.9}]}'
+
+```
+
+### Mixtral
+
+```
+cp -r examples/configuration/mixtral/* models/
+wget https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF/resolve/main/mixtral-8x7b-instruct-v0.1.Q2_K.gguf -O models/mixtral-8x7b-instruct-v0.1.Q2_K.gguf
+```
+
+#### Test it out
+
+```
+curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
+     "model": "mixtral",
+     "prompt": "How fast is light?",                                                                                    
+     "temperature": 0.1 }'
 ```
