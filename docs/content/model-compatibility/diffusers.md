@@ -27,12 +27,9 @@ name: animagine-xl
 parameters:
   model: Linaqruf/animagine-xl
 backend: diffusers
-
-# Force CPU usage - set to true for GPU
-f16: false
+cuda: true
+f16: true
 diffusers:
-  pipeline_type: StableDiffusionXLPipeline
-  cuda: false # Enable for GPU usage (CUDA)
   scheduler_type: euler_a
 ```
 
@@ -47,9 +44,9 @@ parameters:
 backend: diffusers
 step: 30
 f16: true
+cuda: true
 diffusers:
   pipeline_type: StableDiffusionPipeline
-  cuda: true
   enable_parameters: "negative_prompt,num_inference_steps,clip_skip"
   scheduler_type: "k_dpmpp_sde"
   cfg_scale: 8
@@ -69,7 +66,7 @@ The following parameters are available in the configuration file:
 | `scheduler_type` | Scheduler type | `k_dpp_sde` |
 | `cfg_scale` | Configuration scale | `8` |
 | `clip_skip` | Clip skip | None |
-| `pipeline_type` | Pipeline type | `StableDiffusionPipeline` |
+| `pipeline_type` | Pipeline type | `AutoPipelineForText2Image` |
 
 There are available several types of schedulers:
 
@@ -131,17 +128,16 @@ parameters:
   model: nitrosocke/Ghibli-Diffusion
 backend: diffusers
 step: 25
-
+cuda: true
 f16: true
 diffusers:
   pipeline_type: StableDiffusionImg2ImgPipeline
-  cuda: true
   enable_parameters: "negative_prompt,num_inference_steps,image"
 ```
 
 ```bash
 IMAGE_PATH=/path/to/your/image
-(echo -n '{"image": "'; base64 $IMAGE_PATH; echo '", "prompt": "a sky background","size": "512x512","model":"stablediffusion-edit"}') |
+(echo -n '{"file": "'; base64 $IMAGE_PATH; echo '", "prompt": "a sky background","size": "512x512","model":"stablediffusion-edit"}') |
 curl -H "Content-Type: application/json" -d @-  http://localhost:8080/v1/images/generations
 ```
 
@@ -157,14 +153,67 @@ backend: diffusers
 step: 50
 # Force CPU usage
 f16: true
+cuda: true
 diffusers:
   pipeline_type: StableDiffusionDepth2ImgPipeline
-  cuda: true
   enable_parameters: "negative_prompt,num_inference_steps,image"
   cfg_scale: 6
 ```
 
 ```bash
-(echo -n '{"image": "'; base64 ~/path/to/image.jpeg; echo '", "prompt": "a sky background","size": "512x512","model":"stablediffusion-depth"}') |
+(echo -n '{"file": "'; base64 ~/path/to/image.jpeg; echo '", "prompt": "a sky background","size": "512x512","model":"stablediffusion-depth"}') |
 curl -H "Content-Type: application/json" -d @-  http://localhost:8080/v1/images/generations
+```
+
+## img2vid
+
+{{% notice note %}}
+
+Experimental and available only on master builds. See: https://github.com/mudler/LocalAI/pull/1442
+
+{{% /notice %}}
+
+```yaml
+name: img2vid
+parameters:
+  model: stabilityai/stable-video-diffusion-img2vid
+backend: diffusers
+step: 25
+# Force CPU usage
+f16: true
+cuda: true
+diffusers:
+  pipeline_type: StableVideoDiffusionPipeline
+```
+
+```bash
+(echo -n '{"file": "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/svd/rocket.png?download=true","size": "512x512","model":"img2vid"}') |
+curl -H "Content-Type: application/json" -X POST -d @- http://localhost:8080/v1/images/generations
+```
+
+## txt2vid
+
+{{% notice note %}}
+
+Experimental and available only on master builds. See: https://github.com/mudler/LocalAI/pull/1442
+
+{{% /notice %}}
+
+```yaml
+name: txt2vid
+parameters:
+  model: damo-vilab/text-to-video-ms-1.7b
+backend: diffusers
+step: 25
+# Force CPU usage
+f16: true
+cuda: true
+diffusers:
+  pipeline_type: VideoDiffusionPipeline
+  cuda: true
+```
+
+```bash
+(echo -n '{"prompt": "spiderman surfing","size": "512x512","model":"txt2vid"}') |
+curl -H "Content-Type: application/json" -X POST -d @- http://localhost:8080/v1/images/generations
 ```

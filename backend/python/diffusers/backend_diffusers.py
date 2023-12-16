@@ -18,9 +18,9 @@ import backend_pb2_grpc
 import grpc
 
 from diffusers import StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
-from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel
+from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
-from diffusers.utils import load_image
+from diffusers.utils import load_image,export_to_video
 from compel import Compel
 
 from transformers import CLIPTextModel
@@ -31,6 +31,10 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 COMPEL=os.environ.get("COMPEL", "1") == "1"
 CLIPSKIP=os.environ.get("CLIPSKIP", "1") == "1"
 SAFETENSORS=os.environ.get("SAFETENSORS", "1") == "1"
+CHUNK_SIZE=os.environ.get("CHUNK_SIZE", "8")
+FPS=os.environ.get("FPS", "7")
+DISABLE_CPU_OFFLOAD=os.environ.get("DISABLE_CPU_OFFLOAD", "0") == "1"
+FRAMES=os.environ.get("FRAMES", "64")
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
@@ -163,7 +167,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     modelFile = request.ModelFile
             
             fromSingleFile = request.Model.startswith("http") or request.Model.startswith("/") or local
-            
+            self.img2vid=False
+            self.txt2vid=False
             ## img2img
             if (request.PipelineType == "StableDiffusionImg2ImgPipeline") or (request.IMG2IMG and request.PipelineType == ""):
                 if fromSingleFile:
@@ -179,6 +184,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe = StableDiffusionDepth2ImgPipeline.from_pretrained(request.Model,
                             torch_dtype=torchType,
                             guidance_scale=cfg_scale)
+            ## img2vid
+            elif request.PipelineType == "StableVideoDiffusionPipeline":
+                self.img2vid=True
+                self.pipe = StableVideoDiffusionPipeline.from_pretrained(
+                    request.Model, torch_dtype=torchType, variant=variant
+                )
+                if not DISABLE_CPU_OFFLOAD:
+                    self.pipe.enable_model_cpu_offload()
             ## text2img
             elif request.PipelineType == "AutoPipelineForText2Image" or request.PipelineType == "":
                 self.pipe = AutoPipelineForText2Image.from_pretrained(request.Model,
@@ -196,6 +209,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                         torch_dtype=torchType,
                                                         guidance_scale=cfg_scale)
             elif request.PipelineType == "DiffusionPipeline":
+                self.pipe = DiffusionPipeline.from_pretrained(request.Model,
+                                                        torch_dtype=torchType,
+                                                        guidance_scale=cfg_scale)
+            elif request.PipelineType == "VideoDiffusionPipeline":
+                self.txt2vid=True
                 self.pipe = DiffusionPipeline.from_pretrained(request.Model,
                                                         torch_dtype=torchType,
                                                         guidance_scale=cfg_scale)
@@ -222,7 +240,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.SchedulerType != "":
                 self.pipe.scheduler = get_scheduler(request.SchedulerType, self.pipe.scheduler.config)
                 
-            self.compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
+            if not self.img2vid:
+                self.compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
 
 
             if request.ControlNet:
@@ -331,7 +350,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             "num_inference_steps": steps,
         }
 
-        if request.src != "" and not self.controlnet:
+        if request.src != "" and not self.controlnet and not self.img2vid:
             image = Image.open(request.src)
             options["image"] = image
         elif self.controlnet and request.src:
@@ -359,6 +378,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 request.seed
             )
 
+        if self.img2vid:
+            # Load the conditioning image
+            image = load_image(request.src)
+            image = image.resize((1024, 576))
+
+            generator = torch.manual_seed(request.seed)
+            frames = self.pipe(image, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
+            export_to_video(frames, request.dst, fps=FPS)
+            return backend_pb2.Result(message="Media generated successfully", success=True)
+
+        if self.txt2vid:
+            video_frames = self.pipe(prompt, num_inference_steps=steps, num_frames=int(FRAMES)).frames
+            export_to_video(video_frames, request.dst)
+            return backend_pb2.Result(message="Media generated successfully", success=True)
+
         image = {}
         if COMPEL:
             conditioning = self.compel.build_conditioning_tensor(prompt)
@@ -377,7 +411,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # save the result
         image.save(request.dst)
 
-        return backend_pb2.Result(message="Model loaded successfully", success=True)
+        return backend_pb2.Result(message="Media generated", success=True)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))

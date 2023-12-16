@@ -66,6 +66,7 @@ type GRPC struct {
 }
 
 type Diffusers struct {
+	CUDA             bool    `yaml:"cuda"`
 	PipelineType     string  `yaml:"pipeline_type"`
 	SchedulerType    string  `yaml:"scheduler_type"`
 	EnableParameters string  `yaml:"enable_parameters"` // A list of comma separated parameters to specify
