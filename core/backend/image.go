@@ -28,7 +28,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 		model.WithContext(o.Context),
 		model.WithModel(c.Model),
 		model.WithLoadGRPCLoadModelOpts(&proto.ModelOptions{
-			CUDA:          c.CUDA,
+			CUDA:          c.CUDA || c.Diffusers.CUDA,
 			SchedulerType: c.Diffusers.SchedulerType,
 			PipelineType:  c.Diffusers.PipelineType,
 			CFGScale:      c.Diffusers.CFGScale,
@@ -89,9 +89,16 @@ func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReque
 
 	src := ""
 	if input.File != "" {
-		src, err = utils.CreateTempFileFromBase64(input.File, "", "base64-image-src")
-		if err != nil {
-			return nil, fmt.Errorf("error creating temporary image source file: %w", err)
+		if strings.HasPrefix(input.File, "http://") || strings.HasPrefix(input.File, "https://") {
+			src, err = utils.CreateTempFileFromUrl(input.File, "", "image-src")
+			if err != nil {
+				return nil, fmt.Errorf("failed downloading file:%w", err)
+			}
+		} else {
+			src, err = utils.CreateTempFileFromBase64(input.File, "", "base64-image-src")
+			if err != nil {
+				return nil, fmt.Errorf("error creating temporary image source file: %w", err)
+			}
 		}
 	}
 

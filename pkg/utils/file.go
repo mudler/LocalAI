@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 
 	"github.com/rs/zerolog/log"
@@ -57,4 +58,24 @@ func CreateTempFileFromBase64(base64data string, tempDir string, tempPattern str
 		return "", err
 	}
 	return outputFile.Name(), nil
+}
+
+func CreateTempFileFromUrl(url string, tempDir string, tempPattern string) (string, error) {
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	// Create the file
+	out, err := os.CreateTemp(tempDir, tempPattern)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return out.Name(), err
 }
