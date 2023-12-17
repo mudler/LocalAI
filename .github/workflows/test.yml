@@ -113,7 +113,7 @@ jobs:
       - name: Display Go version
         run: go version
       - name: Display OSX version info
-        run: sw_vers
+        run: system_profiler SPSoftwareDataType SPHardwareDataType
       # Temporarily remove this step: OSX Makefile now rebuilds gRPC by default to increase success rate
       # - name: Dependencies
       #   run: |
