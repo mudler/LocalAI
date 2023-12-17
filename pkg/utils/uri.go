@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/md5"
 	"fmt"
 	"io"
 	"net/http"
@@ -63,4 +64,30 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 
 	// Unmarshal YAML data into a struct
 	return f(url, body)
+}
+
+func DownloadFile(url string, filepath string) error {
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+
+	return err
+}
+
+// MD5 of a string
+func MD5(s string) string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(s)))
 }

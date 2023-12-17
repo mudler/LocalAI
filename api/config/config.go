@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -262,6 +263,32 @@ func (cm *ConfigLoader) ListConfigs() []string {
 		res = append(res, k)
 	}
 	return res
+}
+
+func (cm *ConfigLoader) Preload(modelPath string) error {
+	cm.Lock()
+	defer cm.Unlock()
+
+	for i, config := range cm.configs {
+		if strings.HasPrefix(config.PredictionOptions.Model, "http://") || strings.HasPrefix(config.PredictionOptions.Model, "https://") {
+			// md5 of model name
+			md5Name := utils.MD5(config.PredictionOptions.Model)
+
+			// check if file exists
+			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); err == os.ErrNotExist {
+				err := utils.DownloadFile(config.PredictionOptions.Model, filepath.Join(modelPath, md5Name))
+				if err != nil {
+					return err
+				}
+			}
+
+			cc := cm.configs[i]
+			c := &cc
+			c.PredictionOptions.Model = md5Name
+			cm.configs[i] = *c
+		}
+	}
+	return nil
 }
 
 func (cm *ConfigLoader) LoadConfigs(path string) error {
