@@ -81,7 +81,12 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			c.Set("Transfer-Encoding", "chunked")
 		}
 
-		templateFile := config.Model
+		templateFile := ""
+
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		if o.Loader.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+			templateFile = config.Model
+		}
 
 		if config.TemplateConfig.Completion != "" {
 			templateFile = config.TemplateConfig.Completion
@@ -94,13 +99,14 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 
 			predInput := config.PromptStrings[0]
 
-			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-				Input: predInput,
-			})
-			if err == nil {
-				predInput = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", predInput)
+			if templateFile != "" {
+				templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
+					Input: predInput,
+				})
+				if err == nil {
+					predInput = templatedInput
+					log.Debug().Msgf("Template found, input modified to: %s", predInput)
+				}
 			}
 
 			responses := make(chan schema.OpenAIResponse)
@@ -145,14 +151,16 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		totalTokenUsage := backend.TokenUsage{}
 
 		for k, i := range config.PromptStrings {
-			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-				SystemPrompt: config.SystemPrompt,
-				Input:        i,
-			})
-			if err == nil {
-				i = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", i)
+			if templateFile != "" {
+				// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+				templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
+					SystemPrompt: config.SystemPrompt,
+					Input:        i,
+				})
+				if err == nil {
+					i = templatedInput
+					log.Debug().Msgf("Template found, input modified to: %s", i)
+				}
 			}
 
 			r, tokenUsage, err := ComputeChoices(

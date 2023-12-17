@@ -30,7 +30,12 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
-		templateFile := config.Model
+		templateFile := ""
+
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		if o.Loader.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+			templateFile = config.Model
+		}
 
 		if config.TemplateConfig.Edit != "" {
 			templateFile = config.TemplateConfig.Edit
@@ -40,15 +45,16 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		totalTokenUsage := backend.TokenUsage{}
 
 		for _, i := range config.InputStrings {
-			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.EditPromptTemplate, templateFile, model.PromptTemplateData{
-				Input:        i,
-				Instruction:  input.Instruction,
-				SystemPrompt: config.SystemPrompt,
-			})
-			if err == nil {
-				i = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", i)
+			if templateFile != "" {
+				templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.EditPromptTemplate, templateFile, model.PromptTemplateData{
+					Input:        i,
+					Instruction:  input.Instruction,
+					SystemPrompt: config.SystemPrompt,
+				})
+				if err == nil {
+					i = templatedInput
+					log.Debug().Msgf("Template found, input modified to: %s", i)
+				}
 			}
 
 			r, tokenUsage, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]schema.Choice) {
