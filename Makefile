@@ -460,16 +460,17 @@ ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	_GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin \
 	PATH=${INSTALLED_PACKAGES}/bin:${PATH} \
 	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
-	ls -l backend/cpp/llama/
+	file backend/cpp/llama/grpc-server
 else
 	@echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined, making backend/cpp/llama grpc-server"
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
-	ls -l backend/cpp/llama/
+	file backend/cpp/llama/grpc-server
 endif
 ## BACKEND CPP LLAMA END
 		
 ##
 backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/grpc-server
+	@echo "=== backend-assets/grpc/llama-cpp ==="
 	cp -rfv backend/cpp/llama/grpc-server backend-assets/grpc/llama-cpp
 # TODO: every binary should have its own folder instead, so can have different metal implementations
 ifeq ($(BUILD_TYPE),metal)
