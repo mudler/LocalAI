@@ -443,8 +443,8 @@ endif
 
 ## BACKEND CPP LLAMA START
 # Sets the variables in case it has to build the gRPC locally.
-INSTALLED_PACKAGES=${CURDIR}/backend/cpp/grpc/installed_packages
-INSTALLED_LIB_CMAKE=${INSTALLED_PACKAGES}/lib/cmake
+INSTALLED_PACKAGES=$(CURDIR)/backend/cpp/grpc/installed_packages
+INSTALLED_LIB_CMAKE=$(INSTALLED_PACKAGES)/lib/cmake
 ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
                  -DProtobuf_DIR=${INSTALLED_LIB_CMAKE}/protobuf \
                  -Dutf8_range_DIR=${INSTALLED_LIB_CMAKE}/utf8_range \
