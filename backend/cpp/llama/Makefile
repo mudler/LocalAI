@@ -53,4 +53,6 @@ grpc-server: llama.cpp llama.cpp/examples/grpc-server
 	@echo "-------- The Copy! -----------"
 	cp llama.cpp/build/bin/grpc-server .
 	ls -l .
+	@echo "------------------------------"
+	exit 0
 	
