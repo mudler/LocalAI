@@ -72,8 +72,8 @@ endif
 
 ifeq ($(OS),Darwin)
 	export BUILD_GRPC_FOR_BACKEND_LLAMA=true
-	export C_INCLUDE_PATH=/opt/homebrew/include:/usr/local/include:${C_INCLUDE_PATH}
-    export CPLUS_INCLUDE_PATH=/opt/homebrew/include:/usr/local/include:${CPLUS_INCLUDE_PATH}
+	export C_INCLUDE_PATH +=/opt/homebrew/include:/usr/local/include
+    export CPLUS_INCLUDE_PATH +=/opt/homebrew/include:/usr/local/include
 	CGO_LDFLAGS += -lcblas -framework Accelerate
 
 	ifeq ($(OSX_SIGNING_IDENTITY),)
