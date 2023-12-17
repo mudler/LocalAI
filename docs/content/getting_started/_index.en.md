@@ -123,9 +123,9 @@ LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). Th
 {{% tab name="Vanilla / CPU Images" %}}
 - `master`
 - `latest`
-- `v2.0.0`
-- `v2.0.0-ffmpeg`
-- `v2.0.0-ffmpeg-core`
+- `{{< version >}}`
+- `{{< version >}}-ffmpeg`
+- `{{< version >}}-ffmpeg-core`
 
 Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
@@ -133,10 +133,10 @@ Core Images - Smaller images without predownload python dependencies
 {{% tab name="GPU Images CUDA 11" %}}
 - `master-cublas-cuda11`
 - `master-cublas-cuda11-core`
-- `v2.0.0-cublas-cuda11`
-- `v2.0.0-cublas-cuda11-core`
-- `v2.0.0-cublas-cuda11-ffmpeg`
-- `v2.0.0-cublas-cuda11-ffmpeg-core`
+- `{{< version >}}-cublas-cuda11`
+- `{{< version >}}-cublas-cuda11-core`
+- `{{< version >}}-cublas-cuda11-ffmpeg`
+- `{{< version >}}-cublas-cuda11-ffmpeg-core`
 
 Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
@@ -144,10 +144,10 @@ Core Images - Smaller images without predownload python dependencies
 {{% tab name="GPU Images CUDA 12" %}}
 - `master-cublas-cuda12`
 - `master-cublas-cuda12-core`
-- `v2.0.0-cublas-cuda12`
-- `v2.0.0-cublas-cuda12-core`
-- `v2.0.0-cublas-cuda12-ffmpeg`
-- `v2.0.0-cublas-cuda12-ffmpeg-core`
+- `{{< version >}}-cublas-cuda12`
+- `{{< version >}}-cublas-cuda12-core`
+- `{{< version >}}-cublas-cuda12-ffmpeg`
+- `{{< version >}}-cublas-cuda12-ffmpeg-core`
 
 Core Images - Smaller images without predownload python dependencies
 
@@ -158,9 +158,9 @@ Core Images - Smaller images without predownload python dependencies
 Example:
 
 - Standard (GPT + `stablediffusion`): `quay.io/go-skynet/local-ai:latest`
-- FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-ffmpeg`
-- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-cublas-cuda11-ffmpeg`
-- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v2.0.0-cublas-cuda12-ffmpeg`
+- FFmpeg: `quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg`
+- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-ffmpeg`
+- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-ffmpeg`
 
 {{% notice note %}}
 Note: the binary inside the image is pre-compiled, and might not suite all CPUs.
