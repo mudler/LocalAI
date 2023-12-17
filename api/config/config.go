@@ -265,18 +265,43 @@ func (cm *ConfigLoader) ListConfigs() []string {
 	return res
 }
 
+func convertURL(s string) string {
+	switch {
+	case strings.HasPrefix(s, "huggingface://"):
+		repository := strings.Replace(s, "huggingface://", "", 1)
+		// convert repository to a full URL.
+		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
+		owner := strings.Split(repository, "/")[0]
+		repo := strings.Split(repository, "/")[1]
+		branch := "main"
+		if strings.Contains(repo, "@") {
+			branch = strings.Split(repository, "@")[1]
+		}
+		filepath := strings.Split(repository, "/")[2]
+		if strings.Contains(filepath, "@") {
+			filepath = strings.Split(filepath, "@")[0]
+		}
+
+		return fmt.Sprintf("https://huggingface.co/%s/%s/resolve/%s/%s", owner, repo, branch, filepath)
+	}
+
+	return s
+}
+
 func (cm *ConfigLoader) Preload(modelPath string) error {
 	cm.Lock()
 	defer cm.Unlock()
 
 	for i, config := range cm.configs {
-		if strings.HasPrefix(config.PredictionOptions.Model, "http://") || strings.HasPrefix(config.PredictionOptions.Model, "https://") {
+		modelURL := config.PredictionOptions.Model
+		modelURL = convertURL(modelURL)
+		if strings.HasPrefix(modelURL, "http://") || strings.HasPrefix(modelURL, "https://") {
 			// md5 of model name
-			md5Name := utils.MD5(config.PredictionOptions.Model)
+			md5Name := utils.MD5(modelURL)
 
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); err == os.ErrNotExist {
-				err := utils.DownloadFile(config.PredictionOptions.Model, filepath.Join(modelPath, md5Name))
+				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name))
 				if err != nil {
 					return err
 				}
@@ -287,6 +312,7 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 			c.PredictionOptions.Model = md5Name
 			cm.configs[i] = *c
 		}
+
 	}
 	return nil
 }
