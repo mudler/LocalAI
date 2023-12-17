@@ -39,9 +39,6 @@ if(NOT DEFINED _GRPC_CPP_PLUGIN_EXECUTABLE)
   find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 endif()
 
-# Proto Hack?
-# set(protobuf_MODULE_COMPATIBLE ON)
-
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${Protobuf_INCLUDE_DIRS})
 

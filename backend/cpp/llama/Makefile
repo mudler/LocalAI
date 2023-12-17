@@ -51,6 +51,10 @@ clean:
 	rm -rf grpc-server
 
 grpc-server: llama.cpp llama.cpp/examples/grpc-server
-	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release
+	cd llama.cpp && mkdir -p build && cd build && \
+	_PROTOBUF_PROTOC=${_PROTOBUF_PROTOC=} \
+	_GRPC_GRPCPP=${_GRPC_GRPCPP} \
+	_GRPC_CPP_PLUGIN_EXECUTABLE=${_GRPC_CPP_PLUGIN_EXECUTABLE} \
+	cmake .. $(CMAKE_ARGS) && cmake --build . --config Release
 	cp llama.cpp/build/bin/grpc-server .
 	

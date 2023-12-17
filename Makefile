@@ -457,6 +457,7 @@ ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	backend/cpp/grpc/script/build_grpc.sh ${INSTALLED_PACKAGES}
 	@echo "=== gRPC Built! making backend/cpp/llama/grpc-server! ==="
 	_PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto \
+	_GRPC_GRPCPP=${INSTALLED_PACKAGES}/bin/grpc \
 	_GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin \
 	PATH=${INSTALLED_PACKAGES}/bin:${PATH} \
 	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
