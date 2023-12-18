@@ -9,7 +9,6 @@ weight = 9
 This section includes LocalAI end-to-end examples, tutorial and how-tos curated by the community and maintained by [lunamidori5](https://github.com/lunamidori5).
 
 - [Setup LocalAI with Docker]({{%relref "howtos/easy-setup-docker" %}})
-- [Setup LocalAI with Docker With CUDA]({{%relref "howtos/easy-setup-docker-gpu" %}})
 - [Seting up a Model]({{%relref "howtos/easy-model" %}})
 - [Making Text / LLM requests to LocalAI]({{%relref "howtos/easy-request" %}})
 - [Making Photo / SD requests to LocalAI]({{%relref "howtos/easy-setup-sd" %}})
