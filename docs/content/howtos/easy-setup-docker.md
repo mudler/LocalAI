@@ -95,6 +95,60 @@ services:
     command: ["/usr/bin/local-ai" ]
 ```
 {{% /tab %}}
+
+{{% tab name="GPU and CPU" %}}
+Also note this `docker-compose` file is for `CUDA` only.
+
+Please change the image to what you need.
+{{< tabs >}}
+{{% tab name="GPU Images CUDA 11" %}}
+- `master-cublas-cuda11`
+- `master-cublas-cuda11-core`
+- `{{< version >}}-cublas-cuda11`
+- `{{< version >}}-cublas-cuda11-core`
+- `{{< version >}}-cublas-cuda11-ffmpeg`
+- `{{< version >}}-cublas-cuda11-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+{{% /tab %}}
+
+{{% tab name="GPU Images CUDA 12" %}}
+- `master-cublas-cuda12`
+- `master-cublas-cuda12-core`
+- `{{< version >}}-cublas-cuda12`
+- `{{< version >}}-cublas-cuda12-core`
+- `{{< version >}}-cublas-cuda12-ffmpeg`
+- `{{< version >}}-cublas-cuda12-ffmpeg-core`
+
+Core Images - Smaller images without predownload python dependencies
+{{% /tab %}}
+{{< /tabs >}}
+
+```docker
+version: '3.6'
+
+services:
+  api:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    image: quay.io/go-skynet/local-ai:[CHANGEMETOIMAGENEEDED]
+    tty: true # enable colorized logs
+    restart: always # should this be on-failure ?
+    ports:
+      - 8080:8080
+    env_file:
+      - .env
+    volumes:
+      - ./models:/models
+      - ./images/:/tmp/generated/images/
+    command: ["/usr/bin/local-ai" ]
+```
+
 {{< /tabs >}}
 
 
