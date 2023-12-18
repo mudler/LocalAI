@@ -247,17 +247,19 @@ func (ml *ModelLoader) loadTemplateIfExists(templateType TemplateType, templateN
 	// skip any error here - we run anyway if a template does not exist
 	modelTemplateFile := fmt.Sprintf("%s.tmpl", templateName)
 
-	if !ml.ExistsInModelPath(modelTemplateFile) {
-		return nil
-	}
-
-	dat, err := os.ReadFile(filepath.Join(ml.ModelPath, modelTemplateFile))
-	if err != nil {
-		return err
+	dat := ""
+	if ml.ExistsInModelPath(modelTemplateFile) {
+		d, err := os.ReadFile(filepath.Join(ml.ModelPath, modelTemplateFile))
+		if err != nil {
+			return err
+		}
+		dat = string(d)
+	} else {
+		dat = templateName
 	}
 
 	// Parse the template
-	tmpl, err := template.New("prompt").Parse(string(dat))
+	tmpl, err := template.New("prompt").Parse(dat)
 	if err != nil {
 		return err
 	}

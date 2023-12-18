@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "Easy Setup - GPU Docker"
+title = "Easy Setup - Docker"
 weight = 2
 +++
 
@@ -12,26 +12,13 @@ weight = 2
 
 We are going to run `LocalAI` with `docker compose` for this set up.
 
-Lets Setup our folders for ``LocalAI``
-{{< tabs >}}
-{{% tab name="Windows (Batch)" %}}
+Lets setup our folders for ``LocalAI`` (run these to make the folders for you if you wish)
 ```batch
 mkdir "LocalAI"
 cd LocalAI
 mkdir "models"
 mkdir "images"
 ```
-{{% /tab %}}
-
-{{% tab name="Linux (Bash / WSL)" %}}
-```bash
-mkdir -p "LocalAI"
-cd LocalAI
-mkdir -p "models"
-mkdir -p "images"
-```
-{{% /tab %}}
-{{< /tabs >}}
 
 At this point we want to set up our `.env` file, here is a copy for you to use if you wish, Make sure this is in the ``LocalAI`` folder.
 
@@ -51,7 +38,7 @@ GALLERIES=[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.
 MODELS_PATH=/models
 
 ## Enable debug mode
-# DEBUG=true
+DEBUG=true
 
 ## Disables COMPEL (Lets Stable Diffuser work, uncomment if you plan on using it)
 # COMPEL=0
@@ -84,6 +71,32 @@ BUILD_TYPE=cublas
 
 Now that we have the `.env` set lets set up our `docker-compose` file.
 It will use a container from [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags).
+
+
+{{< tabs >}}
+{{% tab name="CPU Only" %}}
+Also note this `docker-compose` file is for `CPU` only.
+
+```docker
+version: '3.6'
+
+services:
+  api:
+    image: quay.io/go-skynet/local-ai:{{< version >}}
+    tty: true # enable colorized logs
+    restart: always # should this be on-failure ?
+    ports:
+      - 8080:8080
+    env_file:
+      - .env
+    volumes:
+      - ./models:/models
+      - ./images/:/tmp/generated/images/
+    command: ["/usr/bin/local-ai" ]
+```
+{{% /tab %}}
+
+{{% tab name="GPU and CPU" %}}
 Also note this `docker-compose` file is for `CUDA` only.
 
 Please change the image to what you need.
@@ -91,10 +104,10 @@ Please change the image to what you need.
 {{% tab name="GPU Images CUDA 11" %}}
 - `master-cublas-cuda11`
 - `master-cublas-cuda11-core`
-- `v2.0.0-cublas-cuda11`
-- `v2.0.0-cublas-cuda11-core`
-- `v2.0.0-cublas-cuda11-ffmpeg`
-- `v2.0.0-cublas-cuda11-ffmpeg-core`
+- `{{< version >}}-cublas-cuda11`
+- `{{< version >}}-cublas-cuda11-core`
+- `{{< version >}}-cublas-cuda11-ffmpeg`
+- `{{< version >}}-cublas-cuda11-ffmpeg-core`
 
 Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
@@ -102,10 +115,10 @@ Core Images - Smaller images without predownload python dependencies
 {{% tab name="GPU Images CUDA 12" %}}
 - `master-cublas-cuda12`
 - `master-cublas-cuda12-core`
-- `v2.0.0-cublas-cuda12`
-- `v2.0.0-cublas-cuda12-core`
-- `v2.0.0-cublas-cuda12-ffmpeg`
-- `v2.0.0-cublas-cuda12-ffmpeg-core`
+- `{{< version >}}-cublas-cuda12`
+- `{{< version >}}-cublas-cuda12-core`
+- `{{< version >}}-cublas-cuda12-ffmpeg`
+- `{{< version >}}-cublas-cuda12-ffmpeg-core`
 
 Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
@@ -135,6 +148,8 @@ services:
       - ./images/:/tmp/generated/images/
     command: ["/usr/bin/local-ai" ]
 ```
+{{% /tab %}}
+{{< /tabs >}}
 
 
 Make sure to save that in the root of the `LocalAI` folder. Then lets spin up the Docker run this in a `CMD` or `BASH`
