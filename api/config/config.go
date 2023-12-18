@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -262,6 +264,36 @@ func (cm *ConfigLoader) ListConfigs() []string {
 		res = append(res, k)
 	}
 	return res
+}
+
+func (cm *ConfigLoader) Preload(modelPath string) error {
+	cm.Lock()
+	defer cm.Unlock()
+
+	for i, config := range cm.configs {
+		modelURL := config.PredictionOptions.Model
+		modelURL = utils.ConvertURL(modelURL)
+		if strings.HasPrefix(modelURL, "http://") || strings.HasPrefix(modelURL, "https://") {
+			// md5 of model name
+			md5Name := utils.MD5(modelURL)
+
+			// check if file exists
+			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); err == os.ErrNotExist {
+				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", func(fileName, current, total string, percent float64) {
+					log.Info().Msgf("Downloading %s: %s/%s (%.2f%%)", fileName, current, total, percent)
+				})
+				if err != nil {
+					return err
+				}
+			}
+
+			cc := cm.configs[i]
+			c := &cc
+			c.PredictionOptions.Model = md5Name
+			cm.configs[i] = *c
+		}
+	}
+	return nil
 }
 
 func (cm *ConfigLoader) LoadConfigs(path string) error {
