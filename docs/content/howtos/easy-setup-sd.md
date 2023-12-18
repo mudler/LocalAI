@@ -21,8 +21,7 @@ diffusers:
 
 If you are using docker, you will need to run in the localai folder with the ``docker-compose.yaml`` file in it
 ```bash
-docker-compose down #windows
-docker compose down #linux/mac
+docker compose down
 ```
 
 Then in your ``.env`` file uncomment this line.
@@ -32,14 +31,13 @@ COMPEL=0
 
 After that we can reinstall the LocalAI docker VM by running in the localai folder with the ``docker-compose.yaml`` file in it
 ```bash
-docker-compose up #windows
-docker compose up #linux/mac
+docker compose up -d
 ```
 
 Then to download and setup the model, Just send in a normal ``OpenAI`` request! LocalAI will do the rest!
 ```bash
 curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
   "prompt": "Two Boxes, 1blue, 1red",
-  "size": "256x256"
+  "size": "1024x1024"
 }'
 ```
