@@ -91,10 +91,10 @@ Please change the image to what you need.
 {{% tab name="GPU Images CUDA 11" %}}
 - `master-cublas-cuda11`
 - `master-cublas-cuda11-core`
-- `v2.0.0-cublas-cuda11`
-- `v2.0.0-cublas-cuda11-core`
-- `v2.0.0-cublas-cuda11-ffmpeg`
-- `v2.0.0-cublas-cuda11-ffmpeg-core`
+- `{{< version >}}-cublas-cuda11`
+- `{{< version >}}-cublas-cuda11-core`
+- `{{< version >}}-cublas-cuda11-ffmpeg`
+- `{{< version >}}-cublas-cuda11-ffmpeg-core`
 
 Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
@@ -102,10 +102,10 @@ Core Images - Smaller images without predownload python dependencies
 {{% tab name="GPU Images CUDA 12" %}}
 - `master-cublas-cuda12`
 - `master-cublas-cuda12-core`
-- `v2.0.0-cublas-cuda12`
-- `v2.0.0-cublas-cuda12-core`
-- `v2.0.0-cublas-cuda12-ffmpeg`
-- `v2.0.0-cublas-cuda12-ffmpeg-core`
+- `{{< version >}}-cublas-cuda12`
+- `{{< version >}}-cublas-cuda12-core`
+- `{{< version >}}-cublas-cuda12-ffmpeg`
+- `{{< version >}}-cublas-cuda12-ffmpeg-core`
 
 Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
