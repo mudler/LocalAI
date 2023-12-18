@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "Easy Setup - CPU Docker"
+title = "Easy Setup - Docker"
 weight = 2
 +++
 
