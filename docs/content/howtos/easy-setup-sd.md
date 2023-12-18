@@ -5,7 +5,7 @@ weight = 2
 +++
 
 To set up a Stable Diffusion model is super easy.
-In your models folder make a file called ``stablediffusion.yaml``, then edit that file with the following. (You can change ``Linaqruf/animagine-xl`` with what ever ``sd-lx`` model you would like.
+In your ``models`` folder make a file called ``stablediffusion.yaml``, then edit that file with the following. (You can change ``Linaqruf/animagine-xl`` with what ever ``sd-lx`` model you would like.
 ```yaml
 name: animagine-xl
 parameters:
