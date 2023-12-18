@@ -47,7 +47,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 
 message(STATUS "Current system path: $ENV{PATH}")
-message(STATUS "Using protobuf version ${Protobuf_VERSION} | Protobuf_INCLUDE_DIRS: ${Protobuf_INCLUDE_DIRS} | CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR} | C_INCLUDE_PATH: ${C_INCLUDE_PATH}")
+message(STATUS "Using protobuf version ${Protobuf_VERSION} | Protobuf_INCLUDE_DIRS: ${Protobuf_INCLUDE_DIRS} | CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR} | C_INCLUDE_PATH: ${C_INCLUDE_PATH} | | Protobuf_INCLUDE_DIR [NO S]: ${Protobuf_INCLUDE_DIR}")
 
 
 # Proto file
