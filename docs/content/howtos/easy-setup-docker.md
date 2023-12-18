@@ -12,26 +12,13 @@ weight = 2
 
 We are going to run `LocalAI` with `docker compose` for this set up.
 
-Lets setup our folders for ``LocalAI``
-{{< tabs >}}
-{{% tab name="Windows (Batch)" %}}
+Lets setup our folders for ``LocalAI`` (run these to make the folders for you if you wish)
 ```batch
 mkdir "LocalAI"
 cd LocalAI
 mkdir "models"
 mkdir "images"
 ```
-{{% /tab %}}
-
-{{% tab name="Linux (Bash / WSL)" %}}
-```bash
-mkdir -p "LocalAI"
-cd LocalAI
-mkdir -p "models"
-mkdir -p "images"
-```
-{{% /tab %}}
-{{< /tabs >}}
 
 At this point we want to set up our `.env` file, here is a copy for you to use if you wish, Make sure this is in the ``LocalAI`` folder.
 
@@ -51,7 +38,7 @@ GALLERIES=[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.
 MODELS_PATH=/models
 
 ## Enable debug mode
-# DEBUG=true
+DEBUG=true
 
 ## Disables COMPEL (Lets Stable Diffuser work, uncomment if you plan on using it)
 # COMPEL=0
