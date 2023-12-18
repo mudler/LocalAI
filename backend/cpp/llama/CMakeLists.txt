@@ -1,4 +1,7 @@
 
+set(CMAKE_CXX_STANDARD 17)
+cmake_minimum_required(VERSION 3.15)
+
 ## XXX: In some versions of CMake clip wasn't being built before llama.
 ## This is an hack for now, but it should be fixed in the future.
 set(TARGET myclip)
@@ -9,11 +12,8 @@ target_compile_features(${TARGET} PRIVATE cxx_std_11)
 if (NOT MSVC)
     target_compile_options(${TARGET} PRIVATE -Wno-cast-qual) # stb_image.h
 endif()
-
-set(TARGET grpc-server)
 # END CLIP hack
-set(CMAKE_CXX_STANDARD 17)
-cmake_minimum_required(VERSION 3.15)
+
 set(TARGET grpc-server)
 set(_PROTOBUF_LIBPROTOBUF libprotobuf)
 set(_REFLECTION grpc++_reflection)
@@ -40,10 +40,11 @@ if(NOT DEFINED _GRPC_CPP_PLUGIN_EXECUTABLE)
 endif()
 
 # Proto Hack?
-set(protobuf_MODULE_COMPATIBLE ON)
+# set(protobuf_MODULE_COMPATIBLE ON)
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${Protobuf_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
 
 message(STATUS "Current system path: $ENV{PATH}")
 message(STATUS "Using protobuf version ${Protobuf_VERSION} | Protobuf_INCLUDE_DIRS: ${Protobuf_INCLUDE_DIRS} | CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR} | C_INCLUDE_PATH: ${C_INCLUDE_PATH}")
