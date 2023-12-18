@@ -71,6 +71,10 @@ BUILD_TYPE=cublas
 
 Now that we have the `.env` set lets set up our `docker-compose` file.
 It will use a container from [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags).
+
+
+{{< tabs >}}
+{{% tab name="CPU Only" %}}
 Also note this `docker-compose` file is for `CPU` only.
 
 ```docker
@@ -90,6 +94,8 @@ services:
       - ./images/:/tmp/generated/images/
     command: ["/usr/bin/local-ai" ]
 ```
+{{% /tab %}}
+{{< /tabs >}}
 
 
 Make sure to save that in the root of the `LocalAI` folder. Then lets spin up the Docker run this in a `CMD` or `BASH`
