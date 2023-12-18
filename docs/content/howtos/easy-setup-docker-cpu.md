@@ -91,7 +91,7 @@ version: '3.6'
 
 services:
   api:
-    image: quay.io/go-skynet/local-ai:v2.0.0
+    image: quay.io/go-skynet/local-ai:{{< version >}}
     tty: true # enable colorized logs
     restart: always # should this be on-failure ?
     ports:
