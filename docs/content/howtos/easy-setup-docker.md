@@ -148,7 +148,7 @@ services:
       - ./images/:/tmp/generated/images/
     command: ["/usr/bin/local-ai" ]
 ```
-
+{{% /tab %}}
 {{< /tabs >}}
 
 
