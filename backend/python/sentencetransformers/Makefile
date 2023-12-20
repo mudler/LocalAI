@@ -1,8 +1,7 @@
 .PHONY: sentencetransformers
 sentencetransformers:
-	@echo "Creating virtual environment..."
-	@conda env create --name sentencetransformers --file sentencetransformers.yml
-	@echo "Virtual environment created."
+	$(MAKE) -C ../common-env/transformers
+
 
 .PHONY: run
 run:

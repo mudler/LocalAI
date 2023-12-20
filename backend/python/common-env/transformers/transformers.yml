@@ -35,6 +35,8 @@ dependencies:
       - certifi==2023.7.22
       - charset-normalizer==3.3.0
       - datasets==2.14.5
+      - sentence-transformers==2.2.2
+      - sentencepiece==0.1.99
       - dill==0.3.7
       - einops==0.7.0
       - encodec==0.1.1
