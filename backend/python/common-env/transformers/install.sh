@@ -8,7 +8,7 @@ conda_env_exists(){
 
 if conda_env_exists "transformers" ; then
     echo "Creating virtual environment..."
-    conda env create --name transformers --file transformers.yml
+    conda env create --name transformers --file $1
     echo "Virtual environment created."
 else 
     echo "Virtual environment already exists."
