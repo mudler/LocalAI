@@ -47,7 +47,8 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="petals-team/StableBeluga"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="bigscience/bloom-560m"))
+                print(response)
                 self.assertTrue(response.success)
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:
@@ -64,9 +65,9 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="petals-team/StableBeluga"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="bigscience/bloom-560m"))
                 self.assertTrue(response.success)
-                req = backend_pb2.PredictOptions(prompt="The capital of France is")
+                req = backend_pb2.PredictOptions(Prompt="The capital of France is")
                 resp = stub.Predict(req)
                 self.assertIsNotNone(resp.message)
         except Exception as err:
