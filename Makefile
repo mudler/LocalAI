@@ -19,7 +19,7 @@ GOGGMLTRANSFORMERS_VERSION?=ffb09d7dd71e2cbc6c5d7d05357d230eea6f369a
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
-RWKV_VERSION?=c898cd0f62df8f2a7830e53d1d513bef4f6f792b
+RWKV_VERSION?=ec1e14088915d7f13bc607a1f3f6c909ca575104
 
 # whisper.cpp version
 WHISPER_CPP_VERSION?=9286d3f584240ba58bd44a1bd1e85141579c78d4
