@@ -9,10 +9,10 @@ export PATH=$PATH:/opt/conda/bin
 # if source is available use it, or use conda
 #
 if [ -f /opt/conda/bin/activate ]; then
-    source activate petals
+    source activate transformers
 else
     eval "$(conda shell.bash hook)"
-    conda activate petals
+    conda activate transformers
 fi
 
 # get the directory where the bash script is located

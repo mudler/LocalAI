@@ -1,6 +1,8 @@
 .PHONY: diffusers
 diffusers:
-	$(MAKE) -C ../common-env/transformers
+	@echo "Creating virtual environment..."
+	@conda env create --name diffusers --file diffusers.yml
+	@echo "Virtual environment created."
 
 .PHONY: run
 run:
