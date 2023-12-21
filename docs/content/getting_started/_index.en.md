@@ -8,11 +8,11 @@ url = '/basics/getting_started/'
 
 `LocalAI` is available as a container image and binary. It can be used with docker, podman, kubernetes and any container engine. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
 
-See also our [How to]({{%relref "howtos" %}}) section for end-to-end guided examples curated by the community.
-
 ### How to get started
 
 The easiest way to run LocalAI is by using [`docker compose`](https://docs.docker.com/compose/install/) or with [Docker](https://docs.docker.com/engine/install/) (to build locally, see the [build section]({{%relref "build" %}})).
+
+See also our [How to]({{%relref "howtos" %}}) section for end-to-end guided examples curated by the community.
 
 {{% notice note %}}
 To run with GPU Accelleration, see [GPU acceleration]({{%relref "features/gpu-acceleration" %}}).
@@ -42,7 +42,7 @@ docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-
 # └───────────────────────────────────────────────────┘
 
 # Try the endpoint with curl
-curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.gguf",
      "prompt": "A long time ago in a galaxy far, far away",
      "temperature": 0.7
@@ -81,7 +81,7 @@ docker compose up -d --pull always
 curl http://localhost:8080/v1/models
 # {"object":"list","data":[{"id":"your-model.gguf","object":"model"}]}
 
-curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.gguf",
      "prompt": "A long time ago in a galaxy far, far away",
      "temperature": 0.7
