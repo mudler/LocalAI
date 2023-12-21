@@ -106,7 +106,7 @@ type galleryModel struct {
 
 func PrepareModel(modelPath string, req gallery.GalleryModel, cm *ConfigLoader, downloadStatus func(string, string, string, float64)) error {
 
-	config, err := gallery.GetGalleryConfigFromURL(req.URL)
+	config, err := gallery.GetInstallableModelFromURL(req.URL)
 	if err != nil {
 		return err
 	}

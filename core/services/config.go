@@ -9,6 +9,8 @@ import (
 	"sync"
 
 	"github.com/go-skynet/LocalAI/pkg/datamodel"
+	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/rs/zerolog/log"
 )
 
 type ConfigLoader struct {
@@ -22,15 +24,16 @@ func NewConfigLoader() *ConfigLoader {
 	}
 }
 
+// TODO: check this is correct post-merge
 func (cm *ConfigLoader) LoadConfig(file string) error {
 	cm.Lock()
 	defer cm.Unlock()
-	c, err := datamodel.ReadConfig(file)
-	if err != nil {
+	c, err := datamodel.ReadConfigFile(file)
+	if err != nil || len(c) == 0 {
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
 
-	cm.configs[c.Name] = *c
+	cm.configs[c[0].Name] = *c[0]
 	return nil
 }
 
@@ -81,7 +84,7 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
 			continue
 		}
-		c, err := datamodel.ReadConfig(filepath.Join(path, file.Name()))
+		c, err := datamodel.ReadConfigFile(filepath.Join(path, file.Name()))
 		if err == nil {
 			cm.configs[c.Name] = *c
 		}
@@ -90,16 +93,47 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 	return nil
 }
 
-func (cm *ConfigLoader) LoadConfigFile(file string) error {
-	cm.Lock()
-	defer cm.Unlock()
+// TODO: Does this belong under ConfigLoader?
+func (cl *ConfigLoader) Preload(modelPath string) error {
+	cl.Lock()
+	defer cl.Unlock()
+
+	for i, config := range cl.configs {
+		modelURL := config.PredictionOptions.Model
+		modelURL = utils.ConvertURL(modelURL)
+		if strings.HasPrefix(modelURL, "http://") || strings.HasPrefix(modelURL, "https://") {
+			// md5 of model name
+			md5Name := utils.MD5(modelURL)
+
+			// check if file exists
+			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); err == os.ErrNotExist {
+				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", func(fileName, current, total string, percent float64) {
+					log.Info().Msgf("Downloading %s: %s/%s (%.2f%%)", fileName, current, total, percent)
+				})
+				if err != nil {
+					return err
+				}
+			}
+
+			cc := cl.configs[i]
+			c := &cc
+			c.PredictionOptions.Model = md5Name
+			cl.configs[i] = *c
+		}
+	}
+	return nil
+}
+
+func (cl *ConfigLoader) LoadConfigFile(file string) error {
+	cl.Lock()
+	defer cl.Unlock()
 	c, err := datamodel.ReadConfigFile(file)
 	if err != nil {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}
 
 	for _, cc := range c {
-		cm.configs[cc.Name] = *cc
+		cl.configs[cc.Name] = *cc
 	}
 	return nil
 }

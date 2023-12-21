@@ -34,6 +34,10 @@ func Startup(opts ...datamodel.AppOption) (*services.ConfigLoader, *model.ModelL
 		}
 	}
 
+	if err := cl.Preload(options.ModelPath); err != nil {
+		log.Error().Msgf("error downloading models: %s", err.Error())
+	}
+
 	if options.Debug {
 		for _, v := range cl.ListConfigs() {
 			cfg, _ := cl.GetConfig(v)
