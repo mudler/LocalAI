@@ -28,15 +28,6 @@ This can be achieved thanks to:
     - **Chains** to reduce the need for extensive boilerplate code in common use-cases.
     - **Auto-moderation** to ensure that all inputs and outputs to/from the LLM are not harmful.
 
-## Code examples
-
-Please see examples of how LangChain4j can be used in `langchain4j-examples` repo:
-
-- [Examples in plain Java](https://github.com/langchain4j/langchain4j-examples/tree/main/other-examples/src/main/java)
-- [Example with Spring Boot](https://github.com/langchain4j/langchain4j-examples/blob/main/spring-boot-example/src/test/java/dev/example/CustomerSupportApplicationTest.java)
-
-Quarkus specific examples (leveraging the [quarkus-langchain4j](https://github.com/quarkiverse/quarkus-langchain4j) dependency which builds on this project) can be found [here](https://github.com/quarkiverse/quarkus-langchain4j/tree/main/samples)
-
 ## News
 
 12 November:
