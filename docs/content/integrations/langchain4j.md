@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "Langchain4j"
+title = "LangChain4j"
 description="LangChain for Java: Supercharge your Java application with the power of LLMs"
 weight = 2
 +++
