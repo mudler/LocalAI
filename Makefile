@@ -22,7 +22,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=8f6d062fa80ed4ac4a00d1ac53aa4de54183fffe
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=9286d3f584240ba58bd44a1bd1e85141579c78d4
+WHISPER_CPP_VERSION?=8986690c2a7b81b2b5d79cdc186b5aa672311740
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
