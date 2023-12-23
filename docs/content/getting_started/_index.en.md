@@ -44,7 +44,7 @@ docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-
 # Try the endpoint with curl
 curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.gguf",
-     "prompt": "A long time ago in a galaxy far, far away",
+     "messages": [{"role": "user", "content": "How are you?"}],
      "temperature": 0.7
    }'
 ```
@@ -83,7 +83,7 @@ curl http://localhost:8080/v1/models
 
 curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.gguf",
-     "prompt": "A long time ago in a galaxy far, far away",
+     "messages": [{"role": "user", "content": "How are you?"}],
      "temperature": 0.7
    }'
 ```
