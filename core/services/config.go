@@ -28,12 +28,12 @@ func NewConfigLoader() *ConfigLoader {
 func (cm *ConfigLoader) LoadConfig(file string) error {
 	cm.Lock()
 	defer cm.Unlock()
-	c, err := datamodel.ReadConfigFile(file)
-	if err != nil || len(c) == 0 {
+	c, err := datamodel.ReadSingleConfigFile(file)
+	if err != nil {
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
 
-	cm.configs[c[0].Name] = *c[0]
+	cm.configs[c.Name] = *c
 	return nil
 }
 
@@ -84,7 +84,7 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
 			continue
 		}
-		c, err := datamodel.ReadConfigFile(filepath.Join(path, file.Name()))
+		c, err := datamodel.ReadSingleConfigFile(filepath.Join(path, file.Name()))
 		if err == nil {
 			cm.configs[c.Name] = *c
 		}

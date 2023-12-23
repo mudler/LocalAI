@@ -186,6 +186,19 @@ func ReadConfigFile(file string) ([]*Config, error) {
 	return *c, nil
 }
 
+func ReadSingleConfigFile(file string) (*Config, error) {
+	c := &Config{}
+	f, err := os.ReadFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read config file: %w", err)
+	}
+	if err := yaml.Unmarshal(f, c); err != nil {
+		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
+	}
+
+	return c, nil
+}
+
 func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 	if input.Echo {
 		config.Echo = input.Echo

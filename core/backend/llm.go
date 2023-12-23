@@ -24,6 +24,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+////////// TYPES //////////////
+
 type LLMResponse struct {
 	Response string // should this be []byte?
 	Usage    TokenUsage
@@ -35,10 +37,16 @@ type TokenUsage struct {
 	Completion int
 }
 
-type LLMStreamProcessor func(s string, req *datamodel.OpenAIRequest, config *datamodel.Config, loader *model.ModelLoader, responses chan datamodel.OpenAIResponse)
+type TemplateConfigBindingFn func(*datamodel.Config) *string
+
+// type LLMStreamProcessor func(s string, req *datamodel.OpenAIRequest, config *datamodel.Config, loader *model.ModelLoader, responses chan datamodel.OpenAIResponse)
+
+/////// CONSTS ///////////
 
 const DEFAULT_NO_ACTION_NAME = "answer"
 const DEFAULT_NO_ACTION_DESCRIPTION = "use this action to answer without performing any action"
+
+////// INFERENCE /////////
 
 func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c datamodel.Config, o *datamodel.StartupOptions, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
@@ -178,6 +186,8 @@ func Finetune(config datamodel.Config, input, prediction string) string {
 
 }
 
+////// CONFIG AND REQUEST HANDLING ///////////////
+
 func ReadConfigFromFileAndCombineWithOpenAIRequest(modelFile string, input *datamodel.OpenAIRequest, cm *services.ConfigLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, *datamodel.OpenAIRequest, error) {
 	// Load a config file if present after the model name
 	modelConfig := filepath.Join(startupOptions.ModelPath, modelFile+".yaml")
@@ -277,75 +287,38 @@ func ComputeChoices(
 	return result, tokenUsage, err
 }
 
-// TODO: For round one of the refactor, give each of the three primary text endpoints their own function?
-// Can cleanup into a common form later if possible easier if they are all here for now
-// If they remain different, extract each of these named segments to a seperate file
-
-func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+// TODO: No functions???? Commonize with prepareChatGenerationOpenAIRequest below?
+func prepareGenerationOpenAIRequest(bindingFn TemplateConfigBindingFn, modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, error) {
 	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
 	}
 
+	if input.ResponseFormat.Type == "json_object" {
+		input.Grammar = grammar.JSONBNF
+	}
+
 	log.Debug().Msgf("Parameter Config: %+v", config)
 
-	if config.TemplateConfig.Edit == "" {
-		config.TemplateConfig.Edit = config.Model
+	configTemplate := bindingFn(config)
+
+	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+	if (*configTemplate == "") && (ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model))) {
+		*configTemplate = config.Model
+	}
+	if *configTemplate == "" {
+		return nil, fmt.Errorf(("failed to find templateConfig"))
 	}
 
-	var result []datamodel.Choice
-	totalTokenUsage := TokenUsage{}
-
-	for _, i := range config.InputStrings {
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		templatedInput, err := ml.EvaluateTemplateForPrompt(model.EditPromptTemplate, config.TemplateConfig.Edit, model.PromptTemplateData{
-			Input:        i,
-			Instruction:  input.Instruction,
-			SystemPrompt: config.SystemPrompt,
-		})
-		if err == nil {
-			i = templatedInput
-			log.Debug().Msgf("Template found, input modified to: %s", i)
-		}
-
-		r, tokenUsage, err := ComputeChoices(input, i, config, startupOptions, ml, func(s string, c *[]datamodel.Choice) {
-			*c = append(*c, datamodel.Choice{Text: s})
-		}, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		totalTokenUsage.Prompt += tokenUsage.Prompt
-		totalTokenUsage.Completion += tokenUsage.Completion
-
-		result = append(result, r...)
-	}
-
-	id := uuid.New().String()
-	created := int(time.Now().Unix())
-	return &datamodel.OpenAIResponse{
-		ID:      id,
-		Created: created,
-		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-		Choices: result,
-		Object:  "edit",
-		Usage: datamodel.OpenAIUsage{
-			PromptTokens:     totalTokenUsage.Prompt,
-			CompletionTokens: totalTokenUsage.Completion,
-			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
-		},
-	}, nil
+	return config, nil
 }
 
-// /
-// /
-// /
-// /
-// /  SCROLL BLOCK
-// /
-// /
-// /
-// /
+////////// SPECIFIC REQUESTS //////////////
+// TODO: For round one of the refactor, give each of the three primary text endpoints their own function?
+// SEMITODO: During a merge, edit/completion were semi-combined - but remain nominally split
+// Can cleanup into a common form later if possible easier if they are all here for now
+// If they remain different, extract each of these named segments to a seperate file
+
 func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, string, bool, error) {
 
 	// IMPORTANT DEFS
@@ -494,7 +467,12 @@ func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenA
 	predInput = strings.Join(mess, "\n")
 	log.Debug().Msgf("Prompt (before templating): %s", predInput)
 
-	templateFile := config.Model
+	templateFile := ""
+
+	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+	if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+		templateFile = config.Model
+	}
 
 	if config.TemplateConfig.Chat != "" && !processFunctions {
 		templateFile = config.TemplateConfig.Chat
@@ -504,18 +482,19 @@ func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenA
 		templateFile = config.TemplateConfig.Functions
 	}
 
-	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-	templatedInput, err := ml.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
-		SystemPrompt:         config.SystemPrompt,
-		SuppressSystemPrompt: suppressConfigSystemPrompt,
-		Input:                predInput,
-		Functions:            funcs,
-	})
-	if err == nil {
-		predInput = templatedInput
-		log.Debug().Msgf("Template found, input modified to: %s", predInput)
-	} else {
-		log.Debug().Msgf("Template failed loading: %s", err.Error())
+	if templateFile != "" {
+		templatedInput, err := ml.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
+			SystemPrompt:         config.SystemPrompt,
+			SuppressSystemPrompt: suppressConfigSystemPrompt,
+			Input:                predInput,
+			Functions:            funcs,
+		})
+		if err == nil {
+			predInput = templatedInput
+			log.Debug().Msgf("Template found, input modified to: %s", predInput)
+		} else {
+			log.Debug().Msgf("Template failed loading: %s", err.Error())
+		}
 	}
 
 	log.Debug().Msgf("Prompt (after templating): %s", predInput)
@@ -527,32 +506,62 @@ func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenA
 
 }
 
-// TODO: No functions???? Commonize on the above?
-func prepareCompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, error) {
-	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
+func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+	id := uuid.New().String()
+	created := int(time.Now().Unix())
+
+	binding := func(config *datamodel.Config) *string {
+		return &config.TemplateConfig.Edit
+	}
+
+	config, err := prepareGenerationOpenAIRequest(binding, modelName, input, cl, ml, startupOptions)
 	if err != nil {
-		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
+		return nil, err
 	}
 
-	if input.ResponseFormat.Type == "json_object" {
-		input.Grammar = grammar.JSONBNF
+	var result []datamodel.Choice
+	totalTokenUsage := TokenUsage{}
+
+	for _, i := range config.InputStrings {
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		templatedInput, err := ml.EvaluateTemplateForPrompt(model.EditPromptTemplate, config.TemplateConfig.Edit, model.PromptTemplateData{
+			Input:        i,
+			Instruction:  input.Instruction,
+			SystemPrompt: config.SystemPrompt,
+		})
+		if err == nil {
+			i = templatedInput
+			log.Debug().Msgf("Template found, input modified to: %s", i)
+		}
+
+		r, tokenUsage, err := ComputeChoices(input, i, config, startupOptions, ml, func(s string, c *[]datamodel.Choice) {
+			*c = append(*c, datamodel.Choice{Text: s})
+		}, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		totalTokenUsage.Prompt += tokenUsage.Prompt
+		totalTokenUsage.Completion += tokenUsage.Completion
+
+		result = append(result, r...)
 	}
 
-	log.Debug().Msgf("Parameter Config: %+v", config)
-
-	if config.TemplateConfig.Completion == "" {
-		config.TemplateConfig.Completion = config.Model
-	}
-	if config.TemplateConfig.Completion == "" {
-		return nil, fmt.Errorf(("failed to find templateConfig"))
-	}
-
-	return config, nil
+	return &datamodel.OpenAIResponse{
+		ID:      id,
+		Created: created,
+		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+		Choices: result,
+		Object:  "edit",
+		Usage: datamodel.OpenAIUsage{
+			PromptTokens:     totalTokenUsage.Prompt,
+			CompletionTokens: totalTokenUsage.Completion,
+			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
+		},
+	}, nil
 }
 
 func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
-
-	// var processor LLMStreamProcessor = nil
 
 	// DEFS
 	id := uuid.New().String()
@@ -662,7 +671,11 @@ func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAI
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	config, err := prepareCompletionGenerationOpenAIRequest(modelName, input, cl, ml, startupOptions)
+	binding := func(config *datamodel.Config) *string {
+		return &config.TemplateConfig.Completion
+	}
+
+	config, err := prepareGenerationOpenAIRequest(binding, modelName, input, cl, ml, startupOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -776,8 +789,13 @@ func StreamingCompletionGenerationOpenAIRequest(modelName string, input *datamod
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
+	binding := func(config *datamodel.Config) *string {
+		return &config.TemplateConfig.Completion
+	}
+
 	// Prepare
-	config, err := prepareCompletionGenerationOpenAIRequest(modelName, input, cl, ml, startupOptions)
+
+	config, err := prepareGenerationOpenAIRequest(binding, modelName, input, cl, ml, startupOptions)
 	if err != nil {
 		return nil, err
 	}
