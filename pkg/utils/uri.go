@@ -143,15 +143,26 @@ func DownloadFile(url string, filePath, sha string, downloadStatus func(string, 
 		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
 	}
 
-	// Create and write file content
-	outFile, err := os.Create(filePath)
+	// save partial download to dedicated file
+	tmpFilePath := filePath + ".partial"
+	_, err = os.Stat(tmpFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to create file %q: %v", filePath, err)
+		log.Debug().Msgf("Removing temporary file %s", tmpFilePath)
+		err = os.Remove(tmpFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to remove temporary download file %s: %v", tmpFilePath, err)
+		}
+	}
+
+	// Create and write file content
+	outFile, err := os.Create(tmpFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create file %q: %v", tmpFilePath, err)
 	}
 	defer outFile.Close()
 
 	progress := &progressWriter{
-		fileName:       filePath,
+		fileName:       tmpFilePath,
 		total:          resp.ContentLength,
 		hash:           sha256.New(),
 		downloadStatus: downloadStatus,
@@ -159,6 +170,11 @@ func DownloadFile(url string, filePath, sha string, downloadStatus func(string, 
 	_, err = io.Copy(io.MultiWriter(outFile, progress), resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to write file %q: %v", filePath, err)
+	}
+
+	err = os.Rename(tmpFilePath, filePath)
+	if err != nil {
+		return fmt.Errorf("failed to rename temporary file %s -> %s: %v", tmpFilePath, filePath, err)
 	}
 
 	if sha != "" {
