@@ -94,7 +94,7 @@ func ConvertURL(s string) string {
 	return s
 }
 
-func removeFile(tmpFilePath string) error {
+func removePartialFile(tmpFilePath string) error {
 	_, err := os.Stat(tmpFilePath)
 	if err == nil {
 		log.Debug().Msgf("Removing temporary file %s", tmpFilePath)
@@ -161,7 +161,7 @@ func DownloadFile(url string, filePath, sha string, downloadStatus func(string, 
 	tmpFilePath := filePath + ".partial"
 
 	// remove tmp file
-	err = removeFile(tmpFilePath)
+	err = removePartialFile(tmpFilePath)
 	if err != nil {
 		return err
 	}
