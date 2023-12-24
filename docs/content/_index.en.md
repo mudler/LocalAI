@@ -24,8 +24,6 @@ title = "LocalAI"
 
 **LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families that are compatible with the ggml format. Does not require GPU. It is maintained by [mudler](https://github.com/mudler).
 
-<p align="center"><b>Follow LocalAI </b></p>
-
 <p align="center">
 <a href="https://twitter.com/LocalAI_API" target="blank">
 <img src="https://img.shields.io/twitter/follow/LocalAI_API?label=Follow: LocalAI_API&style=social" alt="Follow LocalAI_API"/>
@@ -33,33 +31,6 @@ title = "LocalAI"
 <a href="https://discord.gg/uJAeKSAGDy" target="blank">
 <img src="https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted" alt="Join LocalAI Discord Community"/>
 </a>
-
-<p align="center"><b>Connect with the Creator </b></p>
-
-<p align="center">
-<a href="https://twitter.com/mudler_it" target="blank">
-<img src="https://img.shields.io/twitter/follow/mudler_it?label=Follow: mudler_it&style=social" alt="Follow mudler_it"/>
-</a>
-<a href='https://github.com/mudler'>
-<img alt="Follow on Github" src="https://img.shields.io/badge/Follow-mudler-black?logo=github&link=https%3A%2F%2Fgithub.com%2Fmudler">
-</a>
-</p>
-
-<p align="center"><b>Share LocalAI Repository</b></p>
-
-<p align="center">
-
-<a href="https://twitter.com/intent/tweet?text=Check%20this%20GitHub%20repository%20out.%20LocalAI%20-%20Let%27s%20you%20easily%20run%20LLM%20locally.&url=https://github.com/go-skynet/LocalAI&hashtags=LocalAI,AI" target="blank">
-<img src="https://img.shields.io/twitter/follow/_LocalAI?label=Share Repo on Twitter&style=social" alt="Follow _LocalAI"/></a>
-<a href="https://t.me/share/url?text=Check%20this%20GitHub%20repository%20out.%20LocalAI%20-%20Let%27s%20you%20easily%20run%20LLM%20locally.&url=https://github.com/go-skynet/LocalAI" target="_blank"><img src="https://img.shields.io/twitter/url?label=Telegram&logo=Telegram&style=social&url=https://github.com/go-skynet/LocalAI" alt="Share on Telegram"/></a>
-<a href="https://api.whatsapp.com/send?text=Check%20this%20GitHub%20repository%20out.%20LocalAI%20-%20Let%27s%20you%20easily%20run%20LLM%20locally.%20https://github.com/go-skynet/LocalAI"><img src="https://img.shields.io/twitter/url?label=whatsapp&logo=whatsapp&style=social&url=https://github.com/go-skynet/LocalAI" /></a> <a href="https://www.reddit.com/submit?url=https://github.com/go-skynet/LocalAI&title=Check%20this%20GitHub%20repository%20out.%20LocalAI%20-%20Let%27s%20you%20easily%20run%20LLM%20locally.
-" target="blank">
-<img src="https://img.shields.io/twitter/url?label=Reddit&logo=Reddit&style=social&url=https://github.com/go-skynet/LocalAI" alt="Share on Reddit"/>
-</a> <a href="mailto:?subject=Check%20this%20GitHub%20repository%20out.%20LocalAI%20-%20Let%27s%20you%20easily%20run%20LLM%20locally.%3A%0Ahttps://github.com/go-skynet/LocalAI" target="_blank"><img src="https://img.shields.io/twitter/url?label=Gmail&logo=Gmail&style=social&url=https://github.com/go-skynet/LocalAI"/></a> <a href="https://www.buymeacoffee.com/mudler" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="23" width="100" style="border-radius:1px"></a>
-
-</p>
-
-<hr>
 
 In a nutshell:
 
@@ -70,9 +41,10 @@ In a nutshell:
 - 🏃 Once loaded the first time, it keep models loaded in memory for faster inference
 - ⚡ Doesn't shell-out, but uses C++ bindings for a faster inference and better performance.
 
-LocalAI was created by [Ettore Di Giacinto](https://github.com/mudler/) and is a community-driven project, focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome!
+LocalAI is focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome!
 
-Note that this started just as a [fun weekend project](https://localai.io/#backstory) in order to try to create the necessary pieces for a full AI assistant like `ChatGPT`: the community is growing fast and we are working hard to make it better and more stable. If you want to help, please consider contributing (see below)!
+Note that this started just as a fun weekend project by [mudler](https://github.com/mudler) in order to try to create the necessary pieces for a full AI assistant like `ChatGPT`: the community is growing fast and we are working hard to make it better and more stable. If you want to help, please consider contributing (see below)!
+
 
 ## 🚀 Features
 
@@ -85,19 +57,6 @@ Note that this started just as a [fun weekend project](https://localai.io/#backs
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
 - 🆕 [Vision API](https://localai.io/features/gpt-vision/)
-
-
-## 🔥🔥 Hot topics / Roadmap
-
-[Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
-
-🆕 New! [LLM finetuning guide](https://localai.io/advanced/fine-tuning/)
-
-Hot topics (looking for contributors):
-- Backends v2: https://github.com/mudler/LocalAI/issues/1126
-- Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
-
-If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
 
 ## How does it work?
 
@@ -138,6 +97,8 @@ LocalAI couldn't have been built without the help of great software already avai
 - https://github.com/saharNooby/rwkv.cpp
 - https://github.com/rhasspy/piper
 - https://github.com/cmp-nct/ggllm.cpp
+
+
 
 ## Backstory
 
