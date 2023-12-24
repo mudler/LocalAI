@@ -17,6 +17,8 @@ endif()
 set(TARGET grpc-server)
 set(_PROTOBUF_LIBPROTOBUF libprotobuf)
 set(_REFLECTION grpc++_reflection)
+set(_GRPC_GRPCPP grpc++)
+
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     link_directories("/opt/homebrew/lib")
     include_directories("/opt/homebrew/include")
@@ -35,17 +37,11 @@ if(NOT DEFINED _GRPC_CPP_PLUGIN_EXECUTABLE)
   find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 endif()
 
-set(_GRPC_GRPCPP grpc++)
-
-# Proto Hack?
-# set(protobuf_MODULE_COMPATIBLE ON)
-
 include_directories(${Protobuf_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-
-message(STATUS "Current system path: $ENV{PATH}")
-message(STATUS "Using protobuf version ${Protobuf_VERSION} | Protobuf_INCLUDE_DIRS: ${Protobuf_INCLUDE_DIRS} | CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR} | C_INCLUDE_PATH: ${C_INCLUDE_PATH} | | Protobuf_INCLUDE_DIR [NO S]: ${Protobuf_INCLUDE_DIR}")
+message(STATUS "Current system path: $ENV(PATH)")
+message(STATUS "Using protobuf version $(Protobuf_VERSION) | Protobuf_INCLUDE_DIRS: $(Protobuf_INCLUDE_DIRS) | CMAKE_CURRENT_BINARY_DIR: $(CMAKE_CURRENT_BINARY_DIR) | C_INCLUDE_PATH: $(C_INCLUDE_PATH) | | Protobuf_INCLUDE_DIR [NO S]: $(Protobuf_INCLUDE_DIR)")
 
 
 # Proto file

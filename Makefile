@@ -466,8 +466,9 @@ else
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
 	file backend/cpp/llama/grpc-server
 endif
+
 ## BACKEND CPP LLAMA END
-		
+
 ##
 backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/grpc-server
 	@echo "=== backend-assets/grpc/llama-cpp ==="
