@@ -40,6 +40,7 @@ const (
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
+	TinyDreamBackend       = "tinydream"
 	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "langchain-huggingface"
 
@@ -64,6 +65,7 @@ var AutoLoadBackends []string = []string{
 	RwkvBackend,
 	WhisperBackend,
 	StableDiffusionBackend,
+	TinyDreamBackend,
 	PiperBackend,
 }
 

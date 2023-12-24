@@ -122,8 +122,12 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
-		// XXX: Only stablediffusion is supported for now
-		if config.Backend == "" {
+		switch config.Backend {
+		case "stablediffusion":
+			config.Backend = model.StableDiffusionBackend
+		case "tinydream":
+			config.Backend = model.TinyDreamBackend
+		default:
 			config.Backend = model.StableDiffusionBackend
 		}
 
