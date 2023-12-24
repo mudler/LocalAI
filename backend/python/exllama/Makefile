@@ -8,3 +8,6 @@ run:
 	@echo "Running exllama..."
 	bash run.sh
 	@echo "exllama run."
+
+test:
+	bash test.sh
