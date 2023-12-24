@@ -94,6 +94,20 @@ func ConvertURL(s string) string {
 	return s
 }
 
+func removeFile(tmpFilePath string) error {
+	_, err := os.Stat(tmpFilePath)
+	if err == nil {
+		log.Debug().Msgf("Removing temporary file %s", tmpFilePath)
+		err = os.Remove(tmpFilePath)
+		if err != nil {
+			err1 := fmt.Errorf("failed to remove temporary download file %s: %v", tmpFilePath, err)
+			log.Warn().Msg(err1.Error())
+			return err1
+		}
+	}
+	return nil
+}
+
 func DownloadFile(url string, filePath, sha string, downloadStatus func(string, string, string, float64)) error {
 	url = ConvertURL(url)
 	// Check if the file already exists
@@ -145,13 +159,11 @@ func DownloadFile(url string, filePath, sha string, downloadStatus func(string, 
 
 	// save partial download to dedicated file
 	tmpFilePath := filePath + ".partial"
-	_, err = os.Stat(tmpFilePath)
+
+	// remove tmp file
+	err = removeFile(tmpFilePath)
 	if err != nil {
-		log.Debug().Msgf("Removing temporary file %s", tmpFilePath)
-		err = os.Remove(tmpFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to remove temporary download file %s: %v", tmpFilePath, err)
-		}
+		return err
 	}
 
 	// Create and write file content
