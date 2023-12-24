@@ -15,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := grpc.StartServer(*addr, &StableDiffusion{}); err != nil {
+	if err := grpc.StartServer(*addr, &Image{}); err != nil {
 		panic(err)
 	}
 }

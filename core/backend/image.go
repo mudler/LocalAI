@@ -104,8 +104,12 @@ func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReque
 
 	log.Debug().Msgf("Parameter Config: %+v", config)
 
-	// XXX: Only stablediffusion is supported for now
-	if config.Backend == "" {
+	switch config.Backend {
+	case "stablediffusion":
+		config.Backend = model.StableDiffusionBackend
+	case "tinydream":
+		config.Backend = model.TinyDreamBackend
+	default:
 		config.Backend = model.StableDiffusionBackend
 	}
 

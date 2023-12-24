@@ -8,20 +8,20 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/stablediffusion"
 )
 
-type StableDiffusion struct {
+type Image struct {
 	base.SingleThread
 	stablediffusion *stablediffusion.StableDiffusion
 }
 
-func (sd *StableDiffusion) Load(opts *pb.ModelOptions) error {
+func (image *Image) Load(opts *pb.ModelOptions) error {
 	var err error
 	// Note: the Model here is a path to a directory containing the model files
-	sd.stablediffusion, err = stablediffusion.New(opts.ModelFile)
+	image.stablediffusion, err = stablediffusion.New(opts.ModelFile)
 	return err
 }
 
-func (sd *StableDiffusion) GenerateImage(opts *pb.GenerateImageRequest) error {
-	return sd.stablediffusion.GenerateImage(
+func (image *Image) GenerateImage(opts *pb.GenerateImageRequest) error {
+	return image.stablediffusion.GenerateImage(
 		int(opts.Height),
 		int(opts.Width),
 		int(opts.Mode),
