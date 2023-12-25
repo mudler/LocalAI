@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  linux:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: privateGPT
+    volumes:
+      - ./../../models/:/app/models
+      - ./db:/app/db
+      - ./privateGPT:/app/privateGPT
+    environment:
+      - REQUEST_TIMEOUT=320
+
+    networks:
+      - localai_default
+
+networks:
+  localai_default:
+    external: true
+
