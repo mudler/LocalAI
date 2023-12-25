@@ -84,6 +84,7 @@ Model galleries
 
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
+- Local Smart assistant https://github.com/mudler/LocalAGI
 
 ### 🔗 Resources
 
