@@ -1,8 +1,6 @@
 .PHONY: ttsvalle
 ttsvalle:
-	@echo "Creating virtual environment..."
-	@conda env create --name ttsvalle --file ttsvalle.yml
-	@echo "Virtual environment created."
+	$(MAKE) -C ../common-env/transformers
 	bash install.sh
 
 .PHONY: run
