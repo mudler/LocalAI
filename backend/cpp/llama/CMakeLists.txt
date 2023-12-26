@@ -44,6 +44,7 @@ endif()
 include_directories(${Protobuf_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+message(STATUS "=== backend/cpp/llama/CMakeLists.txt main variable dump ===")
 cmake_print_variables(Protobuf_VERSION Protobuf_INCLUDE_DIRS CMAKE_CURRENT_BINARY_DIR C_INCLUDE_PATH Protobuf_INCLUDE_DIR _PROTOBUF_PROTOC _GRPC_CPP_PLUGIN_EXECUTABLE)
 
 
