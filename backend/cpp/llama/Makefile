@@ -28,7 +28,6 @@ llama.cpp:
 
 llama.cpp/examples/grpc-server:
 	@echo "=== backend/cpp/llama Makefile ==="
-	pwd
 	mkdir -p llama.cpp/examples/grpc-server
 	cp -r $(abspath ./)/CMakeLists.txt llama.cpp/examples/grpc-server/
 	cp -r $(abspath ./)/grpc-server.cpp llama.cpp/examples/grpc-server/
