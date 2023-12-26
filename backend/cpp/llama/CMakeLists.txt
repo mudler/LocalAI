@@ -22,10 +22,17 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     include_directories("/opt/homebrew/include")
 endif()
 
-find_package(absl CONFIG REQUIRED)
-find_package(Protobuf CONFIG REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
+include_directories(include)
 
+find_package(gRPC CONFIG REQUIRED)
+find_package(PkgConfig REQUIRED)
+
+include(FindProtobuf)
+find_package(Protobuf REQUIRED)
+include_directories(${PROTOBUF_INCLUDE_DIR})
+
+
+find_package(absl CONFIG REQUIRED)
 find_program(_PROTOBUF_PROTOC protoc)
 set(_GRPC_GRPCPP grpc++)
 find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
