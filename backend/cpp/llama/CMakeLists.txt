@@ -2,6 +2,8 @@
 set(CMAKE_CXX_STANDARD 17)
 cmake_minimum_required(VERSION 3.15)
 
+include(CMakePrintHelpers)
+
 ## XXX: In some versions of CMake clip wasn't being built before llama.
 ## This is an hack for now, but it should be fixed in the future.
 set(TARGET myclip)
@@ -31,18 +33,18 @@ find_package(gRPC CONFIG REQUIRED)
 if(NOT DEFINED _PROTOBUF_PROTOC)
   message(STATUS "_PROTOBUF_PROTOC not set, defaulting via find_program")
   find_program(_PROTOBUF_PROTOC protoc)
-  message(STATUS "_PROTOBUF_PROTOC is now set to $(_PROTOBUF_PROTOC)")
+  cmake_print_variables(_PROTOBUF_PROTOC)
 endif()
 if(NOT DEFINED _GRPC_CPP_PLUGIN_EXECUTABLE)
   message(STATUS "_GRPC_CPP_PLUGIN_EXECUTABLE not set, defaulting via find_program")
   find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
+  cmake_print_variables(_GRPC_CPP_PLUGIN_EXECUTABLE)
 endif()
 
 include_directories(${Protobuf_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-message(STATUS "Current system path: $ENV(PATH)")
-message(STATUS "Using protobuf version $(Protobuf_VERSION) | Protobuf_INCLUDE_DIRS: $(Protobuf_INCLUDE_DIRS) | CMAKE_CURRENT_BINARY_DIR: $(CMAKE_CURRENT_BINARY_DIR) | C_INCLUDE_PATH: $(C_INCLUDE_PATH) | | Protobuf_INCLUDE_DIR [NO S]: $(Protobuf_INCLUDE_DIR)")
+cmake_print_variables(Protobuf_VERSION, Protobuf_INCLUDE_DIRS, CMAKE_CURRENT_BINARY_DIR, C_INCLUDE_PATH, Protobuf_INCLUDE_DIR, _PROTOBUF_PROTOC, _GRPC_CPP_PLUGIN_EXECUTABLE)
 
 
 # Proto file
