@@ -114,9 +114,12 @@ jobs:
         run: go version
       - name: Display OSX version info
         run: system_profiler SPSoftwareDataType SPHardwareDataType
+      - name: Dependencies
+        run: |
+          brew install protobuf grpc
       - name: Build
         run: |
           CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make -j12 build
       - name: Test
         run: |
-          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make -j12 build
+          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make -j12 test
