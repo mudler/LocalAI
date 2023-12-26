@@ -19,7 +19,7 @@ python privateGPT.py -S -M
 
 ```bash
 git clone git@github.com:go-skynet/privateGPT.git
-cp example.env ./privateGTP/.env
+cp example.env ./privateGPT/.env
 cp requirements.txt ./privateGPT/requirements.txt
 
 docker compose up -d

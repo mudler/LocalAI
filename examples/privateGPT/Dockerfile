@@ -5,8 +5,6 @@ RUN pip3 install --no-cache --upgrade pip setuptools
 RUN pip install python-dotenv tqdm langchain
 RUN pip install chromadb==0.3.29 --no-deps
 
-COPY ./entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
 
 WORKDIR /app
 
@@ -20,6 +18,4 @@ COPY ./privateGPT/requirements.txt .
 RUN pip install -r requirements.txt
 
 
-
-ENTRYPOINT ["/app/entrypoint.sh"]
-#CMD ["tail", "-f", "/dev/null"]
+CMD ["tail", "-f", "/dev/null"]
