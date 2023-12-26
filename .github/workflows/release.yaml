@@ -5,6 +5,10 @@ on: push
 permissions:
   contents: write
 
+concurrency:
+  group: ci-releases-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
 jobs:
   build-linux:
     strategy:
