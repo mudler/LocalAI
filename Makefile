@@ -481,7 +481,6 @@ ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 else
 	@echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined, making backend/cpp/llama grpc-server"
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
-	file backend/cpp/llama/grpc-server
 endif
 
 ## BACKEND CPP LLAMA END
