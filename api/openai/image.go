@@ -127,7 +127,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			config.Backend = model.StableDiffusionBackend
 		case "tinydream":
 			config.Backend = model.TinyDreamBackend
-		default:
+		case "":
 			config.Backend = model.StableDiffusionBackend
 		}
 
