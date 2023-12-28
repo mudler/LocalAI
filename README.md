@@ -85,6 +85,10 @@ Model galleries
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
 - Local Smart assistant https://github.com/mudler/LocalAGI
+- Discord bot https://github.com/mudler/LocalAGI/tree/main/examples/discord
+- Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
+- Telegram bot https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot
+- Examples: https://github.com/mudler/LocalAI/tree/master/examples/
 
 ### 🔗 Resources
 
