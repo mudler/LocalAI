@@ -84,6 +84,7 @@ Model galleries
 
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
+- VSCode extension https://github.com/badgooooor/localai-vscode-plugin
 - Local Smart assistant https://github.com/mudler/LocalAGI
 - Discord bot https://github.com/mudler/LocalAGI/tree/main/examples/discord
 - Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
