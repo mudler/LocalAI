@@ -1,7 +1,7 @@
 package grpc
 
 import (
-	"github.com/go-skynet/LocalAI/api/schema"
+	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 )
 
@@ -15,7 +15,7 @@ type LLM interface {
 	Load(*pb.ModelOptions) error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
-	AudioTranscription(*pb.TranscriptRequest) (schema.Result, error)
+	AudioTranscription(*pb.TranscriptRequest) (datamodel.WhisperResult, error)
 	TTS(*pb.TTSRequest) error
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
 	Status() (pb.StatusResponse, error)

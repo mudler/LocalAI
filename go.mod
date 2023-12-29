@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/M0Rf30/go-tiny-dream v0.0.0-20231128165230-772a9c0d9aaf
 	github.com/donomii/go-rwkv.cpp v0.0.0-20230715075832-c898cd0f62df
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230628193450-85ed71aaec8e
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230716133540-6abe312cded1
