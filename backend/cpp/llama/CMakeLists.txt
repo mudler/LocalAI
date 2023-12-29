@@ -22,6 +22,18 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     include_directories("/opt/homebrew/include")
 endif()
 
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    # Set correct Homebrew install folder for Apple Silicon and Intel Macs
+    if (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "arm64")
+        set(HOMEBREW_DEFAULT_PREFIX "/opt/homebrew")
+    else()
+        set(HOMEBREW_DEFAULT_PREFIX "/usr/local")
+    endif()
+
+    link_directories("${HOMEBREW_DEFAULT_PREFIX}/lib")
+    include_directories("${HOMEBREW_DEFAULT_PREFIX}/include")
+endif()
+
 find_package(absl CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
