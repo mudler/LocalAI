@@ -17,10 +17,6 @@ cmake_minimum_required(VERSION 3.15)
 set(TARGET grpc-server)
 set(_PROTOBUF_LIBPROTOBUF libprotobuf)
 set(_REFLECTION grpc++_reflection)
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    link_directories("/opt/homebrew/lib")
-    include_directories("/opt/homebrew/include")
-endif()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     # Set correct Homebrew install folder for Apple Silicon and Intel Macs
