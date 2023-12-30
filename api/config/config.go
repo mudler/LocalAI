@@ -1,6 +1,7 @@
 package api_config
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -270,15 +271,19 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 	cm.Lock()
 	defer cm.Unlock()
 
+	log.Info().Msgf("Preloading models from %s", modelPath)
+
 	for i, config := range cm.configs {
+
 		modelURL := config.PredictionOptions.Model
 		modelURL = utils.ConvertURL(modelURL)
-		if strings.HasPrefix(modelURL, "http://") || strings.HasPrefix(modelURL, "https://") {
+
+		if utils.LooksLikeURL(modelURL) {
 			// md5 of model name
 			md5Name := utils.MD5(modelURL)
 
 			// check if file exists
-			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); err == os.ErrNotExist {
+			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
 				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", func(fileName, current, total string, percent float64) {
 					log.Info().Msgf("Downloading %s: %s/%s (%.2f%%)", fileName, current, total, percent)
 				})

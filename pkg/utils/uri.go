@@ -71,10 +71,18 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 	return f(url, body)
 }
 
+const (
+	HuggingFacePrefix = "huggingface://"
+)
+
+func LooksLikeURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") || strings.HasPrefix(s, HuggingFacePrefix)
+}
+
 func ConvertURL(s string) string {
 	switch {
-	case strings.HasPrefix(s, "huggingface://"):
-		repository := strings.Replace(s, "huggingface://", "", 1)
+	case strings.HasPrefix(s, HuggingFacePrefix):
+		repository := strings.Replace(s, HuggingFacePrefix, "", 1)
 		// convert repository to a full URL.
 		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
 		owner := strings.Split(repository, "/")[0]
