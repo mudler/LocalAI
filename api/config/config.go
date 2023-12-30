@@ -267,6 +267,7 @@ func (cm *ConfigLoader) ListConfigs() []string {
 	return res
 }
 
+// Preload prepare models if they are not local but url or huggingface repositories
 func (cm *ConfigLoader) Preload(modelPath string) error {
 	cm.Lock()
 	defer cm.Unlock()
