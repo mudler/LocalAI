@@ -2,10 +2,13 @@ package datamodel
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -291,6 +294,7 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 					} else {
 						fmt.Print("Failed encoding image", err)
 					}
+
 				}
 			}
 		}
@@ -381,6 +385,29 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 		for _, pp := range p {
 			if s, ok := pp.(string); ok {
 				config.PromptStrings = append(config.PromptStrings, s)
+			}
+		}
+	}
+
+	log.Info().Msgf("Preloading models from %s", modelPath)
+
+	for i, config := range cm.configs {
+
+		modelURL := config.PredictionOptions.Model
+		modelURL = utils.ConvertURL(modelURL)
+
+		if utils.LooksLikeURL(modelURL) {
+			// md5 of model name
+			md5Name := utils.MD5(modelURL)
+
+			// check if file exists
+			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
+				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", func(fileName, current, total string, percent float64) {
+					log.Info().Msgf("Downloading %s: %s/%s (%.2f%%)", fileName, current, total, percent)
+				})
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

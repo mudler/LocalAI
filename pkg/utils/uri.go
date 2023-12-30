@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	githubURI = "github:"
+	GithubURIPrefix      = "github:"
+	HuggingFaceURIPrefix = "huggingface://"
 )
 
 func GetURI(url string, f func(url string, i []byte) error) error {
-	if strings.HasPrefix(url, githubURI) {
+	if strings.HasPrefix(url, GithubURIPrefix) {
 		parts := strings.Split(url, ":")
 		repoParts := strings.Split(parts[1], "@")
 		branch := "main"
@@ -103,10 +104,14 @@ func GetBase64Image(s string) (string, error) {
 	return "", fmt.Errorf("not valid string")
 }
 
+func LooksLikeURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") || strings.HasPrefix(s, HuggingFaceURIPrefix)
+}
+
 func ConvertURL(s string) string {
 	switch {
-	case strings.HasPrefix(s, "huggingface://"):
-		repository := strings.Replace(s, "huggingface://", "", 1)
+	case strings.HasPrefix(s, HuggingFaceURIPrefix):
+		repository := strings.Replace(s, HuggingFaceURIPrefix, "", 1)
 		// convert repository to a full URL.
 		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
 		owner := strings.Split(repository, "/")[0]
