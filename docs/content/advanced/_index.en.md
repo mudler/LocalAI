@@ -359,15 +359,7 @@ docker run --env REBUILD=true localai
 docker run --env-file .env localai
 ```
 
-### Build only a single backend
 
-You can control the backends that are built by setting the `GRPC_BACKENDS` environment variable. For instance, to build only the `llama-cpp` backend only:
-
-```bash
-make GRPC_BACKENDS=backend-assets/grpc/llama-cpp build
-```
-
-By default, all the backends are built.
 
 ### Extra backends
 
