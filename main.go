@@ -222,6 +222,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
 				options.WithApiKeys(ctx.StringSlice("api-keys")),
+				options.WithModelsURL(ctx.Args().Slice()...),
 			}
 
 			idleWatchDog := ctx.Bool("enable-watchdog-idle")
