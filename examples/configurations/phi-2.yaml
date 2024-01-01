@@ -3,6 +3,8 @@ context_size: 2048
 f16: true
 gpu_layers: 90
 mmap: true
+trimsuffix: 
+- "\n"
 parameters:
   model: huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
   temperature: 0.2
