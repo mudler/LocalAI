@@ -111,16 +111,18 @@ type LLMConfig struct {
 	StopWords       []string `yaml:"stopwords"`
 	Cutstrings      []string `yaml:"cutstrings"`
 	TrimSpace       []string `yaml:"trimspace"`
-	ContextSize     int      `yaml:"context_size"`
-	NUMA            bool     `yaml:"numa"`
-	LoraAdapter     string   `yaml:"lora_adapter"`
-	LoraBase        string   `yaml:"lora_base"`
-	LoraScale       float32  `yaml:"lora_scale"`
-	NoMulMatQ       bool     `yaml:"no_mulmatq"`
-	DraftModel      string   `yaml:"draft_model"`
-	NDraft          int32    `yaml:"n_draft"`
-	Quantization    string   `yaml:"quantization"`
-	MMProj          string   `yaml:"mmproj"`
+	TrimSuffix      []string `yaml:"trimsuffix"`
+
+	ContextSize  int     `yaml:"context_size"`
+	NUMA         bool    `yaml:"numa"`
+	LoraAdapter  string  `yaml:"lora_adapter"`
+	LoraBase     string  `yaml:"lora_base"`
+	LoraScale    float32 `yaml:"lora_scale"`
+	NoMulMatQ    bool    `yaml:"no_mulmatq"`
+	DraftModel   string  `yaml:"draft_model"`
+	NDraft       int32   `yaml:"n_draft"`
+	Quantization string  `yaml:"quantization"`
+	MMProj       string  `yaml:"mmproj"`
 
 	RopeScaling    string  `yaml:"rope_scaling"`
 	YarnExtFactor  float32 `yaml:"yarn_ext_factor"`
