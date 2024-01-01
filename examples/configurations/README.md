@@ -67,6 +67,17 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 ```
 
+### Phi-2
+
+```
+cp -r examples/configurations/phi-2.yaml models/
+
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "phi-2",
+     "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+}'
+```
+
 ### Mixtral
 
 ```
