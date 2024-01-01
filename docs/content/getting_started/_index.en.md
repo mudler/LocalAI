@@ -115,6 +115,13 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 
 {{< /tabs >}}
 
+### Popular models
+
+| Model | CPU | CUDA11 | CUDA12 |
+| --- | --- | --- | --- |
+| phi-2 | `docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core --debug --models-path /models --context-size 2048 --threads 4 github://mudler/LocalAI/examples/configurations/phi-2.yaml@master` | `docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core --debug --models-path /models --context-size 2048 --threads 4 github://mudler/LocalAI/examples/configurations/phi-2.yaml@master` | `docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core --debug --models-path /models --context-size 2048 --threads 4 github://mudler/LocalAI/examples/configurations/phi-2.yaml@master` |
+
+
 ### Container images
 
 LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags):
