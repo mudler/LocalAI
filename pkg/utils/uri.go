@@ -15,27 +15,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	githubURI = "github:"
-)
-
 func GetURI(url string, f func(url string, i []byte) error) error {
-	if strings.HasPrefix(url, githubURI) {
-		parts := strings.Split(url, ":")
-		repoParts := strings.Split(parts[1], "@")
-		branch := "main"
-
-		if len(repoParts) > 1 {
-			branch = repoParts[1]
-		}
-
-		repoPath := strings.Split(repoParts[0], "/")
-		org := repoPath[0]
-		project := repoPath[1]
-		projectPath := strings.Join(repoPath[2:], "/")
-
-		url = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
-	}
+	url = ConvertURL(url)
 
 	if strings.HasPrefix(url, "file://") {
 		rawURL := strings.TrimPrefix(url, "file://")
@@ -73,14 +54,53 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 
 const (
 	HuggingFacePrefix = "huggingface://"
+	HTTPPrefix        = "http://"
+	HTTPSPrefix       = "https://"
+	GithubURI         = "github:"
+	GithubURI2        = "github://"
 )
 
 func LooksLikeURL(s string) bool {
-	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") || strings.HasPrefix(s, HuggingFacePrefix)
+	return strings.HasPrefix(s, HTTPPrefix) ||
+		strings.HasPrefix(s, HTTPSPrefix) ||
+		strings.HasPrefix(s, HuggingFacePrefix) ||
+		strings.HasPrefix(s, GithubURI) ||
+		strings.HasPrefix(s, GithubURI2)
 }
 
 func ConvertURL(s string) string {
 	switch {
+	case strings.HasPrefix(s, GithubURI2):
+		repository := strings.Replace(s, GithubURI2, "", 1)
+
+		repoParts := strings.Split(repository, "@")
+		branch := "main"
+
+		if len(repoParts) > 1 {
+			branch = repoParts[1]
+		}
+
+		repoPath := strings.Split(repoParts[0], "/")
+		org := repoPath[0]
+		project := repoPath[1]
+		projectPath := strings.Join(repoPath[2:], "/")
+
+		return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
+	case strings.HasPrefix(s, GithubURI):
+		parts := strings.Split(s, ":")
+		repoParts := strings.Split(parts[1], "@")
+		branch := "main"
+
+		if len(repoParts) > 1 {
+			branch = repoParts[1]
+		}
+
+		repoPath := strings.Split(repoParts[0], "/")
+		org := repoPath[0]
+		project := repoPath[1]
+		projectPath := strings.Join(repoPath[2:], "/")
+
+		return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
 	case strings.HasPrefix(s, HuggingFacePrefix):
 		repository := strings.Replace(s, HuggingFacePrefix, "", 1)
 		// convert repository to a full URL.

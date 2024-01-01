@@ -100,6 +100,11 @@ func main() {
 				EnvVars: []string{"PRELOAD_MODELS"},
 			},
 			&cli.StringFlag{
+				Name:    "models",
+				Usage:   "A List of models URLs configurations.",
+				EnvVars: []string{"MODELS"},
+			},
+			&cli.StringFlag{
 				Name:    "preload-models-config",
 				Usage:   "A List of models to apply at startup. Path to a YAML config file",
 				EnvVars: []string{"PRELOAD_MODELS_CONFIG"},
@@ -222,6 +227,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
 				options.WithUploadLimitMB(ctx.Int("upload-limit")),
 				options.WithApiKeys(ctx.StringSlice("api-keys")),
+				options.WithModelsURL(append(ctx.StringSlice("models"), ctx.Args().Slice()...)...),
 			}
 
 			idleWatchDog := ctx.Bool("enable-watchdog-idle")

@@ -286,7 +286,7 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
 				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", func(fileName, current, total string, percent float64) {
-					log.Info().Msgf("Downloading %s: %s/%s (%.2f%%)", fileName, current, total, percent)
+					utils.DisplayDownloadFunction(fileName, current, total, percent)
 				})
 				if err != nil {
 					return err

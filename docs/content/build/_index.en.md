@@ -7,16 +7,15 @@ url = '/basics/build/'
 
 +++
 
-### Build locally
+### Build
+
+#### Container image
 
 Requirements:
 
-Either Docker/podman, or
-- Golang >= 1.21
-- Cmake/make
-- GCC
+- Docker or podman, or a container engine
 
-In order to build the `LocalAI` container image locally you can use `docker`:
+In order to build the `LocalAI` container image locally you can use `docker`, for example:
 
 ```
 # build the image
@@ -24,7 +23,45 @@ docker build -t localai .
 docker run localai
 ```
 
-Or you can build the manually binary with `make`:
+#### Locally
+
+In order to build LocalAI locally, you need the following requirements:
+
+- Golang >= 1.21
+- Cmake/make
+- GCC
+- GRPC
+
+To install the dependencies follow the instructions below:
+
+{{< tabs >}}
+{{% tab name="Apple" %}}
+
+```bash
+brew install abseil cmake go grpc protobuf wget
+```
+
+{{% /tab %}}
+{{% tab name="Debian" %}}
+
+```bash
+apt install protobuf-compiler-grpc libgrpc-dev make cmake
+```
+
+{{% /tab %}}
+{{% tab name="From source" %}}
+
+Specify `BUILD_GRPC_FOR_BACKEND_LLAMA=true` to build automatically the gRPC dependencies
+
+```bash
+make ... BUILD_GRPC_FOR_BACKEND_LLAMA=true build
+```
+
+{{% /tab %}}
+{{< /tabs >}}
+
+
+To build LocalAI with `make`:
 
 ```
 git clone https://github.com/go-skynet/LocalAI
@@ -32,7 +69,7 @@ cd LocalAI
 make build
 ```
 
-To run: `./local-ai`
+This should produce the binary `local-ai`
 
 {{% notice note %}}
 
@@ -54,7 +91,7 @@ docker run --rm -ti -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS
 
 {{% /notice %}}
 
-### Build on mac
+### Example: Build on mac
 
 Building on Mac (M1 or M2) works, but you may need to install some prerequisites using `brew`. 
 
@@ -187,6 +224,16 @@ make BUILD_TYPE=metal build
 # Set `gpu_layers: 1` to your YAML model config file and `f16: true`
 # Note: only models quantized with q4_0 are supported!
 ```
+
+### Build only a single backend
+
+You can control the backends that are built by setting the `GRPC_BACKENDS` environment variable. For instance, to build only the `llama-cpp` backend only:
+
+```bash
+make GRPC_BACKENDS=backend-assets/grpc/llama-cpp build
+```
+
+By default, all the backends are built.
 
 ### Windows compatibility
 
