@@ -119,8 +119,30 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 
 | Model | CPU | CUDA11 | CUDA12 |
 | --- | --- | --- | --- |
-| phi-2 | `docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core --debug --models-path /models --context-size 2048 --threads 4 github://mudler/LocalAI/examples/configurations/phi-2.yaml@master` | `docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core --debug --models-path /models --context-size 2048 --threads 4 github://mudler/LocalAI/examples/configurations/phi-2.yaml@master` | `docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core --debug --models-path /models --context-size 2048 --threads 4 github://mudler/LocalAI/examples/configurations/phi-2.yaml@master` |
+| phi-2 | <code> docker run -p 8080:8080 -ti <br>--rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core <br>phi-2</code> | <code>docker run -p 8080:8080 -ti <br>--rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core <br>phi-2</code> | <code>docker run -p 8080:8080 -ti <br>--rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core <br>phi-2</code> |
 
+{{% notice note %}}
+
+LocalAI can be started (either the container image or the binary) with a list of model config files URLs or our short-handed format (e.g. `huggingface://`. `github://`). It works by passing the urls as arguments or environment variable, for example:
+
+```
+local-ai github://owner/repo/file.yaml@branch
+
+# Env
+MODELS="github://owner/repo/file.yaml@branch,github://owner/repo/file.yaml@branch" local-ai
+
+# Args
+local-ai --models github://owner/repo/file.yaml@branch --models github://owner/repo/file.yaml@branch
+```
+
+For example, to start localai with phi-2, it's possible for instance to also use a full config file from gists:
+
+```bash
+./local-ai https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
+```
+
+The file should be a valid YAML configuration file, for the full syntax see [advanced]({{%relref "advanced" %}}).
+{{% /notice %}}
 
 ### Container images
 
