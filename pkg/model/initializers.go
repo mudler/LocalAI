@@ -239,10 +239,10 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 	for _, b := range o.externalBackends {
 		allBackendsToAutoLoad = append(allBackendsToAutoLoad, b)
 	}
-	log.Debug().Msgf("Loading model '%s' greedly from all the available backends: %s", o.model, strings.Join(allBackendsToAutoLoad, ", "))
+	log.Info().Msgf("Loading model '%s' greedly from all the available backends: %s", o.model, strings.Join(allBackendsToAutoLoad, ", "))
 
 	for _, b := range allBackendsToAutoLoad {
-		log.Debug().Msgf("[%s] Attempting to load", b)
+		log.Info().Msgf("[%s] Attempting to load", b)
 		options := []Option{
 			WithBackendString(b),
 			WithModel(o.model),
@@ -257,14 +257,14 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 
 		model, modelerr := ml.BackendLoader(options...)
 		if modelerr == nil && model != nil {
-			log.Debug().Msgf("[%s] Loads OK", b)
+			log.Info().Msgf("[%s] Loads OK", b)
 			return model, nil
 		} else if modelerr != nil {
 			err = multierror.Append(err, modelerr)
-			log.Debug().Msgf("[%s] Fails: %s", b, modelerr.Error())
+			log.Info().Msgf("[%s] Fails: %s", b, modelerr.Error())
 		} else if model == nil {
 			err = multierror.Append(err, fmt.Errorf("backend returned no usable model"))
-			log.Debug().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
+			log.Info().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
 		}
 	}
 
