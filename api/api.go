@@ -48,7 +48,7 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 				// check if file exists
 				if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
 					err := utils.DownloadFile(url, filepath.Join(modelPath, md5Name)+".yaml", "", func(fileName, current, total string, percent float64) {
-						log.Info().Msgf("Downloading %s: %s/%s (%.2f%%)", fileName, current, total, percent)
+						utils.DisplayDownloadFunction(fileName, current, total, percent)
 					})
 					if err != nil {
 						log.Error().Msgf("error loading model: %s", err.Error())
