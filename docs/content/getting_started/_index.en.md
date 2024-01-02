@@ -125,6 +125,7 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 | --- | --- |
 | phi2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core phi-2``` |
 | llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core mistral-openorca``` |
 
 #### GPU (CUDA 11)
 
@@ -132,6 +133,7 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 | --- | --- |
 | phi-2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core phi-2``` |
 | llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
 
 #### GPU (CUDA 12)
 
@@ -139,6 +141,7 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 | --- | --- |
 | phi-2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core phi-2``` |
 | llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
 
 {{% notice note %}}
 
