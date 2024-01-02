@@ -14,6 +14,8 @@ See also our [How to]({{%relref "howtos" %}}) section for end-to-end guided exam
 
 The easiest way to run LocalAI is by using [`docker compose`](https://docs.docker.com/compose/install/) or with [Docker](https://docs.docker.com/engine/install/) (to build locally, see the [build section]({{%relref "build" %}})).
 
+LocalAI needs at least a model file to work, or a configuration YAML file, or both. You can customize further model defaults and specific settings with a configuration file (see [advanced]({{%relref "advanced" %}})).
+
 {{% notice note %}}
 To run with GPU Accelleration, see [GPU acceleration]({{%relref "features/gpu-acceleration" %}}).
 {{% /notice %}}
@@ -117,9 +119,26 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 
 ### Popular models
 
-| Model | CPU | CUDA11 | CUDA12 |
-| --- | --- | --- | --- |
-| phi-2 | <code> docker run -p 8080:8080 -ti <br>--rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core <br>phi-2</code> | <code>docker run -p 8080:8080 -ti <br>--rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core <br>phi-2</code> | <code>docker run -p 8080:8080 -ti <br>--rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core <br>phi-2</code> |
+#### CPU-only
+
+| Model | Docker command |
+| --- | --- |
+| phi2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core phi-2``` |
+| llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core llava``` |
+
+#### GPU (CUDA 11)
+
+| Model | Docker command |
+| --- | --- |
+| phi-2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core phi-2``` |
+| llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core llava``` |
+
+#### GPU (CUDA 12)
+
+| Model | Docker command |
+| --- | --- |
+| phi-2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core phi-2``` |
+| llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core llava``` |
 
 {{% notice note %}}
 
