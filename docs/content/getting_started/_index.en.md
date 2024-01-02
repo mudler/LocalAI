@@ -115,9 +115,15 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 
 {{% /tab %}}
 
+{{% tab name="From source" %}}
+
+See the [build section]({{%relref "build" %}}).
+  
+{{% /tab %}}
+
 {{< /tabs >}}
 
-### Popular models
+### Running Popular models (one-click!)
 
 #### CPU-only
 
@@ -407,10 +413,6 @@ affinity: {}
 ```
 </details>
 
-
-### Build from source
-
-See the [build section]({{%relref "build" %}}).
 
 ### Other examples
 
