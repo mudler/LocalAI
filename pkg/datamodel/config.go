@@ -50,6 +50,14 @@ type Config struct {
 	// CUDA
 	// Explicitly enable CUDA or not (some backends might need it)
 	CUDA bool `yaml:"cuda"`
+
+	DownloadFiles []File `yaml:"download_files"`
+}
+
+type File struct {
+	Filename string `yaml:"filename" json:"filename"`
+	SHA256   string `yaml:"sha256" json:"sha256"`
+	URI      string `yaml:"uri" json:"uri"`
 }
 
 type VallE struct {
@@ -101,16 +109,18 @@ type LLMConfig struct {
 	StopWords       []string `yaml:"stopwords"`
 	Cutstrings      []string `yaml:"cutstrings"`
 	TrimSpace       []string `yaml:"trimspace"`
-	ContextSize     int      `yaml:"context_size"`
-	NUMA            bool     `yaml:"numa"`
-	LoraAdapter     string   `yaml:"lora_adapter"`
-	LoraBase        string   `yaml:"lora_base"`
-	LoraScale       float32  `yaml:"lora_scale"`
-	NoMulMatQ       bool     `yaml:"no_mulmatq"`
-	DraftModel      string   `yaml:"draft_model"`
-	NDraft          int32    `yaml:"n_draft"`
-	Quantization    string   `yaml:"quantization"`
-	MMProj          string   `yaml:"mmproj"`
+	TrimSuffix      []string `yaml:"trimsuffix"`
+
+	ContextSize  int     `yaml:"context_size"`
+	NUMA         bool    `yaml:"numa"`
+	LoraAdapter  string  `yaml:"lora_adapter"`
+	LoraBase     string  `yaml:"lora_base"`
+	LoraScale    float32 `yaml:"lora_scale"`
+	NoMulMatQ    bool    `yaml:"no_mulmatq"`
+	DraftModel   string  `yaml:"draft_model"`
+	NDraft       int32   `yaml:"n_draft"`
+	Quantization string  `yaml:"quantization"`
+	MMProj       string  `yaml:"mmproj"`
 
 	RopeScaling    string  `yaml:"rope_scaling"`
 	YarnExtFactor  float32 `yaml:"yarn_ext_factor"`
@@ -257,6 +267,46 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 		config.Maxtokens = input.Maxtokens
 	}
 
+	if input.RepeatPenalty != 0 {
+		config.RepeatPenalty = input.RepeatPenalty
+	}
+
+	if input.Keep != 0 {
+		config.Keep = input.Keep
+	}
+
+	if input.Batch != 0 {
+		config.Batch = input.Batch
+	}
+
+	if input.F16 {
+		config.F16 = input.F16
+	}
+
+	if input.IgnoreEOS {
+		config.IgnoreEOS = input.IgnoreEOS
+	}
+
+	if input.Seed != 0 {
+		config.Seed = input.Seed
+	}
+
+	if input.Mirostat != 0 {
+		config.LLMConfig.Mirostat = input.Mirostat
+	}
+
+	if input.MirostatETA != 0 {
+		config.LLMConfig.MirostatETA = input.MirostatETA
+	}
+
+	if input.MirostatTAU != 0 {
+		config.LLMConfig.MirostatTAU = input.MirostatTAU
+	}
+
+	if input.TypicalP != 0 {
+		config.TypicalP = input.TypicalP
+	}
+
 	switch stop := input.Stop.(type) {
 	case string:
 		if stop != "" {
@@ -300,46 +350,7 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 		}
 	}
 
-	if input.RepeatPenalty != 0 {
-		config.RepeatPenalty = input.RepeatPenalty
-	}
-
-	if input.Keep != 0 {
-		config.Keep = input.Keep
-	}
-
-	if input.Batch != 0 {
-		config.Batch = input.Batch
-	}
-
-	if input.F16 {
-		config.F16 = input.F16
-	}
-
-	if input.IgnoreEOS {
-		config.IgnoreEOS = input.IgnoreEOS
-	}
-
-	if input.Seed != 0 {
-		config.Seed = input.Seed
-	}
-
-	if input.Mirostat != 0 {
-		config.LLMConfig.Mirostat = input.Mirostat
-	}
-
-	if input.MirostatETA != 0 {
-		config.LLMConfig.MirostatETA = input.MirostatETA
-	}
-
-	if input.MirostatTAU != 0 {
-		config.LLMConfig.MirostatTAU = input.MirostatTAU
-	}
-
-	if input.TypicalP != 0 {
-		config.TypicalP = input.TypicalP
-	}
-
+	// TODO: check that this was merged correctly? I _think_ it is?
 	switch inputs := input.Input.(type) {
 	case string:
 		if inputs != "" {
@@ -389,9 +400,35 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 		}
 	}
 
+}
+
+// Preload prepare models if they are not local but url or huggingface repositories
+func (cm *ConfigLoader) Preload(modelPath string) error {
+	cm.Lock()
+	defer cm.Unlock()
+
+	status := func(fileName, current, total string, percent float64) {
+		utils.DisplayDownloadFunction(fileName, current, total, percent)
+	}
+
 	log.Info().Msgf("Preloading models from %s", modelPath)
 
 	for i, config := range cm.configs {
+
+		// Download files and verify their SHA
+		for _, file := range config.DownloadFiles {
+			log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
+
+			if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
+				return err
+			}
+			// Create file path
+			filePath := filepath.Join(modelPath, file.Filename)
+
+			if err := utils.DownloadFile(file.URI, filePath, file.SHA256, status); err != nil {
+				return err
+			}
+		}
 
 		modelURL := config.PredictionOptions.Model
 		modelURL = utils.ConvertURL(modelURL)
@@ -402,9 +439,7 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", func(fileName, current, total string, percent float64) {
-					log.Info().Msgf("Downloading %s: %s/%s (%.2f%%)", fileName, current, total, percent)
-				})
+				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", status)
 				if err != nil {
 					return err
 				}

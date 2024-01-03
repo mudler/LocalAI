@@ -40,6 +40,7 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- Start and share models with config file: https://github.com/mudler/LocalAI/pull/1522
 - 🐸 Coqui: https://github.com/mudler/LocalAI/pull/1489
 - Inline templates: https://github.com/mudler/LocalAI/pull/1452
 - Mixtral: https://github.com/mudler/LocalAI/pull/1449

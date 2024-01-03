@@ -3,7 +3,6 @@ package utils
 import (
 	"crypto/md5"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"hash"
 	"io"
@@ -17,27 +16,15 @@ import (
 )
 
 const (
-	GithubURIPrefix      = "github:"
-	HuggingFaceURIPrefix = "huggingface://"
+	HuggingFacePrefix = "huggingface://"
+	HTTPPrefix        = "http://"
+	HTTPSPrefix       = "https://"
+	GithubURI         = "github:"
+	GithubURI2        = "github://"
 )
 
 func GetURI(url string, f func(url string, i []byte) error) error {
-	if strings.HasPrefix(url, GithubURIPrefix) {
-		parts := strings.Split(url, ":")
-		repoParts := strings.Split(parts[1], "@")
-		branch := "main"
-
-		if len(repoParts) > 1 {
-			branch = repoParts[1]
-		}
-
-		repoPath := strings.Split(repoParts[0], "/")
-		org := repoPath[0]
-		project := repoPath[1]
-		projectPath := strings.Join(repoPath[2:], "/")
-
-		url = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
-	}
+	url = ConvertURL(url)
 
 	if strings.HasPrefix(url, "file://") {
 		rawURL := strings.TrimPrefix(url, "file://")
@@ -73,45 +60,50 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 	return f(url, body)
 }
 
-// this function check if the string is an URL, if it's an URL downloads the image in memory
-// encodes it in base64 and returns the base64 string
-func GetBase64Image(s string) (string, error) {
-	if strings.HasPrefix(s, "http") {
-		// download the image
-		resp, err := http.Get(s)
-		if err != nil {
-			return "", err
-		}
-		defer resp.Body.Close()
-
-		// read the image data into memory
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return "", err
-		}
-
-		// encode the image data in base64
-		encoded := base64.StdEncoding.EncodeToString(data)
-
-		// return the base64 string
-		return encoded, nil
-	}
-
-	// if the string instead is prefixed with "data:image/jpeg;base64,", drop it
-	if strings.HasPrefix(s, "data:image/jpeg;base64,") {
-		return strings.ReplaceAll(s, "data:image/jpeg;base64,", ""), nil
-	}
-	return "", fmt.Errorf("not valid string")
-}
-
+// TODO: Refactor to use a slice of constants and slices.Contains() for easier maintenance?
 func LooksLikeURL(s string) bool {
-	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") || strings.HasPrefix(s, HuggingFaceURIPrefix)
+	return strings.HasPrefix(s, HTTPPrefix) ||
+		strings.HasPrefix(s, HTTPSPrefix) ||
+		strings.HasPrefix(s, HuggingFacePrefix) ||
+		strings.HasPrefix(s, GithubURI) ||
+		strings.HasPrefix(s, GithubURI2)
 }
 
 func ConvertURL(s string) string {
 	switch {
-	case strings.HasPrefix(s, HuggingFaceURIPrefix):
-		repository := strings.Replace(s, HuggingFaceURIPrefix, "", 1)
+	case strings.HasPrefix(s, GithubURI2):
+		repository := strings.Replace(s, GithubURI2, "", 1)
+
+		repoParts := strings.Split(repository, "@")
+		branch := "main"
+
+		if len(repoParts) > 1 {
+			branch = repoParts[1]
+		}
+
+		repoPath := strings.Split(repoParts[0], "/")
+		org := repoPath[0]
+		project := repoPath[1]
+		projectPath := strings.Join(repoPath[2:], "/")
+
+		return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
+	case strings.HasPrefix(s, GithubURI):
+		parts := strings.Split(s, ":")
+		repoParts := strings.Split(parts[1], "@")
+		branch := "main"
+
+		if len(repoParts) > 1 {
+			branch = repoParts[1]
+		}
+
+		repoPath := strings.Split(repoParts[0], "/")
+		org := repoPath[0]
+		project := repoPath[1]
+		projectPath := strings.Join(repoPath[2:], "/")
+
+		return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
+	case strings.HasPrefix(s, HuggingFacePrefix):
+		repository := strings.Replace(s, HuggingFacePrefix, "", 1)
 		// convert repository to a full URL.
 		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
 		owner := strings.Split(repository, "/")[0]

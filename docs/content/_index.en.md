@@ -36,10 +36,10 @@ In a nutshell:
 
 - Local, OpenAI drop-in alternative REST API. You own your data.
 - NO GPU required. NO Internet access is required either
-  - Optional, GPU Acceleration is available in `llama.cpp`-compatible LLMs. See also the [build section](https://localai.io/basics/build/index.html).
+  - Optional, GPU Acceleration is available. See also the [build section](https://localai.io/basics/build/index.html).
 - Supports multiple models
 - 🏃 Once loaded the first time, it keep models loaded in memory for faster inference
-- ⚡ Doesn't shell-out, but uses C++ bindings for a faster inference and better performance.
+- ⚡ Doesn't shell-out, but uses bindings for a faster inference and better performance.
 
 LocalAI is focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome!
 

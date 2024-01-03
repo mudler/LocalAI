@@ -38,9 +38,12 @@ type StartupOptions struct {
 	SingleBackend           bool
 	ParallelBackendRequests bool
 
-	WatchDogIdle                             bool
-	WatchDogBusy                             bool
-	WatchDog                                 bool
+	WatchDogIdle bool
+	WatchDogBusy bool
+	WatchDog     bool
+
+	ModelsURL []string
+
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
 
 	LocalAIConfigDir string
@@ -61,6 +64,12 @@ func NewStartupOptions(o ...AppOption) *StartupOptions {
 		oo(opt)
 	}
 	return opt
+}
+
+func WithModelsURL(urls ...string) AppOption {
+	return func(o *Option) {
+		o.ModelsURL = urls
+	}
 }
 
 func WithCors(b bool) AppOption {
