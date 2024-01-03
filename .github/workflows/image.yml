@@ -27,8 +27,10 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
     secrets:
-      dockerUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
-      dockerPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
       # Pushing with all jobs in parallel
       # eats the bandwidth of all the nodes
@@ -107,8 +109,10 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
     secrets:
-      dockerUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
-      dockerPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
       matrix:
         include:
