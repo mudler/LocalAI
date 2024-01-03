@@ -53,6 +53,7 @@ dependencies:
       - nvidia-nccl-cu12==2.18.1
       - nvidia-nvjitlink-cu12==12.2.140
       - nvidia-nvtx-cu12==12.1.105
+      - omegaconf
       - packaging==23.2
       - pillow==10.0.1
       - protobuf==4.24.4
