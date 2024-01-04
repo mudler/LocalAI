@@ -138,6 +138,8 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 			}
 		}
 	}
+
+	return nil
 }
 
 func (cl *ConfigLoader) LoadConfigFile(file string) error {
