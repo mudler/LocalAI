@@ -46,6 +46,10 @@ on:
         required: true
       dockerPassword:
         required: true
+      quayUsername:
+        required: true
+      quayPassword:
+        required: true
 jobs:
   reusable_image-build:
     runs-on: ${{ inputs.runs-on }}
@@ -100,7 +104,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: quay.io/go-skynet/local-ai
+          images: |
+            quay.io/go-skynet/local-ai
+            localai/localai
           tags: |
             type=ref,event=branch
             type=semver,pattern={{raw}}
@@ -122,9 +128,16 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          registry: quay.io
           username: ${{ secrets.dockerUsername }}
           password: ${{ secrets.dockerPassword }}
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.quayUsername }}
+          password: ${{ secrets.quayPassword }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
