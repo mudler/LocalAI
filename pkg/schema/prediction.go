@@ -1,4 +1,4 @@
-package datamodel
+package schema
 
 type PredictionOptions struct {
 

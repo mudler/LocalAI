@@ -9,27 +9,27 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
 
 type ConfigLoader struct {
-	configs map[string]datamodel.Config
+	configs map[string]schema.Config
 	sync.Mutex
 }
 
 func NewConfigLoader() *ConfigLoader {
-	return &ConfigLoader{
-		configs: make(map[string]datamodel.Config),
+	return &ConfigLoader{schema.
+		configs: make(map[string]schema.Config),
 	}
 }
 
 // TODO: check this is correct post-merge
 func (cm *ConfigLoader) LoadConfig(file string) error {
 	cm.Lock()
-	defer cm.Unlock()
-	c, err := datamodel.ReadSingleConfigFile(file)
+	defer cm.Uschema.
+	c, err := schema.ReadSingleConfigFile(file)
 	if err != nil {
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
@@ -37,18 +37,18 @@ func (cm *ConfigLoader) LoadConfig(file string) error {
 	cm.configs[c.Name] = *c
 	return nil
 }
-
-func (cm *ConfigLoader) GetConfig(m string) (datamodel.Config, bool) {
+schema.
+func (cm *ConfigLoader) GetConfig(m string) (schema.Config, bool) {
 	cm.Lock()
 	defer cm.Unlock()
 	v, exists := cm.configs[m]
 	return v, exists
 }
-
-func (cm *ConfigLoader) GetAllConfigs() []datamodel.Config {
+schema.
+func (cm *ConfigLoader) GetAllConfigs() []schema.Config {
 	cm.Lock()
-	defer cm.Unlock()
-	var res []datamodel.Config
+	defer cm.Uschema.
+	var res []schema.Config
 	for _, v := range cm.configs {
 		res = append(res, v)
 	}
@@ -84,8 +84,8 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 		// Skip templates, YAML and .keep files
 		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
 			continue
-		}
-		c, err := datamodel.ReadSingleConfigFile(filepath.Join(path, file.Name()))
+		}schema.
+		c, err := schema.ReadSingleConfigFile(filepath.Join(path, file.Name()))
 		if err == nil {
 			cm.configs[c.Name] = *c
 		}
@@ -144,8 +144,8 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 
 func (cl *ConfigLoader) LoadConfigFile(file string) error {
 	cl.Lock()
-	defer cl.Unlock()
-	c, err := datamodel.ReadConfigFile(file)
+	defer cl.Uschema.
+	c, err := schema.ReadConfigFile(file)
 	if err != nil {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}

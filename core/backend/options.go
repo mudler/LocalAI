@@ -4,12 +4,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 )
 
-func modelOpts(c datamodel.Config, o *datamodel.StartupOptions, opts []model.Option) []model.Option {
+func modelOpts(c schema.Config, o *schema.StartupOptions, opts []model.Option) []model.Option {
 	if o.SingleBackend {
 		opts = append(opts, model.WithSingleActiveBackend())
 	}
@@ -33,7 +33,7 @@ func modelOpts(c datamodel.Config, o *datamodel.StartupOptions, opts []model.Opt
 	return opts
 }
 
-func gRPCModelOpts(c datamodel.Config) *pb.ModelOptions {
+func gRPCModelOpts(c schema.Config) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
@@ -80,7 +80,7 @@ func gRPCModelOpts(c datamodel.Config) *pb.ModelOptions {
 	}
 }
 
-func gRPCPredictOpts(c datamodel.Config, modelPath string) *pb.PredictOptions {
+func gRPCPredictOpts(c schema.Config, modelPath string) *pb.PredictOptions {
 	promptCachePath := ""
 	if c.PromptCachePath != "" {
 		p := filepath.Join(modelPath, c.PromptCachePath)

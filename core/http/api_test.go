@@ -16,9 +16,9 @@ import (
 	server "github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/core/startup"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -125,9 +125,9 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 
-	commonOpts := []datamodel.AppOption{
-		datamodel.WithDebug(true),
-		datamodel.WithDisableMessage(true),
+	cschema.:= []schema.AppOption{
+		schema.hDebug(true),
+		schema.WithDisableMessage(true),
 	}
 
 	Context("API with ephemeral models", func() {
@@ -166,13 +166,13 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
-				append(commonOpts,
-					datamodel.WithMetrics(metricsService),
-					datamodel.WithContext(c),
-					datamodel.WithGalleries(galleries),
-					datamodel.WithModelPath(tmpdir),
-					datamodel.WithBackendAssets(backendAssets),
-					datamodel.WithBackendAssetsOutput(tmpdir))...)
+				aschema.onOpts,
+					schema.hMetrics(metricsService),
+					schema.hContext(c),
+					schema.hGalleries(galleries),
+					schema.hModelPath(tmpdir),
+					schema.hBackendAssets(backendAssets),
+					schema.WithBackendAssetsOutput(tmpdir))...)
 
 			Expect(err).ToNot(HaveOccurred())
 			app, err = server.App(cl, ml, options)
@@ -492,15 +492,15 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
-				append(commonOpts,
-					datamodel.WithContext(c),
-					datamodel.WithMetrics(metricsService),
-					datamodel.WithAudioDir(tmpdir),
-					datamodel.WithImageDir(tmpdir),
-					datamodel.WithGalleries(galleries),
-					datamodel.WithModelPath(tmpdir),
-					datamodel.WithBackendAssets(backendAssets),
-					datamodel.WithBackendAssetsOutput(tmpdir))...,
+				aschema.onOpts,
+					schema.hContext(c),
+					schema.hMetrics(metricsService),
+					schema.hAudioDir(tmpdir),
+					schema.hImageDir(tmpdir),
+					schema.hGalleries(galleries),
+					schema.hModelPath(tmpdir),
+					schema.hBackendAssets(backendAssets),
+					schema.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
 			app, err = server.App(cl, ml, options)
@@ -600,11 +600,11 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
-				append(commonOpts,
-					datamodel.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
-					datamodel.WithContext(c),
-					datamodel.WithModelPath(os.Getenv("MODELS_PATH")),
-					datamodel.WithMetrics(metricsService),
+				aschema.onOpts,
+					schema.hExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
+					schema.hContext(c),
+					schema.hModelPath(os.Getenv("MODELS_PATH")),
+					schema.WithMetrics(metricsService),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
 			app, err = server.App(cl, ml, options)
@@ -813,11 +813,11 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
-				append(commonOpts,
-					datamodel.WithContext(c),
-					datamodel.WithMetrics(metricsService),
-					datamodel.WithModelPath(os.Getenv("MODELS_PATH")),
-					datamodel.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
+				aschema.onOpts,
+					schema.hContext(c),
+					schema.hMetrics(metricsService),
+					schema.hModelPath(os.Getenv("MODELS_PATH")),
+					schema.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
 			app, err = server.App(cl, ml, options)

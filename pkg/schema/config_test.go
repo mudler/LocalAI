@@ -1,10 +1,10 @@
-package datamodel_test
+package schema_test
 
 import (
 	"os"
 
 	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -18,7 +18,7 @@ var _ = Describe("Test cases for config related functions", func() {
 	Context("Test Read configuration functions", func() {
 		configFile = os.Getenv("CONFIG_FILE")
 		It("Test ReadConfigFile", func() {
-			config, err := datamodel.ReadConfigFile(configFile)
+			config, err := schema.ReadConfigFile(configFile)
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml

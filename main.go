@@ -17,9 +17,9 @@ import (
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/core/startup"
 	"github.com/go-skynet/LocalAI/internal"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	progressbar "github.com/schollz/progressbar/v3"
@@ -214,54 +214,54 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 		UsageText: `local-ai [options]`,
 		Copyright: "Ettore Di Giacinto",
 		Action: func(ctx *cli.Context) error {
-			opts := []datamodel.AppOption{
-				datamodel.WithConfigFile(ctx.String("config-file")),
-				datamodel.WithJSONStringPreload(ctx.String("preload-models")),
-				datamodel.WithYAMLConfigPreload(ctx.String("preload-models-config")),
-				datamodel.WithModelPath(ctx.String("models-path")),
-				datamodel.WithContextSize(ctx.Int("context-size")),
-				datamodel.WithDebug(ctx.Bool("debug")),
-				datamodel.WithImageDir(ctx.String("image-path")),
-				datamodel.WithAudioDir(ctx.String("audio-path")),
-				datamodel.WithF16(ctx.Bool("f16")),
-				datamodel.WithStringGalleries(ctx.String("galleries")),
-				datamodel.WithDisableMessage(false),
-				datamodel.WithCors(ctx.Bool("cors")),
-				datamodel.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
-				datamodel.WithThreads(ctx.Int("threads")),
-				datamodel.WithBackendAssets(backendAssets),
-				datamodel.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
-				datamodel.WithUploadLimitMB(ctx.Int("upload-limit")),
-				datamodel.WithApiKeys(ctx.StringSlice("api-keys")),
-				datamodel.WithModelsURL(append(ctx.StringSlice("models"), ctx.Args().Slice()...)...),
+			opts := []schema.AppOption{
+				schema.WithConfigFile(ctx.String("config-file")),
+				schema.WithJSONStringPreload(ctx.String("preload-models")),
+				schema.WithYAMLConfigPreload(ctx.String("preload-models-config")),
+				schema.WithModelPath(ctx.String("models-path")),
+				schema.WithContextSize(ctx.Int("context-size")),
+				schema.WithDebug(ctx.Bool("debug")),
+				schema.WithImageDir(ctx.String("image-path")),
+				schema.WithAudioDir(ctx.String("audio-path")),
+				schema.WithF16(ctx.Bool("f16")),
+				schema.WithStringGalleries(ctx.String("galleries")),
+				schema.WithDisableMessage(false),
+				schema.WithCors(ctx.Bool("cors")),
+				schema.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
+				schema.WithThreads(ctx.Int("threads")),
+				schema.WithBackendAssets(backendAssets),
+				schema.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
+				schema.WithUploadLimitMB(ctx.Int("upload-limit")),
+				schema.WithApiKeys(ctx.StringSlice("api-keys")),
+				schema.WithModelsURL(append(ctx.StringSlice("models"), ctx.Args().Slice()...)...),
 			}
 
 			idleWatchDog := ctx.Bool("enable-watchdog-idle")
 			busyWatchDog := ctx.Bool("enable-watchdog-busy")
 			if idleWatchDog || busyWatchDog {
-				opts = append(opts, datamodel.EnableWatchDog)
+				opts = append(opts, schema.EnableWatchDog)
 				if idleWatchDog {
-					opts = append(opts, datamodel.EnableWatchDogIdleCheck)
+					opts = append(opts, schema.EnableWatchDogIdleCheck)
 					dur, err := time.ParseDuration(ctx.String("watchdog-idle-timeout"))
 					if err != nil {
 						return err
 					}
-					opts = append(opts, datamodel.SetWatchDogIdleTimeout(dur))
+					opts = append(opts, schema.SetWatchDogIdleTimeout(dur))
 				}
 				if busyWatchDog {
-					opts = append(opts, datamodel.EnableWatchDogBusyCheck)
+					opts = append(opts, schema.EnableWatchDogBusyCheck)
 					dur, err := time.ParseDuration(ctx.String("watchdog-busy-timeout"))
 					if err != nil {
 						return err
 					}
-					opts = append(opts, datamodel.SetWatchDogBusyTimeout(dur))
+					opts = append(opts, schema.SetWatchDogBusyTimeout(dur))
 				}
 			}
 			if ctx.Bool("parallel-requests") {
-				opts = append(opts, datamodel.EnableParallelBackendRequests)
+				opts = append(opts, schema.EnableParallelBackendRequests)
 			}
 			if ctx.Bool("single-active-backend") {
-				opts = append(opts, datamodel.EnableSingleBackend)
+				opts = append(opts, schema.EnableSingleBackend)
 			}
 
 			externalgRPC := ctx.StringSlice("external-grpc-backends")
@@ -269,11 +269,11 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			for _, v := range externalgRPC {
 				backend := v[:strings.IndexByte(v, ':')]
 				uri := v[strings.IndexByte(v, ':')+1:]
-				opts = append(opts, datamodel.WithExternalBackend(backend, uri))
+				opts = append(opts, schema.WithExternalBackend(backend, uri))
 			}
 
 			if ctx.Bool("autoload-galleries") {
-				opts = append(opts, datamodel.EnableGalleriesAutoload)
+				opts = append(opts, schema.EnableGalleriesAutoload)
 			}
 
 			if ctx.Bool("preload-backend-only") {
@@ -285,7 +285,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			if err != nil {
 				return err
 			}
-			opts = append(opts, datamodel.WithMetrics(metrics))
+			opts = append(opts, schema.WithMetrics(metrics))
 
 			cl, ml, options, err := startup.Startup(opts...)
 			if err != nil {
@@ -402,7 +402,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					text := strings.Join(ctx.Args().Slice(), " ")
 
-					opts := &datamodel.StartupOptions{
+					opts := &schema.StartupOptions{
 						ModelPath:         ctx.String("models-path"),
 						Context:           context.Background(),
 						AudioDir:          outputDir,
@@ -466,7 +466,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 					language := ctx.String("language")
 					threads := ctx.Int("threads")
 
-					opts := &datamodel.StartupOptions{
+					opts := &schema.StartupOptions{
 						ModelPath:         ctx.String("models-path"),
 						Context:           context.Background(),
 						AssetsDestination: ctx.String("backend-assets-path"),

@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
-func readInput(c *fiber.Ctx, o *datamodel.StartupOptions, ml *model.ModelLoader, randomModel bool) (string, *datamodel.OpenAIRequest, error) {
-	input := new(datamodel.OpenAIRequest)
+func readInputschema.Ctx, o *schema.StartupOptions, ml *model.ModelLoader, randomModel bool) (string, *schema.OpenAIRequest, error) {
+	input := new(schema.OpenAIRequest)
 	ctx, cancel := context.WithCancel(o.Context)
 	input.Context = ctx
 	input.Cancel = cancel

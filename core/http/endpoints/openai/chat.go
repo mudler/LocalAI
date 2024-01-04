@@ -8,14 +8,14 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
 
-func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) func(c *fiber.Ctx) error {
+func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) func(c *fiber.Ctx) error {
 
 	emptyMessage := ""
 
@@ -43,8 +43,8 @@ func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptio
 				return fmt.Errorf("failed establishing streaming chat request :%w", err)
 			}
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
-
-				usage := &datamodel.OpenAIUsage{}
+schema.
+				usage := &schema.OpenAIUsage{}
 				id := ""
 				created := 0
 				for ev := range responses {
@@ -63,16 +63,16 @@ func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptio
 					}
 					w.Flush()
 				}
-
-				resp := &datamodel.OpenAIResponse{
+schema.
+				resp := &schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
-					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []datamodel.Choice{
+					Model:   inschema. // we have to return what the user sent here, due to OpenAI spec.
+					Choices: []schema.Choice{
 						{
 							FinishReason: "stop",
-							Index:        0,
-							Delta:        &datamodel.Message{Content: &emptyMessage},
+							Index:        0schema.
+							Delta:        &schema.Message{Content: &emptyMessage},
 						}},
 					Object: "chat.completion.chunk",
 					Usage:  *usage,

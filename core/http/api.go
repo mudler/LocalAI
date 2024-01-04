@@ -8,8 +8,8 @@ import (
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -17,7 +17,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
-func App(cl *services.ConfigLoader, ml *model.ModelLoader, options *datamodel.StartupOptions) (*fiber.App, error) {
+func App(cl *services.ConfigLoader, ml *model.ModelLoader, options *schema.StartupOptions) (*fiber.App, error) {
 
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
@@ -35,9 +35,9 @@ func App(cl *services.ConfigLoader, ml *model.ModelLoader, options *datamodel.St
 			}
 
 			// Send custom error page
-			return ctx.Status(code).JSON(
-				datamodel.ErrorResponse{
-					Error: &datamodel.APIError{Message: err.Error(), Code: code},
+			rschema.Status(code).JSON(
+				schema.Erschema.e{
+					Error: &schema.APIError{Message: err.Error(), Code: code},
 				},
 			)
 		},

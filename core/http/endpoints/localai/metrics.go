@@ -3,7 +3,7 @@ package localai
 import (
 	"time"
 
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -15,10 +15,10 @@ func MetricsHandler() fiber.Handler {
 
 type apiMiddlewareConfig struct {
 	Filter  func(c *fiber.Ctx) bool
-	metrics *datamodel.LocalAIMetrics
+	metrics *schema.LocalAIMetrics
 }
-
-func MetricsAPIMiddleware(metrics *datamodel.LocalAIMetrics) fiber.Handler {
+schema.
+func MetricsAPIMiddleware(metrics *schema.LocalAIMetrics) fiber.Handler {
 	cfg := apiMiddlewareConfig{
 		metrics: metrics,
 		Filter: func(c *fiber.Ctx) bool {

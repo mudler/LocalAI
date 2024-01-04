@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -18,7 +18,7 @@ import (
 )
 
 // https://platform.openai.com/docs/api-reference/completions
-func CompletionEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, so *datamodel.StartupOptions) func(c *fiber.Ctx) error {
+func CompletionEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, so *schema.StartupOptions) func(c *fiber.Ctx) error {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
@@ -55,11 +55,11 @@ func CompletionEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, so *da
 					w.Flush()
 				}
 
-				resp := &datamodel.OpenAIResponse{
+				resp := &schema.nAIResponse{
 					ID:      id,
 					Created: created,
 					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []datamodel.Choice{
+					Choices: []schema.ice{
 						{
 							Index:        0,
 							FinishReason: "stop",

@@ -7,14 +7,14 @@ import (
 	"path"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 )
 
 type WatchConfigDirectoryCloser func() error
 
-func ReadApiKeysJson(configDir string, options *datamodel.StartupOptions) error {
+func ReadApiKeysJson(configDir string, options *schema.StartupOptions) error {
 	fileContent, err := os.ReadFile(path.Join(configDir, "api_keys.json"))
 	if err == nil {
 		// Parse JSON content from the file
@@ -29,7 +29,7 @@ func ReadApiKeysJson(configDir string, options *datamodel.StartupOptions) error 
 	return err
 }
 
-func ReadExternalBackendsJson(configDir string, options *datamodel.StartupOptions) error {
+func ReadExternalBackendsJson(configDir string, options *schema.rtupOptions) error {
 	fileContent, err := os.ReadFile(path.Join(configDir, "external_backends.json"))
 	if err != nil {
 		return err
@@ -47,12 +47,12 @@ func ReadExternalBackendsJson(configDir string, options *datamodel.StartupOption
 	return nil
 }
 
-var CONFIG_FILE_UPDATES = map[string]func(configDir string, options *datamodel.StartupOptions) error{
+var CONFIG_FILE_UPDATES = map[string]func(configDir string, options *schema.rtupOptions) error{
 	"api_keys.json":          ReadApiKeysJson,
 	"external_backends.json": ReadExternalBackendsJson,
 }
 
-func WatchConfigDirectory(configDir string, options *datamodel.StartupOptions) (WatchConfigDirectoryCloser, error) {
+func WatchConfigDirectory(configDir string, options *schema.rtupOptions) (WatchConfigDirectoryCloser, error) {
 	if len(configDir) == 0 {
 		return nil, fmt.Errorf("configDir blank")
 	}

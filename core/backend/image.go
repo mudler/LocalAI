@@ -11,15 +11,15 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
-func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, c datamodel.Config, o *datamodel.StartupOptions) (func() error, error) {
+func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, c schema.Config, o *schema.StartupOptions) (func() error, error) {
 
 	opts := modelOpts(c, o, []model.Option{
 		model.WithBackendString(c.Backend),
@@ -73,7 +73,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	return fn, nil
 }
 
-func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func ImageGenerationOpenAIRequest(modelName string, input *schema.nAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schschema.pOptions) (*schemaschema.ponse, error) {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
@@ -131,7 +131,7 @@ func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReque
 		b64JSON = true
 	}
 	// src and clip_skip
-	var result []datamodel.Item
+	var result []schema.m
 	for _, i := range config.PromptStrings {
 		n := input.N
 		if input.N == 0 {
@@ -184,7 +184,7 @@ func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReque
 				return nil, err
 			}
 
-			item := &datamodel.Item{}
+			item := &schema.m{}
 
 			if b64JSON {
 				defer os.RemoveAll(output)
@@ -202,7 +202,7 @@ func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReque
 		}
 	}
 
-	return &datamodel.OpenAIResponse{
+	return &schema.nAIResponse{
 		ID:      id,
 		Created: created,
 		Data:    result,

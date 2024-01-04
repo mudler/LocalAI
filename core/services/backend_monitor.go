@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/rs/zerolog/log"
 
 	gopsutil "github.com/shirou/gopsutil/v3/process"
@@ -16,18 +16,18 @@ import (
 type BackendMonitor struct {
 	configLoader *ConfigLoader
 	modelLoader  *model.ModelLoader
-	options      *datamodel.StartupOptions // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
+	options      *schema.StartupOptions // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
-
-func NewBackendMonitor(configLoader *ConfigLoader, modelLoader *model.ModelLoader, options *datamodel.StartupOptions) *BackendMonitor {
+schema.
+func NewBackendMonitor(configLoader *ConfigLoader, modelLoader *model.ModelLoader, options *schema.StartupOptions) *BackendMonitor {
 	return &BackendMonitor{
 		configLoader: configLoader,
 		modelLoader:  modelLoader,
 		options:      options,
 	}
 }
-
-func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*datamodel.BackendMonitorResponse, error) {
+schema.
+func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
 	config, exists := bm.configLoader.GetConfig(model)
 	var backend string
 	if exists {
@@ -74,8 +74,8 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*datamodel.Ba
 		log.Error().Msgf("model %s [PID %d] : error getting cpu percent %+v", model, pid, err)
 		return nil, err
 	}
-
-	return &datamodel.BackendMonitorResponse{
+schema.
+	return &schema.BackendMonitorResponse{
 		MemoryInfo:    memInfo,
 		MemoryPercent: memPercent,
 		CPUPercent:    cpuPercent,

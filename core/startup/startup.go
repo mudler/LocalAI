@@ -4,14 +4,14 @@ import (
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-func Startup(opts ...datamodel.AppOption) (*services.ConfigLoader, *model.ModelLoader, *datamodel.StartupOptions, error) {
-	options := datamodel.NewStartupOptions(opts...)
+func Startupschema.chema.AppOption) (*services.ConfigLoader, *model.ModelLoader, *schema.StartupOptions, error) {
+	options := schema.NewStartupOptions(opts...)
 
 	ml := model.NewModelLoader(options.ModelPath)
 

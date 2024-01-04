@@ -14,11 +14,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -31,15 +31,15 @@ type LLMResponse struct {
 	Usage    TokenUsage
 }
 
-// TODO: Test removing this and using datamodel?
+// TODO: Test removing this and using the variant in pkg/schema someday?
 type TokenUsage struct {
 	Prompt     int
 	Completion int
 }
 
-type TemplateConfigBindingFn func(*datamodel.Config) *string
+type TemplateConfigBindingFn func(*schema.Config) *string
 
-// type LLMStreamProcessor func(s string, req *datamodel.OpenAIRequest, config *datamodel.Config, loader *model.ModelLoader, responses chan datamodel.OpenAIResponse)
+// type LLMStreamProcessor func(s string, req *schema.OpenAIRequest, config *schema.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse)
 
 /////// CONSTS ///////////
 
@@ -48,7 +48,7 @@ const DEFAULT_NO_ACTION_DESCRIPTION = "use this action to answer without perform
 
 ////// INFERENCE /////////
 
-func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c datamodel.Config, o *datamodel.StartupOptions, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c schema.Config, o *schema.StartupOptions, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	grpcOpts := gRPCModelOpts(c)
@@ -163,7 +163,7 @@ func ModelInference(ctx context.Context, s string, images []string, loader *mode
 var cutstrings map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)
 var mu sync.Mutex = sync.Mutex{}
 
-func Finetune(config datamodel.Config, input, prediction string) string {
+func Finetune(config schema.Config, input, prediction string) string {
 	if config.Echo {
 		prediction = input + prediction
 	}
@@ -188,14 +188,14 @@ func Finetune(config datamodel.Config, input, prediction string) string {
 
 ////// CONFIG AND REQUEST HANDLING ///////////////
 
-func ReadConfigFromFileAndCombineWithOpenAIRequest(modelFile string, input *datamodel.OpenAIRequest, cm *services.ConfigLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, *datamodel.OpenAIRequest, error) {
+func ReadConfigFromFileAndCombineWithOpenAIRequest(modelFile string, input *schema.OpenAIRequest, cm *services.ConfigLoader, startupOptions *schema.StartupOptions) (*schema.Config, *schema.OpenAIRequest, error) {
 	// Load a config file if present after the model name
 	modelConfig := filepath.Join(startupOptions.ModelPath, modelFile+".yaml")
 
-	var cfg *datamodel.Config
+	var cfg *schema.Config
 
 	defaults := func() {
-		cfg = datamodel.DefaultConfig(modelFile)
+		cfg = schema.DefaultConfig(modelFile)
 		cfg.ContextSize = startupOptions.ContextSize
 		cfg.Threads = startupOptions.Threads
 		cfg.F16 = startupOptions.F16
@@ -222,7 +222,7 @@ func ReadConfigFromFileAndCombineWithOpenAIRequest(modelFile string, input *data
 	}
 
 	// Set the parameters for the language model prediction
-	datamodel.UpdateConfigFromOpenAIRequest(cfg, input)
+	schema.UpdateConfigFromOpenAIRequest(cfg, input)
 
 	// Don't allow 0 as setting
 	if cfg.Threads == 0 {
@@ -242,15 +242,15 @@ func ReadConfigFromFileAndCombineWithOpenAIRequest(modelFile string, input *data
 }
 
 func ComputeChoices(
-	req *datamodel.OpenAIRequest,
+	req *schema.OpenAIRequest,
 	predInput string,
-	config *datamodel.Config,
-	o *datamodel.StartupOptions,
+	config *schema.Config,
+	o *schema.StartupOptions,
 	loader *model.ModelLoader,
-	cb func(string, *[]datamodel.Choice),
-	tokenCallback func(string, TokenUsage) bool) ([]datamodel.Choice, TokenUsage, error) {
+	cb func(string, *[]schema.Choice),
+	tokenCallback func(string, TokenUsage) bool) ([]schema.Choice, TokenUsage, error) {
 	n := req.N // number of completions to return
-	result := []datamodel.Choice{}
+	result := []schema.Choice{}
 
 	if n == 0 {
 		n = 1
@@ -288,7 +288,7 @@ func ComputeChoices(
 }
 
 // TODO: No functions???? Commonize with prepareChatGenerationOpenAIRequest below?
-func prepareGenerationOpenAIRequest(bindingFn TemplateConfigBindingFn, modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, error) {
+func prepareGenerationOpenAIRequest(bindingFn TemplateConfigBindingFn, modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (*schema.Config, error) {
 	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
@@ -319,7 +319,7 @@ func prepareGenerationOpenAIRequest(bindingFn TemplateConfigBindingFn, modelName
 // Can cleanup into a common form later if possible easier if they are all here for now
 // If they remain different, extract each of these named segments to a seperate file
 
-func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.Config, string, bool, error) {
+func prepareChatGenerationOpenAIRequest(modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (*schema.Config, string, bool, error) {
 
 	// IMPORTANT DEFS
 	funcs := grammar.Functions{}
@@ -506,11 +506,11 @@ func prepareChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenA
 
 }
 
-func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func EditGenerationOpenAIRequest(modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (*schema.OpenAIResponse, error) {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	binding := func(config *datamodel.Config) *string {
+	binding := func(config *schema.Config) *string {
 		return &config.TemplateConfig.Edit
 	}
 
@@ -519,7 +519,7 @@ func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 		return nil, err
 	}
 
-	var result []datamodel.Choice
+	var result []schema.Choice
 	totalTokenUsage := TokenUsage{}
 
 	for _, i := range config.InputStrings {
@@ -534,8 +534,8 @@ func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 			log.Debug().Msgf("Template found, input modified to: %s", i)
 		}
 
-		r, tokenUsage, err := ComputeChoices(input, i, config, startupOptions, ml, func(s string, c *[]datamodel.Choice) {
-			*c = append(*c, datamodel.Choice{Text: s})
+		r, tokenUsage, err := ComputeChoices(input, i, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
+			*c = append(*c, schema.Choice{Text: s})
 		}, nil)
 		if err != nil {
 			return nil, err
@@ -547,13 +547,13 @@ func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 		result = append(result, r...)
 	}
 
-	return &datamodel.OpenAIResponse{
+	return &schema.OpenAIResponse{
 		ID:      id,
 		Created: created,
 		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 		Choices: result,
 		Object:  "edit",
-		Usage: datamodel.OpenAIUsage{
+		Usage: schema.OpenAIUsage{
 			PromptTokens:     totalTokenUsage.Prompt,
 			CompletionTokens: totalTokenUsage.Completion,
 			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
@@ -561,7 +561,7 @@ func EditGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 	}, nil
 }
 
-func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func ChatGenerationOpenAIRequest(modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (*schema.OpenAIResponse, error) {
 
 	// DEFS
 	id := uuid.New().String()
@@ -573,7 +573,7 @@ func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 		return nil, err
 	}
 
-	result, tokenUsage, err := ComputeChoices(input, predInput, config, startupOptions, ml, func(s string, c *[]datamodel.Choice) {
+	result, tokenUsage, err := ComputeChoices(input, predInput, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
 		if processFunctions {
 			// As we have to change the result before processing, we can't stream the answer (yet?)
 			ss := map[string]interface{}{}
@@ -607,7 +607,7 @@ func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 							message = Finetune(*config, predInput, message)
 							log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
 
-							*c = append(*c, datamodel.Choice{Message: &datamodel.Message{Role: "assistant", Content: &message}})
+							*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &message}})
 							return
 						}
 					}
@@ -634,30 +634,30 @@ func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 				}
 
 				fineTunedResponse := Finetune(*config, predInput, prediction.Response)
-				*c = append(*c, datamodel.Choice{Message: &datamodel.Message{Role: "assistant", Content: &fineTunedResponse}})
+				*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &fineTunedResponse}})
 			} else {
 				// otherwise reply with the function call
-				*c = append(*c, datamodel.Choice{
+				*c = append(*c, schema.Choice{
 					FinishReason: "function_call",
-					Message:      &datamodel.Message{Role: "assistant", FunctionCall: ss},
+					Message:      &schema.Message{Role: "assistant", FunctionCall: ss},
 				})
 			}
 
 			return
 		}
-		*c = append(*c, datamodel.Choice{FinishReason: "stop", Index: 0, Message: &datamodel.Message{Role: "assistant", Content: &s}})
+		*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
 	}, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &datamodel.OpenAIResponse{
+	return &schema.OpenAIResponse{
 		ID:      id,
 		Created: created,
 		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 		Choices: result,
 		Object:  "chat.completion",
-		Usage: datamodel.OpenAIUsage{
+		Usage: schema.OpenAIUsage{
 			PromptTokens:     tokenUsage.Prompt,
 			CompletionTokens: tokenUsage.Completion,
 			TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
@@ -666,12 +666,12 @@ func ChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReques
 
 }
 
-func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (*datamodel.OpenAIResponse, error) {
+func CompletionGenerationOpenAIRequest(modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (*schema.OpenAIResponse, error) {
 	// Prepare
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	binding := func(config *datamodel.Config) *string {
+	binding := func(config *schema.Config) *string {
 		return &config.TemplateConfig.Completion
 	}
 
@@ -680,7 +680,7 @@ func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAI
 		return nil, err
 	}
 
-	var result []datamodel.Choice
+	var result []schema.Choice
 
 	totalTokenUsage := TokenUsage{}
 
@@ -696,8 +696,8 @@ func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAI
 		}
 
 		r, tokenUsage, err := ComputeChoices(
-			input, i, config, startupOptions, ml, func(s string, c *[]datamodel.Choice) {
-				*c = append(*c, datamodel.Choice{Text: s, FinishReason: "stop", Index: k})
+			input, i, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
+				*c = append(*c, schema.Choice{Text: s, FinishReason: "stop", Index: k})
 			}, nil)
 		if err != nil {
 			return nil, err
@@ -709,13 +709,13 @@ func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAI
 		result = append(result, r...)
 	}
 
-	return &datamodel.OpenAIResponse{
+	return &schema.OpenAIResponse{
 		ID:      id,
 		Created: created,
 		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 		Choices: result,
 		Object:  "text_completion",
-		Usage: datamodel.OpenAIUsage{
+		Usage: schema.OpenAIUsage{
 			PromptTokens:     totalTokenUsage.Prompt,
 			CompletionTokens: totalTokenUsage.Completion,
 			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
@@ -723,7 +723,7 @@ func CompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAI
 	}, nil
 }
 
-func StreamingChatGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (chan datamodel.OpenAIResponse, error) {
+func StreamingChatGenerationOpenAIRequest(modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (chan schema.OpenAIResponse, error) {
 
 	// DEFS
 	emptyMessage := ""
@@ -741,24 +741,24 @@ func StreamingChatGenerationOpenAIRequest(modelName string, input *datamodel.Ope
 		log.Debug().Msgf("StreamingChatGenerationOpenAIRequest with processFunctions=true for %s?", config.Name)
 	}
 
-	processor := func(s string, req *datamodel.OpenAIRequest, config *datamodel.Config, loader *model.ModelLoader, responses chan datamodel.OpenAIResponse) {
-		initialMessage := datamodel.OpenAIResponse{
+	processor := func(s string, req *schema.OpenAIRequest, config *schema.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+		initialMessage := schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []datamodel.Choice{{Delta: &datamodel.Message{Role: "assistant", Content: &emptyMessage}}},
+			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &emptyMessage}}},
 			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
 
-		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]datamodel.Choice) {}, func(s string, usage TokenUsage) bool {
-			resp := datamodel.OpenAIResponse{
+		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage TokenUsage) bool {
+			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []datamodel.Choice{{Delta: &datamodel.Message{Content: &s}, Index: 0}},
+				Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0}},
 				Object:  "chat.completion.chunk",
-				Usage: datamodel.OpenAIUsage{
+				Usage: schema.OpenAIUsage{
 					PromptTokens:     usage.Prompt,
 					CompletionTokens: usage.Completion,
 					TotalTokens:      usage.Prompt + usage.Completion,
@@ -772,7 +772,7 @@ func StreamingChatGenerationOpenAIRequest(modelName string, input *datamodel.Ope
 	}
 	log.Trace().Msg("StreamingChatGenerationOpenAIRequest :: About to create response channel")
 
-	responses := make(chan datamodel.OpenAIResponse)
+	responses := make(chan schema.OpenAIResponse)
 
 	log.Trace().Msg("StreamingChatGenerationOpenAIRequest :: About to start processor goroutine")
 
@@ -784,12 +784,12 @@ func StreamingChatGenerationOpenAIRequest(modelName string, input *datamodel.Ope
 
 }
 
-func StreamingCompletionGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *datamodel.StartupOptions) (chan datamodel.OpenAIResponse, error) {
+func StreamingCompletionGenerationOpenAIRequest(modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (chan schema.OpenAIResponse, error) {
 	// DEFS
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	binding := func(config *datamodel.Config) *string {
+	binding := func(config *schema.Config) *string {
 		return &config.TemplateConfig.Completion
 	}
 
@@ -800,20 +800,20 @@ func StreamingCompletionGenerationOpenAIRequest(modelName string, input *datamod
 		return nil, err
 	}
 
-	processor := func(s string, req *datamodel.OpenAIRequest, config *datamodel.Config, loader *model.ModelLoader, responses chan datamodel.OpenAIResponse) {
-		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]datamodel.Choice) {}, func(s string, usage TokenUsage) bool {
-			resp := datamodel.OpenAIResponse{
+	processor := func(s string, req *schema.OpenAIRequest, config *schema.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage TokenUsage) bool {
+			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []datamodel.Choice{
+				Choices: []schema.Choice{
 					{
 						Index: 0,
 						Text:  s,
 					},
 				},
 				Object: "text_completion",
-				Usage: datamodel.OpenAIUsage{
+				Usage: schema.OpenAIUsage{
 					PromptTokens:     usage.Prompt,
 					CompletionTokens: usage.Completion,
 					TotalTokens:      usage.Prompt + usage.Completion,
@@ -845,7 +845,7 @@ func StreamingCompletionGenerationOpenAIRequest(modelName string, input *datamod
 
 	log.Trace().Msg("StreamingCompletionGenerationOpenAIRequest :: About to create response channel")
 
-	responses := make(chan datamodel.OpenAIResponse)
+	responses := make(chan schema.OpenAIResponse)
 
 	log.Trace().Msg("StreamingCompletionGenerationOpenAIRequest :: About to start processor goroutine")
 

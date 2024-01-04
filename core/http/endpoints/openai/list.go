@@ -4,8 +4,8 @@ import (
 	"regexp"
 
 	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -17,7 +17,7 @@ func ListModelsEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader) func(c
 		}
 		var mm map[string]interface{} = map[string]interface{}{}
 
-		dataModels := []datamodel.OpenAIModel{}
+		openAIModels := []schema.OpenAIModel{}
 
 		var filterFn func(name string) bool
 		filter := c.Query("filter")
@@ -45,25 +45,25 @@ func ListModelsEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader) func(c
 				mm[c.Model] = nil
 			}
 
-			if filterFn(c.Name) {
-				dataModels = append(dataModels, datamodel.OpenAIModel{ID: c.Name, Object: "model"})
+			if filterFn(c.Name) {schema.
+				openAIModels = append(openAIModels, schema.OpenAIModel{ID: c.Name, Object: "model"})
 			}
 		}
 
 		// Then iterate through the loose files:
 		for _, m := range models {
 			// And only adds them if they shouldn't be skipped.
-			if _, exists := mm[m]; !exists && filterFn(m) {
-				dataModels = append(dataModels, datamodel.OpenAIModel{ID: m, Object: "model"})
+			if _, exists := mm[m]; !exists &&schema.m) {
+				openAIModels = append(openAIModels, schema.OpenAIModel{ID: m, Object: "model"})
 			}
 		}
 
 		return c.JSON(struct {
-			Object string                  `json:"object"`
-			Data   []datamodel.OpenAIModel `json:"data"`
+			Object stschema.            `json:"object"`
+			Data   []schema.OpenAIModel `json:"data"`
 		}{
 			Object: "list",
-			Data:   dataModels,
+			Data:   dopenAIModels
 		})
 	}
 }

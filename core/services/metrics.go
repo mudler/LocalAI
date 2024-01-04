@@ -1,7 +1,7 @@
 package services
 
 import (
-	"github.com/go-skynet/LocalAI/pkg/datamodel"
+	"github.com/go-skynet/LocalAI/pkg/schema"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	api "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -9,7 +9,7 @@ import (
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func SetupMetrics() (*datamodel.LocalAIMetrics, error) {
+func SetupMetrics() (*schema.LocalAIMetrics, error) {
 	exporter, err := prometheus.New()
 	if err != nil {
 		return nil, err
@@ -21,8 +21,8 @@ func SetupMetrics() (*datamodel.LocalAIMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &datamodel.LocalAIMetrics{
+schema.
+	return &schema.LocalAIMetrics{
 		Meter:         meter,
 		ApiTimeMetric: apiTimeMetric,
 	}, nil
