@@ -111,7 +111,6 @@ func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReque
 		config.Backend = model.TinyDreamBackend
 	case "":
 		config.Backend = model.StableDiffusionBackend
-	default:
 		config.Backend = model.StableDiffusionBackend
 	}
 
