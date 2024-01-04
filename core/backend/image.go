@@ -111,7 +111,6 @@ func ImageGenerationOpenAIRequest(modelName string, input *datamodel.OpenAIReque
 		config.Backend = model.TinyDreamBackend
 	case "":
 		config.Backend = model.StableDiffusionBackend
-		config.Backend = model.StableDiffusionBackend
 	}
 
 	sizeParts := strings.Split(input.Size, "x")
