@@ -2,13 +2,10 @@ package datamodel
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -400,50 +397,4 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 		}
 	}
 
-}
-
-// Preload prepare models if they are not local but url or huggingface repositories
-func (cm *ConfigLoader) Preload(modelPath string) error {
-	cm.Lock()
-	defer cm.Unlock()
-
-	status := func(fileName, current, total string, percent float64) {
-		utils.DisplayDownloadFunction(fileName, current, total, percent)
-	}
-
-	log.Info().Msgf("Preloading models from %s", modelPath)
-
-	for i, config := range cm.configs {
-
-		// Download files and verify their SHA
-		for _, file := range config.DownloadFiles {
-			log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
-
-			if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
-				return err
-			}
-			// Create file path
-			filePath := filepath.Join(modelPath, file.Filename)
-
-			if err := utils.DownloadFile(file.URI, filePath, file.SHA256, status); err != nil {
-				return err
-			}
-		}
-
-		modelURL := config.PredictionOptions.Model
-		modelURL = utils.ConvertURL(modelURL)
-
-		if utils.LooksLikeURL(modelURL) {
-			// md5 of model name
-			md5Name := utils.MD5(modelURL)
-
-			// check if file exists
-			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", status)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
 }

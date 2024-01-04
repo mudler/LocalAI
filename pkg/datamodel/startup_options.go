@@ -67,7 +67,7 @@ func NewStartupOptions(o ...AppOption) *StartupOptions {
 }
 
 func WithModelsURL(urls ...string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.ModelsURL = urls
 	}
 }

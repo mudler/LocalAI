@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -93,35 +94,50 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 	return nil
 }
 
-// TODO: Does this belong under ConfigLoader?
-func (cl *ConfigLoader) Preload(modelPath string) error {
-	cl.Lock()
-	defer cl.Unlock()
+// Preload prepare models if they are not local but url or huggingface repositories
+func (cm *ConfigLoader) Preload(modelPath string) error {
+	cm.Lock()
+	defer cm.Unlock()
 
-	for i, config := range cl.configs {
+	status := func(fileName, current, total string, percent float64) {
+		utils.DisplayDownloadFunction(fileName, current, total, percent)
+	}
+
+	log.Info().Msgf("Preloading models from %s", modelPath)
+
+	for _, config := range cm.configs {
+
+		// Download files and verify their SHA
+		for _, file := range config.DownloadFiles {
+			log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
+
+			if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
+				return err
+			}
+			// Create file path
+			filePath := filepath.Join(modelPath, file.Filename)
+
+			if err := utils.DownloadFile(file.URI, filePath, file.SHA256, status); err != nil {
+				return err
+			}
+		}
+
 		modelURL := config.PredictionOptions.Model
 		modelURL = utils.ConvertURL(modelURL)
-		if strings.HasPrefix(modelURL, "http://") || strings.HasPrefix(modelURL, "https://") {
+
+		if utils.LooksLikeURL(modelURL) {
 			// md5 of model name
 			md5Name := utils.MD5(modelURL)
 
 			// check if file exists
-			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); err == os.ErrNotExist {
-				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", func(fileName, current, total string, percent float64) {
-					log.Info().Msgf("Downloading %s: %s/%s (%.2f%%)", fileName, current, total, percent)
-				})
+			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
+				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", status)
 				if err != nil {
 					return err
 				}
 			}
-
-			cc := cl.configs[i]
-			c := &cc
-			c.PredictionOptions.Model = md5Name
-			cl.configs[i] = *c
 		}
 	}
-	return nil
 }
 
 func (cl *ConfigLoader) LoadConfigFile(file string) error {

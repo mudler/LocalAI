@@ -3,12 +3,14 @@ package utils
 import (
 	"crypto/md5"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"hash"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -22,6 +24,16 @@ const (
 	GithubURI         = "github:"
 	GithubURI2        = "github://"
 )
+
+func getRecognizedURIPrefixes() []string {
+	return []string{
+		HuggingFacePrefix,
+		HTTPPrefix,
+		HTTPSPrefix,
+		GithubURI,
+		GithubURI2,
+	}
+}
 
 func GetURI(url string, f func(url string, i []byte) error) error {
 	url = ConvertURL(url)
@@ -60,13 +72,8 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 	return f(url, body)
 }
 
-// TODO: Refactor to use a slice of constants and slices.Contains() for easier maintenance?
 func LooksLikeURL(s string) bool {
-	return strings.HasPrefix(s, HTTPPrefix) ||
-		strings.HasPrefix(s, HTTPSPrefix) ||
-		strings.HasPrefix(s, HuggingFacePrefix) ||
-		strings.HasPrefix(s, GithubURI) ||
-		strings.HasPrefix(s, GithubURI2)
+	return slices.Contains(getRecognizedURIPrefixes(), s)
 }
 
 func ConvertURL(s string) string {
@@ -240,6 +247,37 @@ func DownloadFile(url string, filePath, sha string, downloadStatus func(string, 
 	}
 
 	return nil
+}
+
+// this function check if the string is an URL, if it's an URL downloads the image in memory
+// encodes it in base64 and returns the base64 string
+func GetBase64Image(s string) (string, error) {
+	if strings.HasPrefix(s, "http") {
+		// download the image
+		resp, err := http.Get(s)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+
+		// read the image data into memory
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+
+		// encode the image data in base64
+		encoded := base64.StdEncoding.EncodeToString(data)
+
+		// return the base64 string
+		return encoded, nil
+	}
+
+	// if the string instead is prefixed with "data:image/jpeg;base64,", drop it
+	if strings.HasPrefix(s, "data:image/jpeg;base64,") {
+		return strings.ReplaceAll(s, "data:image/jpeg;base64,", ""), nil
+	}
+	return "", fmt.Errorf("not valid string")
 }
 
 type progressWriter struct {
