@@ -95,14 +95,14 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c schema.
 	}, nil
 }
 
-func EmbeddingOpenAIRequest(modelName string, input *schema.nAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schschema.pOptions) (*schemaschema.ponse, error) {
+func EmbeddingOpenAIRequest(modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (*schema.OpenAIResponse, error) {
 	config, input, err := ReadConfigFromFileAndCombineWithOpenAIRequest(modelName, input, cl, startupOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading parameters from request:%w", err)
 	}
 
 	log.Debug().Msgf("Parameter Config: %+v", config)
-	items := []schema.m{}
+	items := []schema.Item{}
 
 	for i, s := range config.InputToken {
 		// get the model function to call for the result
@@ -115,7 +115,7 @@ func EmbeddingOpenAIRequest(modelName string, input *schema.nAIRequest, cl *serv
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, schema.m{Embedding: embeddings, Index: i, Object: "embedding"})
+		items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
 	}
 
 	for i, s := range config.InputStrings {
@@ -129,12 +129,12 @@ func EmbeddingOpenAIRequest(modelName string, input *schema.nAIRequest, cl *serv
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, schema.m{Embedding: embeddings, Index: i, Object: "embedding"})
+		items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
 	}
 
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
-	return &schema.nAIResponse{
+	return &schema.OpenAIResponse{
 		ID:      id,
 		Created: created,
 		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.

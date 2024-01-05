@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Startupschema.chema.AppOption) (*services.ConfigLoader, *model.ModelLoader, *schema.StartupOptions, error) {
+func Startup(opts ...schema.AppOption) (*services.ConfigLoader, *model.ModelLoader, *schema.StartupOptions, error) {
 	options := schema.NewStartupOptions(opts...)
 
 	ml := model.NewModelLoader(options.ModelPath)

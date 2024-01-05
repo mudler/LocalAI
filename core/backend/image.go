@@ -73,7 +73,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	return fn, nil
 }
 
-func ImageGenerationOpenAIRequest(modelName string, input *schema.nAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schschema.pOptions) (*schemaschema.ponse, error) {
+func ImageGenerationOpenAIRequest(modelName string, input *schema.OpenAIRequest, cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) (*schema.OpenAIResponse, error) {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
@@ -131,7 +131,7 @@ func ImageGenerationOpenAIRequest(modelName string, input *schema.nAIRequest, cl
 		b64JSON = true
 	}
 	// src and clip_skip
-	var result []schema.m
+	var result []schema.Item
 	for _, i := range config.PromptStrings {
 		n := input.N
 		if input.N == 0 {
@@ -184,7 +184,7 @@ func ImageGenerationOpenAIRequest(modelName string, input *schema.nAIRequest, cl
 				return nil, err
 			}
 
-			item := &schema.m{}
+			item := &schema.Item{}
 
 			if b64JSON {
 				defer os.RemoveAll(output)
@@ -202,7 +202,7 @@ func ImageGenerationOpenAIRequest(modelName string, input *schema.nAIRequest, cl
 		}
 	}
 
-	return &schema.nAIResponse{
+	return &schema.OpenAIResponse{
 		ID:      id,
 		Created: created,
 		Data:    result,

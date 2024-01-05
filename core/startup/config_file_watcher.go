@@ -29,7 +29,7 @@ func ReadApiKeysJson(configDir string, options *schema.StartupOptions) error {
 	return err
 }
 
-func ReadExternalBackendsJson(configDir string, options *schema.rtupOptions) error {
+func ReadExternalBackendsJson(configDir string, options *schema.StartupOptions) error {
 	fileContent, err := os.ReadFile(path.Join(configDir, "external_backends.json"))
 	if err != nil {
 		return err
@@ -47,12 +47,12 @@ func ReadExternalBackendsJson(configDir string, options *schema.rtupOptions) err
 	return nil
 }
 
-var CONFIG_FILE_UPDATES = map[string]func(configDir string, options *schema.rtupOptions) error{
+var CONFIG_FILE_UPDATES = map[string]func(configDir string, options *schema.StartupOptions) error{
 	"api_keys.json":          ReadApiKeysJson,
 	"external_backends.json": ReadExternalBackendsJson,
 }
 
-func WatchConfigDirectory(configDir string, options *schema.rtupOptions) (WatchConfigDirectoryCloser, error) {
+func WatchConfigDirectory(configDir string, options *schema.StartupOptions) (WatchConfigDirectoryCloser, error) {
 	if len(configDir) == 0 {
 		return nil, fmt.Errorf("configDir blank")
 	}
