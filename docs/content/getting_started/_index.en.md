@@ -125,6 +125,12 @@ See the [build section]({{%relref "build" %}}).
 
 ### Running Popular models (one-click!)
 
+{{% notice note %}}
+
+Note: this feature currently is available only on master builds.
+
+{{% /notice %}}
+
 #### CPU-only
 
 | Model | Docker command |
@@ -137,17 +143,17 @@ See the [build section]({{%relref "build" %}}).
 
 | Model | Docker command |
 | --- | --- |
-| phi-2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core phi-2``` |
+| phi-2 | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core phi-2``` |
 | llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core llava``` |
-| mistral-openorca | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
+| mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
 
 #### GPU (CUDA 12)
 
 | Model | Docker command |
 | --- | --- |
-| phi-2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core phi-2``` |
-| llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core llava``` |
-| mistral-openorca | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
+| phi-2 | ```docker run -p 8080:8080 -ti --gpus all --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core phi-2``` |
+| llava | ```docker run -p 8080:8080 -ti --gpus all --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
 
 {{% notice note %}}
 
