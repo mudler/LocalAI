@@ -22,11 +22,11 @@ func InstallModelFromGallery(galleries []Gallery, name string, basePath string, 
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
-		var config Config
+		var config InstallableModel
 
 		if len(model.URL) > 0 {
 			var err error
-			config, err = GetGalleryConfigFromURL(model.URL)
+			config, err = GetInstallableModelFromURL(model.URL)
 			if err != nil {
 				return err
 			}
@@ -36,7 +36,7 @@ func InstallModelFromGallery(galleries []Gallery, name string, basePath string, 
 			if err != nil {
 				return err
 			}
-			config = Config{
+			config = InstallableModel{
 				ConfigFile:  string(reYamlConfig),
 				Description: model.Description,
 				License:     model.License,
