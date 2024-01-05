@@ -49,7 +49,6 @@ jobs:
             ../.. && sudo make -j12
       - name: Install gRPC
         run: |
-          git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && cd cmake/build && sudo make -j12 install
 
       - name: Build

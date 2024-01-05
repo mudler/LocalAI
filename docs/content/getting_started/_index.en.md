@@ -131,7 +131,11 @@ Note: this feature currently is available only on master builds.
 
 {{% /notice %}}
 
+You can run `local-ai` directly with a model name, and it will download the model and start the API with the model loaded.
+
 #### CPU-only
+
+> You can use these images which are lighter and do not have Nvidia dependencies
 
 | Model | Docker command |
 | --- | --- |
@@ -141,6 +145,10 @@ Note: this feature currently is available only on master builds.
 
 #### GPU (CUDA 11)
 
+For accellerated images with Nvidia and CUDA11, use the following images.
+
+> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+
 | Model | Docker command |
 | --- | --- |
 | phi-2 | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core phi-2``` |
@@ -148,6 +156,8 @@ Note: this feature currently is available only on master builds.
 | mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
 
 #### GPU (CUDA 12)
+
+> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
 
 | Model | Docker command |
 | --- | --- |
@@ -194,6 +204,11 @@ Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
 
 {{% tab name="GPU Images CUDA 11" %}}
+
+Images with Nvidia accelleration support
+
+> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+
 - `master-cublas-cuda11`
 - `master-cublas-cuda11-core`
 - `{{< version >}}-cublas-cuda11`
@@ -205,6 +220,11 @@ Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
 
 {{% tab name="GPU Images CUDA 12" %}}
+
+Images with Nvidia accelleration support
+
+> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+
 - `master-cublas-cuda12`
 - `master-cublas-cuda12-core`
 - `{{< version >}}-cublas-cuda12`
