@@ -43,7 +43,6 @@ func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptio
 				return fmt.Errorf("failed establishing streaming chat request :%w", err)
 			}
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
-schema.
 				usage := &schema.OpenAIUsage{}
 				id := ""
 				created := 0
@@ -63,15 +62,15 @@ schema.
 					}
 					w.Flush()
 				}
-schema.
+
 				resp := &schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
-					Model:   inschema. // we have to return what the user sent here, due to OpenAI spec.
+					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: []schema.Choice{
 						{
 							FinishReason: "stop",
-							Index:        0schema.
+							Index:        0,
 							Delta:        &schema.Message{Content: &emptyMessage},
 						}},
 					Object: "chat.completion.chunk",

@@ -38,6 +38,18 @@ func Startup(opts ...schema.AppOption) (*services.ConfigLoader, *model.ModelLoad
 		log.Error().Msgf("error downloading models: %s", err.Error())
 	}
 
+	if options.PreloadJSONModels != "" {
+		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+
+	if options.PreloadModelsFromPath != "" {
+		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+
 	if options.Debug {
 		for _, v := range cl.ListConfigs() {
 			cfg, _ := cl.GetConfig(v)
@@ -51,18 +63,6 @@ func Startup(opts ...schema.AppOption) (*services.ConfigLoader, *model.ModelLoad
 		log.Debug().Msgf("Extracting backend assets files to %s", options.AssetsDestination)
 		if err != nil {
 			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
-		}
-	}
-
-	if options.PreloadJSONModels != "" {
-		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
-			return nil, nil, nil, err
-		}
-	}
-
-	if options.PreloadModelsFromPath != "" {
-		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
-			return nil, nil, nil, err
 		}
 	}
 

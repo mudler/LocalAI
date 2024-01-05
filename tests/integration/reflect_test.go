@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("Integration Tests involving reflection in liue of code generation", func() {
 	Context("schema.TemplateConfig and model.TemplateType must stay in sync", func() {
-schema.
+
 		ttc := reflect.TypeOf(schema.TemplateConfig{})
 
 		It("TemplateConfig and TemplateType should have the same number of valid values", func() {

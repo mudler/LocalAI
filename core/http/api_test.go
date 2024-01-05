@@ -125,8 +125,8 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 
-	cschema.:= []schema.AppOption{
-		schema.hDebug(true),
+	commonOpts := []schema.AppOption{
+		schema.WithDebug(true),
 		schema.WithDisableMessage(true),
 	}
 
@@ -166,12 +166,12 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
-				aschema.onOpts,
-					schema.hMetrics(metricsService),
-					schema.hContext(c),
-					schema.hGalleries(galleries),
-					schema.hModelPath(tmpdir),
-					schema.hBackendAssets(backendAssets),
+				append(commonOpts,
+					schema.WithMetrics(metricsService),
+					schema.WithContext(c),
+					schema.WithGalleries(galleries),
+					schema.WithModelPath(tmpdir),
+					schema.WithBackendAssets(backendAssets),
 					schema.WithBackendAssetsOutput(tmpdir))...)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -492,14 +492,14 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
-				aschema.onOpts,
-					schema.hContext(c),
-					schema.hMetrics(metricsService),
-					schema.hAudioDir(tmpdir),
-					schema.hImageDir(tmpdir),
-					schema.hGalleries(galleries),
-					schema.hModelPath(tmpdir),
-					schema.hBackendAssets(backendAssets),
+				append(commonOpts,
+					schema.WithContext(c),
+					schema.WithMetrics(metricsService),
+					schema.WithAudioDir(tmpdir),
+					schema.WithImageDir(tmpdir),
+					schema.WithGalleries(galleries),
+					schema.WithModelPath(tmpdir),
+					schema.WithBackendAssets(backendAssets),
 					schema.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -600,10 +600,10 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
-				aschema.onOpts,
-					schema.hExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
-					schema.hContext(c),
-					schema.hModelPath(os.Getenv("MODELS_PATH")),
+				append(commonOpts,
+					schema.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
+					schema.WithContext(c),
+					schema.WithModelPath(os.Getenv("MODELS_PATH")),
 					schema.WithMetrics(metricsService),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
@@ -813,10 +813,10 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			cl, ml, options, err := startup.Startup(
-				aschema.onOpts,
-					schema.hContext(c),
-					schema.hMetrics(metricsService),
-					schema.hModelPath(os.Getenv("MODELS_PATH")),
+				append(commonOpts,
+					schema.WithContext(c),
+					schema.WithMetrics(metricsService),
+					schema.WithModelPath(os.Getenv("MODELS_PATH")),
 					schema.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())

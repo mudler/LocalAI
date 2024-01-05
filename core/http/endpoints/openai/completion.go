@@ -55,11 +55,11 @@ func CompletionEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, so *sc
 					w.Flush()
 				}
 
-				resp := &schema.nAIResponse{
+				resp := &schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
 					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []schema.ice{
+					Choices: []schema.Choice{
 						{
 							Index:        0,
 							FinishReason: "stop",

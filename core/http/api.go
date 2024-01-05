@@ -35,8 +35,8 @@ func App(cl *services.ConfigLoader, ml *model.ModelLoader, options *schema.Start
 			}
 
 			// Send custom error page
-			rschema.Status(code).JSON(
-				schema.Erschema.e{
+			return ctx.Status(code).JSON(
+				schema.ErrorResponse{
 					Error: &schema.APIError{Message: err.Error(), Code: code},
 				},
 			)

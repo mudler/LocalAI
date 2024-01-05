@@ -13,7 +13,7 @@ type MQTTManager struct {
 	modelLoader    *model.ModelLoader
 	startupOptions *schema.StartupOptions
 }
-schema.
+
 func NewMQTTManager(cl *services.ConfigLoader, ml *model.ModelLoader, options *schema.StartupOptions) (*MQTTManager, error) {
 
 	return &MQTTManager{

@@ -23,7 +23,7 @@ func BackendMonitorEndpoint(bm *services.BackendMonitor) func(c *fiber.Ctx) erro
 }
 
 func BackendShutdownEndpoint(bm *services.BackendMonitor) func(c *fiber.Ctx) error {
-	return func(c schema.) error {
+	return func(c *fiber.Ctx) error {
 		input := new(schema.BackendMonitorRequest)
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {

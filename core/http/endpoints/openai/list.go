@@ -45,7 +45,7 @@ func ListModelsEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader) func(c
 				mm[c.Model] = nil
 			}
 
-			if filterFn(c.Name) {schema.
+			if filterFn(c.Name) {
 				openAIModels = append(openAIModels, schema.OpenAIModel{ID: c.Name, Object: "model"})
 			}
 		}
@@ -53,17 +53,17 @@ func ListModelsEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader) func(c
 		// Then iterate through the loose files:
 		for _, m := range models {
 			// And only adds them if they shouldn't be skipped.
-			if _, exists := mm[m]; !exists &&schema.m) {
+			if _, exists := mm[m]; !exists && filterFn(m) {
 				openAIModels = append(openAIModels, schema.OpenAIModel{ID: m, Object: "model"})
 			}
 		}
 
 		return c.JSON(struct {
-			Object stschema.            `json:"object"`
+			Object string               `json:"object"`
 			Data   []schema.OpenAIModel `json:"data"`
 		}{
 			Object: "list",
-			Data:   dopenAIModels
+			Data:   openAIModels,
 		})
 	}
 }

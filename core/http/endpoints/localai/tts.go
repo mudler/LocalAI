@@ -10,7 +10,6 @@ import (
 
 func TTSEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, so *schema.StartupOptions) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-schema.
 		input := new(schema.TTSRequest)
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
