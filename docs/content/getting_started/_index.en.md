@@ -1,4 +1,4 @@
-
+ 
 +++
 disableToc = false
 title = "Getting started"
@@ -114,6 +114,11 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 ```
 
 {{% /tab %}}
+{{% tab name="From binary" %}}
+
+LocalAI binary releases are available in [Github](https://github.com/go-skynet/LocalAI/releases).
+
+{{% /tab %}}
 
 {{% tab name="From source" %}}
 
@@ -133,7 +138,9 @@ Note: this feature currently is available only on master builds.
 
 You can run `local-ai` directly with a model name, and it will download the model and start the API with the model loaded.
 
-#### CPU-only
+
+{{< tabs >}}
+{{% tab name="CPU-only" %}}
 
 > You can use these images which are lighter and do not have Nvidia dependencies
 
@@ -143,8 +150,9 @@ You can run `local-ai` directly with a model name, and it will download the mode
 | llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core llava``` |
 | mistral-openorca | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core mistral-openorca``` |
 
-#### GPU (CUDA 11)
-
+  
+{{% /tab %}}
+{{% tab name="GPU (CUDA 11)" %}}
 For accellerated images with Nvidia and CUDA11, use the following images.
 
 > If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
@@ -155,7 +163,10 @@ For accellerated images with Nvidia and CUDA11, use the following images.
 | llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core llava``` |
 | mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
 
-#### GPU (CUDA 12)
+
+{{% /tab %}}
+
+{{% tab name="GPU (CUDA 12)" %}}
 
 > If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
 
@@ -164,6 +175,10 @@ For accellerated images with Nvidia and CUDA11, use the following images.
 | phi-2 | ```docker run -p 8080:8080 -ti --gpus all --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core phi-2``` |
 | llava | ```docker run -p 8080:8080 -ti --gpus all --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core llava``` |
 | mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 {{% notice note %}}
 
@@ -287,7 +302,6 @@ To see other model configurations, see also the example section [here](https://g
 
 ### From binaries
 
-LocalAI binary releases are available in [Github](https://github.com/go-skynet/LocalAI/releases).
 
 You can control LocalAI with command line arguments, to specify a binding address, or the number of threads.
 
