@@ -328,7 +328,7 @@ test-models/testmodel:
 	cp tests/models_fixtures/* test-models
 
 prepare-test: grpcs
-	cp -rf backend-assets/http core
+	cp -rf backend-assets core/http
 	cp tests/models_fixtures/* test-models
 
 test: prepare test-models/testmodel grpcs
