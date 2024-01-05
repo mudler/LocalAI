@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	. "github.com/go-skynet/LocalAI/core/startup"
+	. "github.com/go-skynet/LocalAI/pkg/startup"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 
 	. "github.com/onsi/ginkgo/v2"
