@@ -34,10 +34,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
 
+      - name: Cache grpc
+        id: cache-grpc
+        uses: actions/cache@v3
+        with:
+          path: grpc
+          key: ${{ runner.os }}-grpc
+      - name: Build grpc
+        if: steps.cache-grpc.outputs.cache-hit != 'true'
+        run: |
           git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-              cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-                -DgRPC_BUILD_TESTS=OFF \
-                ../.. && sudo make -j12 install
+          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+            -DgRPC_BUILD_TESTS=OFF \
+            ../.. && sudo make -j12
+      - name: Install gRPC
+        run: |
+          cd grpc && cd cmake/build && sudo make -j12 install
 
       - name: Build
         id: build

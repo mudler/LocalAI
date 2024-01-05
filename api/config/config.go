@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
@@ -300,21 +301,21 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 			// Create file path
 			filePath := filepath.Join(modelPath, file.Filename)
 
-			if err := utils.DownloadFile(file.URI, filePath, file.SHA256, status); err != nil {
+			if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, status); err != nil {
 				return err
 			}
 		}
 
 		modelURL := config.PredictionOptions.Model
-		modelURL = utils.ConvertURL(modelURL)
+		modelURL = downloader.ConvertURL(modelURL)
 
-		if utils.LooksLikeURL(modelURL) {
+		if downloader.LooksLikeURL(modelURL) {
 			// md5 of model name
 			md5Name := utils.MD5(modelURL)
 
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-				err := utils.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", status)
+				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", status)
 				if err != nil {
 					return err
 				}
