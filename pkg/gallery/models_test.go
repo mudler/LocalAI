@@ -16,7 +16,7 @@ var _ = Describe("Model test", func() {
 			tempdir, err := os.MkdirTemp("", "test")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tempdir)
-			c, err := ReadInstallableModelFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
+			c, err := ReadConfigFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 
 			err = InstallModel(tempdir, "", c, map[string]interface{}{}, func(string, string, string, float64) {})
@@ -87,7 +87,7 @@ var _ = Describe("Model test", func() {
 			tempdir, err := os.MkdirTemp("", "test")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tempdir)
-			c, err := ReadInstallableModelFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
+			c, err := ReadConfigFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 
 			err = InstallModel(tempdir, "foo", c, map[string]interface{}{}, func(string, string, string, float64) {})
@@ -103,7 +103,7 @@ var _ = Describe("Model test", func() {
 			tempdir, err := os.MkdirTemp("", "test")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tempdir)
-			c, err := ReadInstallableModelFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
+			c, err := ReadConfigFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 
 			err = InstallModel(tempdir, "foo", c, map[string]interface{}{"backend": "foo"}, func(string, string, string, float64) {})
@@ -129,7 +129,7 @@ var _ = Describe("Model test", func() {
 			tempdir, err := os.MkdirTemp("", "test")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tempdir)
-			c, err := ReadInstallableModelFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
+			c, err := ReadConfigFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 
 			err = InstallModel(tempdir, "../../../foo", c, map[string]interface{}{}, func(string, string, string, float64) {})
