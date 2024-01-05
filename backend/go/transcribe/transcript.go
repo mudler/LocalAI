@@ -89,8 +89,8 @@ func Transcript(model whisper.Model, audiopath, language string, threads uint) (
 		for _, t := range s.Tokens {
 			tokens = append(tokens, t.Id)
 		}
-		schema.
-			segment := schema.WhisperSegment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
+
+		segment := schema.WhisperSegment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
 		res.Segments = append(res.Segments, segment)
 
 		res.Text += s.Text
