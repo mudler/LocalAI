@@ -35,7 +35,7 @@ release/
 
 # Generated during build
 backend-assets/*
-core/backend-assets/
+core/http/backend-assets/
 !backend-assets/.keep
 prepare
 /ggml-metal.metal
