@@ -307,7 +307,7 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 		}
 
 		modelURL := config.PredictionOptions.Model
-		modelURL = utils.ConvertURL(modelURL)
+		modelURL = downloader.ConvertURL(modelURL)
 
 		if downloader.LooksLikeURL(modelURL) {
 			// md5 of model name
