@@ -10,7 +10,7 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/go-skynet/LocalAI/pkg/grammar"
+	grammar "github.com/go-skynet/LocalAI/pkg/grammar"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"

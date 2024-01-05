@@ -20,7 +20,7 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 Returns an `audio/wav` file.
 
-#### Text-To-Speech Setup
+#### Setup
 
 LocalAI supports [bark]({{%relref "model-compatibility/bark" %}}) , `piper` and `vall-e-x`:
 
@@ -52,8 +52,6 @@ Note:
 - The model name is case sensitive.
 - LocalAI must be compiled with the `GO_TAGS=tts` flag.
 
-#### Music
-
 LocalAI also has experimental support for `transformers-musicgen` for the generation of short musical compositions. Currently, this is implemented via the same requests used for text to speech:
 
 ```
@@ -64,8 +62,7 @@ curl --request POST \
     "backend": "transformers-musicgen",
     "model": "facebook/musicgen-medium",
     "input": "Cello Rave"
-}' | aplay
-```
+}' | aplay```
 
 Future versions of LocalAI will expose additional control over audio generation beyond the text prompt.
 

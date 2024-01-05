@@ -1,9 +1,13 @@
 package gallery
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"hash"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
@@ -37,9 +41,9 @@ prompt_templates:
       content: ""
 
 */
-// InstallableModel is the model configuration which contains all the model details
+// Config is the model configuration which contains all the model details
 // This configuration is read from the gallery endpoint and is used to download and install the model
-type InstallableModel struct {
+type Config struct {
 	Description     string           `yaml:"description"`
 	License         string           `yaml:"license"`
 	URLs            []string         `yaml:"urls"`
@@ -60,8 +64,8 @@ type PromptTemplate struct {
 	Content string `yaml:"content"`
 }
 
-func GetInstallableModelFromURL(url string) (InstallableModel, error) {
-	var config InstallableModel
+func GetGalleryConfigFromURL(url string) (Config, error) {
+	var config Config
 	err := utils.GetURI(url, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
@@ -72,7 +76,7 @@ func GetInstallableModelFromURL(url string) (InstallableModel, error) {
 	return config, nil
 }
 
-func ReadInstallableModelFile(filePath string) (*InstallableModel, error) {
+func ReadConfigFile(filePath string) (*Config, error) {
 	// Read the YAML file
 	yamlFile, err := os.ReadFile(filePath)
 	if err != nil {
@@ -80,7 +84,7 @@ func ReadInstallableModelFile(filePath string) (*InstallableModel, error) {
 	}
 
 	// Unmarshal YAML data into a Config struct
-	var config InstallableModel
+	var config Config
 	err = yaml.Unmarshal(yamlFile, &config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal YAML: %v", err)
@@ -89,7 +93,7 @@ func ReadInstallableModelFile(filePath string) (*InstallableModel, error) {
 	return &config, nil
 }
 
-func InstallModel(basePath, nameOverride string, config *InstallableModel, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
+func InstallModel(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0755)
 	if err != nil {
@@ -178,4 +182,55 @@ func InstallModel(basePath, nameOverride string, config *InstallableModel, confi
 	}
 
 	return nil
+}
+
+type progressWriter struct {
+	fileName       string
+	total          int64
+	written        int64
+	downloadStatus func(string, string, string, float64)
+	hash           hash.Hash
+}
+
+func (pw *progressWriter) Write(p []byte) (n int, err error) {
+	n, err = pw.hash.Write(p)
+	pw.written += int64(n)
+
+	if pw.total > 0 {
+		percentage := float64(pw.written) / float64(pw.total) * 100
+		//log.Debug().Msgf("Downloading %s: %s/%s (%.2f%%)", pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
+		pw.downloadStatus(pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
+	} else {
+		pw.downloadStatus(pw.fileName, formatBytes(pw.written), "", 0)
+	}
+
+	return
+}
+
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return strconv.FormatInt(bytes, 10) + " B"
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func calculateSHA(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }

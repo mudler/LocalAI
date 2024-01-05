@@ -88,7 +88,7 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 WORKDIR /build
 
 COPY . .
-COPY .git/ .git/
+COPY .git .
 RUN make prepare
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
