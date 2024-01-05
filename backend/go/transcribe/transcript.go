@@ -29,7 +29,7 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Traschema.del whisper.Model, audiopath, language string, threads uint) (schema.WhisperResult, error) {
+func Transcript(model whisper.Model, audiopath, language string, threads uint) (schema.WhisperResult, error) {
 	res := schema.WhisperResult{}
 
 	dir, err := os.MkdirTemp("", "whisper")
@@ -89,8 +89,8 @@ func Traschema.del whisper.Model, audiopath, language string, threads uint) (sch
 		for _, t := range s.Tokens {
 			tokens = append(tokens, t.Id)
 		}
-schema.
-		segment := schema.WhisperSegment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
+		schema.
+			segment := schema.WhisperSegment{Id: s.Num, Text: s.Text, Start: s.Start, End: s.End, Tokens: tokens}
 		res.Segments = append(res.Segments, segment)
 
 		res.Text += s.Text
