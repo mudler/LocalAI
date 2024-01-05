@@ -21,4 +21,3 @@ context_size: 4096
 f16: true
 stopwords:
 - <|im_end|>
-threads: 4
