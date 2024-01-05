@@ -6,7 +6,11 @@ weight = 1
 url = '/basics/getting_started/'
 +++
 
-`LocalAI` is available as a container image and binary. It can be used with docker, podman, kubernetes and any container engine. You can check out all the available images with corresponding tags [here](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest).
+`LocalAI` is available as a container image and binary. It can be used with docker, podman, kubernetes and any container engine. 
+Container images are published to [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest) and [Dockerhub](https://hub.docker.com/r/localai/localai).
+
+[<img src="https://img.shields.io/badge/dockerhub-images-important.svg?logo=Docker">](https://hub.docker.com/r/localai/localai)
+[<img src="https://img.shields.io/badge/quay.io-images-important.svg?">](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest)
 
 See also our [How to]({{%relref "howtos" %}}) section for end-to-end guided examples curated by the community.
 
@@ -138,43 +142,41 @@ Note: this feature currently is available only on master builds.
 
 You can run `local-ai` directly with a model name, and it will download the model and start the API with the model loaded.
 
+> Don't need GPU acceleration? use the CPU images which are lighter and do not have Nvidia dependencies
 
 {{< tabs >}}
 {{% tab name="CPU-only" %}}
 
-> You can use these images which are lighter and do not have Nvidia dependencies
-
 | Model | Docker command |
 | --- | --- |
-| phi2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core phi-2``` |
-| llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core llava``` |
-| mistral-openorca | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core mistral-openorca``` |
+| phi2 | ```docker run -p 8080:8080 -ti --rm localai/localai:{{< version >}}-ffmpeg-core phi-2``` |
+| llava | ```docker run -p 8080:8080 -ti --rm localai/localai:{{< version >}}-ffmpeg-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 -ti --rm localai/localai:{{< version >}}-ffmpeg-core mistral-openorca``` |
 
   
 {{% /tab %}}
 {{% tab name="GPU (CUDA 11)" %}}
-For accellerated images with Nvidia and CUDA11, use the following images.
 
-> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+> To know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
 
 | Model | Docker command |
 | --- | --- |
-| phi-2 | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core phi-2``` |
-| llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core llava``` |
-| mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
+| phi-2 | ```docker run -p 8080:8080 --gpus all -ti --rm localai/localai:{{< version >}}-cublas-cuda11-core phi-2``` |
+| llava | ```docker run -p 8080:8080 --gpus all -ti --rm localai/localai:{{< version >}}-cublas-cuda11-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm localai/localai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
 
 
 {{% /tab %}}
 
 {{% tab name="GPU (CUDA 12)" %}}
 
-> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+> To know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
 
 | Model | Docker command |
 | --- | --- |
-| phi-2 | ```docker run -p 8080:8080 -ti --gpus all --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core phi-2``` |
-| llava | ```docker run -p 8080:8080 -ti --gpus all --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core llava``` |
-| mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
+| phi-2 | ```docker run -p 8080:8080 --gpus all -ti --rm localai/localai:{{< version >}}-cublas-cuda12-core phi-2``` |
+| llava | ```docker run -p 8080:8080 --gpus all -ti --rm localai/localai:{{< version >}}-cublas-cuda12-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm localai/localai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
 
 {{% /tab %}}
 
