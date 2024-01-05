@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
@@ -114,7 +115,7 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		// Create file path
 		filePath := filepath.Join(basePath, file.Filename)
 
-		if err := utils.DownloadFile(file.URI, filePath, file.SHA256, downloadStatus); err != nil {
+		if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, downloadStatus); err != nil {
 			return err
 		}
 	}

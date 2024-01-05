@@ -16,6 +16,7 @@ import (
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/assets"
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 
@@ -41,13 +42,13 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 	modelPath := options.Loader.ModelPath
 	if len(options.ModelsURL) > 0 {
 		for _, url := range options.ModelsURL {
-			if utils.LooksLikeURL(url) {
+			if downloader.LooksLikeURL(url) {
 				// md5 of model name
 				md5Name := utils.MD5(url)
 
 				// check if file exists
 				if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-					err := utils.DownloadFile(url, filepath.Join(modelPath, md5Name)+".yaml", "", func(fileName, current, total string, percent float64) {
+					err := downloader.DownloadFile(url, filepath.Join(modelPath, md5Name)+".yaml", "", func(fileName, current, total string, percent float64) {
 						utils.DisplayDownloadFunction(fileName, current, total, percent)
 					})
 					if err != nil {
