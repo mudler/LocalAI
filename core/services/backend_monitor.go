@@ -18,7 +18,7 @@ type BackendMonitor struct {
 	modelLoader  *model.ModelLoader
 	options      *schema.StartupOptions // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
-schema.
+
 func NewBackendMonitor(configLoader *ConfigLoader, modelLoader *model.ModelLoader, options *schema.StartupOptions) *BackendMonitor {
 	return &BackendMonitor{
 		configLoader: configLoader,
@@ -26,7 +26,7 @@ func NewBackendMonitor(configLoader *ConfigLoader, modelLoader *model.ModelLoade
 		options:      options,
 	}
 }
-schema.
+
 func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
 	config, exists := bm.configLoader.GetConfig(model)
 	var backend string
@@ -74,7 +74,7 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.Backe
 		log.Error().Msgf("model %s [PID %d] : error getting cpu percent %+v", model, pid, err)
 		return nil, err
 	}
-schema.
+
 	return &schema.BackendMonitorResponse{
 		MemoryInfo:    memInfo,
 		MemoryPercent: memPercent,

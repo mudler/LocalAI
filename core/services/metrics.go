@@ -21,7 +21,7 @@ func SetupMetrics() (*schema.LocalAIMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
-schema.
+
 	return &schema.LocalAIMetrics{
 		Meter:         meter,
 		ApiTimeMetric: apiTimeMetric,

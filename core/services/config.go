@@ -20,7 +20,7 @@ type ConfigLoader struct {
 }
 
 func NewConfigLoader() *ConfigLoader {
-	return &ConfigLoader{schema.
+	return &ConfigLoader{
 		configs: make(map[string]schema.Config),
 	}
 }
@@ -28,7 +28,7 @@ func NewConfigLoader() *ConfigLoader {
 // TODO: check this is correct post-merge
 func (cm *ConfigLoader) LoadConfig(file string) error {
 	cm.Lock()
-	defer cm.Uschema.
+	defer cm.Unlock()
 	c, err := schema.ReadSingleConfigFile(file)
 	if err != nil {
 		return fmt.Errorf("cannot read config file: %w", err)
@@ -37,17 +37,17 @@ func (cm *ConfigLoader) LoadConfig(file string) error {
 	cm.configs[c.Name] = *c
 	return nil
 }
-schema.
+
 func (cm *ConfigLoader) GetConfig(m string) (schema.Config, bool) {
 	cm.Lock()
 	defer cm.Unlock()
 	v, exists := cm.configs[m]
 	return v, exists
 }
-schema.
+
 func (cm *ConfigLoader) GetAllConfigs() []schema.Config {
 	cm.Lock()
-	defer cm.Uschema.
+	defer cm.Unlock()
 	var res []schema.Config
 	for _, v := range cm.configs {
 		res = append(res, v)
@@ -84,7 +84,7 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 		// Skip templates, YAML and .keep files
 		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
 			continue
-		}schema.
+		}
 		c, err := schema.ReadSingleConfigFile(filepath.Join(path, file.Name()))
 		if err == nil {
 			cm.configs[c.Name] = *c
@@ -144,7 +144,7 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 
 func (cl *ConfigLoader) LoadConfigFile(file string) error {
 	cl.Lock()
-	defer cl.Uschema.
+	defer cl.Unlock()
 	c, err := schema.ReadConfigFile(file)
 	if err != nil {
 		return fmt.Errorf("cannot load config file: %w", err)
