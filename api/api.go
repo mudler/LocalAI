@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -16,9 +15,8 @@ import (
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/assets"
-	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/go-skynet/LocalAI/pkg/startup"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -39,25 +37,7 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.Loader.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
 
-	modelPath := options.Loader.ModelPath
-	if len(options.ModelsURL) > 0 {
-		for _, url := range options.ModelsURL {
-			if downloader.LooksLikeURL(url) {
-				// md5 of model name
-				md5Name := utils.MD5(url)
-
-				// check if file exists
-				if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-					err := downloader.DownloadFile(url, filepath.Join(modelPath, md5Name)+".yaml", "", func(fileName, current, total string, percent float64) {
-						utils.DisplayDownloadFunction(fileName, current, total, percent)
-					})
-					if err != nil {
-						log.Error().Msgf("error loading model: %s", err.Error())
-					}
-				}
-			}
-		}
-	}
+	startup.PreloadModelsConfigurations(options.Loader.ModelPath, options.ModelsURL...)
 
 	cl := config.NewConfigLoader()
 	if err := cl.LoadConfigs(options.Loader.ModelPath); err != nil {
