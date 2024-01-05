@@ -14,6 +14,8 @@ See also our [How to]({{%relref "howtos" %}}) section for end-to-end guided exam
 
 The easiest way to run LocalAI is by using [`docker compose`](https://docs.docker.com/compose/install/) or with [Docker](https://docs.docker.com/engine/install/) (to build locally, see the [build section]({{%relref "build" %}})).
 
+LocalAI needs at least a model file to work, or a configuration YAML file, or both. You can customize further model defaults and specific settings with a configuration file (see [advanced]({{%relref "advanced" %}})).
+
 {{% notice note %}}
 To run with GPU Accelleration, see [GPU acceleration]({{%relref "features/gpu-acceleration" %}}).
 {{% /notice %}}
@@ -113,7 +115,78 @@ helm install local-ai go-skynet/local-ai -f values.yaml
 
 {{% /tab %}}
 
+{{% tab name="From source" %}}
+
+See the [build section]({{%relref "build" %}}).
+  
+{{% /tab %}}
+
 {{< /tabs >}}
+
+### Running Popular models (one-click!)
+
+{{% notice note %}}
+
+Note: this feature currently is available only on master builds.
+
+{{% /notice %}}
+
+You can run `local-ai` directly with a model name, and it will download the model and start the API with the model loaded.
+
+#### CPU-only
+
+> You can use these images which are lighter and do not have Nvidia dependencies
+
+| Model | Docker command |
+| --- | --- |
+| phi2 | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core phi-2``` |
+| llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core mistral-openorca``` |
+
+#### GPU (CUDA 11)
+
+For accellerated images with Nvidia and CUDA11, use the following images.
+
+> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+
+| Model | Docker command |
+| --- | --- |
+| phi-2 | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core phi-2``` |
+| llava | ```docker run -p 8080:8080 -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
+
+#### GPU (CUDA 12)
+
+> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+
+| Model | Docker command |
+| --- | --- |
+| phi-2 | ```docker run -p 8080:8080 -ti --gpus all --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core phi-2``` |
+| llava | ```docker run -p 8080:8080 -ti --gpus all --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core llava``` |
+| mistral-openorca | ```docker run -p 8080:8080 --gpus all -ti --rm quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
+
+{{% notice note %}}
+
+LocalAI can be started (either the container image or the binary) with a list of model config files URLs or our short-handed format (e.g. `huggingface://`. `github://`). It works by passing the urls as arguments or environment variable, for example:
+
+```
+local-ai github://owner/repo/file.yaml@branch
+
+# Env
+MODELS="github://owner/repo/file.yaml@branch,github://owner/repo/file.yaml@branch" local-ai
+
+# Args
+local-ai --models github://owner/repo/file.yaml@branch --models github://owner/repo/file.yaml@branch
+```
+
+For example, to start localai with phi-2, it's possible for instance to also use a full config file from gists:
+
+```bash
+./local-ai https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
+```
+
+The file should be a valid YAML configuration file, for the full syntax see [advanced]({{%relref "advanced" %}}).
+{{% /notice %}}
 
 ### Container images
 
@@ -131,6 +204,11 @@ Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
 
 {{% tab name="GPU Images CUDA 11" %}}
+
+Images with Nvidia accelleration support
+
+> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+
 - `master-cublas-cuda11`
 - `master-cublas-cuda11-core`
 - `{{< version >}}-cublas-cuda11`
@@ -142,6 +220,11 @@ Core Images - Smaller images without predownload python dependencies
 {{% /tab %}}
 
 {{% tab name="GPU Images CUDA 12" %}}
+
+Images with Nvidia accelleration support
+
+> If you do not know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+
 - `master-cublas-cuda12`
 - `master-cublas-cuda12-core`
 - `{{< version >}}-cublas-cuda12`
@@ -356,10 +439,6 @@ affinity: {}
 ```
 </details>
 
-
-### Build from source
-
-See the [build section]({{%relref "build" %}}).
 
 ### Other examples
 

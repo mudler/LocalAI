@@ -235,6 +235,14 @@ make GRPC_BACKENDS=backend-assets/grpc/llama-cpp build
 
 By default, all the backends are built.
 
+### Specific llama.cpp version
+
+To build with a specific version of llama.cpp, set `CPPLLAMA_VERSION` to the tag or wanted sha:
+
+```
+CPPLLAMA_VERSION=<sha> make build
+```
+
 ### Windows compatibility
 
 Make sure to give enough resources to the running container. See https://github.com/go-skynet/LocalAI/issues/2

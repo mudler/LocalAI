@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
@@ -140,7 +140,7 @@ func AvailableGalleryModels(galleries []Gallery, basePath string) ([]*GalleryMod
 
 func findGalleryURLFromReferenceURL(url string) (string, error) {
 	var refFile string
-	err := utils.GetURI(url, func(url string, d []byte) error {
+	err := downloader.GetURI(url, func(url string, d []byte) error {
 		refFile = string(d)
 		if len(refFile) == 0 {
 			return fmt.Errorf("invalid reference file at url %s: %s", url, d)
@@ -163,7 +163,7 @@ func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error)
 		}
 	}
 
-	err := utils.GetURI(gallery.URL, func(url string, d []byte) error {
+	err := downloader.GetURI(gallery.URL, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {

@@ -9,7 +9,7 @@ weight = 6
 
 In order to define default prompts, model parameters (such as custom default `top_p` or `top_k`), LocalAI can be configured to serve user-defined models with a set of default parameters and templates.
 
-You can create multiple `yaml` files in the models path or either specify a single YAML configuration file. 
+In order to configure a model, you can create multiple `yaml` files in the models path or either specify a single YAML configuration file. 
 Consider the following `models` folder in the `example/chatbot-ui`:
 
 ```
@@ -95,6 +95,12 @@ Specifying a `config-file` via CLI allows to declare models in a single file as 
 ```
 
 See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
+
+It is possible to specify a full URL or a short-hand URL to a YAML model configuration file and use it on start with local-ai, for example to use phi-2:
+
+```
+local-ai github://mudler/LocalAI/examples/configurations/phi-2.yaml@master
+```
 
 ### Full config model file reference
 
