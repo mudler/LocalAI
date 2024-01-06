@@ -155,6 +155,8 @@ You can run `local-ai` directly with a model name, and it will download the mode
 | Embeddings | bert-cpp | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core bert-cpp``` |
 | Embeddings | all-minilm-l6-v2 | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg all-minilm-l6-v2``` |
 | Audio to Text | whisper-base | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core whisper-base``` |
+| Text to Audio | rhasspy-voice-en-us-amy | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core rhasspy-voice-en-us-amy``` |
+
   
 {{% /tab %}}
 {{% tab name="GPU (CUDA 11)" %}}
@@ -169,6 +171,7 @@ You can run `local-ai` directly with a model name, and it will download the mode
 | Embeddings | bert-cpp | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core bert-cpp``` |
 | Embeddings | all-minilm-l6-v2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 all-minilm-l6-v2``` |
 | Audio to Text | whisper-base | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core whisper-base``` |
+| Text to Audio | rhasspy-voice-en-us-amy | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core rhasspy-voice-en-us-amy``` |
 
 {{% /tab %}}
 
