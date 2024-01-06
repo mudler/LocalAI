@@ -43,15 +43,18 @@ Besides llama based models, LocalAI is compatible also with other architectures.
 | [langchain-huggingface](https://github.com/tmc/langchaingo)                                                                    | Any text generators available on HuggingFace through API | yes                      | GPT                        | no                                | no                   | N/A |
 | [piper](https://github.com/rhasspy/piper) ([binding](https://github.com/mudler/go-piper))                                                                     | Any piper onnx model | no                      | Text to voice                        | no                                | no                   | N/A |
 | [falcon](https://github.com/cmp-nct/ggllm.cpp/tree/c12b2d65f732a0d8846db2244e070f0f3e73505c) ([binding](https://github.com/mudler/go-ggllm.cpp))                                                                      | Falcon *** | yes                      | GPT                        | no                                | yes                   | CUDA |
-| `huggingface-embeddings` [sentence-transformers](https://github.com/UKPLab/sentence-transformers) | BERT                   | no                       | Embeddings only                  | yes                               | no                   | N/A |
+| [sentencetransformers](https://github.com/UKPLab/sentence-transformers) | BERT                   | no                       | Embeddings only                  | yes                               | no                   | N/A |
 | `bark`  | bark                   | no                       | Audio generation                  | no                               | no                   | yes |
-| `AutoGPTQ` | GPTQ                   | yes                       | GPT                  | yes                               | no                   | N/A |
+| `autogptq` | GPTQ                   | yes                       | GPT                  | yes                               | no                   | N/A |
 | `exllama`  | GPTQ                   | yes                       | GPT only                  | no                               | no                   | N/A |
 | `diffusers`  | SD,...                   | no                       | Image generation    | no                               | no                   | N/A |
 | `vall-e-x` | Vall-E    | no                       | Audio generation and Voice cloning    | no                               | no                   | CPU/CUDA |
 | `vllm` | Various GPTs and quantization formats | yes                      | GPT             | no | no                  | CPU/CUDA |
 | `exllama2`  | GPTQ                   | yes                       | GPT only                  | no                               | no                   | N/A |
 | `transformers-musicgen`  |                    | no                       | Audio generation                | no                               | no                   | N/A |
+| [tinydream](https://github.com/symisc/tiny-dream#tiny-dreaman-embedded-header-only-stable-diffusion-inference-c-librarypixlabiotiny-dream)         | stablediffusion               | no                       | Image                 | no                                | no                   | N/A |
+| `coqui` | Coqui    | no                       | Audio generation and Voice cloning    | no                               | no                   | CPU/CUDA |
+| `petals` | Various GPTs and quantization formats | yes                      | GPT             | no | no                  | CPU/CUDA |
 
 Note: any backend name listed above can be used in the `backend` field of the model configuration file (See [the advanced section]({{%relref "advanced" %}})).
 
