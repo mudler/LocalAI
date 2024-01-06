@@ -311,7 +311,10 @@ func prepareGenerationOpenAIRequest(bindingFn TemplateConfigBindingFn, modelName
 		*configTemplate = config.Model
 	}
 	if *configTemplate == "" {
-		return nil, fmt.Errorf(("failed to find templateConfig"))
+		configTemplate = bindingFn(getUltimateFallbackTemplateBindingConfig())
+		if *configTemplate == "" {
+			return nil, fmt.Errorf(("failed to find templateConfig"))
+		}
 	}
 
 	return config, nil
@@ -858,4 +861,17 @@ func StreamingCompletionGenerationOpenAIRequest(modelName string, input *schema.
 	log.Trace().Msg("StreamingCompletionGenerationOpenAIRequest :: DONE! successfully returning to caller!")
 
 	return responses, nil
+}
+
+func getUltimateFallbackTemplateBindingConfig() *schema.Config {
+	// TODO: Change these if needed.
+	return &schema.Config{
+		TemplateConfig: schema.TemplateConfig{
+			Chat:        "chat.tmpl",
+			Completion:  "completion.tmpl",
+			ChatMessage: "chat_message.tmpl",
+			Edit:        "edit.tmpl",
+			Functions:   "functions.tmpl",
+		},
+	}
 }
