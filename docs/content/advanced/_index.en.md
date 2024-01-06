@@ -365,6 +365,36 @@ docker run --env REBUILD=true localai
 docker run --env-file .env localai
 ```
 
+### CLI parameters
+
+You can control LocalAI with command line arguments, to specify a binding address, or the number of threads.
+
+
+| Parameter                      | Environmental Variable          | Default Variable                                   | Description                                                         |
+| ------------------------------ | ------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------- |
+| --f16                          | $F16                            | false                                              | Enable f16 mode                                                     |
+| --debug                        | $DEBUG                          | false                                              | Enable debug mode                                                   |
+| --cors                         | $CORS                           | false                                              | Enable CORS support                                                 |
+| --cors-allow-origins value     | $CORS_ALLOW_ORIGINS             |                                                    | Specify origins allowed for CORS                                     |
+| --threads value                | $THREADS                        | 4    | Number of threads to use for parallel computation                    |
+| --models-path value            | $MODELS_PATH                    | ./models       | Path to the directory containing models used for inferencing        |
+| --preload-models value         | $PRELOAD_MODELS                 |           | List of models to preload in JSON format at startup                  |
+| --preload-models-config value  | $PRELOAD_MODELS_CONFIG          |  | A config with a list of models to apply at startup. Specify the path to a YAML config file |
+| --config-file value            | $CONFIG_FILE                    |                                         | Path to the config file                                             |
+| --address value                | $ADDRESS                        | :8080                    | Specify the bind address for the API server                         |
+| --image-path value             | $IMAGE_PATH                     |                                     | Path to the directory used to store generated images                             |
+| --context-size value           | $CONTEXT_SIZE                   | 512                 | Default context size of the model                                   |
+| --upload-limit value           | $UPLOAD_LIMIT                   | 15                         | Default upload limit in megabytes (audio file upload)                                  |
+| --galleries                    | $GALLERIES                      |                                                    | Allows to set galleries from command line                           |
+|--parallel-requests              | $PARALLEL_REQUESTS     |   false |            Enable backends to handle multiple requests in parallel. This is for backends that supports multiple requests in parallel, like llama.cpp or vllm |
+| --single-active-backend   | $SINGLE_ACTIVE_BACKEND |  false |    Allow only one backend to be running |
+| --api-keys value |   $API_KEY | empty |  List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys.
+| --enable-watchdog-idle | $WATCHDOG_IDLE | false | Enable watchdog for stopping idle backends. This will stop the backends if are in idle state for too long. (default: false) [$WATCHDOG_IDLE]
+| --enable-watchdog-busy   |     $WATCHDOG_BUSY | false |         Enable watchdog for stopping busy backends that exceed a defined threshold.|
+| --watchdog-busy-timeout value | $WATCHDOG_BUSY_TIMEOUT | 5m | Watchdog timeout. This will restart the backend if it crashes.  |
+| --watchdog-idle-timeout value | $WATCHDOG_IDLE_TIMEOUT | 15m | Watchdog idle timeout. This will restart the backend if it crashes. |
+| --preload-backend-only | $PRELOAD_BACKEND_ONLY | false | If set, the api is NOT launched, and only the preloaded models / backends are started. This is intended for multi-node setups. |
+| --external-grpc-backends | EXTERNAL_GRPC_BACKENDS | none | Comma separated list of external gRPC backends to use. Format: `name:host:port` or `name:/path/to/file` |
 
 
 ### Extra backends
