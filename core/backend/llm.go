@@ -82,6 +82,7 @@ func ModelInference(ctx context.Context, s string, images []string, loader *mode
 	}
 
 	if c.Backend == "" {
+		log.Warn().Msgf("falling back to greedy loader for %s", modelFile)
 		inferenceModel, err = loader.GreedyLoader(opts...)
 	} else {
 		inferenceModel, err = loader.BackendLoader(opts...)
