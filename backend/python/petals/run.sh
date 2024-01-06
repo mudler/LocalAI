@@ -5,14 +5,16 @@
 
 export PATH=$PATH:/opt/conda/bin
 
+CONDA_ENV=petals
+
 # Activate conda environment
 # if source is available use it, or use conda
 #
 if [ -f /opt/conda/bin/activate ]; then
-    source activate transformers
+    source activate $CONDA_ENV
 else
     eval "$(conda shell.bash hook)"
-    conda activate transformers
+    conda activate $CONDA_ENV
 fi
 
 # get the directory where the bash script is located

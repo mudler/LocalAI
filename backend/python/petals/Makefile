@@ -1,6 +1,8 @@
 .PHONY: petals
 petals:
-	$(MAKE) -C ../common-env/transformers
+	@echo "Creating virtual environment..."
+	@conda env create --name petals --file petals.yml
+	@echo "Virtual environment created."
 
 .PHONY: run
 run:
