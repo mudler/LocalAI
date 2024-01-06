@@ -75,10 +75,9 @@ dependencies:
       - six==1.16.0
       - sympy==1.12
       - tokenizers==0.14.0
-      - torch==2.1.0
-      - torchaudio==2.1.0
+      - torch==2.1.2
+      - torchaudio==2.1.2
       - tqdm==4.66.1
-      - transformers==4.34.0
       - triton==2.1.0
       - typing-extensions==4.8.0
       - tzdata==2023.3
@@ -102,4 +101,7 @@ dependencies:
       - sudachipy
       - sudachidict_core
       - vocos
+      - vllm==0.2.7
+      - transformers>=4.36.0  # Required for Mixtral.
+      - xformers==0.0.23.post1  
 prefix: /opt/conda/envs/transformers

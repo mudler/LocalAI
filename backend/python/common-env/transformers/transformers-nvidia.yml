@@ -114,4 +114,6 @@ dependencies:
       - sudachipy
       - sudachidict_core
       - vocos
+      - vllm==0.2.0
+      - xformers==0.0.22
 prefix: /opt/conda/envs/transformers
