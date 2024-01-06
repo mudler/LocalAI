@@ -1,7 +1,6 @@
-package utils
+package downloader
 
 import (
-	"crypto/md5"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
 
@@ -237,10 +237,10 @@ func DownloadFile(url string, filePath, sha string, downloadStatus func(string, 
 	}
 
 	log.Info().Msgf("File %q downloaded and verified", filePath)
-	if IsArchive(filePath) {
+	if utils.IsArchive(filePath) {
 		basePath := filepath.Dir(filePath)
 		log.Info().Msgf("File %q is an archive, uncompressing to %s", filePath, basePath)
-		if err := ExtractArchive(filePath, basePath); err != nil {
+		if err := utils.ExtractArchive(filePath, basePath); err != nil {
 			log.Debug().Msgf("Failed decompressing %q: %s", filePath, err.Error())
 			return err
 		}
@@ -286,26 +286,6 @@ type progressWriter struct {
 	written        int64
 	downloadStatus func(string, string, string, float64)
 	hash           hash.Hash
-}
-
-func (pw *progressWriter) Write(p []byte) (n int, err error) {
-	n, err = pw.hash.Write(p)
-	pw.written += int64(n)
-
-	if pw.total > 0 {
-		percentage := float64(pw.written) / float64(pw.total) * 100
-		//log.Debug().Msgf("Downloading %s: %s/%s (%.2f%%)", pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
-		pw.downloadStatus(pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
-	} else {
-		pw.downloadStatus(pw.fileName, formatBytes(pw.written), "", 0)
-	}
-
-	return
-}
-
-// MD5 of a string
-func MD5(s string) string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(s)))
 }
 
 func formatBytes(bytes int64) string {

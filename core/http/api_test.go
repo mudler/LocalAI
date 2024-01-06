@@ -16,10 +16,10 @@ import (
 	server "github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/core/startup"
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/schema"
-	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -62,7 +62,7 @@ func getModelStatus(url string) (response map[string]interface{}) {
 }
 
 func getModels(url string) (response []gallery.GalleryModel) {
-	utils.GetURI(url, func(url string, i []byte) error {
+	downloader.GetURI(url, func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})

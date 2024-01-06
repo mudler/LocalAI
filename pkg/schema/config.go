@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -210,6 +211,9 @@ func ReadSingleConfigFile(file string) (*Config, error) {
 }
 
 func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
+
+	//// REFACTOR NOTES::: This section was formerly api/openai/request.go::updateConfig
+
 	if input.Echo {
 		config.Echo = input.Echo
 	}
@@ -313,41 +317,9 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 		for _, pp := range stop {
 			if s, ok := pp.(string); ok {
 				config.StopWords = append(config.StopWords, s)
-			}
 		}
 	}
 
-	// Decode each request's message content
-	index := 0
-	for i, m := range input.Messages {
-		switch content := m.Content.(type) {
-		case string:
-			input.Messages[i].StringContent = content
-		case []interface{}:
-			dat, _ := json.Marshal(content)
-			c := []Content{}
-			json.Unmarshal(dat, &c)
-			for _, pp := range c {
-				if pp.Type == "text" {
-					input.Messages[i].StringContent = pp.Text
-				} else if pp.Type == "image_url" {
-					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
-					base64, err := utils.GetBase64Image(pp.ImageURL.URL)
-					if err == nil {
-						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
-						// set a placeholder for each image
-						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
-						index++
-					} else {
-						fmt.Print("Failed encoding image", err)
-					}
-
-				}
-			}
-		}
-	}
-
-	// TODO: check that this was merged correctly? I _think_ it is?
 	switch inputs := input.Input.(type) {
 	case string:
 		if inputs != "" {
@@ -397,4 +369,32 @@ func UpdateConfigFromOpenAIRequest(config *Config, input *OpenAIRequest) {
 		}
 	}
 
+	// Decode each request's message content
+	index := 0
+	for i, m := range input.Messages {
+		switch content := m.Content.(type) {
+		case string:
+			input.Messages[i].StringContent = content
+		case []interface{}:
+			dat, _ := json.Marshal(content)
+			c := []Content{}
+			json.Unmarshal(dat, &c)
+			for _, pp := range c {
+				if pp.Type == "text" {
+					input.Messages[i].StringContent = pp.Text
+				} else if pp.Type == "image_url" {
+					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
+					base64, err := utils.GetBase64Image(pp.ImageURL.URL)
+					if err == nil {
+						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
+						// set a placeholder for each image
+						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
+						index++
+					} else {
+						fmt.Print("Failed encoding image", err)
+					}
+				}
+			}
+		}
+	}
 }

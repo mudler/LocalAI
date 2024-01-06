@@ -15,11 +15,19 @@ This section contains instruction on how to use LocalAI with GPU acceleration.
 For accelleration for AMD or Metal HW there are no specific container images, see the [build]({{%relref "build/#acceleration" %}})
 {{% /notice %}}
 
-### CUDA
+### CUDA(NVIDIA) acceleration
 
 Requirement: nvidia-container-toolkit (installation instructions [1](https://www.server-world.info/en/note?os=Ubuntu_22.04&p=nvidia&f=2) [2](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
 
-To use CUDA, use the images with the `cublas` tag.
+To check what CUDA version do you need, you can either run `nvidia-smi` or `nvcc --version`. 
+
+Alternatively, you can also check nvidia-smi with docker:
+
+```
+docker run --runtime=nvidia --rm nvidia/cuda nvidia-smi
+```
+
+To use CUDA, use the images with the `cublas` tag, for example.
 
 The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags):
 
