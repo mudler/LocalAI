@@ -5,7 +5,7 @@
 export PATH=$PATH:/opt/conda/bin
 
 # Activate conda environment
-source activate exllama
+source activate transformers
 
 echo $CONDA_PREFIX
 
