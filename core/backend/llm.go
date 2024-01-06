@@ -312,8 +312,9 @@ func prepareGenerationOpenAIRequest(bindingFn TemplateConfigBindingFn, modelName
 	}
 	if *configTemplate == "" {
 		configTemplate = bindingFn(getUltimateFallbackTemplateBindingConfig())
+		log.Debug().Msgf("Failed to find a templateConfig via config, fallback template binding result: %s", *configTemplate)
 		if *configTemplate == "" {
-			return nil, fmt.Errorf(("failed to find templateConfig"))
+			return nil, fmt.Errorf(("absolutely failed to find templateConfig"))
 		}
 	}
 
