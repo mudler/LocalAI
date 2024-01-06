@@ -147,35 +147,45 @@ You can run `local-ai` directly with a model name, and it will download the mode
 {{< tabs >}}
 {{% tab name="CPU-only" %}}
 
-| Model | Docker command |
-| --- | --- |
-| phi2 | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core phi-2``` |
-| llava | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava``` |
-| mistral-openorca | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core mistral-openorca``` |
-
+| Category | Model | Docker command |
+| --- | --- | --- |
+| LLM | phi2 | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core phi-2``` |
+| Multimodal LLM | llava | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava``` |
+| LLM | mistral-openorca | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core mistral-openorca``` |
+| Embeddings | bert-cpp | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core bert-cpp``` |
+| Embeddings | all-minilm-l6-v2 | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg all-minilm-l6-v2``` |
+| Audio to Text | whisper-base | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core whisper-base``` |
   
 {{% /tab %}}
 {{% tab name="GPU (CUDA 11)" %}}
 
 > To know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
 
-| Model | Docker command |
-| --- | --- |
-| phi-2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core phi-2``` |
-| llava | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core llava``` |
-| mistral-openorca | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
+| Category | Model | Docker command |
+| --- | --- | --- |
+| LLM | phi-2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core phi-2``` |
+| Multimodal LLM | llava | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core llava``` |
+| LLM | mistral-openorca | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
+| Embeddings | bert-cpp | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core bert-cpp``` |
+| Embeddings | all-minilm-l6-v2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 all-minilm-l6-v2``` |
+| Audio to Text | whisper-base | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core whisper-base``` |
 
 {{% /tab %}}
+
 
 {{% tab name="GPU (CUDA 12)" %}}
 
 > To know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
 
-| Model | Docker command |
-| --- | --- |
-| phi-2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core phi-2``` |
-| llava | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core llava``` |
-| mistral-openorca | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
+| Category | Model | Docker command |
+| --- | --- | --- |
+| LLM | phi-2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core phi-2``` |
+| Multimodal LLM | llava | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core llava``` |
+| LLM | mistral-openorca | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
+| Embeddings | bert-cpp | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core bert-cpp``` |
+| Embeddings | all-minilm-l6-v2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 all-minilm-l6-v2``` |
+| Audio to Text | whisper-base | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core whisper-base``` |
+| Text to Audio | rhasspy-voice-en-us-amy | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core rhasspy-voice-en-us-amy``` |
 
 {{% /tab %}}
 

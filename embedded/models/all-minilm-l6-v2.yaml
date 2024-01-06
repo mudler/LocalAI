@@ -1,0 +1,5 @@
+name: text-embedding-ada-002
+backend: sentencetransformers
+embeddings: true
+parameters:
+  model: all-MiniLM-L6-v2
