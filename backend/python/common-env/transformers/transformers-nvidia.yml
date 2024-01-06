@@ -93,6 +93,7 @@ dependencies:
       - tzdata==2023.3
       - urllib3==1.26.17
       - xxhash==3.4.1
+      - auto-gptq==0.6.0
       - yarl==1.9.2
       - soundfile
       - langid
