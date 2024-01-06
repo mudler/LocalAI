@@ -63,7 +63,7 @@ type PromptTemplate struct {
 
 func GetInstallableModelFromURL(url string) (InstallableModel, error) {
 	var config InstallableModel
-	err := utils.GetURI(url, func(url string, d []byte) error {
+	err := downloader.GetURI(url, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {

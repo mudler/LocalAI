@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"hash"
 	"io"
 	"net/http"
 	"os"
@@ -278,14 +277,6 @@ func GetBase64Image(s string) (string, error) {
 		return strings.ReplaceAll(s, "data:image/jpeg;base64,", ""), nil
 	}
 	return "", fmt.Errorf("not valid string")
-}
-
-type progressWriter struct {
-	fileName       string
-	total          int64
-	written        int64
-	downloadStatus func(string, string, string, float64)
-	hash           hash.Hash
 }
 
 func formatBytes(bytes int64) string {
