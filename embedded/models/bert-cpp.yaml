@@ -1,0 +1,23 @@
+backend: bert-embeddings
+embeddings: true
+f16: true
+
+gpu_layers: 90
+mmap: true
+name: bert-cpp-minilm-v6
+
+parameters:
+  model: bert-MiniLM-L6-v2q4_0.bin
+
+download_files:
+- filename: "bert-MiniLM-L6-v2q4_0.bin"
+  sha256: "a5a174d8772c8a569faf9f3136c441f2c3855b5bf35ed32274294219533feaad"
+  uri: "https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin"
+
+usage: |
+    You can test this model with curl like this:
+
+    curl http://localhost:8080/embeddings -X POST -H "Content-Type: application/json" -d '{
+      "input": "Your text string goes here",
+      "model": "bert-cpp-minilm-v6"
+    }'

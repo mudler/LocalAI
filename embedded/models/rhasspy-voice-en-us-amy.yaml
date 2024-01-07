@@ -1,0 +1,13 @@
+name: voice-en-us-amy-low
+download_files:
+  - filename: voice-en-us-amy-low.tar.gz
+    uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-amy-low.tar.gz
+
+
+usage: |
+    To test if this model works as expected, you can use the following curl command:
+
+    curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+      "model":"en-us-amy-low.onnx",
+      "input": "Hi, this is a test."
+    }'

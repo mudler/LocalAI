@@ -13,3 +13,7 @@ echo $CONDA_PREFIX
 git clone https://github.com/Plachtaa/VALL-E-X.git $CONDA_PREFIX/vall-e-x && pushd $CONDA_PREFIX/vall-e-x && git checkout -b build $SHA && pip install -r requirements.txt && popd
 
 cp -rfv $CONDA_PREFIX/vall-e-x/* ./
+
+if [ "$PIP_CACHE_PURGE" = true ] ; then
+    pip cache purge
+fi
