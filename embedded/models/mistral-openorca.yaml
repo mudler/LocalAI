@@ -21,3 +21,9 @@ context_size: 4096
 f16: true
 stopwords:
 - <|im_end|>
+
+usage: |
+      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+          "model": "mistral-openorca",
+          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+      }'

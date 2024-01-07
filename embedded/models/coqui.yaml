@@ -1,0 +1,9 @@
+usage: |
+    coqui works without any configuration, to test it, you can run the following curl command:
+
+    curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+        "backend": "coqui",
+        "model": "tts_models/en/ljspeech/glow-tts",
+        "input":"Hello, this is a test!"
+        }'
+# TODO: This is a placeholder until we manage to pre-load HF/Transformers models
