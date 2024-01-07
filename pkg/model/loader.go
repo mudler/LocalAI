@@ -171,9 +171,10 @@ func (ml *ModelLoader) CheckIsLoaded(s string) ModelAddress {
 		} else {
 			client = m.GRPC(false, ml.wd)
 		}
-
-		if !client.HealthCheck(context.Background()) {
-			log.Debug().Msgf("GRPC Model not responding: %s", s)
+		alive, err := client.HealthCheck(context.Background())
+		if !alive {
+			log.Warn().Msgf("GRPC Model not responding: %s", err.Error())
+			log.Warn().Msgf("Deleting the process in order to recreate it")
 			if !ml.grpcProcesses[s].IsAlive() {
 				log.Debug().Msgf("GRPC Process is not responding: %s", s)
 				// stop and delete the process, this forces to re-load the model and re-create again the service
