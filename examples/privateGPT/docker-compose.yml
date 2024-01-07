@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: privateGPT
     volumes:
+      # path to root folder's model-dir
       - ./../../models/:/app/models
       - ./db:/app/db
       - ./privateGPT:/app/privateGPT
