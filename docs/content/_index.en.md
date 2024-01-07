@@ -18,6 +18,9 @@ title = "LocalAI"
 </a>
 </p>
 
+[<img src="https://img.shields.io/badge/dockerhub-images-important.svg?logo=Docker">](https://hub.docker.com/r/localai/localai)
+[<img src="https://img.shields.io/badge/quay.io-images-important.svg?">](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest)
+
 > 💡 Get help - [❓FAQ](https://localai.io/faq/) [❓How tos](https://localai.io/howtos/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [💭Discord](https://discord.gg/uJAeKSAGDy)
 >
 > [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/) [ 🚀 Roadmap ](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
@@ -36,10 +39,10 @@ In a nutshell:
 
 - Local, OpenAI drop-in alternative REST API. You own your data.
 - NO GPU required. NO Internet access is required either
-  - Optional, GPU Acceleration is available in `llama.cpp`-compatible LLMs. See also the [build section](https://localai.io/basics/build/index.html).
+  - Optional, GPU Acceleration is available. See also the [build section](https://localai.io/basics/build/index.html).
 - Supports multiple models
 - 🏃 Once loaded the first time, it keep models loaded in memory for faster inference
-- ⚡ Doesn't shell-out, but uses C++ bindings for a faster inference and better performance.
+- ⚡ Doesn't shell-out, but uses bindings for a faster inference and better performance.
 
 LocalAI is focused on making the AI accessible to anyone. Any contribution, feedback and PR is welcome!
 

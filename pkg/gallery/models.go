@@ -1,14 +1,11 @@
 package gallery
 
 import (
-	"crypto/sha256"
 	"fmt"
-	"hash"
-	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
@@ -66,7 +63,7 @@ type PromptTemplate struct {
 
 func GetGalleryConfigFromURL(url string) (Config, error) {
 	var config Config
-	err := utils.GetURI(url, func(url string, d []byte) error {
+	err := downloader.GetURI(url, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -114,7 +111,7 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		// Create file path
 		filePath := filepath.Join(basePath, file.Filename)
 
-		if err := utils.DownloadFile(file.URI, filePath, file.SHA256, downloadStatus); err != nil {
+		if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, downloadStatus); err != nil {
 			return err
 		}
 	}
@@ -182,55 +179,4 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 	}
 
 	return nil
-}
-
-type progressWriter struct {
-	fileName       string
-	total          int64
-	written        int64
-	downloadStatus func(string, string, string, float64)
-	hash           hash.Hash
-}
-
-func (pw *progressWriter) Write(p []byte) (n int, err error) {
-	n, err = pw.hash.Write(p)
-	pw.written += int64(n)
-
-	if pw.total > 0 {
-		percentage := float64(pw.written) / float64(pw.total) * 100
-		//log.Debug().Msgf("Downloading %s: %s/%s (%.2f%%)", pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
-		pw.downloadStatus(pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
-	} else {
-		pw.downloadStatus(pw.fileName, formatBytes(pw.written), "", 0)
-	}
-
-	return
-}
-
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return strconv.FormatInt(bytes, 10) + " B"
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
-func calculateSHA(filePath string) (string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }

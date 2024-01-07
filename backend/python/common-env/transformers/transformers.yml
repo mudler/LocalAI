@@ -46,7 +46,7 @@ dependencies:
       - fsspec==2023.6.0
       - funcy==2.0
       - grpcio==1.59.0
-      - huggingface-hub==0.16.4
+      - huggingface-hub
       - idna==3.4
       - jinja2==3.1.2
       - jmespath==1.0.1
@@ -59,7 +59,6 @@ dependencies:
       - packaging==23.2
       - pandas
       - peft==0.5.0
-      - git+https://github.com/bigscience-workshop/petals
       - protobuf==4.24.4
       - psutil==5.9.5
       - pyarrow==13.0.0
@@ -74,14 +73,14 @@ dependencies:
       - scipy==1.11.3
       - six==1.16.0
       - sympy==1.12
-      - tokenizers==0.14.0
-      - torch==2.1.0
-      - torchaudio==2.1.0
+      - tokenizers
+      - torch==2.1.2
+      - torchaudio==2.1.2
       - tqdm==4.66.1
-      - transformers==4.34.0
       - triton==2.1.0
       - typing-extensions==4.8.0
       - tzdata==2023.3
+      - auto-gptq==0.6.0
       - urllib3==1.26.17
       - xxhash==3.4.1
       - yarl==1.9.2
@@ -102,4 +101,7 @@ dependencies:
       - sudachipy
       - sudachidict_core
       - vocos
+      - vllm==0.2.7
+      - transformers>=4.36.0  # Required for Mixtral.
+      - xformers==0.0.23.post1  
 prefix: /opt/conda/envs/transformers

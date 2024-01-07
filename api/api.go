@@ -16,6 +16,7 @@ import (
 	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/startup"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -36,6 +37,8 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.Loader.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
 
+	startup.PreloadModelsConfigurations(options.Loader.ModelPath, options.ModelsURL...)
+
 	cl := config.NewConfigLoader()
 	if err := cl.LoadConfigs(options.Loader.ModelPath); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())
@@ -51,6 +54,18 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 		log.Error().Msgf("error downloading models: %s", err.Error())
 	}
 
+	if options.PreloadJSONModels != "" {
+		if err := localai.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if options.PreloadModelsFromPath != "" {
+		if err := localai.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	if options.Debug {
 		for _, v := range cl.ListConfigs() {
 			cfg, _ := cl.GetConfig(v)
@@ -64,18 +79,6 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 		log.Debug().Msgf("Extracting backend assets files to %s", options.AssetsDestination)
 		if err != nil {
 			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
-		}
-	}
-
-	if options.PreloadJSONModels != "" {
-		if err := localai.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if options.PreloadModelsFromPath != "" {
-		if err := localai.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
-			return nil, nil, err
 		}
 	}
 

@@ -1,8 +1,6 @@
 .PHONY: vllm
 vllm:
-	@echo "Creating virtual environment..."
-	@conda env create --name vllm --file vllm.yml
-	@echo "Virtual environment created."
+	$(MAKE) -C ../common-env/transformers
 
 .PHONY: run
 run:
