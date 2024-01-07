@@ -63,12 +63,12 @@ RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmo
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list && \
     apt-get update && \
-    apt-get install -y conda
+    apt-get install -y conda && apt-get clean
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN pip install --upgrade pip
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN apt-get install -y espeak-ng espeak
+RUN apt-get install -y espeak-ng espeak && apt-get clean
 
 ###################################
 ###################################
@@ -130,7 +130,7 @@ ENV PIP_CACHE_PURGE=true
 
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
-    apt-get install -y ffmpeg \
+    apt-get install -y ffmpeg && apt-get clean \
     ; fi
 
 WORKDIR /build
