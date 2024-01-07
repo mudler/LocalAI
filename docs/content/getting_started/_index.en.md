@@ -156,7 +156,9 @@ You can run `local-ai` directly with a model name, and it will download the mode
 | Embeddings | all-minilm-l6-v2 | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg all-minilm-l6-v2``` |
 | Audio to Text | whisper-base | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core whisper-base``` |
 | Text to Audio | rhasspy-voice-en-us-amy | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core rhasspy-voice-en-us-amy``` |
-
+| Text to Audio | coqui | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg coqui``` |
+| Text to Audio | bark | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg bark``` |
+| Text to Audio | vall-e-x | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg vall-e-x``` |
   
 {{% /tab %}}
 {{% tab name="GPU (CUDA 11)" %}}
@@ -172,6 +174,9 @@ You can run `local-ai` directly with a model name, and it will download the mode
 | Embeddings | all-minilm-l6-v2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 all-minilm-l6-v2``` |
 | Audio to Text | whisper-base | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core whisper-base``` |
 | Text to Audio | rhasspy-voice-en-us-amy | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core rhasspy-voice-en-us-amy``` |
+| Text to Audio | coqui | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 coqui``` |
+| Text to Audio | bark | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 bark``` |
+| Text to Audio | vall-e-x | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 vall-e-x``` |
 
 {{% /tab %}}
 
@@ -189,6 +194,10 @@ You can run `local-ai` directly with a model name, and it will download the mode
 | Embeddings | all-minilm-l6-v2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 all-minilm-l6-v2``` |
 | Audio to Text | whisper-base | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core whisper-base``` |
 | Text to Audio | rhasspy-voice-en-us-amy | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core rhasspy-voice-en-us-amy``` |
+| Text to Audio | coqui | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 coqui``` |
+| Text to Audio | bark | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 bark``` |
+| Text to Audio | vall-e-x | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 vall-e-x``` |
+
 
 {{% /tab %}}
 
