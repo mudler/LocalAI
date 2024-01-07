@@ -21,7 +21,7 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
-COQUI_LANGUAGE = os.environ.get('COQUI_LANGUAGE', 'en')
+COQUI_LANGUAGE = os.environ.get('COQUI_LANGUAGE', None)
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
@@ -38,6 +38,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if not torch.cuda.is_available() and request.CUDA:
             return backend_pb2.Result(success=False, message="CUDA is not available")
 
+        self.AudioPath = None
         # List available 🐸TTS models
         print(TTS().list_models())
         if os.path.isabs(request.AudioPath):
