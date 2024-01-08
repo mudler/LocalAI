@@ -131,10 +131,14 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		// Wait for the service to start up
 		ready := false
 		for i := 0; i < o.grpcAttempts; i++ {
-			if client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background()) {
+			alive, err := client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background())
+			if alive {
 				log.Debug().Msgf("GRPC Service Ready")
 				ready = true
 				break
+			}
+			if err != nil && i == o.grpcAttempts-1 {
+				log.Error().Msgf("Failed starting/connecting to the gRPC service: %s", err.Error())
 			}
 			time.Sleep(time.Duration(o.grpcAttemptsDelay) * time.Second)
 		}
@@ -176,7 +180,11 @@ func (ml *ModelLoader) resolveAddress(addr ModelAddress, parallel bool) (*grpc.C
 func (ml *ModelLoader) BackendLoader(opts ...Option) (client *grpc.Client, err error) {
 	o := NewOptions(opts...)
 
-	log.Info().Msgf("Loading model '%s' with backend %s", o.model, o.backendString)
+	if o.model != "" {
+		log.Info().Msgf("Loading model '%s' with backend %s", o.model, o.backendString)
+	} else {
+		log.Info().Msgf("Loading model with backend %s", o.backendString)
+	}
 
 	backend := strings.ToLower(o.backendString)
 	if realBackend, exists := Aliases[backend]; exists {
@@ -239,7 +247,10 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (*grpc.Client, error) {
 	for _, b := range o.externalBackends {
 		allBackendsToAutoLoad = append(allBackendsToAutoLoad, b)
 	}
-	log.Info().Msgf("Loading model '%s' greedly from all the available backends: %s", o.model, strings.Join(allBackendsToAutoLoad, ", "))
+
+	if o.model != "" {
+		log.Info().Msgf("Trying to load the model '%s' with all the available backends: %s", o.model, strings.Join(allBackendsToAutoLoad, ", "))
+	}
 
 	for _, b := range allBackendsToAutoLoad {
 		log.Info().Msgf("[%s] Attempting to load", b)

@@ -15,7 +15,6 @@ ENV BUILD_TYPE=${BUILD_TYPE}
 
 ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh"
 
-ENV GALLERIES='[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]'
 ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
@@ -64,12 +63,12 @@ RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmo
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list && \
     apt-get update && \
-    apt-get install -y conda
+    apt-get install -y conda && apt-get clean
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN pip install --upgrade pip
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN apt-get install -y espeak-ng espeak
+RUN apt-get install -y espeak-ng espeak && apt-get clean
 
 ###################################
 ###################################
@@ -127,10 +126,11 @@ ARG CUDA_MAJOR_VERSION=11
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
+ENV PIP_CACHE_PURGE=true
 
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
-    apt-get install -y ffmpeg \
+    apt-get install -y ffmpeg && apt-get clean \
     ; fi
 
 WORKDIR /build

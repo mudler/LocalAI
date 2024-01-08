@@ -1,0 +1,13 @@
+name: all-minilm-l6-v2
+backend: sentencetransformers
+embeddings: true
+parameters:
+  model: all-MiniLM-L6-v2
+
+usage: |
+    You can test this model with curl like this:
+
+    curl http://localhost:8080/embeddings -X POST -H "Content-Type: application/json" -d '{
+      "input": "Your text string goes here",
+      "model": "all-minilm-l6-v2"
+    }'

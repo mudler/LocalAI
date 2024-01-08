@@ -1,0 +1,8 @@
+usage: |
+    Vall-e-x works without any configuration, to test it, you can run the following curl command:
+
+    curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "backend": "vall-e-x",
+     "input":"Hello, this is a test!"
+    }' | aplay
+# TODO: This is a placeholder until we manage to pre-load HF/Transformers models

@@ -55,6 +55,9 @@ type Config struct {
 	CUDA bool `yaml:"cuda"`
 
 	DownloadFiles []File `yaml:"download_files"`
+
+	Description string `yaml:"description"`
+	Usage       string `yaml:"usage"`
 }
 
 type File struct {
@@ -325,6 +328,15 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 			c := &cc
 			c.PredictionOptions.Model = md5Name
 			cm.configs[i] = *c
+		}
+		if cm.configs[i].Name != "" {
+			log.Info().Msgf("Model name: %s", cm.configs[i].Name)
+		}
+		if cm.configs[i].Description != "" {
+			log.Info().Msgf("Model description: %s", cm.configs[i].Description)
+		}
+		if cm.configs[i].Usage != "" {
+			log.Info().Msgf("Model usage: \n%s", cm.configs[i].Usage)
 		}
 	}
 	return nil

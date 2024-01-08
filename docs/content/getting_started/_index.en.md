@@ -143,39 +143,60 @@ Note: this feature currently is available only on master builds.
 You can run `local-ai` directly with a model name, and it will download the model and start the API with the model loaded.
 
 > Don't need GPU acceleration? use the CPU images which are lighter and do not have Nvidia dependencies
+> To know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
+
 
 {{< tabs >}}
 {{% tab name="CPU-only" %}}
 
-| Model | Docker command |
-| --- | --- |
-| phi2 | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core phi-2``` |
-| llava | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava``` |
-| mistral-openorca | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core mistral-openorca``` |
-
+| Model | Category | Docker command |
+| --- | --- | --- |
+| [phi-2](https://huggingface.co/microsoft/phi-2) | LLM | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core phi-2``` |
+| [llava](https://github.com/SkunkworksAI/BakLLaVA) | Multimodal LLM | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava``` |
+| [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | LLM | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core mistral-openorca``` |
+| [bert-cpp](https://github.com/skeskinen/bert.cpp) | Embeddings | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core bert-cpp``` |
+| all-minilm-l6-v2 | Embeddings | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg all-minilm-l6-v2``` |
+| whisper-base | Audio to Text | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core whisper-base``` |
+| rhasspy-voice-en-us-amy | Text to Audio | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core rhasspy-voice-en-us-amy``` |
+| coqui | Text to Audio | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg coqui``` |
+| bark | Text to Audio | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg bark``` |
+| vall-e-x | Text to Audio | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg vall-e-x``` |
   
 {{% /tab %}}
 {{% tab name="GPU (CUDA 11)" %}}
 
-> To know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
 
-| Model | Docker command |
-| --- | --- |
-| phi-2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core phi-2``` |
-| llava | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core llava``` |
-| mistral-openorca | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
+
+| Model | Category | Docker command |
+| --- | --- | --- |
+| [phi-2](https://huggingface.co/microsoft/phi-2) | LLM | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core phi-2``` |
+| [llava](https://github.com/SkunkworksAI/BakLLaVA) | Multimodal LLM | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core llava``` |
+| [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | LLM | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
+| [bert-cpp](https://github.com/skeskinen/bert.cpp) | Embeddings | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core bert-cpp``` |
+| [all-minilm-l6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | Embeddings | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 all-minilm-l6-v2``` |
+| whisper-base | Audio to Text | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core whisper-base``` |
+| rhasspy-voice-en-us-amy | Text to Audio | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core rhasspy-voice-en-us-amy``` |
+| coqui | Text to Audio | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 coqui``` |
+| bark | Text to Audio | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 bark``` |
+| vall-e-x | Text to Audio | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 vall-e-x``` |
 
 {{% /tab %}}
 
+
 {{% tab name="GPU (CUDA 12)" %}}
 
-> To know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
-
-| Model | Docker command |
-| --- | --- |
-| phi-2 | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core phi-2``` |
-| llava | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core llava``` |
-| mistral-openorca | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
+| Model | Category | Docker command |
+| --- | --- | --- |
+| [phi-2](https://huggingface.co/microsoft/phi-2) | LLM | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core phi-2``` |
+| [llava](https://github.com/SkunkworksAI/BakLLaVA) | Multimodal LLM | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core llava``` |
+| [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | LLM | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
+| bert-cpp | Embeddings | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core bert-cpp``` |
+| all-minilm-l6-v2 | Embeddings | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 all-minilm-l6-v2``` |
+| whisper-base | Audio to Text | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core whisper-base``` |
+| rhasspy-voice-en-us-amy | Text to Audio | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core rhasspy-voice-en-us-amy``` |
+| coqui | Text to Audio | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 coqui``` |
+| bark | Text to Audio | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 bark``` |
+| vall-e-x | Text to Audio | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 vall-e-x``` |
 
 {{% /tab %}}
 
@@ -201,7 +222,7 @@ For example, to start localai with phi-2, it's possible for instance to also use
 docker run -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
 ```
 
-The file should be a valid YAML configuration file, for the full syntax see [advanced]({{%relref "advanced" %}}).
+The file should be a valid LocalAI YAML configuration file, for the full syntax see [advanced]({{%relref "advanced" %}}).
 {{% /notice %}}
 
 ### Container images
