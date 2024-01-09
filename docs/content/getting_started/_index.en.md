@@ -134,12 +134,6 @@ See the [build section]({{%relref "build" %}}).
 
 ### Running Popular models (one-click!)
 
-{{% notice note %}}
-
-Note: this feature currently is available only on master builds.
-
-{{% /notice %}}
-
 You can run `local-ai` directly with a model name, and it will download the model and start the API with the model loaded.
 
 > Don't need GPU acceleration? use the CPU images which are lighter and do not have Nvidia dependencies
