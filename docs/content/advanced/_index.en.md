@@ -343,6 +343,19 @@ Or a remote URI:
 ./local-ai --debug --external-grpc-backends "my-awesome-backend:host:port"
 ```
 
+For example, to start vllm manually after compiling LocalAI (also assuming running the command from the root of the repository):
+
+```bash
+./local-ai --external-grpc-backends "vllm:$PWD/backend/python/vllm/run.sh"
+```
+
+Note that first is is necessary to create the conda environment with:
+
+```bash
+make -C backend/python/vllm
+```
+
+
 ### Environment variables
 
 When LocalAI runs in a container,

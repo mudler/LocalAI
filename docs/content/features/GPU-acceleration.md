@@ -17,6 +17,8 @@ For accelleration for AMD or Metal HW there are no specific container images, se
 
 ### CUDA(NVIDIA) acceleration
 
+#### Requirements
+
 Requirement: nvidia-container-toolkit (installation instructions [1](https://www.server-world.info/en/note?os=Ubuntu_22.04&p=nvidia&f=2) [2](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
 
 To check what CUDA version do you need, you can either run `nvidia-smi` or `nvcc --version`. 
