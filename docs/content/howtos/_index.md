@@ -6,14 +6,6 @@ weight = 9
 
 ## How-tos
 
-This section includes LocalAI end-to-end examples, tutorial and how-tos curated by the community and maintained by [lunamidori5](https://github.com/lunamidori5).
+This section has moved to our maintainers site
 
-- [Setup LocalAI with Docker]({{%relref "howtos/easy-setup-docker" %}})
-- [Seting up a Model]({{%relref "howtos/easy-model" %}})
-- [Making Text / LLM requests to LocalAI]({{%relref "howtos/easy-request" %}})
-- [Making Photo / SD requests to LocalAI]({{%relref "howtos/easy-setup-sd" %}})
-  
-## Programs and Demos
-
-This section includes other programs and how to setup, install, and use of LocalAI.
-- [Python LocalAI Demo]({{%relref "howtos/easy-setup-full" %}}) - [lunamidori5](https://github.com/lunamidori5)
+Check out the how tos on [Midori AI's site](https://io.midori-ai.xyz/howtos/)!
