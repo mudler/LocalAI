@@ -12,7 +12,7 @@ Container images are published to [quay.io](https://quay.io/repository/go-skynet
 [<img src="https://img.shields.io/badge/dockerhub-images-important.svg?logo=Docker">](https://hub.docker.com/r/localai/localai)
 [<img src="https://img.shields.io/badge/quay.io-images-important.svg?">](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest)
 
-See also our [How to]({{%relref "howtos" %}}) section for end-to-end guided examples curated by the community.
+See also our [How to](https://io.midori-ai.xyz/howtos/) section for end-to-end guided examples curated by the community.
 
 ### How to get started
 
