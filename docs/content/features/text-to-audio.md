@@ -23,6 +23,20 @@ Returns an `audio/wav` file.
 
 ## Backends
 
+### 🐸 Coqui
+
+Required: use `LocalAI` images ending with the `-extra` tag.
+
+Coqui works without any configuration, to test it, you can run the following curl command:
+
+```
+    curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+        "backend": "coqui",
+        "model": "tts_models/en/ljspeech/glow-tts",
+        "input":"Hello, this is a test!"
+        }'
+```
+
 ### Bark
 
 [Bark](https://github.com/suno-ai/bark) allows to generate audio from text prompts.

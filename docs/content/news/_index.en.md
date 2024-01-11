@@ -6,6 +6,12 @@ url = '/basics/news/'
 
 +++
 
+Release notes have been now moved completely over Github releases. 
+
+You can see the release notes [here](https://github.com/mudler/LocalAI/releases).
+
+# Older release notes
+
 ## 04-12-2023: __v2.0.0__
 
 This release brings a major overhaul in some backends. 
@@ -68,7 +74,7 @@ From this release the `llama` backend supports only `gguf` files (see {{< pr "94
 
 ### Image generation enhancements
 
-The [Diffusers]({{%relref "model-compatibility/diffusers" %}}) backend got now various enhancements, including support to generate images from images, longer prompts, and support for more kernels schedulers. See the [Diffusers]({{%relref "model-compatibility/diffusers" %}}) documentation for more information.
+The [Diffusers]({{%relref "features/image-generation" %}}) backend got now various enhancements, including support to generate images from images, longer prompts, and support for more kernels schedulers. See the [Diffusers]({{%relref "features/image-generation" %}}) documentation for more information.
 
 ### Lora adapters
 
@@ -131,7 +137,7 @@ The full changelog is available [here](https://github.com/go-skynet/LocalAI/rele
 
 ## 🔥🔥🔥🔥 12-08-2023: __v1.24.0__ 🔥🔥🔥🔥
 
-This is release brings four(!) new additional backends to LocalAI: [🐶 Bark]({{%relref "model-compatibility/bark" %}}), 🦙 [AutoGPTQ]({{%relref "model-compatibility/autogptq" %}}), [🧨 Diffusers]({{%relref "model-compatibility/diffusers" %}}), 🦙 [exllama]({{%relref "model-compatibility/exllama" %}}) and a lot of improvements!
+This is release brings four(!) new additional backends to LocalAI: [🐶 Bark]({{%relref "features/text-to-audio#bark" %}}), 🦙 [AutoGPTQ]({{%relref "features/text-generation#autogptq" %}}), [🧨 Diffusers]({{%relref "features/image-generation" %}}), 🦙 [exllama]({{%relref "features/text-generation#exllama" %}}) and a lot of improvements!
 
 ### Major improvements:
 
@@ -143,23 +149,23 @@ This is release brings four(!) new additional backends to LocalAI: [🐶 Bark]({
 
 ### 🐶 Bark
 
-[Bark]({{%relref "model-compatibility/bark" %}}) is a text-prompted generative audio model - it combines GPT techniques to generate Audio from text. It is a great addition to LocalAI, and it's available in the container images by default.
+[Bark]({{%relref "features/text-to-audio#bark" %}}) is a text-prompted generative audio model - it combines GPT techniques to generate Audio from text. It is a great addition to LocalAI, and it's available in the container images by default.
 
 It can also generate music, see the example: [lion.webm](https://user-images.githubusercontent.com/5068315/230684766-97f5ea23-ad99-473c-924b-66b6fab24289.webm)
 
 ### 🦙 AutoGPTQ
 
-[AutoGPTQ]({{%relref "model-compatibility/autogptq" %}}) is an easy-to-use LLMs quantization package with user-friendly apis, based on GPTQ algorithm.
+[AutoGPTQ]({{%relref "features/text-generation#autogptq" %}}) is an easy-to-use LLMs quantization package with user-friendly apis, based on GPTQ algorithm.
 
-It is targeted mainly for GPU usage only. Check out the [AutoGPTQ documentation]({{%relref "model-compatibility/autogptq" %}}) for usage.
+It is targeted mainly for GPU usage only. Check out the [ documentation]({{%relref "features/text-generation" %}}) for usage.
 
 ### 🦙 Exllama
 
-[Exllama]({{%relref "model-compatibility/exllama" %}}) is a "A more memory-efficient rewrite of the HF transformers implementation of Llama for use with quantized weights". It is a faster alternative to run LLaMA models on GPU.Check out the [Exllama documentation]({{%relref "model-compatibility/exllama" %}}) for usage.
+[Exllama]({{%relref "features/text-generation#exllama" %}}) is a "A more memory-efficient rewrite of the HF transformers implementation of Llama for use with quantized weights". It is a faster alternative to run LLaMA models on GPU.Check out the [Exllama documentation]({{%relref "features/text-generation#exllama" %}}) for usage.
 
 ### 🧨 Diffusers
 
-[Diffusers]({{%relref "model-compatibility/diffusers" %}}) is the go-to library for state-of-the-art pretrained diffusion models for generating images, audio, and even 3D structures of molecules. Currently it is experimental, and supports generation only of images so you might encounter some issues on models which weren't tested yet. Check out the [Diffusers documentation]({{%relref "model-compatibility/diffusers" %}}) for usage.
+[Diffusers]({{%relref "features/image-generation#diffusers" %}}) is the go-to library for state-of-the-art pretrained diffusion models for generating images, audio, and even 3D structures of molecules. Currently it is experimental, and supports generation only of images so you might encounter some issues on models which weren't tested yet. Check out the [Diffusers documentation]({{%relref "features/image-generation" %}}) for usage.
 
 ### 🔑 API Keys
 
