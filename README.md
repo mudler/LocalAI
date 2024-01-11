@@ -102,7 +102,7 @@ Other:
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
 - [Projects integrating LocalAI](https://localai.io/integrations/)
-- [How tos section](https://localai.io/howtos/) (curated by our community)
+- [How tos section](https://io.midori-ai.xyz/howtos/) (curated by our community)
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
 
