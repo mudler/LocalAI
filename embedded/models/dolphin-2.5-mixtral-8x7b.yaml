@@ -1,0 +1,27 @@
+name: dolphin-mixtral-8x7b
+mmap: true
+parameters:
+  model: huggingface://TheBloke/dolphin-2.5-mixtral-8x7b-GGUF/blob/main/dolphin-2.5-mixtral-8x7b.Q2_K.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+template:
+  chat_message: |
+    <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}
+    {{if .Content}}{{.Content}}{{end}}<|im_end|>
+  chat: |
+    {{.Input}}
+    <|im_start|>assistant
+  completion: |
+    {{.Input}}
+context_size: 4096
+f16: true
+stopwords:
+- <|im_end|>
+gpu_layers: 90
+
+usage: |
+      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+          "model": "dolphin-mixtral-8x7b",
+          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+      }'
