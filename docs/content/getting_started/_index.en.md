@@ -227,7 +227,9 @@ The file should be a valid LocalAI YAML configuration file, for the full syntax 
 
 ### Container images
 
-LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags):
+LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). The image are on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags) and [Dockerhub](https://hub.docker.com/r/localai/localai).
+
+Images have the following tags depending on the dependencies included in the images. Images ending with `-core` are smaller images without predownload python dependencies.
 
 {{< tabs >}}
 {{% tab name="Vanilla / CPU Images" %}}

@@ -25,7 +25,7 @@ Returns an `audio/wav` file.
 
 ### 🐸 Coqui
 
-Required: use `LocalAI` images ending with the `-extra` tag.
+Required: Don't use `LocalAI` images ending with the `-core` tag,. Python dependencies are required in order to use this backend.
 
 Coqui works without any configuration, to test it, you can run the following curl command:
 
