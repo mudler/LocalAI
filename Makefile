@@ -290,9 +290,7 @@ clean: ## Remove build related file
 	rm -rf ./sources
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
-	rm -rf ./backend/cpp/grpc/grpc_repo
-	rm -rf ./backend/cpp/grpc/build
-	rm -rf ./backend/cpp/grpc/installed_packages
+	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/cpp/llama clean
 
 ## Build:
@@ -467,7 +465,7 @@ ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
 
 backend/cpp/llama/grpc-server:
 ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
-	backend/cpp/grpc/script/build_grpc.sh ${INSTALLED_PACKAGES}
+	$(MAKE) -C backend/cpp/grpc build
 	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto && \
 	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin && \
 	export PATH="${PATH}:${INSTALLED_PACKAGES}/bin" && \
@@ -477,7 +475,7 @@ else
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server			
 endif
 ## BACKEND CPP LLAMA END
-		
+
 ##
 backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/grpc-server
 	cp -rfv backend/cpp/llama/grpc-server backend-assets/grpc/llama-cpp
