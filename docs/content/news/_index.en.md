@@ -95,7 +95,7 @@ There is an ongoing effort in the community to better handling of resources. See
 
 #### New how-to section
 
-Thanks to the community efforts now we have a new [how-to section]({{%relref "howtos" %}}) with various examples on how to use LocalAI. This is a great starting point for new users! We are currently working on improving it, a huge shout out to {{< github "lunamidori5" >}} from the community for the impressive efforts on this!
+Thanks to the community efforts now we have a new [how-to website](https://io.midori-ai.xyz/howtos/) with various examples on how to use LocalAI. This is a great starting point for new users! We are currently working on improving it, a huge shout out to {{< github "lunamidori5" >}} from the community for the impressive efforts on this!
 
 #### 💡 More examples!
 
