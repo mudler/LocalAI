@@ -99,7 +99,7 @@ func main() {
 				Usage:   "A List of models to apply in JSON at start",
 				EnvVars: []string{"PRELOAD_MODELS"},
 			},
-			&cli.StringFlag{
+			&cli.StringSliceFlag{
 				Name:    "models",
 				Usage:   "A List of models URLs configurations.",
 				EnvVars: []string{"MODELS"},
