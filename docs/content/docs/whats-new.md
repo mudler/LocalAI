@@ -1,9 +1,9 @@
 +++
 disableToc = false
-title = "🆕 What's New"
+title = "News"
 weight = 2
 url = '/basics/news/'
-
+icon = "newspaper"
 +++
 
 Release notes have been now moved completely over Github releases. 
@@ -283,7 +283,7 @@ From this release the default behavior of images has changed. Compilation is not
 ### Exciting New Features 🎉
 
 * Add Text-to-Audio generation with `go-piper` by {{< github "mudler" >}} in {{< pr "649" >}} See [API endpoints]({{%relref "docs/features/text-to-audio" %}}) in our documentation.
-* Add gallery repository by {{< github "mudler" >}} in {{< pr "663" >}}. See [models]({{%relref "docs/model-gallery" %}}) for documentation.
+* Add gallery repository by {{< github "mudler" >}} in {{< pr "663" >}}. See [models]({{%relref "docs/features/model-gallery" %}}) for documentation.
 
 ### Container images
 - Standard (GPT + `stablediffusion`): `quay.io/go-skynet/local-ai:v1.20.0`
@@ -319,7 +319,7 @@ or a `tts` voice with:
 curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '{ "id": "model-gallery@voice-en-us-kathleen-low" }'
 ```
 
-See also [models]({{%relref "docs/model-gallery" %}}) for a complete documentation.
+See also [models]({{%relref "docs/features/model-gallery" %}}) for a complete documentation.
 
 ### Text to Audio
 

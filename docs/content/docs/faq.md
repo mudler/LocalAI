@@ -3,6 +3,7 @@
 disableToc = false
 title = "FAQ"
 weight = 9
+icon = "quiz"
 +++
 
 ## Frequently asked questions

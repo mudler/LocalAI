@@ -61,7 +61,7 @@ defaultContentLanguage = 'en'
 
         # gitinfo
         repoURL         = "https://github.com/mudler/LocalAI"  # Git repository URL for your site [support for GitHub, GitLab, and BitBucket]
-        repoBranch      = "release"
+        repoBranch      = "master"
         editPage        = true                                # enable 'Edit this page' feature - default false
         lastMod         = true                                # enable 'Last modified' date on pages - default false
         lastModRelative = true                                # format 'Last modified' time as relative - default true

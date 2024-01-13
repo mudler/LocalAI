@@ -2,7 +2,9 @@
 +++
 disableToc = false
 title = "🖼️ Model gallery"
+
 weight = 7
+url = '/models'
 +++
 
 <h1 align="center">

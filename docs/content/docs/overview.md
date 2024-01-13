@@ -9,7 +9,7 @@ categories = [""]
 author = "Ettore Di Giacinto"
 # This allows to overwrite the landing page
 url = '/'
-
+icon = "info"
 +++
 
 <p align="center">
@@ -38,7 +38,7 @@ url = '/'
 >
 > [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/) [ 🚀 Roadmap ](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families that are compatible with the ggml format. Does not require GPU. It is maintained by [mudler](https://github.com/mudler).
+**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families and architectures. Does not require GPU. It is maintained by [mudler](https://github.com/mudler).
 
 <p align="center">
 <a href="https://twitter.com/LocalAI_API" target="blank">

@@ -2,29 +2,43 @@
 +++
 disableToc = false
 title = "Getting started"
-weight = 2
+weight = 1
 url = '/basics/getting_started/'
 icon = "rocket_launch"
 
 +++
 
-`LocalAI` is available as a container image and binary. It can be used with docker, podman, kubernetes and any container engine. 
-Container images are published to [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest) and [Dockerhub](https://hub.docker.com/r/localai/localai).
+**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families and architectures.
 
-[<img src="https://img.shields.io/badge/dockerhub-images-important.svg?logo=Docker">](https://hub.docker.com/r/localai/localai)
-[<img src="https://img.shields.io/badge/quay.io-images-important.svg?">](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest)
+## Prerequisites
 
-See also our [How to](https://io.midori-ai.xyz/howtos/) section for end-to-end guided examples curated by the community.
+Before you begin, ensure you have a container engine installed if you are not using the binaries. Suitable options include Docker or Podman. For installation instructions, refer to the following guides:
 
-### How to get started
+- [Install Docker Desktop (Mac, Windows, Linux)](https://docs.docker.com/get-docker/)
+- [Install Podman (Linux)](https://podman.io/getting-started/installation)
+- [Install Docker engine (Servers)](https://docs.docker.com/engine/install/#get-started)
 
-The easiest way to run LocalAI is by using [`docker compose`](https://docs.docker.com/compose/install/) or with [Docker](https://docs.docker.com/engine/install/) (to build locally, see the [build section]({{%relref "docs/build" %}})).
 
-LocalAI needs at least a model file to work, or a configuration YAML file, or both. You can customize further model defaults and specific settings with a configuration file (see [advanced]({{%relref "docs/advanced" %}})).
+#### Hardware Requirements
 
-{{% alert note %}}
-To run with GPU Accelleration, see [GPU acceleration]({{%relref "docs/features/gpu-acceleration" %}}).
-{{% /alert %}}
+The hardware requirements for LocalAI vary based on the [model size] and [quantization] method used. For performance benchmarks with different backends, such as `llama.cpp`, visit [this link](https://github.com/ggerganov/llama.cpp#memorydisk-requirements). The `rwkv` backend is noted for its lower resource consumption.
+
+--- 
+
+## Installation Methods
+
+LocalAI is available as a container image and binary, compatible with various container engines like Docker, Podman, and Kubernetes. Container images are published on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest) and [Dockerhub](https://hub.docker.com/r/localai/localai). Binaries can be downloaded from [GitHub](https://github.com/mudler/LocalAI/releases).
+
+
+## Running Models
+
+
+#### Manually start a model
+
+
+1. Ensure you have a model file, a configuration YAML file, or both. Customize model defaults and specific settings with a configuration file. For advanced configurations, refer to the [Advanced Documentation](docs/advanced).
+
+2. For GPU Acceleration instructions, visit [GPU acceleration](docs/features/gpu-acceleration).
 
 {{< tabs tabTotal="5" >}}
 {{% tab tabName="Docker" %}}
@@ -134,13 +148,18 @@ See the [build section]({{%relref "docs/build" %}}).
 
 {{< /tabs >}}
 
-### Running Popular models (one-click!)
+#### Running Popular models (one-click!)
 
-You can run `local-ai` directly with a model name, and it will download the model and start the API with the model loaded.
+LocalAI allows one-click runs with popular models. It downloads the model and starts the API with the model loaded.
 
 > Don't need GPU acceleration? use the CPU images which are lighter and do not have Nvidia dependencies
+
 > To know which version of CUDA do you have available, you can check with `nvidia-smi` or `nvcc --version`
 
+{{% alert icon="💡" %}}
+
+To customize the models, see [Model customization]({{%relref "docs/getting-started/customize-model" %}})
+{{% /alert %}}
 
 {{< tabs tabTotal="3" >}}
 {{% tab tabName="CPU-only" %}}
@@ -204,32 +223,10 @@ You can run `local-ai` directly with a model name, and it will download the mode
 
 {{< /tabs >}}
 
-{{% alert note %}}
-
-LocalAI can be started (either the container image or the binary) with a list of model config files URLs or our short-handed format (e.g. `huggingface://`. `github://`). It works by passing the urls as arguments or environment variable, for example:
-
-```
-local-ai github://owner/repo/file.yaml@branch
-
-# Env
-MODELS="github://owner/repo/file.yaml@branch,github://owner/repo/file.yaml@branch" local-ai
-
-# Args
-local-ai --models github://owner/repo/file.yaml@branch --models github://owner/repo/file.yaml@branch
-```
-
-For example, to start localai with phi-2, it's possible for instance to also use a full config file from gists:
-
-```bash
-docker run -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
-```
-
-The file should be a valid LocalAI YAML configuration file, for the full syntax see [advanced]({{%relref "docs/advanced" %}}).
-{{% /alert %}}
 
 ### Container images
 
-LocalAI has a set of images to support CUDA, ffmpeg and 'vanilla' (CPU-only). The image are on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags) and [Dockerhub](https://hub.docker.com/r/localai/localai).
+LocalAI provides a variety of images to support different environments like CUDA, FFmpeg, and CPU-only setups. These images are available on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags) and [Dockerhub](https://hub.docker.com/r/localai/localai).
 
 Images have the following tags depending on the dependencies included in the images. Images ending with `-core` are smaller images without predownload python dependencies.
 
@@ -323,11 +320,13 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 # {"model":"luna-ai-llama2","choices":[{"message":{"role":"assistant","content":"I'm doing well, thanks. How about you?"}}]}
 ```
 
-To see other model configurations, see also the example section [here](https://github.com/mudler/LocalAI/tree/master/examples/configurations).
+For more model configurations, visit the [Examples Section](https://github.com/mudler/LocalAI/tree/master/examples/configurations).
 
-### Examples
+### What's next?
 
-![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)
+Explore further resources and community contributions:
 
-To see other examples on how to integrate with other projects for instance for question answering or for using it with chatbot-ui, see: [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/).
+- [Community How to's](https://io.midori-ai.xyz/howtos/)
+- [Examples](https://github.com/mudler/LocalAI/tree/master/examples#examples)
 
+[![Screenshot from 2023-04-26 23-59-55](https://user-images.githubusercontent.com/2420543/234715439-98d12e03-d3ce-4f94-ab54-2b256808e05e.png)](https://github.com/mudler/LocalAI/tree/master/examples#examples)
