@@ -4,7 +4,9 @@ title = "🔈 Audio to text"
 weight = 2
 +++
 
-The transcription endpoint allows to convert audio files to text. The endpoint is based on [whisper.cpp](https://github.com/ggerganov/whisper.cpp), a C++ library for audio transcription. The endpoint supports the audio formats supported by `ffmpeg`.
+Audio to text models are models that can generate text from an audio file.
+
+The transcription endpoint allows to convert audio files to text. The endpoint is based on [whisper.cpp](https://github.com/ggerganov/whisper.cpp), a C++ library for audio transcription. The endpoint input supports all the audio formats supported by `ffmpeg`.
 
 ## Usage
 
