@@ -43,6 +43,7 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- Mamba support: https://github.com/mudler/LocalAI/pull/1589
 - Start and share models with config file: https://github.com/mudler/LocalAI/pull/1522
 - 🐸 Coqui: https://github.com/mudler/LocalAI/pull/1489
 - Inline templates: https://github.com/mudler/LocalAI/pull/1452
