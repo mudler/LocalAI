@@ -36,7 +36,7 @@ Before you begin, ensure you have a container engine installed if you are not us
 
 LocalAI allows one-click runs with popular models. It downloads the model and starts the API with the model loaded. 
 
-There are different categories of models: [LLMs]({{%relref "docs/features/text-generation" %}}), multimodal [LLMs]({{%relref "docs/features/text-generation" %}}), [Embeddings]({{%relref "docs/features/embeddings" %}}), [Audio to Text]({{%relref "docs/features/audio-to-text" %}}), and [Text to Audio]({{%relref "docs/features/text-to-audio" %}}) depending on the backend being used and the model architecture.
+There are different categories of models: [LLMs]({{%relref "docs/features/text-generation" %}}), [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) , [Embeddings]({{%relref "docs/features/embeddings" %}}), [Audio to Text]({{%relref "docs/features/audio-to-text" %}}), and [Text to Audio]({{%relref "docs/features/text-to-audio" %}}) depending on the backend being used and the model architecture.
 
 {{% alert icon="💡" %}}
 
@@ -51,7 +51,7 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | Model | Category | Docker command |
 | --- | --- | --- |
 | [phi-2](https://huggingface.co/microsoft/phi-2) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core phi-2``` |
-| [llava](https://github.com/SkunkworksAI/BakLLaVA) | Multimodal LLM | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava``` |
+| [llava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava``` |
 | [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core mistral-openorca``` |
 | [bert-cpp](https://github.com/skeskinen/bert.cpp) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core bert-cpp``` |
 | [all-minilm-l6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg all-minilm-l6-v2``` |
@@ -72,7 +72,7 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | Model | Category | Docker command |
 | --- | --- | --- |
 | [phi-2](https://huggingface.co/microsoft/phi-2) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core phi-2``` |
-| [llava](https://github.com/SkunkworksAI/BakLLaVA) | Multimodal LLM | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core llava``` |
+| [llava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core llava``` |
 | [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
 | [bert-cpp](https://github.com/skeskinen/bert.cpp) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core bert-cpp``` |
 | [all-minilm-l6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 all-minilm-l6-v2``` |
@@ -94,7 +94,7 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | Model | Category | Docker command |
 | --- | --- | --- |
 | [phi-2](https://huggingface.co/microsoft/phi-2) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core phi-2``` |
-| [llava](https://github.com/SkunkworksAI/BakLLaVA) | Multimodal LLM | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core llava``` |
+| [llava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core llava``` |
 | [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
 | [bert-cpp](https://github.com/skeskinen/bert.cpp) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core bert-cpp``` |
 | [all-minilm-l6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 all-minilm-l6-v2``` |
@@ -110,6 +110,14 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 
 {{< /tabs >}}
 
+{{% alert icon="💡" %}}
+**Tip** You can actually specify multiple models to start an instance with the models loaded, for example to have both llava and phi-2 configured:
+
+```bash
+docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava phi-2
+```
+
+{{% /alert %}}
 
 ## Container images
 

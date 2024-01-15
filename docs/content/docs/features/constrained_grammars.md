@@ -10,7 +10,7 @@ The chat endpoint accepts an additional `grammar` parameter which takes a [BNF d
 This allows the LLM to constrain the output to a user-defined schema, allowing to generate `JSON`, `YAML`, and everything that can be defined with a BNF grammar.
 
 {{% alert note %}}
-This feature works only with models compatible with the [llama.cpp](https://github.com/ggerganov/llama.cpp) backend (see also [Model compatibility]({{%relref "docs/model-compatibility" %}})). For details on how it works, see the upstream PRs: https://github.com/ggerganov/llama.cpp/pull/1773, https://github.com/ggerganov/llama.cpp/pull/1887
+This feature works only with models compatible with the [llama.cpp](https://github.com/ggerganov/llama.cpp) backend (see also [Model compatibility]({{%relref "docs/reference/compatibility-table" %}})). For details on how it works, see the upstream PRs: https://github.com/ggerganov/llama.cpp/pull/1773, https://github.com/ggerganov/llama.cpp/pull/1887
 {{% /alert %}}
 
 ## Setup

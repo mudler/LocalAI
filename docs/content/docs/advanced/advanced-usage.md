@@ -310,7 +310,7 @@ prompt_cache_all: true
 
 By default LocalAI will try to autoload the model by trying all the backends. This might work for most of models, but some of the backends are NOT configured to autoload.
 
-The available backends are listed in the [model compatibility table]({{%relref "docs/model-compatibility" %}}).
+The available backends are listed in the [model compatibility table]({{%relref "docs/reference/compatibility-table" %}}).
 
 In order to specify a backend for your models, create a model config file in your `models` directory specifying the backend:
 

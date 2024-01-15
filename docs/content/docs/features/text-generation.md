@@ -5,7 +5,7 @@ title = "📖 Text generation (GPT)"
 weight = 2
 +++
 
-LocalAI supports generating text with GPT with `llama.cpp` and other backends (such as `rwkv.cpp` as ) see also the [Model compatibility]({{%relref "docs/model-compatibility" %}}) for an up-to-date list of the supported model families.
+LocalAI supports generating text with GPT with `llama.cpp` and other backends (such as `rwkv.cpp` as ) see also the [Model compatibility]({{%relref "docs/reference/compatibility-table" %}}) for an up-to-date list of the supported model families.
 
 Note:
 
@@ -193,3 +193,71 @@ parameters:
 
 - [llama](https://github.com/ggerganov/llama.cpp)
 - [binding](https://github.com/go-skynet/go-llama.cpp)
+
+
+### exllama/2
+
+[Exllama](https://github.com/turboderp/exllama) is a "A more memory-efficient rewrite of the HF transformers implementation of Llama for use with quantized weights". Both `exllama` and `exllama2` are supported.
+
+#### Model setup
+
+Download the model as a folder inside the `model ` directory and create a YAML file specifying the `exllama` backend. For instance with the `TheBloke/WizardLM-7B-uncensored-GPTQ` model:
+
+```
+$ git lfs install
+$ cd models && git clone https://huggingface.co/TheBloke/WizardLM-7B-uncensored-GPTQ
+$ ls models/                                                                 
+.keep                        WizardLM-7B-uncensored-GPTQ/ exllama.yaml
+$ cat models/exllama.yaml                                                     
+name: exllama
+parameters:
+  model: WizardLM-7B-uncensored-GPTQ
+backend: exllama
+# Note: you can also specify "exllama2" if it's an exllama2 model here
+# ...
+```
+
+Test with:
+
+```bash
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{                                                                                                         
+   "model": "exllama",
+   "messages": [{"role": "user", "content": "How are you?"}],
+   "temperature": 0.1
+ }'
+```
+
+### vLLM
+
+[vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference.
+
+LocalAI has a built-in integration with vLLM, and it can be used to run models. You can check out `vllm` performance [here](https://github.com/vllm-project/vllm#performance).
+
+#### Setup
+
+Create a YAML file for the model you want to use with `vllm`.
+
+To setup a model, you need to just specify the model name in the YAML config file:
+```yaml
+name: vllm
+backend: vllm
+parameters:
+    model: "facebook/opt-125m"
+
+# Decomment to specify a quantization method (optional)
+# quantization: "awq"
+```
+
+The backend will automatically download the required files in order to run the model.
+
+
+#### Usage
+
+Use the `completions` endpoint by specifying the `vllm` backend:
+```
+curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{   
+   "model": "vllm",
+   "prompt": "Hello, my name is",
+   "temperature": 0.1, "top_p": 0.1
+ }'
+```
