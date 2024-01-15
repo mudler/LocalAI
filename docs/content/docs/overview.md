@@ -34,7 +34,7 @@ icon = "info"
 [<img src="https://img.shields.io/badge/dockerhub-images-important.svg?logo=Docker">](https://hub.docker.com/r/localai/localai)
 [<img src="https://img.shields.io/badge/quay.io-images-important.svg?">](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest)
 
-> 💡 Get help - [❓FAQ](https://localai.io/faq/) [❓How tos](https://localai.io/howtos/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [💭Discord](https://discord.gg/uJAeKSAGDy)
+> 💡 Get help - [❓FAQ](https://localai.io/faq/) [❓How tos](https://io.midori-ai.xyz/howtos/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [💭Discord](https://discord.gg/uJAeKSAGDy)
 >
 > [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/) [ 🚀 Roadmap ](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
