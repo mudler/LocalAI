@@ -1,4 +1,3 @@
-ARG GO_VERSION=1.21
 ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
 
@@ -6,6 +5,9 @@ ARG BASE_IMAGE=ubuntu:22.04
 FROM ${BASE_IMAGE} as requirements-core
 
 ARG GO_VERSION=1.21.7
+
+FROM golang:$GO_VERSION as requirements-core
+
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
 ARG CUDA_MINOR_VERSION=7
@@ -44,6 +46,10 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
 
 ENV PATH /usr/local/cuda/bin:${PATH}
 
+# HipBLAS requirements
+ENV PATH /opt/rocm/bin:${PATH}
+ENV ROCM_PATH=/opt/rocm
+
 # OpenBLAS requirements and stable diffusion
 RUN apt-get install -y \
     libopenblas-dev \
@@ -70,7 +76,7 @@ RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmo
     apt-get install -y conda && apt-get clean
 
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN pip install --upgrade pip
+RUN apt-get install -y python3-pip && apt-get clean
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get install -y espeak-ng espeak && apt-get clean
 
