@@ -67,3 +67,8 @@ Then start LocalAI with the URL of the gist:
 ## Attention! replace with your gists URL!
 docker run -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core https://gist.githubusercontent.com/xxxx/phi-2.yaml
 ```
+
+### What's next
+
+- See the [advanced section]({{%relref "docs/advanced" %}}) to learn more about the prompt template and the configuration files.
+- If you want to fine-tune an LLM model, see the [fine-tuning section]({{%relref "docs/advanced/fine-tuning" %}}).
