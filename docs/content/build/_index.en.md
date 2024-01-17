@@ -45,7 +45,7 @@ brew install abseil cmake go grpc protobuf wget
 {{% tab name="Debian" %}}
 
 ```bash
-apt install protobuf-compiler-grpc libgrpc-dev make cmake
+apt install golang protobuf-compiler-grpc libgrpc-dev make cmake
 ```
 
 {{% /tab %}}
