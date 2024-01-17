@@ -11,7 +11,7 @@ Section under construction
 This section contains instruction on how to use LocalAI with GPU acceleration.
 
 {{% alert icon="⚡" context="warning" %}}
-For accelleration for AMD or Metal HW there are no specific container images, see the [build]({{%relref "docs/build#Acceleration" %}})
+For accelleration for AMD or Metal HW there are no specific container images, see the [build]({{%relref "docs/getting-started/build#Acceleration" %}})
 {{% /alert %}}
 
 ### CUDA(NVIDIA) acceleration

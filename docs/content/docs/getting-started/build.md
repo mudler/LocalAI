@@ -1,13 +1,19 @@
 
 +++
 disableToc = false
-title = "Build"
+title = "Build LocalAI from source"
 weight = 5
 url = '/basics/build/'
 ico = "rocket_launch"
 +++
 
 ### Build
+
+LocalAI can be built as a container image or as a single, portable binary. Note that the some model architectures might require Python libraries, which are not included in the binary. The binary contains only the core backends written in Go and C++. 
+
+LocalAI's extensible architecture allows you to add your own backends, which can be written in any language, and as such the container images contains also the Python dependencies to run all the available backends (for example, in order to run backends like __Diffusers__ that allows to generate images and videos from text).
+
+In some cases you might want to re-build LocalAI from source (for instance to leverage Apple Silicon acceleration), or to build a custom container image with your own backends. This section contains instructions on how to build LocalAI from source.
 
 #### Container image
 
@@ -23,7 +29,9 @@ docker build -t localai .
 docker run localai
 ```
 
-#### Locally
+#### Build LocalAI locally
+
+##### Requirements
 
 In order to build LocalAI locally, you need the following requirements:
 
@@ -34,22 +42,22 @@ In order to build LocalAI locally, you need the following requirements:
 
 To install the dependencies follow the instructions below:
 
-{{< tabs >}}
-{{% tab name="Apple" %}}
+{{< tabs tabTotal="3"  >}}
+{{% tab tabName="Apple" %}}
 
 ```bash
 brew install abseil cmake go grpc protobuf wget
 ```
 
 {{% /tab %}}
-{{% tab name="Debian" %}}
+{{% tab tabName="Debian" %}}
 
 ```bash
 apt install golang protobuf-compiler-grpc libgrpc-dev make cmake
 ```
 
 {{% /tab %}}
-{{% tab name="From source" %}}
+{{% tab tabName="From source" %}}
 
 Specify `BUILD_GRPC_FOR_BACKEND_LLAMA=true` to build automatically the gRPC dependencies
 
@@ -60,7 +68,7 @@ make ... BUILD_GRPC_FOR_BACKEND_LLAMA=true build
 {{% /tab %}}
 {{< /tabs >}}
 
-
+##### Build
 To build LocalAI with `make`:
 
 ```
@@ -133,7 +141,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 **Requirements**: OpenCV, Gomp
 
-Image generation is experimental and requires `GO_TAGS=stablediffusion` to be set during build:
+Image generation requires `GO_TAGS=stablediffusion` or `GO_TAGS=tinydream` to be set during build:
 
 ```
 make GO_TAGS=stablediffusion build
@@ -156,7 +164,7 @@ List of the variables available to customize the build:
 | Variable | Default | Description |
 | ---------------------| ------- | ----------- |
 | `BUILD_TYPE`         |   None      | Build type. Available: `cublas`, `openblas`, `clblas`, `metal`,`hipblas` |
-| `GO_TAGS`            |   `tts stablediffusion`      | Go tags. Available: `stablediffusion`, `tts` |
+| `GO_TAGS`            |   `tts stablediffusion`      | Go tags. Available: `stablediffusion`, `tts`, `tinydream` |
 | `CLBLAST_DIR`        |         | Specify a CLBlast directory |
 | `CUDA_LIBPATH`       |         | Specify a CUDA library path |
 
@@ -216,7 +224,7 @@ make BUILD_TYPE=clblas build
 
 To specify a clblast dir set: `CLBLAST_DIR`
 
-### Metal (Apple Silicon)
+#### Metal (Apple Silicon)
 
 ```
 make BUILD_TYPE=metal build
@@ -225,7 +233,16 @@ make BUILD_TYPE=metal build
 # Note: only models quantized with q4_0 are supported!
 ```
 
-### Build only a single backend
+
+### Windows compatibility
+
+Make sure to give enough resources to the running container. See https://github.com/go-skynet/LocalAI/issues/2
+
+### Examples
+
+More advanced build options are available, for instance to build only a single backend.
+
+#### Build only a single backend
 
 You can control the backends that are built by setting the `GRPC_BACKENDS` environment variable. For instance, to build only the `llama-cpp` backend only:
 
@@ -235,14 +252,10 @@ make GRPC_BACKENDS=backend-assets/grpc/llama-cpp build
 
 By default, all the backends are built.
 
-### Specific llama.cpp version
+#### Specific llama.cpp version
 
 To build with a specific version of llama.cpp, set `CPPLLAMA_VERSION` to the tag or wanted sha:
 
 ```
 CPPLLAMA_VERSION=<sha> make build
 ```
-
-### Windows compatibility
-
-Make sure to give enough resources to the running container. See https://github.com/go-skynet/LocalAI/issues/2

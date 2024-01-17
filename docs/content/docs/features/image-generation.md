@@ -158,7 +158,7 @@ diffusers:
 
 #### Dependencies
 
-This is an extra backend - in the container is already available and there is nothing to do for the setup. Do not use *core* images (ending with `-core`). If you are building manually, see the [build instructions]({{%relref "docs/build" %}}).
+This is an extra backend - in the container is already available and there is nothing to do for the setup. Do not use *core* images (ending with `-core`). If you are building manually, see the [build instructions]({{%relref "docs/getting-started/build" %}}).
 
 #### Model setup
 

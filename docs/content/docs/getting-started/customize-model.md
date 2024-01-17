@@ -1,43 +1,40 @@
- 
 +++
 disableToc = false
-title = "Customize model"
+title = "Customizing the Model"
 weight = 2
 icon = "rocket_launch"
 
 +++
 
-In order to customize the prompt template or the model default settings, it's possible to use a configuration file. The file should be a valid LocalAI YAML configuration file, for the full syntax see [advanced]({{%relref "docs/advanced" %}}), and it can be hosted remotely (for instance as a Github Gist). The configuration file can also refer to a model either on the local filesystem or a remote URL.
+To customize the prompt template or the default settings of the model, a configuration file is utilized. This file must adhere to the LocalAI YAML configuration standards. For comprehensive syntax details, refer to the [advanced documentation]({{%relref "docs/advanced" %}}). The configuration file can be located either remotely (such as in a Github Gist) or within the local filesystem or a remote URL.
 
-LocalAI can be started (either the container image or the binary) with a list of model config files URLs or a short-handed format (e.g. `huggingface://`. `github://` that will automatically expand to full URLs). 
+LocalAI can be initiated using either its container image or binary, with a command that includes URLs of model config files or utilizes a shorthand format (like `huggingface://` or `github://`), which is then expanded into complete URLs.
 
-You can also pass it via Environment variable, for example:
+The configuration can also be set via an environment variable. For instance:
 
 ```
+# Command-Line Arguments
 local-ai github://owner/repo/file.yaml@branch
 
-# Env
+# Environment Variable
 MODELS="github://owner/repo/file.yaml@branch,github://owner/repo/file.yaml@branch" local-ai
-
-# Args
-local-ai --models github://owner/repo/file.yaml@branch --models github://owner/repo/file.yaml@branch
 ```
 
-This is an example, to start **phi-2**:
+Here's an example to initiate the **phi-2** model:
 
 ```bash
 docker run -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
 ```
 
 {{% alert icon="" %}}
-The list of models configuration used in the quickstart are available here: [https://github.com/mudler/LocalAI/tree/master/embedded/models](https://github.com/mudler/LocalAI/tree/master/embedded/models), if you want to help and contribute feel free to open up a Pull Request.
+The model configurations used in the quickstart are accessible here: [https://github.com/mudler/LocalAI/tree/master/embedded/models](https://github.com/mudler/LocalAI/tree/master/embedded/models). Contributions are welcome; please feel free to submit a Pull Request.
 
-The `phi-2` model example used in the quickstart is automatically expanded to [https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml](https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml).
+The `phi-2` model configuration from the quickstart is expanded from [https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml](https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml).
 {{% /alert %}}
 
-## Example: Customize the prompt template
+## Example: Customizing the Prompt Template
 
-Create a Github gist, or a pastebin file, copy the content of [https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml](https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml). And modify the template field:
+To modify the prompt template, create a Github gist or a Pastebin file, and copy the content from [https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml](https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml). Alter the fields as needed:
 
 ```yaml
 name: phi-2
@@ -47,7 +44,7 @@ threads: 11
 gpu_layers: 90
 mmap: true
 parameters:
-  # You can refer here to any HF model, or a local file
+  # Reference any HF model or a local file here
   model: huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
   temperature: 0.2
   top_k: 40
@@ -57,18 +54,18 @@ template:
   chat: &template |
     Instruct: {{.Input}}
     Output:
-  # Modify the prompt template here ^^^ accordingly to your needs
+  # Modify the prompt template here ^^^ as per your requirements
   completion: *template
 ```
 
-Then start LocalAI with the URL of the gist:
+Then, launch LocalAI using your gist's URL:
 
 ```bash
-## Attention! replace with your gists URL!
+## Important! Substitute with your gist's URL!
 docker run -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core https://gist.githubusercontent.com/xxxx/phi-2.yaml
 ```
 
-### What's next
+## Next Steps
 
-- See the [advanced section]({{%relref "docs/advanced" %}}) to learn more about the prompt template and the configuration files.
-- If you want to fine-tune an LLM model, see the [fine-tuning section]({{%relref "docs/advanced/fine-tuning" %}}).
+- Visit the [advanced section]({{%relref "docs/advanced" %}}) for more insights on prompt templates and configuration files.
+- To learn about fine-tuning an LLM model, check out the [fine-tuning section]({{%relref "docs/advanced/fine-tuning" %}}).

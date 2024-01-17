@@ -44,7 +44,7 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 ```
 
 {{% alert note %}}
-- If running on Apple Silicon (ARM) it is **not** suggested to run on Docker due to emulation. Follow the [build instructions]({{%relref "docs/build" %}}) to use Metal acceleration for full GPU support.
+- If running on Apple Silicon (ARM) it is **not** suggested to run on Docker due to emulation. Follow the [build instructions]({{%relref "docs/getting-started/build" %}}) to use Metal acceleration for full GPU support.
 - If you are running Apple x86_64 you can use `docker`, there is no additional gain into building it from source.
 {{% /alert %}}
 
@@ -114,7 +114,7 @@ LocalAI binary releases are available in [Github](https://github.com/go-skynet/L
 
 {{% tab tabName="From source" %}}
 
-See the [build section]({{%relref "docs/build" %}}).
+See the [build section]({{%relref "docs/getting-started/build" %}}).
   
 {{% /tab %}}
 
