@@ -1,5 +1,5 @@
 ---
-weight: 10000
+weight: 20
 title: "Advanced"
 description: "Advanced usage"
 icon: science

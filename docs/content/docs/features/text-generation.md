@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "📖 Text generation (GPT)"
-weight = 2
+weight = 10
 +++
 
 LocalAI supports generating text with GPT with `llama.cpp` and other backends (such as `rwkv.cpp` as ) see also the [Model compatibility]({{%relref "docs/reference/compatibility-table" %}}) for an up-to-date list of the supported model families.

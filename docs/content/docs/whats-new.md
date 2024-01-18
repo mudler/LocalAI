@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "News"
-weight = 2
+weight = 7
 url = '/basics/news/'
 icon = "newspaper"
 +++

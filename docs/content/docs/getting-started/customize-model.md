@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Customizing the Model"
-weight = 2
+weight = 4
 icon = "rocket_launch"
 
 +++

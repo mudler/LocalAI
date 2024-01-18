@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Run models manually"
-weight = 3
+weight = 5
 icon = "rocket_launch"
 
 +++

@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "🔥 OpenAI functions"
-weight = 2
+weight = 17
 +++
 
 LocalAI supports running OpenAI functions with `llama.cpp` compatible models.

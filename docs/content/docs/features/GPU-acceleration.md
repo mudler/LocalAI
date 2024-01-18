@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "⚡ GPU acceleration"
-weight = 2
+weight = 9
 +++
 
 {{% alert context="warning" %}}

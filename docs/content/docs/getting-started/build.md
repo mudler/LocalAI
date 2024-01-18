@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Build LocalAI from source"
-weight = 5
+weight = 6
 url = '/basics/build/'
 ico = "rocket_launch"
 +++

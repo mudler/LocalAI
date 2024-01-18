@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "🧠 Embeddings"
-weight = 2
+weight = 13
 +++
 
 LocalAI supports generating embeddings for text or list of tokens.

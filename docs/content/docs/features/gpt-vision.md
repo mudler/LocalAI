@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "🆕 GPT Vision"
-weight = 2
+weight = 14
 +++
 
 {{% alert note %}}

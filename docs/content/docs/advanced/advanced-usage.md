@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Advanced usage"
-weight = 6
+weight = 21
 url = '/advanced'
 +++
 
