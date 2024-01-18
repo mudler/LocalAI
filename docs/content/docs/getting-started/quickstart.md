@@ -17,7 +17,7 @@ LocalAI is available as a container image and binary, compatible with various co
 
 {{% alert icon="💡" %}}
 
-**Hardware Requirements:** The hardware requirements for LocalAI vary based on the [model size] and [quantization] method used. For performance benchmarks with different backends, such as `llama.cpp`, visit [this link](https://github.com/ggerganov/llama.cpp#memorydisk-requirements). The `rwkv` backend is noted for its lower resource consumption.
+**Hardware Requirements:** The hardware requirements for LocalAI vary based on the model size and quantization method used. For performance benchmarks with different backends, such as `llama.cpp`, visit [this link](https://github.com/ggerganov/llama.cpp#memorydisk-requirements). The `rwkv` backend is noted for its lower resource consumption.
 
 {{% /alert %}}
 
