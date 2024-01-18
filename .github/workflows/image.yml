@@ -121,7 +121,7 @@ jobs:
             tag-suffix: '-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -130,7 +130,7 @@ jobs:
             tag-suffix: '-cublas-cuda11-core'
             ffmpeg: ''
             image-type: 'core'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -139,7 +139,7 @@ jobs:
             tag-suffix: '-cublas-cuda12-core'
             ffmpeg: ''
             image-type: 'core'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -148,7 +148,7 @@ jobs:
             tag-suffix: '-cublas-cuda11-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -157,4 +157,4 @@ jobs:
             tag-suffix: '-cublas-cuda12-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
