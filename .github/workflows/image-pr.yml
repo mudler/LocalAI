@@ -38,7 +38,7 @@ jobs:
             tag-suffix: '-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -47,7 +47,7 @@ jobs:
             tag-suffix: '-cublas-cuda12-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
