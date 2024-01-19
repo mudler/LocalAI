@@ -86,6 +86,10 @@ WebUIs:
 
 Model galleries
 - https://github.com/go-skynet/model-gallery
+  
+Auto Docker / Model setup
+- https://io.midori-ai.xyz/howtos/easy-localai-installer/
+- https://io.midori-ai.xyz/howtos/easy-model-installer/
 
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
