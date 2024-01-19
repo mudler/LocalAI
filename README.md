@@ -23,7 +23,7 @@
 [<img src="https://img.shields.io/badge/dockerhub-images-important.svg?logo=Docker">](https://hub.docker.com/r/localai/localai)
 [<img src="https://img.shields.io/badge/quay.io-images-important.svg?">](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest)
 
-> :bulb: Get help - [❓FAQ](https://localai.io/faq/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) [:book: Documentation website](https://localai.io/)
+> :bulb: Get help - [❓FAQ](https://localai.io/docs/faq/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) [:book: Documentation website](https://localai.io/)
 >
 > [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/) [ 🚀 Roadmap ](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
@@ -52,6 +52,7 @@
 - Musicgen https://github.com/mudler/LocalAI/pull/1387
 
 Hot topics (looking for contributors):
+
 - Backends v2: https://github.com/mudler/LocalAI/issues/1126
 - Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
 
@@ -59,17 +60,17 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 
 ## 💻 [Getting started](https://localai.io/basics/getting_started/index.html)
 
-## 🚀 [Features](https://localai.io/features/)
+## 🚀 [Features](https://localai.io/docs/features/)
 
-- 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `gpt4all.cpp`, ... [:book: and more](https://localai.io/model-compatibility/index.html#model-compatibility-table))
-- 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
-- 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
-- 🎨 [Image generation with stable diffusion](https://localai.io/features/image-generation)
-- 🔥 [OpenAI functions](https://localai.io/features/openai-functions/) 🆕
-- 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
-- ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
+- 📖 [Text generation with GPTs](https://localai.io/docs/features/text-generation/) (`llama.cpp`, `gpt4all.cpp`, ... [:book: and more](https://localai.io/docs/reference/compatibility-table/))
+- 🗣 [Text to Audio](https://localai.io/docs/features/text-to-audio/)
+- 🔈 [Audio to Text](https://localai.io/docs/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
+- 🎨 [Image generation with stable diffusion](https://localai.io/docs/features/image-generation)
+- 🔥 [OpenAI functions](https://localai.io/docs/features/openai-functions/) 🆕
+- 🧠 [Embeddings generation for vector databases](https://localai.io/docs/features/embeddings/)
+- ✍️ [Constrained grammars](https://localai.io/docs/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
-- 🆕 [Vision API](https://localai.io/features/gpt-vision/)
+- 🆕 [Vision API](https://localai.io/docs/features/gpt-vision/)
 
 ## 💻 Usage
 
@@ -78,20 +79,25 @@ Check out the [Getting started](https://localai.io/basics/getting_started/index.
 ### 🔗 Community and integrations
 
 Build and deploy custom containers:
+
 - https://github.com/sozercan/aikit
 
 WebUIs:
+
 - https://github.com/Jirubizu/localai-admin
 - https://github.com/go-skynet/LocalAI-frontend
 
 Model galleries
+
 - https://github.com/go-skynet/model-gallery
-  
+
 Auto Docker / Model setup
+
 - https://io.midori-ai.xyz/howtos/easy-localai-installer/
 - https://io.midori-ai.xyz/howtos/easy-model-installer/
 
 Other:
+
 - Helm chart https://github.com/go-skynet/helm-charts
 - VSCode extension https://github.com/badgooooor/localai-vscode-plugin
 - Local Smart assistant https://github.com/mudler/LocalAGI
@@ -103,10 +109,10 @@ Other:
 
 ### 🔗 Resources
 
-- 🆕 New! [LLM finetuning guide](https://localai.io/advanced/fine-tuning/)
+- 🆕 New! [LLM finetuning guide](https://localai.io/docs/advanced/fine-tuning/)
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
-- [Projects integrating LocalAI](https://localai.io/integrations/)
+- [Projects integrating LocalAI](https://localai.io/docs/integrations/)
 - [How tos section](https://io.midori-ai.xyz/howtos/) (curated by our community)
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
@@ -139,9 +145,9 @@ Support the project by becoming [a backer or sponsor](https://github.com/sponsor
 A huge thank you to our generous sponsors who support this project:
 
 | ![Spectro Cloud logo_600x600px_transparent bg](https://github.com/go-skynet/LocalAI/assets/2420543/68a6f3cb-8a65-4a4d-99b5-6417a8905512) |
-|:-----------------------------------------------:|
-|  [Spectro Cloud](https://www.spectrocloud.com/)  |
-|  Spectro Cloud kindly supports LocalAI by providing GPU and computing resources to run tests on lamdalabs!  |
+| :--------------------------------------------------------------------------------------------------------------------------------------: |
+|                                              [Spectro Cloud](https://www.spectrocloud.com/)                                              |
+|                Spectro Cloud kindly supports LocalAI by providing GPU and computing resources to run tests on lamdalabs!                 |
 
 And a huge shout-out to individuals sponsoring the project by donating hardware or backing the project.
 
@@ -176,5 +182,5 @@ LocalAI couldn't have been built without the help of great software already avai
 
 This is a community project, a special thanks to our contributors! 🤗
 <a href="https://github.com/go-skynet/LocalAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=go-skynet/LocalAI" />
+<img src="https://contrib.rocks/image?repo=go-skynet/LocalAI" />
 </a>
