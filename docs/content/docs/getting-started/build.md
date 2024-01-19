@@ -79,6 +79,16 @@ make build
 
 This should produce the binary `local-ai`
 
+Here is the list of the variables available that can be used to customize the build:
+
+| Variable | Default | Description |
+| ---------------------| ------- | ----------- |
+| `BUILD_TYPE`         |   None      | Build type. Available: `cublas`, `openblas`, `clblas`, `metal`,`hipblas` |
+| `GO_TAGS`            |   `tts stablediffusion`      | Go tags. Available: `stablediffusion`, `tts`, `tinydream` |
+| `CLBLAST_DIR`        |         | Specify a CLBlast directory |
+| `CUDA_LIBPATH`       |         | Specify a CUDA library path |
+| `BUILD_API_ONLY` | false | Set to true to build only the API (no backends will be built) |
+
 {{% alert note %}}
 
 #### CPU flagset compatibility
@@ -158,15 +168,6 @@ make GO_TAGS=tts build
 ```
 
 ### Acceleration
-
-List of the variables available to customize the build:
-
-| Variable | Default | Description |
-| ---------------------| ------- | ----------- |
-| `BUILD_TYPE`         |   None      | Build type. Available: `cublas`, `openblas`, `clblas`, `metal`,`hipblas` |
-| `GO_TAGS`            |   `tts stablediffusion`      | Go tags. Available: `stablediffusion`, `tts`, `tinydream` |
-| `CLBLAST_DIR`        |         | Specify a CLBlast directory |
-| `CUDA_LIBPATH`       |         | Specify a CUDA library path |
 
 #### OpenBLAS
 
