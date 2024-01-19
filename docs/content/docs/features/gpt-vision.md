@@ -3,6 +3,7 @@
 disableToc = false
 title = "🆕 GPT Vision"
 weight = 14
+url = "/features/gpt-vision/"
 +++
 
 {{% alert note %}}

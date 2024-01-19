@@ -2,6 +2,7 @@
 disableToc = false
 title = "🔈 Audio to text"
 weight = 16
+url = "/features/audio-to-text/"
 +++
 
 Audio to text models are models that can generate text from an audio file.

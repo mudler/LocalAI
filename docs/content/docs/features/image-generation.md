@@ -3,6 +3,7 @@
 disableToc = false
 title = "🎨 Image generation"
 weight = 12
+url = "/features/image-generation/"
 +++
 
 ![anime_girl](https://github.com/go-skynet/LocalAI/assets/2420543/8aaca62a-e864-4011-98ae-dcc708103928)

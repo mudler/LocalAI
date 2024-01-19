@@ -3,6 +3,7 @@
 disableToc = false
 title = "🗣 Text to audio (TTS)"
 weight = 11
+url = "/features/text-to-audio/"
 +++
 
 The `/tts` endpoint can be used to generate speech from text.

@@ -2,6 +2,7 @@
 disableToc = false
 title = "⚡ GPU acceleration"
 weight = 9
+url = "/features/gpu-acceleration/"
 +++
 
 {{% alert context="warning" %}}

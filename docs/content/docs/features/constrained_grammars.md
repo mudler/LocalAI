@@ -3,6 +3,7 @@
 disableToc = false
 title = "✍️ Constrained grammars"
 weight = 15
+url = "/features/constrained_grammars/"
 +++
 
 The chat endpoint accepts an additional `grammar` parameter which takes a [BNF defined grammar](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form).

@@ -3,6 +3,7 @@
 disableToc = false
 title = "Model compatibility table"
 weight = 24
+url = "/model-compatibility/"
 +++
 
 Besides llama based models, LocalAI is compatible also with other architectures. The table below lists all the compatible models families and the associated binding repository.
