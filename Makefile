@@ -153,6 +153,10 @@ ifeq ($(GRPC_BACKENDS),)
 	GRPC_BACKENDS=$(ALL_GRPC_BACKENDS)
 endif
 
+ifeq ($(BUILD_API_ONLY),true)
+	GRPC_BACKENDS=
+endif
+
 .PHONY: all test build vendor
 
 all: help
@@ -290,17 +294,17 @@ clean: ## Remove build related file
 	rm -rf ./sources
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
+	rm -rf backend-assets
 	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/cpp/llama clean
 
 ## Build:
 
-build: grpcs prepare ## Build the project
+build: backend-assets grpcs prepare ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
-
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 dist: build
@@ -440,6 +444,12 @@ prepare-test-extra:
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
 	$(MAKE) -C backend/python/diffusers test
+
+backend-assets:
+	mkdir -p backend-assets
+ifeq ($(BUILD_API_ONLY),true)
+	touch backend-assets/keep
+endif
 
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
