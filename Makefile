@@ -419,6 +419,7 @@ protogen-python:
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vall-e-x/ --grpc_python_out=backend/python/vall-e-x/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vllm/ --grpc_python_out=backend/python/vllm/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/petals/ --grpc_python_out=backend/python/petals/ backend/backend.proto
+	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/mamba/ --grpc_python_out=backend/python/mamba/ backend/backend.proto
 	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/exllama2/ --grpc_python_out=backend/python/exllama2/ backend/backend.proto
 
 ## GRPC
@@ -429,6 +430,7 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/coqui
 	$(MAKE) -C backend/python/diffusers
 	$(MAKE) -C backend/python/vllm
+	$(MAKE) -C backend/python/mamba
 	$(MAKE) -C backend/python/sentencetransformers
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/transformers-musicgen

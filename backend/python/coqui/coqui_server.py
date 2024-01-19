@@ -33,7 +33,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def LoadModel(self, request, context):
 
         # Get device
-        device = "cuda" if request.CUDA else "cpu"
+        # device = "cuda" if request.CUDA else "cpu"
+        if torch.cuda.is_available():
+            print("CUDA is available", file=sys.stderr)
+            device = "cuda"
+        else:
+            print("CUDA is not available", file=sys.stderr)
+            device = "cpu"
 
         if not torch.cuda.is_available() and request.CUDA:
             return backend_pb2.Result(success=False, message="CUDA is not available")
