@@ -43,6 +43,40 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
+{{% alert icon="💡" %}}
+
+**Other Docker Images**:
+
+For other Docker images, please see the table in
+https://localai.io/basics/getting_started/#container-images.
+
+{{% /alert %}}
+
+Here is a more specific example:
+
+```bash
+mkdir models
+
+# Download luna-ai-llama2 to models/
+wget https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF/resolve/main/luna-ai-llama2-uncensored.Q4_0.gguf -O models/luna-ai-llama2
+
+# Use a template from the examples
+cp -rf prompt-templates/getting_started.tmpl models/luna-ai-llama2.tmpl
+
+docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
+
+# Now API is accessible at localhost:8080
+curl http://localhost:8080/v1/models
+# {"object":"list","data":[{"id":"luna-ai-llama2","object":"model"}]}
+
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+     "model": "luna-ai-llama2",
+     "messages": [{"role": "user", "content": "How are you?"}],
+     "temperature": 0.9
+   }'
+# {"model":"luna-ai-llama2","choices":[{"message":{"role":"assistant","content":"I'm doing well, thanks. How about you?"}}]}
+```
+
 {{% alert note %}}
 - If running on Apple Silicon (ARM) it is **not** suggested to run on Docker due to emulation. Follow the [build instructions]({{%relref "docs/getting-started/build" %}}) to use Metal acceleration for full GPU support.
 - If you are running Apple x86_64 you can use `docker`, there is no additional gain into building it from source.
@@ -82,6 +116,15 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
+{{% alert icon="💡" %}}
+
+**Other Docker Images**:
+
+For other Docker images, please see the table in
+https://localai.io/basics/getting_started/#container-images.
+
+{{% /alert %}}
+
 Note: If you are on Windows, please make sure the project is on the Linux Filesystem, otherwise loading models might be slow. For more Info: [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems)
 
 {{% /tab %}}
@@ -119,32 +162,5 @@ See the [build section]({{%relref "docs/getting-started/build" %}}).
 {{% /tab %}}
 
 {{< /tabs >}}
-
-
-### Example (Docker)
-
-```bash
-mkdir models
-
-# Download luna-ai-llama2 to models/
-wget https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF/resolve/main/luna-ai-llama2-uncensored.Q4_0.gguf -O models/luna-ai-llama2
-
-# Use a template from the examples
-cp -rf prompt-templates/getting_started.tmpl models/luna-ai-llama2.tmpl
-
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
-
-# Now API is accessible at localhost:8080
-curl http://localhost:8080/v1/models
-# {"object":"list","data":[{"id":"luna-ai-llama2","object":"model"}]}
-
-curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-     "model": "luna-ai-llama2",
-     "messages": [{"role": "user", "content": "How are you?"}],
-     "temperature": 0.9
-   }'
-
-# {"model":"luna-ai-llama2","choices":[{"message":{"role":"assistant","content":"I'm doing well, thanks. How about you?"}}]}
-```
 
 For more model configurations, visit the [Examples Section](https://github.com/mudler/LocalAI/tree/master/examples/configurations).
