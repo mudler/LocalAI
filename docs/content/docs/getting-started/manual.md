@@ -43,7 +43,16 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    }'
 ```
 
-Here is a more specific example 
+{{% alert icon="💡" %}}
+
+**Other Docker Images**:
+
+For other Docker images, please see the table in
+https://localai.io/basics/getting_started/#container-images.
+
+{{% /alert %}}
+
+Here is a more specific example:
 
 ```bash
 mkdir models
@@ -106,6 +115,15 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
      "temperature": 0.7
    }'
 ```
+
+{{% alert icon="💡" %}}
+
+**Other Docker Images**:
+
+For other Docker images, please see the table in
+https://localai.io/basics/getting_started/#container-images.
+
+{{% /alert %}}
 
 Note: If you are on Windows, please make sure the project is on the Linux Filesystem, otherwise loading models might be slow. For more Info: [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems)
 
