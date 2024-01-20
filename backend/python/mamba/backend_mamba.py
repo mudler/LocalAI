@@ -117,9 +117,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.Tokens == 0:
             max_tokens = 2000
 
-        encoded_input = self.tokenizer(request.Prompt)
-        
-        out = self.model.generate(input_ids=encoded_input["input_ids"], max_length=max_tokens, temperature=request.Temperratur,
+        # encoded_input = self.tokenizer(request.Prompt)
+        tokens = self.tokenizer(request.Prompt, return_tensors="pt")
+        input_ids = tokens.input_ids.to(device="cuda")
+        out = self.model.generate(input_ids=input_ids, max_length=max_tokens, temperature=request.Temperature,
                                      top_p=request.TopP, eos_token_id=self.tokenizer.eos_token_id)
 
         decoded = self.tokenizer.batch_decode(out)
@@ -130,7 +131,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.Prompt in generated_text:
             generated_text = generated_text.replace(request.Prompt, "")
 
-        return backend_pb2.Result(message=bytes(generated_text, encoding='utf-8'))
+        return backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
 
     def PredictStream(self, request, context):
         """
@@ -143,11 +144,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         Returns:
             backend_pb2.Result: The predict stream result.
         """
-        # Implement PredictStream RPC
-        #for reply in some_data_generator():
-        #    yield reply
-        # Not implemented yet
-        return self.Predict(request, context)
+        yield self.Predict(request, context)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))
