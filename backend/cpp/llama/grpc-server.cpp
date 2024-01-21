@@ -2465,10 +2465,10 @@ static void params_parse(const backend::ModelOptions* request,
     const char *env_parallel = std::getenv("LLAMACPP_PARALLEL");
     if (env_parallel != NULL) {
         params.n_parallel = std::stoi(env_parallel);
+        params.cont_batching = true;
     } else {
         params.n_parallel = 1;
     }
-    params.cont_batching = true;
     // TODO: Add yarn
 
     if (!request->tensorsplit().empty()) {
