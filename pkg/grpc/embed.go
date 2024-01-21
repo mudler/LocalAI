@@ -20,8 +20,8 @@ func (e *embedBackend) IsBusy() bool {
 	return e.s.llm.Busy()
 }
 
-func (e *embedBackend) HealthCheck(ctx context.Context) bool {
-	return true
+func (e *embedBackend) HealthCheck(ctx context.Context) (bool, error) {
+	return true, nil
 }
 
 func (e *embedBackend) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.EmbeddingResult, error) {

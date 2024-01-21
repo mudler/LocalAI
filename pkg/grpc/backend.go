@@ -33,7 +33,7 @@ func NewGrpcClient(address string, parallel bool, wd WatchDog, enableWatchDog bo
 
 type Backend interface {
 	IsBusy() bool
-	HealthCheck(ctx context.Context) bool
+	HealthCheck(ctx context.Context) (bool, error)
 	Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.EmbeddingResult, error)
 	Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error)
 	LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.Result, error)
