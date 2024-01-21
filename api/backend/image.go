@@ -16,7 +16,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 		model.WithContext(o.Context),
 		model.WithModel(c.Model),
 		model.WithLoadGRPCLoadModelOpts(&proto.ModelOptions{
-			CUDA:          c.Diffusers.CUDA,
+			CUDA:          c.CUDA || c.Diffusers.CUDA,
 			SchedulerType: c.Diffusers.SchedulerType,
 			PipelineType:  c.Diffusers.PipelineType,
 			CFGScale:      c.Diffusers.CFGScale,
@@ -27,6 +27,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 			CLIPModel:     c.Diffusers.ClipModel,
 			CLIPSubfolder: c.Diffusers.ClipSubFolder,
 			CLIPSkip:      int32(c.Diffusers.ClipSkip),
+			ControlNet:    c.Diffusers.ControlNet,
 		}),
 	})
 

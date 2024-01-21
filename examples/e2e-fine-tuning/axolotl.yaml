@@ -1,0 +1,63 @@
+
+base_model: openlm-research/open_llama_3b_v2
+model_type: LlamaForCausalLM
+tokenizer_type: LlamaTokenizer
+load_in_8bit: false
+load_in_4bit: true
+strict: false
+push_dataset_to_hub: false
+datasets:
+- path: dataset.json
+  ds_type: json
+  type: completion
+dataset_prepared_path:
+val_set_size: 0.05
+adapter: qlora
+lora_model_dir:
+sequence_len: 1024
+sample_packing: true
+lora_r: 8
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target_modules:
+lora_target_linear: true
+lora_fan_in_fan_out:
+wandb_project:
+wandb_entity:
+wandb_watch:
+wandb_run_id:
+wandb_log_model:
+output_dir: ./qlora-out
+gradient_accumulation_steps: 1
+micro_batch_size: 2
+num_epochs: 4
+optimizer: paged_adamw_32bit
+torchdistx_path:
+lr_scheduler: cosine
+learning_rate: 0.0002
+train_on_inputs: false
+group_by_length: false
+bf16: false
+fp16: true
+tf32: false
+gradient_checkpointing: true
+early_stopping_patience:
+resume_from_checkpoint:
+local_rank:
+logging_steps: 1
+xformers_attention:
+flash_attention: false
+gptq_groupsize:
+gptq_model_v1:
+warmup_steps: 20
+eval_steps: 0.05
+save_steps:
+debug:
+deepspeed:
+weight_decay: 0.1
+fsdp:
+fsdp_config:
+special_tokens:
+bos_token: "<s>"
+eos_token: "</s>"
+unk_token: "<unk>"

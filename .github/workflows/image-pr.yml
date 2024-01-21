@@ -1,0 +1,86 @@
+---
+name: 'build container images tests'
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  extras-image-build:
+    uses: ./.github/workflows/image_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      ffmpeg: ${{ matrix.ffmpeg }}
+      image-type: ${{ matrix.image-type }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      runs-on: ${{ matrix.runs-on }}
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      # Pushing with all jobs in parallel
+      # eats the bandwidth of all the nodes
+      max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
+      matrix:
+        include:
+          - build-type: ''
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-ffmpeg'
+            ffmpeg: 'true'
+            image-type: 'extras'
+            runs-on: 'arc-runner-set'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "1"
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-cublas-cuda12-ffmpeg'
+            ffmpeg: 'true'
+            image-type: 'extras'
+            runs-on: 'arc-runner-set'
+  core-image-build:
+    uses: ./.github/workflows/image_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      ffmpeg: ${{ matrix.ffmpeg }}
+      image-type: ${{ matrix.image-type }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      runs-on: ${{ matrix.runs-on }}
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      matrix:
+        include:
+          - build-type: ''
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-ffmpeg-core'
+            ffmpeg: 'true'
+            image-type: 'core'
+            runs-on: 'ubuntu-latest'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "1"
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-cublas-cuda12-ffmpeg-core'
+            ffmpeg: 'true'
+            image-type: 'core'
+            runs-on: 'ubuntu-latest'

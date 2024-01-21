@@ -1,5 +1,5 @@
 
-LLAMA_VERSION?=d9b33fe95bd257b36c84ee5769cc048230067d6f
+LLAMA_VERSION?=
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
@@ -21,6 +21,9 @@ endif
 
 llama.cpp:
 	git clone --recurse-submodules https://github.com/ggerganov/llama.cpp llama.cpp
+	if [ -z "$(LLAMA_VERSION)" ]; then \
+		exit 1; \
+	fi
 	cd llama.cpp && git checkout -b build $(LLAMA_VERSION) && git submodule update --init --recursive --depth 1
 
 llama.cpp/examples/grpc-server:

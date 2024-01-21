@@ -1,133 +1,178 @@
-# this is a required setting for this theme to appear on https://themes.gohugo.io/
-# change this to a value appropriate for you; if your site is served from a subdirectory
-# set it like "https://example.com/mysite/"
 baseURL = "https://localai.io/"
+languageCode = "en-GB"
+contentDir = "content"
+enableEmoji = true
+enableGitInfo = true # N.B. .GitInfo does not currently function with git submodule content directories
 
-# canonicalization will only be used for the sitemap.xml and index.xml files;
-# if set to false, a site served from a subdirectory will generate wrong links
-# inside of the above mentioned files; if you serve the page from the servers root
-# you are free to set the value to false as recommended by the official Hugo documentation
-canonifyURLs = true # true -> all relative URLs would instead be canonicalized using baseURL
-# required value to serve this page from a webserver AND the file system;
-# if you don't want to serve your page from the file system, you can also set this value
-# to false
-relativeURLs = true # true -> rewrite all relative URLs to be relative to the current content
-# if you set uglyURLs to false, this theme will append 'index.html' to any branch bundle link
-# so your page can be also served from the file system; if you don't want that,
-# set disableExplicitIndexURLs=true in the [params] section
-uglyURLs = false     # true -> basic/index.html -> basic.html
+defaultContentLanguage = 'en'
 
-# the directory where Hugo reads the themes from; this is specific to your
-# installation and most certainly needs be deleted or changed
-#themesdir = "../.."
-# yeah, well, obviously a mandatory setting for your site, if you want to
-# use this theme ;-)
-theme = "hugo-theme-relearn"
-
-# the main language of this site; also an automatic pirrrate translation is
-# available in this showcase
-languageCode = "en"
-
-# make sure your defaultContentLanguage is the first one in the [languages]
-# array below, as the theme needs to make assumptions on it
-defaultContentLanguage = "en"
-
-# the site's title of this showcase; you should change this ;-)
-title = "LocalAI Documentation"
-
-# We disable this for testing the exampleSite; you must do so too
-# if you want to use the themes parameter disableGeneratorVersion=true;
-# otherwise Hugo will create a generator tag on your home page
-disableHugoGeneratorInject = true
-
-[outputs]
-  # add JSON to the home to support Lunr search; This is a mandatory setting
-  # for the search functionality
-  # add PRINT to home, section and page to activate the feature to print whole
-  # chapters
-  home = ["HTML", "RSS", "PRINT", "SEARCH", "SEARCHPAGE"]
-  section = ["HTML", "RSS", "PRINT"]
-  page = ["HTML", "RSS", "PRINT"]
 
 [markup]
-  [markup.highlight]
-    # if `guessSyntax = true`, there will be no unstyled code even if no language
-    # was given BUT Mermaid and Math codefences will not work anymore! So this is a
-    # mandatory setting for your site if you want to use Mermaid or Math codefences
-    guessSyntax = true
+  defaultMarkdownHandler = "goldmark"
+  [markup.tableOfContents]
+      endLevel = 3
+      startLevel = 1
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true # https://jdhao.github.io/2019/12/29/hugo_html_not_shown/
+  # [markup.highlight]
+  #   codeFences = false # disables Hugo's default syntax highlighting
+  # [markup.goldmark.parser]
+  #   [markup.goldmark.parser.attribute]
+  #     block = true
+  #     title = true
 
-    # here in this showcase we use our own modified chroma syntax highlightning style
-    # which is imported in theme-relearn-light.css / theme-relearn-dark.css;
-    # if you want to use a predefined style instead:
-    # - remove the following `noClasses`
-    # - set the following `style` to a predefined style name
-    # - remove the `@import` of the self-defined chroma stylesheet from your CSS files
-    #   (here eg.: theme-relearn-light.css / theme-relearn-dark.css)
-    noClasses = false
-    style = "tango"
 
-  [markup.goldmark.renderer]
-    # activated for this showcase to use HTML and JavaScript; decide on your own needs;
-    # if in doubt, remove this line
-    unsafe = true
 
-# allows `hugo server` to display this showcase in IE11; this is used for testing, as we
-# are still supporting IE11 - although with degraded experience; if you don't care about
-# `hugo server` or browsers of ancient times, fell free to remove this whole block
-[server]
-  [[server.headers]]
-    for = "**.html"
-    [server.headers.values]
-       X-UA-Compatible = "IE=edge"
+[params]
 
-# showcase of the menu shortcuts; you can use relative URLs linking
-# to your content or use fully-quallified URLs to link outside of
-# your project
+  google_fonts = [
+    ["Inter", "300, 400, 600, 700"],
+    ["Fira Code", "500, 700"]
+  ]
+
+  sans_serif_font = "Inter"     # Default is System font
+  secondary_font  = "Inter"     # Default is System font
+  mono_font       = "Fira Code" # Default is System font
+
+    [params.footer]
+        copyright = "© 2023-2024 <a href='https://mudler.pm' target=_blank>Ettore Di Giacinto</a>"
+        version = true # includes git commit info
+
+    [params.social]
+        github = "mudler/LocalAI"        # YOUR_GITHUB_ID or YOUR_GITHUB_URL
+        twitter = "LocalAI_API"       # YOUR_TWITTER_ID
+        dicord = "uJAeKSAGDy"
+        # instagram = "colinwilson"     # YOUR_INSTAGRAM_ID
+        rss = true                    # show rss icon with link
+
+    [params.docs] # Parameters for the /docs 'template'
+
+        logo = "https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd"
+        logo_text = "LocalAI"
+        title           = "LocalAI documentation"           # default html title for documentation pages/sections
+
+        pathName        = "docs"                            # path name for documentation site | default "docs"
+
+        # themeColor      = "cyan"                            # (optional) - Set theme accent colour. Options include: blue (default), green, red, yellow, emerald, cardinal, magenta, cyan
+
+        darkMode        = true                                # enable dark mode option? default false
+
+        prism           = true                                # enable syntax highlighting via Prism
+
+        prismTheme      = "solarized-light"                           # (optional) - Set theme for PrismJS. Options include: lotusdocs (default), solarized-light, twilight, lucario
+
+        # gitinfo
+        repoURL         = "https://github.com/mudler/LocalAI"  # Git repository URL for your site [support for GitHub, GitLab, and BitBucket]
+        repoBranch      = "master"
+        editPage        = true                                # enable 'Edit this page' feature - default false
+        lastMod         = true                                # enable 'Last modified' date on pages - default false
+        lastModRelative = true                                # format 'Last modified' time as relative - default true
+
+        sidebarIcons    = true                                # enable sidebar icons? default false
+        breadcrumbs     = true                                # default is true
+        backToTop       = true                                # enable back-to-top button? default true
+
+        # ToC
+        toc             = true                                # enable table of contents? default is true
+        tocMobile       = true                                # enable table of contents in mobile view? default is true
+        scrollSpy       = true                                # enable scrollspy on ToC? default is true
+
+        # front matter
+        descriptions    = true                                # enable front matter descriptions under content title?
+        titleIcon       = true                                # enable front matter icon title prefix? default is false
+
+        # content navigation
+        navDesc         = true                                # include front matter descriptions in Prev/Next navigation cards
+        navDescTrunc    = 30                                  # Number of characters by which to truncate the Prev/Next descriptions
+
+        listDescTrunc   = 100                                 # Number of characters by which to truncate the list card description
+
+        # Link behaviour
+        intLinkTooltip  = true                                # Enable a tooltip for internal links that displays info about the destination? default false
+        # extLinkNewTab   = false                             # Open external links in a new Tab? default true
+        # logoLinkURL = ""                                    # Set a custom URL destination for the top header logo link.
+
+    [params.flexsearch] # Parameters for FlexSearch
+        enabled             = true
+        # tokenize            = "full"
+        # optimize            = true
+        # cache               = 100
+        # minQueryChar        = 3 # default is 0 (disabled)
+        # maxResult           = 5 # default is 5
+        # searchSectionsIndex = []
+
+    [params.docsearch] # Parameters for DocSearch
+        # appID     = "" # Algolia Application ID
+        # apiKey    = "" # Algolia Search-Only API (Public) Key
+        # indexName = "" # Index Name to perform search on (or set env variable HUGO_PARAM_DOCSEARCH_indexName)
+
+    [params.analytics] # Parameters for Analytics (Google, Plausible)
+        # plausibleURL    = "/docs/s" # (or set via env variable HUGO_PARAM_ANALYTICS_plausibleURL)
+        # plausibleAPI    = "/docs/s" # optional - (or set via env variable HUGO_PARAM_ANALYTICS_plausibleAPI)
+        # plausibleDomain = ""      # (or set via env variable HUGO_PARAM_ANALYTICS_plausibleDomain)
+
+    # [params.feedback]
+    #     enabled = true
+    #     emoticonTpl = true
+    #     eventDest = ["plausible","google"]
+    #     emoticonEventName = "Feedback"
+    #     positiveEventName = "Positive Feedback"
+    #     negativeEventName = "Negative Feedback"
+    #     positiveFormTitle = "What did you like?"
+    #     negativeFormTitle = "What went wrong?"
+    #     successMsg = "Thank you for helping to improve Lotus Docs' documentation!"
+    #     errorMsg = "Sorry! There was an error while attempting to submit your feedback!"
+    #     positiveForm = [
+    #       ["Accurate", "Accurately describes the feature or option."],
+    #       ["Solved my problem", "Helped me resolve an issue."],
+    #       ["Easy to understand", "Easy to follow and comprehend."],
+    #       ["Something else"]
+    #     ]
+    #     negativeForm = [
+    #       ["Inaccurate", "Doesn't accurately describe the feature or option."],
+    #       ["Couldn't find what I was looking for", "Missing important information."],
+    #       ["Hard to understand", "Too complicated or unclear."],
+    #       ["Code sample errors", "One or more code samples are incorrect."],
+    #       ["Something else"]
+    #     ]
+
+[menu]
+ [[menu.primary]]
+    name  = "Docs"
+    url = "docs/"
+    identifier = "docs"
+    weight = 10
+[[menu.primary]]
+    name = "Discord"
+    url = "https://discord.gg/uJAeKSAGDy"
+    identifier = "discord"
+    weight = 20
+
 [languages]
   [languages.en]
     title = "LocalAI documentation"
-    weight = 1
     languageName = "English"
-    [languages.en.params]
-      landingPageName = "<i class='fas fa-home'></i> Home"
-  [[languages.en.menu.shortcuts]]
-    name = "<i class='fas fa-home'></i> Home"
-    url = "/"
-    weight = 1
-  [[languages.en.menu.shortcuts]]
-    name = "<i class='fab fa-fw fa-github'></i> GitHub repo"
-    identifier = "ds"
-    url = "https://github.com/go-skynet/LocalAI"
     weight = 10
+#  [languages.fr]
+#    title = "LocalAI documentation"
+#    languageName = "Français"
+#    contentDir = "content/fr"
+#    weight = 20
+#  [languages.de]
+#    title = "LocalAI documentation"
+#    languageName = "Deutsch"
+#    contentDir = "content/de"
+#    weight = 30
 
-  [[languages.en.menu.shortcuts]]
-    name = "<i class='fas fa-fw fa-camera'></i> Examples"
-    url = "https://github.com/go-skynet/LocalAI/tree/master/examples/"
-    weight = 11
 
-  [[languages.en.menu.shortcuts]]
-    name = "<i class='fas fa-fw fa-images'></i> Model Gallery"
-    url = "https://github.com/go-skynet/model-gallery"
-    weight = 12
 
-  [[languages.en.menu.shortcuts]]
-    name = "<i class='fas fa-fw fa-download'></i> Container images"
-    url = "https://quay.io/repository/go-skynet/local-ai"
-    weight = 20
-  #[[languages.en.menu.shortcuts]]
-  #  name = "<i class='fas fa-fw fa-bullhorn'></i> Credits"
-  #  url = "more/credits/"
-  #  weight = 30
-
-  [[languages.en.menu.shortcuts]]
-    name = "<i class='fas fa-fw fa-tags'></i> Releases"
-    url = "https://github.com/go-skynet/LocalAI/releases"
-    weight = 40
 
 
 # mounts are only needed in this showcase to access the publicly available screenshots;
 # remove this section if you don't need further mounts
 [module]
+  replacements = "github.com/colinwilson/lotusdocs -> lotusdocs"
   [[module.mounts]]
     source = 'archetypes'
     target = 'archetypes'
@@ -152,30 +197,11 @@ disableHugoGeneratorInject = true
   [[module.mounts]]
     source = 'static'
     target = 'static'
-
-
-# settings specific to this theme's features; choose to your likings and
-# consult this documentation for explaination
-[params]
-  editURL = "https://github.com/mudler/LocalAI/edit/master/docs/content/"
-  description = "Documentation for LocalAI"
-  author = "Ettore Di Giacinto"
-  showVisitedLinks = true
-  collapsibleMenu = true
-  disableBreadcrumb = false
-  disableInlineCopyToClipBoard = true
-  disableNextPrev = false
-  disableLandingPageButton = true
-  breadcrumbSeparator = ">"
-  titleSeparator = "::"
-  themeVariant = [ "auto", "relearn-bright", "relearn-light", "relearn-dark", "learn", "neon", "blue", "green", "red" ]
-  themeVariantAuto = [ "relearn-light", "relearn-dark" ]
-  disableSeoHiddenPages = true
-  # this is to index search for your native language in other languages, too (eg.
-  # pir in this showcase)
-  additionalContentLanguage = [ "en" ]
-  # this is for the stylesheet generator to allow for interactivity in Mermaid
-  # graphs; you usually will not need it and you should remove this for
-  # security reasons
-  mermaidInitialize = "{ \"securityLevel\": \"loose\" }"
-  mermaidZoom = true
+    # uncomment line below for temporary local development of module
+    # or when using a 'theme' as a git submodule
+  [[module.imports]]
+    path = "github.com/colinwilson/lotusdocs"
+    disable = false
+  [[module.imports]]
+    path = "github.com/gohugoio/hugo-mod-bootstrap-scss/v5"
+    disable = false

@@ -1,0 +1,23 @@
+meta {
+  name: musicgen
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/tts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "backend": "transformers-musicgen",
+      "model": "facebook/musicgen-small",
+      "input": "80s Synths playing Jazz"
+  }
+}

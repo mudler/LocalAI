@@ -18,9 +18,9 @@ import backend_pb2_grpc
 import grpc
 
 from diffusers import StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
-from diffusers import StableDiffusionImg2ImgPipeline
+from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
-
+from diffusers.utils import load_image,export_to_video
 from compel import Compel
 
 from transformers import CLIPTextModel
@@ -30,6 +30,11 @@ from safetensors.torch import load_file
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 COMPEL=os.environ.get("COMPEL", "1") == "1"
 CLIPSKIP=os.environ.get("CLIPSKIP", "1") == "1"
+SAFETENSORS=os.environ.get("SAFETENSORS", "1") == "1"
+CHUNK_SIZE=os.environ.get("CHUNK_SIZE", "8")
+FPS=os.environ.get("FPS", "7")
+DISABLE_CPU_OFFLOAD=os.environ.get("DISABLE_CPU_OFFLOAD", "0") == "1"
+FRAMES=os.environ.get("FRAMES", "64")
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
@@ -135,15 +140,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print(f"Loading model {request.Model}...", file=sys.stderr)
             print(f"Request {request}", file=sys.stderr)
             torchType = torch.float32
+            variant = None
+
             if request.F16Memory:
                 torchType = torch.float16
+                variant="fp16"
 
             local = False
             modelFile = request.Model
 
-            cfg_scale = 7
+            self.cfg_scale = 7
             if request.CFGScale != 0:
-                cfg_scale = request.CFGScale
+                self.cfg_scale = request.CFGScale
             
             clipmodel = "runwayml/stable-diffusion-v1-5"
             if request.CLIPModel != "":
@@ -159,69 +167,86 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     modelFile = request.ModelFile
             
             fromSingleFile = request.Model.startswith("http") or request.Model.startswith("/") or local
-            
-            if request.IMG2IMG and request.PipelineType == "":
-                request.PipelineType == "StableDiffusionImg2ImgPipeline"
-                
-            if request.PipelineType == "":
-                request.PipelineType == "StableDiffusionPipeline"
-
+            self.img2vid=False
+            self.txt2vid=False
             ## img2img
-            if request.PipelineType == "StableDiffusionImg2ImgPipeline":
+            if (request.PipelineType == "StableDiffusionImg2ImgPipeline") or (request.IMG2IMG and request.PipelineType == ""):
                 if fromSingleFile:
                     self.pipe = StableDiffusionImg2ImgPipeline.from_single_file(modelFile,
-                                torch_dtype=torchType,
-                                guidance_scale=cfg_scale)
+                                torch_dtype=torchType)
                 else:
                     self.pipe = StableDiffusionImg2ImgPipeline.from_pretrained(request.Model,
-                                torch_dtype=torchType,
-                                guidance_scale=cfg_scale)
+                                torch_dtype=torchType)
 
-            if request.PipelineType == "StableDiffusionDepth2ImgPipeline":
+            elif request.PipelineType == "StableDiffusionDepth2ImgPipeline":
                 self.pipe = StableDiffusionDepth2ImgPipeline.from_pretrained(request.Model,
-                            torch_dtype=torchType,
-                            guidance_scale=cfg_scale)
+                            torch_dtype=torchType)
+            ## img2vid
+            elif request.PipelineType == "StableVideoDiffusionPipeline":
+                self.img2vid=True
+                self.pipe = StableVideoDiffusionPipeline.from_pretrained(
+                    request.Model, torch_dtype=torchType, variant=variant
+                )
+                if not DISABLE_CPU_OFFLOAD:
+                    self.pipe.enable_model_cpu_offload()
             ## text2img
-            if request.PipelineType == "StableDiffusionPipeline":
+            elif request.PipelineType == "AutoPipelineForText2Image" or request.PipelineType == "":
+                self.pipe = AutoPipelineForText2Image.from_pretrained(request.Model,
+                                                    torch_dtype=torchType,
+                                                    use_safetensors=SAFETENSORS, 
+                                                    variant=variant)
+            elif request.PipelineType == "StableDiffusionPipeline":
                 if fromSingleFile:
                     self.pipe = StableDiffusionPipeline.from_single_file(modelFile,
-                                                        torch_dtype=torchType,
-                                                        guidance_scale=cfg_scale)
+                                                        torch_dtype=torchType)
                 else:
                     self.pipe = StableDiffusionPipeline.from_pretrained(request.Model,
-                                                        torch_dtype=torchType,
-                                                        guidance_scale=cfg_scale)
-
-            if request.PipelineType == "DiffusionPipeline":
+                                                        torch_dtype=torchType)
+            elif request.PipelineType == "DiffusionPipeline":
                 self.pipe = DiffusionPipeline.from_pretrained(request.Model,
-                                                        torch_dtype=torchType,
-                                                        guidance_scale=cfg_scale)
-
-            if request.PipelineType == "StableDiffusionXLPipeline":
+                                                        torch_dtype=torchType)
+            elif request.PipelineType == "VideoDiffusionPipeline":
+                self.txt2vid=True
+                self.pipe = DiffusionPipeline.from_pretrained(request.Model,
+                                                        torch_dtype=torchType)
+            elif request.PipelineType == "StableDiffusionXLPipeline":
                 if fromSingleFile:
                     self.pipe = StableDiffusionXLPipeline.from_single_file(modelFile,
-                                                               torch_dtype=torchType, use_safetensors=True,
-                                                               guidance_scale=cfg_scale)
+                                                               torch_dtype=torchType,
+                                                               use_safetensors=True)
                 else:
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
                         request.Model, 
                         torch_dtype=torchType, 
                         use_safetensors=True, 
-                #       variant="fp16"
-                        guidance_scale=cfg_scale)
-            # https://github.com/huggingface/diffusers/issues/4446
-            # do not use text_encoder in the constructor since then
-            # https://github.com/huggingface/diffusers/issues/3212#issuecomment-1521841481
+                        variant=variant)
+
             if CLIPSKIP and request.CLIPSkip != 0:
-                text_encoder = CLIPTextModel.from_pretrained(clipmodel, num_hidden_layers=request.CLIPSkip,  subfolder=clipsubfolder, torch_dtype=torchType)
-                self.pipe.text_encoder=text_encoder
+                self.clip_skip = request.CLIPSkip
+            else:
+                self.clip_skip = 0
+            
             # torch_dtype needs to be customized. float16 for GPU, float32 for CPU
             # TODO: this needs to be customized
             if request.SchedulerType != "":
                 self.pipe.scheduler = get_scheduler(request.SchedulerType, self.pipe.scheduler.config)
-            self.compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
+                
+            if not self.img2vid:
+                self.compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
+
+
+            if request.ControlNet:
+                self.controlnet = ControlNetModel.from_pretrained(
+                    request.ControlNet, torch_dtype=torchType, variant=variant
+                )
+                self.pipe.controlnet = self.controlnet
+            else:
+                self.controlnet = None
+
             if request.CUDA:
                 self.pipe.to('cuda')
+                if self.controlnet:
+                    self.controlnet.to('cuda')
             # Assume directory from request.ModelFile.
             # Only if request.LoraAdapter it's not an absolute path
             if request.LoraAdapter and request.ModelFile != "" and not os.path.isabs(request.LoraAdapter) and request.LoraAdapter:
@@ -303,17 +328,28 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         prompt = request.positive_prompt
 
+        steps = 1
+
+        if request.step != 0:
+            steps = request.step
+
         # create a dictionary of values for the parameters
         options = {
             "negative_prompt":     request.negative_prompt, 
             "width":               request.width, 
             "height":              request.height,
-            "num_inference_steps": request.step,
+            "num_inference_steps": steps,
         }
 
-        if request.src != "":
+        if request.src != "" and not self.controlnet and not self.img2vid:
             image = Image.open(request.src)
             options["image"] = image
+        elif self.controlnet and request.src:
+            pose_image = load_image(request.src)
+            options["image"] = pose_image
+
+        if CLIPSKIP and self.clip_skip != 0:
+            options["clip_skip"]=self.clip_skip
 
         # Get the keys that we will build the args for our pipe for
         keys = options.keys()
@@ -333,25 +369,42 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 request.seed
             )
 
+        if self.img2vid:
+            # Load the conditioning image
+            image = load_image(request.src)
+            image = image.resize((1024, 576))
+
+            generator = torch.manual_seed(request.seed)
+            frames = self.pipe(image, guidance_scale=self.cfg_scale, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
+            export_to_video(frames, request.dst, fps=FPS)
+            return backend_pb2.Result(message="Media generated successfully", success=True)
+
+        if self.txt2vid:
+            video_frames = self.pipe(prompt, guidance_scale=self.cfg_scale, num_inference_steps=steps, num_frames=int(FRAMES)).frames
+            export_to_video(video_frames, request.dst)
+            return backend_pb2.Result(message="Media generated successfully", success=True)
+
         image = {}
         if COMPEL:
             conditioning = self.compel.build_conditioning_tensor(prompt)
             kwargs["prompt_embeds"]= conditioning
             # pass the kwargs dictionary to the self.pipe method
-            image = self.pipe( 
+            image = self.pipe(
+                guidance_scale=self.cfg_scale,
                 **kwargs
                 ).images[0] 
         else:
             # pass the kwargs dictionary to the self.pipe method
             image = self.pipe(
-                prompt, 
+                prompt,
+                guidance_scale=self.cfg_scale,
                 **kwargs
                 ).images[0]
 
         # save the result
         image.save(request.dst)
 
-        return backend_pb2.Result(message="Model loaded successfully", success=True)
+        return backend_pb2.Result(message="Media generated", success=True)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))

@@ -1,25 +1,22 @@
 # LocalAI Demonstration with Embeddings
 
-This demonstration shows you how to use embeddings with existing data in LocalAI. We are using the `llama_index` library to facilitate the embedding and querying processes. The `Weaviate` client is used as the embedding source.
-
-## Prerequisites
-
-Before proceeding, make sure you have the following installed:
-- Weaviate client
-- LocalAI and its dependencies
-- llama_index and its dependencies 
+This demonstration shows you how to use embeddings with existing data in LocalAI.
+We are using the `llama-index` library to facilitate the embedding and querying processes.
+The `Weaviate` client is used as the embedding source.
 
 ## Getting Started
 
-1. Clone this repository:
+1. Clone this repository and navigate to this directory
 
-2. Navigate to the project directory:
+    ```bash
+    git clone git@github.com:mudler/LocalAI.git
+    cd LocalAI/examples/llamaindex
+    ```
 
-3. Run the example:
+2. pip install LlamaIndex and Weviate's client: `pip install llama-index>=0.9.9 weviate-client`
+3. Run the example: `python main.py`
 
-`python main.py`
-
-```
+```none
 Downloading (…)lve/main/config.json: 100%|███████████████████████████| 684/684 [00:00<00:00, 6.01MB/s]
 Downloading model.safetensors: 100%|███████████████████████████████| 133M/133M [00:03<00:00, 39.5MB/s]
 Downloading (…)okenizer_config.json: 100%|███████████████████████████| 366/366 [00:00<00:00, 2.79MB/s]

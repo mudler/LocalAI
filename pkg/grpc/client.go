@@ -39,7 +39,7 @@ func (c *Client) setBusy(v bool) {
 	c.Unlock()
 }
 
-func (c *Client) HealthCheck(ctx context.Context) bool {
+func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()
@@ -48,8 +48,7 @@ func (c *Client) HealthCheck(ctx context.Context) bool {
 	defer c.setBusy(false)
 	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return false, err
 	}
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
@@ -60,15 +59,14 @@ func (c *Client) HealthCheck(ctx context.Context) bool {
 
 	res, err := client.Health(ctx, &pb.HealthMessage{})
 	if err != nil {
-		fmt.Println(err)
-
-		return false
+		return false, err
 	}
 
 	if string(res.Message) == "OK" {
-		return true
+		return true, nil
 	}
-	return false
+
+	return false, fmt.Errorf("health check failed: %s", res.Message)
 }
 
 func (c *Client) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.EmbeddingResult, error) {

@@ -130,6 +130,12 @@ func (g *galleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
 					continue
 				}
 
+				err = cm.Preload(g.modelPath)
+				if err != nil {
+					updateError(err)
+					continue
+				}
+
 				g.updateStatus(op.id, &galleryOpStatus{Processed: true, Message: "completed", Progress: 100})
 			}
 		}

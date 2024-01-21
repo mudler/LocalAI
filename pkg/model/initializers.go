@@ -14,6 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var Aliases map[string]string = map[string]string{
+	"go-llama": GoLlamaBackend,
+	"llama":    LLamaCPP,
+}
+
 const (
 	GoLlamaBackend      = "llama"
 	LlamaGGML           = "llama-ggml"
@@ -35,8 +40,12 @@ const (
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
+	TinyDreamBackend       = "tinydream"
 	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "langchain-huggingface"
+
+	// External Backends that need special handling within LocalAI:
+	TransformersMusicGen = "transformers-musicgen"
 )
 
 var AutoLoadBackends []string = []string{
@@ -56,6 +65,7 @@ var AutoLoadBackends []string = []string{
 	RwkvBackend,
 	WhisperBackend,
 	StableDiffusionBackend,
+	TinyDreamBackend,
 	PiperBackend,
 }
 
@@ -121,10 +131,14 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		// Wait for the service to start up
 		ready := false
 		for i := 0; i < o.grpcAttempts; i++ {
-			if client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background()) {
+			alive, err := client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background())
+			if alive {
 				log.Debug().Msgf("GRPC Service Ready")
 				ready = true
 				break
+			}
+			if err != nil && i == o.grpcAttempts-1 {
+				log.Error().Msgf("Failed starting/connecting to the gRPC service: %s", err.Error())
 			}
 			time.Sleep(time.Duration(o.grpcAttemptsDelay) * time.Second)
 		}
@@ -166,9 +180,17 @@ func (ml *ModelLoader) resolveAddress(addr ModelAddress, parallel bool) (grpc.Ba
 func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 
-	log.Debug().Msgf("Loading model %s from %s", o.backendString, o.model)
+	if o.model != "" {
+		log.Info().Msgf("Loading model '%s' with backend %s", o.model, o.backendString)
+	} else {
+		log.Info().Msgf("Loading model with backend %s", o.backendString)
+	}
 
 	backend := strings.ToLower(o.backendString)
+	if realBackend, exists := Aliases[backend]; exists {
+		backend = realBackend
+		log.Debug().Msgf("%s is an alias of %s", backend, realBackend)
+	}
 
 	if o.singleActiveBackend {
 		ml.mu.Lock()
@@ -225,10 +247,13 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 	for _, b := range o.externalBackends {
 		allBackendsToAutoLoad = append(allBackendsToAutoLoad, b)
 	}
-	log.Debug().Msgf("Loading model '%s' greedly from all the available backends: %s", o.model, strings.Join(allBackendsToAutoLoad, ", "))
+
+	if o.model != "" {
+		log.Info().Msgf("Trying to load the model '%s' with all the available backends: %s", o.model, strings.Join(allBackendsToAutoLoad, ", "))
+	}
 
 	for _, b := range allBackendsToAutoLoad {
-		log.Debug().Msgf("[%s] Attempting to load", b)
+		log.Info().Msgf("[%s] Attempting to load", b)
 		options := []Option{
 			WithBackendString(b),
 			WithModel(o.model),
@@ -243,14 +268,14 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 
 		model, modelerr := ml.BackendLoader(options...)
 		if modelerr == nil && model != nil {
-			log.Debug().Msgf("[%s] Loads OK", b)
+			log.Info().Msgf("[%s] Loads OK", b)
 			return model, nil
 		} else if modelerr != nil {
 			err = multierror.Append(err, modelerr)
-			log.Debug().Msgf("[%s] Fails: %s", b, modelerr.Error())
+			log.Info().Msgf("[%s] Fails: %s", b, modelerr.Error())
 		} else if model == nil {
 			err = multierror.Append(err, fmt.Errorf("backend returned no usable model"))
-			log.Debug().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
+			log.Info().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
 		}
 	}
 

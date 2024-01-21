@@ -1,0 +1,16 @@
+context_size: 512
+f16: true
+threads: 11
+gpu_layers: 90
+name: mixtral
+mmap: true
+parameters:
+  model: mixtral-8x7b-instruct-v0.1.Q2_K.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+  batch: 512
+  tfz: 1.0
+template:
+  chat: mixtral-chat
+  completion: mixtral

@@ -1,0 +1,28 @@
+name: mamba-chat
+backend: mamba
+parameters:
+  model: "havenhq/mamba-chat"
+
+trimsuffix: 
+- <|endoftext|>
+
+# https://huggingface.co/HuggingFaceH4/zephyr-7b-beta/blob/main/tokenizer_config.json
+#   "chat_template": "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}",
+template:
+  chat_message: |
+    {{if eq .RoleName "assistant"}}<|assistant|>{{else if eq .RoleName "system"}}<|system|>{{else if eq .RoleName "user"}}<|user|>{{end}}
+    {{if .Content}}{{.Content}}{{end}}
+    </s>
+    
+  chat: |
+    {{.Input}}
+    <|assistant|>
+    
+  completion: |
+    {{.Input}}
+usage: |
+    curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+      "model": "mamba-chat",
+      "messages": [{"role": "user", "content": "how are you doing"}],
+      "temperature": 0.7
+    }'

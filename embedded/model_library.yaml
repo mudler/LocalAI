@@ -1,0 +1,9 @@
+### 
+###
+### This file contains the list of models that are available in the library
+### The URLs are automatically expanded when local-ai is being called with the key as argument
+###
+### For models with an entire YAML file to be embededd, put the file inside the `models`
+### directory, it will be automatically available with the file name as key (without the .yaml extension)
+
+phi-2:  "github://mudler/LocalAI/examples/configurations/phi-2.yaml@master"

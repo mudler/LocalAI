@@ -16,9 +16,9 @@ import (
 	. "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/metrics"
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -61,7 +61,7 @@ func getModelStatus(url string) (response map[string]interface{}) {
 }
 
 func getModels(url string) (response []gallery.GalleryModel) {
-	utils.GetURI(url, func(url string, i []byte) error {
+	downloader.GetURI(url, func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})
@@ -294,7 +294,7 @@ var _ = Describe("API test", func() {
 				Expect(content["backend"]).To(Equal("bert-embeddings"))
 			})
 
-			It("runs openllama", Label("llama"), func() {
+			It("runs openllama(llama-ggml backend)", Label("llama"), func() {
 				if runtime.GOOS != "linux" {
 					Skip("test supported only on linux")
 				}
@@ -362,9 +362,10 @@ var _ = Describe("API test", func() {
 				Expect(res["location"]).To(Equal("San Francisco, California, United States"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
+
 			})
 
-			It("runs openllama gguf", Label("llama-gguf"), func() {
+			It("runs openllama gguf(llama-cpp)", Label("llama-gguf"), func() {
 				if runtime.GOOS != "linux" {
 					Skip("test supported only on linux")
 				}

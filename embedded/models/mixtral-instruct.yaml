@@ -1,0 +1,20 @@
+name: mixtral-instruct
+mmap: true
+parameters:
+  model: huggingface://TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF/mixtral-8x7b-instruct-v0.1.Q2_K.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+template:
+  chat: &chat |
+    [INST] {{.Input}} [/INST]    
+  completion: *chat
+context_size: 4096
+f16: true
+gpu_layers: 90
+
+usage: |
+      curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
+          "model": "mixtral-instruct",
+          "prompt": "How are you doing?"
+      }'

@@ -1,10 +1,9 @@
-.PONY: exllama
+.PHONY: exllama
 exllama:
-	@echo "Creating virtual environment..."
-	@conda env create --name exllama --file exllama.yml
-	@echo "Virtual environment created."
+	$(MAKE) -C ../common-env/transformers
+	bash install.sh
 
-.PONY: run
+.PHONY: run
 run:
 	@echo "Running exllama..."
 	bash run.sh

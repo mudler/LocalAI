@@ -1,8 +1,10 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
@@ -14,6 +16,7 @@ import (
 	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/startup"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -34,6 +37,8 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.Loader.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
 
+	startup.PreloadModelsConfigurations(options.Loader.ModelPath, options.ModelsURL...)
+
 	cl := config.NewConfigLoader()
 	if err := cl.LoadConfigs(options.Loader.ModelPath); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())
@@ -42,6 +47,22 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 	if options.ConfigFile != "" {
 		if err := cl.LoadConfigFile(options.ConfigFile); err != nil {
 			log.Error().Msgf("error loading config file: %s", err.Error())
+		}
+	}
+
+	if err := cl.Preload(options.Loader.ModelPath); err != nil {
+		log.Error().Msgf("error downloading models: %s", err.Error())
+	}
+
+	if options.PreloadJSONModels != "" {
+		if err := localai.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if options.PreloadModelsFromPath != "" {
+		if err := localai.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
+			return nil, nil, err
 		}
 	}
 
@@ -58,18 +79,6 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 		log.Debug().Msgf("Extracting backend assets files to %s", options.AssetsDestination)
 		if err != nil {
 			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
-		}
-	}
-
-	if options.PreloadJSONModels != "" {
-		if err := localai.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if options.PreloadModelsFromPath != "" {
-		if err := localai.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
-			return nil, nil, err
 		}
 	}
 
@@ -144,28 +153,46 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
-		if len(options.ApiKeys) > 0 {
-			authHeader := c.Get("Authorization")
-			if authHeader == "" {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
-			}
-			authHeaderParts := strings.Split(authHeader, " ")
-			if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
+		if len(options.ApiKeys) == 0 {
+			return c.Next()
+		}
+
+		// Check for api_keys.json file
+		fileContent, err := os.ReadFile("api_keys.json")
+		if err == nil {
+			// Parse JSON content from the file
+			var fileKeys []string
+			err := json.Unmarshal(fileContent, &fileKeys)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Error parsing api_keys.json"})
 			}
 
-			apiKey := authHeaderParts[1]
-			validApiKey := false
-			for _, key := range options.ApiKeys {
-				if apiKey == key {
-					validApiKey = true
-				}
-			}
-			if !validApiKey {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+			// Add file keys to options.ApiKeys
+			options.ApiKeys = append(options.ApiKeys, fileKeys...)
+		}
+
+		if len(options.ApiKeys) == 0 {
+			return c.Next()
+		}
+
+		authHeader := c.Get("Authorization")
+		if authHeader == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
+		}
+		authHeaderParts := strings.Split(authHeader, " ")
+		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
+		}
+
+		apiKey := authHeaderParts[1]
+		for _, key := range options.ApiKeys {
+			if apiKey == key {
+				return c.Next()
 			}
 		}
-		return c.Next()
+
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+
 	}
 
 	if options.CORS {

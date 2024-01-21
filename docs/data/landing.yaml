@@ -1,0 +1,50 @@
+# Note: Template blocks require a 'weight' parameter so they're correctly ordered on the landing page
+
+# Hero
+hero:
+  enable: false
+  weight: 10
+  template: hero
+
+# Feature Grid
+featureGrid:
+  enable: false
+  weight: 20
+  template: feature grid
+
+imageText:
+  enable: true
+  weight: 25
+  template: image text
+
+  title: LocalAI
+  subtitle: The Free, Open Source OpenAI Alternative
+
+  list:
+    - text: Optimized, fast inference
+      icon: speed
+
+    - text: Comprensive support for many models architectures
+      icon: area_chart
+
+    - text: Easy to deploy with Docker
+      icon: accessibility
+
+  image:
+    path: "images/logos"
+    filename: "logo.png"
+    alt: "LocalAI logo" # Optional but recommended
+
+  imgOrder:
+    desktop: 2
+    mobile: 1
+
+  ctaButton:
+    text: Learn more
+    url: "/docs/"
+
+# Image compare
+imageCompare:
+  enable: false
+  weight: 30
+  template: image compare

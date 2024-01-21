@@ -219,7 +219,12 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			c.Set("Transfer-Encoding", "chunked")
 		}
 
-		templateFile := config.Model
+		templateFile := ""
+
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		if o.Loader.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+			templateFile = config.Model
+		}
 
 		if config.TemplateConfig.Chat != "" && !processFunctions {
 			templateFile = config.TemplateConfig.Chat
@@ -229,18 +234,19 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			templateFile = config.TemplateConfig.Functions
 		}
 
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
-			SystemPrompt:         config.SystemPrompt,
-			SuppressSystemPrompt: suppressConfigSystemPrompt,
-			Input:                predInput,
-			Functions:            funcs,
-		})
-		if err == nil {
-			predInput = templatedInput
-			log.Debug().Msgf("Template found, input modified to: %s", predInput)
-		} else {
-			log.Debug().Msgf("Template failed loading: %s", err.Error())
+		if templateFile != "" {
+			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
+				SystemPrompt:         config.SystemPrompt,
+				SuppressSystemPrompt: suppressConfigSystemPrompt,
+				Input:                predInput,
+				Functions:            funcs,
+			})
+			if err == nil {
+				predInput = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", predInput)
+			} else {
+				log.Debug().Msgf("Template failed loading: %s", err.Error())
+			}
 		}
 
 		log.Debug().Msgf("Prompt (after templating): %s", predInput)

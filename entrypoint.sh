@@ -3,6 +3,16 @@ set -e
 
 cd /build
 
+# If we have set EXTRA_BACKENDS, then we need to prepare the backends
+if [ -n "$EXTRA_BACKENDS" ]; then
+	echo "EXTRA_BACKENDS: $EXTRA_BACKENDS"
+	# Space separated list of backends
+	for backend in $EXTRA_BACKENDS; do
+		echo "Preparing backend: $backend"
+		make -C $backend
+	done
+fi
+
 if [ "$REBUILD" != "false" ]; then
 	rm -rf ./local-ai
 	make build -j${BUILD_PARALLELISM:-1}

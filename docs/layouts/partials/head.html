@@ -1,0 +1,62 @@
+<head>
+    <meta charset="utf-8" />
+    <title>{{- .Site.Title }}</title>
+    {{- if not hugo.IsProduction }}
+    <meta name="robots" content="noindex">
+    {{- end }}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A Lightweight, Modern Documentation Theme for Hugo" />
+    <meta name="keywords" content="Documentation, Hugo, Hugo Theme, Bootstrap" />
+    <meta name="author" content="Ettore Di Giacinto" />
+    <meta name="email" content="info@localai.io" />
+    <meta name="website" content="https://localai.io" />
+    <meta name="Version" content="v0.1.0" />
+    <!-- favicon -->
+    {{ block "head/favicon" . }}{{ partialCached "head/favicon.html" . }}{{ end }}
+    <!-- Google Fonts -->
+    {{- partial "google-fonts" . }}
+    <!-- Custom CSS -->
+    {{- $options := dict "enableSourceMap" true }}
+    {{- if hugo.IsProduction}}
+        {{- $options := dict "enableSourceMap" false "outputStyle" "compressed" }}
+    {{- end }}
+    {{- $style := resources.Get "/scss/style.scss" }}
+    {{- $style = $style | resources.ExecuteAsTemplate "/scss/style.scss" . | resources.ToCSS $options }}
+    {{- if hugo.IsProduction }}
+        {{- $style = $style | minify | fingerprint "sha384" }}
+    {{- end -}}
+    <link rel="stylesheet" href="{{ $style.RelPermalink }}" {{ if hugo.IsProduction }}integrity="{{ $style.Data.Integrity }}"{{ end -}}/>
+    <!-- Bootstrap JS -->
+    {{ $js := resources.Get "js/bootstrap.js" }}
+    {{ $params := dict }}
+    {{ $sourceMap := cond hugo.IsProduction "" "inline" }}
+    {{ $opts := dict "sourceMap" $sourceMap "minify" hugo.IsProduction "target" "es2018" "params" $params }}
+    {{ $js = $js | js.Build $opts }}
+    {{ if hugo.IsProduction }}
+        {{ $js = $js | fingerprint "sha384" }}
+    {{ end }}
+        <script src="{{ $js.RelPermalink }}" {{ if hugo.IsProduction }}integrity="{{ $js.Data.Integrity }}"{{ end -}} defer></script>
+    <!-- Image Compare Viewer -->
+    {{ if ($.Scratch.Get "image_compare_enabled") }}
+        {{ $imagecompare := resources.Get "js/image-compare-viewer.min.js" }}
+        {{- if not .Site.IsServer }}
+            {{- $js := (slice $imagecompare) | resources.Concat "/js/image-compare.js" | minify | fingerprint "sha384" }}
+            <script type="text/javascript" src="{{ $js.Permalink }}" integrity="{{ $js.Data.Integrity }}"></script>
+        {{- else }}
+            {{- $js := (slice $imagecompare) | resources.Concat "/js/image-compare.js" }}
+            <script type="text/javascript" src="{{ $js.Permalink }}" {{ if hugo.IsProduction }}integrity="{{ $js.Data.Integrity }}"{{ end }}></script>
+        {{- end }}
+    {{- end }}
+    <!-- Plausible Analytics Config -->
+    {{- if not .Site.IsServer }}
+    {{ if and (.Site.Params.plausible.scriptURL) (.Site.Params.plausible.dataDomain) -}}
+        {{- partialCached "head/plausible" . }}
+    {{- end -}}
+    {{- end -}}
+    <!-- Google Analytics v4 Config -->
+    {{- if not .Site.IsServer }}
+    {{- if .Site.GoogleAnalytics }}
+        {{- template "_internal/google_analytics.html" . -}}
+    {{- end -}}
+    {{- end -}}
+</head>
