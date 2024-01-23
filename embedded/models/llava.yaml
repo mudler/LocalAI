@@ -17,6 +17,7 @@ parameters:
   temperature: 0.2
   top_k: 40
   top_p: 0.95
+  seed: -1
 
 template:
   chat: |

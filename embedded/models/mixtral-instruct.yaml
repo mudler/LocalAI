@@ -4,6 +4,7 @@ parameters:
   model: huggingface://TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF/mixtral-8x7b-instruct-v0.1.Q2_K.gguf
   temperature: 0.2
   top_k: 40
+  seed: -1
   top_p: 0.95
 template:
   chat: &chat |
