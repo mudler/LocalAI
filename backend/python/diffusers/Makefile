@@ -1,4 +1,8 @@
-CONDA_ENV_PATH = "diffusers.yml"
+export CONDA_ENV_PATH = "diffusers.yml"
+
+ifeq ($(BUILD_TYPE), hipblas)
+export CONDA_ENV_PATH = "diffusers-rocm.yml"
+endif
 
 .PHONY: diffusers
 diffusers:
