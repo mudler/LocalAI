@@ -5,6 +5,7 @@ parameters:
   temperature: 0.2
   top_k: 40
   top_p: 0.95
+  seed: -1
 template:
   chat_message: |
     <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}
