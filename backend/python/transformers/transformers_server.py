@@ -16,7 +16,7 @@ import backend_pb2_grpc
 import grpc
 import torch
 import torch.cuda
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -68,12 +68,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         model_name = request.Model
         try:
-            self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True) # trust_remote_code is needed to use the encode method with embeddings models like jinai-v2
+            if request.Type == "AutoModelForCausalLM":
+                self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
+            else:
+                self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.CUDA = False
+
             if request.CUDA or torch.cuda.is_available():
                 try:
                     print("Loading model", model_name, "to CUDA.", file=sys.stderr)
                     self.model = self.model.to("cuda")
+                    self.CUDA = True
                 except Exception as err:
                     print("Not using CUDA:", err, file=sys.stderr)
         except Exception as err:
@@ -94,6 +101,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             An EmbeddingResult object that contains the calculated embeddings.
         """
 
+        set_seed(request.Seed)
         # Tokenize input
         max_length = 512
         if request.Tokens != 0:
@@ -120,6 +128,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         Returns:
             backend_pb2.Reply: The predict result.
         """
+        set_seed(request.Seed)
         if request.TopP == 0:
             request.TopP = 0.9
 
@@ -127,10 +136,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.Tokens > 0:
             max_tokens = request.Tokens
 
-        inputs = self.tokenizer.tokenizer(request.Prompt, return_tensors="pt").input_ids
-        outputs = self.model.generate(inputs,max_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP)
+        inputs = self.tokenizer(request.Prompt, return_tensors="pt").input_ids
+        if self.CUDA:
+            inputs = inputs.to("cuda")
 
-        generated_text = self.tokenizer.tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+        outputs = self.model.generate(inputs,max_new_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP)
+
+        generated_text = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
         # Remove prompt from response if present
         if request.Prompt in generated_text:
             generated_text = generated_text.replace(request.Prompt, "")

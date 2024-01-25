@@ -63,6 +63,8 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 		F16Memory:      c.F16,
 		MLock:          c.MMlock,
 		RopeFreqBase:   c.RopeFreqBase,
+		RopeScaling:    c.RopeScaling,
+		Type:           c.ModelType,
 		RopeFreqScale:  c.RopeFreqScale,
 		NUMA:           c.NUMA,
 		Embeddings:     c.Embeddings,
