@@ -64,6 +64,9 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | [tinyllama-chat](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF) [original model](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.3) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core tinyllama-chat``` |
 | [dolphin-2.5-mixtral-8x7b](https://huggingface.co/TheBloke/dolphin-2.5-mixtral-8x7b-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core dolphin-2.5-mixtral-8x7b``` |
 | 🐍 [mamba](https://github.com/state-spaces/mamba) | [LLM]({{%relref "docs/features/text-generation" %}}) | GPU-only |
+| animagine-xl | [Text to Image]({{%relref "docs/features/image-generation" %}}) | GPU-only |
+| transformers-tinyllama | [LLM]({{%relref "docs/features/text-generation" %}}) | GPU-only |
+| [codellama-7b](https://huggingface.co/codellama/CodeLlama-7b-hf) (with transformers) | [LLM]({{%relref "docs/features/text-generation" %}}) | GPU-only |
 {{% /tab %}}
 {{% tab tabName="GPU (CUDA 11)" %}}
 
@@ -86,7 +89,9 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | [tinyllama-chat](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF) [original model](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.3) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core tinyllama-chat``` |
 | [dolphin-2.5-mixtral-8x7b](https://huggingface.co/TheBloke/dolphin-2.5-mixtral-8x7b-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core dolphin-2.5-mixtral-8x7b``` |
 | 🐍 [mamba](https://github.com/state-spaces/mamba) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 mamba-chat``` |
-
+| animagine-xl | [Text to Image]({{%relref "docs/features/image-generation" %}}) |  ```docker run -ti -p 8080:8080 -e COMPEL=0 --gpus all localai/localai:{{< version >}}-cublas-cuda11 animagine-xl``` |
+| transformers-tinyllama | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 transformers-tinyllama``` |
+| [codellama-7b](https://huggingface.co/codellama/CodeLlama-7b-hf) | [LLM]({{%relref "docs/features/text-generation" %}})  | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 codellama-7b``` |
 {{% /tab %}}
 
 
@@ -110,6 +115,10 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | [tinyllama-chat](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF) [original model](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v0.3) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core tinyllama-chat``` |
 | [dolphin-2.5-mixtral-8x7b](https://huggingface.co/TheBloke/dolphin-2.5-mixtral-8x7b-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core dolphin-2.5-mixtral-8x7b``` |
 | 🐍 [mamba](https://github.com/state-spaces/mamba) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 mamba-chat``` |
+| animagine-xl | [Text to Image]({{%relref "docs/features/image-generation" %}}) | GPU-only | ```docker run -ti -p 8080:8080 -e COMPEL=0 --gpus all localai/localai:{{< version >}}-cublas-cuda12 animagine-xl``` |
+| transformers-tinyllama | [LLM]({{%relref "docs/features/text-generation" %}}) | GPU-only | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 transformers-tinyllama``` |
+| [codellama-7b](https://huggingface.co/codellama/CodeLlama-7b-hf) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 codellama-7b``` |
+{{% /tab %}}
 {{% /tab %}}
 
 {{< /tabs >}}

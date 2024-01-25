@@ -1,0 +1,17 @@
+name: animagine-xl
+parameters:
+  model: Linaqruf/animagine-xl
+backend: diffusers
+f16: true
+diffusers:
+  scheduler_type: euler_a
+
+usage: |
+        curl http://localhost:8080/v1/images/generations \
+          -H "Content-Type: application/json" \
+          -d '{
+            "prompt": "<positive prompt>|<negative prompt>",
+            "model": "animagine-xl",
+            "step": 51,
+            "size": "1024x1024"
+          }'
