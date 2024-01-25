@@ -1,0 +1,16 @@
+name: codellama-7b-gguf
+backend: transformers
+parameters:
+  model: huggingface://TheBloke/CodeLlama-7B-GGUF/codellama-7b.Q4_K_M.gguf
+  temperature: 0.2
+  top_k: 40
+  seed: -1
+  top_p: 0.95
+context_size: 4096
+f16: true
+gpu_layers: 90
+usage: |
+      curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
+          "model": "codellama-7b-gguf",
+          "prompt": "import socket\n\ndef ping_exponential_backoff(host: str):"
+      }'
