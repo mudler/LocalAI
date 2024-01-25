@@ -128,7 +128,9 @@ type LLMConfig struct {
 	Quantization string  `yaml:"quantization"`
 	MMProj       string  `yaml:"mmproj"`
 
-	RopeScaling    string  `yaml:"rope_scaling"`
+	RopeScaling string `yaml:"rope_scaling"`
+	ModelType   string `yaml:"type"`
+
 	YarnExtFactor  float32 `yaml:"yarn_ext_factor"`
 	YarnAttnFactor float32 `yaml:"yarn_attn_factor"`
 	YarnBetaFast   float32 `yaml:"yarn_beta_fast"`

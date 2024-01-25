@@ -134,6 +134,8 @@ message ModelOptions {
   float YarnAttnFactor = 45;
   float YarnBetaFast = 46;
   float YarnBetaSlow = 47;
+
+  string Type = 49;
 }
 
 message Result {

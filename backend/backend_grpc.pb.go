@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v4.23.4
-// source: backend.proto
+// source: backend/backend.proto
 
 package proto
 
@@ -453,5 +453,5 @@ var Backend_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "backend.proto",
+	Metadata: "backend/backend.proto",
 }
