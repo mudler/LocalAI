@@ -4,7 +4,6 @@ parameters:
   model: codellama/CodeLlama-7b-hf
   temperature: 0.2
   top_k: 40
-  seed: -1
   top_p: 0.95
 
 usage: |
