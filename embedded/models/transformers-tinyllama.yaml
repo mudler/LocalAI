@@ -6,7 +6,6 @@ parameters:
   model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
   temperature: 0.2
   top_k: 40
-  seed: -1
   top_p: 0.95
   max_tokens: 4096
 
