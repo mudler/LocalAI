@@ -16,3 +16,10 @@ template:
     Instruct: {{.Input}}
     Output:
   completion: *template
+
+usage: |
+      To use this model, interact with the API (in another terminal) with curl for instance:
+      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+          "model": "phi-2",
+          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+      }'
