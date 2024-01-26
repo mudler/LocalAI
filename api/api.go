@@ -216,6 +216,11 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		}{Version: internal.PrintableVersion()})
 	})
 
+	// Make sure directories exists
+	os.MkdirAll(options.ImageDir, 0755)
+	os.MkdirAll(options.AudioDir, 0755)
+	os.MkdirAll(options.Loader.ModelPath, 0755)
+
 	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.Loader.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryService.ApplyModelGalleryEndpoint())
 	app.Get("/models/available", auth, modelGalleryService.ListModelFromGalleryEndpoint())
