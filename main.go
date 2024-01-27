@@ -26,6 +26,10 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const (
+	remoteLibraryURL = "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/model_library.yaml"
+)
+
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	// clean up process
@@ -93,6 +97,12 @@ func main() {
 				Name:    "galleries",
 				Usage:   "JSON list of galleries",
 				EnvVars: []string{"GALLERIES"},
+			},
+			&cli.StringFlag{
+				Name:    "remote-library",
+				Usage:   "A LocalAI remote library URL",
+				EnvVars: []string{"REMOTE_LIBRARY"},
+				Value:   remoteLibraryURL,
 			},
 			&cli.StringFlag{
 				Name:    "preload-models",
@@ -219,6 +229,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithAudioDir(ctx.String("audio-path")),
 				options.WithF16(ctx.Bool("f16")),
 				options.WithStringGalleries(ctx.String("galleries")),
+				options.WithModelLibraryURL(ctx.String("remote-library")),
 				options.WithDisableMessage(false),
 				options.WithCors(ctx.Bool("cors")),
 				options.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
