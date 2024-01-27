@@ -28,6 +28,8 @@ type Option struct {
 	ApiKeys                             []string
 	Metrics                             *metrics.Metrics
 
+	ModelLibraryURL string
+
 	Galleries []gallery.Gallery
 
 	BackendAssets     embed.FS
@@ -75,6 +77,12 @@ func WithModelsURL(urls ...string) AppOption {
 func WithCors(b bool) AppOption {
 	return func(o *Option) {
 		o.CORS = b
+	}
+}
+
+func WithModelLibraryURL(url string) AppOption {
+	return func(o *Option) {
+		o.ModelLibraryURL = url
 	}
 }
 
