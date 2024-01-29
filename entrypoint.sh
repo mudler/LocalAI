@@ -13,6 +13,10 @@ if [ -n "$EXTRA_BACKENDS" ]; then
 	done
 fi
 
+if [ -e "/opt/intel/oneapi/setvars.sh"]; then
+	source /opt/intel/oneapi/setvars.sh
+fi
+
 if [ "$REBUILD" != "false" ]; then
 	rm -rf ./local-ai
 	make build -j${BUILD_PARALLELISM:-1}

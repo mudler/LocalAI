@@ -3,6 +3,7 @@ LLAMA_VERSION?=
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
+ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 
 # If build type is cublas, then we set -DLLAMA_CUBLAS=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
@@ -49,5 +50,10 @@ clean:
 	rm -rf grpc-server
 
 grpc-server: llama.cpp llama.cpp/examples/grpc-server
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	source $(ONEAPI_VARS) && \
+	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release		
+else
 	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release
+endif
 	cp llama.cpp/build/bin/grpc-server .
