@@ -111,14 +111,6 @@ ifeq ($(BUILD_TYPE),hipblas)
 	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link
 endif
 
-ifeq ($(BUILD_TYPE),sycl_f16)
-	CMAKE_ARGS+=-DLLAMA_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DLLAMA_SYCL_F16=ON
-endif
-
-ifeq ($(BUILD_TYPE),sycl_f32)
-	CMAKE_ARGS+=-DLLAMA_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
-endif
-
 ifeq ($(BUILD_TYPE),metal)
 	CGO_LDFLAGS+=-framework Foundation -framework Metal -framework MetalKit -framework MetalPerformanceShaders
 	export LLAMA_METAL=1

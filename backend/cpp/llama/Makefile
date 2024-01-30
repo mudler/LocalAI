@@ -20,6 +20,14 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON
 endif
 
+ifeq ($(BUILD_TYPE),sycl_f16)
+	CMAKE_ARGS+=-DLLAMA_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DLLAMA_SYCL_F16=ON
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f32)
+	CMAKE_ARGS+=-DLLAMA_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
+endif
+
 llama.cpp:
 	git clone --recurse-submodules https://github.com/ggerganov/llama.cpp llama.cpp
 	if [ -z "$(LLAMA_VERSION)" ]; then \
