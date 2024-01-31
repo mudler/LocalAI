@@ -41,7 +41,8 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
 # oneapi requirements
 RUN if [ "${BUILD_TYPE}" = "sycl_f16" ] || [ "${BUILD_TYPE}" = "sycl_f32" ]; then \
     wget https://registrationcenter-download.intel.com/akdlm/IRC_NAS/163da6e4-56eb-4948-aba3-debcec61c064/l_BaseKit_p_2024.0.1.46_offline.sh && \
-    sh ./l_BaseKit_p_2024.0.1.46_offline.sh -a -s --eula accept \
+    sh ./l_BaseKit_p_2024.0.1.46_offline.sh -a -s --eula accept && \
+    rm -rf l_BaseKit_p_2024.0.1.46_offline.sh \
     ; fi
 
 ENV PATH /usr/local/cuda/bin:${PATH}
