@@ -59,8 +59,8 @@ clean:
 
 grpc-server: llama.cpp llama.cpp/examples/grpc-server
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
-	source $(ONEAPI_VARS) && \
-	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release		
+	bash -c "source $(ONEAPI_VARS); \
+	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release"	
 else
 	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release
 endif
