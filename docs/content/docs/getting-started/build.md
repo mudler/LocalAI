@@ -83,7 +83,7 @@ Here is the list of the variables available that can be used to customize the bu
 
 | Variable | Default | Description |
 | ---------------------| ------- | ----------- |
-| `BUILD_TYPE`         |   None      | Build type. Available: `cublas`, `openblas`, `clblas`, `metal`,`hipblas` |
+| `BUILD_TYPE`         |   None      | Build type. Available: `cublas`, `openblas`, `clblas`, `metal`,`hipblas`, `sycl_f16`, `sycl_f32` |
 | `GO_TAGS`            |   `tts stablediffusion`      | Go tags. Available: `stablediffusion`, `tts`, `tinydream` |
 | `CLBLAST_DIR`        |         | Specify a CLBlast directory |
 | `CUDA_LIBPATH`       |         | Specify a CUDA library path |
@@ -224,6 +224,17 @@ make BUILD_TYPE=clblas build
 ```
 
 To specify a clblast dir set: `CLBLAST_DIR`
+
+#### Intel GPU acceleration
+
+Intel GPU acceleration is supported via SYCL.
+
+Requirements: [Intel oneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html) (see also [llama.cpp setup installations instructions](https://github.com/ggerganov/llama.cpp/blob/d71ac90985854b0905e1abba778e407e17f9f887/README-sycl.md?plain=1#L56))
+
+```
+make BUILD_TYPE=sycl_f16 build # for float16
+make BUILD_TYPE=sycl_f32 build # for float32
+```
 
 #### Metal (Apple Silicon)
 
