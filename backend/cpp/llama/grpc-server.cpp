@@ -1846,12 +1846,20 @@ static void start_llama_server() {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    bool running = true;
-    while (running)
-    {
-        running = llama.update_slots();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    llama.queue_tasks.on_new_task(std::bind(
+        &llama_server_context::process_single_task, &llama, std::placeholders::_1));
+    llama.queue_tasks.on_finish_multitask(std::bind(
+        &llama_server_context::on_finish_multitask, &llama, std::placeholders::_1));
+    llama.queue_tasks.on_all_tasks_finished(std::bind(
+        &llama_server_context::run_on_all_tasks_finished, &llama));
+    llama.queue_results.on_multitask_update(std::bind(
+        &llama_server_queue::update_multitask,
+        &llama.queue_tasks,
+        std::placeholders::_1,
+        std::placeholders::_2,
+        std::placeholders::_3
+    ));
+    llama.queue_tasks.start_loop();
 }
 
 json parse_options(bool streaming, const backend::PredictOptions* predict, llama_server_context &llama)
