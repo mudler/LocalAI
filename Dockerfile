@@ -2,7 +2,6 @@ ARG GO_VERSION=1.21-bullseye
 ARG IMAGE_TYPE=extras
 # extras or core
 
-
 FROM golang:$GO_VERSION as requirements-core
 
 ARG BUILD_TYPE
@@ -38,6 +37,14 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     apt-get update && \
     apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}  && apt-get clean \
     ; fi
+
+# oneapi requirements
+RUN if [ "${BUILD_TYPE}" = "sycl_f16" ] || [ "${BUILD_TYPE}" = "sycl_f32" ]; then \
+    wget -q https://registrationcenter-download.intel.com/akdlm/IRC_NAS/163da6e4-56eb-4948-aba3-debcec61c064/l_BaseKit_p_2024.0.1.46_offline.sh && \
+    sh ./l_BaseKit_p_2024.0.1.46_offline.sh -a -s --eula accept && \
+    rm -rf l_BaseKit_p_2024.0.1.46_offline.sh \
+    ; fi
+
 ENV PATH /usr/local/cuda/bin:${PATH}
 
 # OpenBLAS requirements and stable diffusion

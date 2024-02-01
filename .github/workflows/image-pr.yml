@@ -75,6 +75,13 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'ubuntu-latest'
+          - build-type: 'sycl_f16'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: 'sycl-f16-ffmpeg-core'
+            ffmpeg: 'true'
+            image-type: 'core'
+            runs-on: 'arc-runner-set'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"

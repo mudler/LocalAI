@@ -15,9 +15,45 @@ This section contains instruction on how to use LocalAI with GPU acceleration.
 For accelleration for AMD or Metal HW there are no specific container images, see the [build]({{%relref "docs/getting-started/build#Acceleration" %}})
 {{% /alert %}}
 
-### CUDA(NVIDIA) acceleration
 
-#### Requirements
+## Model configuration
+
+Depending on the model architecture and backend used, there might be different ways to enable GPU acceleration. It is required to configure the model you intend to use with a YAML config file. For example, for `llama.cpp` workloads a configuration file might look like this (where `gpu_layers` is the number of layers to offload to the GPU):
+
+```yaml
+name: my-model-name
+# Default model parameters
+parameters:
+  # Relative to the models path
+  model: llama.cpp-model.ggmlv3.q5_K_M.bin
+
+context_size: 1024
+threads: 1
+
+f16: true # enable with GPU acceleration
+gpu_layers: 22 # GPU Layers (only used when built with cublas)
+
+```
+
+For diffusers instead, it might look like this instead:
+
+```yaml
+name: stablediffusion
+parameters:
+  model: toonyou_beta6.safetensors
+backend: diffusers
+step: 30
+f16: true
+diffusers:
+  pipeline_type: StableDiffusionPipeline
+  cuda: true
+  enable_parameters: "negative_prompt,num_inference_steps,clip_skip"
+  scheduler_type: "k_dpmpp_sde"
+```
+
+## CUDA(NVIDIA) acceleration
+
+### Requirements
 
 Requirement: nvidia-container-toolkit (installation instructions [1](https://www.server-world.info/en/note?os=Ubuntu_22.04&p=nvidia&f=2) [2](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
 
@@ -74,37 +110,21 @@ llama_model_load_internal: total VRAM used: 1598 MB
 llama_init_from_file: kv self size  =  512.00 MB
 ```
 
-#### Model configuration
+## Intel acceleration (sycl)
 
-Depending on the model architecture and backend used, there might be different ways to enable GPU acceleration. It is required to configure the model you intend to use with a YAML config file. For example, for `llama.cpp` workloads a configuration file might look like this (where `gpu_layers` is the number of layers to offload to the GPU):
+#### Requirements
 
-```yaml
-name: my-model-name
-# Default model parameters
-parameters:
-  # Relative to the models path
-  model: llama.cpp-model.ggmlv3.q5_K_M.bin
+Requirement: [Intel oneAPI Base Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html)
 
-context_size: 1024
-threads: 1
+To use SYCL, use the images with the `sycl-f16` or `sycl-f32` tag, for example `{{< version >}}-sycl-f32-core`, `{{< version >}}-sycl-f16-ffmpeg-core`, ...
 
-f16: true # enable with GPU acceleration
-gpu_layers: 22 # GPU Layers (only used when built with cublas)
+The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags).
 
+### Notes
+
+In addition to the commands to run LocalAI normally, you need to specify `--device /dev/dri` to docker, for example:
+
+```bash
+docker run --rm -ti --device /dev/dri -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16-ffmpeg-core
 ```
 
-For diffusers instead, it might look like this instead:
-
-```yaml
-name: stablediffusion
-parameters:
-  model: toonyou_beta6.safetensors
-backend: diffusers
-step: 30
-f16: true
-diffusers:
-  pipeline_type: StableDiffusionPipeline
-  cuda: true
-  enable_parameters: "negative_prompt,num_inference_steps,clip_skip"
-  scheduler_type: "k_dpmpp_sde"
-```

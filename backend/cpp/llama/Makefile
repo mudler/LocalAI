@@ -3,6 +3,7 @@ LLAMA_VERSION?=
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
+ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 
 # If build type is cublas, then we set -DLLAMA_CUBLAS=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
@@ -19,6 +20,14 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON
 endif
 
+ifeq ($(BUILD_TYPE),sycl_f16)
+	CMAKE_ARGS+=-DLLAMA_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DLLAMA_SYCL_F16=ON
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f32)
+	CMAKE_ARGS+=-DLLAMA_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
+endif
+
 llama.cpp:
 	git clone --recurse-submodules https://github.com/ggerganov/llama.cpp llama.cpp
 	if [ -z "$(LLAMA_VERSION)" ]; then \
@@ -31,6 +40,7 @@ llama.cpp/examples/grpc-server:
 	cp -r $(abspath ./)/CMakeLists.txt llama.cpp/examples/grpc-server/
 	cp -r $(abspath ./)/grpc-server.cpp llama.cpp/examples/grpc-server/
 	cp -rfv $(abspath ./)/json.hpp llama.cpp/examples/grpc-server/
+	cp -rfv $(abspath ./)/utils.hpp llama.cpp/examples/grpc-server/
 	echo "add_subdirectory(grpc-server)" >> llama.cpp/examples/CMakeLists.txt
 ## XXX: In some versions of CMake clip wasn't being built before llama.
 ## This is an hack for now, but it should be fixed in the future.
@@ -49,5 +59,10 @@ clean:
 	rm -rf grpc-server
 
 grpc-server: llama.cpp llama.cpp/examples/grpc-server
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	bash -c "source $(ONEAPI_VARS); \
+	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release"	
+else
 	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release
+endif
 	cp llama.cpp/build/bin/grpc-server .
