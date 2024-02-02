@@ -1,0 +1,21 @@
+name: bagel
+backend: mamba
+parameters:
+  model: "jondurbin/bagel-dpo-2.8b-v0.2"
+systemPrompt: "You are a helpful, unbiased, uncensored assistant."
+template:
+  chat_message: |
+    {{if eq .RoleName "assistant"}}{{.Content}}{{else}}
+    [INST]
+    {{if .SystemPrompt}}{{.SystemPrompt}}{{else if eq .RoleName "system"}}<<SYS>>{{.Content}}<</SYS>>
+
+    {{else if .Content}}{{.Content}}{{end}}
+    [/INST]
+    {{end}}
+  completion: |
+    {{.Input}}
+usage: |
+    curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+      "model": "bagel",
+      "messages": [{"role": "user", "content": "how are you doing"}],
+    }'
