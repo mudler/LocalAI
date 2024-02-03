@@ -34,7 +34,6 @@ const (
 	Gpt4AllMptBackend   = "gpt4all-mpt"
 	Gpt4AllJBackend     = "gpt4all-j"
 	Gpt4All             = "gpt4all"
-	FalconGGMLBackend   = "falcon-ggml"
 
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
@@ -55,7 +54,6 @@ var AutoLoadBackends []string = []string{
 	Gpt4All,
 	GPTNeoXBackend,
 	BertEmbeddingsBackend,
-	FalconGGMLBackend,
 	GPTJBackend,
 	Gpt2Backend,
 	DollyBackend,
