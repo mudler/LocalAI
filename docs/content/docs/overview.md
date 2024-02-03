@@ -104,7 +104,6 @@ LocalAI couldn't have been built without the help of great software already avai
 - https://github.com/ggerganov/whisper.cpp
 - https://github.com/saharNooby/rwkv.cpp
 - https://github.com/rhasspy/piper
-- https://github.com/cmp-nct/ggllm.cpp
 
 ## 🤗 Contributors
 
