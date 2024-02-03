@@ -109,10 +109,10 @@ Other:
 
 ### 🔗 Resources
 
-- 🆕 New! [LLM finetuning guide](https://localai.io/advanced/fine-tuning/)
+- 🆕 New! [LLM finetuning guide](https://localai.io/docs/advanced/fine-tuning/)
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
-- [Projects integrating LocalAI](https://localai.io/integrations/)
+- [Projects integrating LocalAI](https://localai.io/docs/integrations/)
 - [How tos section](https://io.midori-ai.xyz/howtos/) (curated by our community)
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
