@@ -24,5 +24,6 @@ The list below is a list of software that integrates with LocalAI.
 - https://github.com/mattermost/openops
 - https://github.com/charmbracelet/mods
 - https://github.com/cedriking/spark
-  
+- [Big AGI](https://github.com/enricoros/big-agi) is a powerful web interface entirely running in the browser, supporting LocalAI
+
 Feel free to open up a Pull request (by clicking at the "Edit page" below) to get a page for your project made or if you see a error on one of the pages!
