@@ -42,7 +42,10 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
 RUN if [ "${BUILD_TYPE}" = "sycl_f16" ] || [ "${BUILD_TYPE}" = "sycl_f32" ]; then \
     wget -q https://registrationcenter-download.intel.com/akdlm/IRC_NAS/163da6e4-56eb-4948-aba3-debcec61c064/l_BaseKit_p_2024.0.1.46_offline.sh && \
     sh ./l_BaseKit_p_2024.0.1.46_offline.sh -a -s --eula accept && \
-    rm -rf l_BaseKit_p_2024.0.1.46_offline.sh \
+    rm -rf l_BaseKit_p_2024.0.1.46_offline.sh && \
+    wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null && \
+    echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list && \
+    apt-get update && apt-get install -y intel-oneapi-runtime-opencl && apt-get clean \
     ; fi
 
 ENV PATH /usr/local/cuda/bin:${PATH}
