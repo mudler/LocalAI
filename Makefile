@@ -145,7 +145,15 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
 endif
 
-ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface backend-assets/grpc/bert-embeddings backend-assets/grpc/llama backend-assets/grpc/llama-cpp backend-assets/grpc/llama-ggml backend-assets/grpc/gpt4all backend-assets/grpc/dolly backend-assets/grpc/gptj backend-assets/grpc/gptneox backend-assets/grpc/mpt backend-assets/grpc/replit backend-assets/grpc/rwkv backend-assets/grpc/whisper $(OPTIONAL_GRPC)
+ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface
+ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
+ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
+ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv backend-assets/grpc/whisper
+ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
+
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
 
 # If empty, then we build all
