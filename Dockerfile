@@ -1,9 +1,11 @@
-ARG GO_VERSION=1.21-bullseye
+ARG GO_VERSION=1.21
 ARG IMAGE_TYPE=extras
 # extras or core
 
-FROM golang:$GO_VERSION as requirements-core
+FROM ubuntu:22.04 as requirements-core
 
+ARG GO_VERSION=1.21.7
+ARG GO_ARCH=amd64
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
 ARG CUDA_MINOR_VERSION=7
@@ -11,7 +13,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-
+ENV DEBIAN_FRONTEND=noninteractive
 ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh"
 
 ARG GO_TAGS="stablediffusion tinydream tts"
@@ -19,6 +21,11 @@ ARG GO_TAGS="stablediffusion tinydream tts"
 RUN apt-get update && \
     apt-get install -y ca-certificates curl patch pip cmake && apt-get clean
 
+# Download Go 1.2.2 and install it to /usr/local/go
+RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$GO_ARCH.tar.gz | tar -v -C /usr/local -xz
+
+# Let's people find our Go binaries
+ENV PATH $PATH:/usr/local/go/bin
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -40,9 +47,19 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
 
 # oneapi requirements
 RUN if [ "${BUILD_TYPE}" = "sycl_f16" ] || [ "${BUILD_TYPE}" = "sycl_f32" ]; then \
-    wget -q https://registrationcenter-download.intel.com/akdlm/IRC_NAS/163da6e4-56eb-4948-aba3-debcec61c064/l_BaseKit_p_2024.0.1.46_offline.sh && \
-    sh ./l_BaseKit_p_2024.0.1.46_offline.sh -a -s --eula accept && \
-    rm -rf l_BaseKit_p_2024.0.1.46_offline.sh \
+    apt-get update && apt-get upgrade -y && \
+   apt-get install -y --no-install-recommends \
+    curl ca-certificates gpg-agent software-properties-common && \
+  curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB | gpg --dearmor | tee /usr/share/keyrings/intel-oneapi-archive-keyring.gpg  && \
+  echo "deb [signed-by=/usr/share/keyrings/intel-oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main " > /etc/apt/sources.list.d/oneAPI.list && \
+  apt-get update && apt-get upgrade -y && \
+  apt-get install -y --no-install-recommends \
+    curl ca-certificates gpg-agent software-properties-common && \
+  curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | gpg --dearmor | tee /usr/share/keyrings/intel-graphics-archive-keyring.gpg && \
+  echo "deb [signed-by=/usr/share/keyrings/intel-graphics-archive-keyring.gpg arch=amd64] https://repositories.intel.com/gpu/ubuntu jammy unified" > /etc/apt/sources.list.d/intel-graphics.list  && \
+  apt-get update && apt-get upgrade -y && \
+  apt-get install -y --no-install-recommends \
+    ca-certificates build-essential pkg-config gnupg libarchive13 openssh-server openssh-client wget net-tools git intel-basekit intel-level-zero-gpu level-zero && apt-get clean \
     ; fi
 
 ENV PATH /usr/local/cuda/bin:${PATH}
