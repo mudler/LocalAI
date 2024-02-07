@@ -532,3 +532,22 @@ backend-assets/grpc/whisper: backend-assets/grpc sources/whisper.cpp/libwhisper.
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
 
 grpcs: prepare $(GRPC_BACKENDS)
+
+DOCKER_IMAGE?=local-ai
+IMAGE_TYPE?=core
+BASE_IMAGE?=ubuntu:22.04
+
+docker:
+	docker build \
+		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
+		--build-arg GO_TAGS=$(GO_TAGS) \
+		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
+		-t $(DOCKER_IMAGE) .
+
+docker-image-intel:
+	docker build \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04 \
+		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
+		--build-arg GO_TAGS="none" \
+		--build-arg BUILD_TYPE=sycl_f16 -t $(DOCKER_IMAGE) .
