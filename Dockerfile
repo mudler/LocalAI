@@ -37,7 +37,6 @@ RUN echo "Target Variant: $TARGETVARIANT"
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     apt-get install -y software-properties-common && \
-    apt-add-repository contrib && \
     curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
     dpkg -i cuda-keyring_1.1-1_all.deb && \
     rm -f cuda-keyring_1.1-1_all.deb && \
