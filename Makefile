@@ -148,7 +148,8 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/llama
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
-ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv backend-assets/grpc/whisper
+ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
+ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
 
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
@@ -316,7 +317,7 @@ run: prepare ## run local-ai
 test-models/testmodel:
 	mkdir test-models
 	mkdir test-dir
-	wget -q https://huggingface.co/afrideva/open-llama-3b-v2-instruct-GGUF/resolve/main/open-llama-3b-v2-instruct.q4_k_m.gguf -O test-models/testmodel
+	wget -q https://huggingface.co/TheBloke/stable-code-3b-GGUF/resolve/main/stable-code-3b.Q2_K.gguf -O test-models/testmodel
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav

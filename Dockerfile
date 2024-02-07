@@ -5,7 +5,6 @@ ARG IMAGE_TYPE=extras
 FROM ubuntu:22.04 as requirements-core
 
 ARG GO_VERSION=1.21.7
-ARG GO_ARCH=amd64
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
 ARG CUDA_MINOR_VERSION=7
@@ -21,10 +20,8 @@ ARG GO_TAGS="stablediffusion tinydream tts"
 RUN apt-get update && \
     apt-get install -y ca-certificates curl patch pip cmake git && apt-get clean
 
-# Download Go 1.2.2 and install it to /usr/local/go
-RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$GO_ARCH.tar.gz | tar -v -C /usr/local -xz
-
-# Let's people find our Go binaries
+# Install Go
+RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -v -C /usr/local -xz
 ENV PATH $PATH:/usr/local/go/bin
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
