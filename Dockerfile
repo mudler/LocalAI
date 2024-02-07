@@ -1,8 +1,9 @@
 ARG GO_VERSION=1.21
 ARG IMAGE_TYPE=extras
-# extras or core
+ARG BASE_IMAGE=ubuntu:22.04
 
-FROM ubuntu:22.04 as requirements-core
+# extras or core
+FROM ${BASE_IMAGE} as requirements-core
 
 ARG GO_VERSION=1.21.7
 ARG BUILD_TYPE
@@ -39,23 +40,6 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     rm -f cuda-keyring_1.1-1_all.deb && \
     apt-get update && \
     apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}  && apt-get clean \
-    ; fi
-
-# oneapi requirements
-RUN if [ "${BUILD_TYPE}" = "sycl_f16" ] || [ "${BUILD_TYPE}" = "sycl_f32" ]; then \
-    apt-get update && apt-get upgrade -y && \
-   apt-get install -y --no-install-recommends \
-    curl ca-certificates gpg-agent software-properties-common && \
-  curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB | gpg --dearmor | tee /usr/share/keyrings/intel-oneapi-archive-keyring.gpg  && \
-  echo "deb [signed-by=/usr/share/keyrings/intel-oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main " > /etc/apt/sources.list.d/oneAPI.list && \
-  apt-get update && apt-get upgrade -y && \
-  apt-get install -y --no-install-recommends \
-    curl ca-certificates gpg-agent software-properties-common && \
-  curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | gpg --dearmor | tee /usr/share/keyrings/intel-graphics-archive-keyring.gpg && \
-  echo "deb [signed-by=/usr/share/keyrings/intel-graphics-archive-keyring.gpg arch=amd64] https://repositories.intel.com/gpu/ubuntu jammy unified" > /etc/apt/sources.list.d/intel-graphics.list  && \
-  apt-get update && apt-get upgrade -y && \
-  apt-get install -y --no-install-recommends \
-    ca-certificates build-essential pkg-config gnupg libarchive13 openssh-server openssh-client wget net-tools git intel-basekit intel-level-zero-gpu level-zero && apt-get clean \
     ; fi
 
 ENV PATH /usr/local/cuda/bin:${PATH}
