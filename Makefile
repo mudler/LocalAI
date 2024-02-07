@@ -316,7 +316,7 @@ run: prepare ## run local-ai
 test-models/testmodel:
 	mkdir test-models
 	mkdir test-dir
-	wget -q https://huggingface.co/nnakasato/ggml-model-test/resolve/main/ggml-model-q4.bin -O test-models/testmodel
+	wget -q https://huggingface.co/afrideva/open-llama-3b-v2-instruct-GGUF/resolve/main/open-llama-3b-v2-instruct.q4_k_m.gguf -O test-models/testmodel
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
