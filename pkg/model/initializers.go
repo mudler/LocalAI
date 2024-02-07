@@ -23,11 +23,6 @@ const (
 	GoLlamaBackend      = "llama"
 	LlamaGGML           = "llama-ggml"
 	LLamaCPP            = "llama-cpp"
-	GPTJBackend         = "gptj"
-	DollyBackend        = "dolly"
-	MPTBackend          = "mpt"
-	GPTNeoXBackend      = "gptneox"
-	ReplitBackend       = "replit"
 	Gpt4AllLlamaBackend = "gpt4all-llama"
 	Gpt4AllMptBackend   = "gpt4all-mpt"
 	Gpt4AllJBackend     = "gpt4all-j"
@@ -50,12 +45,7 @@ var AutoLoadBackends []string = []string{
 	LlamaGGML,
 	GoLlamaBackend,
 	Gpt4All,
-	GPTNeoXBackend,
 	BertEmbeddingsBackend,
-	GPTJBackend,
-	DollyBackend,
-	MPTBackend,
-	ReplitBackend,
 	RwkvBackend,
 	WhisperBackend,
 	StableDiffusionBackend,
