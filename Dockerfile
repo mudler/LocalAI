@@ -19,7 +19,7 @@ ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface
 ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates curl patch pip cmake && apt-get clean
+    apt-get install -y ca-certificates curl patch pip cmake git && apt-get clean
 
 # Download Go 1.2.2 and install it to /usr/local/go
 RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$GO_ARCH.tar.gz | tar -v -C /usr/local -xz
@@ -38,9 +38,9 @@ RUN echo "Target Variant: $TARGETVARIANT"
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     apt-get install -y software-properties-common && \
     apt-add-repository contrib && \
-    curl -O https://developer.download.nvidia.com/compute/cuda/repos/debian11/x86_64/cuda-keyring_1.0-1_all.deb && \
-    dpkg -i cuda-keyring_1.0-1_all.deb && \
-    rm -f cuda-keyring_1.0-1_all.deb && \
+    curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && \
+    rm -f cuda-keyring_1.1-1_all.deb && \
     apt-get update && \
     apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}  && apt-get clean \
     ; fi
