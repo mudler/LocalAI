@@ -29,7 +29,14 @@ import (
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
 
-const testPrompt = "import torch\nimport torch.nn as nn"
+const testPrompt = `### System:
+You are an AI assistant that follows instruction extremely well. Help as much as you can.
+
+### User:
+
+Can you help rephrasing sentences?
+
+### Response:`
 
 type modelApplyRequest struct {
 	ID        string                 `json:"id"`
@@ -462,7 +469,7 @@ var _ = Describe("API test", func() {
 					return response["processed"].(bool)
 				}, "960s", "10s").Should(Equal(true))
 
-				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "gpt4all-j", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
+				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "gpt4all-j", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "How are you?"}}})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices)).To(Equal(1))
 				Expect(resp.Choices[0].Message.Content).To(ContainSubstring("well"))
