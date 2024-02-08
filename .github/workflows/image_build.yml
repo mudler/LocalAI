@@ -4,6 +4,11 @@ name: 'build container images (reusable)'
 on:
   workflow_call:
     inputs:
+      base-image:
+        description: 'Base image'
+        required: false
+        default: ''
+        type: string
       build-type:
         description: 'Build type'
         default: ''
@@ -154,6 +159,7 @@ jobs:
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             FFMPEG=${{ inputs.ffmpeg }}
             IMAGE_TYPE=${{ inputs.image-type }}
+            BASE_IMAGE=${{ inputs.base-image }}
           context: .
           file: ./Dockerfile
           platforms: ${{ inputs.platforms }}

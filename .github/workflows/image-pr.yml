@@ -21,6 +21,7 @@ jobs:
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
+      base-image: ${{ matrix.base-image }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -39,6 +40,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -48,6 +50,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
@@ -60,6 +63,7 @@ jobs:
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
+      base-image: ${{ matrix.base-image }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -75,9 +79,11 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
+            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
             tag-suffix: 'sycl-f16-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
@@ -91,3 +97,4 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"

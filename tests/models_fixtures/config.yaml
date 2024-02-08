@@ -4,7 +4,7 @@
     top_p: 80
     top_k: 0.9
     temperature: 0.1
-  context_size: 10
+  context_size: 200
   stopwords:
   - "HUMAN:"
   - "### Response:"
@@ -20,7 +20,7 @@
     top_k: 0.9
     temperature: 0.1
     model: testmodel
-  context_size: 10
+  context_size: 200
   stopwords:
   - "HUMAN:"
   - "### Response:"

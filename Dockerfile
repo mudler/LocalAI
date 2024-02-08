@@ -1,9 +1,11 @@
-ARG GO_VERSION=1.21-bullseye
+ARG GO_VERSION=1.21
 ARG IMAGE_TYPE=extras
+ARG BASE_IMAGE=ubuntu:22.04
+
 # extras or core
+FROM ${BASE_IMAGE} as requirements-core
 
-FROM golang:$GO_VERSION as requirements-core
-
+ARG GO_VERSION=1.21.7
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
 ARG CUDA_MINOR_VERSION=7
@@ -11,14 +13,17 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV BUILD_TYPE=${BUILD_TYPE}
-
+ENV DEBIAN_FRONTEND=noninteractive
 ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh"
 
 ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates curl patch pip cmake && apt-get clean
+    apt-get install -y ca-certificates curl patch pip cmake git && apt-get clean
 
+# Install Go
+RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -v -C /usr/local -xz
+ENV PATH $PATH:/usr/local/go/bin
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -30,19 +35,11 @@ RUN echo "Target Variant: $TARGETVARIANT"
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     apt-get install -y software-properties-common && \
-    apt-add-repository contrib && \
-    curl -O https://developer.download.nvidia.com/compute/cuda/repos/debian11/x86_64/cuda-keyring_1.0-1_all.deb && \
-    dpkg -i cuda-keyring_1.0-1_all.deb && \
-    rm -f cuda-keyring_1.0-1_all.deb && \
+    curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && \
+    rm -f cuda-keyring_1.1-1_all.deb && \
     apt-get update && \
     apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}  && apt-get clean \
-    ; fi
-
-# oneapi requirements
-RUN if [ "${BUILD_TYPE}" = "sycl_f16" ] || [ "${BUILD_TYPE}" = "sycl_f32" ]; then \
-    wget -q https://registrationcenter-download.intel.com/akdlm/IRC_NAS/163da6e4-56eb-4948-aba3-debcec61c064/l_BaseKit_p_2024.0.1.46_offline.sh && \
-    sh ./l_BaseKit_p_2024.0.1.46_offline.sh -a -s --eula accept && \
-    rm -rf l_BaseKit_p_2024.0.1.46_offline.sh \
     ; fi
 
 ENV PATH /usr/local/cuda/bin:${PATH}
