@@ -112,13 +112,23 @@ llama_init_from_file: kv self size  =  512.00 MB
 
 ## Intel acceleration (sycl)
 
-#### Requirements
+### Requirements
 
-Requirement: [Intel oneAPI Base Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html)
+If building from source, you need to install [Intel oneAPI Base Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html) and have the Intel drivers available in the system.
+
+### Container images
 
 To use SYCL, use the images with the `sycl-f16` or `sycl-f32` tag, for example `{{< version >}}-sycl-f32-core`, `{{< version >}}-sycl-f16-ffmpeg-core`, ...
 
 The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags).
+
+#### Example
+
+To run LocalAI with Docker and sycl starting `phi-2`, you can use the following command as an example:
+
+```bash
+docker run -e DEBUG=true --privileged -ti -v $PWD/models:/build/models -p 8080:8080  -v /dev/dri:/dev/dri --rm quay.io/go-skynet/local-ai:master-sycl-f32-ffmpeg-core phi-2
+```
 
 ### Notes
 
@@ -128,3 +138,4 @@ In addition to the commands to run LocalAI normally, you need to specify `--devi
 docker run --rm -ti --device /dev/dri -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16-ffmpeg-core
 ```
 
+Note also that sycl does have a known issue to hang with `mmap: true`. You have to disable it in the model configuration if explicitly enabled.
