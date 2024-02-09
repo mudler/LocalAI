@@ -18,7 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func readRequest(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *schema.OpenAIRequest, error) {
+func readRequest(c *fiber.Ctx, o *options.Option, firstModel bool) (string, *schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
 	ctx, cancel := context.WithCancel(o.Context)
 	input.Context = ctx
@@ -32,7 +32,7 @@ func readRequest(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *sc
 
 	log.Debug().Msgf("Request received: %s", string(received))
 
-	modelFile, err := fiberContext.ModelFromContext(c, o.Loader, input.Model)
+	modelFile, err := fiberContext.ModelFromContext(c, o.Loader, input.Model, firstModel)
 
 	return modelFile, input, err
 }

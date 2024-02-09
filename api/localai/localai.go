@@ -26,7 +26,7 @@ func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) 
 			return err
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, o.Loader, input.Model)
+		modelFile, err := fiberContext.ModelFromContext(c, o.Loader, input.Model, false)
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
@@ -37,7 +37,6 @@ func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) 
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		} else {
 			modelFile = cfg.Model
-
 		}
 
 		filePath, _, err := backend.ModelTTS(input.Backend, input.Input, modelFile, o.Loader, o, *cfg)
