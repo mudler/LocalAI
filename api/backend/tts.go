@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	api_config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -29,16 +30,20 @@ func generateUniqueFileName(dir, baseName, ext string) string {
 	}
 }
 
-func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *options.Option) (string, *proto.Result, error) {
+func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *options.Option, c config.Config) (string, *proto.Result, error) {
 	bb := backend
 	if bb == "" {
 		bb = model.PiperBackend
 	}
+
+	grpcOpts := gRPCModelOpts(c)
+
 	opts := modelOpts(api_config.Config{}, o, []model.Option{
 		model.WithBackendString(bb),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
 		model.WithAssetDir(o.AssetsDestination),
+		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 	})
 	piperModel, err := o.Loader.BackendLoader(opts...)
 	if err != nil {
