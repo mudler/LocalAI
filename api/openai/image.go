@@ -61,7 +61,7 @@ func downloadFile(url string) (string, error) {
 */
 func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readInput(c, o, false)
+		m, input, err := readRequest(c, o, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -71,7 +71,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 		}
 		log.Debug().Msgf("Loading model: %+v", m)
 
-		config, input, err := readConfig(m, input, cm, o.Loader, o.Debug, 0, 0, false)
+		config, input, err := mergeRequestWithConfig(m, input, cm, o.Loader, o.Debug, 0, 0, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
