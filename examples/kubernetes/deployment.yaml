@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-ai
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: models-pvc
+  namespace: local-ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-ai
+  namespace: local-ai
+  labels:
+    app: local-ai
+spec:
+  selector:
+    matchLabels:
+      app: local-ai
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: local-ai
+      name: local-ai
+    spec:
+      containers:
+        - args:
+          - phi-2
+          env:
+          - name: DEBUG
+            value: "true"
+          name: local-ai
+          image: quay.io/go-skynet/local-ai:master-ffmpeg-core
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: models-volume
+              mountPath: /build/models
+      volumes:
+        - name: models-volume
+          persistentVolumeClaim:
+            claimName: models-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-ai
+  namespace: local-ai
+spec:
+  selector:
+    app: local-ai
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

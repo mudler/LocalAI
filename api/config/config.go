@@ -183,6 +183,60 @@ func (c *Config) FunctionToCall() string {
 	return c.functionCallNameString
 }
 
+// Load a config file for a model
+func Load(modelName, modelPath string, cm *ConfigLoader, debug bool, threads, ctx int, f16 bool) (*Config, error) {
+	// Load a config file if present after the model name
+	modelConfig := filepath.Join(modelPath, modelName+".yaml")
+
+	var cfg *Config
+
+	defaults := func() {
+		cfg = DefaultConfig(modelName)
+		cfg.ContextSize = ctx
+		cfg.Threads = threads
+		cfg.F16 = f16
+		cfg.Debug = debug
+	}
+
+	cfgExisting, exists := cm.GetConfig(modelName)
+	if !exists {
+		if _, err := os.Stat(modelConfig); err == nil {
+			if err := cm.LoadConfig(modelConfig); err != nil {
+				return nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
+			}
+			cfgExisting, exists = cm.GetConfig(modelName)
+			if exists {
+				cfg = &cfgExisting
+			} else {
+				defaults()
+			}
+		} else {
+			defaults()
+		}
+	} else {
+		cfg = &cfgExisting
+	}
+
+	// Set the parameters for the language model prediction
+	//updateConfig(cfg, input)
+
+	// Don't allow 0 as setting
+	if cfg.Threads == 0 {
+		if threads != 0 {
+			cfg.Threads = threads
+		} else {
+			cfg.Threads = 4
+		}
+	}
+
+	// Enforce debug flag if passed from CLI
+	if debug {
+		cfg.Debug = true
+	}
+
+	return cfg, nil
+}
+
 func defaultPredictOptions(modelFile string) PredictionOptions {
 	return PredictionOptions{
 		TopP:        0.7,

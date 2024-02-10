@@ -404,7 +404,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer opts.Loader.StopAllGRPC()
 
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, opts.Loader, opts)
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, opts.Loader, opts, config.Config{})
 					if err != nil {
 						return err
 					}
