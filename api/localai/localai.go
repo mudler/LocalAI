@@ -38,8 +38,13 @@ func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) 
 		} else {
 			modelFile = cfg.Model
 		}
+		log.Debug().Msgf("Request for model: %s", modelFile)
 
-		filePath, _, err := backend.ModelTTS(input.Backend, input.Input, modelFile, o.Loader, o, *cfg)
+		if input.Backend != "" {
+			cfg.Backend = input.Input
+		}
+
+		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, o.Loader, o, *cfg)
 		if err != nil {
 			return err
 		}
