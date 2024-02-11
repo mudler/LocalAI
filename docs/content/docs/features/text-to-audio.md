@@ -144,15 +144,15 @@ parameters:
   model: "cloned-voice"
 vall-e:
   # The path to the audio file to be cloned
-  # relative to the models directory 
-  audio_path: "path-to-wav-source.wav"
+  # relative to the models directory
+  # Max 15s
+  audio_path: "audio-sample.wav"
 ```
 
 Then you can specify the model name in the requests:
 
 ```
 curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
-     "backend": "vall-e-x",
      "model": "cloned-voice",
      "input":"Hello!"
    }' | aplay
