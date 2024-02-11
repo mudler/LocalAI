@@ -55,6 +55,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print("Preparing models, please wait", file=sys.stderr)
             # download and load all models
             preload_models()
+            self.clonedVoice = False
             # Assume directory from request.ModelFile.
             # Only if request.LoraAdapter it's not an absolute path
             if request.AudioPath and request.ModelFile != "" and not os.path.isabs(request.AudioPath):
@@ -65,6 +66,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.AudioPath != "":
                 print("Generating model", file=sys.stderr)
                 make_prompt(name=model_name, audio_prompt_path=request.AudioPath)
+                self.clonedVoice = True
                 ### Use given transcript
                 ##make_prompt(name=model_name, audio_prompt_path="paimon_prompt.wav",
                 ##                transcript="Just, what was that? Paimon thought we were gonna get eaten.")
@@ -91,6 +93,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             audio_array = None
             if model != "":
+                if self.clonedVoice:
+                    model = os.path.basename(request.model)
                 audio_array = generate_audio(request.text, prompt=model)
             else:
                 audio_array = generate_audio(request.text)
