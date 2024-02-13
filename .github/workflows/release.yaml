@@ -20,6 +20,10 @@ jobs:
             defines: '-DLLAMA_AVX2=OFF'
           - build: 'avx512'
             defines: '-DLLAMA_AVX512=ON'
+          - build: 'cuda12'
+            defines: ''
+          - build: 'cuda11'
+            defines: ''
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -33,7 +37,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-
+      - name: Install CUDA Dependencies
+        if: ${{ matrix.build == 'cuda12' || matrix.build == 'cuda11' }}
+        run: |
+          if [ "${{ matrix.build }}" == "cuda12" ]; then
+            export CUDA_VERSION=12-3
+          else
+            export CUDA_VERSION=11-7
+          fi
+          curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update
+          sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v3
@@ -50,14 +65,19 @@ jobs:
       - name: Install gRPC
         run: |
           cd grpc && cd cmake/build && sudo make -j12 install
-
       - name: Build
         id: build
         env:
           CMAKE_ARGS: "${{ matrix.defines }}"
           BUILD_ID: "${{ matrix.build }}"
         run: |
-          STATIC=true make dist
+          if [ "${{ matrix.build }}" == "cuda12" ] || [ "${{ matrix.build }}" == "cuda11" ]; then
+            export BUILD_TYPE=cublas
+            export PATH=/usr/local/cuda/bin:$PATH
+            make dist
+          else
+            STATIC=true make dist
+          fi
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.build }}
