@@ -219,6 +219,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	// Make sure directories exists
 	os.MkdirAll(options.ImageDir, 0755)
 	os.MkdirAll(options.AudioDir, 0755)
+	os.MkdirAll(options.UploadDir, 0755)
 	os.MkdirAll(options.Loader.ModelPath, 0755)
 
 	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.Loader.ModelPath, galleryService)
@@ -239,6 +240,18 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	// edit
 	app.Post("/v1/edits", auth, openai.EditEndpoint(cl, options))
 	app.Post("/edits", auth, openai.EditEndpoint(cl, options))
+
+	// files
+	app.Post("/v1/files", auth, openai.UploadFilesEndpoint(cl, options))
+	app.Post("/files", auth, openai.UploadFilesEndpoint(cl, options))
+	app.Get("/v1/files", auth, openai.ListFilesEndpoint(cl, options))
+	app.Get("/files", auth, openai.ListFilesEndpoint(cl, options))
+	app.Get("/v1/files/:file_id", auth, openai.GetFilesEndpoint(cl, options))
+	app.Get("/files/:file_id", auth, openai.GetFilesEndpoint(cl, options))
+	app.Delete("/v1/files/:file_id", auth, openai.DeleteFilesEndpoint(cl, options))
+	app.Delete("/files/:file_id", auth, openai.DeleteFilesEndpoint(cl, options))
+	app.Get("/v1/files/:file_id/content", auth, openai.GetFilesContentsEndpoint(cl, options))
+	app.Get("/files/:file_id/content", auth, openai.GetFilesContentsEndpoint(cl, options))
 
 	// completion
 	app.Post("/v1/completions", auth, openai.CompletionEndpoint(cl, options))
