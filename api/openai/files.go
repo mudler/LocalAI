@@ -73,6 +73,11 @@ func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 
 		savePath := filepath.Join(o.UploadDir, filename)
 
+		// Check if file already exists
+		if _, err := os.Stat(savePath); !os.IsNotExist(err) {
+			return c.Status(fiber.StatusBadRequest).SendString("File already exists")
+		}
+
 		err = c.SaveFile(file, savePath)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString("Failed to save file: " + err.Error())
