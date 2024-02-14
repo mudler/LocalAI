@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/api/config"
+	fiberContext "github.com/go-skynet/LocalAI/api/ctx"
 	options "github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/api/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -19,8 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *schema.OpenAIRequest, error) {
-	loader := o.Loader
+func readRequest(c *fiber.Ctx, o *options.Option, firstModel bool) (string, *schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
 	ctx, cancel := context.WithCancel(o.Context)
 	input.Context = ctx
@@ -30,38 +28,13 @@ func readInput(c *fiber.Ctx, o *options.Option, randomModel bool) (string, *sche
 		return "", nil, fmt.Errorf("failed parsing request body: %w", err)
 	}
 
-	modelFile := input.Model
-
-	if c.Params("model") != "" {
-		modelFile = c.Params("model")
-	}
-
 	received, _ := json.Marshal(input)
 
 	log.Debug().Msgf("Request received: %s", string(received))
 
-	// Set model from bearer token, if available
-	bearer := strings.TrimLeft(c.Get("authorization"), "Bearer ")
-	bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
+	modelFile, err := fiberContext.ModelFromContext(c, o.Loader, input.Model, firstModel)
 
-	// If no model was specified, take the first available
-	if modelFile == "" && !bearerExists && randomModel {
-		models, _ := loader.ListModels()
-		if len(models) > 0 {
-			modelFile = models[0]
-			log.Debug().Msgf("No model specified, using: %s", modelFile)
-		} else {
-			log.Debug().Msgf("No model specified, returning error")
-			return "", nil, fmt.Errorf("no model specified")
-		}
-	}
-
-	// If a model is found in bearer token takes precedence
-	if bearerExists {
-		log.Debug().Msgf("Using model from bearer token: %s", bearer)
-		modelFile = bearer
-	}
-	return modelFile, input, nil
+	return modelFile, input, err
 }
 
 // this function check if the string is an URL, if it's an URL downloads the image in memory
@@ -95,7 +68,7 @@ func getBase64Image(s string) (string, error) {
 	return "", fmt.Errorf("not valid string")
 }
 
-func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
+func updateRequestConfig(config *config.Config, input *schema.OpenAIRequest) {
 	if input.Echo {
 		config.Echo = input.Echo
 	}
@@ -282,55 +255,11 @@ func updateConfig(config *config.Config, input *schema.OpenAIRequest) {
 	}
 }
 
-func readConfig(modelFile string, input *schema.OpenAIRequest, cm *config.ConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.Config, *schema.OpenAIRequest, error) {
-	// Load a config file if present after the model name
-	modelConfig := filepath.Join(loader.ModelPath, modelFile+".yaml")
-
-	var cfg *config.Config
-
-	defaults := func() {
-		cfg = config.DefaultConfig(modelFile)
-		cfg.ContextSize = ctx
-		cfg.Threads = threads
-		cfg.F16 = f16
-		cfg.Debug = debug
-	}
-
-	cfgExisting, exists := cm.GetConfig(modelFile)
-	if !exists {
-		if _, err := os.Stat(modelConfig); err == nil {
-			if err := cm.LoadConfig(modelConfig); err != nil {
-				return nil, nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
-			}
-			cfgExisting, exists = cm.GetConfig(modelFile)
-			if exists {
-				cfg = &cfgExisting
-			} else {
-				defaults()
-			}
-		} else {
-			defaults()
-		}
-	} else {
-		cfg = &cfgExisting
-	}
+func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *config.ConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.Config, *schema.OpenAIRequest, error) {
+	cfg, err := config.Load(modelFile, loader.ModelPath, cm, debug, threads, ctx, f16)
 
 	// Set the parameters for the language model prediction
-	updateConfig(cfg, input)
+	updateRequestConfig(cfg, input)
 
-	// Don't allow 0 as setting
-	if cfg.Threads == 0 {
-		if threads != 0 {
-			cfg.Threads = threads
-		} else {
-			cfg.Threads = 4
-		}
-	}
-
-	// Enforce debug flag if passed from CLI
-	if debug {
-		cfg.Debug = true
-	}
-
-	return cfg, input, nil
+	return cfg, input, err
 }

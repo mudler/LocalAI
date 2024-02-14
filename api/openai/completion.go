@@ -53,14 +53,14 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 	}
 
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readInput(c, o, true)
+		modelFile, input, err := readRequest(c, o, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
 		log.Debug().Msgf("`input`: %+v", input)
 
-		config, input, err := readConfig(modelFile, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(modelFile, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

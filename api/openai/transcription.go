@@ -19,12 +19,12 @@ import (
 // https://platform.openai.com/docs/api-reference/audio/create
 func TranscriptEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readInput(c, o, false)
+		m, input, err := readRequest(c, o, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := readConfig(m, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(m, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
