@@ -1,8 +1,9 @@
+CONDA_ENV_PATH = "diffusers.yml"
+
 .PHONY: diffusers
 diffusers:
-	@echo "Creating virtual environment..."
-	@conda env create --name diffusers --file diffusers.yml
-	@echo "Virtual environment created."
+	@echo "Installing $(CONDA_ENV_PATH)..."
+	bash install.sh $(CONDA_ENV_PATH)
 
 .PHONY: run
 run:
