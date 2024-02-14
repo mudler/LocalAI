@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 func inTrustedRoot(path string, trustedRoot string) error {
@@ -19,4 +20,15 @@ func inTrustedRoot(path string, trustedRoot string) error {
 func VerifyPath(path, basePath string) error {
 	c := filepath.Clean(filepath.Join(basePath, path))
 	return inTrustedRoot(c, filepath.Clean(basePath))
+}
+
+// SanitizeFileName sanitizes the given filename
+func SanitizeFileName(fileName string) string {
+	// filepath.Clean to clean the path
+	cleanName := filepath.Clean(fileName)
+	// filepath.Base to ensure we only get the final element, not any directory path
+	baseName := filepath.Base(cleanName)
+	// Replace any remaining tricky characters that might have survived cleaning
+	safeName := strings.ReplaceAll(baseName, "..", "")
+	return safeName
 }

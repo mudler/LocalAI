@@ -4,10 +4,10 @@ import (
 	"fmt"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -42,7 +42,7 @@ func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 		}
 
 		// Sanitize the filename to prevent directory traversal
-		filename := sanitizeFileName(file.Filename)
+		filename := utils.SanitizeFileName(file.Filename)
 
 		// Create the directory if it doesn't exist
 		err = os.MkdirAll(o.UploadDir, os.ModePerm)
@@ -70,16 +70,6 @@ func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 
 		return c.Status(fiber.StatusOK).JSON(f)
 	}
-}
-
-func sanitizeFileName(fileName string) string {
-	// filepath.Clean to clean the path
-	cleanName := filepath.Clean(fileName)
-	// filepath.Base to ensure we only get the final element, not any directory path
-	baseName := filepath.Base(cleanName)
-	// Replace any remaining tricky characters that might have survived cleaning
-	safeName := strings.ReplaceAll(baseName, "..", "")
-	return safeName
 }
 
 // ListFilesEndpoint https://platform.openai.com/docs/api-reference/files/list
