@@ -101,8 +101,8 @@ func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 // ListFilesEndpoint https://platform.openai.com/docs/api-reference/files/list
 func ListFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	type ListFiles struct {
-		data   []File
-		object string
+		Data   []File
+		Object string
 	}
 
 	return func(c *fiber.Ctx) error {
@@ -110,14 +110,14 @@ func ListFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber
 
 		purpose := c.Query("purpose")
 		if purpose == "" {
-			listFiles.data = uploadedFiles
-		}
-		for _, f := range uploadedFiles {
-			if purpose == f.Purpose {
-				listFiles.data = append(listFiles.data, f)
+			listFiles.Data = uploadedFiles
+		} else {
+			for _, f := range uploadedFiles {
+				if purpose == f.Purpose {
+					listFiles.Data = append(listFiles.Data, f)
+				}
 			}
 		}
-
 		return c.Status(fiber.StatusOK).JSON(listFiles)
 	}
 }
