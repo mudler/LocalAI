@@ -222,6 +222,9 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	os.MkdirAll(options.UploadDir, 0755)
 	os.MkdirAll(options.Loader.ModelPath, 0755)
 
+	// Load upload json
+	openai.LoadUploadConfig(options.UploadDir)
+
 	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.Loader.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryService.ApplyModelGalleryEndpoint())
 	app.Get("/models/available", auth, modelGalleryService.ListModelFromGalleryEndpoint())

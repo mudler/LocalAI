@@ -1,11 +1,13 @@
 package openai
 
 import (
+	"encoding/json"
 	"fmt"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"time"
@@ -23,6 +25,30 @@ type File struct {
 	Purpose   string    `json:"purpose"`    // The purpose of the file (e.g., "fine-tune", "classifications", etc.)
 }
 
+func saveUploadConfig(uploadDir string) {
+	file, err := json.MarshalIndent(uploadedFiles, "", " ")
+	if err != nil {
+		log.Error().Msgf("Failed to JSON marshal the uploadedFiles: %s", err)
+	}
+
+	err = os.WriteFile(filepath.Join(uploadDir, "uploadedFiles.json"), file, 0644)
+	if err != nil {
+		log.Error().Msgf("Failed to save uploadedFiles to file: %s", err)
+	}
+}
+
+func LoadUploadConfig(uploadPath string) {
+	file, err := os.ReadFile(filepath.Join(uploadPath, "uploadedFiles.json"))
+	if err != nil {
+		log.Error().Msgf("Failed to read file: %s", err)
+	} else {
+		err = json.Unmarshal(file, &uploadedFiles)
+		if err != nil {
+			log.Error().Msgf("Failed to JSON unmarshal the file into uploadedFiles: %s", err)
+		}
+	}
+}
+
 // UploadFilesEndpoint https://platform.openai.com/docs/api-reference/files/create
 func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
@@ -32,7 +58,7 @@ func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 		}
 
 		// Check the file size
-		if file.Size > int64(o.UploadLimitMB) {
+		if file.Size > int64(o.UploadLimitMB*1024*1024) {
 			return c.Status(fiber.StatusBadRequest).SendString(fmt.Sprintf("File size %d exceeds upload limit %d", file.Size, o.UploadLimitMB))
 		}
 
@@ -67,7 +93,7 @@ func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 		}
 
 		uploadedFiles = append(uploadedFiles, f)
-
+		saveUploadConfig(o.UploadDir)
 		return c.Status(fiber.StatusOK).JSON(f)
 	}
 }
@@ -149,7 +175,7 @@ func DeleteFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 				break
 			}
 		}
-
+		saveUploadConfig(o.UploadDir)
 		return c.JSON(DeleteStatus{
 			id:     file.ID,
 			object: "File",
