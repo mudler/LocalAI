@@ -71,12 +71,6 @@ func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 		// Sanitize the filename to prevent directory traversal
 		filename := utils.SanitizeFileName(file.Filename)
 
-		// Create the directory if it doesn't exist
-		err = os.MkdirAll(o.UploadDir, os.ModePerm)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString("Failed to create directory: " + err.Error())
-		}
-
 		savePath := filepath.Join(o.UploadDir, filename)
 
 		err = c.SaveFile(file, savePath)
