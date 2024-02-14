@@ -2,6 +2,7 @@ package openai
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/options"
@@ -118,6 +119,7 @@ func ListFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber
 				}
 			}
 		}
+		listFiles.Object = "list"
 		return c.Status(fiber.StatusOK).JSON(listFiles)
 	}
 }
@@ -152,12 +154,13 @@ func GetFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.
 // DeleteFilesEndpoint https://platform.openai.com/docs/api-reference/files/delete
 func DeleteFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	type DeleteStatus struct {
-		id     string
-		object string
-		delete bool
+		Id      string
+		Object  string
+		Deleted bool
 	}
 
 	return func(c *fiber.Ctx) error {
+		defer saveUploadConfig(o.UploadDir)
 		file, err := getFileFromRequest(c)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
@@ -165,7 +168,10 @@ func DeleteFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 
 		err = os.Remove(filepath.Join(o.UploadDir, file.Filename))
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Unable to delete file: %s, %v", file.Filename, err))
+			// If the file doesn't exist then we should just continue to remove it
+			if !errors.Is(err, os.ErrNotExist) {
+				return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Unable to delete file: %s, %v", file.Filename, err))
+			}
 		}
 
 		// Remove upload from list
@@ -175,11 +181,11 @@ func DeleteFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 				break
 			}
 		}
-		saveUploadConfig(o.UploadDir)
+
 		return c.JSON(DeleteStatus{
-			id:     file.ID,
-			object: "File",
-			delete: true,
+			Id:      file.ID,
+			Object:  "file",
+			Deleted: true,
 		})
 	}
 }
