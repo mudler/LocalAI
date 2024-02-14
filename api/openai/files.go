@@ -160,7 +160,6 @@ func DeleteFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 	}
 
 	return func(c *fiber.Ctx) error {
-		defer saveUploadConfig(o.UploadDir)
 		file, err := getFileFromRequest(c)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
@@ -182,6 +181,7 @@ func DeleteFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 			}
 		}
 
+		saveUploadConfig(o.UploadDir)
 		return c.JSON(DeleteStatus{
 			Id:      file.ID,
 			Object:  "file",
