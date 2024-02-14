@@ -78,6 +78,8 @@ RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmo
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN apt-get install -y python3-pip && apt-get clean
+RUN pip install --upgrade pip
+
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get install -y espeak-ng espeak && apt-get clean
 
