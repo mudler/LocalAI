@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 ##
 ## A bash script installs the required dependencies of VALL-E-X and prepares the environment
 export PATH=$PATH:/opt/conda/bin

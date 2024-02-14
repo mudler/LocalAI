@@ -10,10 +10,7 @@ source activate transformers
 
 echo $CONDA_PREFIX
 
-git clone https://github.com/Plachtaa/VALL-E-X.git $CONDA_PREFIX/vall-e-x && pushd $CONDA_PREFIX/vall-e-x && git checkout -b build $SHA && pip install -r requirements.txt && popd
-
-# Pin some dependencies (the upstream requirements is too much loose)
-pip install torchaudio==2.2.0
+git clone https://github.com/Plachtaa/VALL-E-X.git $CONDA_PREFIX/vall-e-x && pushd $CONDA_PREFIX/vall-e-x && git checkout -b build $SHA && popd
 
 cp -rfv $CONDA_PREFIX/vall-e-x/* ./
 
