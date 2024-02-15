@@ -41,7 +41,7 @@ func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) 
 		log.Debug().Msgf("Request for model: %s", modelFile)
 
 		if input.Backend != "" {
-			cfg.Backend = input.Input
+			cfg.Backend = input.Backend
 		}
 
 		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, o.Loader, o, *cfg)
