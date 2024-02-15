@@ -55,78 +55,6 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		})
 		close(responses)
 	}
-
-	/*
-		data:
-		{
-			"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk",
-			"object":"chat.completion.chunk",
-			"created":1708018287,
-			"model":"gpt-3.5-turbo-0613",
-			"system_fingerprint":null,
-			"choices":[
-			{
-				"index":0,
-				"delta": {
-					"role":"assistant",
-					"content":null,
-					"tool_calls":
-					[
-						{
-							"index":0,
-							"id":"call_kL07suiDkGzYbUCLMZZ5XUIU",
-							"type":"function",
-							"function":
-							{
-								"name":"get_current_weather",
-								"arguments":""
-							}
-						}
-					]
-				},
-			"logprobs":null,
-			"finish_reason":null
-			}]
-		}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":"{\n"}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":" "}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":" \""}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":"location"}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":"\":"}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":" \""}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":"Boston"}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":","}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":" MA"}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":"\"\n"}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
-		rguments":"}"}}]},"logprobs":null,"finish_reason":null}]}
-
-		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool
-		_calls"}]}
-
-		data: [DONE]
-	*/
 	processTools := func(prompt string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		ComputeChoices(req, prompt, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			ss := map[string]interface{}{}
@@ -391,7 +319,6 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			}
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
-
 				usage := &schema.OpenAIUsage{}
 
 				for ev := range responses {
@@ -488,11 +415,35 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 						fineTunedResponse := backend.Finetune(*config, predInput, prediction.Response)
 						*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &fineTunedResponse}})
 					} else {
-						// otherwise reply with the function call
-						*c = append(*c, schema.Choice{
-							FinishReason: "function_call",
-							Message:      &schema.Message{Role: "assistant", FunctionCall: ss},
-						})
+						if len(input.Tools) > 0 {
+							// Result is different in the case we have a tool call
+							*c = append(*c, schema.Choice{
+								FinishReason: "tool_calls",
+								Message: &schema.Message{
+									Role: "assistant",
+									ToolCalls: []schema.ToolCall{
+										{
+											ID:   id,
+											Type: "function",
+											FunctionCall: schema.FunctionCall{
+												Name:      name,
+												Arguments: args,
+											},
+										},
+									},
+									FunctionCall: ss,
+								},
+							})
+						} else {
+							// otherwise reply with the function call
+							*c = append(*c, schema.Choice{
+								FinishReason: "function_call",
+								Message: &schema.Message{
+									Role:         "assistant",
+									FunctionCall: ss,
+								},
+							})
+						}
 					}
 
 					return

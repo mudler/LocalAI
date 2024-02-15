@@ -13,6 +13,7 @@ import (
 	fiberContext "github.com/go-skynet/LocalAI/api/ctx"
 	options "github.com/go-skynet/LocalAI/api/options"
 	"github.com/go-skynet/LocalAI/api/schema"
+	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -143,7 +144,11 @@ func updateRequestConfig(config *config.Config, input *schema.OpenAIRequest) {
 	}
 
 	if input.ToolsChoice != nil {
-		input.FunctionCall = input.ToolsChoice
+		var toolChoice grammar.Tool
+		json.Unmarshal([]byte(input.ToolsChoice.(string)), &toolChoice)
+		input.FunctionCall = map[string]interface{}{
+			"name": toolChoice.Function.Name,
+		}
 	}
 
 	// Decode each request's message content
