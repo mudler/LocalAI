@@ -55,6 +55,132 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		})
 		close(responses)
 	}
+
+	/*
+		data:
+		{
+			"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk",
+			"object":"chat.completion.chunk",
+			"created":1708018287,
+			"model":"gpt-3.5-turbo-0613",
+			"system_fingerprint":null,
+			"choices":[
+			{
+				"index":0,
+				"delta": {
+					"role":"assistant",
+					"content":null,
+					"tool_calls":
+					[
+						{
+							"index":0,
+							"id":"call_kL07suiDkGzYbUCLMZZ5XUIU",
+							"type":"function",
+							"function":
+							{
+								"name":"get_current_weather",
+								"arguments":""
+							}
+						}
+					]
+				},
+			"logprobs":null,
+			"finish_reason":null
+			}]
+		}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":"{\n"}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":" "}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":" \""}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":"location"}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":"\":"}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":" \""}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":"Boston"}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":","}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":" MA"}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":"\"\n"}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"a
+		rguments":"}"}}]},"logprobs":null,"finish_reason":null}]}
+
+		data: {"id":"chatcmpl-8sZrzBdLsWvnO2lX7Vz6glYAz8JMk","object":"chat.completion.chunk","created":1708018287,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool
+		_calls"}]}
+
+		data: [DONE]
+	*/
+	processTools := func(prompt string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+		ComputeChoices(req, prompt, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+			ss := map[string]interface{}{}
+
+			name, args := parseFunctionCall(s)
+			ss["name"], ss["arguments"] = name, args
+
+			initialMessage := schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{{
+					Delta: &schema.Message{
+						Role: "assistant",
+						ToolCalls: []schema.ToolCall{
+							{
+								Index: 0,
+								ID:    id,
+								Type:  "function",
+								FunctionCall: schema.FunctionCall{
+									Name: name,
+								},
+							},
+						},
+					}}},
+				Object: "chat.completion.chunk",
+			}
+			responses <- initialMessage
+
+			responses <- schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{{
+					Delta: &schema.Message{
+						Role: "assistant",
+						ToolCalls: []schema.ToolCall{
+							{
+								Index: 0,
+								ID:    id,
+								Type:  "function",
+								FunctionCall: schema.FunctionCall{
+									Arguments: args,
+								},
+							},
+						},
+					}}},
+				Object: "chat.completion.chunk",
+			}
+			return true
+		})
+		close(responses)
+	}
+
 	return func(c *fiber.Ctx) error {
 		processFunctions := false
 		funcs := grammar.Functions{}
@@ -122,7 +248,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 
 		// functions are not supported in stream mode (yet?)
-		toStream := input.Stream && !processFunctions
+		toStream := input.Stream
 
 		log.Debug().Msgf("Parameters: %+v", config)
 
@@ -254,10 +380,15 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			log.Debug().Msgf("Grammar: %+v", config.Grammar)
 		}
 
-		if toStream {
+		switch {
+		case toStream:
 			responses := make(chan schema.OpenAIResponse)
 
-			go process(predInput, input, config, o.Loader, responses)
+			if !processFunctions {
+				go process(predInput, input, config, o.Loader, responses)
+			} else {
+				go processTools(predInput, input, config, o.Loader, responses)
+			}
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
@@ -278,13 +409,18 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					w.Flush()
 				}
 
+				finishReason := "stop"
+				if processFunctions {
+					finishReason = "tool_calls"
+				}
+
 				resp := &schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
 					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: []schema.Choice{
 						{
-							FinishReason: "stop",
+							FinishReason: finishReason,
 							Index:        0,
 							Delta:        &schema.Message{Content: &emptyMessage},
 						}},
@@ -298,102 +434,110 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				w.Flush()
 			}))
 			return nil
-		}
 
-		result, tokenUsage, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]schema.Choice) {
-			if processFunctions {
-				// As we have to change the result before processing, we can't stream the answer (yet?)
-				ss := map[string]interface{}{}
-				// This prevent newlines to break JSON parsing for clients
-				s = utils.EscapeNewLines(s)
-				json.Unmarshal([]byte(s), &ss)
-				log.Debug().Msgf("Function return: %s %+v", s, ss)
+		default:
+			result, tokenUsage, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]schema.Choice) {
+				if processFunctions {
+					ss := map[string]interface{}{}
 
-				// The grammar defines the function name as "function", while OpenAI returns "name"
-				func_name := ss["function"]
-				// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
-				args := ss["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
-				d, _ := json.Marshal(args)
+					name, args := parseFunctionCall(s)
+					ss["name"], ss["arguments"] = name, args
 
-				ss["arguments"] = string(d)
-				ss["name"] = func_name
+					// if do nothing, reply with a message
+					if name == noActionName {
+						log.Debug().Msgf("nothing to do, computing a reply")
 
-				// if do nothing, reply with a message
-				if func_name == noActionName {
-					log.Debug().Msgf("nothing to do, computing a reply")
+						// If there is a message that the LLM already sends as part of the JSON reply, use it
+						arguments := map[string]interface{}{}
+						json.Unmarshal([]byte(args), &arguments)
+						m, exists := arguments["message"]
+						if exists {
+							switch message := m.(type) {
+							case string:
+								if message != "" {
+									log.Debug().Msgf("Reply received from LLM: %s", message)
+									message = backend.Finetune(*config, predInput, message)
+									log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
 
-					// If there is a message that the LLM already sends as part of the JSON reply, use it
-					arguments := map[string]interface{}{}
-					json.Unmarshal([]byte(d), &arguments)
-					m, exists := arguments["message"]
-					if exists {
-						switch message := m.(type) {
-						case string:
-							if message != "" {
-								log.Debug().Msgf("Reply received from LLM: %s", message)
-								message = backend.Finetune(*config, predInput, message)
-								log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
-
-								*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &message}})
-								return
+									*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &message}})
+									return
+								}
 							}
 						}
+
+						log.Debug().Msgf("No action received from LLM, without a message, computing a reply")
+						// Otherwise ask the LLM to understand the JSON output and the context, and return a message
+						// Note: This costs (in term of CPU) another computation
+						config.Grammar = ""
+						images := []string{}
+						for _, m := range input.Messages {
+							images = append(images, m.StringImages...)
+						}
+						predFunc, err := backend.ModelInference(input.Context, predInput, images, o.Loader, *config, o, nil)
+						if err != nil {
+							log.Error().Msgf("inference error: %s", err.Error())
+							return
+						}
+
+						prediction, err := predFunc()
+						if err != nil {
+							log.Error().Msgf("inference error: %s", err.Error())
+							return
+						}
+
+						fineTunedResponse := backend.Finetune(*config, predInput, prediction.Response)
+						*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &fineTunedResponse}})
+					} else {
+						// otherwise reply with the function call
+						*c = append(*c, schema.Choice{
+							FinishReason: "function_call",
+							Message:      &schema.Message{Role: "assistant", FunctionCall: ss},
+						})
 					}
 
-					log.Debug().Msgf("No action received from LLM, without a message, computing a reply")
-					// Otherwise ask the LLM to understand the JSON output and the context, and return a message
-					// Note: This costs (in term of CPU) another computation
-					config.Grammar = ""
-					images := []string{}
-					for _, m := range input.Messages {
-						images = append(images, m.StringImages...)
-					}
-					predFunc, err := backend.ModelInference(input.Context, predInput, images, o.Loader, *config, o, nil)
-					if err != nil {
-						log.Error().Msgf("inference error: %s", err.Error())
-						return
-					}
-
-					prediction, err := predFunc()
-					if err != nil {
-						log.Error().Msgf("inference error: %s", err.Error())
-						return
-					}
-
-					fineTunedResponse := backend.Finetune(*config, predInput, prediction.Response)
-					*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &fineTunedResponse}})
-				} else {
-					// otherwise reply with the function call
-					*c = append(*c, schema.Choice{
-						FinishReason: "function_call",
-						Message:      &schema.Message{Role: "assistant", FunctionCall: ss},
-					})
+					return
 				}
-
-				return
+				*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
+			}, nil)
+			if err != nil {
+				return err
 			}
-			*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
-		}, nil)
-		if err != nil {
-			return err
+
+			resp := &schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: result,
+				Object:  "chat.completion",
+				Usage: schema.OpenAIUsage{
+					PromptTokens:     tokenUsage.Prompt,
+					CompletionTokens: tokenUsage.Completion,
+					TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+				},
+			}
+			respData, _ := json.Marshal(resp)
+			log.Debug().Msgf("Response: %s", respData)
+
+			// Return the prediction in the response body
+			return c.JSON(resp)
 		}
 
-		resp := &schema.OpenAIResponse{
-			ID:      id,
-			Created: created,
-			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: result,
-			Object:  "chat.completion",
-			Usage: schema.OpenAIUsage{
-				PromptTokens:     tokenUsage.Prompt,
-				CompletionTokens: tokenUsage.Completion,
-				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-			},
-		}
-		respData, _ := json.Marshal(resp)
-		log.Debug().Msgf("Response: %s", respData)
-
-		// Return the prediction in the response body
-		return c.JSON(resp)
 	}
+}
+
+func parseFunctionCall(llmresult string) (string, string) {
+	// As we have to change the result before processing, we can't stream the answer token-by-token (yet?)
+	ss := map[string]interface{}{}
+	// This prevent newlines to break JSON parsing for clients
+	s := utils.EscapeNewLines(llmresult)
+	json.Unmarshal([]byte(s), &ss)
+	log.Debug().Msgf("Function return: %s %+v", s, ss)
+
+	// The grammar defines the function name as "function", while OpenAI returns "name"
+	func_name := ss["function"]
+	// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
+	args := ss["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+	d, _ := json.Marshal(args)
+
+	return func_name.(string), string(d)
 }

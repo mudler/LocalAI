@@ -76,6 +76,20 @@ type Message struct {
 
 	// A result of a function call
 	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`
+
+	ToolCalls []ToolCall `json:"tool_calls,omitempty" yaml:"tool_call,omitempty"`
+}
+
+type ToolCall struct {
+	Index        int          `json:"index"`
+	ID           string       `json:"id"`
+	Type         string       `json:"type"`
+	FunctionCall FunctionCall `json:"function"`
+}
+
+type FunctionCall struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments"`
 }
 
 type OpenAIModel struct {
