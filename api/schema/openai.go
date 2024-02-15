@@ -117,6 +117,9 @@ type OpenAIRequest struct {
 	Functions    []grammar.Function `json:"functions" yaml:"functions"`
 	FunctionCall interface{}        `json:"function_call" yaml:"function_call"` // might be a string or an object
 
+	Tools       []grammar.Tool `json:"tools,omitempty" yaml:"tools"`
+	ToolsChoice interface{}    `json:"tool_choice,omitempty" yaml:"tool_choice"`
+
 	Stream bool `json:"stream"`
 
 	// Image (not supported by OpenAI)

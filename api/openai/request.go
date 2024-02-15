@@ -136,6 +136,16 @@ func updateRequestConfig(config *config.Config, input *schema.OpenAIRequest) {
 		}
 	}
 
+	if len(input.Tools) > 0 {
+		for _, tool := range input.Tools {
+			input.Functions = append(input.Functions, tool.Function)
+		}
+	}
+
+	if input.ToolsChoice != nil {
+		input.FunctionCall = input.ToolsChoice
+	}
+
 	// Decode each request's message content
 	index := 0
 	for i, m := range input.Messages {
