@@ -97,6 +97,8 @@ endif
 
 ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_HOME ?= /opt/rocm
+	ROCM_PATH ?= /opt/rocm
+	LD_LIBRARY_PATH ?= /opt/rocm/lib:/opt/rocm/llvm/lib
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
 	# llama-ggml has no hipblas support, so override it here.

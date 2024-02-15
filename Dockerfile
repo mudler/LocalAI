@@ -41,12 +41,11 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}  && apt-get clean \
     ; fi
 
+# Cuda
 ENV PATH /usr/local/cuda/bin:${PATH}
 
 # HipBLAS requirements
 ENV PATH /opt/rocm/bin:${PATH}
-ENV ROCM_PATH=/opt/rocm
-ENV LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm/llvm/lib
 
 # OpenBLAS requirements and stable diffusion
 RUN apt-get install -y \
