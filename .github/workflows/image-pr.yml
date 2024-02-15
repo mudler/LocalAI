@@ -58,7 +58,7 @@ jobs:
             ffmpeg: 'false'
             image-type: 'extras'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
