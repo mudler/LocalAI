@@ -337,7 +337,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				}
 
 				finishReason := "stop"
-				if processFunctions {
+				if processFunctions && len(input.Tools) > 0 {
 					finishReason = "tool_calls"
 				}
 
