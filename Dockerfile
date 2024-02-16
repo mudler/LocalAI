@@ -1,4 +1,3 @@
-ARG GO_VERSION=1.21
 ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
 
@@ -42,7 +41,11 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
     apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}  && apt-get clean \
     ; fi
 
+# Cuda
 ENV PATH /usr/local/cuda/bin:${PATH}
+
+# HipBLAS requirements
+ENV PATH /opt/rocm/bin:${PATH}
 
 # OpenBLAS requirements and stable diffusion
 RUN apt-get install -y \
@@ -70,7 +73,9 @@ RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmo
     apt-get install -y conda && apt-get clean
 
 ENV PATH="/root/.cargo/bin:${PATH}"
+RUN apt-get install -y python3-pip && apt-get clean
 RUN pip install --upgrade pip
+
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get install -y espeak-ng espeak && apt-get clean
 

@@ -103,6 +103,22 @@ jobs:
             image-type: 'extras'
             base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas-ffmpeg'
+            ffmpeg: 'true'
+            image-type: 'extras'
+            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            runs-on: 'arc-runner-set'
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas'
+            ffmpeg: 'false'
+            image-type: 'extras'
+            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            runs-on: 'arc-runner-set'
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
@@ -124,6 +140,22 @@ jobs:
     strategy:
       matrix:
         include:
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas-ffmpeg-core'
+            ffmpeg: 'true'
+            image-type: 'core'
+            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            runs-on: 'arc-runner-set'
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas-core'
+            ffmpeg: 'false'
+            image-type: 'core'
+            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            runs-on: 'arc-runner-set'
           - build-type: ''
             platforms: 'linux/amd64'
             tag-latest: 'false'
