@@ -68,6 +68,10 @@ type ContentURL struct {
 type Message struct {
 	// The message role
 	Role string `json:"role,omitempty" yaml:"role"`
+
+	// The message name (used for tools calls)
+	Name string `json:"name,omitempty" yaml:"name"`
+
 	// The message content
 	Content interface{} `json:"content" yaml:"content"`
 

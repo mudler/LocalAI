@@ -33,6 +33,7 @@ type ChatMessageTemplateData struct {
 	SystemPrompt string
 	Role         string
 	RoleName     string
+	FunctionName string
 	Content      string
 	MessageIndex int
 }

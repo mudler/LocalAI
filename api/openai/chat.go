@@ -199,6 +199,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			}
 			r := config.Roles[role]
 			contentExists := i.Content != nil && i.StringContent != ""
+
 			// First attempt to populate content via a chat message specific template
 			if config.TemplateConfig.ChatMessage != "" {
 				chatMessageData := model.ChatMessageTemplateData{
@@ -206,6 +207,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					Role:         r,
 					RoleName:     role,
 					Content:      i.StringContent,
+					FunctionName: i.Name,
 					MessageIndex: messageIndex,
 				}
 				templatedChatMessage, err := o.Loader.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
