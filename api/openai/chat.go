@@ -56,56 +56,61 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		close(responses)
 	}
 	processTools := func(prompt string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+
+		result := ""
 		ComputeChoices(req, prompt, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
-			ss := map[string]interface{}{}
-
-			name, args := parseFunctionCall(s)
-			ss["name"], ss["arguments"] = name, args
-
-			initialMessage := schema.OpenAIResponse{
-				ID:      id,
-				Created: created,
-				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{
-					Delta: &schema.Message{
-						Role: "assistant",
-						ToolCalls: []schema.ToolCall{
-							{
-								Index: 0,
-								ID:    id,
-								Type:  "function",
-								FunctionCall: schema.FunctionCall{
-									Name: name,
-								},
-							},
-						},
-					}}},
-				Object: "chat.completion.chunk",
-			}
-			responses <- initialMessage
-
-			responses <- schema.OpenAIResponse{
-				ID:      id,
-				Created: created,
-				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{
-					Delta: &schema.Message{
-						Role: "assistant",
-						ToolCalls: []schema.ToolCall{
-							{
-								Index: 0,
-								ID:    id,
-								Type:  "function",
-								FunctionCall: schema.FunctionCall{
-									Arguments: args,
-								},
-							},
-						},
-					}}},
-				Object: "chat.completion.chunk",
-			}
+			result += s
+			// TODO: Change generated BNF grammar to be compliant with the schema so we can
+			// stream the result token by token here.
 			return true
 		})
+
+		ss := map[string]interface{}{}
+		name, args := parseFunctionCall(result)
+		ss["name"], ss["arguments"] = name, args
+
+		initialMessage := schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
+			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Choices: []schema.Choice{{
+				Delta: &schema.Message{
+					Role: "assistant",
+					ToolCalls: []schema.ToolCall{
+						{
+							Index: 0,
+							ID:    id,
+							Type:  "function",
+							FunctionCall: schema.FunctionCall{
+								Name: name,
+							},
+						},
+					},
+				}}},
+			Object: "chat.completion.chunk",
+		}
+		responses <- initialMessage
+
+		responses <- schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
+			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Choices: []schema.Choice{{
+				Delta: &schema.Message{
+					Role: "assistant",
+					ToolCalls: []schema.ToolCall{
+						{
+							Index: 0,
+							ID:    id,
+							Type:  "function",
+							FunctionCall: schema.FunctionCall{
+								Arguments: args,
+							},
+						},
+					},
+				}}},
+			Object: "chat.completion.chunk",
+		}
 		close(responses)
 	}
 
