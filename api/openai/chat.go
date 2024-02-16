@@ -55,10 +55,9 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		})
 		close(responses)
 	}
-	processTools := func(prompt string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
-
+	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		result := ""
-		ComputeChoices(req, prompt, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		_, tokenUsage, _ := ComputeChoices(req, prompt, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
 			// TODO: Change generated BNF grammar to be compliant with the schema so we can
 			// stream the result token by token here.
@@ -68,6 +67,40 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		ss := map[string]interface{}{}
 		name, args := parseFunctionCall(result)
 		ss["name"], ss["arguments"] = name, args
+
+		if name == noAction {
+			initialMessage := schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &emptyMessage}}},
+				Object:  "chat.completion.chunk",
+			}
+			responses <- initialMessage
+
+			result, err := handleQuestion(config, req, o, args, prompt)
+			if err != nil {
+				log.Error().Msgf("error handling question: %s", err.Error())
+				return
+			}
+
+			resp := schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{{Delta: &schema.Message{Content: &result}, Index: 0}},
+				Object:  "chat.completion.chunk",
+				Usage: schema.OpenAIUsage{
+					PromptTokens:     tokenUsage.Prompt,
+					CompletionTokens: tokenUsage.Completion,
+					TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+				},
+			}
+
+			responses <- resp
+			close(responses)
+			return
+		}
 
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
@@ -322,14 +355,17 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			if !processFunctions {
 				go process(predInput, input, config, o.Loader, responses)
 			} else {
-				go processTools(predInput, input, config, o.Loader, responses)
+				go processTools(noActionName, predInput, input, config, o.Loader, responses)
 			}
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 				usage := &schema.OpenAIUsage{}
-
+				toolsCalled := false
 				for ev := range responses {
 					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
+					if len(ev.Choices[0].Delta.ToolCalls) > 0 {
+						toolsCalled = true
+					}
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
 					enc.Encode(ev)
@@ -344,8 +380,10 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				}
 
 				finishReason := "stop"
-				if processFunctions && len(input.Tools) > 0 {
+				if toolsCalled {
 					finishReason = "tool_calls"
+				} else if toolsCalled && len(input.Tools) == 0 {
+					finishReason = "function_call"
 				}
 
 				resp := &schema.OpenAIResponse{
@@ -379,48 +417,12 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 					// if do nothing, reply with a message
 					if name == noActionName {
-						log.Debug().Msgf("nothing to do, computing a reply")
-
-						// If there is a message that the LLM already sends as part of the JSON reply, use it
-						arguments := map[string]interface{}{}
-						json.Unmarshal([]byte(args), &arguments)
-						m, exists := arguments["message"]
-						if exists {
-							switch message := m.(type) {
-							case string:
-								if message != "" {
-									log.Debug().Msgf("Reply received from LLM: %s", message)
-									message = backend.Finetune(*config, predInput, message)
-									log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
-
-									*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &message}})
-									return
-								}
-							}
-						}
-
-						log.Debug().Msgf("No action received from LLM, without a message, computing a reply")
-						// Otherwise ask the LLM to understand the JSON output and the context, and return a message
-						// Note: This costs (in term of CPU) another computation
-						config.Grammar = ""
-						images := []string{}
-						for _, m := range input.Messages {
-							images = append(images, m.StringImages...)
-						}
-						predFunc, err := backend.ModelInference(input.Context, predInput, images, o.Loader, *config, o, nil)
+						result, err := handleQuestion(config, input, o, args, predInput)
 						if err != nil {
-							log.Error().Msgf("inference error: %s", err.Error())
+							log.Error().Msgf("error handling question: %s", err.Error())
 							return
 						}
-
-						prediction, err := predFunc()
-						if err != nil {
-							log.Error().Msgf("inference error: %s", err.Error())
-							return
-						}
-
-						fineTunedResponse := backend.Finetune(*config, predInput, prediction.Response)
-						*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &fineTunedResponse}})
+						*c = append(*c, schema.Choice{Message: &schema.Message{Role: "assistant", Content: &result}})
 					} else {
 						if len(input.Tools) > 0 {
 							// Result is different in the case we have a tool call
@@ -455,6 +457,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 					return
 				}
+
 				*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
 			}, nil)
 			if err != nil {
@@ -481,6 +484,49 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 
 	}
+}
+
+func handleQuestion(config *config.Config, input *schema.OpenAIRequest, o *options.Option, args, prompt string) (string, error) {
+	log.Debug().Msgf("nothing to do, computing a reply")
+
+	// If there is a message that the LLM already sends as part of the JSON reply, use it
+	arguments := map[string]interface{}{}
+	json.Unmarshal([]byte(args), &arguments)
+	m, exists := arguments["message"]
+	if exists {
+		switch message := m.(type) {
+		case string:
+			if message != "" {
+				log.Debug().Msgf("Reply received from LLM: %s", message)
+				message = backend.Finetune(*config, prompt, message)
+				log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
+
+				return message, nil
+			}
+		}
+	}
+
+	log.Debug().Msgf("No action received from LLM, without a message, computing a reply")
+	// Otherwise ask the LLM to understand the JSON output and the context, and return a message
+	// Note: This costs (in term of CPU/GPU) another computation
+	config.Grammar = ""
+	images := []string{}
+	for _, m := range input.Messages {
+		images = append(images, m.StringImages...)
+	}
+
+	predFunc, err := backend.ModelInference(input.Context, prompt, images, o.Loader, *config, o, nil)
+	if err != nil {
+		log.Error().Msgf("inference error: %s", err.Error())
+		return "", err
+	}
+
+	prediction, err := predFunc()
+	if err != nil {
+		log.Error().Msgf("inference error: %s", err.Error())
+		return "", err
+	}
+	return backend.Finetune(*config, prompt, prediction.Response), nil
 }
 
 func parseFunctionCall(llmresult string) (string, string) {
