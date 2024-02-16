@@ -440,7 +440,6 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 											},
 										},
 									},
-									FunctionCall: ss,
 								},
 							})
 						} else {
