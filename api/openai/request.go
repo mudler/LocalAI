@@ -11,8 +11,8 @@ import (
 
 	config "github.com/go-skynet/LocalAI/api/config"
 	fiberContext "github.com/go-skynet/LocalAI/api/ctx"
-	options "github.com/go-skynet/LocalAI/api/options"
-	"github.com/go-skynet/LocalAI/api/schema"
+	options "github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"

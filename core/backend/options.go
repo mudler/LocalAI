@@ -8,7 +8,7 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 
 	config "github.com/go-skynet/LocalAI/api/config"
-	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/core/options"
 )
 
 func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.Option {

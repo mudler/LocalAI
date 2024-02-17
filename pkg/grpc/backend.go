@@ -2,7 +2,8 @@ package grpc
 
 import (
 	"context"
-	"github.com/go-skynet/LocalAI/api/schema"
+
+	"github.com/go-skynet/LocalAI/core/schema"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
 )
