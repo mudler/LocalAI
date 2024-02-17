@@ -11,6 +11,12 @@ type Function struct {
 }
 type Functions []Function
 
+type Tool struct {
+	Type     string   `json:"type"`
+	Function Function `json:"function,omitempty"`
+}
+type Tools []Tool
+
 func (f Functions) ToJSONStructure() JSONFunctionStructure {
 	js := JSONFunctionStructure{}
 	for _, function := range f {

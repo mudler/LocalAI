@@ -146,7 +146,11 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	}
 
 	// Default middleware config
-	app.Use(recover.New())
+
+	if !options.Debug {
+		app.Use(recover.New())
+	}
+
 	if options.Metrics != nil {
 		app.Use(metrics.APIMiddleware(options.Metrics))
 	}
