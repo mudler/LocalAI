@@ -1,8 +1,13 @@
+export CONDA_ENV_PATH = "diffusers.yml"
+
+ifeq ($(BUILD_TYPE), hipblas)
+export CONDA_ENV_PATH = "diffusers-rocm.yml"
+endif
+
 .PHONY: diffusers
 diffusers:
-	@echo "Creating virtual environment..."
-	@conda env create --name diffusers --file diffusers.yml
-	@echo "Virtual environment created."
+	@echo "Installing $(CONDA_ENV_PATH)..."
+	bash install.sh $(CONDA_ENV_PATH)
 
 .PHONY: run
 run:

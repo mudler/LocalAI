@@ -68,6 +68,10 @@ type ContentURL struct {
 type Message struct {
 	// The message role
 	Role string `json:"role,omitempty" yaml:"role"`
+
+	// The message name (used for tools calls)
+	Name string `json:"name,omitempty" yaml:"name"`
+
 	// The message content
 	Content interface{} `json:"content" yaml:"content"`
 
@@ -76,6 +80,20 @@ type Message struct {
 
 	// A result of a function call
 	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`
+
+	ToolCalls []ToolCall `json:"tool_calls,omitempty" yaml:"tool_call,omitempty"`
+}
+
+type ToolCall struct {
+	Index        int          `json:"index"`
+	ID           string       `json:"id"`
+	Type         string       `json:"type"`
+	FunctionCall FunctionCall `json:"function"`
+}
+
+type FunctionCall struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments"`
 }
 
 type OpenAIModel struct {
@@ -116,6 +134,9 @@ type OpenAIRequest struct {
 	// A list of available functions to call
 	Functions    []grammar.Function `json:"functions" yaml:"functions"`
 	FunctionCall interface{}        `json:"function_call" yaml:"function_call"` // might be a string or an object
+
+	Tools       []grammar.Tool `json:"tools,omitempty" yaml:"tools"`
+	ToolsChoice interface{}    `json:"tool_choice,omitempty" yaml:"tool_choice"`
 
 	Stream bool `json:"stream"`
 

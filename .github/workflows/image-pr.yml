@@ -51,6 +51,14 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas'
+            ffmpeg: 'false'
+            image-type: 'extras'
+            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            runs-on: 'arc-runner-set'
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
