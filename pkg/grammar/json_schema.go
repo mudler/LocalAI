@@ -105,11 +105,28 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 	return key
 }
 
-func (sc *JSONSchemaConverter) formatGrammar() string {
+const array = `arr  ::=
+  "[\n"  (
+		realvalue
+    (",\n"  realvalue)*
+  )? "]"`
+
+func (sc *JSONSchemaConverter) finalizeGrammar(maybeArray bool) string {
 	var lines []string
+	// write down the computed rules.
+	// if maybeArray is true, we need to add the array rule and slightly tweak the root rule
 	for name, rule := range sc.rules {
+		if maybeArray && name == "root" {
+			name = "realvalue"
+		}
 		lines = append(lines, fmt.Sprintf("%s ::= %s", name, rule))
 	}
+
+	if maybeArray {
+		lines = append(lines, fmt.Sprintf("%s ::= %s", "root", "arr | realvalue"))
+		lines = append(lines, array)
+	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -234,15 +251,15 @@ func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[strin
 
 	return def
 }
-func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}) string {
+func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, maybeArray bool) string {
 	sc.visit(schema, "", schema)
-	return sc.formatGrammar()
+	return sc.finalizeGrammar(maybeArray)
 }
 
-func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte) string {
+func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, maybeArray bool) string {
 	var schema map[string]interface{}
 	_ = json.Unmarshal(b, &schema)
-	return sc.Grammar(schema)
+	return sc.Grammar(schema, maybeArray)
 }
 
 func jsonString(v interface{}) string {
@@ -275,7 +292,7 @@ type JSONFunctionStructure struct {
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructure) Grammar(propOrder string) string {
+func (j JSONFunctionStructure) Grammar(propOrder string, maybeArray bool) string {
 	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat)
+	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray)
 }
