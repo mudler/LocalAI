@@ -43,6 +43,7 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- Multiple tools calls: https://github.com/mudler/LocalAI/pull/1726
 - Upload file API: https://github.com/mudler/LocalAI/pull/1703
 - Tools support: https://github.com/mudler/LocalAI/pull/1715
 - LLaVa 1.6: https://github.com/mudler/LocalAI/pull/1714
