@@ -21,6 +21,7 @@ type Option struct {
 	Debug, DisableMessage               bool
 	ImageDir                            string
 	AudioDir                            string
+	UploadDir                           string
 	CORS                                bool
 	PreloadJSONModels                   string
 	PreloadModelsFromPath               string
@@ -246,6 +247,12 @@ func WithAudioDir(audioDir string) AppOption {
 func WithImageDir(imageDir string) AppOption {
 	return func(o *Option) {
 		o.ImageDir = imageDir
+	}
+}
+
+func WithUploadDir(uploadDir string) AppOption {
+	return func(o *Option) {
+		o.UploadDir = uploadDir
 	}
 }
 
