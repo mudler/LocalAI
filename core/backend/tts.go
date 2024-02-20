@@ -6,8 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	api_config "github.com/go-skynet/LocalAI/api/config"
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -38,7 +37,7 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *opt
 
 	grpcOpts := gRPCModelOpts(c)
 
-	opts := modelOpts(api_config.Config{}, o, []model.Option{
+	opts := modelOpts(config.Config{}, o, []model.Option{
 		model.WithBackendString(bb),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),

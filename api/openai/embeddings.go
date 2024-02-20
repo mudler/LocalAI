@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/core/backend"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/google/uuid"
 

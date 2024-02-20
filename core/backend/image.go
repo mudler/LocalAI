@@ -1,7 +1,7 @@
 package backend
 
 import (
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"

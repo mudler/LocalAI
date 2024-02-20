@@ -8,7 +8,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"

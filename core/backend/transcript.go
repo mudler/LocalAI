@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 
 	"github.com/go-skynet/LocalAI/core/options"

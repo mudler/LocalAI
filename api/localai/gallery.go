@@ -11,7 +11,7 @@ import (
 	json "github.com/json-iterator/go"
 	"gopkg.in/yaml.v3"
 
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 

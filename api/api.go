@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/api/localai"
 	"github.com/go-skynet/LocalAI/api/openai"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/internal"

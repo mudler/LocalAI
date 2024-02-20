@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
 	"github.com/go-skynet/LocalAI/core/options"

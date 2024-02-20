@@ -16,8 +16,8 @@ import (
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/google/uuid"
 
-	config "github.com/go-skynet/LocalAI/api/config"
 	"github.com/go-skynet/LocalAI/core/backend"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"

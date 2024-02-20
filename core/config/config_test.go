@@ -1,9 +1,9 @@
-package api_config_test
+package config_test
 
 import (
 	"os"
 
-	. "github.com/go-skynet/LocalAI/api/config"
+	. "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"

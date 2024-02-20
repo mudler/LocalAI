@@ -1,9 +1,9 @@
 package localai
 
 import (
-	config "github.com/go-skynet/LocalAI/api/config"
 	fiberContext "github.com/go-skynet/LocalAI/api/ctx"
 	"github.com/go-skynet/LocalAI/core/backend"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/core/options"

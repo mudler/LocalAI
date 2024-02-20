@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
 	utils2 "github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"

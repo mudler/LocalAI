@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
