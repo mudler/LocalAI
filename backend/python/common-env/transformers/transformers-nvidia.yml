@@ -33,6 +33,7 @@ dependencies:
       - boto3==1.28.61
       - botocore==1.31.61
       - certifi==2023.7.22
+      - TTS==0.22.0
       - charset-normalizer==3.3.0
       - datasets==2.14.5
       - sentence-transformers==2.2.2
