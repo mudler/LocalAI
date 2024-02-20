@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	api "github.com/go-skynet/LocalAI/api"
 	"github.com/go-skynet/LocalAI/core/backend"
 	config "github.com/go-skynet/LocalAI/core/config"
+	api "github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/metrics"

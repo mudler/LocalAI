@@ -1,4 +1,4 @@
-package api_test
+package http_test
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	. "github.com/go-skynet/LocalAI/api"
+	. "github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
