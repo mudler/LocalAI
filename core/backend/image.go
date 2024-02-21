@@ -2,12 +2,13 @@ package backend
 
 import (
 	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/schema"
+
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, c config.Config, o *options.Option) (func() error, error) {
+func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, c config.Config, o *schema.StartupOptions) (func() error, error) {
 
 	opts := modelOpts(c, o, []model.Option{
 		model.WithBackendString(c.Backend),

@@ -18,7 +18,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -59,9 +59,9 @@ func downloadFile(url string) (string, error) {
 
 *
 */
-func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func ImageEndpoint(cl *config.ConfigLoader, ml *model.ModelLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, o, false)
+		m, input, err := readRequest(c, ml, o, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -71,7 +71,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 		}
 		log.Debug().Msgf("Loading model: %+v", m)
 
-		config, input, err := mergeRequestWithConfig(m, input, cm, o.Loader, o.Debug, 0, 0, false)
+		config, input, err := mergeRequestWithConfig(m, input, cl, ml, o.Debug, 0, 0, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -196,7 +196,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 				baseURL := c.BaseURL()
 
-				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, o.Loader, *config, o)
+				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, ml, *config, o)
 				if err != nil {
 					return err
 				}

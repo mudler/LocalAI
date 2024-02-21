@@ -9,9 +9,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func(ctx *fiber.Ctx) error {
+func ListModelsEndpoint(cl *config.ConfigLoader, ml *model.ModelLoader) func(ctx *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		models, err := loader.ListModels()
+		models, err := ml.ListModels()
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func ListModelsEndpoint(loader *model.ModelLoader, cm *config.ConfigLoader) func
 		excludeConfigured := c.QueryBool("excludeConfigured", true)
 
 		// Start with the known configurations
-		for _, c := range cm.GetAllConfigs() {
+		for _, c := range cl.GetAllConfigs() {
 			if excludeConfigured {
 				mm[c.Model] = nil
 			}

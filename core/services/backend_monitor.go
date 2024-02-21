@@ -10,7 +10,6 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
 
-	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/rs/zerolog/log"
 
 	gopsutil "github.com/shirou/gopsutil/v3/process"
@@ -19,12 +18,13 @@ import (
 type BackendMonitor struct {
 	configLoader *config.ConfigLoader
 	modelLoader  *model.ModelLoader
-	options      *options.Option // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
+	options      *schema.StartupOptions // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
 
-func NewBackendMonitor(configLoader *config.ConfigLoader, options *options.Option) BackendMonitor {
+func NewBackendMonitor(configLoader *config.ConfigLoader, modelLoader *model.ModelLoader, options *schema.StartupOptions) BackendMonitor {
 	return BackendMonitor{
 		configLoader: configLoader,
+		modelLoader:  modelLoader,
 		options:      options,
 	}
 }
@@ -60,7 +60,7 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.Backe
 		backend = fmt.Sprintf("%s.bin", backend)
 	}
 
-	pid, err := bm.options.Loader.GetGRPCPID(backend)
+	pid, err := bm.modelLoader.GetGRPCPID(backend)
 
 	if err != nil {
 		log.Error().Msgf("model %s : failed to find pid %+v", model, err)

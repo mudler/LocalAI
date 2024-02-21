@@ -4,8 +4,8 @@ import (
 	"os"
 
 	. "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
-	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/core/schema"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -29,11 +29,8 @@ var _ = Describe("Test cases for config related functions", func() {
 
 		It("Test LoadConfigs", func() {
 			cm := NewConfigLoader()
-			opts := options.NewOptions()
-			modelLoader := model.NewModelLoader(os.Getenv("MODELS_PATH"))
-			options.WithModelLoader(modelLoader)(opts)
-
-			err := cm.LoadConfigs(opts.Loader.ModelPath)
+			opts := schema.NewStartupOptions()
+			err := cm.LoadConfigs(opts.ModelPath)
 			Expect(err).To(BeNil())
 			Expect(cm.ListConfigs()).ToNot(BeNil())
 

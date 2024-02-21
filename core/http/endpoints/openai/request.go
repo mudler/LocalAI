@@ -11,7 +11,6 @@ import (
 
 	config "github.com/go-skynet/LocalAI/core/config"
 	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
-	options "github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -19,7 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func readRequest(c *fiber.Ctx, o *options.Option, firstModel bool) (string, *schema.OpenAIRequest, error) {
+func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *schema.StartupOptions, firstModel bool) (string, *schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
 	ctx, cancel := context.WithCancel(o.Context)
 	input.Context = ctx
@@ -33,7 +32,7 @@ func readRequest(c *fiber.Ctx, o *options.Option, firstModel bool) (string, *sch
 
 	log.Debug().Msgf("Request received: %s", string(received))
 
-	modelFile, err := fiberContext.ModelFromContext(c, o.Loader, input.Model, firstModel)
+	modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, firstModel)
 
 	return modelFile, input, err
 }

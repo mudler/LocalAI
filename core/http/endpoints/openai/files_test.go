@@ -12,7 +12,8 @@ import (
 	"strings"
 
 	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/schema"
+
 	utils2 "github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -25,11 +26,11 @@ type ListFiles struct {
 	Object string
 }
 
-func startUpApp() (app *fiber.App, option *options.Option, loader *config.ConfigLoader) {
+func startUpApp() (app *fiber.App, option *schema.StartupOptions, loader *config.ConfigLoader) {
 	// Preparing the mocked objects
 	loader = &config.ConfigLoader{}
 
-	option = &options.Option{
+	option = &schema.StartupOptions{
 		UploadLimitMB: 10,
 		UploadDir:     "test_dir",
 	}
@@ -54,7 +55,7 @@ func TestUploadFileExceedSizeLimit(t *testing.T) {
 	// Preparing the mocked objects
 	loader := &config.ConfigLoader{}
 
-	option := &options.Option{
+	option := &schema.StartupOptions{
 		UploadLimitMB: 10,
 		UploadDir:     "test_dir",
 	}
@@ -174,7 +175,7 @@ func CallFilesContentEndpoint(t *testing.T, app *fiber.App, fileId string) (*htt
 	return app.Test(request)
 }
 
-func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *options.Option) (*http.Response, error) {
+func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *schema.StartupOptions) (*http.Response, error) {
 	// Create a file that exceeds the limit
 	file := createTestFile(t, fileName, fileSize, o)
 
@@ -186,7 +187,7 @@ func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpos
 	return app.Test(req)
 }
 
-func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *options.Option) File {
+func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *schema.StartupOptions) File {
 	// Create a file that exceeds the limit
 	file := createTestFile(t, fileName, fileSize, o)
 
@@ -233,7 +234,7 @@ func newMultipartFile(filePath, tag, purpose string) (*strings.Reader, *multipar
 }
 
 // Helper to create test files
-func createTestFile(t *testing.T, name string, sizeMB int, option *options.Option) *os.File {
+func createTestFile(t *testing.T, name string, sizeMB int, option *schema.StartupOptions) *os.File {
 	err := os.MkdirAll(option.UploadDir, 0755)
 	if err != nil {
 

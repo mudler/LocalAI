@@ -15,7 +15,7 @@ import (
 type ModelGalleryEndpointService struct {
 	galleries      []gallery.Gallery
 	modelPath      string
-	galleryApplier *services.GalleryApplier
+	galleryApplier *services.GalleryService
 }
 
 type GalleryModel struct {
@@ -23,7 +23,7 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func CreateModelGalleryEndpointService(galleries []gallery.Gallery, modelPath string, galleryApplier *services.GalleryApplier) ModelGalleryEndpointService {
+func CreateModelGalleryEndpointService(galleries []gallery.Gallery, modelPath string, galleryApplier *services.GalleryService) ModelGalleryEndpointService {
 	return ModelGalleryEndpointService{
 		galleries:      galleries,
 		modelPath:      modelPath,

@@ -9,7 +9,8 @@ import (
 	"unicode/utf8"
 
 	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/schema"
+
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -26,7 +27,7 @@ type TokenUsage struct {
 	Completion int
 }
 
-func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c config.Config, o *options.Option, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c config.Config, o *schema.StartupOptions, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	grpcOpts := gRPCModelOpts(c)

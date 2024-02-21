@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/schema"
+
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.Config, o *options.Option) (func() ([]float32, error), error) {
+func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.Config, o *schema.StartupOptions) (func() ([]float32, error), error) {
 	if !c.Embeddings {
 		return nil, fmt.Errorf("endpoint disabled for this model by API configuration")
 	}

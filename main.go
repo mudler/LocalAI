@@ -13,11 +13,12 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	config "github.com/go-skynet/LocalAI/core/config"
-	api "github.com/go-skynet/LocalAI/core/http"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/http"
+	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/go-skynet/LocalAI/core/startup"
+
 	"github.com/go-skynet/LocalAI/internal"
-	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog"
@@ -206,6 +207,12 @@ func main() {
 				EnvVars: []string{"PRELOAD_BACKEND_ONLY"},
 				Value:   false,
 			},
+			&cli.StringFlag{
+				Name:    "localai-config-dir",
+				Usage:   "Directory to use for the configuration files of LocalAI itself. This is NOT where model files should be placed.",
+				EnvVars: []string{"LOCALAI_CONFIG_DIR"},
+				Value:   "./config",
+			},
 		},
 		Description: `
 LocalAI is a drop-in replacement OpenAI API which runs inference locally.
@@ -224,56 +231,56 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 		UsageText: `local-ai [options]`,
 		Copyright: "Ettore Di Giacinto",
 		Action: func(ctx *cli.Context) error {
-			opts := []options.AppOption{
-				options.WithConfigFile(ctx.String("config-file")),
-				options.WithJSONStringPreload(ctx.String("preload-models")),
-				options.WithYAMLConfigPreload(ctx.String("preload-models-config")),
-				options.WithModelLoader(model.NewModelLoader(ctx.String("models-path"))),
-				options.WithContextSize(ctx.Int("context-size")),
-				options.WithDebug(ctx.Bool("debug")),
-				options.WithImageDir(ctx.String("image-path")),
-				options.WithAudioDir(ctx.String("audio-path")),
-				options.WithUploadDir(ctx.String("upload-path")),
-				options.WithF16(ctx.Bool("f16")),
-				options.WithStringGalleries(ctx.String("galleries")),
-				options.WithModelLibraryURL(ctx.String("remote-library")),
-				options.WithDisableMessage(false),
-				options.WithCors(ctx.Bool("cors")),
-				options.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
-				options.WithThreads(ctx.Int("threads")),
-				options.WithBackendAssets(backendAssets),
-				options.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
-				options.WithUploadLimitMB(ctx.Int("upload-limit")),
-				options.WithApiKeys(ctx.StringSlice("api-keys")),
-				options.WithModelsURL(append(ctx.StringSlice("models"), ctx.Args().Slice()...)...),
+			opts := []schema.AppOption{
+				schema.WithConfigFile(ctx.String("config-file")),
+				schema.WithJSONStringPreload(ctx.String("preload-models")),
+				schema.WithYAMLConfigPreload(ctx.String("preload-models-config")),
+				schema.WithModelPath(ctx.String("models-path")),
+				schema.WithContextSize(ctx.Int("context-size")),
+				schema.WithDebug(ctx.Bool("debug")),
+				schema.WithImageDir(ctx.String("image-path")),
+				schema.WithAudioDir(ctx.String("audio-path")),
+				schema.WithUploadDir(ctx.String("upload-path")),
+				schema.WithF16(ctx.Bool("f16")),
+				schema.WithStringGalleries(ctx.String("galleries")),
+				schema.WithModelLibraryURL(ctx.String("remote-library")),
+				schema.WithDisableMessage(false),
+				schema.WithCors(ctx.Bool("cors")),
+				schema.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
+				schema.WithThreads(ctx.Int("threads")),
+				schema.WithBackendAssets(backendAssets),
+				schema.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
+				schema.WithUploadLimitMB(ctx.Int("upload-limit")),
+				schema.WithApiKeys(ctx.StringSlice("api-keys")),
+				schema.WithModelsURL(append(ctx.StringSlice("models"), ctx.Args().Slice()...)...),
 			}
 
 			idleWatchDog := ctx.Bool("enable-watchdog-idle")
 			busyWatchDog := ctx.Bool("enable-watchdog-busy")
 			if idleWatchDog || busyWatchDog {
-				opts = append(opts, options.EnableWatchDog)
+				opts = append(opts, schema.EnableWatchDog)
 				if idleWatchDog {
-					opts = append(opts, options.EnableWatchDogIdleCheck)
+					opts = append(opts, schema.EnableWatchDogIdleCheck)
 					dur, err := time.ParseDuration(ctx.String("watchdog-idle-timeout"))
 					if err != nil {
 						return err
 					}
-					opts = append(opts, options.SetWatchDogIdleTimeout(dur))
+					opts = append(opts, schema.SetWatchDogIdleTimeout(dur))
 				}
 				if busyWatchDog {
-					opts = append(opts, options.EnableWatchDogBusyCheck)
+					opts = append(opts, schema.EnableWatchDogBusyCheck)
 					dur, err := time.ParseDuration(ctx.String("watchdog-busy-timeout"))
 					if err != nil {
 						return err
 					}
-					opts = append(opts, options.SetWatchDogBusyTimeout(dur))
+					opts = append(opts, schema.SetWatchDogBusyTimeout(dur))
 				}
 			}
 			if ctx.Bool("parallel-requests") {
-				opts = append(opts, options.EnableParallelBackendRequests)
+				opts = append(opts, schema.EnableParallelBackendRequests)
 			}
 			if ctx.Bool("single-active-backend") {
-				opts = append(opts, options.EnableSingleBackend)
+				opts = append(opts, schema.EnableSingleBackend)
 			}
 
 			externalgRPC := ctx.StringSlice("external-grpc-backends")
@@ -281,30 +288,38 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			for _, v := range externalgRPC {
 				backend := v[:strings.IndexByte(v, ':')]
 				uri := v[strings.IndexByte(v, ':')+1:]
-				opts = append(opts, options.WithExternalBackend(backend, uri))
+				opts = append(opts, schema.WithExternalBackend(backend, uri))
 			}
 
 			if ctx.Bool("autoload-galleries") {
-				opts = append(opts, options.EnableGalleriesAutoload)
+				opts = append(opts, schema.EnableGalleriesAutoload)
 			}
 
 			if ctx.Bool("preload-backend-only") {
-				_, _, err := api.Startup(opts...)
+				_, _, _, err := startup.Startup(opts...)
 				return err
 			}
 
-			metrics, err := metrics.SetupMetrics()
+			cl, ml, options, err := startup.Startup(opts...)
+
 			if err != nil {
-				return err
+				return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 			}
-			opts = append(opts, options.WithMetrics(metrics))
 
-			app, err := api.App(opts...)
+			closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
+			defer closeConfigWatcherFn()
+
 			if err != nil {
+				return fmt.Errorf("failed while watching configuration directory %s", ctx.String("localai-config-dir"))
+			}
+
+			appHTTP, err := http.App(cl, ml, options)
+			if err != nil {
+				log.Error().Msg("Error during HTTP App constructor")
 				return err
 			}
 
-			return app.Listen(ctx.String("address"))
+			return appHTTP.Listen(ctx.String("address"))
 		},
 		Commands: []*cli.Command{
 			{
@@ -402,16 +417,17 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					text := strings.Join(ctx.Args().Slice(), " ")
 
-					opts := &options.Option{
-						Loader:            model.NewModelLoader(ctx.String("models-path")),
+					opts := &schema.StartupOptions{
+						ModelPath:         ctx.String("models-path"),
 						Context:           context.Background(),
 						AudioDir:          outputDir,
 						AssetsDestination: ctx.String("backend-assets-path"),
 					}
+					ml := model.NewModelLoader(opts.ModelPath)
 
-					defer opts.Loader.StopAllGRPC()
+					defer ml.StopAllGRPC()
 
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, opts.Loader, opts, config.Config{})
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ml, opts, config.Config{})
 					if err != nil {
 						return err
 					}
@@ -464,13 +480,14 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 					language := ctx.String("language")
 					threads := ctx.Int("threads")
 
-					opts := &options.Option{
-						Loader:            model.NewModelLoader(ctx.String("models-path")),
+					opts := &schema.StartupOptions{
+						ModelPath:         ctx.String("models-path"),
 						Context:           context.Background(),
 						AssetsDestination: ctx.String("backend-assets-path"),
 					}
 
 					cl := config.NewConfigLoader()
+					ml := model.NewModelLoader(opts.ModelPath)
 					if err := cl.LoadConfigs(ctx.String("models-path")); err != nil {
 						return err
 					}
@@ -482,9 +499,9 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					c.Threads = threads
 
-					defer opts.Loader.StopAllGRPC()
+					defer ml.StopAllGRPC()
 
-					tr, err := backend.ModelTranscription(filename, language, opts.Loader, c, opts)
+					tr, err := backend.ModelTranscription(filename, language, ml, c, opts)
 					if err != nil {
 						return err
 					}

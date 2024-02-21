@@ -1,4 +1,4 @@
-package options
+package schema
 
 import (
 	"context"
@@ -6,16 +6,14 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
-	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
 
-type Option struct {
+type StartupOptions struct {
 	Context                             context.Context
 	ConfigFile                          string
-	Loader                              *model.ModelLoader
+	ModelPath                           string
 	UploadLimitMB, Threads, ContextSize int
 	F16                                 bool
 	Debug, DisableMessage               bool
@@ -27,7 +25,7 @@ type Option struct {
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
-	Metrics                             *metrics.Metrics
+	// Metrics                             *metrics.Metrics
 
 	ModelLibraryURL string
 
@@ -52,10 +50,10 @@ type Option struct {
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
 }
 
-type AppOption func(*Option)
+type AppOption func(*StartupOptions)
 
-func NewOptions(o ...AppOption) *Option {
-	opt := &Option{
+func NewStartupOptions(o ...AppOption) *StartupOptions {
+	opt := &StartupOptions{
 		Context:        context.Background(),
 		UploadLimitMB:  15,
 		Threads:        1,
@@ -70,63 +68,69 @@ func NewOptions(o ...AppOption) *Option {
 }
 
 func WithModelsURL(urls ...string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.ModelsURL = urls
 	}
 }
 
+func WithModelPath(path string) AppOption {
+	return func(o *StartupOptions) {
+		o.ModelPath = path
+	}
+}
+
 func WithCors(b bool) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.CORS = b
 	}
 }
 
 func WithModelLibraryURL(url string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.ModelLibraryURL = url
 	}
 }
 
-var EnableWatchDog = func(o *Option) {
+var EnableWatchDog = func(o *StartupOptions) {
 	o.WatchDog = true
 }
 
-var EnableWatchDogIdleCheck = func(o *Option) {
+var EnableWatchDogIdleCheck = func(o *StartupOptions) {
 	o.WatchDog = true
 	o.WatchDogIdle = true
 }
 
-var EnableWatchDogBusyCheck = func(o *Option) {
+var EnableWatchDogBusyCheck = func(o *StartupOptions) {
 	o.WatchDog = true
 	o.WatchDogBusy = true
 }
 
 func SetWatchDogBusyTimeout(t time.Duration) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.WatchDogBusyTimeout = t
 	}
 }
 
 func SetWatchDogIdleTimeout(t time.Duration) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.WatchDogIdleTimeout = t
 	}
 }
 
-var EnableSingleBackend = func(o *Option) {
+var EnableSingleBackend = func(o *StartupOptions) {
 	o.SingleBackend = true
 }
 
-var EnableParallelBackendRequests = func(o *Option) {
+var EnableParallelBackendRequests = func(o *StartupOptions) {
 	o.ParallelBackendRequests = true
 }
 
-var EnableGalleriesAutoload = func(o *Option) {
+var EnableGalleriesAutoload = func(o *StartupOptions) {
 	o.AutoloadGalleries = true
 }
 
 func WithExternalBackend(name string, uri string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		if o.ExternalGRPCBackends == nil {
 			o.ExternalGRPCBackends = make(map[string]string)
 		}
@@ -135,25 +139,25 @@ func WithExternalBackend(name string, uri string) AppOption {
 }
 
 func WithCorsAllowOrigins(b string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.CORSAllowOrigins = b
 	}
 }
 
 func WithBackendAssetsOutput(out string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.AssetsDestination = out
 	}
 }
 
 func WithBackendAssets(f embed.FS) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.BackendAssets = f
 	}
 }
 
 func WithStringGalleries(galls string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		if galls == "" {
 			log.Debug().Msgf("no galleries to load")
 			o.Galleries = []gallery.Gallery{}
@@ -168,102 +172,96 @@ func WithStringGalleries(galls string) AppOption {
 }
 
 func WithGalleries(galleries []gallery.Gallery) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.Galleries = append(o.Galleries, galleries...)
 	}
 }
 
 func WithContext(ctx context.Context) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.Context = ctx
 	}
 }
 
 func WithYAMLConfigPreload(configFile string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.PreloadModelsFromPath = configFile
 	}
 }
 
 func WithJSONStringPreload(configFile string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.PreloadJSONModels = configFile
 	}
 }
 func WithConfigFile(configFile string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.ConfigFile = configFile
 	}
 }
 
-func WithModelLoader(loader *model.ModelLoader) AppOption {
-	return func(o *Option) {
-		o.Loader = loader
-	}
-}
-
 func WithUploadLimitMB(limit int) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.UploadLimitMB = limit
 	}
 }
 
 func WithThreads(threads int) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.Threads = threads
 	}
 }
 
 func WithContextSize(ctxSize int) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.ContextSize = ctxSize
 	}
 }
 
 func WithF16(f16 bool) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.F16 = f16
 	}
 }
 
 func WithDebug(debug bool) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.Debug = debug
 	}
 }
 
 func WithDisableMessage(disableMessage bool) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.DisableMessage = disableMessage
 	}
 }
 
 func WithAudioDir(audioDir string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.AudioDir = audioDir
 	}
 }
 
 func WithImageDir(imageDir string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.ImageDir = imageDir
 	}
 }
 
 func WithUploadDir(uploadDir string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.UploadDir = uploadDir
 	}
 }
 
 func WithApiKeys(apiKeys []string) AppOption {
-	return func(o *Option) {
+	return func(o *StartupOptions) {
 		o.ApiKeys = apiKeys
 	}
 }
 
-func WithMetrics(meter *metrics.Metrics) AppOption {
-	return func(o *Option) {
-		o.Metrics = meter
-	}
-}
+// func WithMetrics(meter *metrics.Metrics) AppOption {
+// 	return func(o *StartupOptions) {
+// 		o.Metrics = meter
+// 	}
+// }

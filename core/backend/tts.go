@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 
 	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/schema"
+
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -29,7 +30,7 @@ func generateUniqueFileName(dir, baseName, ext string) string {
 	}
 }
 
-func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *options.Option, c config.Config) (string, *proto.Result, error) {
+func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *schema.StartupOptions, c config.Config) (string, *proto.Result, error) {
 	bb := backend
 	if bb == "" {
 		bb = model.PiperBackend
@@ -44,7 +45,7 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *opt
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 	})
-	piperModel, err := o.Loader.BackendLoader(opts...)
+	piperModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return "", nil, err
 	}
@@ -64,8 +65,8 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, o *opt
 	modelPath := ""
 	if modelFile != "" {
 		if bb != model.TransformersMusicGen {
-			modelPath = filepath.Join(o.Loader.ModelPath, modelFile)
-			if err := utils.VerifyPath(modelPath, o.Loader.ModelPath); err != nil {
+			modelPath = filepath.Join(loader.ModelPath, modelFile)
+			if err := utils.VerifyPath(modelPath, o.ModelPath); err != nil {
 				return "", nil, err
 			}
 		} else {

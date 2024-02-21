@@ -13,15 +13,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type GalleryApplier struct {
+type GalleryService struct {
 	modelPath string
 	sync.Mutex
 	C        chan gallery.GalleryOp
 	statuses map[string]*gallery.GalleryOpStatus
 }
 
-func NewGalleryApplier(modelPath string) *GalleryApplier {
-	return &GalleryApplier{
+func NewGalleryService(modelPath string) *GalleryService {
+	return &GalleryService{
 		modelPath: modelPath,
 		C:         make(chan gallery.GalleryOp),
 		statuses:  make(map[string]*gallery.GalleryOpStatus),
@@ -40,27 +40,27 @@ func prepareModel(modelPath string, req gallery.GalleryModel, cm *config.ConfigL
 	return gallery.InstallModel(modelPath, req.Name, &config, req.Overrides, downloadStatus)
 }
 
-func (g *GalleryApplier) UpdateStatus(s string, op *gallery.GalleryOpStatus) {
+func (g *GalleryService) UpdateStatus(s string, op *gallery.GalleryOpStatus) {
 	g.Lock()
 	defer g.Unlock()
 	g.statuses[s] = op
 }
 
-func (g *GalleryApplier) GetStatus(s string) *gallery.GalleryOpStatus {
+func (g *GalleryService) GetStatus(s string) *gallery.GalleryOpStatus {
 	g.Lock()
 	defer g.Unlock()
 
 	return g.statuses[s]
 }
 
-func (g *GalleryApplier) GetAllStatus() map[string]*gallery.GalleryOpStatus {
+func (g *GalleryService) GetAllStatus() map[string]*gallery.GalleryOpStatus {
 	g.Lock()
 	defer g.Unlock()
 
 	return g.statuses
 }
 
-func (g *GalleryApplier) Start(c context.Context, cm *config.ConfigLoader) {
+func (g *GalleryService) Start(c context.Context, cm *config.ConfigLoader) {
 	go func() {
 		for {
 			select {

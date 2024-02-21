@@ -4,19 +4,19 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-skynet/LocalAI/core/schema"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 
 	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
 )
 
-func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.Option {
-	if o.SingleBackend {
+func modelOpts(c config.Config, so *schema.StartupOptions, opts []model.Option) []model.Option {
+	if so.SingleBackend {
 		opts = append(opts, model.WithSingleActiveBackend())
 	}
 
-	if o.ParallelBackendRequests {
+	if so.ParallelBackendRequests {
 		opts = append(opts, model.EnableParallelRequests)
 	}
 
@@ -28,7 +28,7 @@ func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.
 		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
 	}
 
-	for k, v := range o.ExternalGRPCBackends {
+	for k, v := range so.ExternalGRPCBackends {
 		opts = append(opts, model.WithExternalBackend(k, v))
 	}
 
