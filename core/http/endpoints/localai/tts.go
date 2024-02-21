@@ -1,25 +1,19 @@
 package localai
 
 import (
-	fiberContext "github.com/go-skynet/LocalAI/api/ctx"
 	"github.com/go-skynet/LocalAI/core/backend"
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/rs/zerolog/log"
-
+	"github.com/go-skynet/LocalAI/core/config"
+	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
-
-type TTSRequest struct {
-	Model   string `json:"model" yaml:"model"`
-	Input   string `json:"input" yaml:"input"`
-	Backend string `json:"backend" yaml:"backend"`
-}
 
 func TTSEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		input := new(TTSRequest)
+		input := new(schema.TTSRequest)
 
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {

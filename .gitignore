@@ -21,6 +21,7 @@ local-ai
 !charts/*
 # prevent above rules from omitting the api/localai folder
 !api/localai
+!core/**/localai
 
 # Ignore models
 models/*
