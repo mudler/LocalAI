@@ -133,15 +133,15 @@ func ImageEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, o *schema.S
 
 		sizeParts := strings.Split(input.Size, "x")
 		if len(sizeParts) != 2 {
-			return fmt.Errorf("Invalid value for 'size'")
+			return fmt.Errorf("invalid value for 'size'")
 		}
 		width, err := strconv.Atoi(sizeParts[0])
 		if err != nil {
-			return fmt.Errorf("Invalid value for 'size'")
+			return fmt.Errorf("invalid value for 'size'")
 		}
 		height, err := strconv.Atoi(sizeParts[1])
 		if err != nil {
-			return fmt.Errorf("Invalid value for 'size'")
+			return fmt.Errorf("invalid value for 'size'")
 		}
 
 		b64JSON := false
