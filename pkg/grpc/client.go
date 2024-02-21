@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-skynet/LocalAI/api/schema"
+	"github.com/go-skynet/LocalAI/core/schema"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

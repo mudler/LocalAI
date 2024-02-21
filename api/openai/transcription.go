@@ -8,9 +8,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/go-skynet/LocalAI/api/backend"
-	config "github.com/go-skynet/LocalAI/api/config"
-	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/core/backend"
+	config "github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/options"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"

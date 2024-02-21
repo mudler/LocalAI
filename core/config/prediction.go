@@ -1,4 +1,4 @@
-package api_config
+package config
 
 type PredictionOptions struct {
 

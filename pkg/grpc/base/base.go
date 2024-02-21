@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-skynet/LocalAI/api/schema"
+	"github.com/go-skynet/LocalAI/core/schema"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )

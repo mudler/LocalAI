@@ -3,11 +3,6 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
-	config "github.com/go-skynet/LocalAI/api/config"
-	"github.com/go-skynet/LocalAI/api/options"
-	utils2 "github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/gofiber/fiber/v2"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -15,6 +10,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	config "github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/options"
+	utils2 "github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/assert"
 
 	"testing"
 )

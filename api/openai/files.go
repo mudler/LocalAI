@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	config "github.com/go-skynet/LocalAI/api/config"
-	"github.com/go-skynet/LocalAI/api/options"
-	"github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/gofiber/fiber/v2"
-	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"time"
+
+	config "github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
 
 var uploadedFiles []File

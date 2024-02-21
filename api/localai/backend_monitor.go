@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	config "github.com/go-skynet/LocalAI/api/config"
+	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 
-	"github.com/go-skynet/LocalAI/api/options"
+	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 

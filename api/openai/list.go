@@ -3,8 +3,8 @@ package openai
 import (
 	"regexp"
 
-	config "github.com/go-skynet/LocalAI/api/config"
-	"github.com/go-skynet/LocalAI/api/schema"
+	config "github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 )
