@@ -17,6 +17,8 @@ import (
 
 var uploadedFiles []File
 
+const uploadedFilesFile = "uploadedFiles.json"
+
 // File represents the structure of a file object from the OpenAI API.
 type File struct {
 	ID        string    `json:"id"`         // Unique identifier for the file
@@ -33,14 +35,22 @@ func saveUploadConfig(uploadDir string) {
 		log.Error().Msgf("Failed to JSON marshal the uploadedFiles: %s", err)
 	}
 
-	err = os.WriteFile(filepath.Join(uploadDir, "uploadedFiles.json"), file, 0644)
+	err = os.WriteFile(filepath.Join(uploadDir, uploadedFilesFile), file, 0644)
 	if err != nil {
 		log.Error().Msgf("Failed to save uploadedFiles to file: %s", err)
 	}
 }
 
 func LoadUploadConfig(uploadPath string) {
-	file, err := os.ReadFile(filepath.Join(uploadPath, "uploadedFiles.json"))
+	uploadFilePath := filepath.Join(uploadPath, uploadedFilesFile)
+
+	_, err := os.Stat(uploadFilePath)
+	if os.IsNotExist(err) {
+		log.Debug().Msgf("No uploadedFiles file found at %s", uploadFilePath)
+		return
+	}
+
+	file, err := os.ReadFile(uploadFilePath)
 	if err != nil {
 		log.Error().Msgf("Failed to read file: %s", err)
 	} else {
