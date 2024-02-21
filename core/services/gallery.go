@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"gopkg.in/yaml.v2"
@@ -28,7 +27,7 @@ func NewGalleryService(modelPath string) *GalleryService {
 	}
 }
 
-func prepareModel(modelPath string, req gallery.GalleryModel, cm *config.ConfigLoader, downloadStatus func(string, string, string, float64)) error {
+func prepareModel(modelPath string, req gallery.GalleryModel, cl *ConfigLoader, downloadStatus func(string, string, string, float64)) error {
 
 	config, err := gallery.GetGalleryConfigFromURL(req.URL)
 	if err != nil {
@@ -60,7 +59,7 @@ func (g *GalleryService) GetAllStatus() map[string]*gallery.GalleryOpStatus {
 	return g.statuses
 }
 
-func (g *GalleryService) Start(c context.Context, cm *config.ConfigLoader) {
+func (g *GalleryService) Start(c context.Context, cl *ConfigLoader) {
 	go func() {
 		for {
 			select {
@@ -91,7 +90,7 @@ func (g *GalleryService) Start(c context.Context, cm *config.ConfigLoader) {
 						err = gallery.InstallModelFromGalleryByName(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
 					}
 				} else {
-					err = prepareModel(g.modelPath, op.Req, cm, progressCallback)
+					err = prepareModel(g.modelPath, op.Req, cl, progressCallback)
 				}
 
 				if err != nil {
@@ -100,13 +99,13 @@ func (g *GalleryService) Start(c context.Context, cm *config.ConfigLoader) {
 				}
 
 				// Reload models
-				err = cm.LoadConfigs(g.modelPath)
+				err = cl.LoadConfigs(g.modelPath)
 				if err != nil {
 					updateError(err)
 					continue
 				}
 
-				err = cm.Preload(g.modelPath)
+				err = cl.Preload(g.modelPath)
 				if err != nil {
 					updateError(err)
 					continue
@@ -123,7 +122,7 @@ type galleryModel struct {
 	ID                   string           `json:"id"`
 }
 
-func processRequests(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery, requests []galleryModel) error {
+func processRequests(modelPath, s string, cm *ConfigLoader, galleries []gallery.Gallery, requests []galleryModel) error {
 	var err error
 	for _, r := range requests {
 		utils.ResetDownloadTimers()
@@ -142,7 +141,7 @@ func processRequests(modelPath, s string, cm *config.ConfigLoader, galleries []g
 	return err
 }
 
-func ApplyGalleryFromFile(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery) error {
+func ApplyGalleryFromFile(modelPath, s string, cl *ConfigLoader, galleries []gallery.Gallery) error {
 	dat, err := os.ReadFile(s)
 	if err != nil {
 		return err
@@ -153,15 +152,15 @@ func ApplyGalleryFromFile(modelPath, s string, cm *config.ConfigLoader, gallerie
 		return err
 	}
 
-	return processRequests(modelPath, s, cm, galleries, requests)
+	return processRequests(modelPath, s, cl, galleries, requests)
 }
 
-func ApplyGalleryFromString(modelPath, s string, cm *config.ConfigLoader, galleries []gallery.Gallery) error {
+func ApplyGalleryFromString(modelPath, s string, cl *ConfigLoader, galleries []gallery.Gallery) error {
 	var requests []galleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {
 		return err
 	}
 
-	return processRequests(modelPath, s, cm, galleries, requests)
+	return processRequests(modelPath, s, cl, galleries, requests)
 }

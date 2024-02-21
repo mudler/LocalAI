@@ -1,4 +1,4 @@
-package config
+package schema
 
 type PredictionOptions struct {
 

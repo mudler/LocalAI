@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 
@@ -21,7 +20,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
-func App(cl *config.ConfigLoader, ml *model.ModelLoader, options *schema.StartupOptions) (*fiber.App, error) {
+func App(cl *services.ConfigLoader, ml *model.ModelLoader, options *schema.StartupOptions) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
 		BodyLimit:             options.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB

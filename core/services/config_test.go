@@ -1,10 +1,10 @@
-package config_test
+package services_test
 
 import (
 	"os"
 
-	. "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
+	. "github.com/go-skynet/LocalAI/core/services"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

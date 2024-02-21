@@ -1,7 +1,6 @@
 package startup
 
 import (
-	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
@@ -12,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Startup(opts ...schema.AppOption) (*config.ConfigLoader, *model.ModelLoader, *schema.StartupOptions, error) {
+func Startup(opts ...schema.AppOption) (*services.ConfigLoader, *model.ModelLoader, *schema.StartupOptions, error) {
 	options := schema.NewStartupOptions(opts...)
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -25,7 +24,7 @@ func Startup(opts ...schema.AppOption) (*config.ConfigLoader, *model.ModelLoader
 
 	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
 
-	cl := config.NewConfigLoader()
+	cl := services.NewConfigLoader()
 	ml := model.NewModelLoader(options.ModelPath)
 
 	if err := cl.LoadConfigs(options.ModelPath); err != nil {

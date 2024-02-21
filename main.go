@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/services"
+
 	"github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/startup"
@@ -427,7 +428,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer ml.StopAllGRPC()
 
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ml, opts, config.Config{})
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ml, opts, schema.Config{})
 					if err != nil {
 						return err
 					}
@@ -486,7 +487,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						AssetsDestination: ctx.String("backend-assets-path"),
 					}
 
-					cl := config.NewConfigLoader()
+					cl := services.NewConfigLoader()
 					ml := model.NewModelLoader(opts.ModelPath)
 					if err := cl.LoadConfigs(ctx.String("models-path")); err != nil {
 						return err

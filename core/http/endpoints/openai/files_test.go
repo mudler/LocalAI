@@ -13,6 +13,7 @@ import (
 
 	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/go-skynet/LocalAI/core/services"
 
 	utils2 "github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
@@ -26,7 +27,7 @@ type ListFiles struct {
 	Object string
 }
 
-func startUpApp() (app *fiber.App, option *schema.StartupOptions, loader *config.ConfigLoader) {
+func startUpApp() (app *fiber.App, option *schema.StartupOptions, loader *services.ConfigLoader) {
 	// Preparing the mocked objects
 	loader = &config.ConfigLoader{}
 

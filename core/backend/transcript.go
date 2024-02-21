@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ModelTranscription(audio, language string, ml *model.ModelLoader, c config.Config, o *schema.StartupOptions) (*schema.Result, error) {
+func ModelTranscription(audio, language string, ml *model.ModelLoader, c schema.Config, o *schema.StartupOptions) (*schema.Result, error) {
 
 	opts := modelOpts(c, o, []model.Option{
 		model.WithBackendString(model.WhisperBackend),
