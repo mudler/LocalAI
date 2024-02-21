@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"strings"
 
-	fiberContext "github.com/go-skynet/LocalAI/api/ctx"
 	config "github.com/go-skynet/LocalAI/core/config"
+	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 	options "github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grammar"

@@ -7,11 +7,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/api/localai"
 	"github.com/go-skynet/LocalAI/api/openai"
 	config "github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/metrics"
 	"github.com/go-skynet/LocalAI/pkg/assets"
@@ -55,13 +56,13 @@ func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, 
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := localai.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
+		if err := services.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
 			return nil, nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := localai.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
+		if err := services.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -211,7 +212,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	}
 
 	// LocalAI API endpoints
-	galleryService := localai.NewGalleryService(options.Loader.ModelPath)
+	galleryService := services.NewGalleryApplier(options.Loader.ModelPath)
 	galleryService.Start(options.Context, cl)
 
 	app.Get("/version", auth, func(c *fiber.Ctx) error {
@@ -229,7 +230,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	// Load upload json
 	openai.LoadUploadConfig(options.UploadDir)
 
-	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.Loader.ModelPath, galleryService)
+	modelGalleryService := localai.CreateModelGalleryEndpointService(options.Galleries, options.Loader.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryService.ApplyModelGalleryEndpoint())
 	app.Get("/models/available", auth, modelGalleryService.ListModelFromGalleryEndpoint())
 	app.Get("/models/galleries", auth, modelGalleryService.ListModelGalleriesEndpoint())
@@ -294,7 +295,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	app.Get("/readyz", ok)
 
 	// Experimental Backend Statistics Module
-	backendMonitor := localai.NewBackendMonitor(cl, options) // Split out for now
+	backendMonitor := services.NewBackendMonitor(cl, options) // Split out for now
 	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitor))
 	app.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitor))
 
