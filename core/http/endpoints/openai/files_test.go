@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	config "github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/services"
 
@@ -29,7 +28,7 @@ type ListFiles struct {
 
 func startUpApp() (app *fiber.App, option *schema.StartupOptions, loader *services.ConfigLoader) {
 	// Preparing the mocked objects
-	loader = &config.ConfigLoader{}
+	loader = &services.ConfigLoader{}
 
 	option = &schema.StartupOptions{
 		UploadLimitMB: 10,
@@ -54,7 +53,7 @@ func startUpApp() (app *fiber.App, option *schema.StartupOptions, loader *servic
 
 func TestUploadFileExceedSizeLimit(t *testing.T) {
 	// Preparing the mocked objects
-	loader := &config.ConfigLoader{}
+	loader := &services.ConfigLoader{}
 
 	option := &schema.StartupOptions{
 		UploadLimitMB: 10,

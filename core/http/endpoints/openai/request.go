@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -16,7 +16,6 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
-	"honnef.co/go/tools/config"
 )
 
 func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *schema.StartupOptions, firstModel bool) (string, *schema.OpenAIRequest, error) {
@@ -50,7 +49,7 @@ func getBase64Image(s string) (string, error) {
 		defer resp.Body.Close()
 
 		// read the image data into memory
-		data, err := ioutil.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return "", err
 		}
@@ -271,7 +270,7 @@ func updateRequestConfig(config *schema.Config, input *schema.OpenAIRequest) {
 }
 
 func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *services.ConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*schema.Config, *schema.OpenAIRequest, error) {
-	cfg, err := config.Load(modelFile, loader.ModelPath, cm, debug, threads, ctx, f16)
+	cfg, err := services.LoadConfigFileByName(modelFile, loader.ModelPath, cm, debug, threads, ctx, f16)
 
 	// Set the parameters for the language model prediction
 	updateRequestConfig(cfg, input)
