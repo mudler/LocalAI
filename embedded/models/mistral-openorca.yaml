@@ -11,18 +11,16 @@ template:
     <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}
     {{if .Content}}{{.Content}}{{end}}
     <|im_end|>
-    
   chat: |
     {{.Input}}
     <|im_start|>assistant
-    
   completion: |
     {{.Input}}
 context_size: 4096
 f16: true
 stopwords:
 - <|im_end|>
-
+- <dummy32000>
 usage: |
       curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
           "model": "mistral-openorca",

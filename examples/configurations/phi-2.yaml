@@ -12,7 +12,7 @@ parameters:
   top_p: 0.95
   seed: -1
 template:
-  chat: &template |
+  chat: &template |-
     Instruct: {{.Input}}
     Output:
   completion: *template
