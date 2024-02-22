@@ -20,15 +20,17 @@ import (
 
 func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *schema.StartupOptions, firstModel bool) (string, *schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
-	ctx, cancel := context.WithCancel(o.Context)
-	input.Context = ctx
-	input.Cancel = cancel
+
 	// Get input data from the request body
 	if err := c.BodyParser(input); err != nil {
 		return "", nil, fmt.Errorf("failed parsing request body: %w", err)
 	}
 
 	received, _ := json.Marshal(input)
+
+	ctx, cancel := context.WithCancel(o.Context)
+	input.Context = ctx
+	input.Cancel = cancel
 
 	log.Debug().Msgf("Request received: %s", string(received))
 
