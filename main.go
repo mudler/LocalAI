@@ -212,7 +212,7 @@ func main() {
 				Name:    "localai-config-dir",
 				Usage:   "Directory to use for the configuration files of LocalAI itself. This is NOT where model files should be placed.",
 				EnvVars: []string{"LOCALAI_CONFIG_DIR"},
-				Value:   "./config",
+				Value:   "./configuration",
 			},
 		},
 		Description: `
