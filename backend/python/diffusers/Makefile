@@ -4,6 +4,10 @@ ifeq ($(BUILD_TYPE), hipblas)
 export CONDA_ENV_PATH = "diffusers-rocm.yml"
 endif
 
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+export CONDA_ENV_PATH = "diffusers-intel.yml"
+endif
+
 .PHONY: diffusers
 diffusers:
 	@echo "Installing $(CONDA_ENV_PATH)..."
