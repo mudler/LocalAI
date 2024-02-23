@@ -6,7 +6,6 @@ import signal
 import sys
 import os
 
-#from typing import AsyncGenerator
 import backend_pb2
 import backend_pb2_grpc
 
