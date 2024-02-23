@@ -4,6 +4,8 @@ ARG BASE_IMAGE=ubuntu:22.04
 # extras or core
 FROM ${BASE_IMAGE} as requirements-core
 
+USER root
+
 ARG GO_VERSION=1.21.7
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
