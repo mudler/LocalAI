@@ -29,12 +29,17 @@ from safetensors.torch import load_file
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 COMPEL=os.environ.get("COMPEL", "1") == "1"
+XPU=os.environ.get("XPU", "1") == "1"
 CLIPSKIP=os.environ.get("CLIPSKIP", "1") == "1"
 SAFETENSORS=os.environ.get("SAFETENSORS", "1") == "1"
 CHUNK_SIZE=os.environ.get("CHUNK_SIZE", "8")
 FPS=os.environ.get("FPS", "7")
 DISABLE_CPU_OFFLOAD=os.environ.get("DISABLE_CPU_OFFLOAD", "0") == "1"
 FRAMES=os.environ.get("FRAMES", "64")
+
+if XPU:
+    import intel_extension_for_pytorch as ipex
+    print(ipex.xpu.get_device_name(0))
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
@@ -247,6 +252,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe.to('cuda')
                 if self.controlnet:
                     self.controlnet.to('cuda')
+            if XPU:
+                self.pipe = self.pipe.to("xpu")
             # Assume directory from request.ModelFile.
             # Only if request.LoraAdapter it's not an absolute path
             if request.LoraAdapter and request.ModelFile != "" and not os.path.isabs(request.LoraAdapter) and request.LoraAdapter:

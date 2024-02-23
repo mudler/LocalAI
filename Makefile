@@ -557,3 +557,10 @@ docker-image-intel:
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+
+docker-image-intel-xpu:
+	docker build \
+		--build-arg BASE_IMAGE=intel/intel-extension-for-pytorch:2.1.10-xpu \
+		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
+		--build-arg GO_TAGS="none" \
+		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
