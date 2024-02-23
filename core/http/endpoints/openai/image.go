@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/google/uuid"
 
 	"github.com/go-skynet/LocalAI/core/backend"
@@ -59,7 +59,7 @@ func downloadFile(url string) (string, error) {
 
 *
 */
-func ImageEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		m, input, err := readRequest(c, ml, o, false)
 		if err != nil {

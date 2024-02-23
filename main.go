@@ -13,10 +13,9 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/services"
+	"github.com/go-skynet/LocalAI/core/config"
 
 	"github.com/go-skynet/LocalAI/core/http"
-	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/startup"
 
 	"github.com/go-skynet/LocalAI/internal"
@@ -232,56 +231,56 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 		UsageText: `local-ai [options]`,
 		Copyright: "Ettore Di Giacinto",
 		Action: func(ctx *cli.Context) error {
-			opts := []schema.AppOption{
-				schema.WithConfigFile(ctx.String("config-file")),
-				schema.WithJSONStringPreload(ctx.String("preload-models")),
-				schema.WithYAMLConfigPreload(ctx.String("preload-models-config")),
-				schema.WithModelPath(ctx.String("models-path")),
-				schema.WithContextSize(ctx.Int("context-size")),
-				schema.WithDebug(ctx.Bool("debug")),
-				schema.WithImageDir(ctx.String("image-path")),
-				schema.WithAudioDir(ctx.String("audio-path")),
-				schema.WithUploadDir(ctx.String("upload-path")),
-				schema.WithF16(ctx.Bool("f16")),
-				schema.WithStringGalleries(ctx.String("galleries")),
-				schema.WithModelLibraryURL(ctx.String("remote-library")),
-				schema.WithDisableMessage(false),
-				schema.WithCors(ctx.Bool("cors")),
-				schema.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
-				schema.WithThreads(ctx.Int("threads")),
-				schema.WithBackendAssets(backendAssets),
-				schema.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
-				schema.WithUploadLimitMB(ctx.Int("upload-limit")),
-				schema.WithApiKeys(ctx.StringSlice("api-keys")),
-				schema.WithModelsURL(append(ctx.StringSlice("models"), ctx.Args().Slice()...)...),
+			opts := []config.AppOption{
+				config.WithConfigFile(ctx.String("config-file")),
+				config.WithJSONStringPreload(ctx.String("preload-models")),
+				config.WithYAMLConfigPreload(ctx.String("preload-models-config")),
+				config.WithModelPath(ctx.String("models-path")),
+				config.WithContextSize(ctx.Int("context-size")),
+				config.WithDebug(ctx.Bool("debug")),
+				config.WithImageDir(ctx.String("image-path")),
+				config.WithAudioDir(ctx.String("audio-path")),
+				config.WithUploadDir(ctx.String("upload-path")),
+				config.WithF16(ctx.Bool("f16")),
+				config.WithStringGalleries(ctx.String("galleries")),
+				config.WithModelLibraryURL(ctx.String("remote-library")),
+				config.WithDisableMessage(false),
+				config.WithCors(ctx.Bool("cors")),
+				config.WithCorsAllowOrigins(ctx.String("cors-allow-origins")),
+				config.WithThreads(ctx.Int("threads")),
+				config.WithBackendAssets(backendAssets),
+				config.WithBackendAssetsOutput(ctx.String("backend-assets-path")),
+				config.WithUploadLimitMB(ctx.Int("upload-limit")),
+				config.WithApiKeys(ctx.StringSlice("api-keys")),
+				config.WithModelsURL(append(ctx.StringSlice("models"), ctx.Args().Slice()...)...),
 			}
 
 			idleWatchDog := ctx.Bool("enable-watchdog-idle")
 			busyWatchDog := ctx.Bool("enable-watchdog-busy")
 			if idleWatchDog || busyWatchDog {
-				opts = append(opts, schema.EnableWatchDog)
+				opts = append(opts, config.EnableWatchDog)
 				if idleWatchDog {
-					opts = append(opts, schema.EnableWatchDogIdleCheck)
+					opts = append(opts, config.EnableWatchDogIdleCheck)
 					dur, err := time.ParseDuration(ctx.String("watchdog-idle-timeout"))
 					if err != nil {
 						return err
 					}
-					opts = append(opts, schema.SetWatchDogIdleTimeout(dur))
+					opts = append(opts, config.SetWatchDogIdleTimeout(dur))
 				}
 				if busyWatchDog {
-					opts = append(opts, schema.EnableWatchDogBusyCheck)
+					opts = append(opts, config.EnableWatchDogBusyCheck)
 					dur, err := time.ParseDuration(ctx.String("watchdog-busy-timeout"))
 					if err != nil {
 						return err
 					}
-					opts = append(opts, schema.SetWatchDogBusyTimeout(dur))
+					opts = append(opts, config.SetWatchDogBusyTimeout(dur))
 				}
 			}
 			if ctx.Bool("parallel-requests") {
-				opts = append(opts, schema.EnableParallelBackendRequests)
+				opts = append(opts, config.EnableParallelBackendRequests)
 			}
 			if ctx.Bool("single-active-backend") {
-				opts = append(opts, schema.EnableSingleBackend)
+				opts = append(opts, config.EnableSingleBackend)
 			}
 
 			externalgRPC := ctx.StringSlice("external-grpc-backends")
@@ -289,11 +288,11 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			for _, v := range externalgRPC {
 				backend := v[:strings.IndexByte(v, ':')]
 				uri := v[strings.IndexByte(v, ':')+1:]
-				opts = append(opts, schema.WithExternalBackend(backend, uri))
+				opts = append(opts, config.WithExternalBackend(backend, uri))
 			}
 
 			if ctx.Bool("autoload-galleries") {
-				opts = append(opts, schema.EnableGalleriesAutoload)
+				opts = append(opts, config.EnableGalleriesAutoload)
 			}
 
 			if ctx.Bool("preload-backend-only") {
@@ -418,7 +417,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					text := strings.Join(ctx.Args().Slice(), " ")
 
-					opts := &schema.StartupOptions{
+					opts := &config.ApplicationConfig{
 						ModelPath:         ctx.String("models-path"),
 						Context:           context.Background(),
 						AudioDir:          outputDir,
@@ -428,7 +427,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer ml.StopAllGRPC()
 
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ml, opts, schema.Config{})
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ml, opts, config.BackendConfig{})
 					if err != nil {
 						return err
 					}
@@ -481,19 +480,19 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 					language := ctx.String("language")
 					threads := ctx.Int("threads")
 
-					opts := &schema.StartupOptions{
+					opts := &config.ApplicationConfig{
 						ModelPath:         ctx.String("models-path"),
 						Context:           context.Background(),
 						AssetsDestination: ctx.String("backend-assets-path"),
 					}
 
-					cl := services.NewConfigLoader()
+					cl := config.NewBackendConfigLoader()
 					ml := model.NewModelLoader(opts.ModelPath)
-					if err := cl.LoadConfigs(ctx.String("models-path")); err != nil {
+					if err := cl.LoadBackendConfigsFromPath(ctx.String("models-path")); err != nil {
 						return err
 					}
 
-					c, exists := cl.GetConfig(modelOption)
+					c, exists := cl.GetBackendConfig(modelOption)
 					if !exists {
 						return errors.New("model not found")
 					}

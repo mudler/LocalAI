@@ -2,8 +2,8 @@ package localai
 
 import (
 	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/config"
 	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
-	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/go-skynet/LocalAI/core/schema"
@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TTSEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.TTSRequest)
@@ -26,7 +26,7 @@ func TTSEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, o *schema.Sta
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		}
-		cfg, err := services.LoadConfigFileByName(modelFile, o.ModelPath, cl, false, 0, 0, false)
+		cfg, err := config.LoadBackendConfigFileByName(modelFile, o.ModelPath, cl, false, 0, 0, false)
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)

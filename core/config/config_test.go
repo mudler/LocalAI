@@ -1,10 +1,9 @@
-package services_test
+package config_test
 
 import (
 	"os"
 
-	"github.com/go-skynet/LocalAI/core/schema"
-	. "github.com/go-skynet/LocalAI/core/services"
+	. "github.com/go-skynet/LocalAI/core/config"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +18,7 @@ var _ = Describe("Test cases for config related functions", func() {
 	Context("Test Read configuration functions", func() {
 		configFile = os.Getenv("CONFIG_FILE")
 		It("Test ReadConfigFile", func() {
-			config, err := ReadConfigFile(configFile)
+			config, err := ReadBackendConfigFile(configFile)
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
@@ -28,26 +27,26 @@ var _ = Describe("Test cases for config related functions", func() {
 		})
 
 		It("Test LoadConfigs", func() {
-			cm := NewConfigLoader()
-			opts := schema.NewStartupOptions()
-			err := cm.LoadConfigs(opts.ModelPath)
+			cm := NewBackendConfigLoader()
+			opts := NewApplicationConfig()
+			err := cm.LoadBackendConfigsFromPath(opts.ModelPath)
 			Expect(err).To(BeNil())
-			Expect(cm.ListConfigs()).ToNot(BeNil())
+			Expect(cm.ListBackendConfigs()).ToNot(BeNil())
 
 			// config should includes gpt4all models's api.config
-			Expect(cm.ListConfigs()).To(ContainElements("gpt4all"))
+			Expect(cm.ListBackendConfigs()).To(ContainElements("gpt4all"))
 
 			// config should includes gpt2 models's api.config
-			Expect(cm.ListConfigs()).To(ContainElements("gpt4all-2"))
+			Expect(cm.ListBackendConfigs()).To(ContainElements("gpt4all-2"))
 
 			// config should includes text-embedding-ada-002 models's api.config
-			Expect(cm.ListConfigs()).To(ContainElements("text-embedding-ada-002"))
+			Expect(cm.ListBackendConfigs()).To(ContainElements("text-embedding-ada-002"))
 
 			// config should includes rwkv_test models's api.config
-			Expect(cm.ListConfigs()).To(ContainElements("rwkv_test"))
+			Expect(cm.ListBackendConfigs()).To(ContainElements("rwkv_test"))
 
 			// config should includes whisper-1 models's api.config
-			Expect(cm.ListConfigs()).To(ContainElements("whisper-1"))
+			Expect(cm.ListBackendConfigs()).To(ContainElements("whisper-1"))
 		})
 	})
 })

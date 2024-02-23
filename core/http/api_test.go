@@ -13,10 +13,10 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/go-skynet/LocalAI/core/config"
 	. "github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/startup"
 
-	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -134,9 +134,9 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 
-	commonOpts := []schema.AppOption{
-		schema.WithDebug(true),
-		schema.WithDisableMessage(true),
+	commonOpts := []config.AppOption{
+		config.WithDebug(true),
+		config.WithDisableMessage(true),
 	}
 
 	Context("API with ephemeral models", func() {
@@ -173,9 +173,9 @@ var _ = Describe("API test", func() {
 
 			cl, ml, options, err := startup.Startup(
 				append(commonOpts,
-					schema.WithContext(c),
-					schema.WithGalleries(galleries),
-					schema.WithBackendAssets(backendAssets), schema.WithBackendAssetsOutput(tmpdir))...)
+					config.WithContext(c),
+					config.WithGalleries(galleries),
+					config.WithBackendAssets(backendAssets), config.WithBackendAssetsOutput(tmpdir))...)
 			Expect(err).ToNot(HaveOccurred())
 
 			app, err := App(cl, ml, options)
@@ -494,13 +494,13 @@ var _ = Describe("API test", func() {
 
 			cl, ml, options, err := startup.Startup(
 				append(commonOpts,
-					schema.WithContext(c),
-					schema.WithAudioDir(tmpdir),
-					schema.WithImageDir(tmpdir),
-					schema.WithGalleries(galleries),
-					schema.WithModelPath(tmpdir),
-					schema.WithBackendAssets(backendAssets),
-					schema.WithBackendAssetsOutput(tmpdir))...,
+					config.WithContext(c),
+					config.WithAudioDir(tmpdir),
+					config.WithImageDir(tmpdir),
+					config.WithGalleries(galleries),
+					config.WithModelPath(tmpdir),
+					config.WithBackendAssets(backendAssets),
+					config.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
 			app, err := App(cl, ml, options)
@@ -601,9 +601,9 @@ var _ = Describe("API test", func() {
 
 			cl, ml, options, err := startup.Startup(
 				append(commonOpts,
-					schema.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
-					schema.WithContext(c),
-					schema.WithModelPath(modelPath),
+					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
+					config.WithContext(c),
+					config.WithModelPath(modelPath),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
 			app, err := App(cl, ml, options)
@@ -811,9 +811,9 @@ var _ = Describe("API test", func() {
 
 			cl, ml, options, err := startup.Startup(
 				append(commonOpts,
-					schema.WithContext(c),
-					schema.WithModelPath(modelPath),
-					schema.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
+					config.WithContext(c),
+					config.WithModelPath(modelPath),
+					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
 			app, err := App(cl, ml, options)

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -20,12 +20,12 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptions *schema.StartupOptions) func(c *fiber.Ctx) error {
+func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	emptyMessage := ""
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	process := func(s string, req *schema.OpenAIRequest, config *schema.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
@@ -54,7 +54,7 @@ func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptio
 		})
 		close(responses)
 	}
-	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *schema.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		result := ""
 		_, tokenUsage, _ := ComputeChoices(req, prompt, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
@@ -505,7 +505,7 @@ func ChatEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, startupOptio
 	}
 }
 
-func handleQuestion(config *schema.Config, input *schema.OpenAIRequest, ml *model.ModelLoader, o *schema.StartupOptions, args, prompt string) (string, error) {
+func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, ml *model.ModelLoader, o *config.ApplicationConfig, args, prompt string) (string, error) {
 	log.Debug().Msgf("nothing to do, computing a reply")
 
 	// If there is a message that the LLM already sends as part of the JSON reply, use it

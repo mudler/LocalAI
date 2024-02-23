@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -15,12 +16,12 @@ import (
 )
 
 type BackendMonitor struct {
-	configLoader *ConfigLoader
+	configLoader *config.BackendConfigLoader
 	modelLoader  *model.ModelLoader
-	options      *schema.StartupOptions // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
+	options      *config.ApplicationConfig // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
 
-func NewBackendMonitor(configLoader *ConfigLoader, modelLoader *model.ModelLoader, options *schema.StartupOptions) BackendMonitor {
+func NewBackendMonitor(configLoader *config.BackendConfigLoader, modelLoader *model.ModelLoader, options *config.ApplicationConfig) BackendMonitor {
 	return BackendMonitor{
 		configLoader: configLoader,
 		modelLoader:  modelLoader,
@@ -29,7 +30,7 @@ func NewBackendMonitor(configLoader *ConfigLoader, modelLoader *model.ModelLoade
 }
 
 func (bm BackendMonitor) getModelLoaderIDFromModelName(modelName string) (string, error) {
-	config, exists := bm.configLoader.GetConfig(modelName)
+	config, exists := bm.configLoader.GetBackendConfig(modelName)
 	var backendId string
 	if exists {
 		backendId = config.Model
@@ -46,7 +47,7 @@ func (bm BackendMonitor) getModelLoaderIDFromModelName(modelName string) (string
 }
 
 func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
-	config, exists := bm.configLoader.GetConfig(model)
+	config, exists := bm.configLoader.GetBackendConfig(model)
 	var backend string
 	if exists {
 		backend = config.Model

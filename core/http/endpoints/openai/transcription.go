@@ -9,8 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/core/services"
+	"github.com/go-skynet/LocalAI/core/config"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,7 +17,7 @@ import (
 )
 
 // https://platform.openai.com/docs/api-reference/audio/create
-func TranscriptEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		m, input, err := readRequest(c, ml, o, false)
 		if err != nil {

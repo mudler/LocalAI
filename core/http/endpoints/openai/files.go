@@ -8,8 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/core/services"
+	"github.com/go-skynet/LocalAI/core/config"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
@@ -63,7 +62,7 @@ func LoadUploadConfig(uploadPath string) {
 }
 
 // UploadFilesEndpoint https://platform.openai.com/docs/api-reference/files/create
-func UploadFilesEndpoint(cm *services.ConfigLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func UploadFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -111,7 +110,7 @@ func UploadFilesEndpoint(cm *services.ConfigLoader, o *schema.StartupOptions) fu
 }
 
 // ListFilesEndpoint https://platform.openai.com/docs/api-reference/files/list
-func ListFilesEndpoint(cm *services.ConfigLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func ListFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	type ListFiles struct {
 		Data   []File
 		Object string
@@ -151,7 +150,7 @@ func getFileFromRequest(c *fiber.Ctx) (*File, error) {
 }
 
 // GetFilesEndpoint https://platform.openai.com/docs/api-reference/files/retrieve
-func GetFilesEndpoint(cm *services.ConfigLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func GetFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
 		if err != nil {
@@ -163,7 +162,7 @@ func GetFilesEndpoint(cm *services.ConfigLoader, o *schema.StartupOptions) func(
 }
 
 // DeleteFilesEndpoint https://platform.openai.com/docs/api-reference/files/delete
-func DeleteFilesEndpoint(cm *services.ConfigLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func DeleteFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	type DeleteStatus struct {
 		Id      string
 		Object  string
@@ -202,7 +201,7 @@ func DeleteFilesEndpoint(cm *services.ConfigLoader, o *schema.StartupOptions) fu
 }
 
 // GetFilesContentsEndpoint https://platform.openai.com/docs/api-reference/files/retrieve-contents
-func GetFilesContentsEndpoint(cm *services.ConfigLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func GetFilesContentsEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
 		if err != nil {

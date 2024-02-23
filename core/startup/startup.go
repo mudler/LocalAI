@@ -1,7 +1,7 @@
 package startup
 
 import (
-	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
@@ -11,8 +11,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Startup(opts ...schema.AppOption) (*services.ConfigLoader, *model.ModelLoader, *schema.StartupOptions, error) {
-	options := schema.NewStartupOptions(opts...)
+func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, error) {
+	options := config.NewApplicationConfig(opts...)
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if options.Debug {
@@ -24,15 +24,15 @@ func Startup(opts ...schema.AppOption) (*services.ConfigLoader, *model.ModelLoad
 
 	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
 
-	cl := services.NewConfigLoader()
+	cl := config.NewBackendConfigLoader()
 	ml := model.NewModelLoader(options.ModelPath)
 
-	if err := cl.LoadConfigs(options.ModelPath); err != nil {
+	if err := cl.LoadBackendConfigsFromPath(options.ModelPath); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())
 	}
 
 	if options.ConfigFile != "" {
-		if err := cl.LoadConfigFile(options.ConfigFile); err != nil {
+		if err := cl.LoadBackendConfigFile(options.ConfigFile); err != nil {
 			log.Error().Msgf("error loading config file: %s", err.Error())
 		}
 	}
@@ -54,8 +54,8 @@ func Startup(opts ...schema.AppOption) (*services.ConfigLoader, *model.ModelLoad
 	}
 
 	if options.Debug {
-		for _, v := range cl.ListConfigs() {
-			cfg, _ := cl.GetConfig(v)
+		for _, v := range cl.ListBackendConfigs() {
+			cfg, _ := cl.GetBackendConfig(v)
 			log.Debug().Msgf("Model: %s (config: %+v)", v, cfg)
 		}
 	}

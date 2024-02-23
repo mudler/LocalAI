@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/services"
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/go-skynet/LocalAI/core/schema"
@@ -17,7 +17,7 @@ import (
 )
 
 // https://platform.openai.com/docs/api-reference/embeddings
-func EmbeddingsEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func EmbeddingsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		model, input, err := readRequest(c, ml, o, true)
 		if err != nil {

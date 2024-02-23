@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"gopkg.in/yaml.v2"
@@ -27,7 +28,7 @@ func NewGalleryService(modelPath string) *GalleryService {
 	}
 }
 
-func prepareModel(modelPath string, req gallery.GalleryModel, cl *ConfigLoader, downloadStatus func(string, string, string, float64)) error {
+func prepareModel(modelPath string, req gallery.GalleryModel, cl *config.BackendConfigLoader, downloadStatus func(string, string, string, float64)) error {
 
 	config, err := gallery.GetGalleryConfigFromURL(req.URL)
 	if err != nil {
@@ -59,7 +60,7 @@ func (g *GalleryService) GetAllStatus() map[string]*gallery.GalleryOpStatus {
 	return g.statuses
 }
 
-func (g *GalleryService) Start(c context.Context, cl *ConfigLoader) {
+func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader) {
 	go func() {
 		for {
 			select {
@@ -99,7 +100,7 @@ func (g *GalleryService) Start(c context.Context, cl *ConfigLoader) {
 				}
 
 				// Reload models
-				err = cl.LoadConfigs(g.modelPath)
+				err = cl.LoadBackendConfigsFromPath(g.modelPath)
 				if err != nil {
 					updateError(err)
 					continue
@@ -122,7 +123,7 @@ type galleryModel struct {
 	ID                   string           `json:"id"`
 }
 
-func processRequests(modelPath, s string, cm *ConfigLoader, galleries []gallery.Gallery, requests []galleryModel) error {
+func processRequests(modelPath, s string, cm *config.BackendConfigLoader, galleries []gallery.Gallery, requests []galleryModel) error {
 	var err error
 	for _, r := range requests {
 		utils.ResetDownloadTimers()
@@ -141,7 +142,7 @@ func processRequests(modelPath, s string, cm *ConfigLoader, galleries []gallery.
 	return err
 }
 
-func ApplyGalleryFromFile(modelPath, s string, cl *ConfigLoader, galleries []gallery.Gallery) error {
+func ApplyGalleryFromFile(modelPath, s string, cl *config.BackendConfigLoader, galleries []gallery.Gallery) error {
 	dat, err := os.ReadFile(s)
 	if err != nil {
 		return err
@@ -155,7 +156,7 @@ func ApplyGalleryFromFile(modelPath, s string, cl *ConfigLoader, galleries []gal
 	return processRequests(modelPath, s, cl, galleries, requests)
 }
 
-func ApplyGalleryFromString(modelPath, s string, cl *ConfigLoader, galleries []gallery.Gallery) error {
+func ApplyGalleryFromString(modelPath, s string, cl *config.BackendConfigLoader, galleries []gallery.Gallery) error {
 	var requests []galleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {

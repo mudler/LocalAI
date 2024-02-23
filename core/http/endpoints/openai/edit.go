@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/services"
+	"github.com/go-skynet/LocalAI/core/config"
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func EditEndpoint(cl *services.ConfigLoader, ml *model.ModelLoader, o *schema.StartupOptions) func(c *fiber.Ctx) error {
+func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		modelFile, input, err := readRequest(c, ml, o, true)
 		if err != nil {

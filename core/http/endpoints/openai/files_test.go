@@ -11,8 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/core/services"
+	"github.com/go-skynet/LocalAI/core/config"
 
 	utils2 "github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
@@ -26,11 +25,11 @@ type ListFiles struct {
 	Object string
 }
 
-func startUpApp() (app *fiber.App, option *schema.StartupOptions, loader *services.ConfigLoader) {
+func startUpApp() (app *fiber.App, option *config.ApplicationConfig, loader *config.BackendConfigLoader) {
 	// Preparing the mocked objects
-	loader = &services.ConfigLoader{}
+	loader = &config.BackendConfigLoader{}
 
-	option = &schema.StartupOptions{
+	option = &config.ApplicationConfig{
 		UploadLimitMB: 10,
 		UploadDir:     "test_dir",
 	}
@@ -53,9 +52,9 @@ func startUpApp() (app *fiber.App, option *schema.StartupOptions, loader *servic
 
 func TestUploadFileExceedSizeLimit(t *testing.T) {
 	// Preparing the mocked objects
-	loader := &services.ConfigLoader{}
+	loader := &config.BackendConfigLoader{}
 
-	option := &schema.StartupOptions{
+	option := &config.ApplicationConfig{
 		UploadLimitMB: 10,
 		UploadDir:     "test_dir",
 	}
@@ -175,7 +174,7 @@ func CallFilesContentEndpoint(t *testing.T, app *fiber.App, fileId string) (*htt
 	return app.Test(request)
 }
 
-func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *schema.StartupOptions) (*http.Response, error) {
+func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *config.ApplicationConfig) (*http.Response, error) {
 	// Create a file that exceeds the limit
 	file := createTestFile(t, fileName, fileSize, o)
 
@@ -187,7 +186,7 @@ func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpos
 	return app.Test(req)
 }
 
-func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *schema.StartupOptions) File {
+func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *config.ApplicationConfig) File {
 	// Create a file that exceeds the limit
 	file := createTestFile(t, fileName, fileSize, o)
 
@@ -234,7 +233,7 @@ func newMultipartFile(filePath, tag, purpose string) (*strings.Reader, *multipar
 }
 
 // Helper to create test files
-func createTestFile(t *testing.T, name string, sizeMB int, option *schema.StartupOptions) *os.File {
+func createTestFile(t *testing.T, name string, sizeMB int, option *config.ApplicationConfig) *os.File {
 	err := os.MkdirAll(option.UploadDir, 0755)
 	if err != nil {
 
