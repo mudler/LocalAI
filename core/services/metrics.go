@@ -1,11 +1,5 @@
 package services
 
-/////////// ::::: TODO DAVE ::::
-///
-///////////     Split this into endpoint and service?
-///
-///////////     THEN decide if startupOptions or other schema package has the wrong reference toLocalAiMetrics - it seems more like the service itself [perhaps rename to LocalAIMetricsService]
-
 import (
 	"context"
 

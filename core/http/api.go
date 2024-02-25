@@ -58,13 +58,13 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, options *config.
 		app.Use(recover.New())
 	}
 
-	metricsService, err := services.NewLocalAiMetricsService()
+	metricsService, err := services.NewLocalAIMetricsService()
 	if err != nil {
 		return nil, err
 	}
 
 	if metricsService != nil {
-		app.Use(localai.LocalAiMetricsAPIMiddleware(metricsService))
+		app.Use(localai.LocalAIMetricsAPIMiddleware(metricsService))
 		app.Hooks().OnShutdown(func() error {
 			return metricsService.Shutdown()
 		})
@@ -217,7 +217,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, options *config.
 	app.Get("/v1/models", auth, openai.ListModelsEndpoint(cl, ml))
 	app.Get("/models", auth, openai.ListModelsEndpoint(cl, ml))
 
-	app.Get("/metrics", localai.LocalAiMetricsEndpoint())
+	app.Get("/metrics", localai.LocalAIMetricsEndpoint())
 
 	return app, nil
 }
