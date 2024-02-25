@@ -9,7 +9,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func LocalAiMetricsEndpoint() fiber.Handler {
+func LocalAIMetricsEndpoint() fiber.Handler {
+
 	return adaptor.HTTPHandler(promhttp.Handler())
 }
 
