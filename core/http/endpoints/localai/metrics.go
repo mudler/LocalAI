@@ -19,7 +19,7 @@ type apiMiddlewareConfig struct {
 	metricsService *services.LocalAIMetricsService
 }
 
-func LocalAiMetricsAPIMiddleware(metrics *services.LocalAIMetricsService) fiber.Handler {
+func LocalAIMetricsAPIMiddleware(metrics *services.LocalAIMetricsService) fiber.Handler {
 	cfg := apiMiddlewareConfig{
 		metricsService: metrics,
 		Filter: func(c *fiber.Ctx) bool {
