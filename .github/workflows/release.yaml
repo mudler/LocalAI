@@ -89,6 +89,35 @@ jobs:
           files: |
             release/*
 
+  build-stablediffusion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '>=1.21.0'
+      - name: Dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends libopencv-dev
+          sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+      - name: Build stablediffusion
+        run: |
+          make backend-assets/grpc/stablediffusion
+          mkdir -p release && cp backend-assets/grpc/stablediffusion release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: stablediffusion
+          path: release/
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/*
+
   build-macOS:
     strategy:
       matrix:
