@@ -259,9 +259,3 @@ func WithApiKeys(apiKeys []string) AppOption {
 		o.ApiKeys = apiKeys
 	}
 }
-
-// func WithMetrics(meter *metrics.Metrics) AppOption {
-// 	return func(o *StartupOptions) {
-// 		o.Metrics = meter
-// 	}
-// }
