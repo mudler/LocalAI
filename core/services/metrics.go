@@ -31,7 +31,7 @@ func (m *LocalAIMetricsService) ObserveAPICall(method string, path string, durat
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func NewLocalAiMetricsService() (*LocalAIMetricsService, error) {
+func NewLocalAIMetricsService() (*LocalAIMetricsService, error) {
 	exporter, err := prometheus.New()
 	if err != nil {
 		return nil, err
