@@ -565,10 +565,20 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		log.Debug().Msgf("Function return: %s %+v", s, ss)
 
 		for _, s := range ss {
-			func_name := s["function"]
-			args := s["arguments"]
+			func_name, ok := s["function"]
+			if !ok {
+				continue
+			}
+			args, ok := s["arguments"]
+			if !ok {
+				continue
+			}
 			d, _ := json.Marshal(args)
-			results = append(results, funcCallResults{name: func_name.(string), arguments: string(d)})
+			funcName, ok := func_name.(string)
+			if !ok {
+				continue
+			}
+			results = append(results, funcCallResults{name: funcName, arguments: string(d)})
 		}
 	} else {
 		// As we have to change the result before processing, we can't stream the answer token-by-token (yet?)
@@ -579,12 +589,21 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		log.Debug().Msgf("Function return: %s %+v", s, ss)
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
-		func_name := ss["function"]
+		func_name, ok := ss["function"]
+		if !ok {
+			return results
+		}
 		// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
-		args := ss["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+		args, ok := ss["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+		if !ok {
+			return results
+		}
 		d, _ := json.Marshal(args)
-
-		results = append(results, funcCallResults{name: func_name.(string), arguments: string(d)})
+		funcName, ok := func_name.(string)
+		if !ok {
+			return results
+		}
+		results = append(results, funcCallResults{name: funcName, arguments: string(d)})
 	}
 
 	return results
