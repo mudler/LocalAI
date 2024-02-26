@@ -248,6 +248,26 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	app.Post("/v1/edits", auth, openai.EditEndpoint(cl, options))
 	app.Post("/edits", auth, openai.EditEndpoint(cl, options))
 
+	// assistant
+	app.Get("/v1/assistants", openai.ListAssistantsEndpoint(cl, options))
+	app.Get("/assistants", openai.ListAssistantsEndpoint(cl, options))
+	app.Post("/v1/assistants", openai.CreateAssistantEndpoint(cl, options))
+	app.Post("/assistants", openai.CreateAssistantEndpoint(cl, options))
+	app.Delete("/v1/assistants/:assistant_id", openai.DeleteAssistantEndpoint(cl, options))
+	app.Delete("/assistants/:assistant_id", openai.DeleteAssistantEndpoint(cl, options))
+	app.Get("/v1/assistants/:assistant_id", openai.GetAssistantEndpoint(cl, options))
+	app.Get("/assistants/:assistant_id", openai.GetAssistantEndpoint(cl, options))
+	app.Post("/v1/assistants/:assistant_id", openai.ModifyAssistantEndpoint(cl, options))
+	app.Post("/assistants/:assistant_id", openai.ModifyAssistantEndpoint(cl, options))
+	app.Get("/v1/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(cl, options))
+	app.Get("/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(cl, options))
+	app.Post("/v1/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(cl, options))
+	app.Post("/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(cl, options))
+	app.Delete("/v1/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(cl, options))
+	app.Delete("/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(cl, options))
+	app.Get("/v1/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(cl, options))
+	app.Get("/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(cl, options))
+
 	// files
 	app.Post("/v1/files", auth, openai.UploadFilesEndpoint(cl, options))
 	app.Post("/files", auth, openai.UploadFilesEndpoint(cl, options))
