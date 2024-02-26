@@ -16,14 +16,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, ml, o, true)
+		modelFile, input, err := readRequest(c, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -57,7 +57,7 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *conf
 				}
 			}
 
-			r, tokenUsage, err := ComputeChoices(input, i, config, o, ml, func(s string, c *[]schema.Choice) {
+			r, tokenUsage, err := ComputeChoices(input, i, config, appConfig, ml, func(s string, c *[]schema.Choice) {
 				*c = append(*c, schema.Choice{Text: s})
 			}, nil)
 			if err != nil {

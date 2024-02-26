@@ -59,9 +59,9 @@ func downloadFile(url string) (string, error) {
 
 *
 */
-func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, ml, o, false)
+		m, input, err := readRequest(c, ml, appConfig, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -71,7 +71,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *con
 		}
 		log.Debug().Msgf("Loading model: %+v", m)
 
-		config, input, err := mergeRequestWithConfig(m, input, cl, ml, o.Debug, 0, 0, false)
+		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, 0, 0, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -104,7 +104,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *con
 			}
 
 			// Create a temporary file
-			outputFile, err := os.CreateTemp(o.ImageDir, "b64")
+			outputFile, err := os.CreateTemp(appConfig.ImageDir, "b64")
 			if err != nil {
 				return err
 			}
@@ -179,7 +179,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *con
 
 				tempDir := ""
 				if !b64JSON {
-					tempDir = o.ImageDir
+					tempDir = appConfig.ImageDir
 				}
 				// Create a temporary file
 				outputFile, err := os.CreateTemp(tempDir, "b64")
@@ -196,7 +196,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *con
 
 				baseURL := c.BaseURL()
 
-				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, ml, *config, o)
+				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, ml, *config, appConfig)
 				if err != nil {
 					return err
 				}

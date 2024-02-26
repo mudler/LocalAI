@@ -174,9 +174,9 @@ func CallFilesContentEndpoint(t *testing.T, app *fiber.App, fileId string) (*htt
 	return app.Test(request)
 }
 
-func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *config.ApplicationConfig) (*http.Response, error) {
+func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, appConfig *config.ApplicationConfig) (*http.Response, error) {
 	// Create a file that exceeds the limit
-	file := createTestFile(t, fileName, fileSize, o)
+	file := createTestFile(t, fileName, fileSize, appConfig)
 
 	// Creating a new HTTP Request
 	body, writer := newMultipartFile(file.Name(), tag, purpose)
@@ -186,9 +186,9 @@ func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpos
 	return app.Test(req)
 }
 
-func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *config.ApplicationConfig) File {
+func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, appConfig *config.ApplicationConfig) File {
 	// Create a file that exceeds the limit
-	file := createTestFile(t, fileName, fileSize, o)
+	file := createTestFile(t, fileName, fileSize, appConfig)
 
 	// Creating a new HTTP Request
 	body, writer := newMultipartFile(file.Name(), tag, purpose)

@@ -21,11 +21,11 @@ type BackendMonitor struct {
 	options      *config.ApplicationConfig // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
 
-func NewBackendMonitor(configLoader *config.BackendConfigLoader, modelLoader *model.ModelLoader, options *config.ApplicationConfig) BackendMonitor {
+func NewBackendMonitor(configLoader *config.BackendConfigLoader, modelLoader *model.ModelLoader, appConfig *config.ApplicationConfig) BackendMonitor {
 	return BackendMonitor{
 		configLoader: configLoader,
 		modelLoader:  modelLoader,
-		options:      options,
+		options:      appConfig,
 	}
 }
 

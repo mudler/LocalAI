@@ -14,14 +14,14 @@ import (
 
 type WatchConfigDirectoryCloser func() error
 
-func ReadApiKeysJson(configDir string, options *config.ApplicationConfig) error {
+func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig) error {
 	fileContent, err := os.ReadFile(path.Join(configDir, "api_keys.json"))
 	if err == nil {
 		// Parse JSON content from the file
 		var fileKeys []string
 		err := json.Unmarshal(fileContent, &fileKeys)
 		if err == nil {
-			options.ApiKeys = append(options.ApiKeys, fileKeys...)
+			appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
 			return nil
 		}
 		return err
@@ -29,7 +29,7 @@ func ReadApiKeysJson(configDir string, options *config.ApplicationConfig) error 
 	return err
 }
 
-func ReadExternalBackendsJson(configDir string, options *config.ApplicationConfig) error {
+func ReadExternalBackendsJson(configDir string, appConfig *config.ApplicationConfig) error {
 	fileContent, err := os.ReadFile(path.Join(configDir, "external_backends.json"))
 	if err != nil {
 		return err
@@ -40,19 +40,19 @@ func ReadExternalBackendsJson(configDir string, options *config.ApplicationConfi
 	if err != nil {
 		return err
 	}
-	err = mergo.Merge(&options.ExternalGRPCBackends, fileBackends)
+	err = mergo.Merge(&appConfig.ExternalGRPCBackends, fileBackends)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-var CONFIG_FILE_UPDATES = map[string]func(configDir string, options *config.ApplicationConfig) error{
+var CONFIG_FILE_UPDATES = map[string]func(configDir string, appConfig *config.ApplicationConfig) error{
 	"api_keys.json":          ReadApiKeysJson,
 	"external_backends.json": ReadExternalBackendsJson,
 }
 
-func WatchConfigDirectory(configDir string, options *config.ApplicationConfig) (WatchConfigDirectoryCloser, error) {
+func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig) (WatchConfigDirectoryCloser, error) {
 	if len(configDir) == 0 {
 		return nil, fmt.Errorf("configDir blank")
 	}
@@ -76,7 +76,7 @@ func WatchConfigDirectory(configDir string, options *config.ApplicationConfig) (
 				if event.Has(fsnotify.Write) {
 					for targetName, watchFn := range CONFIG_FILE_UPDATES {
 						if event.Name == targetName {
-							err := watchFn(configDir, options)
+							err := watchFn(configDir, appConfig)
 							log.Warn().Msgf("WatchConfigDirectory goroutine for %s: failed to update options: %+v", targetName, err)
 						}
 					}

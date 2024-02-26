@@ -21,12 +21,12 @@ import (
 )
 
 // https://platform.openai.com/docs/api-reference/completions
-func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
 	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
-		ComputeChoices(req, s, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
@@ -53,14 +53,14 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o
 	}
 
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, ml, o, true)
+		modelFile, input, err := readRequest(c, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
 		log.Debug().Msgf("`input`: %+v", input)
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -164,7 +164,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o
 			}
 
 			r, tokenUsage, err := ComputeChoices(
-				input, i, config, o, ml, func(s string, c *[]schema.Choice) {
+				input, i, config, appConfig, ml, func(s string, c *[]schema.Choice) {
 					*c = append(*c, schema.Choice{Text: s, FinishReason: "stop", Index: k})
 				}, nil)
 			if err != nil {

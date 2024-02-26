@@ -62,7 +62,7 @@ func LoadUploadConfig(uploadPath string) {
 }
 
 // UploadFilesEndpoint https://platform.openai.com/docs/api-reference/files/create
-func UploadFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func UploadFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -70,8 +70,8 @@ func UploadFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationCo
 		}
 
 		// Check the file size
-		if file.Size > int64(o.UploadLimitMB*1024*1024) {
-			return c.Status(fiber.StatusBadRequest).SendString(fmt.Sprintf("File size %d exceeds upload limit %d", file.Size, o.UploadLimitMB))
+		if file.Size > int64(appConfig.UploadLimitMB*1024*1024) {
+			return c.Status(fiber.StatusBadRequest).SendString(fmt.Sprintf("File size %d exceeds upload limit %d", file.Size, appConfig.UploadLimitMB))
 		}
 
 		purpose := c.FormValue("purpose", "") //TODO put in purpose dirs
@@ -82,7 +82,7 @@ func UploadFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationCo
 		// Sanitize the filename to prevent directory traversal
 		filename := utils.SanitizeFileName(file.Filename)
 
-		savePath := filepath.Join(o.UploadDir, filename)
+		savePath := filepath.Join(appConfig.UploadDir, filename)
 
 		// Check if file already exists
 		if _, err := os.Stat(savePath); !os.IsNotExist(err) {
@@ -104,13 +104,13 @@ func UploadFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationCo
 		}
 
 		uploadedFiles = append(uploadedFiles, f)
-		saveUploadConfig(o.UploadDir)
+		saveUploadConfig(appConfig.UploadDir)
 		return c.Status(fiber.StatusOK).JSON(f)
 	}
 }
 
 // ListFilesEndpoint https://platform.openai.com/docs/api-reference/files/list
-func ListFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func ListFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	type ListFiles struct {
 		Data   []File
 		Object string
@@ -150,7 +150,7 @@ func getFileFromRequest(c *fiber.Ctx) (*File, error) {
 }
 
 // GetFilesEndpoint https://platform.openai.com/docs/api-reference/files/retrieve
-func GetFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func GetFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
 		if err != nil {
@@ -162,7 +162,7 @@ func GetFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfi
 }
 
 // DeleteFilesEndpoint https://platform.openai.com/docs/api-reference/files/delete
-func DeleteFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func DeleteFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	type DeleteStatus struct {
 		Id      string
 		Object  string
@@ -175,7 +175,7 @@ func DeleteFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationCo
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
 
-		err = os.Remove(filepath.Join(o.UploadDir, file.Filename))
+		err = os.Remove(filepath.Join(appConfig.UploadDir, file.Filename))
 		if err != nil {
 			// If the file doesn't exist then we should just continue to remove it
 			if !errors.Is(err, os.ErrNotExist) {
@@ -191,7 +191,7 @@ func DeleteFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationCo
 			}
 		}
 
-		saveUploadConfig(o.UploadDir)
+		saveUploadConfig(appConfig.UploadDir)
 		return c.JSON(DeleteStatus{
 			Id:      file.ID,
 			Object:  "file",
@@ -201,14 +201,14 @@ func DeleteFilesEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationCo
 }
 
 // GetFilesContentsEndpoint https://platform.openai.com/docs/api-reference/files/retrieve-contents
-func GetFilesContentsEndpoint(cm *config.BackendConfigLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func GetFilesContentsEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
 
-		fileContents, err := os.ReadFile(filepath.Join(o.UploadDir, file.Filename))
+		fileContents, err := os.ReadFile(filepath.Join(appConfig.UploadDir, file.Filename))
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}

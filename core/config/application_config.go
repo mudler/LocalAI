@@ -25,7 +25,6 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
-	// Metrics                             *metrics.Metrics
 
 	ModelLibraryURL string
 

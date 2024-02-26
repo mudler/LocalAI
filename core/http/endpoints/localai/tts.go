@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.TTSRequest)
@@ -26,7 +26,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *confi
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		}
-		cfg, err := config.LoadBackendConfigFileByName(modelFile, o.ModelPath, cl, false, 0, 0, false)
+		cfg, err := config.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath, cl, false, 0, 0, false)
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
@@ -39,7 +39,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *confi
 			cfg.Backend = input.Backend
 		}
 
-		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, ml, o, *cfg)
+		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
