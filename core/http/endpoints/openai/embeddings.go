@@ -17,14 +17,14 @@ import (
 )
 
 // https://platform.openai.com/docs/api-reference/embeddings
-func EmbeddingsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func EmbeddingsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		model, input, err := readRequest(c, ml, o, true)
+		model, input, err := readRequest(c, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := mergeRequestWithConfig(model, input, cl, ml, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(model, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -34,7 +34,7 @@ func EmbeddingsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o
 
 		for i, s := range config.InputToken {
 			// get the model function to call for the result
-			embedFn, err := backend.ModelEmbedding("", s, ml, *config, o)
+			embedFn, err := backend.ModelEmbedding("", s, ml, *config, appConfig)
 			if err != nil {
 				return err
 			}
@@ -48,7 +48,7 @@ func EmbeddingsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, o
 
 		for i, s := range config.InputStrings {
 			// get the model function to call for the result
-			embedFn, err := backend.ModelEmbedding(s, []int{}, ml, *config, o)
+			embedFn, err := backend.ModelEmbedding(s, []int{}, ml, *config, appConfig)
 			if err != nil {
 				return err
 			}
