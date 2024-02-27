@@ -1,16 +1,18 @@
 
 +++
 disableToc = false
-title = "🔥 OpenAI functions"
+title = "🔥 OpenAI functions and tools"
 weight = 17
 url = "/features/openai-functions/"
 +++
 
-LocalAI supports running OpenAI functions with `llama.cpp` compatible models.
+LocalAI supports running OpenAI [functions and tools API](https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools) with `llama.cpp` compatible models.
 
 ![localai-functions-1](https://github.com/ggerganov/llama.cpp/assets/2420543/5bd15da2-78c1-4625-be90-1e938e6823f1)
 
-To learn more about OpenAI functions, see the [OpenAI API blog post](https://openai.com/blog/function-calling-and-other-api-updates).
+To learn more about OpenAI functions, see also the [OpenAI API blog post](https://openai.com/blog/function-calling-and-other-api-updates).
+
+LocalAI is also supporting [JSON mode](https://platform.openai.com/docs/guides/text-generation/json-mode) out of the box with llama.cpp-compatible models.
 
 💡 Check out also [LocalAGI](https://github.com/mudler/LocalAGI) for an example on how to use LocalAI functions.
 
