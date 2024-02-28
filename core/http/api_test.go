@@ -133,6 +133,7 @@ var _ = Describe("API test", func() {
 	var c context.Context
 	var cancel context.CancelFunc
 	var tmpdir string
+	var modelDir string
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -144,7 +145,7 @@ var _ = Describe("API test", func() {
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
-			modelDir := filepath.Join(tmpdir, "models")
+			modelDir = filepath.Join(tmpdir, "models")
 			err = os.Mkdir(modelDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -232,10 +233,10 @@ var _ = Describe("API test", func() {
 				}, "360s", "10s").Should(Equal(true))
 				Expect(resp["message"]).ToNot(ContainSubstring("error"))
 
-				dat, err := os.ReadFile(filepath.Join(tmpdir, "bert2.yaml"))
+				dat, err := os.ReadFile(filepath.Join(modelDir, "bert2.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = os.ReadFile(filepath.Join(tmpdir, "foo.yaml"))
+				_, err = os.ReadFile(filepath.Join(modelDir, "foo.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
 				content := map[string]interface{}{}
@@ -274,7 +275,7 @@ var _ = Describe("API test", func() {
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
-				dat, err := os.ReadFile(filepath.Join(tmpdir, "bert.yaml"))
+				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
 				content := map[string]interface{}{}
@@ -298,7 +299,7 @@ var _ = Describe("API test", func() {
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
-				dat, err := os.ReadFile(filepath.Join(tmpdir, "bert.yaml"))
+				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
 				content := map[string]interface{}{}
@@ -530,7 +531,8 @@ var _ = Describe("API test", func() {
 		AfterEach(func() {
 			cancel()
 			app.Shutdown()
-			os.RemoveAll(tmpdir)
+			err := os.RemoveAll(tmpdir)
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("installs and is capable to run tts", Label("tts"), func() {
 			if runtime.GOOS != "linux" {
