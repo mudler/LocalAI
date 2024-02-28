@@ -217,6 +217,11 @@ var _ = Describe("API test", func() {
 		Context("Applying models", func() {
 			It("applies models from a gallery", func() {
 
+				// Temporary test debugging
+				modelDirEntries, err := os.ReadDir(modelDir)
+				Expect(err).ToNot(HaveOccurred())
+				fmt.Printf("\nmodelDirEntries: %+v\n", modelDirEntries)
+
 				models := getModels("http://127.0.0.1:9090/models/available")
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
