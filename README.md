@@ -68,7 +68,7 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 For a detailed step-by-step introduction, refer to the [Getting Started](https://localai.io/basics/getting_started/index.html) guide. For those in a hurry, here's a straightforward one-liner to launch a LocalAI instance with [phi-2](https://huggingface.co/microsoft/phi-2) using `docker`:
 
 ```
-docker run -ti -p 8080:8080 localai/localai:v2.7.0-ffmpeg-core phi-2
+docker run -ti -p 8080:8080 localai/localai:v2.9.0-ffmpeg-core phi-2
 ```
 
 ## 🚀 [Features](https://localai.io/features/)
