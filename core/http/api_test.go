@@ -148,9 +148,9 @@ var _ = Describe("API test", func() {
 			modelDir = filepath.Join(tmpdir, "models")
 			err = os.Mkdir(modelDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
-			freshEntries, err := os.ReadDir(modelDir)
+			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
+			err = os.Mkdir(backendAssetsDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(freshEntries)).To(BeZero())
 
 			c, cancel = context.WithCancel(context.Background())
 
@@ -183,7 +183,8 @@ var _ = Describe("API test", func() {
 					config.WithContext(c),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
-					config.WithBackendAssets(backendAssets), config.WithBackendAssetsOutput(tmpdir))...)
+					config.WithBackendAssets(backendAssets),
+					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
 			app, err := App(cl, ml, options)
@@ -203,6 +204,7 @@ var _ = Describe("API test", func() {
 				_, err := client.ListModels(context.TODO())
 				return err
 			}, "2m").ShouldNot(HaveOccurred())
+			fmt.Println("[BeforeEach Successfully Completed] for 'API with ephemeral models'")
 		})
 
 		AfterEach(func() {
