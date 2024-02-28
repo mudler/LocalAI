@@ -180,7 +180,7 @@ func DownloadFile(url string, filePath, sha string, downloadStatus func(string, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("failed to download file %q, invalid status code %d", filePath, resp.StatusCode)
+		return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
 	}
 
 	// Create parent directory
