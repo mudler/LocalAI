@@ -145,7 +145,7 @@ var _ = Describe("API test", func() {
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
 			modelDir := filepath.Join(tmpdir, "models")
-			err = os.Mkdir(modelDir, 0666)
+			err = os.Mkdir(modelDir, 0744)
 			Expect(err).ToNot(HaveOccurred())
 
 			c, cancel = context.WithCancel(context.Background())
