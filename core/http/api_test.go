@@ -204,7 +204,8 @@ var _ = Describe("API test", func() {
 		AfterEach(func() {
 			cancel()
 			app.Shutdown()
-			os.RemoveAll(tmpdir)
+			err := os.RemoveAll(tmpdir)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Context("Applying models", func() {
