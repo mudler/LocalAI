@@ -80,6 +80,26 @@ When running the python script, be sure to:
 
 ## Advanced
 
+### Parallel tools calls
+
+This feature is experimental and has to be configured in the YAML of the model by enabling `function.parallel_calls`:
+
+```yaml
+name: gpt-3.5-turbo
+parameters:
+  # Model file name
+  model: ggml-openllama.bin
+  top_p: 80
+  top_k: 0.9
+  temperature: 0.1
+
+function:
+  # set to true to allow the model to call multiple functions in parallel
+  parallel_calls: true
+```
+
+### Use functions with grammar
+
 It is possible to also specify the full function signature (for debugging, or to use with other clients).
 
 The chat endpoint accepts the `grammar_json_functions` additional parameter which takes a JSON schema object.
