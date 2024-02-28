@@ -16,7 +16,7 @@ GPT4ALL_VERSION?=27a8b020c36b0df8f8b82a252d261cda47cf44b8
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
-RWKV_VERSION?=633c5a3485c403cb2520693dc0991a25dace9f0f
+RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
 WHISPER_CPP_VERSION?=37a709f6558c6d9783199e2b8cbb136e1c41d346
