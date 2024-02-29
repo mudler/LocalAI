@@ -146,11 +146,11 @@ var _ = Describe("API test", func() {
 	Context("API with ephemeral models", func() {
 
 		BeforeEach(func(sc SpecContext) {
-			fmt.Printf("\n\n[BeforeEach Started] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
+			// fmt.Printf("\n\n[BeforeEach Started] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
-			fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\ntmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
+			// fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\ntmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
 			modelDir = filepath.Join(tmpdir, "models")
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
 			err = os.Mkdir(backendAssetsDir, 0755)
@@ -223,9 +223,9 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadDir(tmpdir)
 			Expect(err).To(HaveOccurred())
-			fmt.Printf("\n\n[AfterEach Successfully Completed] for 'API with ephemeral models' for %q\nDELETED tmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
-			tmpdir = ""
-			modelDir = ""
+			// fmt.Printf("\n\n[AfterEach Successfully Completed] for 'API with ephemeral models' for %q\nDELETED tmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
+			// tmpdir = ""
+			// modelDir = ""
 		})
 
 		Context("Applying models", func() {
@@ -515,6 +515,10 @@ var _ = Describe("API test", func() {
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
+			modelDir = filepath.Join(tmpdir, "models")
+			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
+			err = os.Mkdir(backendAssetsDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
 
 			c, cancel = context.WithCancel(context.Background())
 
@@ -525,18 +529,18 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			cl, ml, options, err := startup.Startup(
+			bcl, ml, applicationConfig, err = startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithAudioDir(tmpdir),
 					config.WithImageDir(tmpdir),
 					config.WithGalleries(galleries),
-					config.WithModelPath(tmpdir),
+					config.WithModelPath(modelDir),
 					config.WithBackendAssets(backendAssets),
 					config.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err := App(cl, ml, options)
+			app, err = App(bcl, ml, applicationConfig)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -558,10 +562,13 @@ var _ = Describe("API test", func() {
 		AfterEach(func() {
 			cancel()
 			if app != nil {
-				app.Shutdown()
+				err := app.Shutdown()
+				Expect(err).ToNot(HaveOccurred())
 			}
 			err := os.RemoveAll(tmpdir)
 			Expect(err).ToNot(HaveOccurred())
+			_, err = os.ReadDir(tmpdir)
+			Expect(err).To(HaveOccurred())
 		})
 		It("installs and is capable to run tts", Label("tts"), func() {
 			if runtime.GOOS != "linux" {
