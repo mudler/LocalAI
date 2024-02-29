@@ -148,9 +148,20 @@ var _ = Describe("API test", func() {
 			modelDir = filepath.Join(tmpdir, "models")
 			err = os.Mkdir(modelDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
+			// Temporary test debugging
+			modelDirEntries, err := os.ReadDir(modelDir)
+			Expect(err).ToNot(HaveOccurred())
+			fmt.Printf("\nmodelDirEntries: %+v\n", modelDirEntries)
+			Expect(len(modelDirEntries)).To(BeZero())
+			///
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
 			err = os.Mkdir(backendAssetsDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
+			// Temporary test debugging
+			backendAssetsDirEntries, err := os.ReadDir(modelDir)
+			Expect(err).ToNot(HaveOccurred())
+			fmt.Printf("\nbackendAssetsDirEntries: %+v\n", backendAssetsDirEntries)
+			///
 
 			c, cancel = context.WithCancel(context.Background())
 
