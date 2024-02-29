@@ -193,7 +193,7 @@ var _ = Describe("API test", func() {
 
 			fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\nmodelPath: %q\n\n", sc.SpecReport().LeafNodeText, applicationConfig.ModelPath)
 
-			app, err := App(bcl, ml, applicationConfig)
+			app, err = App(bcl, ml, applicationConfig)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
