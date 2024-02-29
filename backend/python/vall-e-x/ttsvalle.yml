@@ -79,7 +79,7 @@ dependencies:
       - pypinyin==0.49.0
       - python-multipart==0.0.6
       - regex==2023.10.3
-      - safetensors==0.4.0
+      - safetensors>=0.4.0
       - semantic-version==2.10.0
       - soundfile==0.12.1
       - starlette==0.27.0

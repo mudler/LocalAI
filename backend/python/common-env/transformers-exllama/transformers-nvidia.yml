@@ -1,4 +1,4 @@
-name: autogptq
+name: transformers
 channels:
   - defaults
 dependencies:
@@ -29,23 +29,32 @@ dependencies:
       - aiosignal==1.3.1
       - async-timeout==4.0.3
       - attrs==23.1.0
-      - auto-gptq==0.4.2
+      - bark==0.1.5
+      - boto3==1.28.61
+      - botocore==1.31.61
       - certifi==2023.7.22
+      - TTS==0.22.0
       - charset-normalizer==3.3.0
       - datasets==2.14.5
+      - sentence-transformers==2.2.2
+      - sentencepiece==0.1.99
       - dill==0.3.7
+      - einops==0.7.0
+      - encodec==0.1.1
       - filelock==3.12.4
       - frozenlist==1.4.0
       - fsspec==2023.6.0
+      - funcy==2.0
       - grpcio==1.59.0
-      - huggingface-hub==0.16.4
+      - huggingface-hub
       - idna==3.4
       - jinja2==3.1.2
+      - jmespath==1.0.1
       - markupsafe==2.1.3
       - mpmath==1.3.0
       - multidict==6.0.4
       - multiprocess==0.70.15
-      - networkx==3.1
+      - networkx
       - numpy==1.26.0
       - nvidia-cublas-cu12==12.1.3.1
       - nvidia-cuda-cupti-cu12==12.1.105
@@ -60,7 +69,7 @@ dependencies:
       - nvidia-nvjitlink-cu12==12.2.140
       - nvidia-nvtx-cu12==12.1.105
       - packaging==23.2
-      - pandas==2.1.1
+      - pandas
       - peft==0.5.0
       - protobuf==4.24.4
       - psutil==5.9.5
@@ -71,16 +80,40 @@ dependencies:
       - regex==2023.10.3
       - requests==2.31.0
       - rouge==1.0.1
-      - safetensors>=0.3.3
+      - s3transfer==0.7.0
+      - safetensors==0.3.3
+      - scipy==1.11.3
       - six==1.16.0
       - sympy==1.12
-      - tokenizers==0.14.0
-      - torch==2.1.0
+      - tokenizers
+      - torch==2.1.2
+      - torchaudio==2.1.2
       - tqdm==4.66.1
-      - transformers==4.34.0
       - triton==2.1.0
       - typing-extensions==4.8.0
       - tzdata==2023.3
-      - urllib3==2.0.6
+      - urllib3==1.26.17
       - xxhash==3.4.1
+      - auto-gptq==0.6.0
       - yarl==1.9.2
+      - soundfile
+      - langid
+      - wget
+      - unidecode
+      - pyopenjtalk-prebuilt
+      - pypinyin
+      - inflect
+      - cn2an
+      - jieba
+      - eng_to_ipa
+      - openai-whisper
+      - matplotlib
+      - gradio==3.41.2
+      - nltk
+      - sudachipy
+      - sudachidict_core
+      - vocos
+      - vllm==0.2.7
+      - transformers>=4.36.0  # Required for Mixtral.
+      - xformers==0.0.23.post1  
+prefix: /opt/conda/envs/transformers

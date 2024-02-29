@@ -1,6 +1,6 @@
 .PHONY: exllama
 exllama:
-	$(MAKE) -C ../common-env/transformers
+	$(MAKE) -C ../common-env/transformers-exllama
 	bash install.sh
 
 .PHONY: run
