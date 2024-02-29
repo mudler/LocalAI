@@ -25,8 +25,6 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
 
-	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
-
 	// Make sure directories exists
 	if options.ModelPath == "" {
 		return nil, nil, nil, fmt.Errorf("options.ModelPath cannot be empty")
@@ -53,7 +51,9 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			return nil, nil, nil, fmt.Errorf("unable to create UploadDir: %q", err)
 		}
 	}
+
 	//
+	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
 
 	cl := config.NewBackendConfigLoader()
 	ml := model.NewModelLoader(options.ModelPath)
