@@ -642,14 +642,16 @@ var _ = Describe("API test", func() {
 			modelPath := os.Getenv("MODELS_PATH")
 			c, cancel = context.WithCancel(context.Background())
 
-			cl, ml, options, err := startup.Startup(
+			var err error
+
+			bcl, ml, applicationConfig, err = startup.Startup(
 				append(commonOpts,
 					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
-			app, err := App(cl, ml, options)
+			app, err = App(bcl, ml, applicationConfig)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -669,7 +671,8 @@ var _ = Describe("API test", func() {
 		AfterEach(func() {
 			cancel()
 			if app != nil {
-				app.Shutdown()
+				err := app.Shutdown()
+				Expect(err).ToNot(HaveOccurred())
 			}
 		})
 		It("returns the models list", func() {
