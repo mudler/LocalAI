@@ -133,6 +133,7 @@ var _ = Describe("API test", func() {
 	var c context.Context
 	var cancel context.CancelFunc
 	var tmpdir string
+	var modelDir string
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -140,7 +141,6 @@ var _ = Describe("API test", func() {
 	}
 
 	Context("API with ephemeral models", func() {
-		var modelDir string
 
 		BeforeEach(func(sc SpecContext) {
 			var err error
@@ -240,7 +240,7 @@ var _ = Describe("API test", func() {
 				}, "360s", "10s").Should(Equal(true))
 				Expect(resp["message"]).ToNot(ContainSubstring("error"))
 
-				fmt.Printf("\n\n[applies models from a gallery] modelDir: %q\n\n", modelDir)
+				fmt.Printf("\n\n[applies models from a gallery] modelDir: %q\n\ntmpdir: %q\n\n", modelDir, tmpdir)
 
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert2.yaml"))
 				Expect(err).ToNot(HaveOccurred())
