@@ -209,9 +209,13 @@ var _ = Describe("API test", func() {
 
 		AfterEach(func() {
 			cancel()
-			app.Shutdown()
+			if app != nil {
+				app.Shutdown()
+			}
 			err := os.RemoveAll(tmpdir)
 			Expect(err).ToNot(HaveOccurred())
+			_, err = os.ReadDir(tmpdir)
+			Expect(err).To(HaveOccurred())
 		})
 
 		Context("Applying models", func() {
@@ -540,7 +544,9 @@ var _ = Describe("API test", func() {
 
 		AfterEach(func() {
 			cancel()
-			app.Shutdown()
+			if app != nil {
+				app.Shutdown()
+			}
 			err := os.RemoveAll(tmpdir)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -642,7 +648,9 @@ var _ = Describe("API test", func() {
 		})
 		AfterEach(func() {
 			cancel()
-			app.Shutdown()
+			if app != nil {
+				app.Shutdown()
+			}
 		})
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
@@ -851,7 +859,9 @@ var _ = Describe("API test", func() {
 		})
 		AfterEach(func() {
 			cancel()
-			app.Shutdown()
+			if app != nil {
+				app.Shutdown()
+			}
 		})
 		It("can generate chat completions from config file (list1)", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: testPrompt}}})
