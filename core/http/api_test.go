@@ -203,10 +203,10 @@ var _ = Describe("API test", func() {
 				_, err := client.ListModels(context.TODO())
 				return err
 			}, "2m").ShouldNot(HaveOccurred())
-			fmt.Printf("\n\n[BeforeEach Successfully Completed] for 'API with ephemeral models for %q\n\n\n'", sc.SpecReport().LeafNodeText)
+			fmt.Printf("\n\n[BeforeEach Successfully Completed] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
 		})
 
-		AfterEach(func() {
+		AfterEach(func(sc SpecContext) {
 			cancel()
 			if app != nil {
 				app.Shutdown()
@@ -215,6 +215,7 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadDir(tmpdir)
 			Expect(err).To(HaveOccurred())
+			fmt.Printf("\n\n[AfterEach Successfully Completed] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
 		})
 
 		Context("Applying models", func() {
