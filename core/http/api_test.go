@@ -133,7 +133,6 @@ var _ = Describe("API test", func() {
 	var c context.Context
 	var cancel context.CancelFunc
 	var tmpdir string
-	var modelDir string
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -141,6 +140,8 @@ var _ = Describe("API test", func() {
 	}
 
 	Context("API with ephemeral models", func() {
+		var modelDir string
+
 		BeforeEach(func(sc SpecContext) {
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
