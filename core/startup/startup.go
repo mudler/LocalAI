@@ -1,6 +1,9 @@
 package startup
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
@@ -67,6 +70,24 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		if err != nil {
 			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
 		}
+	}
+
+	// Make sure directories exists
+	err := os.MkdirAll(options.ImageDir, 0755)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to create ImageDir: %q", err)
+	}
+	err = os.MkdirAll(options.AudioDir, 0755)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to create AudioDir: %q", err)
+	}
+	err = os.MkdirAll(options.UploadDir, 0755)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to create UploadDir: %q", err)
+	}
+	err = os.MkdirAll(options.ModelPath, 0755)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
 
 	// turn off any process that was started by GRPC if the context is canceled

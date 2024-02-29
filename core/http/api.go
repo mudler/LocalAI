@@ -135,12 +135,6 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		}{Version: internal.PrintableVersion()})
 	})
 
-	// Make sure directories exists
-	os.MkdirAll(appConfig.ImageDir, 0755)
-	os.MkdirAll(appConfig.AudioDir, 0755)
-	os.MkdirAll(appConfig.UploadDir, 0755)
-	os.MkdirAll(appConfig.ModelPath, 0755)
-
 	// Load upload json
 	openai.LoadUploadConfig(appConfig.UploadDir)
 
