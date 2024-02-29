@@ -213,7 +213,8 @@ var _ = Describe("API test", func() {
 		AfterEach(func(sc SpecContext) {
 			cancel()
 			if app != nil {
-				app.Shutdown()
+				err := app.Shutdown()
+				Expect(err).ToNot(HaveOccurred())
 			}
 			err := os.RemoveAll(tmpdir)
 			Expect(err).ToNot(HaveOccurred())

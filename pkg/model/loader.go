@@ -99,6 +99,7 @@ func (ml *ModelLoader) ExistsInModelPath(s string) bool {
 }
 
 func (ml *ModelLoader) ListModels() ([]string, error) {
+	log.Debug().Msgf("TMP [ml.ListModels()] ml.ModelPath: %q", ml.ModelPath)
 	files, err := os.ReadDir(ml.ModelPath)
 	if err != nil {
 		return []string{}, err
