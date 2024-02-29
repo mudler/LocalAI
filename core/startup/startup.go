@@ -29,7 +29,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	// Make sure directories exists
 	if options.ModelPath == "" {
-		return nil, nil, nil, fmt.Errorf("options.ModelPath cannot be empty.")
+		return nil, nil, nil, fmt.Errorf("options.ModelPath cannot be empty")
 	}
 	err := os.MkdirAll(options.ModelPath, 0755)
 	if err != nil {
