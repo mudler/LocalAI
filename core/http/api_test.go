@@ -134,6 +134,9 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
+	var bcl *config.BackendConfigLoader
+	var ml *model.ModelLoader
+	var applicationConfig *config.ApplicationConfig
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -179,7 +182,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			cl, ml, options, err := startup.Startup(
+			bcl, ml, applicationConfig, err = startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGalleries(galleries),
@@ -188,9 +191,9 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\nmodelPath: %q\n\n", sc.SpecReport().LeafNodeText, options.ModelPath)
+			fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\nmodelPath: %q\n\n", sc.SpecReport().LeafNodeText, applicationConfig.ModelPath)
 
-			app, err := App(cl, ml, options)
+			app, err := App(bcl, ml, applicationConfig)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
