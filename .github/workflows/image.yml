@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  extras-image-build:
+  self-hosted-jobs:
     uses: ./.github/workflows/image_build.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
@@ -37,6 +37,7 @@ jobs:
       max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
       matrix:
         include:
+          # Extra images
           - build-type: ''
             #platforms: 'linux/amd64,linux/arm64'
             platforms: 'linux/amd64'
@@ -119,51 +120,7 @@ jobs:
             image-type: 'extras'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
             runs-on: 'arc-runner-set'
-  core-image-build:
-    uses: ./.github/workflows/image_build.yml
-    with:
-      tag-latest: ${{ matrix.tag-latest }}
-      tag-suffix: ${{ matrix.tag-suffix }}
-      ffmpeg: ${{ matrix.ffmpeg }}
-      image-type: ${{ matrix.image-type }}
-      build-type: ${{ matrix.build-type }}
-      cuda-major-version: ${{ matrix.cuda-major-version }}
-      cuda-minor-version: ${{ matrix.cuda-minor-version }}
-      platforms: ${{ matrix.platforms }}
-      runs-on: ${{ matrix.runs-on }}
-      base-image: ${{ matrix.base-image }}
-    secrets:
-      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
-      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
-      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
-      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-    strategy:
-      matrix:
-        include:
-          - build-type: 'hipblas'
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-hipblas-ffmpeg-core'
-            ffmpeg: 'true'
-            image-type: 'core'
-            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
-            runs-on: 'arc-runner-set'
-          - build-type: 'hipblas'
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-hipblas-core'
-            ffmpeg: 'false'
-            image-type: 'core'
-            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
-            runs-on: 'arc-runner-set'
-          - build-type: ''
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-ffmpeg-core'
-            ffmpeg: 'true'
-            image-type: 'core'
-            base-image: "ubuntu:22.04"
-            runs-on: 'ubuntu-latest'
+          # Core images
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -196,6 +153,52 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'arc-runner-set'
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas-ffmpeg-core'
+            ffmpeg: 'true'
+            image-type: 'core'
+            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            runs-on: 'arc-runner-set'
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas-core'
+            ffmpeg: 'false'
+            image-type: 'core'
+            base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            runs-on: 'arc-runner-set'
+  
+  core-image-build:
+    uses: ./.github/workflows/image_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      ffmpeg: ${{ matrix.ffmpeg }}
+      image-type: ${{ matrix.image-type }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      runs-on: ${{ matrix.runs-on }}
+      base-image: ${{ matrix.base-image }}
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      matrix:
+        include:
+          - build-type: ''
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-ffmpeg-core'
+            ffmpeg: 'true'
+            image-type: 'core'
+            base-image: "ubuntu:22.04"
+            runs-on: 'ubuntu-latest'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
