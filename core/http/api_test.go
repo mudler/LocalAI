@@ -141,27 +141,16 @@ var _ = Describe("API test", func() {
 	}
 
 	Context("API with ephemeral models", func() {
-		BeforeEach(func() {
+		BeforeEach(func(sc SpecContext) {
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
 			modelDir = filepath.Join(tmpdir, "models")
 			err = os.Mkdir(modelDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
-			// Temporary test debugging
-			modelDirEntries, err := os.ReadDir(modelDir)
-			Expect(err).ToNot(HaveOccurred())
-			fmt.Printf("\nmodelDirEntries: %+v\n", modelDirEntries)
-			Expect(len(modelDirEntries)).To(BeZero())
-			///
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
 			err = os.Mkdir(backendAssetsDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
-			// Temporary test debugging
-			backendAssetsDirEntries, err := os.ReadDir(modelDir)
-			Expect(err).ToNot(HaveOccurred())
-			fmt.Printf("\nbackendAssetsDirEntries: %+v\n", backendAssetsDirEntries)
-			///
 
 			c, cancel = context.WithCancel(context.Background())
 
@@ -198,12 +187,6 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			modelDirEntries, err = os.ReadDir(modelDir)
-			Expect(err).ToNot(HaveOccurred())
-			fmt.Printf("\nmodelDirEntries [post Startup]: %+v\n", modelDirEntries)
-			Expect(len(modelDirEntries)).To(BeZero())
-			///
-
 			app, err := App(cl, ml, options)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -221,7 +204,7 @@ var _ = Describe("API test", func() {
 				_, err := client.ListModels(context.TODO())
 				return err
 			}, "2m").ShouldNot(HaveOccurred())
-			fmt.Println("[BeforeEach Successfully Completed] for 'API with ephemeral models'")
+			fmt.Printf("\n[BeforeEach Successfully Completed] for 'API with ephemeral models for %q\n'", sc.SpecReport().LeafNodeText)
 		})
 
 		AfterEach(func() {
@@ -237,12 +220,6 @@ var _ = Describe("API test", func() {
 
 		Context("Applying models", func() {
 			It("applies models from a gallery", func() {
-
-				// Temporary test debugging
-				modelDirEntries, err := os.ReadDir(modelDir)
-				Expect(err).ToNot(HaveOccurred())
-				fmt.Printf("\nmodelDirEntries: %+v\n", modelDirEntries)
-
 				models := getModels("http://127.0.0.1:9090/models/available")
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
@@ -289,6 +266,12 @@ var _ = Describe("API test", func() {
 				}
 			})
 			It("overrides models", func() {
+
+				// Temporary test debugging
+				modelDirEntries, err := os.ReadDir(modelDir)
+				Expect(err).ToNot(HaveOccurred())
+				fmt.Printf("\nmodelDirEntries: %+v\n", modelDirEntries)
+
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
 					Name: "bert",
