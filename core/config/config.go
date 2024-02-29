@@ -117,16 +117,21 @@ type LLMConfig struct {
 	TrimSpace       []string `yaml:"trimspace"`
 	TrimSuffix      []string `yaml:"trimsuffix"`
 
-	ContextSize  int     `yaml:"context_size"`
-	NUMA         bool    `yaml:"numa"`
-	LoraAdapter  string  `yaml:"lora_adapter"`
-	LoraBase     string  `yaml:"lora_base"`
-	LoraScale    float32 `yaml:"lora_scale"`
-	NoMulMatQ    bool    `yaml:"no_mulmatq"`
-	DraftModel   string  `yaml:"draft_model"`
-	NDraft       int32   `yaml:"n_draft"`
-	Quantization string  `yaml:"quantization"`
-	MMProj       string  `yaml:"mmproj"`
+	ContextSize          int     `yaml:"context_size"`
+	NUMA                 bool    `yaml:"numa"`
+	LoraAdapter          string  `yaml:"lora_adapter"`
+	LoraBase             string  `yaml:"lora_base"`
+	LoraScale            float32 `yaml:"lora_scale"`
+	NoMulMatQ            bool    `yaml:"no_mulmatq"`
+	DraftModel           string  `yaml:"draft_model"`
+	NDraft               int32   `yaml:"n_draft"`
+	Quantization         string  `yaml:"quantization"`
+	GPUMemoryUtilization float32 `yaml:"gpu_memory_utilization"` // vLLM
+	TrustRemoteCode      bool    `yaml:"trust_remote_code"`      // vLLM
+	EnforceEager         bool    `yaml:"enforce_eager"`          // vLLM
+	SwapSpace            int     `yaml:"swap_space"`             // vLLM
+	MaxModelLen          int     `yaml:"max_model_len"`          // vLLM
+	MMProj               string  `yaml:"mmproj"`
 
 	RopeScaling string `yaml:"rope_scaling"`
 	ModelType   string `yaml:"type"`
