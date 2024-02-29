@@ -198,6 +198,12 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
+			modelDirEntries, err = os.ReadDir(modelDir)
+			Expect(err).ToNot(HaveOccurred())
+			fmt.Printf("\nmodelDirEntries [post Startup]: %+v\n", modelDirEntries)
+			Expect(len(modelDirEntries)).To(BeZero())
+			///
+
 			app, err := App(cl, ml, options)
 			Expect(err).ToNot(HaveOccurred())
 

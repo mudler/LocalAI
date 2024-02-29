@@ -101,6 +101,7 @@ func (ml *ModelLoader) ExistsInModelPath(s string) bool {
 func (ml *ModelLoader) ListModels() ([]string, error) {
 	files, err := os.ReadDir(ml.ModelPath)
 	if err != nil {
+		log.Warn().Msgf("\n\nTEMP[ModelLoader.ListModels] error reading ModelPath (%q): %q\n\n", ml.ModelPath, err)
 		return []string{}, err
 	}
 
