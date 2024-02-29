@@ -146,11 +146,10 @@ var _ = Describe("API test", func() {
 	Context("API with ephemeral models", func() {
 
 		BeforeEach(func(sc SpecContext) {
-			// fmt.Printf("\n\n[BeforeEach Started] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
-			// fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\ntmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
+
 			modelDir = filepath.Join(tmpdir, "models")
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
 			err = os.Mkdir(backendAssetsDir, 0755)
@@ -191,8 +190,6 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\nmodelPath: %q\n\n", sc.SpecReport().LeafNodeText, applicationConfig.ModelPath)
-
 			app, err = App(bcl, ml, applicationConfig)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -210,7 +207,6 @@ var _ = Describe("API test", func() {
 				_, err := client.ListModels(context.TODO())
 				return err
 			}, "2m").ShouldNot(HaveOccurred())
-			fmt.Printf("\n\n[BeforeEach Successfully Completed] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
 		})
 
 		AfterEach(func(sc SpecContext) {
@@ -223,9 +219,6 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadDir(tmpdir)
 			Expect(err).To(HaveOccurred())
-			// fmt.Printf("\n\n[AfterEach Successfully Completed] for 'API with ephemeral models' for %q\nDELETED tmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
-			// tmpdir = ""
-			// modelDir = ""
 		})
 
 		Context("Applying models", func() {
@@ -252,8 +245,6 @@ var _ = Describe("API test", func() {
 				}, "360s", "10s").Should(Equal(true))
 				Expect(resp["message"]).ToNot(ContainSubstring("error"))
 
-				fmt.Printf("\n\n[applies models from a gallery] modelDir: %q\n\ntmpdir: %q\n\n", modelDir, tmpdir)
-
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert2.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
@@ -279,11 +270,6 @@ var _ = Describe("API test", func() {
 				}
 			})
 			It("overrides models", func() {
-
-				// Temporary test debugging
-				modelDirEntries, err := os.ReadDir(modelDir)
-				Expect(err).ToNot(HaveOccurred())
-				fmt.Printf("\nmodelDirEntries: %+v\n", modelDirEntries)
 
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
