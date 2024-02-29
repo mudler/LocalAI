@@ -147,7 +147,7 @@ var _ = Describe("API test", func() {
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
-			fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\tmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
+			fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\ntmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
 			modelDir = filepath.Join(tmpdir, "models")
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
 			err = os.Mkdir(backendAssetsDir, 0755)
@@ -219,9 +219,9 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadDir(tmpdir)
 			Expect(err).To(HaveOccurred())
+			fmt.Printf("\n\n[AfterEach Successfully Completed] for 'API with ephemeral models' for %q\nDELETED tmpdir: %q\n\n", sc.SpecReport().LeafNodeText, tmpdir)
 			tmpdir = ""
 			modelDir = ""
-			fmt.Printf("\n\n[AfterEach Successfully Completed] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
 		})
 
 		Context("Applying models", func() {
