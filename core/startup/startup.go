@@ -123,5 +123,6 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		}()
 	}
 
+	log.Info().Msg("core/startup process completed!")
 	return cl, ml, options, nil
 }
