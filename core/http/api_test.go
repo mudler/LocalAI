@@ -142,83 +142,86 @@ var _ = Describe("API test", func() {
 
 	Context("API with ephemeral models", func() {
 
+		BeforeEach(func(sc SpecContext) {
+			fmt.Printf("\n\n[BeforeEach Started] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
+			var err error
+			tmpdir, err = os.MkdirTemp("", "")
+			Expect(err).ToNot(HaveOccurred())
+			modelDir = filepath.Join(tmpdir, "models")
+			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
+			err = os.Mkdir(backendAssetsDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			c, cancel = context.WithCancel(context.Background())
+
+			g := []gallery.GalleryModel{
+				{
+					Name: "bert",
+					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+				},
+				{
+					Name:            "bert2",
+					URL:             "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					Overrides:       map[string]interface{}{"foo": "bar"},
+					AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml"}},
+				},
+			}
+			out, err := yaml.Marshal(g)
+			Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			galleries := []gallery.Gallery{
+				{
+					Name: "test",
+					URL:  "file://" + filepath.Join(tmpdir, "gallery_simple.yaml"),
+				},
+			}
+
+			cl, ml, options, err := startup.Startup(
+				append(commonOpts,
+					config.WithContext(c),
+					config.WithGalleries(galleries),
+					config.WithModelPath(modelDir),
+					config.WithBackendAssets(backendAssets),
+					config.WithBackendAssetsOutput(backendAssetsDir))...)
+			Expect(err).ToNot(HaveOccurred())
+
+			fmt.Printf("\n\n[BeforeEach] for 'API with ephemeral models' for %q\nmodelPath: %q\n\n", sc.SpecReport().LeafNodeText, options.ModelPath)
+
+			app, err := App(cl, ml, options)
+			Expect(err).ToNot(HaveOccurred())
+
+			go app.Listen("127.0.0.1:9090")
+
+			defaultConfig := openai.DefaultConfig("")
+			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+
+			client2 = openaigo.NewClient("")
+			client2.BaseURL = defaultConfig.BaseURL
+
+			// Wait for API to be ready
+			client = openai.NewClientWithConfig(defaultConfig)
+			Eventually(func() error {
+				_, err := client.ListModels(context.TODO())
+				return err
+			}, "2m").ShouldNot(HaveOccurred())
+			fmt.Printf("\n\n[BeforeEach Successfully Completed] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
+		})
+
+		AfterEach(func(sc SpecContext) {
+			cancel()
+			if app != nil {
+				app.Shutdown()
+			}
+			err := os.RemoveAll(tmpdir)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = os.ReadDir(tmpdir)
+			Expect(err).To(HaveOccurred())
+			fmt.Printf("\n\n[AfterEach Successfully Completed] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
+		})
+
 		Context("Applying models", func() {
-
-			BeforeEach(func(sc SpecContext) {
-				var err error
-				tmpdir, err = os.MkdirTemp("", "")
-				Expect(err).ToNot(HaveOccurred())
-				modelDir = filepath.Join(tmpdir, "models")
-				backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
-				err = os.Mkdir(backendAssetsDir, 0755)
-				Expect(err).ToNot(HaveOccurred())
-
-				c, cancel = context.WithCancel(context.Background())
-
-				g := []gallery.GalleryModel{
-					{
-						Name: "bert",
-						URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
-					},
-					{
-						Name:            "bert2",
-						URL:             "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
-						Overrides:       map[string]interface{}{"foo": "bar"},
-						AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml"}},
-					},
-				}
-				out, err := yaml.Marshal(g)
-				Expect(err).ToNot(HaveOccurred())
-				err = os.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0644)
-				Expect(err).ToNot(HaveOccurred())
-
-				galleries := []gallery.Gallery{
-					{
-						Name: "test",
-						URL:  "file://" + filepath.Join(tmpdir, "gallery_simple.yaml"),
-					},
-				}
-
-				cl, ml, options, err := startup.Startup(
-					append(commonOpts,
-						config.WithContext(c),
-						config.WithGalleries(galleries),
-						config.WithModelPath(modelDir),
-						config.WithBackendAssets(backendAssets),
-						config.WithBackendAssetsOutput(backendAssetsDir))...)
-				Expect(err).ToNot(HaveOccurred())
-
-				app, err := App(cl, ml, options)
-				Expect(err).ToNot(HaveOccurred())
-
-				go app.Listen("127.0.0.1:9090")
-
-				defaultConfig := openai.DefaultConfig("")
-				defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
-
-				client2 = openaigo.NewClient("")
-				client2.BaseURL = defaultConfig.BaseURL
-
-				// Wait for API to be ready
-				client = openai.NewClientWithConfig(defaultConfig)
-				Eventually(func() error {
-					_, err := client.ListModels(context.TODO())
-					return err
-				}, "2m").ShouldNot(HaveOccurred())
-				fmt.Printf("\n\n[BeforeEach Successfully Completed] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
-			})
-
-			AfterEach(func(sc SpecContext) {
-				cancel()
-				if app != nil {
-					app.Shutdown()
-				}
-				err := os.RemoveAll(tmpdir)
-				Expect(err).ToNot(HaveOccurred())
-				_, err = os.ReadDir(tmpdir)
-				Expect(err).To(HaveOccurred())
-				fmt.Printf("\n\n[AfterEach Successfully Completed] for 'API with ephemeral models' for %q\n\n\n", sc.SpecReport().LeafNodeText)
-			})
 
 			It("applies models from a gallery", func() {
 				models := getModels("http://127.0.0.1:9090/models/available")
