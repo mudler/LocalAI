@@ -3,122 +3,29 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/api/localai"
-	"github.com/go-skynet/LocalAI/api/openai"
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
+	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
+
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
-	"github.com/go-skynet/LocalAI/metrics"
-	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/startup"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
-func Startup(opts ...options.AppOption) (*options.Option, *config.ConfigLoader, error) {
-	options := options.NewOptions(opts...)
-
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	if options.Debug {
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	}
-
-	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.Loader.ModelPath)
-	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
-
-	startup.PreloadModelsConfigurations(options.ModelLibraryURL, options.Loader.ModelPath, options.ModelsURL...)
-
-	cl := config.NewConfigLoader()
-	if err := cl.LoadConfigs(options.Loader.ModelPath); err != nil {
-		log.Error().Msgf("error loading config files: %s", err.Error())
-	}
-
-	if options.ConfigFile != "" {
-		if err := cl.LoadConfigFile(options.ConfigFile); err != nil {
-			log.Error().Msgf("error loading config file: %s", err.Error())
-		}
-	}
-
-	if err := cl.Preload(options.Loader.ModelPath); err != nil {
-		log.Error().Msgf("error downloading models: %s", err.Error())
-	}
-
-	if options.PreloadJSONModels != "" {
-		if err := localai.ApplyGalleryFromString(options.Loader.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if options.PreloadModelsFromPath != "" {
-		if err := localai.ApplyGalleryFromFile(options.Loader.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if options.Debug {
-		for _, v := range cl.ListConfigs() {
-			cfg, _ := cl.GetConfig(v)
-			log.Debug().Msgf("Model: %s (config: %+v)", v, cfg)
-		}
-	}
-
-	if options.AssetsDestination != "" {
-		// Extract files from the embedded FS
-		err := assets.ExtractFiles(options.BackendAssets, options.AssetsDestination)
-		log.Debug().Msgf("Extracting backend assets files to %s", options.AssetsDestination)
-		if err != nil {
-			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
-		}
-	}
-
-	// turn off any process that was started by GRPC if the context is canceled
-	go func() {
-		<-options.Context.Done()
-		log.Debug().Msgf("Context canceled, shutting down")
-		options.Loader.StopAllGRPC()
-	}()
-
-	if options.WatchDog {
-		wd := model.NewWatchDog(
-			options.Loader,
-			options.WatchDogBusyTimeout,
-			options.WatchDogIdleTimeout,
-			options.WatchDogBusy,
-			options.WatchDogIdle)
-		options.Loader.SetWatchDog(wd)
-		go wd.Run()
-		go func() {
-			<-options.Context.Done()
-			log.Debug().Msgf("Context canceled, shutting down")
-			wd.Shutdown()
-		}()
-	}
-
-	return options, cl, nil
-}
-
-func App(opts ...options.AppOption) (*fiber.App, error) {
-
-	options, cl, err := Startup(opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed basic startup tasks with error %s", err.Error())
-	}
-
+func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
-		BodyLimit:             options.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
-		DisableStartupMessage: options.DisableMessage,
+		BodyLimit:             appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
+		DisableStartupMessage: appConfig.DisableMessage,
 		// Override default error handler
 		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
 			// Status code defaults to 500
@@ -139,7 +46,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		},
 	})
 
-	if options.Debug {
+	if appConfig.Debug {
 		app.Use(logger.New(logger.Config{
 			Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 		}))
@@ -147,17 +54,25 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 	// Default middleware config
 
-	if !options.Debug {
+	if !appConfig.Debug {
 		app.Use(recover.New())
 	}
 
-	if options.Metrics != nil {
-		app.Use(metrics.APIMiddleware(options.Metrics))
+	metricsService, err := services.NewLocalAIMetricsService()
+	if err != nil {
+		return nil, err
+	}
+
+	if metricsService != nil {
+		app.Use(localai.LocalAIMetricsAPIMiddleware(metricsService))
+		app.Hooks().OnShutdown(func() error {
+			return metricsService.Shutdown()
+		})
 	}
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
-		if len(options.ApiKeys) == 0 {
+		if len(appConfig.ApiKeys) == 0 {
 			return c.Next()
 		}
 
@@ -172,10 +87,10 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 			}
 
 			// Add file keys to options.ApiKeys
-			options.ApiKeys = append(options.ApiKeys, fileKeys...)
+			appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
 		}
 
-		if len(options.ApiKeys) == 0 {
+		if len(appConfig.ApiKeys) == 0 {
 			return c.Next()
 		}
 
@@ -189,7 +104,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		}
 
 		apiKey := authHeaderParts[1]
-		for _, key := range options.ApiKeys {
+		for _, key := range appConfig.ApiKeys {
 			if apiKey == key {
 				return c.Next()
 			}
@@ -199,20 +114,20 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 
 	}
 
-	if options.CORS {
+	if appConfig.CORS {
 		var c func(ctx *fiber.Ctx) error
-		if options.CORSAllowOrigins == "" {
+		if appConfig.CORSAllowOrigins == "" {
 			c = cors.New()
 		} else {
-			c = cors.New(cors.Config{AllowOrigins: options.CORSAllowOrigins})
+			c = cors.New(cors.Config{AllowOrigins: appConfig.CORSAllowOrigins})
 		}
 
 		app.Use(c)
 	}
 
 	// LocalAI API endpoints
-	galleryService := localai.NewGalleryService(options.Loader.ModelPath)
-	galleryService.Start(options.Context, cl)
+	galleryService := services.NewGalleryService(appConfig.ModelPath)
+	galleryService.Start(appConfig.Context, cl)
 
 	app.Get("/version", auth, func(c *fiber.Ctx) error {
 		return c.JSON(struct {
@@ -220,69 +135,63 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 		}{Version: internal.PrintableVersion()})
 	})
 
-	// Make sure directories exists
-	os.MkdirAll(options.ImageDir, 0755)
-	os.MkdirAll(options.AudioDir, 0755)
-	os.MkdirAll(options.UploadDir, 0755)
-	os.MkdirAll(options.Loader.ModelPath, 0755)
-
 	// Load upload json
-	openai.LoadUploadConfig(options.UploadDir)
+	openai.LoadUploadConfig(appConfig.UploadDir)
 
-	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.Loader.ModelPath, galleryService)
-	app.Post("/models/apply", auth, modelGalleryService.ApplyModelGalleryEndpoint())
-	app.Get("/models/available", auth, modelGalleryService.ListModelFromGalleryEndpoint())
-	app.Get("/models/galleries", auth, modelGalleryService.ListModelGalleriesEndpoint())
-	app.Post("/models/galleries", auth, modelGalleryService.AddModelGalleryEndpoint())
-	app.Delete("/models/galleries", auth, modelGalleryService.RemoveModelGalleryEndpoint())
-	app.Get("/models/jobs/:uuid", auth, modelGalleryService.GetOpStatusEndpoint())
-	app.Get("/models/jobs", auth, modelGalleryService.GetAllStatusEndpoint())
+	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
+	app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
+	app.Get("/models/available", auth, modelGalleryEndpointService.ListModelFromGalleryEndpoint())
+	app.Get("/models/galleries", auth, modelGalleryEndpointService.ListModelGalleriesEndpoint())
+	app.Post("/models/galleries", auth, modelGalleryEndpointService.AddModelGalleryEndpoint())
+	app.Delete("/models/galleries", auth, modelGalleryEndpointService.RemoveModelGalleryEndpoint())
+	app.Get("/models/jobs/:uuid", auth, modelGalleryEndpointService.GetOpStatusEndpoint())
+	app.Get("/models/jobs", auth, modelGalleryEndpointService.GetAllStatusEndpoint())
 
 	// openAI compatible API endpoint
 
 	// chat
-	app.Post("/v1/chat/completions", auth, openai.ChatEndpoint(cl, options))
-	app.Post("/chat/completions", auth, openai.ChatEndpoint(cl, options))
+	app.Post("/v1/chat/completions", auth, openai.ChatEndpoint(cl, ml, appConfig))
+	app.Post("/chat/completions", auth, openai.ChatEndpoint(cl, ml, appConfig))
 
 	// edit
-	app.Post("/v1/edits", auth, openai.EditEndpoint(cl, options))
-	app.Post("/edits", auth, openai.EditEndpoint(cl, options))
+	app.Post("/v1/edits", auth, openai.EditEndpoint(cl, ml, appConfig))
+	app.Post("/edits", auth, openai.EditEndpoint(cl, ml, appConfig))
 
 	// files
-	app.Post("/v1/files", auth, openai.UploadFilesEndpoint(cl, options))
-	app.Post("/files", auth, openai.UploadFilesEndpoint(cl, options))
-	app.Get("/v1/files", auth, openai.ListFilesEndpoint(cl, options))
-	app.Get("/files", auth, openai.ListFilesEndpoint(cl, options))
-	app.Get("/v1/files/:file_id", auth, openai.GetFilesEndpoint(cl, options))
-	app.Get("/files/:file_id", auth, openai.GetFilesEndpoint(cl, options))
-	app.Delete("/v1/files/:file_id", auth, openai.DeleteFilesEndpoint(cl, options))
-	app.Delete("/files/:file_id", auth, openai.DeleteFilesEndpoint(cl, options))
-	app.Get("/v1/files/:file_id/content", auth, openai.GetFilesContentsEndpoint(cl, options))
-	app.Get("/files/:file_id/content", auth, openai.GetFilesContentsEndpoint(cl, options))
+	app.Post("/v1/files", auth, openai.UploadFilesEndpoint(cl, appConfig))
+	app.Post("/files", auth, openai.UploadFilesEndpoint(cl, appConfig))
+	app.Get("/v1/files", auth, openai.ListFilesEndpoint(cl, appConfig))
+	app.Get("/files", auth, openai.ListFilesEndpoint(cl, appConfig))
+	app.Get("/v1/files/:file_id", auth, openai.GetFilesEndpoint(cl, appConfig))
+	app.Get("/files/:file_id", auth, openai.GetFilesEndpoint(cl, appConfig))
+	app.Delete("/v1/files/:file_id", auth, openai.DeleteFilesEndpoint(cl, appConfig))
+	app.Delete("/files/:file_id", auth, openai.DeleteFilesEndpoint(cl, appConfig))
+	app.Get("/v1/files/:file_id/content", auth, openai.GetFilesContentsEndpoint(cl, appConfig))
+	app.Get("/files/:file_id/content", auth, openai.GetFilesContentsEndpoint(cl, appConfig))
 
 	// completion
-	app.Post("/v1/completions", auth, openai.CompletionEndpoint(cl, options))
-	app.Post("/completions", auth, openai.CompletionEndpoint(cl, options))
-	app.Post("/v1/engines/:model/completions", auth, openai.CompletionEndpoint(cl, options))
+	app.Post("/v1/completions", auth, openai.CompletionEndpoint(cl, ml, appConfig))
+	app.Post("/completions", auth, openai.CompletionEndpoint(cl, ml, appConfig))
+	app.Post("/v1/engines/:model/completions", auth, openai.CompletionEndpoint(cl, ml, appConfig))
 
 	// embeddings
-	app.Post("/v1/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
-	app.Post("/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
-	app.Post("/v1/engines/:model/embeddings", auth, openai.EmbeddingsEndpoint(cl, options))
+	app.Post("/v1/embeddings", auth, openai.EmbeddingsEndpoint(cl, ml, appConfig))
+	app.Post("/embeddings", auth, openai.EmbeddingsEndpoint(cl, ml, appConfig))
+	app.Post("/v1/engines/:model/embeddings", auth, openai.EmbeddingsEndpoint(cl, ml, appConfig))
 
 	// audio
-	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cl, options))
-	app.Post("/tts", auth, localai.TTSEndpoint(cl, options))
+	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cl, ml, appConfig))
+	app.Post("/tts", auth, localai.TTSEndpoint(cl, ml, appConfig))
 
 	// images
-	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(cl, options))
+	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(cl, ml, appConfig))
 
-	if options.ImageDir != "" {
-		app.Static("/generated-images", options.ImageDir)
+	if appConfig.ImageDir != "" {
+		app.Static("/generated-images", appConfig.ImageDir)
 	}
 
-	if options.AudioDir != "" {
-		app.Static("/generated-audio", options.AudioDir)
+	if appConfig.AudioDir != "" {
+		app.Static("/generated-audio", appConfig.AudioDir)
 	}
 
 	ok := func(c *fiber.Ctx) error {
@@ -294,15 +203,15 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	app.Get("/readyz", ok)
 
 	// Experimental Backend Statistics Module
-	backendMonitor := localai.NewBackendMonitor(cl, options) // Split out for now
+	backendMonitor := services.NewBackendMonitor(cl, ml, appConfig) // Split out for now
 	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitor))
 	app.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitor))
 
 	// models
-	app.Get("/v1/models", auth, openai.ListModelsEndpoint(options.Loader, cl))
-	app.Get("/models", auth, openai.ListModelsEndpoint(options.Loader, cl))
+	app.Get("/v1/models", auth, openai.ListModelsEndpoint(cl, ml))
+	app.Get("/models", auth, openai.ListModelsEndpoint(cl, ml))
 
-	app.Get("/metrics", metrics.MetricsHandler())
+	app.Get("/metrics", localai.LocalAIMetricsEndpoint())
 
 	return app, nil
 }

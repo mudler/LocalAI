@@ -13,9 +13,10 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/go-skynet/LocalAI/core/config"
 	. "github.com/go-skynet/LocalAI/core/http"
-	"github.com/go-skynet/LocalAI/core/options"
-	"github.com/go-skynet/LocalAI/metrics"
+	"github.com/go-skynet/LocalAI/core/startup"
+
 	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -127,25 +128,33 @@ var backendAssets embed.FS
 var _ = Describe("API test", func() {
 
 	var app *fiber.App
-	var modelLoader *model.ModelLoader
 	var client *openai.Client
 	var client2 *openaigo.Client
 	var c context.Context
 	var cancel context.CancelFunc
 	var tmpdir string
+	var modelDir string
+	var bcl *config.BackendConfigLoader
+	var ml *model.ModelLoader
+	var applicationConfig *config.ApplicationConfig
 
-	commonOpts := []options.AppOption{
-		options.WithDebug(true),
-		options.WithDisableMessage(true),
+	commonOpts := []config.AppOption{
+		config.WithDebug(true),
+		config.WithDisableMessage(true),
 	}
 
 	Context("API with ephemeral models", func() {
-		BeforeEach(func() {
+
+		BeforeEach(func(sc SpecContext) {
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
 
-			modelLoader = model.NewModelLoader(tmpdir)
+			modelDir = filepath.Join(tmpdir, "models")
+			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
+			err = os.Mkdir(backendAssetsDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
+
 			c, cancel = context.WithCancel(context.Background())
 
 			g := []gallery.GalleryModel{
@@ -172,16 +181,18 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			metricsService, err := metrics.SetupMetrics()
+			bcl, ml, applicationConfig, err = startup.Startup(
+				append(commonOpts,
+					config.WithContext(c),
+					config.WithGalleries(galleries),
+					config.WithModelPath(modelDir),
+					config.WithBackendAssets(backendAssets),
+					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(
-				append(commonOpts,
-					options.WithMetrics(metricsService),
-					options.WithContext(c),
-					options.WithGalleries(galleries),
-					options.WithModelLoader(modelLoader), options.WithBackendAssets(backendAssets), options.WithBackendAssetsOutput(tmpdir))...)
+			app, err = App(bcl, ml, applicationConfig)
 			Expect(err).ToNot(HaveOccurred())
+
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -198,15 +209,21 @@ var _ = Describe("API test", func() {
 			}, "2m").ShouldNot(HaveOccurred())
 		})
 
-		AfterEach(func() {
+		AfterEach(func(sc SpecContext) {
 			cancel()
-			app.Shutdown()
-			os.RemoveAll(tmpdir)
+			if app != nil {
+				err := app.Shutdown()
+				Expect(err).ToNot(HaveOccurred())
+			}
+			err := os.RemoveAll(tmpdir)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = os.ReadDir(tmpdir)
+			Expect(err).To(HaveOccurred())
 		})
 
 		Context("Applying models", func() {
-			It("applies models from a gallery", func() {
 
+			It("applies models from a gallery", func() {
 				models := getModels("http://127.0.0.1:9090/models/available")
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
@@ -228,10 +245,10 @@ var _ = Describe("API test", func() {
 				}, "360s", "10s").Should(Equal(true))
 				Expect(resp["message"]).ToNot(ContainSubstring("error"))
 
-				dat, err := os.ReadFile(filepath.Join(tmpdir, "bert2.yaml"))
+				dat, err := os.ReadFile(filepath.Join(modelDir, "bert2.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = os.ReadFile(filepath.Join(tmpdir, "foo.yaml"))
+				_, err = os.ReadFile(filepath.Join(modelDir, "foo.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
 				content := map[string]interface{}{}
@@ -253,6 +270,7 @@ var _ = Describe("API test", func() {
 				}
 			})
 			It("overrides models", func() {
+
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
 					Name: "bert",
@@ -270,7 +288,7 @@ var _ = Describe("API test", func() {
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
-				dat, err := os.ReadFile(filepath.Join(tmpdir, "bert.yaml"))
+				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
 				content := map[string]interface{}{}
@@ -294,7 +312,7 @@ var _ = Describe("API test", func() {
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
-				dat, err := os.ReadFile(filepath.Join(tmpdir, "bert.yaml"))
+				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 
 				content := map[string]interface{}{}
@@ -483,8 +501,11 @@ var _ = Describe("API test", func() {
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
+			modelDir = filepath.Join(tmpdir, "models")
+			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
+			err = os.Mkdir(backendAssetsDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
 
-			modelLoader = model.NewModelLoader(tmpdir)
 			c, cancel = context.WithCancel(context.Background())
 
 			galleries := []gallery.Gallery{
@@ -494,21 +515,20 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			metricsService, err := metrics.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			app, err = App(
+			bcl, ml, applicationConfig, err = startup.Startup(
 				append(commonOpts,
-					options.WithContext(c),
-					options.WithMetrics(metricsService),
-					options.WithAudioDir(tmpdir),
-					options.WithImageDir(tmpdir),
-					options.WithGalleries(galleries),
-					options.WithModelLoader(modelLoader),
-					options.WithBackendAssets(backendAssets),
-					options.WithBackendAssetsOutput(tmpdir))...,
+					config.WithContext(c),
+					config.WithAudioDir(tmpdir),
+					config.WithImageDir(tmpdir),
+					config.WithGalleries(galleries),
+					config.WithModelPath(modelDir),
+					config.WithBackendAssets(backendAssets),
+					config.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
+			app, err = App(bcl, ml, applicationConfig)
+			Expect(err).ToNot(HaveOccurred())
+
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -527,8 +547,14 @@ var _ = Describe("API test", func() {
 
 		AfterEach(func() {
 			cancel()
-			app.Shutdown()
-			os.RemoveAll(tmpdir)
+			if app != nil {
+				err := app.Shutdown()
+				Expect(err).ToNot(HaveOccurred())
+			}
+			err := os.RemoveAll(tmpdir)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = os.ReadDir(tmpdir)
+			Expect(err).To(HaveOccurred())
 		})
 		It("installs and is capable to run tts", Label("tts"), func() {
 			if runtime.GOOS != "linux" {
@@ -599,19 +625,19 @@ var _ = Describe("API test", func() {
 
 	Context("API query", func() {
 		BeforeEach(func() {
-			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
+			modelPath := os.Getenv("MODELS_PATH")
 			c, cancel = context.WithCancel(context.Background())
 
-			metricsService, err := metrics.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
+			var err error
 
-			app, err = App(
+			bcl, ml, applicationConfig, err = startup.Startup(
 				append(commonOpts,
-					options.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
-					options.WithContext(c),
-					options.WithModelLoader(modelLoader),
-					options.WithMetrics(metricsService),
+					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
+					config.WithContext(c),
+					config.WithModelPath(modelPath),
 				)...)
+			Expect(err).ToNot(HaveOccurred())
+			app, err = App(bcl, ml, applicationConfig)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -630,7 +656,10 @@ var _ = Describe("API test", func() {
 		})
 		AfterEach(func() {
 			cancel()
-			app.Shutdown()
+			if app != nil {
+				err := app.Shutdown()
+				Expect(err).ToNot(HaveOccurred())
+			}
 		})
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
@@ -811,20 +840,20 @@ var _ = Describe("API test", func() {
 
 	Context("Config file", func() {
 		BeforeEach(func() {
-			modelLoader = model.NewModelLoader(os.Getenv("MODELS_PATH"))
+			modelPath := os.Getenv("MODELS_PATH")
 			c, cancel = context.WithCancel(context.Background())
 
-			metricsService, err := metrics.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			app, err = App(
+			var err error
+			bcl, ml, applicationConfig, err = startup.Startup(
 				append(commonOpts,
-					options.WithContext(c),
-					options.WithMetrics(metricsService),
-					options.WithModelLoader(modelLoader),
-					options.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
+					config.WithContext(c),
+					config.WithModelPath(modelPath),
+					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
+			app, err = App(bcl, ml, applicationConfig)
+			Expect(err).ToNot(HaveOccurred())
+
 			go app.Listen("127.0.0.1:9090")
 
 			defaultConfig := openai.DefaultConfig("")
@@ -840,7 +869,10 @@ var _ = Describe("API test", func() {
 		})
 		AfterEach(func() {
 			cancel()
-			app.Shutdown()
+			if app != nil {
+				err := app.Shutdown()
+				Expect(err).ToNot(HaveOccurred())
+			}
 		})
 		It("can generate chat completions from config file (list1)", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: testPrompt}}})

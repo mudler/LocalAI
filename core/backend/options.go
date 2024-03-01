@@ -4,19 +4,17 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-skynet/LocalAI/core/config"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
 )
 
-func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.Option {
-	if o.SingleBackend {
+func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
+	if so.SingleBackend {
 		opts = append(opts, model.WithSingleActiveBackend())
 	}
 
-	if o.ParallelBackendRequests {
+	if so.ParallelBackendRequests {
 		opts = append(opts, model.EnableParallelRequests)
 	}
 
@@ -28,14 +26,14 @@ func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.
 		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
 	}
 
-	for k, v := range o.ExternalGRPCBackends {
+	for k, v := range so.ExternalGRPCBackends {
 		opts = append(opts, model.WithExternalBackend(k, v))
 	}
 
 	return opts
 }
 
-func gRPCModelOpts(c config.Config) *pb.ModelOptions {
+func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
@@ -84,7 +82,7 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 	}
 }
 
-func gRPCPredictOpts(c config.Config, modelPath string) *pb.PredictOptions {
+func gRPCPredictOpts(c config.BackendConfig, modelPath string) *pb.PredictOptions {
 	promptCachePath := ""
 	if c.PromptCachePath != "" {
 		p := filepath.Join(modelPath, c.PromptCachePath)

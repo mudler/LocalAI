@@ -6,24 +6,25 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	config "github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/pkg/model"
+
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/google/uuid"
 
-	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
 // https://platform.openai.com/docs/api-reference/embeddings
-func EmbeddingsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func EmbeddingsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		model, input, err := readRequest(c, o, true)
+		model, input, err := readRequest(c, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := mergeRequestWithConfig(model, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(model, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -33,7 +34,7 @@ func EmbeddingsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 
 		for i, s := range config.InputToken {
 			// get the model function to call for the result
-			embedFn, err := backend.ModelEmbedding("", s, o.Loader, *config, o)
+			embedFn, err := backend.ModelEmbedding("", s, ml, *config, appConfig)
 			if err != nil {
 				return err
 			}
@@ -47,7 +48,7 @@ func EmbeddingsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 
 		for i, s := range config.InputStrings {
 			// get the model function to call for the result
-			embedFn, err := backend.ModelEmbedding(s, []int{}, o.Loader, *config, o)
+			embedFn, err := backend.ModelEmbedding(s, []int{}, ml, *config, appConfig)
 			if err != nil {
 				return err
 			}
