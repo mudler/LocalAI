@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
+
 	"github.com/go-skynet/LocalAI/core/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
@@ -16,14 +16,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, o, true)
+		modelFile, input, err := readRequest(c, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -33,7 +33,7 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		templateFile := ""
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if o.Loader.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
 			templateFile = config.Model
 		}
 
@@ -46,7 +46,7 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 		for _, i := range config.InputStrings {
 			if templateFile != "" {
-				templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.EditPromptTemplate, templateFile, model.PromptTemplateData{
+				templatedInput, err := ml.EvaluateTemplateForPrompt(model.EditPromptTemplate, templateFile, model.PromptTemplateData{
 					Input:        i,
 					Instruction:  input.Instruction,
 					SystemPrompt: config.SystemPrompt,
@@ -57,7 +57,7 @@ func EditEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 				}
 			}
 
-			r, tokenUsage, err := ComputeChoices(input, i, config, o, o.Loader, func(s string, c *[]schema.Choice) {
+			r, tokenUsage, err := ComputeChoices(input, i, config, appConfig, ml, func(s string, c *[]schema.Choice) {
 				*c = append(*c, schema.Choice{Text: s})
 			}, nil)
 			if err != nil {

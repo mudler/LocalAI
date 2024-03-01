@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/M0Rf30/go-tiny-dream v0.0.0-20231128165230-772a9c0d9aaf
 	github.com/donomii/go-rwkv.cpp v0.0.0-20230715075832-c898cd0f62df
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20230628193450-85ed71aaec8e
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230716133540-6abe312cded1
@@ -14,7 +15,6 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hpcloud/tail v1.0.0
 	github.com/imdario/mergo v0.3.16
-	github.com/json-iterator/go v1.1.12
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c
 	github.com/mudler/go-stable-diffusion v0.0.0-20230605122230-d89260f598af
@@ -64,8 +64,6 @@ require (
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.2 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.2 // indirect
@@ -104,7 +102,7 @@ require (
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
 )

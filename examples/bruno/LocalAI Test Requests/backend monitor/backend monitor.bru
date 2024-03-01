@@ -6,6 +6,12 @@ meta {
 
 get {
   url: {{PROTOCOL}}{{HOST}}:{{PORT}}/backend/monitor
-  body: none
+  body: json
   auth: none
+}
+
+body:json {
+  {
+    "model": "{{DEFAULT_MODEL}}"
+  }
 }

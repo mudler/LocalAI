@@ -2,8 +2,8 @@ package openai
 
 import (
 	"github.com/go-skynet/LocalAI/core/backend"
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
+
 	"github.com/go-skynet/LocalAI/core/schema"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
@@ -11,8 +11,8 @@ import (
 func ComputeChoices(
 	req *schema.OpenAIRequest,
 	predInput string,
-	config *config.Config,
-	o *options.Option,
+	config *config.BackendConfig,
+	o *config.ApplicationConfig,
 	loader *model.ModelLoader,
 	cb func(string, *[]schema.Choice),
 	tokenCallback func(string, backend.TokenUsage) bool) ([]schema.Choice, backend.TokenUsage, error) {

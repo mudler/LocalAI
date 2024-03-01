@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=aeba71ee842819da681ea537e78846dc75949ac0
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=87c91c07663b707e831c59ec373b5e665ff9d64a
+CPPLLAMA_VERSION?=d5ab29757ebc59a30f03e408294ec20628a6374e
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -43,6 +43,8 @@ GO_TAGS?=
 BUILD_ID?=git
 
 TEST_DIR=/tmp/test
+
+TEST_FLAKES?=5
 
 RANDOM := $(shell bash -c 'echo $$RANDOM')
 
@@ -337,7 +339,7 @@ test: prepare test-models/testmodel grpcs
 	export GO_TAGS="tts stablediffusion"
 	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/sentencetransformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf"  --flake-attempts 5 --fail-fast -v -r $(TEST_PATHS)
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 	$(MAKE) test-gpt4all
 	$(MAKE) test-llama
 	$(MAKE) test-llama-gguf

@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/google/uuid"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -59,9 +59,9 @@ func downloadFile(url string) (string, error) {
 
 *
 */
-func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, o, false)
+		m, input, err := readRequest(c, ml, appConfig, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -71,7 +71,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 		}
 		log.Debug().Msgf("Loading model: %+v", m)
 
-		config, input, err := mergeRequestWithConfig(m, input, cm, o.Loader, o.Debug, 0, 0, false)
+		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, 0, 0, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -104,7 +104,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 			}
 
 			// Create a temporary file
-			outputFile, err := os.CreateTemp(o.ImageDir, "b64")
+			outputFile, err := os.CreateTemp(appConfig.ImageDir, "b64")
 			if err != nil {
 				return err
 			}
@@ -133,15 +133,15 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 		sizeParts := strings.Split(input.Size, "x")
 		if len(sizeParts) != 2 {
-			return fmt.Errorf("Invalid value for 'size'")
+			return fmt.Errorf("invalid value for 'size'")
 		}
 		width, err := strconv.Atoi(sizeParts[0])
 		if err != nil {
-			return fmt.Errorf("Invalid value for 'size'")
+			return fmt.Errorf("invalid value for 'size'")
 		}
 		height, err := strconv.Atoi(sizeParts[1])
 		if err != nil {
-			return fmt.Errorf("Invalid value for 'size'")
+			return fmt.Errorf("invalid value for 'size'")
 		}
 
 		b64JSON := false
@@ -179,7 +179,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 				tempDir := ""
 				if !b64JSON {
-					tempDir = o.ImageDir
+					tempDir = appConfig.ImageDir
 				}
 				// Create a temporary file
 				outputFile, err := os.CreateTemp(tempDir, "b64")
@@ -196,7 +196,7 @@ func ImageEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx
 
 				baseURL := c.BaseURL()
 
-				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, o.Loader, *config, o)
+				fn, err := backend.ImageGeneration(height, width, mode, step, input.Seed, positive_prompt, negative_prompt, src, output, ml, *config, appConfig)
 				if err != nil {
 					return err
 				}

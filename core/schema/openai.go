@@ -3,8 +3,6 @@ package schema
 import (
 	"context"
 
-	config "github.com/go-skynet/LocalAI/core/config"
-
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 )
 
@@ -108,10 +106,10 @@ type ChatCompletionResponseFormat struct {
 }
 
 type OpenAIRequest struct {
-	config.PredictionOptions
+	PredictionOptions
 
-	Context context.Context
-	Cancel  context.CancelFunc
+	Context context.Context    `json:"-"`
+	Cancel  context.CancelFunc `json:"-"`
 
 	// whisper
 	File string `json:"file" validate:"required"`

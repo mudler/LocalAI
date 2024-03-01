@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -21,12 +20,12 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	emptyMessage := ""
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
@@ -36,7 +35,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 		responses <- initialMessage
 
-		ComputeChoices(req, s, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
@@ -55,9 +54,9 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		})
 		close(responses)
 	}
-	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		result := ""
-		_, tokenUsage, _ := ComputeChoices(req, prompt, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		_, tokenUsage, _ := ComputeChoices(req, prompt, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
 			// TODO: Change generated BNF grammar to be compliant with the schema so we can
 			// stream the result token by token here.
@@ -78,7 +77,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			}
 			responses <- initialMessage
 
-			result, err := handleQuestion(config, req, o, results[0].arguments, prompt)
+			result, err := handleQuestion(config, req, ml, startupOptions, results[0].arguments, prompt)
 			if err != nil {
 				log.Error().Msgf("error handling question: %s", err.Error())
 				return
@@ -154,12 +153,12 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 	return func(c *fiber.Ctx) error {
 		processFunctions := false
 		funcs := grammar.Functions{}
-		modelFile, input, err := readRequest(c, o, true)
+		modelFile, input, err := readRequest(c, ml, startupOptions, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, startupOptions.Debug, startupOptions.Threads, startupOptions.ContextSize, startupOptions.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -252,7 +251,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 					FunctionName: i.Name,
 					MessageIndex: messageIndex,
 				}
-				templatedChatMessage, err := o.Loader.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
+				templatedChatMessage, err := ml.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 				if err != nil {
 					log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, config.TemplateConfig.ChatMessage, err)
 				} else {
@@ -320,7 +319,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		templateFile := ""
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if o.Loader.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
 			templateFile = config.Model
 		}
 
@@ -333,7 +332,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 		}
 
 		if templateFile != "" {
-			templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
+			templatedInput, err := ml.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
 				SystemPrompt:         config.SystemPrompt,
 				SuppressSystemPrompt: suppressConfigSystemPrompt,
 				Input:                predInput,
@@ -357,9 +356,9 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 			responses := make(chan schema.OpenAIResponse)
 
 			if !processFunctions {
-				go process(predInput, input, config, o.Loader, responses)
+				go process(predInput, input, config, ml, responses)
 			} else {
-				go processTools(noActionName, predInput, input, config, o.Loader, responses)
+				go processTools(noActionName, predInput, input, config, ml, responses)
 			}
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
@@ -413,7 +412,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 		// no streaming mode
 		default:
-			result, tokenUsage, err := ComputeChoices(input, predInput, config, o, o.Loader, func(s string, c *[]schema.Choice) {
+			result, tokenUsage, err := ComputeChoices(input, predInput, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
 				if !processFunctions {
 					// no function is called, just reply and use stop as finish reason
 					*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
@@ -425,7 +424,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 
 				switch {
 				case noActionsToRun:
-					result, err := handleQuestion(config, input, o, results[0].arguments, predInput)
+					result, err := handleQuestion(config, input, ml, startupOptions, results[0].arguments, predInput)
 					if err != nil {
 						log.Error().Msgf("error handling question: %s", err.Error())
 						return
@@ -506,7 +505,7 @@ func ChatEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx)
 	}
 }
 
-func handleQuestion(config *config.Config, input *schema.OpenAIRequest, o *options.Option, args, prompt string) (string, error) {
+func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, ml *model.ModelLoader, o *config.ApplicationConfig, args, prompt string) (string, error) {
 	log.Debug().Msgf("nothing to do, computing a reply")
 
 	// If there is a message that the LLM already sends as part of the JSON reply, use it
@@ -535,7 +534,7 @@ func handleQuestion(config *config.Config, input *schema.OpenAIRequest, o *optio
 		images = append(images, m.StringImages...)
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, images, o.Loader, *config, o, nil)
+	predFunc, err := backend.ModelInference(input.Context, prompt, images, ml, *config, o, nil)
 	if err != nil {
 		log.Error().Msgf("inference error: %s", err.Error())
 		return "", err
