@@ -126,6 +126,11 @@ message ModelOptions {
 
   // vllm
   string Quantization = 40;
+  float  GPUMemoryUtilization = 50;
+  bool   TrustRemoteCode = 51;
+  bool   EnforceEager = 52;
+  int32  SwapSpace = 53;
+  int32  MaxModelLen = 54;
 
   string MMProj = 41;
 

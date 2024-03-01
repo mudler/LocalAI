@@ -71,7 +71,7 @@ dependencies:
       - requests==2.31.0
       - rouge==1.0.1
       - s3transfer==0.7.0
-      - safetensors==0.3.3
+      - safetensors>=0.4.1
       - scipy==1.11.3
       - six==1.16.0
       - sympy==1.12
@@ -103,7 +103,7 @@ dependencies:
       - sudachipy
       - sudachidict_core
       - vocos
-      - vllm==0.2.7
-      - transformers>=4.36.0 # Required for Mixtral.
+      - vllm==0.3.2
+      - transformers>=4.38.0 # Required for Gemma.
       - xformers==0.0.23.post1
 prefix: /opt/conda/envs/transformers

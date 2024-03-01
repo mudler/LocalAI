@@ -71,7 +71,7 @@ dependencies:
       - regex==2023.10.3
       - requests==2.31.0
       - rouge==1.0.1
-      - safetensors==0.3.3
+      - safetensors>=0.3.3
       - six==1.16.0
       - sympy==1.12
       - tokenizers==0.14.0
