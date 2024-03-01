@@ -1,6 +1,7 @@
+export CONDA_ENV_PATH = "exllama.yml"
+
 .PHONY: exllama
 exllama:
-	$(MAKE) -C ../common-env/transformers-exllama
 	bash install.sh
 
 .PHONY: run
