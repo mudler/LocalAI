@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -52,7 +53,8 @@ type Assistant struct {
 }
 
 var (
-	assistants = []Assistant{} // better to return empty array instead of "null"
+	Assistants           = []Assistant{} // better to return empty array instead of "null"
+	AssistantsConfigFile = "assistants.json"
 )
 
 type AssistantRequest struct {
@@ -91,8 +93,8 @@ func CreateAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 			Metadata:     request.Metadata,
 		}
 
-		assistants = append(assistants, assistant)
-
+		Assistants = append(Assistants, assistant)
+		utils.SaveConfig(o.ConfigsDir, AssistantsConfigFile, Assistants)
 		return c.Status(fiber.StatusOK).JSON(assistant)
 	}
 }
@@ -126,27 +128,27 @@ func ListAssistantsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *
 		}
 
 		// Sort assistants
-		sort.SliceStable(assistants, func(i, j int) bool {
+		sort.SliceStable(Assistants, func(i, j int) bool {
 			if orderQuery == "asc" {
-				return assistants[i].Created < assistants[j].Created
+				return Assistants[i].Created < Assistants[j].Created
 			}
-			return assistants[i].Created > assistants[j].Created
+			return Assistants[i].Created > Assistants[j].Created
 		})
 
 		// After and before cursors
 		if afterQuery != "" {
-			assistants = filterAssistantsAfterID(assistants, afterQuery)
+			Assistants = filterAssistantsAfterID(Assistants, afterQuery)
 		}
 		if beforeQuery != "" {
-			assistants = filterAssistantsBeforeID(assistants, beforeQuery)
+			Assistants = filterAssistantsBeforeID(Assistants, beforeQuery)
 		}
 
 		// Apply limit
-		if limit < len(assistants) {
-			assistants = assistants[:limit]
+		if limit < len(Assistants) {
+			Assistants = Assistants[:limit]
 		}
 
-		return c.JSON(assistants)
+		return c.JSON(Assistants)
 	}
 }
 
@@ -207,9 +209,10 @@ func DeleteAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id is required")
 		}
 
-		for i, assistant := range assistants {
+		for i, assistant := range Assistants {
 			if assistant.ID == assistantID {
-				assistants = append(assistants[:i], assistants[i+1:]...)
+				Assistants = append(Assistants[:i], Assistants[i+1:]...)
+				utils.SaveConfig(o.ConfigsDir, AssistantsConfigFile, Assistants)
 				return c.Status(fiber.StatusOK).JSON(DeleteAssistantResponse{
 					ID:      assistantID,
 					Object:  "assistant.deleted",
@@ -234,7 +237,7 @@ func GetAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fi
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id is required")
 		}
 
-		for _, assistant := range assistants {
+		for _, assistant := range Assistants {
 			if assistant.ID == assistantID {
 				return c.Status(fiber.StatusOK).JSON(assistant)
 			}
@@ -251,7 +254,10 @@ type AssistantFile struct {
 	AssistantID string `json:"assistant_id"`
 }
 
-var assistantFiles []AssistantFile
+var (
+	AssistantFiles           []AssistantFile
+	AssistantsFileConfigFile = "assistantsFile.json"
+)
 
 func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	type AssistantFileRequest struct {
@@ -269,7 +275,7 @@ func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id is required")
 		}
 
-		for _, assistant := range assistants {
+		for _, assistant := range Assistants {
 			if assistant.ID == assistantID {
 				if len(assistant.FileIDs) > MaxFileIdSize {
 					return c.Status(fiber.StatusBadRequest).SendString(fmt.Sprintf("Max files %d for assistant %s reached.", MaxFileIdSize, assistant.Name))
@@ -284,7 +290,8 @@ func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 							CreatedAt:   time.Now().Unix(),
 							AssistantID: assistant.ID,
 						}
-						assistantFiles = append(assistantFiles, assistantFile)
+						AssistantFiles = append(AssistantFiles, assistantFile)
+						utils.SaveConfig(o.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
 						return c.Status(fiber.StatusOK).JSON(assistantFile)
 					}
 				}
@@ -318,23 +325,23 @@ func ListAssistantFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func
 
 		// Sort files by CreatedAt depending on the order query parameter
 		if order == "asc" {
-			sort.Slice(assistantFiles, func(i, j int) bool {
-				return assistantFiles[i].CreatedAt < assistantFiles[j].CreatedAt
+			sort.Slice(AssistantFiles, func(i, j int) bool {
+				return AssistantFiles[i].CreatedAt < AssistantFiles[j].CreatedAt
 			})
 		} else { // default to "desc"
-			sort.Slice(assistantFiles, func(i, j int) bool {
-				return assistantFiles[i].CreatedAt > assistantFiles[j].CreatedAt
+			sort.Slice(AssistantFiles, func(i, j int) bool {
+				return AssistantFiles[i].CreatedAt > AssistantFiles[j].CreatedAt
 			})
 		}
 
 		// Limit the number of files returned
 		var limitedFiles []AssistantFile
 		hasMore := false
-		if len(assistantFiles) > limit {
+		if len(AssistantFiles) > limit {
 			hasMore = true
-			limitedFiles = assistantFiles[:limit]
+			limitedFiles = AssistantFiles[:limit]
 		} else {
-			limitedFiles = assistantFiles
+			limitedFiles = AssistantFiles
 		}
 
 		response := map[string]interface{}{
@@ -372,7 +379,7 @@ func ModifyAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id is required")
 		}
 
-		for i, assistant := range assistants {
+		for i, assistant := range Assistants {
 			if assistant.ID == assistantID {
 				newAssistant := Assistant{
 					ID:           assistantID,
@@ -388,8 +395,9 @@ func ModifyAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 				}
 
 				// Remove old one and replace with new one
-				assistants = append(assistants[:i], assistants[i+1:]...)
-				assistants = append(assistants, newAssistant)
+				Assistants = append(Assistants[:i], Assistants[i+1:]...)
+				Assistants = append(Assistants, newAssistant)
+				utils.SaveConfig(o.ConfigsDir, AssistantsConfigFile, Assistants)
 				return c.Status(fiber.StatusOK).JSON(newAssistant)
 			}
 		}
@@ -410,17 +418,18 @@ func DeleteAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id and file_id are required")
 		}
 		// First remove file from assistant
-		for i, assistant := range assistants {
+		for i, assistant := range Assistants {
 			if assistant.ID == assistantID {
 				for j, fileId := range assistant.FileIDs {
 					if fileId == fileId {
-						assistants[i].FileIDs = append(assistants[i].FileIDs[:j], assistants[i].FileIDs[j+1:]...)
+						Assistants[i].FileIDs = append(Assistants[i].FileIDs[:j], Assistants[i].FileIDs[j+1:]...)
 
 						// Check if the file exists in the assistantFiles slice
-						for i, assistantFile := range assistantFiles {
+						for i, assistantFile := range AssistantFiles {
 							if assistantFile.ID == fileId {
 								// Remove the file from the assistantFiles slice
-								assistantFiles = append(assistantFiles[:i], assistantFiles[i+1:]...)
+								AssistantFiles = append(AssistantFiles[:i], AssistantFiles[i+1:]...)
+								utils.SaveConfig(o.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
 								return c.Status(fiber.StatusOK).JSON(DeleteAssistantFileResponse{
 									ID:      fileId,
 									Object:  "assistant.file.deleted",
@@ -457,7 +466,7 @@ func GetAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) func(c
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id and file_id are required")
 		}
 
-		for _, assistantFile := range assistantFiles {
+		for _, assistantFile := range AssistantFiles {
 			if assistantFile.AssistantID == assistantID {
 				if assistantFile.ID == fileId {
 					return c.Status(fiber.StatusOK).JSON(assistantFile)

@@ -149,6 +149,12 @@ func main() {
 				Value:   "/tmp/localai/upload",
 			},
 			&cli.StringFlag{
+				Name:    "config-path",
+				Usage:   "Path to store uploads from files api",
+				EnvVars: []string{"CONFIG_PATH"},
+				Value:   "/tmp/localai/config",
+			},
+			&cli.StringFlag{
 				Name:    "backend-assets-path",
 				Usage:   "Path used to extract libraries that are required by some of the backends in runtime.",
 				EnvVars: []string{"BACKEND_ASSETS_PATH"},
@@ -234,6 +240,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				options.WithImageDir(ctx.String("image-path")),
 				options.WithAudioDir(ctx.String("audio-path")),
 				options.WithUploadDir(ctx.String("upload-path")),
+				options.WithConfigsDir(ctx.String("config-path")),
 				options.WithF16(ctx.Bool("f16")),
 				options.WithStringGalleries(ctx.String("galleries")),
 				options.WithModelLibraryURL(ctx.String("remote-library")),

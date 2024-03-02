@@ -225,10 +225,13 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	os.MkdirAll(options.ImageDir, 0755)
 	os.MkdirAll(options.AudioDir, 0755)
 	os.MkdirAll(options.UploadDir, 0755)
+	os.MkdirAll(options.ConfigsDir, 0755)
 	os.MkdirAll(options.Loader.ModelPath, 0755)
 
-	// Load upload json
+	// Load config jsons
 	utils.LoadConfig(options.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
+	utils.LoadConfig(options.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
+	utils.LoadConfig(options.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
 	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.Loader.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryService.ApplyModelGalleryEndpoint())
