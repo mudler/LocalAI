@@ -47,4 +47,32 @@ else
 	echo "@@@@@"
 fi
 
+set +e
+GPU_ACCELERATION=false
+case "$(uname -s)" in
+	Linux)
+		if lspci | grep -E 'VGA|3D' | grep -iq nvidia; then
+			echo "NVIDIA GPU detected"
+			GPU_ACCELERATION=true
+		elif lspci | grep -E 'VGA|3D' | grep -iq amd; then
+			echo "AMD GPU detected"
+			GPU_ACCELERATION=true
+		elif lspci | grep -E 'VGA|3D' | grep -iq intel; then
+			echo "Intel GPU detected"
+			GPU_ACCELERATION=true
+		fi
+		;;
+	Darwin)
+		if system_profiler SPDisplaysDataType | grep -iq 'Metal'; then
+			echo "Apple Metal supported GPU detected"
+			GPU_ACCELERATION=true
+		fi
+		;;
+esac
+set -e
+
+if [ "$GPU_ACCELERATION" = "false" ]; then
+	echo "!!! No GPU detected, running with CPU only !!!"
+fi
+
 ./local-ai "$@"
