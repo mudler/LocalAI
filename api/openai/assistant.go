@@ -275,7 +275,7 @@ func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 					return c.Status(fiber.StatusBadRequest).SendString(fmt.Sprintf("Max files %d for assistant %s reached.", MaxFileIdSize, assistant.Name))
 				}
 
-				for _, file := range uploadedFiles {
+				for _, file := range UploadedFiles {
 					if file.ID == request.FileID {
 						assistant.FileIDs = append(assistant.FileIDs, request.FileID)
 						assistantFile := AssistantFile{

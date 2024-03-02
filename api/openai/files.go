@@ -1,7 +1,6 @@
 package openai
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -12,12 +11,11 @@ import (
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
-	"github.com/rs/zerolog/log"
 )
 
-var uploadedFiles []File
+var UploadedFiles []File
 
-const uploadedFilesFile = "uploadedFiles.json"
+const UploadedFilesFile = "uploadedFiles.json"
 
 // File represents the structure of a file object from the OpenAI API.
 type File struct {
@@ -27,38 +25,6 @@ type File struct {
 	CreatedAt time.Time `json:"created_at"` // The time at which the file was created
 	Filename  string    `json:"filename"`   // The name of the file
 	Purpose   string    `json:"purpose"`    // The purpose of the file (e.g., "fine-tune", "classifications", etc.)
-}
-
-func saveUploadConfig(uploadDir string) {
-	file, err := json.MarshalIndent(uploadedFiles, "", " ")
-	if err != nil {
-		log.Error().Msgf("Failed to JSON marshal the uploadedFiles: %s", err)
-	}
-
-	err = os.WriteFile(filepath.Join(uploadDir, uploadedFilesFile), file, 0644)
-	if err != nil {
-		log.Error().Msgf("Failed to save uploadedFiles to file: %s", err)
-	}
-}
-
-func LoadUploadConfig(uploadPath string) {
-	uploadFilePath := filepath.Join(uploadPath, uploadedFilesFile)
-
-	_, err := os.Stat(uploadFilePath)
-	if os.IsNotExist(err) {
-		log.Debug().Msgf("No uploadedFiles file found at %s", uploadFilePath)
-		return
-	}
-
-	file, err := os.ReadFile(uploadFilePath)
-	if err != nil {
-		log.Error().Msgf("Failed to read file: %s", err)
-	} else {
-		err = json.Unmarshal(file, &uploadedFiles)
-		if err != nil {
-			log.Error().Msgf("Failed to JSON unmarshal the file into uploadedFiles: %s", err)
-		}
-	}
 }
 
 // UploadFilesEndpoint https://platform.openai.com/docs/api-reference/files/create
@@ -103,8 +69,8 @@ func UploadFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 			Purpose:   purpose,
 		}
 
-		uploadedFiles = append(uploadedFiles, f)
-		saveUploadConfig(o.UploadDir)
+		UploadedFiles = append(UploadedFiles, f)
+		utils.SaveConfig(o.UploadDir, UploadedFilesFile, UploadedFiles)
 		return c.Status(fiber.StatusOK).JSON(f)
 	}
 }
@@ -121,9 +87,9 @@ func ListFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber
 
 		purpose := c.Query("purpose")
 		if purpose == "" {
-			listFiles.Data = uploadedFiles
+			listFiles.Data = UploadedFiles
 		} else {
-			for _, f := range uploadedFiles {
+			for _, f := range UploadedFiles {
 				if purpose == f.Purpose {
 					listFiles.Data = append(listFiles.Data, f)
 				}
@@ -140,7 +106,7 @@ func getFileFromRequest(c *fiber.Ctx) (*File, error) {
 		return nil, fmt.Errorf("file_id parameter is required")
 	}
 
-	for _, f := range uploadedFiles {
+	for _, f := range UploadedFiles {
 		if id == f.ID {
 			return &f, nil
 		}
@@ -184,14 +150,14 @@ func DeleteFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fib
 		}
 
 		// Remove upload from list
-		for i, f := range uploadedFiles {
+		for i, f := range UploadedFiles {
 			if f.ID == file.ID {
-				uploadedFiles = append(uploadedFiles[:i], uploadedFiles[i+1:]...)
+				UploadedFiles = append(UploadedFiles[:i], UploadedFiles[i+1:]...)
 				break
 			}
 		}
 
-		saveUploadConfig(o.UploadDir)
+		utils.SaveConfig(o.UploadDir, UploadedFilesFile, UploadedFiles)
 		return c.JSON(DeleteStatus{
 			Id:      file.ID,
 			Object:  "file",

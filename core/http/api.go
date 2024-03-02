@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"os"
 	"strings"
 
@@ -227,7 +228,7 @@ func App(opts ...options.AppOption) (*fiber.App, error) {
 	os.MkdirAll(options.Loader.ModelPath, 0755)
 
 	// Load upload json
-	openai.LoadUploadConfig(options.UploadDir)
+	utils.LoadConfig(options.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
 
 	modelGalleryService := localai.CreateModelGalleryService(options.Galleries, options.Loader.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryService.ApplyModelGalleryEndpoint())
