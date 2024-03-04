@@ -17,7 +17,7 @@ import grpc
 import torch
 import torch.cuda
 
-XPU=os.environ.get("XPU", "1") == "1"
+XPU=os.environ.get("XPU", "0") == "1"
 if XPU:
     import intel_extension_for_pytorch as ipex
     from intel_extension_for_transformers.transformers.modeling import AutoModelForCausalLM
