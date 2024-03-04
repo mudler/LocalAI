@@ -6,7 +6,7 @@ conda_env_exists(){
     ! conda list --name "${@}" >/dev/null 2>/dev/null
 }
 
-if [ $SKIP == 1 ]; then
+if [ $SKIP_CONDA == 1 ]; then
     echo "Skipping conda environment installation"
 else
     if conda_env_exists "diffusers" ; then

@@ -8,6 +8,10 @@ ifeq ($(BUILD_TYPE), hipblas)
 	CONDA_ENV_PATH = "transformers-rocm.yml"
 endif
 
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+export SKIP_CONDA=1
+endif
+
 .PHONY: transformers
 transformers:
 	@echo "Installing $(CONDA_ENV_PATH)..."

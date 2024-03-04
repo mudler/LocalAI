@@ -1,7 +1,6 @@
 .PHONY: transformers
 transformers:
 	$(MAKE) -C ../common-env/transformers
-	bash install.sh
 
 .PHONY: run
 run:

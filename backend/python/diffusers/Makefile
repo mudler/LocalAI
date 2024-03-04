@@ -5,7 +5,7 @@ export CONDA_ENV_PATH = "diffusers-rocm.yml"
 endif
 
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
-export SKIP=1
+export SKIP_CONDA=1
 endif
 
 .PHONY: diffusers
