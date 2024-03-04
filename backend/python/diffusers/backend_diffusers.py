@@ -21,7 +21,7 @@ from diffusers import StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipelin
 from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image,export_to_video
-from compel import Compel
+from compel import Compel, ReturnedEmbeddingsType
 
 from transformers import CLIPTextModel
 from safetensors.torch import load_file
@@ -237,7 +237,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe.scheduler = get_scheduler(request.SchedulerType, self.pipe.scheduler.config)
                 
             if not self.img2vid:
-                self.compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
+                self.compel = Compel(
+                    tokenizer=[self.pipe.tokenizer, self.pipe.tokenizer_2 ], 
+                    text_encoder=[self.pipe.text_encoder, self.pipe.text_encoder_2],
+                    returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+                    requires_pooled=[False, True]
+                    )
 
 
             if request.ControlNet:
@@ -393,8 +398,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         image = {}
         if COMPEL:
-            conditioning = self.compel.build_conditioning_tensor(prompt)
-            kwargs["prompt_embeds"]= conditioning
+            conditioning, pooled = self.compel.build_conditioning_tensor(prompt)
+            kwargs["prompt_embeds"] = conditioning
+            kwargs["pooled_prompt_embeds"] = pooled
             # pass the kwargs dictionary to the self.pipe method
             image = self.pipe(
                 guidance_scale=self.cfg_scale,
