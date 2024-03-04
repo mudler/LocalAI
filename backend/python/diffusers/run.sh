@@ -7,8 +7,7 @@ export PATH=$PATH:/opt/conda/bin
 
 if [ -d "/opt/intel" ]; then
     # Assumes we are using the Intel oneAPI container image
-    #source /opt/intel/oneapi/compiler/latest/env/vars.sh
-    #source /opt/intel/oneapi/mkl/latest/env/vars.sh
+    # https://github.com/intel/intel-extension-for-pytorch/issues/538
     export XPU=1
 else
     # Activate conda environment
