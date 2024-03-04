@@ -28,8 +28,10 @@ fi
 if [ "$PIP_CACHE_PURGE" = true ] ; then
     export PATH=$PATH:/opt/conda/bin
 
-    # Activate conda environment
-    source activate transformers
+    if [ ! -d "/opt/intel" ]; then
+        # Activate conda environment
+        source activate transformers
+    fi
 
     pip cache purge
 fi
