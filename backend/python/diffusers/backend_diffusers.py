@@ -236,7 +236,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.SchedulerType != "":
                 self.pipe.scheduler = get_scheduler(request.SchedulerType, self.pipe.scheduler.config)
                 
-            if not self.img2vid:
+            if COMPEL:
                 self.compel = Compel(
                     tokenizer=[self.pipe.tokenizer, self.pipe.tokenizer_2 ], 
                     text_encoder=[self.pipe.text_encoder, self.pipe.text_encoder_2],
