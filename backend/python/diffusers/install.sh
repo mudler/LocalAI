@@ -6,12 +6,16 @@ conda_env_exists(){
     ! conda list --name "${@}" >/dev/null 2>/dev/null
 }
 
-if conda_env_exists "diffusers" ; then
-    echo "Creating virtual environment..."
-    conda env create --name diffusers --file $1
-    echo "Virtual environment created."
-else 
-    echo "Virtual environment already exists."
+if [ $SKIP == 1 ]; then
+    echo "Skipping conda environment installation"
+else
+    if conda_env_exists "diffusers" ; then
+        echo "Creating virtual environment..."
+        conda env create --name diffusers --file $1
+        echo "Virtual environment created."
+    else 
+        echo "Virtual environment already exists."
+    fi
 fi
 
 if [ -d "/opt/intel" ]; then
