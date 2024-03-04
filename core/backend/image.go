@@ -13,7 +13,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithBackendString(backendConfig.Backend),
 		model.WithAssetDir(appConfig.AssetsDestination),
-		model.WithThreads(uint32(appConfig.Threads)),
+		model.WithThreads(uint32(backendConfig.Threads)),
 		model.WithContext(appConfig.Context),
 		model.WithModel(backendConfig.Model),
 		model.WithLoadGRPCLoadModelOpts(gRPCOpts),

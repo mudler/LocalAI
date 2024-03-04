@@ -24,7 +24,8 @@ if [ -d "/opt/intel" ]; then
                 diffusers==0.24.0 \
                 transformers>=4.25.1 \
                 accelerate \
-                compel==2.0.2
+                compel==2.0.2 \
+                Pillow
 fi
 
 if [ "$PIP_CACHE_PURGE" = true ] ; then
