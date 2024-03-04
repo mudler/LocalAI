@@ -21,7 +21,11 @@ fi
 if [ -d "/opt/intel" ]; then
     # If the directory exists, we assume we are using the intel image
     # https://github.com/intel/intel-extension-for-pytorch/issues/538
-    python -m pip install torch==2.0.1a0 torchvision==0.15.2a0 intel-extension-for-pytorch==2.0.120+xpu --extra-index-url https://pytorch-extension.intel.com/release-whl-aitools/
+    pip install torch==2.1.0a0 \
+                torchvision==0.16.0a0 \
+                torchaudio==2.1.0a0 \
+                intel-extension-for-pytorch==2.1.10+xpu \
+                --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
     pip install google-api-python-client \
                 grpcio \
                 grpcio-tools \
@@ -35,8 +39,12 @@ fi
 if [ "$PIP_CACHE_PURGE" = true ] ; then
     export PATH=$PATH:/opt/conda/bin
 
-    # Activate conda environment
-    source activate diffusers
+    if [ $SKIP_CONDA == 1 ]; then
+        echo "Not activating conda environment."
+    else
+        # Activate conda environment
+        source activate diffusers
+    fi
 
     pip cache purge
 fi
