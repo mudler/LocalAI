@@ -159,6 +159,7 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
+ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
 
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
@@ -333,7 +334,7 @@ prepare-test: grpcs
 
 test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
-	export GO_TAGS="tts stablediffusion"
+	export GO_TAGS="tts stablediffusion debug"
 	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/sentencetransformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
@@ -382,6 +383,11 @@ test-tts: prepare-test
 test-stablediffusion: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stablediffusion" --flake-attempts 1 -v -r $(TEST_PATHS)
+
+test-stores: backend-assets/grpc/local-store
+	mkdir -p tests/integration/backend-assets/grpc
+	cp -f backend-assets/grpc/local-store tests/integration/backend-assets/grpc/
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts 1 -v -r tests/integration
 
 test-container:
 	docker build --target requirements -t local-ai-test-container .
@@ -531,6 +537,9 @@ backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libti
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH=$(CURDIR)/sources/whisper.cpp LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
+
+backend-assets/grpc/local-store: backend-assets/grpc
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/local-store ./backend/go/stores/
 
 grpcs: prepare $(GRPC_BACKENDS)
 
