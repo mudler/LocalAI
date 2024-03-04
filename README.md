@@ -101,7 +101,7 @@ Model galleries
 - https://github.com/go-skynet/model-gallery
   
 UI / Management Programs
-- [LocalAI Manager](https://io.midori-ai.xyz/howtos/easy-model-installer/)
+- [Midori AI Subsystem Manager](https://io.midori-ai.xyz/subsystem/manager/)
 
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
