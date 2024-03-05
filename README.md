@@ -110,7 +110,6 @@ Other:
 - Telegram bot https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot
 - Examples: https://github.com/mudler/LocalAI/tree/master/examples/
   
-Management integration
 
 ### 🔗 Resources
 
