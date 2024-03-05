@@ -36,7 +36,7 @@ dependencies:
       - TTS==0.22.0
       - charset-normalizer==3.3.0
       - datasets==2.14.5
-      - sentence-transformers==2.2.2
+      - sentence-transformers==2.5.1 # Updated Version
       - sentencepiece==0.1.99
       - dill==0.3.7
       - einops==0.7.0
@@ -82,7 +82,7 @@ dependencies:
       - rouge==1.0.1
       - s3transfer==0.7.0
       - safetensors>=0.4.1
-      - scipy==1.11.3
+      - scipy==1.12.0 # Updated Version
       - six==1.16.0
       - sympy==1.12
       - tokenizers
@@ -114,6 +114,6 @@ dependencies:
       - sudachidict_core
       - vocos
       - vllm==0.3.2
-      - transformers>=4.38.0  # Required for Gemma.
+      - transformers>=4.38.2  # Updated Version
       - xformers==0.0.23.post1  
 prefix: /opt/conda/envs/transformers
