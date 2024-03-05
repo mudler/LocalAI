@@ -1,7 +1,7 @@
 .PHONY: petals
 petals:
 	@echo "Creating virtual environment..."
-	@conda env create --name petals --file petals.yml
+	bash install.sh "petals.yml"
 	@echo "Virtual environment created."
 
 .PHONY: run

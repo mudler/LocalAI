@@ -11,6 +11,7 @@ conda_env_exists(){
 if [ $SKIP_CONDA -eq 1 ]; then
     echo "Skipping conda environment installation"
 else
+    export PATH=$PATH:/opt/conda/bin
     if conda_env_exists "transformers" ; then
         echo "Creating virtual environment..."
         conda env create --name transformers --file $1
@@ -28,8 +29,6 @@ if [ -d "/opt/intel" ]; then
 fi
 
 if [ "$PIP_CACHE_PURGE" = true ] ; then
-    export PATH=$PATH:/opt/conda/bin
-
     if [ $SKIP_CONDA -ne 1 ]; then
         # Activate conda environment
         source activate transformers

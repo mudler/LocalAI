@@ -2,7 +2,6 @@
 set -e
 ##
 ## A bash script installs the required dependencies of VALL-E-X and prepares the environment
-export PATH=$PATH:/opt/conda/bin
 export SHA=c0ddebaaaf8ffd1b3529c2bb654e650bce2f790f
 
 SKIP_CONDA=${SKIP_CONDA:-0}
@@ -10,6 +9,7 @@ SKIP_CONDA=${SKIP_CONDA:-0}
 if [ $SKIP_CONDA -ne 1 ]; then
     source activate transformers
 else
+    export PATH=$PATH:/opt/conda/bin
     CONDA_PREFIX=$PWD
 fi
 
