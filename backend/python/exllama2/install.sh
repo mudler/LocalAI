@@ -10,7 +10,9 @@ if [ $SKIP_CONDA -eq 0 ]; then
     export PATH=$PATH:/opt/conda/bin
     source activate transformers
 else
-    CONDA_PREFIX=$PWD
+    # exllama2 is supported only with a conda environment
+    echo "[exllama2] Attention!!! conda is required - skipping installation"
+    exit 0
 fi
 
 echo $CONDA_PREFIX
