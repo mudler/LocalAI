@@ -1,3 +1,7 @@
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+export SKIP_CONDA=1
+endif
+
 .PHONY: ttsvalle
 ttsvalle:
 	$(MAKE) -C ../common-env/transformers

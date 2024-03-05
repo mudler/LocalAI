@@ -5,8 +5,13 @@ set -e
 export PATH=$PATH:/opt/conda/bin
 export SHA=c0ddebaaaf8ffd1b3529c2bb654e650bce2f790f
 
-# Activate conda environment
-source activate transformers
+SKIP_CONDA=${SKIP_CONDA:-0}
+
+if [ $SKIP_CONDA -ne 1 ]; then
+    source activate transformers
+else
+    CONDA_PREFIX=$PWD
+fi
 
 echo $CONDA_PREFIX
 
