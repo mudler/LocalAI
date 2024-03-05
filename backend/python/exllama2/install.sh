@@ -6,6 +6,11 @@ export SHA=c0ddebaaaf8ffd1b3529c2bb654e650bce2f790f
 
 SKIP_CONDA=${SKIP_CONDA:-0}
 
+if [ "$BUILD_TYPE" != "cublas" ]; then
+    echo "[exllamav2] Attention!!! Nvidia GPU is required - skipping installation"
+    exit 0
+fi
+
 if [ $SKIP_CONDA -eq 0 ]; then
     export PATH=$PATH:/opt/conda/bin
     source activate transformers

@@ -3,6 +3,11 @@ set -ex
 
 export PATH=$PATH:/opt/conda/bin
 
+if [ "$BUILD_TYPE" != "cublas" ]; then
+    echo "[exllama] Attention!!! Nvidia GPU is required - skipping installation"
+    exit 0
+fi
+
 # Check if environment exist
 conda_env_exists(){
     ! conda list --name "${@}" >/dev/null 2>/dev/null
