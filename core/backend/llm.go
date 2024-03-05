@@ -13,6 +13,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/google/uuid"
+	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
@@ -20,7 +21,6 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/google/uuid"
 )
 
 type LLMRequest struct {
@@ -41,17 +41,21 @@ type LLMResponse struct {
 	Usage    TokenUsage
 }
 
+type LLMResponseBundle struct {
+	Request  *schema.OpenAIRequest
+	Response []schema.Choice
+	Usage    TokenUsage
+}
+
 type LLMBackendService struct {
 	bcl        *config.BackendConfigLoader
 	ml         *model.ModelLoader
 	appConfig  *config.ApplicationConfig
 	ftMutex    sync.Mutex
 	cutstrings map[string]*regexp.Regexp
-	// lowLevelCommandChannel  chan *LLMRequest
-	// lowLevelResponseChannel chan utils.ErrorOr[*LLMResponse]
-	// commandChannel          chan *schema.OpenAIRequest
-	// responseChannel         chan utils.ErrorOr[*schema.OpenAIResponse]
 }
+
+type endpointGenerationConfigurationFn func(bc *config.BackendConfig, request *schema.OpenAIRequest) (schemaObject string, templatePath string, templateData model.PromptTemplateData, mappingFn func(resp *LLMResponse, index int) schema.Choice)
 
 func NewLLMBackendService(bcl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) LLMBackendService {
 	return LLMBackendService{
@@ -60,10 +64,6 @@ func NewLLMBackendService(bcl *config.BackendConfigLoader, ml *model.ModelLoader
 		appConfig:  appConfig,
 		ftMutex:    sync.Mutex{},
 		cutstrings: make(map[string]*regexp.Regexp),
-		// lowLevelCommandChannel:  make(chan *LLMRequest),
-		// lowLevelResponseChannel: make(chan utils.ErrorOr[*LLMResponse]),
-		// commandChannel:          make(chan *schema.OpenAIRequest),
-		// responseChannel:         make(chan utils.ErrorOr[*schema.OpenAIResponse]),
 	}
 }
 
@@ -181,15 +181,16 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 
 	resultChannel = rawResultChannel
 	tokenChannel = rawTokenChannel
+	return
 }
 
 // TODO: Should predInput be a seperate param still, or should this fn handle extracting it from request??
 func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.OpenAIRequest, bc *config.BackendConfig,
-	mappingFn func(*LLMResponse) (schema.Choice, error), enableCompletionChannels bool, enableTokenChannels bool) (
+	mappingFn func(*LLMResponse) schema.Choice, enableCompletionChannels bool, enableTokenChannels bool) (
 	// Returns:
-	resultChannel <-chan utils.ErrorOr[[]schema.Choice], completionChannels []<-chan utils.ErrorOr[*LLMResponse], tokenChannels []<-chan utils.ErrorOr[*LLMResponse], err error) {
+	resultChannel <-chan utils.ErrorOr[*LLMResponseBundle], completionChannels []<-chan utils.ErrorOr[*LLMResponse], tokenChannels []<-chan utils.ErrorOr[*LLMResponse], err error) {
 
-	rawChannel := make(chan utils.ErrorOr[[]schema.Choice])
+	rawChannel := make(chan utils.ErrorOr[*LLMResponseBundle])
 	if request.N == 0 { // number of completions to return
 		request.N = 1
 	}
@@ -214,56 +215,28 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 
 	resultChannel = rawChannel
 	go func() {
-		utils.SliceOfChannelsResultSynchronizerFatalErrors(completionChannels, rawChannel, mappingFn)
-		close(rawChannel)
-	}()
-}
-
-// TODO: Make a WaitGroup based sync function that clumps together channel results from the results slice to make the []Choice final result???
-
-func (llmbs *LLMBackendService) ComputeChoices(
-	req *schema.OpenAIRequest,
-	predInput string,
-	config *config.BackendConfig,
-	cb func(string, *[]schema.Choice),
-	tokenCallback func(string, TokenUsage) bool) ([]schema.Choice, TokenUsage, error) {
-
-	n := req.N // number of completions to return
-	result := []schema.Choice{}
-
-	if n == 0 {
-		n = 1
-	}
-
-	images := []string{}
-	for _, m := range req.Messages {
-		images = append(images, m.StringImages...)
-	}
-
-	// get the model function to call for the result
-	predFunc, err := llmbs.ModelInference(req.Context, predInput, images, *config, tokenCallback)
-	if err != nil {
-		return result, TokenUsage{}, err
-	}
-
-	tokenUsage := TokenUsage{}
-
-	for i := 0; i < n; i++ {
-		prediction, err := predFunc()
-		if err != nil {
-			return result, TokenUsage{}, err
+		// utils.SliceOfChannelsResultSynchronizerFatalErrors(completionChannels, rawChannel, mappingFn)
+		initialBundle := LLMResponseBundle{
+			Request:  request,
+			Response: []schema.Choice{},
+			Usage:    TokenUsage{},
 		}
 
-		tokenUsage.Prompt += prediction.Usage.Prompt
-		tokenUsage.Completion += prediction.Usage.Completion
-
-		finetunedResponse := llmbs.Finetune(*config, predInput, prediction.Response)
-		cb(finetunedResponse, &result)
-
-		//result = append(result, Choice{Text: prediction})
-
-	}
-	return result, tokenUsage, err
+		wg := utils.SliceOfChannelsReducer(completionChannels, rawChannel, func(iv utils.ErrorOr[*LLMResponse], ov utils.ErrorOr[*LLMResponseBundle]) utils.ErrorOr[*LLMResponseBundle] {
+			if iv.Error != nil {
+				ov.Error = iv.Error
+				// TODO: Decide if we should wipe partials or not?
+				return ov
+			}
+			ov.Value.Usage.Prompt += iv.Value.Usage.Prompt
+			ov.Value.Usage.Completion += iv.Value.Usage.Completion
+			ov.Value.Response = append(ov.Value.Response, mappingFn(iv.Value))
+			return ov
+		}, utils.ErrorOr[*LLMResponseBundle]{Value: &initialBundle})
+		wg.Wait()
+		close(rawChannel)
+	}()
+	return
 }
 
 func (llmbs *LLMBackendService) ModelInference(ctx context.Context, s string, images []string, bc *config.BackendConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
@@ -403,88 +376,61 @@ func (llmbs *LLMBackendService) Finetune(config config.BackendConfig, input, pre
 	return prediction
 }
 
-// TEMPORARY HACK? EXPOSE TO ENDPOINTS FOR NOW?
 // Keeping in place as a reminder to POTENTIALLY ADD MORE VALIDATION HERE???
-func (llmbs *LLMBackendService) GetConfig(request *schema.OpenAIRequest) (*config.BackendConfig, *schema.OpenAIRequest, error) {
+func (llmbs *LLMBackendService) getConfig(request *schema.OpenAIRequest) (*config.BackendConfig, *schema.OpenAIRequest, error) {
 	return config.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, llmbs.bcl, llmbs.appConfig)
-}
-
-func (llmbs *LLMBackendService) Edit(request *schema.OpenAIRequest) (*schema.OpenAIResponse, error) {
-	bc, request, err := llmbs.GetConfig(request)
-	//config.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, llmbs.bcl, llmbs.appConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	templateFile := ""
-
-	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-	if llmbs.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
-		templateFile = bc.Model
-	}
-
-	if bc.TemplateConfig.Edit != "" {
-		templateFile = bc.TemplateConfig.Edit
-	}
-
-	var result []schema.Choice
-	totalTokenUsage := TokenUsage{}
-
-	for _, i := range bc.InputStrings {
-		if templateFile != "" {
-			templatedInput, err := llmbs.ml.EvaluateTemplateForPrompt(model.EditPromptTemplate, templateFile, model.PromptTemplateData{
-				Input:        i,
-				Instruction:  request.Instruction,
-				SystemPrompt: bc.SystemPrompt,
-			})
-			if err == nil {
-				i = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", i)
-			}
-		}
-
-		r, tokenUsage, err := llmbs.ComputeChoices(request, i, bc, func(s string, c *[]schema.Choice) {
-			*c = append(*c, schema.Choice{Text: s})
-		}, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		totalTokenUsage.Prompt += tokenUsage.Prompt
-		totalTokenUsage.Completion += tokenUsage.Completion
-
-		result = append(result, r...)
-	}
-
-	id := uuid.New().String()
-	created := int(time.Now().Unix())
-	resp := &schema.OpenAIResponse{
-		ID:      id,
-		Created: created,
-		Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
-		Choices: result,
-		Object:  "edit",
-		Usage: schema.OpenAIUsage{
-			PromptTokens:     totalTokenUsage.Prompt,
-			CompletionTokens: totalTokenUsage.Completion,
-			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
-		},
-	}
-
-	return resp, nil
 }
 
 // TODO: It would be a lot less messy to make a return struct that had references to each of these channels
 // INTENTIONALLY not doing that quite yet - I believe we need to let the references to unused channels die for the GC to automatically collect -- can we manually free()?
 // finalResultsChannel is the primary async return path: one result for the entire request.
-// promptResultsChannels is DUBIOUS. It's expected to be raw fan-out, but I am exposing for testing? One bundle of []schema.Choice per PromptString?
+// promptResultsChannels is DUBIOUS. It's expected to be raw fan-out used within the function itself, but I am exposing for testing? One bundle of LLMResponseBundle per PromptString? Gets all N completions for a single prompt.
 // completionsChannel is a channel that emits one *LLMResponse per generated completion, be that different prompts or N. Seems the most useful other than "entire request" Request is available to attempt tracing???
 // tokensChannel is a channel that emits one *LLMResponse per generated token. Let's see what happens!
 func (llmbs *LLMBackendService) Completion(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool) (
-	finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[[]schema.Choice],
+	finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*LLMResponseBundle],
 	completionsChannel <-chan utils.ErrorOr[*LLMResponse], tokenChannel <-chan utils.ErrorOr[*LLMResponse], err error) {
 
-	bc, request, err := llmbs.GetConfig(request)
+	return llmbs.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) (
+		schemaObject string, templatePath string, templateData model.PromptTemplateData, mappingFn func(resp *LLMResponse, promptIndex int) schema.Choice) {
+
+		return "edit", bc.TemplateConfig.Completion, model.PromptTemplateData{
+				SystemPrompt: bc.SystemPrompt,
+			}, func(resp *LLMResponse, promptIndex int) schema.Choice {
+				return schema.Choice{
+					Index:        promptIndex,
+					FinishReason: "stop",
+					Text:         resp.Response,
+				}
+			}
+	}, notifyOnPromptResult, notifyOnToken)
+}
+
+func (llmbs *LLMBackendService) Edit(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool) (
+	finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*LLMResponseBundle],
+	completionsChannel <-chan utils.ErrorOr[*LLMResponse], tokenChannel <-chan utils.ErrorOr[*LLMResponse], err error) {
+
+	return llmbs.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) (
+		schemaObject string, templatePath string, templateData model.PromptTemplateData, mappingFn func(resp *LLMResponse, promptIndex int) schema.Choice) {
+
+		return "text_completion", bc.TemplateConfig.Edit, model.PromptTemplateData{
+				SystemPrompt: bc.SystemPrompt,
+				Instruction:  request.Instruction,
+			}, func(resp *LLMResponse, promptIndex int) schema.Choice {
+				return schema.Choice{
+					Index:        promptIndex,
+					FinishReason: "stop",
+					Text:         resp.Response,
+				}
+			}
+	}, notifyOnPromptResult, notifyOnToken)
+}
+
+func (llmbs *LLMBackendService) GenerateTextFromRequest(request *schema.OpenAIRequest, endpointConfigFn endpointGenerationConfigurationFn, notifyOnPromptResult bool, notifyOnToken bool) (
+	finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*LLMResponseBundle],
+	completionsChannel <-chan utils.ErrorOr[*LLMResponse], tokenChannel <-chan utils.ErrorOr[*LLMResponse], err error) {
+
+	bc, request, err := llmbs.getConfig(request)
 	if err != nil {
 		return
 	}
@@ -495,14 +441,14 @@ func (llmbs *LLMBackendService) Completion(request *schema.OpenAIRequest, notify
 
 	if request.Stream {
 		if len(bc.PromptStrings) > 1 {
-			log.Warn().Msg("cannot handle more than 1 `PromptStrings` when Streaming")
+			log.Warn().Msg("potentially cannot handle more than 1 `PromptStrings` when Streaming?")
 			// return nil, fmt.Errorf("cannot handle more than 1 `PromptStrings` when Streaming")
 		}
 		// bc.PromptStrings = bc.PromptStrings[:1] // ?
 	}
 
 	rawFinalResultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
-	promptResultsChannels = []<-chan utils.ErrorOr[[]schema.Choice]{}
+	promptResultsChannels = []<-chan utils.ErrorOr[*LLMResponseBundle]{}
 	var rawCompletionsChannel chan utils.ErrorOr[*LLMResponse]
 	var rawTokenChannel chan utils.ErrorOr[*LLMResponse]
 	if notifyOnPromptResult {
@@ -512,57 +458,39 @@ func (llmbs *LLMBackendService) Completion(request *schema.OpenAIRequest, notify
 		rawTokenChannel = make(chan utils.ErrorOr[*LLMResponse])
 	}
 
-	totalTokenUsage := TokenUsage{}
-
-	/// NOTES TO FUTURE DAVE
-	// THIS IS NOT AT ALL FINISHED BUT HERE IS THE PLAN
-	// RANGE OVER PROMPT STRINGS, CREATING GOROUTINE FOR EACH
-	// WE KICK OFF A "BUNDLE" WHICH IS ONE PROMPT STRING.
-	// FINAL RESULT CHANNEL OF BUNDLE EMITS AN IRC OF []CHOICE
-	// CLUMP TOGETHER AT THE END WITH ANOTHER utils.SliceOfChannelsResultSynchronizerFatalErrors IF NOT STREAMING
-	// IF STREAMING... EITHER FALL BACK ON ONLY LISTEN TO FIRST TOKEN HANDLER OR TRY TO CHAIN ALL TOKEN HANDLERS INTO GIGA LIST
-
 	promptResultsChannelLock := sync.Mutex{}
-	// completionsChannelLock := sync.Mutex{}
-	// tokenChannelLock := sync.Mutex{}
 
-	for promptIndex, prompt := range bc.PromptStrings {
+	schemaObject, templateFile, commonPromptData, mappingFn := endpointConfigFn(bc, request)
 
-		go func() {
+	if len(templateFile) == 0 {
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		if llmbs.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
+			templateFile = bc.Model
+		} else {
+			log.Warn().Msgf("failed to find any template for %+v", request)
+		}
+	}
 
-			templateFile := ""
+	for pI, p := range bc.PromptStrings {
 
-			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-			if llmbs.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
-				templateFile = bc.Model
-			}
-
-			if bc.TemplateConfig.Completion != "" {
-				templateFile = bc.TemplateConfig.Completion
-			}
-
+		go func(promptIndex int, prompt string) {
 			if templateFile != "" {
-				templatedInput, err := llmbs.ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					Input:        prompt,
-					SystemPrompt: bc.SystemPrompt,
-				})
+				promptTemplateData := model.PromptTemplateData{
+					Input: prompt,
+				}
+				err := mergo.Merge(promptTemplateData, commonPromptData, mergo.WithOverride)
 				if err == nil {
-					prompt = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", prompt)
+					templatedInput, err := llmbs.ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, promptTemplateData)
+					if err == nil {
+						prompt = templatedInput
+						log.Debug().Msgf("Template found, input modified to: %s", prompt)
+					}
 				}
 			}
 
-			mappingFn := func(resp *LLMResponse) (schema.Choice, error) {
-				return schema.Choice{
-					Index:        promptIndex,
-					FinishReason: "stop",
-					Text:         resp.Response,
-				}, nil
-			}
-
-			promptResultsChannel, completionChannels, tokenChannels, err := llmbs.GenerateText(prompt, request, bc, mappingFn, false, notifyOnToken)
+			promptResultsChannel, completionChannels, tokenChannels, err := llmbs.GenerateText(prompt, request, bc, func(r *LLMResponse) schema.Choice { return mappingFn(r, promptIndex) }, false, notifyOnToken)
 			if err != nil {
-				log.Error().Msgf("TODO DEBUG IF HIT:\nprompt: %w\nerr: %w", prompt, err)
+				log.Error().Msgf("TODO DEBUG IF HIT:\nprompt: %q\nerr: %w", prompt, err)
 				return
 			}
 			if notifyOnPromptResult {
@@ -574,7 +502,7 @@ func (llmbs *LLMBackendService) Completion(request *schema.OpenAIRequest, notify
 			promptResultsChannelLock.Lock()
 			promptResultsChannels = append(promptResultsChannels, promptResultsChannel)
 			promptResultsChannelLock.Unlock()
-		}()
+		}(pI, p)
 
 	}
 
@@ -582,70 +510,82 @@ func (llmbs *LLMBackendService) Completion(request *schema.OpenAIRequest, notify
 	initialResponse := &schema.OpenAIResponse{
 		ID:      responseId,
 		Created: int(time.Now().Unix()),
-		Model: request.Model,
-		Object:  "text_completion",
-		Usage: schema.OpenAIUsage{}
+		Model:   request.Model,
+		Object:  schemaObject,
+		Usage:   schema.OpenAIUsage{},
 	}
 
 	// utils.SliceOfChannelsRawMerger[[]schema.Choice](promptResultsChannels, rawFinalResultChannel, func(results []schema.Choice) (*schema.OpenAIResponse, error) {
-	utils.SliceOfChannelsReducer[utils.ErrorOr[[]schema.Choice], utils.ErrorOr[*schema.OpenAIResponse]](
+	utils.SliceOfChannelsReducer[utils.ErrorOr[*LLMResponseBundle], utils.ErrorOr[*schema.OpenAIResponse]](
 		promptResultsChannels, rawFinalResultChannel,
-		func(iv utils.ErrorOr[[]schema.Choice], result utils.ErrorOr[*schema.OpenAIResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
-			
+		func(iv utils.ErrorOr[*LLMResponseBundle], result utils.ErrorOr[*schema.OpenAIResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
+
+			if iv.Error != nil {
+				result.Error = iv.Error
+				return result
+			}
+			result.Value.Usage.PromptTokens += iv.Value.Usage.Prompt
+			result.Value.Usage.CompletionTokens += iv.Value.Usage.Completion
+			result.Value.Usage.TotalTokens = result.Value.Usage.PromptTokens + result.Value.Usage.CompletionTokens
+
+			result.Value.Choices = append(result.Value.Choices, iv.Value.Response...)
+
 			return result
 		}, utils.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse})
 
 	finalResultChannel = rawFinalResultChannel
 	completionsChannel = rawCompletionsChannel
 	tokenChannel = rawTokenChannel
+
+	return
 }
 
-func (llmbs *LLMBackendService) completionProcessFn(id string, created int, predInput string, req *schema.OpenAIRequest, bc *config.BackendConfig, responses chan schema.OpenAIResponse) {
+// func (llmbs *LLMBackendService) completionProcessFn(id string, created int, predInput string, req *schema.OpenAIRequest, bc *config.BackendConfig, responses chan schema.OpenAIResponse) {
 
-	templateFile := ""
+// 	templateFile := ""
 
-	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-	if llmbs.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
-		templateFile = bc.Model
-	}
+// 	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+// 	if llmbs.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
+// 		templateFile = bc.Model
+// 	}
 
-	if bc.TemplateConfig.Completion != "" {
-		templateFile = bc.TemplateConfig.Completion
-	}
+// 	if bc.TemplateConfig.Completion != "" {
+// 		templateFile = bc.TemplateConfig.Completion
+// 	}
 
-	if templateFile != "" {
-		templatedInput, err := llmbs.ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-			Input:        predInput,
-			SystemPrompt: bc.SystemPrompt,
-		})
-		if err == nil {
-			predInput = templatedInput
-			log.Debug().Msgf("Template found, input modified to: %s", predInput)
-		}
-	}
+// 	if templateFile != "" {
+// 		templatedInput, err := llmbs.ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
+// 			Input:        predInput,
+// 			SystemPrompt: bc.SystemPrompt,
+// 		})
+// 		if err == nil {
+// 			predInput = templatedInput
+// 			log.Debug().Msgf("Template found, input modified to: %s", predInput)
+// 		}
+// 	}
 
-	llmbs.ComputeChoices(req, predInput, bc, func(s string, c *[]schema.Choice) {}, func(s string, usage TokenUsage) bool {
-		resp := schema.OpenAIResponse{
-			ID:      id,
-			Created: created,
-			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []schema.Choice{
-				{
-					Index: 0,
-					Text:  s,
-				},
-			},
-			Object: "text_completion",
-			Usage: schema.OpenAIUsage{
-				PromptTokens:     usage.Prompt,
-				CompletionTokens: usage.Completion,
-				TotalTokens:      usage.Prompt + usage.Completion,
-			},
-		}
-		log.Debug().Msgf("Sending goroutine: %s", s)
+// 	llmbs.ComputeChoices(req, predInput, bc, func(s string, c *[]schema.Choice) {}, func(s string, usage TokenUsage) bool {
+// 		resp := schema.OpenAIResponse{
+// 			ID:      id,
+// 			Created: created,
+// 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
+// 			Choices: []schema.Choice{
+// 				{
+// 					Index: 0,
+// 					Text:  s,
+// 				},
+// 			},
+// 			Object: "text_completion",
+// 			Usage: schema.OpenAIUsage{
+// 				PromptTokens:     usage.Prompt,
+// 				CompletionTokens: usage.Completion,
+// 				TotalTokens:      usage.Prompt + usage.Completion,
+// 			},
+// 		}
+// 		log.Debug().Msgf("Sending goroutine: %s", s)
 
-		responses <- resp
-		return true
-	})
-	close(responses)
-}
+// 		responses <- resp
+// 		return true
+// 	})
+// 	close(responses)
+// }

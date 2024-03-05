@@ -60,7 +60,7 @@ func (ttsbs *TextToSpeechBackendService) HandleRequests() error {
 			cfg.Backend = request.Backend
 		}
 
-		outFile, _, err := modelTTS(cfg.Backend, request.Input, cfg.Model, ttsbs.ml, ttsbs.appConfig, *cfg)
+		outFile, _, err := modelTTS(cfg.Backend, request.Input, cfg.Model, ttsbs.ml, ttsbs.appConfig, cfg)
 		if err != nil {
 			ttsbs.responseChannel <- utils.ErrorOr[*string]{Error: err}
 			continue
@@ -70,7 +70,7 @@ func (ttsbs *TextToSpeechBackendService) HandleRequests() error {
 	return nil
 }
 
-func modelTTS(backend, text, modelFile string, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (string, *proto.Result, error) {
+func modelTTS(backend, text, modelFile string, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig *config.BackendConfig) (string, *proto.Result, error) {
 	bb := backend
 	if bb == "" {
 		bb = model.PiperBackend
@@ -78,7 +78,7 @@ func modelTTS(backend, text, modelFile string, loader *model.ModelLoader, appCon
 
 	grpcOpts := gRPCModelOpts(backendConfig)
 
-	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
+	opts := modelOpts(&config.BackendConfig{}, appConfig, []model.Option{
 		model.WithBackendString(bb),
 		model.WithModel(modelFile),
 		model.WithContext(appConfig.Context),

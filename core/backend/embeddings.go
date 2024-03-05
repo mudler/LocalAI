@@ -63,7 +63,7 @@ func (ebs *EmbeddingsBackendService) HandleRequests() error {
 
 		for i, s := range bc.InputToken {
 			// get the model function to call for the result
-			embedFn, err := modelEmbedding("", s, ebs.ml, *bc, ebs.appConfig)
+			embedFn, err := modelEmbedding("", s, ebs.ml, bc, ebs.appConfig)
 			if err != nil {
 				ebs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
 				continue
@@ -79,7 +79,7 @@ func (ebs *EmbeddingsBackendService) HandleRequests() error {
 
 		for i, s := range bc.InputStrings {
 			// get the model function to call for the result
-			embedFn, err := modelEmbedding(s, []int{}, ebs.ml, *bc, ebs.appConfig)
+			embedFn, err := modelEmbedding(s, []int{}, ebs.ml, bc, ebs.appConfig)
 			if err != nil {
 				ebs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
 				continue
@@ -107,7 +107,7 @@ func (ebs *EmbeddingsBackendService) HandleRequests() error {
 	return nil
 }
 
-func modelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
+func modelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
 	if !backendConfig.Embeddings {
 		return nil, fmt.Errorf("endpoint disabled for this model by API configuration")
 	}

@@ -193,7 +193,7 @@ func (igbs *ImageGenerationBackendService) HandleRequests() error {
 					continue
 				}
 
-				fn, err := imageGeneration(height, width, mode, step, request.Seed, positive_prompt, negative_prompt, src, output, igbs.ml, *bc, igbs.appConfig)
+				fn, err := imageGeneration(height, width, mode, step, request.Seed, positive_prompt, negative_prompt, src, output, igbs.ml, bc, igbs.appConfig)
 				if err != nil {
 					igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
 					continue
@@ -234,7 +234,7 @@ func (igbs *ImageGenerationBackendService) HandleRequests() error {
 	return nil
 }
 
-func imageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {
+func imageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {
 
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithBackendString(backendConfig.Backend),
