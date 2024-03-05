@@ -23,7 +23,7 @@ RUN apt-get update && \
     apt-get install -y ca-certificates curl patch pip cmake git && apt-get clean
 
 # Install Go
-RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -v -C /usr/local -xz
+RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -C /usr/local -xz
 ENV PATH $PATH:/usr/local/go/bin
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
