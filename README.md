@@ -99,9 +99,6 @@ WebUIs:
 
 Model galleries
 - https://github.com/go-skynet/model-gallery
-  
-UI / Management Programs
-- [LocalAI Manager](https://io.midori-ai.xyz/howtos/easy-model-installer/)
 
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
@@ -112,6 +109,7 @@ Other:
 - Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
 - Telegram bot https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot
 - Examples: https://github.com/mudler/LocalAI/tree/master/examples/
+  
 
 ### 🔗 Resources
 
