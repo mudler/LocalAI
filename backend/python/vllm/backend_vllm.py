@@ -88,6 +88,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         if request.Quantization != "":
             engine_args.quantization = request.Quantization
+        if request.GPUMemoryUtilization != 0:
+            engine_args.gpu_memory_utilization = request.GPUMemoryUtilization
+        if request.TrustRemoteCode:
+            engine_args.trust_remote_code = request.TrustRemoteCode
+        if request.EnforceEager:
+            engine_args.enforce_eager = request.EnforceEager
+        if request.SwapSpace != 0:
+            engine_args.swap_space = request.SwapSpace
+        if request.MaxModelLen != 0:
+            engine_args.max_model_len = request.MaxModelLen
 
         try:
             self.llm = AsyncLLMEngine.from_engine_args(engine_args)

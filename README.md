@@ -48,7 +48,7 @@
 - Tools API support: https://github.com/mudler/LocalAI/pull/1715
 - LLaVa 1.6: https://github.com/mudler/LocalAI/pull/1714
 - ROCm container images: https://github.com/mudler/LocalAI/pull/1595
-- Intel GPU support (sycl): https://github.com/mudler/LocalAI/issues/1653
+- Intel GPU support (sycl, transformers, diffusers): https://github.com/mudler/LocalAI/issues/1653
 - Deprecation of old backends: https://github.com/mudler/LocalAI/issues/1651
 - Mamba support: https://github.com/mudler/LocalAI/pull/1589
 - Start and share models with config file: https://github.com/mudler/LocalAI/pull/1522
@@ -60,7 +60,8 @@ Hot topics (looking for contributors):
 - Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
 - Assistant API: https://github.com/mudler/LocalAI/issues/1273
 - Moderation endpoint: https://github.com/mudler/LocalAI/issues/999
-  
+- Vulkan: https://github.com/mudler/LocalAI/issues/1647
+
 If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
 
 ## 💻 [Getting started](https://localai.io/basics/getting_started/index.html)
@@ -98,9 +99,6 @@ WebUIs:
 
 Model galleries
 - https://github.com/go-skynet/model-gallery
-  
-UI / Management Programs
-- [LocalAI Manager](https://io.midori-ai.xyz/howtos/easy-model-installer/)
 
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
@@ -111,6 +109,7 @@ Other:
 - Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
 - Telegram bot https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot
 - Examples: https://github.com/mudler/LocalAI/tree/master/examples/
+  
 
 ### 🔗 Resources
 
