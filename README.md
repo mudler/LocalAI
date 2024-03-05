@@ -111,7 +111,6 @@ Other:
 - Examples: https://github.com/mudler/LocalAI/tree/master/examples/
   
 Management integration
-- [Midori AI Subsystem Manager](https://io.midori-ai.xyz/subsystem/manager/)
 
 ### 🔗 Resources
 
