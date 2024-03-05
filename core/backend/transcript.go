@@ -67,7 +67,7 @@ func (tbs *TranscriptionBackendService) HandleRequests() error {
 
 func modelTranscription(audio, language string, ml *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (*schema.WhisperResult, error) {
 
-	opts := modelOpts(*backendConfig, appConfig, []model.Option{
+	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithBackendString(model.WhisperBackend),
 		model.WithModel(backendConfig.Model),
 		model.WithContext(appConfig.Context),

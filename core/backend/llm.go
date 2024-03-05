@@ -490,7 +490,7 @@ func (llmbs *LLMBackendService) GenerateTextFromRequest(request *schema.OpenAIRe
 
 			promptResultsChannel, completionChannels, tokenChannels, err := llmbs.GenerateText(prompt, request, bc, func(r *LLMResponse) schema.Choice { return mappingFn(r, promptIndex) }, false, notifyOnToken)
 			if err != nil {
-				log.Error().Msgf("TODO DEBUG IF HIT:\nprompt: %q\nerr: %w", prompt, err)
+				log.Error().Msgf("TODO DEBUG IF HIT:\nprompt: %q\nerr: %q", prompt, err)
 				return
 			}
 			if notifyOnPromptResult {
