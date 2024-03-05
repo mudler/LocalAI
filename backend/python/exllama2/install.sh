@@ -6,10 +6,10 @@ export SHA=c0ddebaaaf8ffd1b3529c2bb654e650bce2f790f
 
 SKIP_CONDA=${SKIP_CONDA:-0}
 
-if [ $SKIP_CONDA -ne 1 ]; then
+if [ $SKIP_CONDA -eq 0 ]; then
+    export PATH=$PATH:/opt/conda/bin
     source activate transformers
 else
-    export PATH=$PATH:/opt/conda/bin
     CONDA_PREFIX=$PWD
 fi
 

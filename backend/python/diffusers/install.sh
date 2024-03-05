@@ -22,13 +22,14 @@ else
 fi
 
 if [ -d "/opt/intel" ]; then
-    # Intel GPU: If the directory exists, we assume we are using the intel image
+    # Intel GPU: If the directory exists, we assume we are using the Intel image
     # https://github.com/intel/intel-extension-for-pytorch/issues/538
     pip install torch==2.1.0a0 \
                 torchvision==0.16.0a0 \
                 torchaudio==2.1.0a0 \
                 intel-extension-for-pytorch==2.1.10+xpu \
                 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
+    
     pip install google-api-python-client \
                 grpcio \
                 grpcio-tools \

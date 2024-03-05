@@ -29,7 +29,7 @@ if [ -d "/opt/intel" ]; then
 fi
 
 if [ "$PIP_CACHE_PURGE" = true ] ; then
-    if [ $SKIP_CONDA -ne 1 ]; then
+    if [ $SKIP_CONDA -eq 0 ]; then
         # Activate conda environment
         source activate transformers
     fi
