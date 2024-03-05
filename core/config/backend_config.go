@@ -1,18 +1,13 @@
 package config
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
-	"strings"
-	"sync"
 
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/pkg/downloader"
+	"github.com/go-skynet/LocalAI/pkg/grammar"
 	"github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -196,72 +191,207 @@ func DefaultConfig(modelFile string) *BackendConfig {
 	}
 }
 
-////// Config Loader ////////
-
-type BackendConfigLoader struct {
-	configs map[string]BackendConfig
-	sync.Mutex
-}
-
-// Load a config file for a model
-func LoadBackendConfigFileByName(modelName, modelPath string, cl *BackendConfigLoader, debug bool, threads, ctx int, f16 bool) (*BackendConfig, error) {
-	// Load a config file if present after the model name
-	modelConfig := filepath.Join(modelPath, modelName+".yaml")
-
-	var cfg *BackendConfig
-
-	defaults := func() {
-		cfg = DefaultConfig(modelName)
-		cfg.ContextSize = ctx
-		cfg.Threads = threads
-		cfg.F16 = f16
-		cfg.Debug = debug
+func updateBackendConfigFromOpenAIRequest(config *BackendConfig, input *schema.OpenAIRequest) {
+	if input.Echo {
+		config.Echo = input.Echo
+	}
+	if input.TopK != 0 {
+		config.TopK = input.TopK
+	}
+	if input.TopP != 0 {
+		config.TopP = input.TopP
 	}
 
-	cfgExisting, exists := cl.GetBackendConfig(modelName)
-	if !exists {
-		if _, err := os.Stat(modelConfig); err == nil {
-			if err := cl.LoadBackendConfig(modelConfig); err != nil {
-				return nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
-			}
-			cfgExisting, exists = cl.GetBackendConfig(modelName)
-			if exists {
-				cfg = &cfgExisting
-			} else {
-				defaults()
-			}
-		} else {
-			defaults()
+	if input.Backend != "" {
+		config.Backend = input.Backend
+	}
+
+	if input.ClipSkip != 0 {
+		config.Diffusers.ClipSkip = input.ClipSkip
+	}
+
+	if input.ModelBaseName != "" {
+		config.AutoGPTQ.ModelBaseName = input.ModelBaseName
+	}
+
+	if input.NegativePromptScale != 0 {
+		config.NegativePromptScale = input.NegativePromptScale
+	}
+
+	if input.UseFastTokenizer {
+		config.UseFastTokenizer = input.UseFastTokenizer
+	}
+
+	if input.NegativePrompt != "" {
+		config.NegativePrompt = input.NegativePrompt
+	}
+
+	if input.RopeFreqBase != 0 {
+		config.RopeFreqBase = input.RopeFreqBase
+	}
+
+	if input.RopeFreqScale != 0 {
+		config.RopeFreqScale = input.RopeFreqScale
+	}
+
+	if input.Grammar != "" {
+		config.Grammar = input.Grammar
+	}
+
+	if input.Temperature != 0 {
+		config.Temperature = input.Temperature
+	}
+
+	if input.Maxtokens != 0 {
+		config.Maxtokens = input.Maxtokens
+	}
+
+	switch stop := input.Stop.(type) {
+	case string:
+		if stop != "" {
+			config.StopWords = append(config.StopWords, stop)
 		}
-	} else {
-		cfg = &cfgExisting
-	}
-
-	// Set the parameters for the language model prediction
-	//updateConfig(cfg, input)
-
-	// Don't allow 0 as setting
-	if cfg.Threads == 0 {
-		if threads != 0 {
-			cfg.Threads = threads
-		} else {
-			cfg.Threads = 4
+	case []interface{}:
+		for _, pp := range stop {
+			if s, ok := pp.(string); ok {
+				config.StopWords = append(config.StopWords, s)
+			}
 		}
 	}
 
-	// Enforce debug flag if passed from CLI
-	if debug {
-		cfg.Debug = true
+	if len(input.Tools) > 0 {
+		for _, tool := range input.Tools {
+			input.Functions = append(input.Functions, tool.Function)
+		}
 	}
 
-	return cfg, nil
-}
+	if input.ToolsChoice != nil {
+		var toolChoice grammar.Tool
+		json.Unmarshal([]byte(input.ToolsChoice.(string)), &toolChoice)
+		input.FunctionCall = map[string]interface{}{
+			"name": toolChoice.Function.Name,
+		}
+	}
 
-func NewBackendConfigLoader() *BackendConfigLoader {
-	return &BackendConfigLoader{
-		configs: make(map[string]BackendConfig),
+	// Decode each request's message content
+	index := 0
+	for i, m := range input.Messages {
+		switch content := m.Content.(type) {
+		case string:
+			input.Messages[i].StringContent = content
+		case []interface{}:
+			dat, _ := json.Marshal(content)
+			c := []schema.Content{}
+			json.Unmarshal(dat, &c)
+			for _, pp := range c {
+				if pp.Type == "text" {
+					input.Messages[i].StringContent = pp.Text
+				} else if pp.Type == "image_url" {
+					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
+					base64, err := utils.GetImageURLAsBase64(pp.ImageURL.URL)
+					if err == nil {
+						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
+						// set a placeholder for each image
+						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
+						index++
+					} else {
+						fmt.Print("Failed encoding image", err)
+					}
+				}
+			}
+		}
+	}
+
+	if input.RepeatPenalty != 0 {
+		config.RepeatPenalty = input.RepeatPenalty
+	}
+
+	if input.Keep != 0 {
+		config.Keep = input.Keep
+	}
+
+	if input.Batch != 0 {
+		config.Batch = input.Batch
+	}
+
+	if input.F16 {
+		config.F16 = input.F16
+	}
+
+	if input.IgnoreEOS {
+		config.IgnoreEOS = input.IgnoreEOS
+	}
+
+	if input.Seed != 0 {
+		config.Seed = input.Seed
+	}
+
+	if input.Mirostat != 0 {
+		config.LLMConfig.Mirostat = input.Mirostat
+	}
+
+	if input.MirostatETA != 0 {
+		config.LLMConfig.MirostatETA = input.MirostatETA
+	}
+
+	if input.MirostatTAU != 0 {
+		config.LLMConfig.MirostatTAU = input.MirostatTAU
+	}
+
+	if input.TypicalP != 0 {
+		config.TypicalP = input.TypicalP
+	}
+
+	switch inputs := input.Input.(type) {
+	case string:
+		if inputs != "" {
+			config.InputStrings = append(config.InputStrings, inputs)
+		}
+	case []interface{}:
+		for _, pp := range inputs {
+			switch i := pp.(type) {
+			case string:
+				config.InputStrings = append(config.InputStrings, i)
+			case []interface{}:
+				tokens := []int{}
+				for _, ii := range i {
+					tokens = append(tokens, int(ii.(float64)))
+				}
+				config.InputToken = append(config.InputToken, tokens)
+			}
+		}
+	}
+
+	// Can be either a string or an object
+	switch fnc := input.FunctionCall.(type) {
+	case string:
+		if fnc != "" {
+			config.SetFunctionCallString(fnc)
+		}
+	case map[string]interface{}:
+		var name string
+		n, exists := fnc["name"]
+		if exists {
+			nn, e := n.(string)
+			if e {
+				name = nn
+			}
+		}
+		config.SetFunctionCallNameString(name)
+	}
+
+	switch p := input.Prompt.(type) {
+	case string:
+		config.PromptStrings = append(config.PromptStrings, p)
+	case []interface{}:
+		for _, pp := range p {
+			if s, ok := pp.(string); ok {
+				config.PromptStrings = append(config.PromptStrings, s)
+			}
+		}
 	}
 }
+
 func ReadBackendConfigFile(file string) ([]*BackendConfig, error) {
 	c := &[]*BackendConfig{}
 	f, err := os.ReadFile(file)
@@ -286,147 +416,4 @@ func ReadBackendConfig(file string) (*BackendConfig, error) {
 	}
 
 	return c, nil
-}
-
-func (cm *BackendConfigLoader) LoadBackendConfigFile(file string) error {
-	cm.Lock()
-	defer cm.Unlock()
-	c, err := ReadBackendConfigFile(file)
-	if err != nil {
-		return fmt.Errorf("cannot load config file: %w", err)
-	}
-
-	for _, cc := range c {
-		cm.configs[cc.Name] = *cc
-	}
-	return nil
-}
-
-func (cl *BackendConfigLoader) LoadBackendConfig(file string) error {
-	cl.Lock()
-	defer cl.Unlock()
-	c, err := ReadBackendConfig(file)
-	if err != nil {
-		return fmt.Errorf("cannot read config file: %w", err)
-	}
-
-	cl.configs[c.Name] = *c
-	return nil
-}
-
-func (cl *BackendConfigLoader) GetBackendConfig(m string) (BackendConfig, bool) {
-	cl.Lock()
-	defer cl.Unlock()
-	v, exists := cl.configs[m]
-	return v, exists
-}
-
-func (cl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
-	cl.Lock()
-	defer cl.Unlock()
-	var res []BackendConfig
-	for _, v := range cl.configs {
-		res = append(res, v)
-	}
-	return res
-}
-
-func (cl *BackendConfigLoader) ListBackendConfigs() []string {
-	cl.Lock()
-	defer cl.Unlock()
-	var res []string
-	for k := range cl.configs {
-		res = append(res, k)
-	}
-	return res
-}
-
-// Preload prepare models if they are not local but url or huggingface repositories
-func (cl *BackendConfigLoader) Preload(modelPath string) error {
-	cl.Lock()
-	defer cl.Unlock()
-
-	status := func(fileName, current, total string, percent float64) {
-		utils.DisplayDownloadFunction(fileName, current, total, percent)
-	}
-
-	log.Info().Msgf("Preloading models from %s", modelPath)
-
-	for i, config := range cl.configs {
-
-		// Download files and verify their SHA
-		for _, file := range config.DownloadFiles {
-			log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
-
-			if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
-				return err
-			}
-			// Create file path
-			filePath := filepath.Join(modelPath, file.Filename)
-
-			if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, status); err != nil {
-				return err
-			}
-		}
-
-		modelURL := config.PredictionOptions.Model
-		modelURL = downloader.ConvertURL(modelURL)
-
-		if downloader.LooksLikeURL(modelURL) {
-			// md5 of model name
-			md5Name := utils.MD5(modelURL)
-
-			// check if file exists
-			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", status)
-				if err != nil {
-					return err
-				}
-			}
-
-			cc := cl.configs[i]
-			c := &cc
-			c.PredictionOptions.Model = md5Name
-			cl.configs[i] = *c
-		}
-		if cl.configs[i].Name != "" {
-			log.Info().Msgf("Model name: %s", cl.configs[i].Name)
-		}
-		if cl.configs[i].Description != "" {
-			log.Info().Msgf("Model description: %s", cl.configs[i].Description)
-		}
-		if cl.configs[i].Usage != "" {
-			log.Info().Msgf("Model usage: \n%s", cl.configs[i].Usage)
-		}
-	}
-	return nil
-}
-
-func (cm *BackendConfigLoader) LoadBackendConfigsFromPath(path string) error {
-	cm.Lock()
-	defer cm.Unlock()
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return err
-	}
-	files := make([]fs.FileInfo, 0, len(entries))
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		files = append(files, info)
-	}
-	for _, file := range files {
-		// Skip templates, YAML and .keep files
-		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
-			continue
-		}
-		c, err := ReadBackendConfig(filepath.Join(path, file.Name()))
-		if err == nil {
-			cm.configs[c.Name] = *c
-		}
-	}
-
-	return nil
 }

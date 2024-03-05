@@ -1,19 +1,16 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 
+	"github.com/go-skynet/LocalAI/core"
+	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
-
-	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
-	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -21,11 +18,11 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
-func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
+func App(application *core.Application) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
-		BodyLimit:             appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
-		DisableStartupMessage: appConfig.DisableMessage,
+		BodyLimit:             application.ApplicationConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
+		DisableStartupMessage: application.ApplicationConfig.DisableMessage,
 		// Override default error handler
 		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
 			// Status code defaults to 500
@@ -46,7 +43,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		},
 	})
 
-	if appConfig.Debug {
+	if application.ApplicationConfig.Debug {
 		app.Use(logger.New(logger.Config{
 			Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 		}))
@@ -54,7 +51,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Default middleware config
 
-	if !appConfig.Debug {
+	if !application.ApplicationConfig.Debug {
 		app.Use(recover.New())
 	}
 
@@ -72,27 +69,27 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
-		if len(appConfig.ApiKeys) == 0 {
+		if len(application.ApplicationConfig.ApiKeys) == 0 {
 			return c.Next()
 		}
 
-		// Check for api_keys.json file
-		fileContent, err := os.ReadFile("api_keys.json")
-		if err == nil {
-			// Parse JSON content from the file
-			var fileKeys []string
-			err := json.Unmarshal(fileContent, &fileKeys)
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Error parsing api_keys.json"})
-			}
+		// // Check for api_keys.json file
+		// fileContent, err := os.ReadFile("api_keys.json")
+		// if err == nil {
+		// 	// Parse JSON content from the file
+		// 	var fileKeys []string
+		// 	err := json.Unmarshal(fileContent, &fileKeys)
+		// 	if err != nil {
+		// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Error parsing api_keys.json"})
+		// 	}
 
-			// Add file keys to options.ApiKeys
-			appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
-		}
+		// 	// Add file keys to options.ApiKeys
+		// 	application.ApplicationConfig.ApiKeys = append(application.ApplicationConfig.ApiKeys, fileKeys...)
+		// }
 
-		if len(appConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
+		// if len(application.ApplicationConfig.ApiKeys) == 0 {
+		// 	return c.Next()
+		// }
 
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
@@ -104,7 +101,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		}
 
 		apiKey := authHeaderParts[1]
-		for _, key := range appConfig.ApiKeys {
+		for _, key := range application.ApplicationConfig.ApiKeys {
 			if apiKey == key {
 				return c.Next()
 			}
@@ -114,20 +111,24 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	}
 
-	if appConfig.CORS {
+	if application.ApplicationConfig.CORS {
 		var c func(ctx *fiber.Ctx) error
-		if appConfig.CORSAllowOrigins == "" {
+		if application.ApplicationConfig.CORSAllowOrigins == "" {
 			c = cors.New()
 		} else {
-			c = cors.New(cors.Config{AllowOrigins: appConfig.CORSAllowOrigins})
+			c = cors.New(cors.Config{AllowOrigins: application.ApplicationConfig.CORSAllowOrigins})
 		}
 
 		app.Use(c)
 	}
 
+	// TODO: Figure out why this only works across two lines. Presumably caused by unrelated error in file.
+	rawFCE := fiberContext.NewFiberContextExtractor(application.ModelLoader, application.ApplicationConfig)
+	fiberContextExtractor := &rawFCE
+
 	// LocalAI API endpoints
-	galleryService := services.NewGalleryService(appConfig.ModelPath)
-	galleryService.Start(appConfig.Context, cl)
+	galleryService := services.NewGalleryService(application.ApplicationConfig.ModelPath)
+	galleryService.Start(application.ApplicationConfig.Context, application.BackendConfigLoader)
 
 	app.Get("/version", auth, func(c *fiber.Ctx) error {
 		return c.JSON(struct {
@@ -180,7 +181,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	app.Post("/v1/engines/:model/embeddings", auth, openai.EmbeddingsEndpoint(cl, ml, appConfig))
 
 	// audio
-	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cl, ml, appConfig))
+	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(fiberContextExtractor, application.TranscriptionBackendService))
 	app.Post("/tts", auth, localai.TTSEndpoint(cl, ml, appConfig))
 
 	// images

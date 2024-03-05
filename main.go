@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/schema"
 
 	"github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/startup"
@@ -296,24 +297,24 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			}
 
 			if ctx.Bool("preload-backend-only") {
-				_, _, _, err := startup.Startup(opts...)
+				_, err := startup.Startup(opts...)
 				return err
 			}
 
-			cl, ml, options, err := startup.Startup(opts...)
+			application, err := startup.Startup(opts...)
 
 			if err != nil {
 				return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 			}
 
-			closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
+			closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), application.ApplicationConfig)
 			defer closeConfigWatcherFn()
 
 			if err != nil {
 				return fmt.Errorf("failed while watching configuration directory %s", ctx.String("localai-config-dir"))
 			}
 
-			appHTTP, err := http.App(cl, ml, options)
+			appHTTP, err := http.App(application)
 			if err != nil {
 				log.Error().Msg("Error during HTTP App constructor")
 				return err
@@ -501,7 +502,16 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer ml.StopAllGRPC()
 
-					tr, err := backend.ModelTranscription(filename, language, ml, c, opts)
+					tbs := backend.NewTranscriptionBackendService(ml, cl, opts)
+					defer tbs.Shutdown()
+
+					tr, err := tbs.Transcribe(&schema.OpenAIRequest{
+						PredictionOptions: schema.PredictionOptions{
+							Language: language,
+						},
+						File: filename,
+					})
+
 					if err != nil {
 						return err
 					}

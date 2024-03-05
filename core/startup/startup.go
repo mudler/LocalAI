@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
@@ -14,7 +15,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, error) {
+// (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, error) {
+func Startup(opts ...config.AppOption) (*core.Application, error) {
 	options := config.NewApplicationConfig(opts...)
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -27,66 +29,68 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	// Make sure directories exists
 	if options.ModelPath == "" {
-		return nil, nil, nil, fmt.Errorf("options.ModelPath cannot be empty")
+		return nil, fmt.Errorf("options.ModelPath cannot be empty")
 	}
 	err := os.MkdirAll(options.ModelPath, 0755)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to create ModelPath: %q", err)
+		return nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
 	if options.ImageDir != "" {
 		err := os.MkdirAll(options.ImageDir, 0755)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create ImageDir: %q", err)
+			return nil, fmt.Errorf("unable to create ImageDir: %q", err)
 		}
 	}
 	if options.AudioDir != "" {
 		err := os.MkdirAll(options.AudioDir, 0755)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create AudioDir: %q", err)
+			return nil, fmt.Errorf("unable to create AudioDir: %q", err)
 		}
 	}
 	if options.UploadDir != "" {
 		err := os.MkdirAll(options.UploadDir, 0755)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create UploadDir: %q", err)
+			return nil, fmt.Errorf("unable to create UploadDir: %q", err)
 		}
 	}
+
+	app := &core.Application{}
 
 	//
 	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
 
-	cl := config.NewBackendConfigLoader()
-	ml := model.NewModelLoader(options.ModelPath)
+	app.BackendConfigLoader = config.NewBackendConfigLoader()
+	app.ModelLoader = model.NewModelLoader(options.ModelPath)
 
-	if err := cl.LoadBackendConfigsFromPath(options.ModelPath); err != nil {
+	if err := app.BackendConfigLoader.LoadBackendConfigsFromPath(options.ModelPath); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())
 	}
 
 	if options.ConfigFile != "" {
-		if err := cl.LoadBackendConfigFile(options.ConfigFile); err != nil {
+		if err := app.BackendConfigLoader.LoadBackendConfigFile(options.ConfigFile); err != nil {
 			log.Error().Msgf("error loading config file: %s", err.Error())
 		}
 	}
 
-	if err := cl.Preload(options.ModelPath); err != nil {
+	if err := app.BackendConfigLoader.Preload(options.ModelPath); err != nil {
 		log.Error().Msgf("error downloading models: %s", err.Error())
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, cl, options.Galleries); err != nil {
-			return nil, nil, nil, err
+		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, app.BackendConfigLoader, options.Galleries); err != nil {
+			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, cl, options.Galleries); err != nil {
-			return nil, nil, nil, err
+		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, app.BackendConfigLoader, options.Galleries); err != nil {
+			return nil, err
 		}
 	}
 
 	if options.Debug {
-		for _, v := range cl.ListBackendConfigs() {
-			cfg, _ := cl.GetBackendConfig(v)
+		for _, v := range app.BackendConfigLoader.ListBackendConfigs() {
+			cfg, _ := app.BackendConfigLoader.GetBackendConfig(v)
 			log.Debug().Msgf("Model: %s (config: %+v)", v, cfg)
 		}
 	}
@@ -104,17 +108,17 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	go func() {
 		<-options.Context.Done()
 		log.Debug().Msgf("Context canceled, shutting down")
-		ml.StopAllGRPC()
+		app.ModelLoader.StopAllGRPC()
 	}()
 
 	if options.WatchDog {
 		wd := model.NewWatchDog(
-			ml,
+			app.ModelLoader,
 			options.WatchDogBusyTimeout,
 			options.WatchDogIdleTimeout,
 			options.WatchDogBusy,
 			options.WatchDogIdle)
-		ml.SetWatchDog(wd)
+		app.ModelLoader.SetWatchDog(wd)
 		go wd.Run()
 		go func() {
 			<-options.Context.Done()
@@ -123,6 +127,8 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		}()
 	}
 
+	app.ApplicationConfig = options
+
 	log.Info().Msg("core/startup process completed!")
-	return cl, ml, options, nil
+	return app, nil
 }

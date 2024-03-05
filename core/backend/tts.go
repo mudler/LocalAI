@@ -7,29 +7,70 @@ import (
 	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/schema"
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
-func generateUniqueFileName(dir, baseName, ext string) string {
-	counter := 1
-	fileName := baseName + ext
+type TextToSpeechBackendService struct {
+	ml              *model.ModelLoader
+	bcl             *config.BackendConfigLoader
+	appConfig       *config.ApplicationConfig
+	commandChannel  chan *schema.TTSRequest
+	responseChannel chan utils.ErrorOr[*string]
+}
 
-	for {
-		filePath := filepath.Join(dir, fileName)
-		_, err := os.Stat(filePath)
-		if os.IsNotExist(err) {
-			return fileName
-		}
-
-		counter++
-		fileName = fmt.Sprintf("%s_%d%s", baseName, counter, ext)
+func NewTextToSpeechBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) TextToSpeechBackendService {
+	return TextToSpeechBackendService{
+		ml:              ml,
+		bcl:             bcl,
+		appConfig:       appConfig,
+		commandChannel:  make(chan *schema.TTSRequest),
+		responseChannel: make(chan utils.ErrorOr[*string]),
 	}
 }
 
-func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (string, *proto.Result, error) {
+func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequest) (*string, error) {
+	ttsbs.commandChannel <- request
+	raw := <-ttsbs.responseChannel
+	if raw.Error != nil {
+		return nil, raw.Error
+	}
+	return raw.Value, nil
+}
+
+func (ttsbs *TextToSpeechBackendService) Shutdown() error {
+	// TODO: Should this return error? Can we ever fail that hard?
+	close(ttsbs.commandChannel)
+	close(ttsbs.responseChannel)
+	return nil
+}
+
+func (ttsbs *TextToSpeechBackendService) HandleRequests() error {
+	for request := range ttsbs.commandChannel {
+		cfg, err := config.LoadBackendConfigFileByName(request.Model, ttsbs.bcl, ttsbs.appConfig)
+		if err != nil {
+			ttsbs.responseChannel <- utils.ErrorOr[*string]{Error: err}
+			continue
+		}
+
+		if request.Backend != "" {
+			cfg.Backend = request.Backend
+		}
+
+		outFile, _, err := modelTTS(cfg.Backend, request.Input, cfg.Model, ttsbs.ml, ttsbs.appConfig, *cfg)
+		if err != nil {
+			ttsbs.responseChannel <- utils.ErrorOr[*string]{Error: err}
+			continue
+		}
+		ttsbs.responseChannel <- utils.ErrorOr[*string]{Value: &outFile}
+	}
+	return nil
+}
+
+func modelTTS(backend, text, modelFile string, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (string, *proto.Result, error) {
 	bb := backend
 	if bb == "" {
 		bb = model.PiperBackend
@@ -80,4 +121,20 @@ func ModelTTS(backend, text, modelFile string, loader *model.ModelLoader, appCon
 	})
 
 	return filePath, res, err
+}
+
+func generateUniqueFileName(dir, baseName, ext string) string {
+	counter := 1
+	fileName := baseName + ext
+
+	for {
+		filePath := filepath.Join(dir, fileName)
+		_, err := os.Stat(filePath)
+		if os.IsNotExist(err) {
+			return fileName
+		}
+
+		counter++
+		fileName = fmt.Sprintf("%s_%d%s", baseName, counter, ext)
+	}
 }

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
+	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
@@ -21,57 +21,24 @@ import (
 )
 
 // https://platform.openai.com/docs/api-reference/completions
-func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, llmbs *backend.LLMBackendService) func(c *fiber.Ctx) error {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
-		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
-			resp := schema.OpenAIResponse{
-				ID:      id,
-				Created: created,
-				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{
-					{
-						Index: 0,
-						Text:  s,
-					},
-				},
-				Object: "text_completion",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     usage.Prompt,
-					CompletionTokens: usage.Completion,
-					TotalTokens:      usage.Prompt + usage.Completion,
-				},
-			}
-			log.Debug().Msgf("Sending goroutine: %s", s)
-
-			responses <- resp
-			return true
-		})
-		close(responses)
-	}
-
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, ml, appConfig, true)
+		_, request, err := fce.OpenAIRequestFromContext(c, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		log.Debug().Msgf("`input`: %+v", input)
+		log.Debug().Msgf("`OpenAIRequest`: %+v", request)
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
-		}
+		// bc, request, err := llmbs.GetConfig(request)
+		// if err != nil {
+		// 	return err
+		// }
 
-		if input.ResponseFormat.Type == "json_object" {
-			input.Grammar = grammar.JSONBNF
-		}
-
-		log.Debug().Msgf("Parameter Config: %+v", config)
-
-		if input.Stream {
+		if request.Stream {
 			log.Debug().Msgf("Stream request received")
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
@@ -79,37 +46,12 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
-		}
 
-		templateFile := ""
+			// if len(bc.PromptStrings) > 1 {
+			// 	return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
+			// }
 
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
-			templateFile = config.Model
-		}
-
-		if config.TemplateConfig.Completion != "" {
-			templateFile = config.TemplateConfig.Completion
-		}
-
-		if input.Stream {
-			if len(config.PromptStrings) > 1 {
-				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
-			}
-
-			predInput := config.PromptStrings[0]
-
-			if templateFile != "" {
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					Input: predInput,
-				})
-				if err == nil {
-					predInput = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", predInput)
-				}
-			}
-
-			responses := make(chan schema.OpenAIResponse)
+			// predInput := bc.PromptStrings[0]
 
 			go process(predInput, input, config, ml, responses)
 

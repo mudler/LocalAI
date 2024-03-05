@@ -9,25 +9,22 @@ import (
 	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
 // https://platform.openai.com/docs/api-reference/audio/create
-func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func TranscriptEndpoint(fce *fiberContext.FiberContextExtractor, tbs *backend.TranscriptionBackendService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, ml, appConfig, false)
+		_, request, err := fce.OpenAIRequestFromContext(c, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
-		}
+		// TODO: Investigate this later
+
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -59,12 +56,13 @@ func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		tr, err := backend.ModelTranscription(dst, input.Language, ml, *config, appConfig)
+		request.File = dst
+
+		tr, err := tbs.Transcribe(request)
 		if err != nil {
 			return err
 		}
-
-		log.Debug().Msgf("Trascribed: %+v", tr)
+		log.Debug().Msgf("Transcribed: %+v", tr)
 		// TODO: handle different outputs here
 		return c.Status(http.StatusOK).JSON(tr)
 	}

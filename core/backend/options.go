@@ -9,7 +9,7 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
+func modelOpts(bc *config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
 	if so.SingleBackend {
 		opts = append(opts, model.WithSingleActiveBackend())
 	}
@@ -18,12 +18,12 @@ func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []mode
 		opts = append(opts, model.EnableParallelRequests)
 	}
 
-	if c.GRPC.Attempts != 0 {
-		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
+	if bc.GRPC.Attempts != 0 {
+		opts = append(opts, model.WithGRPCAttempts(bc.GRPC.Attempts))
 	}
 
-	if c.GRPC.AttemptsSleepTime != 0 {
-		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
+	if bc.GRPC.AttemptsSleepTime != 0 {
+		opts = append(opts, model.WithGRPCAttemptsDelay(bc.GRPC.AttemptsSleepTime))
 	}
 
 	for k, v := range so.ExternalGRPCBackends {
@@ -33,7 +33,7 @@ func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []mode
 	return opts
 }
 
-func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
+func gRPCModelOpts(c *config.BackendConfig) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
@@ -82,46 +82,46 @@ func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	}
 }
 
-func gRPCPredictOpts(c config.BackendConfig, modelPath string) *pb.PredictOptions {
+func gRPCPredictOpts(bc *config.BackendConfig, modelPath string) *pb.PredictOptions {
 	promptCachePath := ""
-	if c.PromptCachePath != "" {
-		p := filepath.Join(modelPath, c.PromptCachePath)
+	if bc.PromptCachePath != "" {
+		p := filepath.Join(modelPath, bc.PromptCachePath)
 		os.MkdirAll(filepath.Dir(p), 0755)
 		promptCachePath = p
 	}
 	return &pb.PredictOptions{
-		Temperature:         float32(c.Temperature),
-		TopP:                float32(c.TopP),
-		NDraft:              c.NDraft,
-		TopK:                int32(c.TopK),
-		Tokens:              int32(c.Maxtokens),
-		Threads:             int32(c.Threads),
-		PromptCacheAll:      c.PromptCacheAll,
-		PromptCacheRO:       c.PromptCacheRO,
+		Temperature:         float32(bc.Temperature),
+		TopP:                float32(bc.TopP),
+		NDraft:              bc.NDraft,
+		TopK:                int32(bc.TopK),
+		Tokens:              int32(bc.Maxtokens),
+		Threads:             int32(bc.Threads),
+		PromptCacheAll:      bc.PromptCacheAll,
+		PromptCacheRO:       bc.PromptCacheRO,
 		PromptCachePath:     promptCachePath,
-		F16KV:               c.F16,
-		DebugMode:           c.Debug,
-		Grammar:             c.Grammar,
-		NegativePromptScale: c.NegativePromptScale,
-		RopeFreqBase:        c.RopeFreqBase,
-		RopeFreqScale:       c.RopeFreqScale,
-		NegativePrompt:      c.NegativePrompt,
-		Mirostat:            int32(c.LLMConfig.Mirostat),
-		MirostatETA:         float32(c.LLMConfig.MirostatETA),
-		MirostatTAU:         float32(c.LLMConfig.MirostatTAU),
-		Debug:               c.Debug,
-		StopPrompts:         c.StopWords,
-		Repeat:              int32(c.RepeatPenalty),
-		NKeep:               int32(c.Keep),
-		Batch:               int32(c.Batch),
-		IgnoreEOS:           c.IgnoreEOS,
-		Seed:                int32(c.Seed),
-		FrequencyPenalty:    float32(c.FrequencyPenalty),
-		MLock:               c.MMlock,
-		MMap:                c.MMap,
-		MainGPU:             c.MainGPU,
-		TensorSplit:         c.TensorSplit,
-		TailFreeSamplingZ:   float32(c.TFZ),
-		TypicalP:            float32(c.TypicalP),
+		F16KV:               bc.F16,
+		DebugMode:           bc.Debug,
+		Grammar:             bc.Grammar,
+		NegativePromptScale: bc.NegativePromptScale,
+		RopeFreqBase:        bc.RopeFreqBase,
+		RopeFreqScale:       bc.RopeFreqScale,
+		NegativePrompt:      bc.NegativePrompt,
+		Mirostat:            int32(bc.LLMConfig.Mirostat),
+		MirostatETA:         float32(bc.LLMConfig.MirostatETA),
+		MirostatTAU:         float32(bc.LLMConfig.MirostatTAU),
+		Debug:               bc.Debug,
+		StopPrompts:         bc.StopWords,
+		Repeat:              int32(bc.RepeatPenalty),
+		NKeep:               int32(bc.Keep),
+		Batch:               int32(bc.Batch),
+		IgnoreEOS:           bc.IgnoreEOS,
+		Seed:                int32(bc.Seed),
+		FrequencyPenalty:    float32(bc.FrequencyPenalty),
+		MLock:               bc.MMlock,
+		MMap:                bc.MMap,
+		MainGPU:             bc.MainGPU,
+		TensorSplit:         bc.TensorSplit,
+		TailFreeSamplingZ:   float32(bc.TFZ),
+		TypicalP:            float32(bc.TypicalP),
 	}
 }
