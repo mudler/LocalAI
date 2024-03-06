@@ -245,8 +245,18 @@ backend: vllm
 parameters:
     model: "facebook/opt-125m"
 
-# Decomment to specify a quantization method (optional)
+# Uncomment to specify a quantization method (optional)
 # quantization: "awq"
+# Uncomment to limit the GPU memory utilization (vLLM default is 0.9 for 90%)
+# gpu_memory_utilization: 0.5
+# Uncomment to trust remote code from huggingface
+# trust_remote_code: true
+# Uncomment to enable eager execution
+# enforce_eager: true
+# Uncomment to specify the size of the CPU swap space per GPU (in GiB)
+# swap_space: 2
+# Uncomment to specify the maximum length of a sequence (including prompt and output)
+# max_model_len: 32768
 ```
 
 The backend will automatically download the required files in order to run the model.

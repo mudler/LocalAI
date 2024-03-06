@@ -48,7 +48,7 @@
 - Tools API support: https://github.com/mudler/LocalAI/pull/1715
 - LLaVa 1.6: https://github.com/mudler/LocalAI/pull/1714
 - ROCm container images: https://github.com/mudler/LocalAI/pull/1595
-- Intel GPU support (sycl): https://github.com/mudler/LocalAI/issues/1653
+- Intel GPU support (sycl, transformers, diffusers): https://github.com/mudler/LocalAI/issues/1653
 - Deprecation of old backends: https://github.com/mudler/LocalAI/issues/1651
 - Mamba support: https://github.com/mudler/LocalAI/pull/1589
 - Start and share models with config file: https://github.com/mudler/LocalAI/pull/1522
@@ -59,7 +59,9 @@ Hot topics (looking for contributors):
 - Backends v2: https://github.com/mudler/LocalAI/issues/1126
 - Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
 - Assistant API: https://github.com/mudler/LocalAI/issues/1273
-  
+- Moderation endpoint: https://github.com/mudler/LocalAI/issues/999
+- Vulkan: https://github.com/mudler/LocalAI/issues/1647
+
 If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
 
 ## 💻 [Getting started](https://localai.io/basics/getting_started/index.html)
@@ -67,7 +69,7 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 For a detailed step-by-step introduction, refer to the [Getting Started](https://localai.io/basics/getting_started/index.html) guide. For those in a hurry, here's a straightforward one-liner to launch a LocalAI instance with [phi-2](https://huggingface.co/microsoft/phi-2) using `docker`:
 
 ```
-docker run -ti -p 8080:8080 localai/localai:v2.7.0-ffmpeg-core phi-2
+docker run -ti -p 8080:8080 localai/localai:v2.9.0-ffmpeg-core phi-2
 ```
 
 ## 🚀 [Features](https://localai.io/features/)
@@ -97,9 +99,6 @@ WebUIs:
 
 Model galleries
 - https://github.com/go-skynet/model-gallery
-  
-UI / Management Programs
-- [LocalAI Manager](https://io.midori-ai.xyz/howtos/easy-model-installer/)
 
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
@@ -110,6 +109,7 @@ Other:
 - Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
 - Telegram bot https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot
 - Examples: https://github.com/mudler/LocalAI/tree/master/examples/
+  
 
 ### 🔗 Resources
 
@@ -121,6 +121,8 @@ Other:
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
 
+- [Run LocalAI on AWS EKS with Pulumi](https://www.pulumi.com/ai/answers/tiZMDoZzZV6TLxgDXNBnFE/deploying-helm-charts-on-aws-eks)
+- [Run LocalAI on AWS](https://staleks.hashnode.dev/installing-localai-on-aws-ec2-instance)
 - [Create a slackbot for teams and OSS projects that answer to documentation](https://mudler.pm/posts/smart-slackbot-for-teams/)
 - [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)
 - [Question Answering on Documents locally with LangChain, LocalAI, Chroma, and GPT4All](https://mudler.pm/posts/localai-question-answering/)

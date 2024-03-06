@@ -3,36 +3,36 @@ package backend
 import (
 	"fmt"
 
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
+
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.Config, o *options.Option) (func() ([]float32, error), error) {
-	if !c.Embeddings {
+func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
+	if !backendConfig.Embeddings {
 		return nil, fmt.Errorf("endpoint disabled for this model by API configuration")
 	}
 
-	modelFile := c.Model
+	modelFile := backendConfig.Model
 
-	grpcOpts := gRPCModelOpts(c)
+	grpcOpts := gRPCModelOpts(backendConfig)
 
 	var inferenceModel interface{}
 	var err error
 
-	opts := modelOpts(c, o, []model.Option{
+	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(c.Threads)),
-		model.WithAssetDir(o.AssetsDestination),
+		model.WithThreads(uint32(backendConfig.Threads)),
+		model.WithAssetDir(appConfig.AssetsDestination),
 		model.WithModel(modelFile),
-		model.WithContext(o.Context),
+		model.WithContext(appConfig.Context),
 	})
 
-	if c.Backend == "" {
+	if backendConfig.Backend == "" {
 		inferenceModel, err = loader.GreedyLoader(opts...)
 	} else {
-		opts = append(opts, model.WithBackendString(c.Backend))
+		opts = append(opts, model.WithBackendString(backendConfig.Backend))
 		inferenceModel, err = loader.BackendLoader(opts...)
 	}
 	if err != nil {
@@ -43,7 +43,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 	switch model := inferenceModel.(type) {
 	case grpc.Backend:
 		fn = func() ([]float32, error) {
-			predictOptions := gRPCPredictOpts(c, loader.ModelPath)
+			predictOptions := gRPCPredictOpts(backendConfig, loader.ModelPath)
 			if len(tokens) > 0 {
 				embeds := []int32{}
 
@@ -52,7 +52,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 				}
 				predictOptions.EmbeddingTokens = embeds
 
-				res, err := model.Embeddings(o.Context, predictOptions)
+				res, err := model.Embeddings(appConfig.Context, predictOptions)
 				if err != nil {
 					return nil, err
 				}
@@ -61,7 +61,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, c config.
 			}
 			predictOptions.Embeddings = s
 
-			res, err := model.Embeddings(o.Context, predictOptions)
+			res, err := model.Embeddings(appConfig.Context, predictOptions)
 			if err != nil {
 				return nil, err
 			}

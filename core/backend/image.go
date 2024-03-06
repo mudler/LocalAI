@@ -1,33 +1,33 @@
 package backend
 
 import (
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
+
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, c config.Config, o *options.Option) (func() error, error) {
+func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {
 
-	opts := modelOpts(c, o, []model.Option{
-		model.WithBackendString(c.Backend),
-		model.WithAssetDir(o.AssetsDestination),
-		model.WithThreads(uint32(c.Threads)),
-		model.WithContext(o.Context),
-		model.WithModel(c.Model),
+	opts := modelOpts(backendConfig, appConfig, []model.Option{
+		model.WithBackendString(backendConfig.Backend),
+		model.WithAssetDir(appConfig.AssetsDestination),
+		model.WithThreads(uint32(backendConfig.Threads)),
+		model.WithContext(appConfig.Context),
+		model.WithModel(backendConfig.Model),
 		model.WithLoadGRPCLoadModelOpts(&proto.ModelOptions{
-			CUDA:          c.CUDA || c.Diffusers.CUDA,
-			SchedulerType: c.Diffusers.SchedulerType,
-			PipelineType:  c.Diffusers.PipelineType,
-			CFGScale:      c.Diffusers.CFGScale,
-			LoraAdapter:   c.LoraAdapter,
-			LoraScale:     c.LoraScale,
-			LoraBase:      c.LoraBase,
-			IMG2IMG:       c.Diffusers.IMG2IMG,
-			CLIPModel:     c.Diffusers.ClipModel,
-			CLIPSubfolder: c.Diffusers.ClipSubFolder,
-			CLIPSkip:      int32(c.Diffusers.ClipSkip),
-			ControlNet:    c.Diffusers.ControlNet,
+			CUDA:          backendConfig.CUDA || backendConfig.Diffusers.CUDA,
+			SchedulerType: backendConfig.Diffusers.SchedulerType,
+			PipelineType:  backendConfig.Diffusers.PipelineType,
+			CFGScale:      backendConfig.Diffusers.CFGScale,
+			LoraAdapter:   backendConfig.LoraAdapter,
+			LoraScale:     backendConfig.LoraScale,
+			LoraBase:      backendConfig.LoraBase,
+			IMG2IMG:       backendConfig.Diffusers.IMG2IMG,
+			CLIPModel:     backendConfig.Diffusers.ClipModel,
+			CLIPSubfolder: backendConfig.Diffusers.ClipSubFolder,
+			CLIPSkip:      int32(backendConfig.Diffusers.ClipSkip),
+			ControlNet:    backendConfig.Diffusers.ControlNet,
 		}),
 	})
 
@@ -40,19 +40,19 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 
 	fn := func() error {
 		_, err := inferenceModel.GenerateImage(
-			o.Context,
+			appConfig.Context,
 			&proto.GenerateImageRequest{
 				Height:           int32(height),
 				Width:            int32(width),
 				Mode:             int32(mode),
 				Step:             int32(step),
 				Seed:             int32(seed),
-				CLIPSkip:         int32(c.Diffusers.ClipSkip),
+				CLIPSkip:         int32(backendConfig.Diffusers.ClipSkip),
 				PositivePrompt:   positive_prompt,
 				NegativePrompt:   negative_prompt,
 				Dst:              dst,
 				Src:              src,
-				EnableParameters: c.Diffusers.EnableParameters,
+				EnableParameters: backendConfig.Diffusers.EnableParameters,
 			})
 		return err
 	}

@@ -16,16 +16,16 @@ func SaveConfig(filePath, fileName string, obj any) {
 	absolutePath := filepath.Join(filePath, fileName)
 	err = os.WriteFile(absolutePath, file, 0644)
 	if err != nil {
-		log.Error().Msgf("Failed to save uploadedFiles to file: %s", err)
+		log.Error().Msgf("Failed to save configuration file to %s: %s", absolutePath, err)
 	}
 }
 
-func LoadConfig(filePath, fileName string, obj any) {
+func LoadConfig(filePath, fileName string, obj interface{}) {
 	uploadFilePath := filepath.Join(filePath, fileName)
 
 	_, err := os.Stat(uploadFilePath)
 	if os.IsNotExist(err) {
-		log.Debug().Msgf("No uploadedFiles file found at %s", uploadFilePath)
+		log.Debug().Msgf("No configuration file found at %s", uploadFilePath)
 		return
 	}
 
@@ -35,7 +35,7 @@ func LoadConfig(filePath, fileName string, obj any) {
 	} else {
 		err = json.Unmarshal(file, &obj)
 		if err != nil {
-			log.Error().Msgf("Failed to JSON unmarshal the file into uploadedFiles: %s", err)
+			log.Error().Msgf("Failed to JSON unmarshal the file %s: %v", uploadFilePath, err)
 		}
 	}
 }

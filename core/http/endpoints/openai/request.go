@@ -5,13 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
-	fiberContext "github.com/go-skynet/LocalAI/api/ctx"
-	config "github.com/go-skynet/LocalAI/core/config"
-	options "github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
+	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -19,11 +18,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func readRequest(c *fiber.Ctx, o *options.Option, firstModel bool) (string, *schema.OpenAIRequest, error) {
+func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *config.ApplicationConfig, firstModel bool) (string, *schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
-	ctx, cancel := context.WithCancel(o.Context)
-	input.Context = ctx
-	input.Cancel = cancel
+
 	// Get input data from the request body
 	if err := c.BodyParser(input); err != nil {
 		return "", nil, fmt.Errorf("failed parsing request body: %w", err)
@@ -31,9 +28,13 @@ func readRequest(c *fiber.Ctx, o *options.Option, firstModel bool) (string, *sch
 
 	received, _ := json.Marshal(input)
 
+	ctx, cancel := context.WithCancel(o.Context)
+	input.Context = ctx
+	input.Cancel = cancel
+
 	log.Debug().Msgf("Request received: %s", string(received))
 
-	modelFile, err := fiberContext.ModelFromContext(c, o.Loader, input.Model, firstModel)
+	modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, firstModel)
 
 	return modelFile, input, err
 }
@@ -50,7 +51,7 @@ func getBase64Image(s string) (string, error) {
 		defer resp.Body.Close()
 
 		// read the image data into memory
-		data, err := ioutil.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return "", err
 		}
@@ -69,7 +70,7 @@ func getBase64Image(s string) (string, error) {
 	return "", fmt.Errorf("not valid string")
 }
 
-func updateRequestConfig(config *config.Config, input *schema.OpenAIRequest) {
+func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIRequest) {
 	if input.Echo {
 		config.Echo = input.Echo
 	}
@@ -270,8 +271,8 @@ func updateRequestConfig(config *config.Config, input *schema.OpenAIRequest) {
 	}
 }
 
-func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *config.ConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.Config, *schema.OpenAIRequest, error) {
-	cfg, err := config.Load(modelFile, loader.ModelPath, cm, debug, threads, ctx, f16)
+func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *config.BackendConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.BackendConfig, *schema.OpenAIRequest, error) {
+	cfg, err := config.LoadBackendConfigFileByName(modelFile, loader.ModelPath, cm, debug, threads, ctx, f16)
 
 	// Set the parameters for the language model prediction
 	updateRequestConfig(cfg, input)

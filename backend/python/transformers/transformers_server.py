@@ -69,9 +69,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         model_name = request.Model
         try:
             if request.Type == "AutoModelForCausalLM":
-                self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
+                self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
             else:
-                self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+                self.model = AutoModel.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
 
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
             self.CUDA = False

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -13,49 +12,66 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
 
+var configsDir string = "/tmp/localai/configs"
+
 type MockLoader struct {
 	models []string
 }
 
+func tearDown() func() {
+	return func() {
+		UploadedFiles = []File{}
+		Assistants = []Assistant{}
+		AssistantFiles = []AssistantFile{}
+		_ = os.Remove(filepath.Join(configsDir, AssistantsConfigFile))
+		_ = os.Remove(filepath.Join(configsDir, AssistantsFileConfigFile))
+	}
+}
+
 func TestAssistantEndpoints(t *testing.T) {
 	// Preparing the mocked objects
-	loader := &config.ConfigLoader{}
+	cl := &config.BackendConfigLoader{}
 	//configsDir := "/tmp/localai/configs"
-	configsDir := ""
-	option := &options.Option{
+	var ml = model.NewModelLoader("/tmp/localai/models")
+
+	modelPath := "/tmp/localai/model"
+	appConfig := &config.ApplicationConfig{
 		ConfigsDir:    configsDir,
 		UploadLimitMB: 10,
 		UploadDir:     "test_dir",
-		Loader: &model.ModelLoader{
-			ModelPath: "/tmp/localai/models",
-		},
+		ModelPath:     modelPath,
 	}
 
-	_ = os.RemoveAll(option.ConfigsDir)
+	_ = os.RemoveAll(appConfig.ConfigsDir)
+	_ = os.MkdirAll(appConfig.ConfigsDir, 0755)
+	_ = os.MkdirAll(modelPath, 0755)
+	os.Create(filepath.Join(modelPath, "ggml-gpt4all-j"))
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 20 * 1024 * 1024, // sets the limit to 20MB.
 	})
 
 	// Create a Test Server
-	app.Get("/assistants", ListAssistantsEndpoint(loader, option))
-	app.Post("/assistants", CreateAssistantEndpoint(loader, option))
-	app.Delete("/assistants/:assistant_id", DeleteAssistantEndpoint(loader, option))
-	app.Get("/assistants/:assistant_id", GetAssistantEndpoint(loader, option))
-	app.Post("/assistants/:assistant_id", ModifyAssistantEndpoint(loader, option))
+	app.Get("/assistants", ListAssistantsEndpoint(cl, ml, appConfig))
+	app.Post("/assistants", CreateAssistantEndpoint(cl, ml, appConfig))
+	app.Delete("/assistants/:assistant_id", DeleteAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id", GetAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/assistants/:assistant_id", ModifyAssistantEndpoint(cl, ml, appConfig))
 
-	app.Post("/files", UploadFilesEndpoint(loader, option))
-	app.Get("/assistants/:assistant_id/files", ListAssistantFilesEndpoint(loader, option))
-	app.Post("/assistants/:assistant_id/files", CreateAssistantFileEndpoint(loader, option))
-	app.Delete("/assistants/:assistant_id/files/:file_id", DeleteAssistantFileEndpoint(loader, option))
-	app.Get("/assistants/:assistant_id/files/:file_id", GetAssistantFileEndpoint(loader, option))
+	app.Post("/files", UploadFilesEndpoint(cl, appConfig))
+	app.Get("/assistants/:assistant_id/files", ListAssistantFilesEndpoint(cl, ml, appConfig))
+	app.Post("/assistants/:assistant_id/files", CreateAssistantFileEndpoint(cl, ml, appConfig))
+	app.Delete("/assistants/:assistant_id/files/:file_id", DeleteAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id/files/:file_id", GetAssistantFileEndpoint(cl, ml, appConfig))
 
 	t.Run("CreateAssistantEndpoint", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		ar := &AssistantRequest{
 			Model:        "ggml-gpt4all-j",
 			Name:         "3.5-turbo",
@@ -71,7 +87,7 @@ func TestAssistantEndpoints(t *testing.T) {
 		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 		assert.Equal(t, 1, len(Assistants))
-		t.Cleanup(cleanupAllAssistants(t, app, []string{resultAssistant.ID}))
+		//t.Cleanup(cleanupAllAssistants(t, app, []string{resultAssistant.ID}))
 
 		assert.Equal(t, ar.Name, resultAssistant.Name)
 		assert.Equal(t, ar.Model, resultAssistant.Model)
@@ -273,31 +289,30 @@ func TestAssistantEndpoints(t *testing.T) {
 	})
 
 	t.Run("CreateAssistantFileEndpoint", func(t *testing.T) {
-		file, assistant, err := createFileAndAssistant(t, app, option)
+		t.Cleanup(tearDown())
+		file, assistant, err := createFileAndAssistant(t, app, appConfig)
 		assert.NoError(t, err)
 
 		afr := AssistantFileRequest{FileID: file.ID}
 		af, _, err := createAssistantFile(app, afr, assistant.ID)
 
 		assert.NoError(t, err)
-		t.Cleanup(cleanupAssistantFile(t, app, file.ID, af.AssistantID))
 		assert.Equal(t, assistant.ID, af.AssistantID)
 	})
 	t.Run("ListAssistantFilesEndpoint", func(t *testing.T) {
-		file, assistant, err := createFileAndAssistant(t, app, option)
+		t.Cleanup(tearDown())
+		file, assistant, err := createFileAndAssistant(t, app, appConfig)
 		assert.NoError(t, err)
 
 		afr := AssistantFileRequest{FileID: file.ID}
 		af, _, err := createAssistantFile(app, afr, assistant.ID)
-
 		assert.NoError(t, err)
-		t.Cleanup(cleanupAssistantFile(t, app, file.ID, af.AssistantID))
 
 		assert.Equal(t, assistant.ID, af.AssistantID)
 	})
 	t.Run("GetAssistantFileEndpoint", func(t *testing.T) {
-
-		file, assistant, err := createFileAndAssistant(t, app, option)
+		t.Cleanup(tearDown())
+		file, assistant, err := createFileAndAssistant(t, app, appConfig)
 		assert.NoError(t, err)
 
 		afr := AssistantFileRequest{FileID: file.ID}
@@ -318,7 +333,8 @@ func TestAssistantEndpoints(t *testing.T) {
 		assert.Equal(t, af.AssistantID, assistantFile.AssistantID)
 	})
 	t.Run("DeleteAssistantFileEndpoint", func(t *testing.T) {
-		file, assistant, err := createFileAndAssistant(t, app, option)
+		t.Cleanup(tearDown())
+		file, assistant, err := createFileAndAssistant(t, app, appConfig)
 		assert.NoError(t, err)
 
 		afr := AssistantFileRequest{FileID: file.ID}
@@ -332,7 +348,7 @@ func TestAssistantEndpoints(t *testing.T) {
 
 }
 
-func createFileAndAssistant(t *testing.T, app *fiber.App, o *options.Option) (File, Assistant, error) {
+func createFileAndAssistant(t *testing.T, app *fiber.App, o *config.ApplicationConfig) (File, Assistant, error) {
 	ar := &AssistantRequest{
 		Model:        "ggml-gpt4all-j",
 		Name:         "3.5-turbo",
@@ -350,6 +366,10 @@ func createFileAndAssistant(t *testing.T, app *fiber.App, o *options.Option) (Fi
 	t.Cleanup(cleanupAllAssistants(t, app, []string{assistant.ID}))
 
 	file := CallFilesUploadEndpointWithCleanup(t, app, "test.txt", "file", "fine-tune", 5, o)
+	t.Cleanup(func() {
+		_, err := CallFilesDeleteEndpoint(t, app, file.ID)
+		assert.NoError(t, err)
+	})
 	return file, assistant, nil
 }
 

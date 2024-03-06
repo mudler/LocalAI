@@ -21,6 +21,7 @@ local-ai
 !charts/*
 # prevent above rules from omitting the api/localai folder
 !api/localai
+!core/**/localai
 
 # Ignore models
 models/*
@@ -34,6 +35,7 @@ release/
 .idea
 
 # Generated during build
-backend-assets/
+backend-assets/*
+!backend-assets/.keep
 prepare
 /ggml-metal.metal

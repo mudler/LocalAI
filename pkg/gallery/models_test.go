@@ -18,7 +18,6 @@ var _ = Describe("Model test", func() {
 			defer os.RemoveAll(tempdir)
 			c, err := ReadConfigFile(filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
-
 			err = InstallModel(tempdir, "", c, map[string]interface{}{}, func(string, string, string, float64) {})
 			Expect(err).ToNot(HaveOccurred())
 

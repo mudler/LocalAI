@@ -1,14 +1,22 @@
 #!/bin/bash
+set -ex
 
-##
-## A bash script installs the required dependencies of VALL-E-X and prepares the environment
 export PATH=$PATH:/opt/conda/bin
 
-# Activate conda environment
-source activate transformers
+# Check if environment exist
+conda_env_exists(){
+    ! conda list --name "${@}" >/dev/null 2>/dev/null
+}
 
-echo $CONDA_PREFIX
+if conda_env_exists "exllama" ; then
+    echo "Creating virtual environment..."
+    conda env create --name exllama --file $1
+    echo "Virtual environment created."
+else
+    echo "Virtual environment already exists."
+fi
 
+source activate exllama
 
 git clone https://github.com/turboderp/exllama $CONDA_PREFIX/exllama && pushd $CONDA_PREFIX/exllama && pip install -r requirements.txt && popd
 

@@ -33,7 +33,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             model = AutoGPTQForCausalLM.from_quantized(request.Model,
                     model_basename=request.ModelBaseName,
                     use_safetensors=True,
-                    trust_remote_code=True,
+                    trust_remote_code=request.TrustRemoteCode,
                     device=device,
                     use_triton=request.UseTriton,
                     quantize_config=None)

@@ -3,7 +3,7 @@ package openai
 import (
 	"fmt"
 	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -65,7 +65,7 @@ type AssistantRequest struct {
 	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
-func CreateAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func CreateAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		request := new(AssistantRequest)
 		if err := c.BodyParser(request); err != nil {
@@ -73,7 +73,7 @@ func CreateAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 		}
 
-		if !modelExists(o, request.Model) {
+		if !modelExists(ml, request.Model) {
 			log.Warn().Msgf("Model: %s was not found in list of models.", request.Model)
 			return c.Status(fiber.StatusBadRequest).SendString("Model " + request.Model + " not found")
 		}
@@ -106,7 +106,7 @@ func CreateAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 		}
 
 		Assistants = append(Assistants, assistant)
-		utils.SaveConfig(o.ConfigsDir, AssistantsConfigFile, Assistants)
+		utils.SaveConfig(appConfig.ConfigsDir, AssistantsConfigFile, Assistants)
 		return c.Status(fiber.StatusOK).JSON(assistant)
 	}
 }
@@ -118,7 +118,7 @@ func generateRandomID() int64 {
 	return currentId
 }
 
-func ListAssistantsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func ListAssistantsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		// Because we're altering the existing assistants list we should just duplicate it for now.
 		returnAssistants := Assistants
@@ -207,9 +207,9 @@ func filterAssistantsAfterID(assistants []Assistant, id string) []Assistant {
 	return filteredAssistants
 }
 
-func modelExists(o *options.Option, modelName string) (found bool) {
+func modelExists(ml *model.ModelLoader, modelName string) (found bool) {
 	found = false
-	models, err := o.Loader.ListModels()
+	models, err := ml.ListModels()
 	if err != nil {
 		return
 	}
@@ -223,7 +223,7 @@ func modelExists(o *options.Option, modelName string) (found bool) {
 	return
 }
 
-func DeleteAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func DeleteAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	type DeleteAssistantResponse struct {
 		ID      string `json:"id"`
 		Object  string `json:"object"`
@@ -239,7 +239,7 @@ func DeleteAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 		for i, assistant := range Assistants {
 			if assistant.ID == assistantID {
 				Assistants = append(Assistants[:i], Assistants[i+1:]...)
-				utils.SaveConfig(o.ConfigsDir, AssistantsConfigFile, Assistants)
+				utils.SaveConfig(appConfig.ConfigsDir, AssistantsConfigFile, Assistants)
 				return c.Status(fiber.StatusOK).JSON(DeleteAssistantResponse{
 					ID:      assistantID,
 					Object:  "assistant.deleted",
@@ -257,7 +257,7 @@ func DeleteAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 	}
 }
 
-func GetAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func GetAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		assistantID := c.Params("assistant_id")
 		if assistantID == "" {
@@ -296,7 +296,7 @@ type DeleteAssistantFileResponse struct {
 	Deleted bool   `json:"deleted"`
 }
 
-func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func CreateAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		request := new(AssistantFileRequest)
 		if err := c.BodyParser(request); err != nil {
@@ -324,7 +324,7 @@ func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 							AssistantID: assistant.ID,
 						}
 						AssistantFiles = append(AssistantFiles, assistantFile)
-						utils.SaveConfig(o.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
+						utils.SaveConfig(appConfig.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
 						return c.Status(fiber.StatusOK).JSON(assistantFile)
 					}
 				}
@@ -337,7 +337,7 @@ func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 	}
 }
 
-func ListAssistantFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func ListAssistantFilesEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	type ListAssistantFiles struct {
 		Data   []File
 		Object string
@@ -399,7 +399,7 @@ func ListAssistantFilesEndpoint(cm *config.ConfigLoader, o *options.Option) func
 	}
 }
 
-func ModifyAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func ModifyAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		request := new(AssistantRequest)
 		if err := c.BodyParser(request); err != nil {
@@ -430,7 +430,7 @@ func ModifyAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 				// Remove old one and replace with new one
 				Assistants = append(Assistants[:i], Assistants[i+1:]...)
 				Assistants = append(Assistants, newAssistant)
-				utils.SaveConfig(o.ConfigsDir, AssistantsConfigFile, Assistants)
+				utils.SaveConfig(appConfig.ConfigsDir, AssistantsConfigFile, Assistants)
 				return c.Status(fiber.StatusOK).JSON(newAssistant)
 			}
 		}
@@ -438,7 +438,7 @@ func ModifyAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 	}
 }
 
-func DeleteAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func DeleteAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		assistantID := c.Params("assistant_id")
 		fileId := c.Params("file_id")
@@ -457,7 +457,7 @@ func DeleteAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 							if assistantFile.ID == fileId {
 								// Remove the file from the assistantFiles slice
 								AssistantFiles = append(AssistantFiles[:i], AssistantFiles[i+1:]...)
-								utils.SaveConfig(o.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
+								utils.SaveConfig(appConfig.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
 								return c.Status(fiber.StatusOK).JSON(DeleteAssistantFileResponse{
 									ID:      fileId,
 									Object:  "assistant.file.deleted",
@@ -473,7 +473,7 @@ func DeleteAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 					if assistantFile.AssistantID == assistantID {
 
 						AssistantFiles = append(AssistantFiles[:i], AssistantFiles[i+1:]...)
-						utils.SaveConfig(o.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
+						utils.SaveConfig(appConfig.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
 
 						return c.Status(fiber.StatusNotFound).JSON(DeleteAssistantFileResponse{
 							ID:      fileId,
@@ -494,7 +494,7 @@ func DeleteAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 	}
 }
 
-func GetAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func GetAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		assistantID := c.Params("assistant_id")
 		fileId := c.Params("file_id")

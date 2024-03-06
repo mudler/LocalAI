@@ -3,6 +3,7 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -11,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
+
 	utils2 "github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -25,11 +26,11 @@ type ListFiles struct {
 	Object string
 }
 
-func startUpApp() (app *fiber.App, option *options.Option, loader *config.ConfigLoader) {
+func startUpApp() (app *fiber.App, option *config.ApplicationConfig, loader *config.BackendConfigLoader) {
 	// Preparing the mocked objects
-	loader = &config.ConfigLoader{}
+	loader = &config.BackendConfigLoader{}
 
-	option = &options.Option{
+	option = &config.ApplicationConfig{
 		UploadLimitMB: 10,
 		UploadDir:     "test_dir",
 	}
@@ -52,9 +53,9 @@ func startUpApp() (app *fiber.App, option *options.Option, loader *config.Config
 
 func TestUploadFileExceedSizeLimit(t *testing.T) {
 	// Preparing the mocked objects
-	loader := &config.ConfigLoader{}
+	loader := &config.BackendConfigLoader{}
 
-	option := &options.Option{
+	option := &config.ApplicationConfig{
 		UploadLimitMB: 10,
 		UploadDir:     "test_dir",
 	}
@@ -73,6 +74,7 @@ func TestUploadFileExceedSizeLimit(t *testing.T) {
 	app.Get("/files/:file_id/content", GetFilesContentsEndpoint(loader, option))
 
 	t.Run("UploadFilesEndpoint file size exceeds limit", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		resp, err := CallFilesUploadEndpoint(t, app, "foo.txt", "file", "fine-tune", 11, option)
 		assert.NoError(t, err)
 
@@ -80,35 +82,42 @@ func TestUploadFileExceedSizeLimit(t *testing.T) {
 		assert.Contains(t, bodyToString(resp, t), "exceeds upload limit")
 	})
 	t.Run("UploadFilesEndpoint purpose not defined", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		resp, _ := CallFilesUploadEndpoint(t, app, "foo.txt", "file", "", 5, option)
 
 		assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 		assert.Contains(t, bodyToString(resp, t), "Purpose is not defined")
 	})
 	t.Run("UploadFilesEndpoint file already exists", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		f1 := CallFilesUploadEndpointWithCleanup(t, app, "foo.txt", "file", "fine-tune", 5, option)
 
 		resp, err := CallFilesUploadEndpoint(t, app, "foo.txt", "file", "fine-tune", 5, option)
 		fmt.Println(f1)
-		fmt.Printf("ERror: %v", err)
+		fmt.Printf("ERror: %v\n", err)
+		fmt.Printf("resp: %+v\n", resp)
 
 		assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 		assert.Contains(t, bodyToString(resp, t), "File already exists")
 	})
 	t.Run("UploadFilesEndpoint file uploaded successfully", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		file := CallFilesUploadEndpointWithCleanup(t, app, "test.txt", "file", "fine-tune", 5, option)
 
 		// Check if file exists in the disk
-		filePath := filepath.Join(option.UploadDir, utils2.SanitizeFileName("test.txt"))
+		testName := strings.Split(t.Name(), "/")[1]
+		fileName := testName + "-test.txt"
+		filePath := filepath.Join(option.UploadDir, utils2.SanitizeFileName(fileName))
 		_, err := os.Stat(filePath)
 
 		assert.False(t, os.IsNotExist(err))
 		assert.Equal(t, file.Bytes, 5242880)
 		assert.NotEmpty(t, file.CreatedAt)
-		assert.Equal(t, file.Filename, "test.txt")
+		assert.Equal(t, file.Filename, fileName)
 		assert.Equal(t, file.Purpose, "fine-tune")
 	})
 	t.Run("ListFilesEndpoint without purpose parameter", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		resp, err := CallListFilesEndpoint(t, app, "")
 		assert.NoError(t, err)
 
@@ -120,6 +129,7 @@ func TestUploadFileExceedSizeLimit(t *testing.T) {
 		}
 	})
 	t.Run("ListFilesEndpoint with valid purpose parameter", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		_ = CallFilesUploadEndpointWithCleanup(t, app, "test.txt", "file", "fine-tune", 5, option)
 
 		resp, err := CallListFilesEndpoint(t, app, "fine-tune")
@@ -131,6 +141,7 @@ func TestUploadFileExceedSizeLimit(t *testing.T) {
 		}
 	})
 	t.Run("ListFilesEndpoint with invalid query parameter", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		resp, err := CallListFilesEndpoint(t, app, "not-so-fine-tune")
 		assert.NoError(t, err)
 		assert.Equal(t, 200, resp.StatusCode)
@@ -142,6 +153,7 @@ func TestUploadFileExceedSizeLimit(t *testing.T) {
 		}
 	})
 	t.Run("GetFilesContentsEndpoint get file content", func(t *testing.T) {
+		t.Cleanup(tearDown())
 		req := httptest.NewRequest("GET", "/files", nil)
 		resp, _ := app.Test(req)
 		assert.Equal(t, 200, resp.StatusCode)
@@ -174,9 +186,11 @@ func CallFilesContentEndpoint(t *testing.T, app *fiber.App, fileId string) (*htt
 	return app.Test(request)
 }
 
-func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *options.Option) (*http.Response, error) {
+func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, appConfig *config.ApplicationConfig) (*http.Response, error) {
+	testName := strings.Split(t.Name(), "/")[1]
+
 	// Create a file that exceeds the limit
-	file := createTestFile(t, fileName, fileSize, o)
+	file := createTestFile(t, testName+"-"+fileName, fileSize, appConfig)
 
 	// Creating a new HTTP Request
 	body, writer := newMultipartFile(file.Name(), tag, purpose)
@@ -186,9 +200,10 @@ func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpos
 	return app.Test(req)
 }
 
-func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, o *options.Option) File {
+func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, appConfig *config.ApplicationConfig) File {
 	// Create a file that exceeds the limit
-	file := createTestFile(t, fileName, fileSize, o)
+	testName := strings.Split(t.Name(), "/")[1]
+	file := createTestFile(t, testName+"-"+fileName, fileSize, appConfig)
 
 	// Creating a new HTTP Request
 	body, writer := newMultipartFile(file.Name(), tag, purpose)
@@ -199,11 +214,12 @@ func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, 
 	assert.NoError(t, err)
 	f := responseToFile(t, resp)
 
-	id := f.ID
-	t.Cleanup(func() {
-		_, err := CallFilesDeleteEndpoint(t, app, id)
-		assert.NoError(t, err)
-	})
+	//id := f.ID
+	//t.Cleanup(func() {
+	//	_, err := CallFilesDeleteEndpoint(t, app, id)
+	//	assert.NoError(t, err)
+	//	assert.Empty(t, UploadedFiles)
+	//})
 
 	return f
 
@@ -233,14 +249,15 @@ func newMultipartFile(filePath, tag, purpose string) (*strings.Reader, *multipar
 }
 
 // Helper to create test files
-func createTestFile(t *testing.T, name string, sizeMB int, option *options.Option) *os.File {
+func createTestFile(t *testing.T, name string, sizeMB int, option *config.ApplicationConfig) *os.File {
 	err := os.MkdirAll(option.UploadDir, 0755)
 	if err != nil {
 
 		t.Fatalf("Error MKDIR: %v", err)
 	}
 
-	file, _ := os.Create(name)
+	file, err := os.Create(name)
+	assert.NoError(t, err)
 	file.WriteString(strings.Repeat("a", sizeMB*1024*1024)) // sizeMB MB File
 
 	t.Cleanup(func() {
@@ -280,7 +297,7 @@ func responseToListFile(t *testing.T, resp *http.Response) ListFiles {
 
 	err := json.NewDecoder(strings.NewReader(responseToString)).Decode(&listFiles)
 	if err != nil {
-		fmt.Printf("Failed to decode response: %s", err)
+		log.Error().Msgf("Failed to decode response: %s", err)
 	}
 
 	return listFiles

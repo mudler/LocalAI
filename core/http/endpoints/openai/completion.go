@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
+	"github.com/go-skynet/LocalAI/core/config"
+
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	model "github.com/go-skynet/LocalAI/pkg/model"
@@ -21,12 +21,12 @@ import (
 )
 
 // https://platform.openai.com/docs/api-reference/completions
-func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
+func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.Config, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
-		ComputeChoices(req, s, config, o, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
@@ -53,14 +53,14 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 	}
 
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, o, true)
+		modelFile, input, err := readRequest(c, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
 		log.Debug().Msgf("`input`: %+v", input)
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cm, o.Loader, o.Debug, o.Threads, o.ContextSize, o.F16)
+		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
@@ -84,7 +84,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		templateFile := ""
 
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if o.Loader.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
 			templateFile = config.Model
 		}
 
@@ -100,7 +100,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			predInput := config.PromptStrings[0]
 
 			if templateFile != "" {
-				templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
+				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
 					Input: predInput,
 				})
 				if err == nil {
@@ -111,7 +111,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 
 			responses := make(chan schema.OpenAIResponse)
 
-			go process(predInput, input, config, o.Loader, responses)
+			go process(predInput, input, config, ml, responses)
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
@@ -153,7 +153,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 		for k, i := range config.PromptStrings {
 			if templateFile != "" {
 				// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-				templatedInput, err := o.Loader.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
+				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
 					SystemPrompt: config.SystemPrompt,
 					Input:        i,
 				})
@@ -164,7 +164,7 @@ func CompletionEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fibe
 			}
 
 			r, tokenUsage, err := ComputeChoices(
-				input, i, config, o, o.Loader, func(s string, c *[]schema.Choice) {
+				input, i, config, appConfig, ml, func(s string, c *[]schema.Choice) {
 					*c = append(*c, schema.Choice{Text: s, FinishReason: "stop", Index: k})
 				}, nil)
 			if err != nil {

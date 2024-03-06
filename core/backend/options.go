@@ -4,19 +4,17 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-skynet/LocalAI/core/config"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-
-	config "github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/options"
 )
 
-func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.Option {
-	if o.SingleBackend {
+func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
+	if so.SingleBackend {
 		opts = append(opts, model.WithSingleActiveBackend())
 	}
 
-	if o.ParallelBackendRequests {
+	if so.ParallelBackendRequests {
 		opts = append(opts, model.EnableParallelRequests)
 	}
 
@@ -28,52 +26,57 @@ func modelOpts(c config.Config, o *options.Option, opts []model.Option) []model.
 		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
 	}
 
-	for k, v := range o.ExternalGRPCBackends {
+	for k, v := range so.ExternalGRPCBackends {
 		opts = append(opts, model.WithExternalBackend(k, v))
 	}
 
 	return opts
 }
 
-func gRPCModelOpts(c config.Config) *pb.ModelOptions {
+func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
 	}
 
 	return &pb.ModelOptions{
-		ContextSize:    int32(c.ContextSize),
-		Seed:           int32(c.Seed),
-		NBatch:         int32(b),
-		NoMulMatQ:      c.NoMulMatQ,
-		CUDA:           c.CUDA, // diffusers, transformers
-		DraftModel:     c.DraftModel,
-		AudioPath:      c.VallE.AudioPath,
-		Quantization:   c.Quantization,
-		MMProj:         c.MMProj,
-		YarnExtFactor:  c.YarnExtFactor,
-		YarnAttnFactor: c.YarnAttnFactor,
-		YarnBetaFast:   c.YarnBetaFast,
-		YarnBetaSlow:   c.YarnBetaSlow,
-		LoraAdapter:    c.LoraAdapter,
-		LoraBase:       c.LoraBase,
-		LoraScale:      c.LoraScale,
-		NGQA:           c.NGQA,
-		RMSNormEps:     c.RMSNormEps,
-		F16Memory:      c.F16,
-		MLock:          c.MMlock,
-		RopeFreqBase:   c.RopeFreqBase,
-		RopeScaling:    c.RopeScaling,
-		Type:           c.ModelType,
-		RopeFreqScale:  c.RopeFreqScale,
-		NUMA:           c.NUMA,
-		Embeddings:     c.Embeddings,
-		LowVRAM:        c.LowVRAM,
-		NGPULayers:     int32(c.NGPULayers),
-		MMap:           c.MMap,
-		MainGPU:        c.MainGPU,
-		Threads:        int32(c.Threads),
-		TensorSplit:    c.TensorSplit,
+		ContextSize:          int32(c.ContextSize),
+		Seed:                 int32(c.Seed),
+		NBatch:               int32(b),
+		NoMulMatQ:            c.NoMulMatQ,
+		CUDA:                 c.CUDA, // diffusers, transformers
+		DraftModel:           c.DraftModel,
+		AudioPath:            c.VallE.AudioPath,
+		Quantization:         c.Quantization,
+		GPUMemoryUtilization: c.GPUMemoryUtilization,
+		TrustRemoteCode:      c.TrustRemoteCode,
+		EnforceEager:         c.EnforceEager,
+		SwapSpace:            int32(c.SwapSpace),
+		MaxModelLen:          int32(c.MaxModelLen),
+		MMProj:               c.MMProj,
+		YarnExtFactor:        c.YarnExtFactor,
+		YarnAttnFactor:       c.YarnAttnFactor,
+		YarnBetaFast:         c.YarnBetaFast,
+		YarnBetaSlow:         c.YarnBetaSlow,
+		LoraAdapter:          c.LoraAdapter,
+		LoraBase:             c.LoraBase,
+		LoraScale:            c.LoraScale,
+		NGQA:                 c.NGQA,
+		RMSNormEps:           c.RMSNormEps,
+		F16Memory:            c.F16,
+		MLock:                c.MMlock,
+		RopeFreqBase:         c.RopeFreqBase,
+		RopeScaling:          c.RopeScaling,
+		Type:                 c.ModelType,
+		RopeFreqScale:        c.RopeFreqScale,
+		NUMA:                 c.NUMA,
+		Embeddings:           c.Embeddings,
+		LowVRAM:              c.LowVRAM,
+		NGPULayers:           int32(c.NGPULayers),
+		MMap:                 c.MMap,
+		MainGPU:              c.MainGPU,
+		Threads:              int32(c.Threads),
+		TensorSplit:          c.TensorSplit,
 		// AutoGPTQ
 		ModelBaseName:    c.AutoGPTQ.ModelBaseName,
 		Device:           c.AutoGPTQ.Device,
@@ -84,7 +87,7 @@ func gRPCModelOpts(c config.Config) *pb.ModelOptions {
 	}
 }
 
-func gRPCPredictOpts(c config.Config, modelPath string) *pb.PredictOptions {
+func gRPCPredictOpts(c config.BackendConfig, modelPath string) *pb.PredictOptions {
 	promptCachePath := ""
 	if c.PromptCachePath != "" {
 		p := filepath.Join(modelPath, c.PromptCachePath)

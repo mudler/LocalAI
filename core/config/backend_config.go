@@ -9,15 +9,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	PredictionOptions `yaml:"parameters"`
-	Name              string `yaml:"name"`
+type BackendConfig struct {
+	schema.PredictionOptions `yaml:"parameters"`
+	Name                     string `yaml:"name"`
 
 	F16            bool              `yaml:"f16"`
 	Threads        int               `yaml:"threads"`
@@ -117,16 +118,21 @@ type LLMConfig struct {
 	TrimSpace       []string `yaml:"trimspace"`
 	TrimSuffix      []string `yaml:"trimsuffix"`
 
-	ContextSize  int     `yaml:"context_size"`
-	NUMA         bool    `yaml:"numa"`
-	LoraAdapter  string  `yaml:"lora_adapter"`
-	LoraBase     string  `yaml:"lora_base"`
-	LoraScale    float32 `yaml:"lora_scale"`
-	NoMulMatQ    bool    `yaml:"no_mulmatq"`
-	DraftModel   string  `yaml:"draft_model"`
-	NDraft       int32   `yaml:"n_draft"`
-	Quantization string  `yaml:"quantization"`
-	MMProj       string  `yaml:"mmproj"`
+	ContextSize          int     `yaml:"context_size"`
+	NUMA                 bool    `yaml:"numa"`
+	LoraAdapter          string  `yaml:"lora_adapter"`
+	LoraBase             string  `yaml:"lora_base"`
+	LoraScale            float32 `yaml:"lora_scale"`
+	NoMulMatQ            bool    `yaml:"no_mulmatq"`
+	DraftModel           string  `yaml:"draft_model"`
+	NDraft               int32   `yaml:"n_draft"`
+	Quantization         string  `yaml:"quantization"`
+	GPUMemoryUtilization float32 `yaml:"gpu_memory_utilization"` // vLLM
+	TrustRemoteCode      bool    `yaml:"trust_remote_code"`      // vLLM
+	EnforceEager         bool    `yaml:"enforce_eager"`          // vLLM
+	SwapSpace            int     `yaml:"swap_space"`             // vLLM
+	MaxModelLen          int     `yaml:"max_model_len"`          // vLLM
+	MMProj               string  `yaml:"mmproj"`
 
 	RopeScaling string `yaml:"rope_scaling"`
 	ModelType   string `yaml:"type"`
@@ -159,37 +165,55 @@ type TemplateConfig struct {
 	Functions   string `yaml:"function"`
 }
 
-type ConfigLoader struct {
-	configs map[string]Config
-	sync.Mutex
-}
-
-func (c *Config) SetFunctionCallString(s string) {
+func (c *BackendConfig) SetFunctionCallString(s string) {
 	c.functionCallString = s
 }
 
-func (c *Config) SetFunctionCallNameString(s string) {
+func (c *BackendConfig) SetFunctionCallNameString(s string) {
 	c.functionCallNameString = s
 }
 
-func (c *Config) ShouldUseFunctions() bool {
+func (c *BackendConfig) ShouldUseFunctions() bool {
 	return ((c.functionCallString != "none" || c.functionCallString == "") || c.ShouldCallSpecificFunction())
 }
 
-func (c *Config) ShouldCallSpecificFunction() bool {
+func (c *BackendConfig) ShouldCallSpecificFunction() bool {
 	return len(c.functionCallNameString) > 0
 }
 
-func (c *Config) FunctionToCall() string {
+func (c *BackendConfig) FunctionToCall() string {
 	return c.functionCallNameString
 }
 
+func defaultPredictOptions(modelFile string) schema.PredictionOptions {
+	return schema.PredictionOptions{
+		TopP:        0.7,
+		TopK:        80,
+		Maxtokens:   512,
+		Temperature: 0.9,
+		Model:       modelFile,
+	}
+}
+
+func DefaultConfig(modelFile string) *BackendConfig {
+	return &BackendConfig{
+		PredictionOptions: defaultPredictOptions(modelFile),
+	}
+}
+
+////// Config Loader ////////
+
+type BackendConfigLoader struct {
+	configs map[string]BackendConfig
+	sync.Mutex
+}
+
 // Load a config file for a model
-func Load(modelName, modelPath string, cm *ConfigLoader, debug bool, threads, ctx int, f16 bool) (*Config, error) {
+func LoadBackendConfigFileByName(modelName, modelPath string, cl *BackendConfigLoader, debug bool, threads, ctx int, f16 bool) (*BackendConfig, error) {
 	// Load a config file if present after the model name
 	modelConfig := filepath.Join(modelPath, modelName+".yaml")
 
-	var cfg *Config
+	var cfg *BackendConfig
 
 	defaults := func() {
 		cfg = DefaultConfig(modelName)
@@ -199,13 +223,13 @@ func Load(modelName, modelPath string, cm *ConfigLoader, debug bool, threads, ct
 		cfg.Debug = debug
 	}
 
-	cfgExisting, exists := cm.GetConfig(modelName)
+	cfgExisting, exists := cl.GetBackendConfig(modelName)
 	if !exists {
 		if _, err := os.Stat(modelConfig); err == nil {
-			if err := cm.LoadConfig(modelConfig); err != nil {
+			if err := cl.LoadBackendConfig(modelConfig); err != nil {
 				return nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
 			}
-			cfgExisting, exists = cm.GetConfig(modelName)
+			cfgExisting, exists = cl.GetBackendConfig(modelName)
 			if exists {
 				cfg = &cfgExisting
 			} else {
@@ -238,29 +262,13 @@ func Load(modelName, modelPath string, cm *ConfigLoader, debug bool, threads, ct
 	return cfg, nil
 }
 
-func defaultPredictOptions(modelFile string) PredictionOptions {
-	return PredictionOptions{
-		TopP:        0.7,
-		TopK:        80,
-		Maxtokens:   512,
-		Temperature: 0.9,
-		Model:       modelFile,
+func NewBackendConfigLoader() *BackendConfigLoader {
+	return &BackendConfigLoader{
+		configs: make(map[string]BackendConfig),
 	}
 }
-
-func DefaultConfig(modelFile string) *Config {
-	return &Config{
-		PredictionOptions: defaultPredictOptions(modelFile),
-	}
-}
-
-func NewConfigLoader() *ConfigLoader {
-	return &ConfigLoader{
-		configs: make(map[string]Config),
-	}
-}
-func ReadConfigFile(file string) ([]*Config, error) {
-	c := &[]*Config{}
+func ReadBackendConfigFile(file string) ([]*BackendConfig, error) {
+	c := &[]*BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read config file: %w", err)
@@ -272,8 +280,8 @@ func ReadConfigFile(file string) ([]*Config, error) {
 	return *c, nil
 }
 
-func ReadConfig(file string) (*Config, error) {
-	c := &Config{}
+func ReadBackendConfig(file string) (*BackendConfig, error) {
+	c := &BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read config file: %w", err)
@@ -285,10 +293,10 @@ func ReadConfig(file string) (*Config, error) {
 	return c, nil
 }
 
-func (cm *ConfigLoader) LoadConfigFile(file string) error {
+func (cm *BackendConfigLoader) LoadBackendConfigFile(file string) error {
 	cm.Lock()
 	defer cm.Unlock()
-	c, err := ReadConfigFile(file)
+	c, err := ReadBackendConfigFile(file)
 	if err != nil {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}
@@ -299,49 +307,49 @@ func (cm *ConfigLoader) LoadConfigFile(file string) error {
 	return nil
 }
 
-func (cm *ConfigLoader) LoadConfig(file string) error {
-	cm.Lock()
-	defer cm.Unlock()
-	c, err := ReadConfig(file)
+func (cl *BackendConfigLoader) LoadBackendConfig(file string) error {
+	cl.Lock()
+	defer cl.Unlock()
+	c, err := ReadBackendConfig(file)
 	if err != nil {
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
 
-	cm.configs[c.Name] = *c
+	cl.configs[c.Name] = *c
 	return nil
 }
 
-func (cm *ConfigLoader) GetConfig(m string) (Config, bool) {
-	cm.Lock()
-	defer cm.Unlock()
-	v, exists := cm.configs[m]
+func (cl *BackendConfigLoader) GetBackendConfig(m string) (BackendConfig, bool) {
+	cl.Lock()
+	defer cl.Unlock()
+	v, exists := cl.configs[m]
 	return v, exists
 }
 
-func (cm *ConfigLoader) GetAllConfigs() []Config {
-	cm.Lock()
-	defer cm.Unlock()
-	var res []Config
-	for _, v := range cm.configs {
+func (cl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
+	cl.Lock()
+	defer cl.Unlock()
+	var res []BackendConfig
+	for _, v := range cl.configs {
 		res = append(res, v)
 	}
 	return res
 }
 
-func (cm *ConfigLoader) ListConfigs() []string {
-	cm.Lock()
-	defer cm.Unlock()
+func (cl *BackendConfigLoader) ListBackendConfigs() []string {
+	cl.Lock()
+	defer cl.Unlock()
 	var res []string
-	for k := range cm.configs {
+	for k := range cl.configs {
 		res = append(res, k)
 	}
 	return res
 }
 
 // Preload prepare models if they are not local but url or huggingface repositories
-func (cm *ConfigLoader) Preload(modelPath string) error {
-	cm.Lock()
-	defer cm.Unlock()
+func (cl *BackendConfigLoader) Preload(modelPath string) error {
+	cl.Lock()
+	defer cl.Unlock()
 
 	status := func(fileName, current, total string, percent float64) {
 		utils.DisplayDownloadFunction(fileName, current, total, percent)
@@ -349,7 +357,7 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 
 	log.Info().Msgf("Preloading models from %s", modelPath)
 
-	for i, config := range cm.configs {
+	for i, config := range cl.configs {
 
 		// Download files and verify their SHA
 		for _, file := range config.DownloadFiles {
@@ -381,25 +389,25 @@ func (cm *ConfigLoader) Preload(modelPath string) error {
 				}
 			}
 
-			cc := cm.configs[i]
+			cc := cl.configs[i]
 			c := &cc
 			c.PredictionOptions.Model = md5Name
-			cm.configs[i] = *c
+			cl.configs[i] = *c
 		}
-		if cm.configs[i].Name != "" {
-			log.Info().Msgf("Model name: %s", cm.configs[i].Name)
+		if cl.configs[i].Name != "" {
+			log.Info().Msgf("Model name: %s", cl.configs[i].Name)
 		}
-		if cm.configs[i].Description != "" {
-			log.Info().Msgf("Model description: %s", cm.configs[i].Description)
+		if cl.configs[i].Description != "" {
+			log.Info().Msgf("Model description: %s", cl.configs[i].Description)
 		}
-		if cm.configs[i].Usage != "" {
-			log.Info().Msgf("Model usage: \n%s", cm.configs[i].Usage)
+		if cl.configs[i].Usage != "" {
+			log.Info().Msgf("Model usage: \n%s", cl.configs[i].Usage)
 		}
 	}
 	return nil
 }
 
-func (cm *ConfigLoader) LoadConfigs(path string) error {
+func (cm *BackendConfigLoader) LoadBackendConfigsFromPath(path string) error {
 	cm.Lock()
 	defer cm.Unlock()
 	entries, err := os.ReadDir(path)
@@ -419,7 +427,7 @@ func (cm *ConfigLoader) LoadConfigs(path string) error {
 		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
 			continue
 		}
-		c, err := ReadConfig(filepath.Join(path, file.Name()))
+		c, err := ReadBackendConfig(filepath.Join(path, file.Name()))
 		if err == nil {
 			cm.configs[c.Name] = *c
 		}
