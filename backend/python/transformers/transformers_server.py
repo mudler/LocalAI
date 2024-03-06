@@ -77,7 +77,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         model_name = request.Model
         try:
             if request.Type == "AutoModelForCausalLM":
-                self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
+                if XPU:
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,
+                                              device_map="xpu", load_in_4bit=True)
+                else:
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
             else:
                 self.model = AutoModel.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
 

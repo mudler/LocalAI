@@ -81,6 +81,10 @@ RUN pip install --upgrade pip
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get install -y espeak-ng espeak && apt-get clean
 
+RUN if [ ! -e /usr/bin/python ]; then \
+	  ln -s /usr/bin/python3 /usr/bin/python \
+    ; fi
+
 ###################################
 ###################################
 
