@@ -90,11 +90,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             self.XPU = False
 
             if XPU:
+                self.XPU = True
                 try:
-                    print("Loading model", model_name, "to XPU.", file=sys.stderr)
-                    device_map = "xpu"
-                    self.model = self.model.to(device_map)
-                    self.XPU = True
+                    print("Optimizing model", model_name, "to XPU.", file=sys.stderr)
                     self.model = ipex.optimize_transformers(self.model, inplace=True, dtype=torch.float16, woq=True, device=device_map)
                 except Exception as err:
                     print("Not using XPU:", err, file=sys.stderr)
