@@ -115,8 +115,8 @@ func TestUploadFileExceedSizeLimit(t *testing.T) {
 		assert.Equal(t, 200, resp.StatusCode)
 
 		listFiles := responseToListFile(t, resp)
-		if len(listFiles.Data) != len(uploadedFiles) {
-			t.Errorf("Expected %v files, got %v files", len(uploadedFiles), len(listFiles.Data))
+		if len(listFiles.Data) != len(UploadedFiles) {
+			t.Errorf("Expected %v files, got %v files", len(UploadedFiles), len(listFiles.Data))
 		}
 	})
 	t.Run("ListFilesEndpoint with valid purpose parameter", func(t *testing.T) {

@@ -6,12 +6,12 @@ import (
 	"github.com/go-skynet/LocalAI/core/options"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -30,8 +30,6 @@ const (
 	MaxFileIdSize             = 20
 	MaxCharacterMetadataKey   = 64
 	MaxCharacterMetadataValue = 512
-
-	MaxLengthRandomID = 0
 )
 
 type Tool struct {
@@ -80,8 +78,22 @@ func CreateAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 			return c.Status(fiber.StatusBadRequest).SendString("Model " + request.Model + " not found")
 		}
 
+		if request.Tools == nil {
+			request.Tools = []Tool{}
+		}
+
+		if request.FileIDs == nil {
+			request.FileIDs = []string{}
+		}
+
+		if request.Metadata == nil {
+			request.Metadata = make(map[string]string)
+		}
+
+		id := "asst_" + strconv.FormatInt(generateRandomID(), 10)
+
 		assistant := Assistant{
-			ID:           "asst_" + generateRandomID(MaxLengthRandomID),
+			ID:           id,
 			Object:       "assistant",
 			Created:      time.Now().Unix(),
 			Model:        request.Model,
@@ -99,22 +111,17 @@ func CreateAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 	}
 }
 
-func generateRandomID(maxLength int) string {
-	newUUID, err := uuid.NewUUID()
-	if err != nil {
-		log.Error().Msgf("Failed to generate UUID: %v", err)
-		return ""
-	}
+var currentId int64 = 0
 
-	uuidStr := newUUID.String()
-	if maxLength > 0 && len(uuidStr) > maxLength {
-		return uuidStr[:maxLength]
-	}
-	return uuidStr
+func generateRandomID() int64 {
+	atomic.AddInt64(&currentId, 1)
+	return currentId
 }
 
 func ListAssistantsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		// Because we're altering the existing assistants list we should just duplicate it for now.
+		returnAssistants := Assistants
 		// Parse query parameters
 		limitQuery := c.Query("limit", "20")
 		orderQuery := c.Query("order", "desc")
@@ -124,60 +131,80 @@ func ListAssistantsEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *
 		// Convert string limit to integer
 		limit, err := strconv.Atoi(limitQuery)
 		if err != nil {
-			return c.Status(http.StatusBadRequest).SendString(err.Error())
+			return c.Status(http.StatusBadRequest).SendString(fmt.Sprintf("Invalid limit query value: %s", limitQuery))
 		}
 
 		// Sort assistants
-		sort.SliceStable(Assistants, func(i, j int) bool {
+		sort.SliceStable(returnAssistants, func(i, j int) bool {
 			if orderQuery == "asc" {
-				return Assistants[i].Created < Assistants[j].Created
+				return returnAssistants[i].Created < returnAssistants[j].Created
 			}
-			return Assistants[i].Created > Assistants[j].Created
+			return returnAssistants[i].Created > returnAssistants[j].Created
 		})
 
 		// After and before cursors
 		if afterQuery != "" {
-			Assistants = filterAssistantsAfterID(Assistants, afterQuery)
+			returnAssistants = filterAssistantsAfterID(returnAssistants, afterQuery)
 		}
 		if beforeQuery != "" {
-			Assistants = filterAssistantsBeforeID(Assistants, beforeQuery)
+			returnAssistants = filterAssistantsBeforeID(returnAssistants, beforeQuery)
 		}
 
 		// Apply limit
-		if limit < len(Assistants) {
-			Assistants = Assistants[:limit]
+		if limit < len(returnAssistants) {
+			returnAssistants = returnAssistants[:limit]
 		}
 
-		return c.JSON(Assistants)
+		return c.JSON(returnAssistants)
 	}
 }
 
 // FilterAssistantsBeforeID filters out those assistants whose ID comes before the given ID
 // We assume that the assistants are already sorted
 func filterAssistantsBeforeID(assistants []Assistant, id string) []Assistant {
-	for i, assistant := range assistants {
-		if strings.Compare(assistant.ID, id) == 0 {
-			if i != 0 {
-				return assistants[:i]
-			}
-			return []Assistant{}
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return assistants // Return original slice if invalid id format is provided
+	}
+
+	var filteredAssistants []Assistant
+
+	for _, assistant := range assistants {
+		aid, err := strconv.Atoi(strings.TrimPrefix(assistant.ID, "asst_"))
+		if err != nil {
+			continue // Skip if invalid id in assistant
+		}
+
+		if aid < idInt {
+			filteredAssistants = append(filteredAssistants, assistant)
 		}
 	}
-	return assistants
+
+	return filteredAssistants
 }
 
 // FilterAssistantsAfterID filters out those assistants whose ID comes after the given ID
 // We assume that the assistants are already sorted
 func filterAssistantsAfterID(assistants []Assistant, id string) []Assistant {
-	for i, assistant := range assistants {
-		if strings.Compare(assistant.ID, id) == 0 {
-			if i != len(assistants)-1 {
-				return assistants[i+1:]
-			}
-			return []Assistant{}
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return assistants // Return original slice if invalid id format is provided
+	}
+
+	var filteredAssistants []Assistant
+
+	for _, assistant := range assistants {
+		aid, err := strconv.Atoi(strings.TrimPrefix(assistant.ID, "asst_"))
+		if err != nil {
+			continue // Skip if invalid id in assistant
+		}
+
+		if aid > idInt {
+			filteredAssistants = append(filteredAssistants, assistant)
 		}
 	}
-	return assistants
+
+	return filteredAssistants
 }
 
 func modelExists(o *options.Option, modelName string) (found bool) {
@@ -259,18 +286,24 @@ var (
 	AssistantsFileConfigFile = "assistantsFile.json"
 )
 
-func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
-	type AssistantFileRequest struct {
-		FileID string `json:"file_id"`
-	}
+type AssistantFileRequest struct {
+	FileID string `json:"file_id"`
+}
 
+type DeleteAssistantFileResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Deleted bool   `json:"deleted"`
+}
+
+func CreateAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		request := new(AssistantFileRequest)
 		if err := c.BodyParser(request); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 		}
 
-		assistantID := c.Query("assistant_id")
+		assistantID := c.Params("assistant_id")
 		if assistantID == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id is required")
 		}
@@ -406,11 +439,6 @@ func ModifyAssistantEndpoint(cm *config.ConfigLoader, o *options.Option) func(c 
 }
 
 func DeleteAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) func(c *fiber.Ctx) error {
-	type DeleteAssistantFileResponse struct {
-		ID      string `json:"id"`
-		Object  string `json:"object"`
-		Deleted bool   `json:"deleted"`
-	}
 	return func(c *fiber.Ctx) error {
 		assistantID := c.Params("assistant_id")
 		fileId := c.Params("file_id")
@@ -440,12 +468,20 @@ func DeleteAssistantFileEndpoint(cm *config.ConfigLoader, o *options.Option) fun
 					}
 				}
 
-				log.Warn().Msgf("Unable to locate file_id: %s in assistants: %s", fileId, assistantID)
-				return c.Status(fiber.StatusNotFound).JSON(DeleteAssistantFileResponse{
-					ID:      fileId,
-					Object:  "assistant.file.deleted",
-					Deleted: false,
-				})
+				log.Warn().Msgf("Unable to locate file_id: %s in assistants: %s. Continuing to delete assistant file.", fileId, assistantID)
+				for i, assistantFile := range AssistantFiles {
+					if assistantFile.AssistantID == assistantID {
+
+						AssistantFiles = append(AssistantFiles[:i], AssistantFiles[i+1:]...)
+						utils.SaveConfig(o.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
+
+						return c.Status(fiber.StatusNotFound).JSON(DeleteAssistantFileResponse{
+							ID:      fileId,
+							Object:  "assistant.file.deleted",
+							Deleted: true,
+						})
+					}
+				}
 			}
 		}
 		log.Warn().Msgf("Unable to find assistant: %s", assistantID)

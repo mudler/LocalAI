@@ -7,13 +7,14 @@ import (
 	"path/filepath"
 )
 
-func SaveConfig(uploadDir, fileName string, obj any) {
+func SaveConfig(filePath, fileName string, obj any) {
 	file, err := json.MarshalIndent(obj, "", " ")
 	if err != nil {
 		log.Error().Msgf("Failed to JSON marshal the uploadedFiles: %s", err)
 	}
 
-	err = os.WriteFile(filepath.Join(uploadDir, fileName), file, 0644)
+	absolutePath := filepath.Join(filePath, fileName)
+	err = os.WriteFile(absolutePath, file, 0644)
 	if err != nil {
 		log.Error().Msgf("Failed to save uploadedFiles to file: %s", err)
 	}
