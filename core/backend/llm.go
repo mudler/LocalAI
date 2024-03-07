@@ -173,6 +173,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 			log.Debug().Msgf("LLMBS Inference reply: %+v", reply)
 			if err != nil {
 				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Error: err}
+				close(rawResultChannel)
 			} else {
 				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Value: &LLMResponse{
 					Response: string(reply.Message),
