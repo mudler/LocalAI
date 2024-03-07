@@ -5,6 +5,7 @@ package utils
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 )
 
 var _ = Describe("utils/concurrency tests", func() {
@@ -21,8 +22,10 @@ var _ = Describe("utils/concurrency tests", func() {
 			}(c)
 			individualResultsChannels = append(individualResultsChannels, c)
 		}
+		Expect(len(individualResultsChannels)).To(Equal(3))
 		finalResultChannel := make(chan int)
 		wg := SliceOfChannelsReducer[int, int](individualResultsChannels, finalResultChannel, func(input int, val int) int {
+			log.Debug().Msgf("Reducer Fn input: %d, before: %d", input, val)
 			return val + input
 		}, initialValue)
 
