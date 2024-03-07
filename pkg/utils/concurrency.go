@@ -124,6 +124,7 @@ func SliceOfChannelsMergerIgnoreErrors[T any](individualResultsChannels []<-chan
 
 func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan IV, outputChannel chan<- OV,
 	reducerFn func(iv IV, ov OV) OV, initialValue OV) (wg *sync.WaitGroup) {
+	wg = &sync.WaitGroup{}
 	wg.Add(len(individualResultsChannels))
 	reduceLock := sync.Mutex{}
 	for _, irc := range individualResultsChannels {
