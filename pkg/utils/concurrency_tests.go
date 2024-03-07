@@ -16,7 +16,8 @@ var _ = Describe("utils/concurrency tests", func() {
 			c := make(chan int)
 			go func(c chan int) {
 				for ii := 1; ii < 4; ii++ {
-					c <- i * ii
+					log.Debug().Msgf("Producer #%d: pushing %d * %d = %d", i, i, ii, i*ii)
+					c <- (i * ii)
 				}
 				close(c)
 			}(c)
@@ -25,7 +26,7 @@ var _ = Describe("utils/concurrency tests", func() {
 		Expect(len(individualResultsChannels)).To(Equal(3))
 		finalResultChannel := make(chan int)
 		wg := SliceOfChannelsReducer[int, int](individualResultsChannels, finalResultChannel, func(input int, val int) int {
-			log.Debug().Msgf("Reducer Fn input: %d, before: %d", input, val)
+			log.Debug().Msgf("Reducer Fn input: %d, before: %d, after: %d", input, val, input+val)
 			return val + input
 		}, initialValue)
 
