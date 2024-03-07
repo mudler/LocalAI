@@ -16,16 +16,4 @@ fi
 # get the directory where the bash script is located
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-# Intel image: If there is no "python3" command, try "python"
-if ! [ -x "$(command -v python3)" ]; then
-  if [ -x "$(command -v python)" ]; then
-    export PYTHON=python
-  else
-    echo 'Error: python is not installed.' >&2
-    exit 1
-  fi
-else
-  export PYTHON=python3
-fi
-
-$PYTHON $DIR/backend_diffusers.py $@
+python $DIR/backend_diffusers.py $@
