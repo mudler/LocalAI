@@ -4,21 +4,13 @@ set -e
 ## A bash script installs the required dependencies of VALL-E-X and prepares the environment
 export SHA=c0ddebaaaf8ffd1b3529c2bb654e650bce2f790f
 
-SKIP_CONDA=${SKIP_CONDA:-0}
-
 if [ "$BUILD_TYPE" != "cublas" ]; then
     echo "[exllamav2] Attention!!! Nvidia GPU is required - skipping installation"
     exit 0
 fi
 
-if [ $SKIP_CONDA -eq 0 ]; then
-    export PATH=$PATH:/opt/conda/bin
-    source activate transformers
-else
-    # exllama2 is supported only with a conda environment
-    echo "[exllama2] Attention!!! conda is required - skipping installation"
-    exit 0
-fi
+export PATH=$PATH:/opt/conda/bin
+source activate transformers
 
 echo $CONDA_PREFIX
 
