@@ -14,8 +14,8 @@ type ListModelsService struct {
 	appConfig *config.ApplicationConfig
 }
 
-func NewListModelsService(bcl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) ListModelsService {
-	return ListModelsService{
+func NewListModelsService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *ListModelsService {
+	return &ListModelsService{
 		bcl:       bcl,
 		ml:        ml,
 		appConfig: appConfig,

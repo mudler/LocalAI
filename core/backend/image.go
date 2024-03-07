@@ -26,43 +26,25 @@ type ImageGenerationBackendService struct {
 	ml                        *model.ModelLoader
 	bcl                       *config.BackendConfigLoader
 	appConfig                 *config.ApplicationConfig
-	commandChannel            chan *schema.OpenAIRequest
-	responseChannel           chan utils.ErrorOr[*schema.OpenAIResponse]
 	BaseUrlForGeneratedImages string
 }
 
-func NewImageGenerationBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) ImageGenerationBackendService {
-	return ImageGenerationBackendService{
-		ml:              ml,
-		bcl:             bcl,
-		appConfig:       appConfig,
-		commandChannel:  make(chan *schema.OpenAIRequest),
-		responseChannel: make(chan utils.ErrorOr[*schema.OpenAIResponse]),
+func NewImageGenerationBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *ImageGenerationBackendService {
+	return &ImageGenerationBackendService{
+		ml:        ml,
+		bcl:       bcl,
+		appConfig: appConfig,
 	}
 }
 
-func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIRequest) (*schema.OpenAIResponse, error) {
-	igbs.commandChannel <- request
-	raw := <-igbs.responseChannel
-	if raw.Error != nil {
-		return nil, raw.Error
-	}
-	return raw.Value, nil
-}
-
-func (igbs *ImageGenerationBackendService) Shutdown() error {
-	// TODO: Should this return error? Can we ever fail that hard?
-	close(igbs.commandChannel)
-	close(igbs.responseChannel)
-	return nil
-}
-
-func (igbs *ImageGenerationBackendService) HandleRequests() error {
-	for request := range igbs.commandChannel {
+func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIRequest) <-chan utils.ErrorOr[*schema.OpenAIResponse] {
+	resultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
+	go func(request *schema.OpenAIRequest) {
 		bc, request, err := config.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, igbs.bcl, igbs.appConfig)
 		if err != nil {
-			igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-			continue
+			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+			close(resultChannel)
+			return
 		}
 
 		src := ""
@@ -74,15 +56,17 @@ func (igbs *ImageGenerationBackendService) HandleRequests() error {
 			if strings.HasPrefix(request.File, "http://") || strings.HasPrefix(request.File, "https://") {
 				out, err := downloadFile(request.File)
 				if err != nil {
-					igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("failed downloading file:%w", err)}
-					continue
+					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("failed downloading file:%w", err)}
+					close(resultChannel)
+					return
 				}
 				defer os.RemoveAll(out)
 
 				fileData, err = os.ReadFile(out)
 				if err != nil {
-					igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("failed reading file:%w", err)}
-					continue
+					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("failed reading file:%w", err)}
+					close(resultChannel)
+					return
 				}
 
 			} else {
@@ -90,24 +74,27 @@ func (igbs *ImageGenerationBackendService) HandleRequests() error {
 				// that we will cleanup
 				fileData, err = base64.StdEncoding.DecodeString(request.File)
 				if err != nil {
-					igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-					continue
+					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					close(resultChannel)
+					return
 				}
 			}
 
 			// Create a temporary file
 			outputFile, err := os.CreateTemp(igbs.appConfig.ImageDir, "b64")
 			if err != nil {
-				igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-				continue
+				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
 			}
 			// write the base64 result
 			writer := bufio.NewWriter(outputFile)
 			_, err = writer.Write(fileData)
 			if err != nil {
 				outputFile.Close()
-				igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-				continue
+				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
 			}
 			outputFile.Close()
 			src = outputFile.Name()
@@ -127,18 +114,21 @@ func (igbs *ImageGenerationBackendService) HandleRequests() error {
 
 		sizeParts := strings.Split(request.Size, "x")
 		if len(sizeParts) != 2 {
-			igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
-			continue
+			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
+			close(resultChannel)
+			return
 		}
 		width, err := strconv.Atoi(sizeParts[0])
 		if err != nil {
-			igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
-			continue
+			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
+			close(resultChannel)
+			return
 		}
 		height, err := strconv.Atoi(sizeParts[1])
 		if err != nil {
-			igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
-			continue
+			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
+			close(resultChannel)
+			return
 		}
 
 		b64JSON := false
@@ -181,26 +171,30 @@ func (igbs *ImageGenerationBackendService) HandleRequests() error {
 				// Create a temporary file
 				outputFile, err := os.CreateTemp(tempDir, "b64")
 				if err != nil {
-					igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-					continue
+					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					close(resultChannel)
+					return
 				}
 				outputFile.Close()
 				output := outputFile.Name() + ".png"
 				// Rename the temporary file
 				err = os.Rename(outputFile.Name(), output)
 				if err != nil {
-					igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-					continue
+					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					close(resultChannel)
+					return
 				}
 
 				fn, err := imageGeneration(height, width, mode, step, request.Seed, positive_prompt, negative_prompt, src, output, igbs.ml, bc, igbs.appConfig)
 				if err != nil {
-					igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-					continue
+					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					close(resultChannel)
+					return
 				}
 				if err := fn(); err != nil {
-					igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-					continue
+					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					close(resultChannel)
+					return
 				}
 
 				item := &schema.Item{}
@@ -209,8 +203,9 @@ func (igbs *ImageGenerationBackendService) HandleRequests() error {
 					defer os.RemoveAll(output)
 					data, err := os.ReadFile(output)
 					if err != nil {
-						igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-						continue
+						resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+						close(resultChannel)
+						return
 					}
 					item.B64JSON = base64.StdEncoding.EncodeToString(data)
 				} else {
@@ -229,9 +224,10 @@ func (igbs *ImageGenerationBackendService) HandleRequests() error {
 			Created: created,
 			Data:    result,
 		}
-		igbs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: resp}
-	}
-	return nil
+		resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: resp}
+		close(resultChannel)
+	}(request)
+	return resultChannel
 }
 
 func imageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {

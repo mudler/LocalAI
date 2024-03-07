@@ -15,45 +15,29 @@ import (
 )
 
 type TextToSpeechBackendService struct {
-	ml              *model.ModelLoader
-	bcl             *config.BackendConfigLoader
-	appConfig       *config.ApplicationConfig
-	commandChannel  chan *schema.TTSRequest
-	responseChannel chan utils.ErrorOr[*string]
+	ml        *model.ModelLoader
+	bcl       *config.BackendConfigLoader
+	appConfig *config.ApplicationConfig
+	// commandChannel  chan *schema.TTSRequest
+	// responseChannel chan utils.ErrorOr[*string]
 }
 
-func NewTextToSpeechBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) TextToSpeechBackendService {
-	return TextToSpeechBackendService{
-		ml:              ml,
-		bcl:             bcl,
-		appConfig:       appConfig,
-		commandChannel:  make(chan *schema.TTSRequest),
-		responseChannel: make(chan utils.ErrorOr[*string]),
+func NewTextToSpeechBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *TextToSpeechBackendService {
+	return &TextToSpeechBackendService{
+		ml:        ml,
+		bcl:       bcl,
+		appConfig: appConfig,
 	}
 }
 
-func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequest) (*string, error) {
-	ttsbs.commandChannel <- request
-	raw := <-ttsbs.responseChannel
-	if raw.Error != nil {
-		return nil, raw.Error
-	}
-	return raw.Value, nil
-}
-
-func (ttsbs *TextToSpeechBackendService) Shutdown() error {
-	// TODO: Should this return error? Can we ever fail that hard?
-	close(ttsbs.commandChannel)
-	close(ttsbs.responseChannel)
-	return nil
-}
-
-func (ttsbs *TextToSpeechBackendService) HandleRequests() error {
-	for request := range ttsbs.commandChannel {
+func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequest) <-chan utils.ErrorOr[*string] {
+	responseChannel := make(chan utils.ErrorOr[*string])
+	go func(request *schema.TTSRequest) {
 		cfg, err := config.LoadBackendConfigFileByName(request.Model, ttsbs.bcl, ttsbs.appConfig)
 		if err != nil {
-			ttsbs.responseChannel <- utils.ErrorOr[*string]{Error: err}
-			continue
+			responseChannel <- utils.ErrorOr[*string]{Error: err}
+			close(responseChannel)
+			return
 		}
 
 		if request.Backend != "" {
@@ -62,12 +46,14 @@ func (ttsbs *TextToSpeechBackendService) HandleRequests() error {
 
 		outFile, _, err := modelTTS(cfg.Backend, request.Input, cfg.Model, ttsbs.ml, ttsbs.appConfig, cfg)
 		if err != nil {
-			ttsbs.responseChannel <- utils.ErrorOr[*string]{Error: err}
-			continue
+			responseChannel <- utils.ErrorOr[*string]{Error: err}
+			close(responseChannel)
+			return
 		}
-		ttsbs.responseChannel <- utils.ErrorOr[*string]{Value: &outFile}
-	}
-	return nil
+		responseChannel <- utils.ErrorOr[*string]{Value: &outFile}
+		close(responseChannel)
+	}(request)
+	return responseChannel
 }
 
 func modelTTS(backend, text, modelFile string, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig *config.BackendConfig) (string, *proto.Result, error) {

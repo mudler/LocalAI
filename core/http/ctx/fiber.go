@@ -18,8 +18,8 @@ type FiberContextExtractor struct {
 	appConfig *config.ApplicationConfig
 }
 
-func NewFiberContextExtractor(ml *model.ModelLoader, appConfig *config.ApplicationConfig) FiberContextExtractor {
-	return FiberContextExtractor{
+func NewFiberContextExtractor(ml *model.ModelLoader, appConfig *config.ApplicationConfig) *FiberContextExtractor {
+	return &FiberContextExtractor{
 		ml:        ml,
 		appConfig: appConfig,
 	}

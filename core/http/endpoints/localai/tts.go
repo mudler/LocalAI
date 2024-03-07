@@ -24,10 +24,11 @@ func TTSEndpoint(fce *fiberContext.FiberContextExtractor, ttsbs *backend.TextToS
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		}
 
-		filePath, err := ttsbs.TextToAudioFile(input)
-		if err != nil {
-			return err
+		responseChannel := ttsbs.TextToAudioFile(input)
+		rawValue := <-responseChannel
+		if rawValue.Error != nil {
+			return rawValue.Error
 		}
-		return c.Download(*filePath)
+		return c.Download(*rawValue.Value)
 	}
 }

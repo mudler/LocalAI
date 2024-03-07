@@ -58,12 +58,14 @@ func TranscriptEndpoint(fce *fiberContext.FiberContextExtractor, tbs *backend.Tr
 
 		request.File = dst
 
-		tr, err := tbs.Transcribe(request)
-		if err != nil {
-			return err
+		responseChannel := tbs.Transcribe(request)
+		rawResponse := <-responseChannel
+
+		if rawResponse.Error != nil {
+			return rawResponse.Error
 		}
-		log.Debug().Msgf("Transcribed: %+v", tr)
+		log.Debug().Msgf("Transcribed: %+v", rawResponse.Value)
 		// TODO: handle different outputs here
-		return c.Status(http.StatusOK).JSON(tr)
+		return c.Status(http.StatusOK).JSON(rawResponse.Value)
 	}
 }

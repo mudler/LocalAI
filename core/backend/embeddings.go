@@ -14,49 +14,32 @@ import (
 )
 
 type EmbeddingsBackendService struct {
-	ml              *model.ModelLoader
-	bcl             *config.BackendConfigLoader
-	appConfig       *config.ApplicationConfig
-	commandChannel  chan *schema.OpenAIRequest
-	responseChannel chan utils.ErrorOr[*schema.OpenAIResponse]
+	ml        *model.ModelLoader
+	bcl       *config.BackendConfigLoader
+	appConfig *config.ApplicationConfig
 }
 
-func NewEmbeddingsBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) EmbeddingsBackendService {
-	return EmbeddingsBackendService{
-		ml:              ml,
-		bcl:             bcl,
-		appConfig:       appConfig,
-		commandChannel:  make(chan *schema.OpenAIRequest),
-		responseChannel: make(chan utils.ErrorOr[*schema.OpenAIResponse]),
+func NewEmbeddingsBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *EmbeddingsBackendService {
+	return &EmbeddingsBackendService{
+		ml:        ml,
+		bcl:       bcl,
+		appConfig: appConfig,
 	}
 }
 
-func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) (*schema.OpenAIResponse, error) {
-	ebs.commandChannel <- request
-	raw := <-ebs.responseChannel
-	if raw.Error != nil {
-		return nil, raw.Error
-	}
-	return raw.Value, nil
-}
+func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) <-chan utils.ErrorOr[*schema.OpenAIResponse] {
 
-func (ebs *EmbeddingsBackendService) Shutdown() error {
-	// TODO: Should this return error? Can we ever fail that hard?
-	close(ebs.commandChannel)
-	close(ebs.responseChannel)
-	return nil
-}
-
-func (ebs *EmbeddingsBackendService) HandleRequests() error {
-	for request := range ebs.commandChannel {
+	resultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
+	go func(request *schema.OpenAIRequest) {
 		if request.Model == "" {
 			request.Model = model.StableDiffusionBackend
 		}
 
 		bc, request, err := config.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, ebs.bcl, ebs.appConfig)
 		if err != nil {
-			ebs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-			continue
+			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+			close(resultChannel)
+			return
 		}
 
 		items := []schema.Item{}
@@ -65,14 +48,16 @@ func (ebs *EmbeddingsBackendService) HandleRequests() error {
 			// get the model function to call for the result
 			embedFn, err := modelEmbedding("", s, ebs.ml, bc, ebs.appConfig)
 			if err != nil {
-				ebs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-				continue
+				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
 			}
 
 			embeddings, err := embedFn()
 			if err != nil {
-				ebs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-				continue
+				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
 			}
 			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
 		}
@@ -81,14 +66,16 @@ func (ebs *EmbeddingsBackendService) HandleRequests() error {
 			// get the model function to call for the result
 			embedFn, err := modelEmbedding(s, []int{}, ebs.ml, bc, ebs.appConfig)
 			if err != nil {
-				ebs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-				continue
+				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
 			}
 
 			embeddings, err := embedFn()
 			if err != nil {
-				ebs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-				continue
+				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
 			}
 			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
 		}
@@ -102,9 +89,10 @@ func (ebs *EmbeddingsBackendService) HandleRequests() error {
 			Data:    items,
 			Object:  "list",
 		}
-		ebs.responseChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: resp}
-	}
-	return nil
+		resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: resp}
+		close(resultChannel)
+	}(request)
+	return resultChannel
 }
 
 func modelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {

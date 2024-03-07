@@ -428,17 +428,28 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer ml.StopAllGRPC()
 
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ml, opts, config.BackendConfig{})
-					if err != nil {
-						return err
+					ttsbs := backend.NewTextToSpeechBackendService(ml, config.NewBackendConfigLoader(), opts)
+
+					request := &schema.TTSRequest{
+						Model:   modelOption,
+						Input:   text,
+						Backend: backendOption,
+					}
+
+					resultsChannel := ttsbs.TextToAudioFile(request)
+
+					rawResult := <-resultsChannel
+
+					if rawResult.Error != nil {
+						return rawResult.Error
 					}
 					if outputFile != "" {
-						if err := os.Rename(filePath, outputFile); err != nil {
+						if err := os.Rename(*rawResult.Value, outputFile); err != nil {
 							return err
 						}
 						fmt.Printf("Generate file %s\n", outputFile)
 					} else {
-						fmt.Printf("Generate file %s\n", filePath)
+						fmt.Printf("Generate file %s\n", rawResult.Value)
 					}
 					return nil
 				},
@@ -503,19 +514,20 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 					defer ml.StopAllGRPC()
 
 					tbs := backend.NewTranscriptionBackendService(ml, cl, opts)
-					defer tbs.Shutdown()
 
-					tr, err := tbs.Transcribe(&schema.OpenAIRequest{
+					resultChannel := tbs.Transcribe(&schema.OpenAIRequest{
 						PredictionOptions: schema.PredictionOptions{
 							Language: language,
 						},
 						File: filename,
 					})
 
-					if err != nil {
-						return err
+					r := <-resultChannel
+
+					if r.Error != nil {
+						return r.Error
 					}
-					for _, segment := range tr.Segments {
+					for _, segment := range r.Value.Segments {
 						fmt.Println(segment.Start.String(), "-", segment.Text)
 					}
 					return nil

@@ -38,17 +38,19 @@ func ImageEndpoint(fce *fiberContext.FiberContextExtractor, igbs *backend.ImageG
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		resp, err := igbs.GenerateImage(request)
-		if err != nil {
-			return err
+		responseChannel := igbs.GenerateImage(request)
+		rawResponse := <-responseChannel
+
+		if rawResponse.Error != nil {
+			return rawResponse.Error
 		}
 
-		jsonResult, err := json.Marshal(resp)
+		jsonResult, err := json.Marshal(rawResponse.Value)
 		if err != nil {
 			return err
 		}
 		log.Debug().Msgf("Response: %s", jsonResult)
 		// Return the prediction in the response body
-		return c.JSON(resp)
+		return c.JSON(rawResponse.Value)
 	}
 }

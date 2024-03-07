@@ -8,27 +8,34 @@ import (
 )
 
 // TODO: Can I come up with a better name or location for this?
-// Is this even a good idea? Test that first!!!!
 // The purpose of this structure is to hold pointers to all initialized services, to make plumbing easy
+// Perhaps a proper DI system is worth it in the future, but for now keep things simple.
 type Application struct {
+
 	// Application-Level Config
-	// TODO: Should this eventually be broken up further?
 	ApplicationConfig *config.ApplicationConfig
+	// ApplicationState *ApplicationState
 
 	// Core Low-Level Services
 	BackendConfigLoader *config.BackendConfigLoader
 	ModelLoader         *model.ModelLoader
 
-	// Built-In High Level Services
-	BackendMonitor        *services.BackendMonitor
-	GalleryService        *services.GalleryService
-	LocalAIMetricsService *services.LocalAIMetricsService
+	// Backend Services
+	EmbeddingsBackendService      *backend.EmbeddingsBackendService
+	ImageGenerationBackendService *backend.ImageGenerationBackendService
+	LLMBackendService             *backend.LLMBackendService
+	TranscriptionBackendService   *backend.TranscriptionBackendService
+	TextToSpeechBackendService    *backend.TextToSpeechBackendService
 
-	// Backend Calling Services
-	TranscriptionBackendService *backend.TranscriptionBackendService
+	// LocalAI System Services
+	BackendMonitorService *services.BackendMonitorService
+	GalleryService        *services.GalleryService
+	ListModelsService     *services.ListModelsService
+	LocalAIMetricsService *services.LocalAIMetricsService
+	OpenAIService         *services.OpenAIService
 }
 
-// TODO: Break up ApplicationConfig.
+// TODO [NEXT PR?]: Break up ApplicationConfig.
 // Migrate over stuff that is not set via config at all - especially runtime stuff
 type ApplicationState struct {
 }
