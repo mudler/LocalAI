@@ -10,13 +10,12 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
-
-	"github.com/rs/zerolog/log"
 )
 
 type LLMRequest struct {
@@ -167,6 +166,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	} else {
 		go func() {
 			reply, err := inferenceModel.Predict(ctx, grpcPredOpts)
+			log.Debug().Msgf("LLMBS Inference reply: %+v", reply)
 			if err != nil {
 				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Error: err}
 			} else {
@@ -190,9 +190,11 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	// Returns:
 	resultChannel <-chan utils.ErrorOr[*LLMResponseBundle], completionChannels []<-chan utils.ErrorOr[*LLMResponse], tokenChannels []<-chan utils.ErrorOr[*LLMResponse], err error) {
 
-	log.Debug().Msgf("LLMBackendService::GenerateText %+v", request)
+	// log.Debug().Msgf("LLMBackendService::GenerateText %+v", request)
 
 	rawChannel := make(chan utils.ErrorOr[*LLMResponseBundle])
+	resultChannel = rawChannel
+
 	if request.N == 0 { // number of completions to return
 		request.N = 1
 	}
@@ -215,7 +217,6 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 		tokenChannels = append(tokenChannels, tokenChannel)
 	}
 
-	resultChannel = rawChannel
 	go func() {
 		// utils.SliceOfChannelsResultSynchronizerFatalErrors(completionChannels, rawChannel, mappingFn)
 		initialBundle := LLMResponseBundle{
@@ -236,6 +237,7 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 			return ov
 		}, utils.ErrorOr[*LLMResponseBundle]{Value: &initialBundle})
 		wg.Wait()
+
 		close(rawChannel)
 	}()
 	return
