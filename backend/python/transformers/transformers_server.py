@@ -93,7 +93,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.XPU = True
                 try:
                     print("Optimizing model", model_name, "to XPU.", file=sys.stderr)
-                    self.model = ipex.optimize_transformers(self.model, inplace=True, dtype=torch.float16, woq=True, device="xpu")
+                    self.model = ipex.optimize_transformers(self.model, inplace=True, dtype=torch.float16, device="xpu")
                 except Exception as err:
                     print("Not using XPU:", err, file=sys.stderr)
 
@@ -160,6 +160,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         inputs = self.tokenizer(request.Prompt, return_tensors="pt").input_ids
         if self.CUDA:
             inputs = inputs.to("cuda")
+        if XPU:
+            inputs = inputs.to("xpu")
 
         outputs = self.model.generate(inputs,max_new_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP)
 
