@@ -557,3 +557,10 @@ docker-image-intel:
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+
+docker-image-intel-xpu:
+	docker build \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04 \
+		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
+		--build-arg GO_TAGS="none" \
+		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .

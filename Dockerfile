@@ -4,6 +4,8 @@ ARG BASE_IMAGE=ubuntu:22.04
 # extras or core
 FROM ${BASE_IMAGE} as requirements-core
 
+USER root
+
 ARG GO_VERSION=1.21.7
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
@@ -21,7 +23,7 @@ RUN apt-get update && \
     apt-get install -y ca-certificates curl patch pip cmake git && apt-get clean
 
 # Install Go
-RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -v -C /usr/local -xz
+RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -C /usr/local -xz
 ENV PATH $PATH:/usr/local/go/bin
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
@@ -78,6 +80,10 @@ RUN pip install --upgrade pip
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get install -y espeak-ng espeak && apt-get clean
+
+RUN if [ ! -e /usr/bin/python ]; then \
+	  ln -s /usr/bin/python3 /usr/bin/python \
+    ; fi
 
 ###################################
 ###################################
@@ -166,43 +172,43 @@ COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/
 
 ## Duplicated from Makefile to avoid having a big layer that's hard to push
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/autogptq \
+	 make -C backend/python/autogptq \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/bark \
+	 make -C backend/python/bark \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/diffusers \
+	 make -C backend/python/diffusers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/vllm \
+	 make -C backend/python/vllm \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/mamba \
+	 make -C backend/python/mamba \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers \
+	 make -C backend/python/sentencetransformers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/transformers \
+	 make -C backend/python/transformers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/vall-e-x \
+	 make -C backend/python/vall-e-x \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/exllama \
+	 make -C backend/python/exllama \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    PATH=$PATH:/opt/conda/bin make -C backend/python/exllama2 \
+     make -C backend/python/exllama2 \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/petals \
+	 make -C backend/python/petals \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/transformers-musicgen \
+	 make -C backend/python/transformers-musicgen \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	PATH=$PATH:/opt/conda/bin make -C backend/python/coqui \
+	 make -C backend/python/coqui \
     ; fi
 
 # Make sure the models directory exists

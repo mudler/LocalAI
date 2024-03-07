@@ -16,7 +16,15 @@ import backend_pb2_grpc
 import grpc
 import torch
 import torch.cuda
-from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed
+
+XPU=os.environ.get("XPU", "0") == "1"
+if XPU:
+    import intel_extension_for_pytorch as ipex
+    from intel_extension_for_transformers.transformers.modeling import AutoModelForCausalLM
+    from transformers import AutoTokenizer, AutoModel, set_seed
+else:
+    from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed
+
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -69,12 +77,25 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         model_name = request.Model
         try:
             if request.Type == "AutoModelForCausalLM":
-                self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
+                if XPU:
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,
+                                              device_map="xpu", load_in_4bit=True)
+                else:
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
             else:
                 self.model = AutoModel.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
 
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
             self.CUDA = False
+            self.XPU = False
+
+            if XPU:
+                self.XPU = True
+                try:
+                    print("Optimizing model", model_name, "to XPU.", file=sys.stderr)
+                    self.model = ipex.optimize_transformers(self.model, inplace=True, dtype=torch.float16, device="xpu")
+                except Exception as err:
+                    print("Not using XPU:", err, file=sys.stderr)
 
             if request.CUDA or torch.cuda.is_available():
                 try:
@@ -139,6 +160,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         inputs = self.tokenizer(request.Prompt, return_tensors="pt").input_ids
         if self.CUDA:
             inputs = inputs.to("cuda")
+        if XPU:
+            inputs = inputs.to("xpu")
 
         outputs = self.model.generate(inputs,max_new_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP)
 

@@ -28,7 +28,10 @@ type TokenUsage struct {
 
 func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
-
+	threads := c.Threads
+	if threads == 0 && o.Threads != 0 {
+		threads = o.Threads
+	}
 	grpcOpts := gRPCModelOpts(c)
 
 	var inferenceModel grpc.Backend
@@ -36,7 +39,7 @@ func ModelInference(ctx context.Context, s string, images []string, loader *mode
 
 	opts := modelOpts(c, o, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(c.Threads)), // some models uses this to allocate threads during startup
+		model.WithThreads(uint32(threads)), // some models uses this to allocate threads during startup
 		model.WithAssetDir(o.AssetsDestination),
 		model.WithModel(modelFile),
 		model.WithContext(o.Context),
