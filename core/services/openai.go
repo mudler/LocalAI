@@ -143,6 +143,9 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 		}
 	}
 
+	setupWG := sync.WaitGroup{}
+	setupWG.Add(len(bc.PromptStrings))
+
 	for pI, p := range bc.PromptStrings {
 
 		go func(promptIndex int, prompt string) {
@@ -174,9 +177,12 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			promptResultsChannelLock.Lock()
 			promptResultsChannels = append(promptResultsChannels, promptResultsChannel)
 			promptResultsChannelLock.Unlock()
+			setupWG.Done()
 		}(pI, p)
 
 	}
+	setupWG.Wait()
+	log.Debug().Msgf("OpenAIService::GenerateTextFromRequest: number of promptResultChannels: %d", len(promptResultsChannels))
 
 	initialResponse := &schema.OpenAIResponse{
 		ID:      traceID.ID,
