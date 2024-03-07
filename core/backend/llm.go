@@ -119,6 +119,8 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 		tokenUsage.Prompt = int(promptInfo.Length)
 	}
 
+	log.Debug().Msgf("LLMBS Inference tokenized: %q", promptInfo)
+
 	rawResultChannel := make(chan utils.ErrorOr[*LLMResponse])
 	// TODO this next line is the biggest argument for taking named return values _back_ out!!!
 	var rawTokenChannel chan utils.ErrorOr[*LLMResponse]
