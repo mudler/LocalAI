@@ -14,13 +14,13 @@ var _ = Describe("utils/concurrency tests", func() {
 		initialValue := 0
 		for i := 0; i < 3; i++ {
 			c := make(chan int)
-			go func(c chan int) {
+			go func(i int, c chan int) {
 				for ii := 1; ii < 4; ii++ {
 					log.Debug().Msgf("Producer #%d: pushing %d * %d = %d", i, i, ii, i*ii)
 					c <- (i * ii)
 				}
 				close(c)
-			}(c)
+			}(i, c)
 			individualResultsChannels = append(individualResultsChannels, c)
 		}
 		Expect(len(individualResultsChannels)).To(Equal(3))
