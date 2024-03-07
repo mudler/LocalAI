@@ -8,7 +8,7 @@ GOLLAMA_VERSION?=aeba71ee842819da681ea537e78846dc75949ac0
 
 GOLLAMA_STABLE_VERSION?=50cee7712066d9e38306eccadcfbb44ea87df4b7
 
-CPPLLAMA_VERSION?=e0843afe1b37890b631bc7d3d2da2ed36c862b91
+CPPLLAMA_VERSION?=e25fb4b18fcedb9bed6be4585cf842e9a669b28b
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -28,7 +28,7 @@ BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
 PIPER_VERSION?=d6b6275ba037dabdba4a8b65dfdf6b2a73a67f07
 
 # stablediffusion version
-STABLEDIFFUSION_VERSION?=d5d2be8e7e395c2d73ceef61e6fe8d240f2cd831
+STABLEDIFFUSION_VERSION?=362df9da29f882dbf09ade61972d16a1f53c3485
 
 # tinydream version
 TINYDREAM_VERSION?=772a9c0d9aaf768290e63cca3c904fe69faf677a
@@ -552,6 +552,13 @@ docker:
 		-t $(DOCKER_IMAGE) .
 
 docker-image-intel:
+	docker build \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04 \
+		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
+		--build-arg GO_TAGS="none" \
+		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+
+docker-image-intel-xpu:
 	docker build \
 		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \

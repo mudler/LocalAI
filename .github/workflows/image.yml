@@ -120,6 +120,22 @@ jobs:
             image-type: 'extras'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
             runs-on: 'arc-runner-set'
+          - build-type: 'sycl_f16'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            tag-suffix: '-sycl-f16-ffmpeg'
+            ffmpeg: 'true'
+            image-type: 'extras'
+            runs-on: 'arc-runner-set'
+          - build-type: 'sycl_f32'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            tag-suffix: '-sycl-f32-ffmpeg'
+            ffmpeg: 'true'
+            image-type: 'extras'
+            runs-on: 'arc-runner-set'
           # Core images
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'

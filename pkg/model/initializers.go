@@ -69,6 +69,13 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			return fmt.Sprintf("127.0.0.1:%d", port), nil
 		}
 
+		// If no specific model path is set for transformers/HF, set it to the model path
+		for _, env := range []string{"HF_HOME", "TRANSFORMERS_CACHE", "HUGGINGFACE_HUB_CACHE"} {
+			if os.Getenv(env) == "" {
+				os.Setenv(env, ml.ModelPath)
+			}
+		}
+
 		// Check if the backend is provided as external
 		if uri, ok := o.externalBackends[backend]; ok {
 			log.Debug().Msgf("Loading external backend: %s", uri)

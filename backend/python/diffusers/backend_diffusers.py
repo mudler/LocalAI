@@ -21,20 +21,25 @@ from diffusers import StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipelin
 from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image,export_to_video
-from compel import Compel
+from compel import Compel, ReturnedEmbeddingsType
 
 from transformers import CLIPTextModel
 from safetensors.torch import load_file
 
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
-COMPEL=os.environ.get("COMPEL", "1") == "1"
+COMPEL=os.environ.get("COMPEL", "0") == "1"
+XPU=os.environ.get("XPU", "0") == "1"
 CLIPSKIP=os.environ.get("CLIPSKIP", "1") == "1"
 SAFETENSORS=os.environ.get("SAFETENSORS", "1") == "1"
 CHUNK_SIZE=os.environ.get("CHUNK_SIZE", "8")
 FPS=os.environ.get("FPS", "7")
 DISABLE_CPU_OFFLOAD=os.environ.get("DISABLE_CPU_OFFLOAD", "0") == "1"
 FRAMES=os.environ.get("FRAMES", "64")
+
+if XPU:
+    import intel_extension_for_pytorch as ipex
+    print(ipex.xpu.get_device_name(0))
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
@@ -231,8 +236,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.SchedulerType != "":
                 self.pipe.scheduler = get_scheduler(request.SchedulerType, self.pipe.scheduler.config)
                 
-            if not self.img2vid:
-                self.compel = Compel(tokenizer=self.pipe.tokenizer, text_encoder=self.pipe.text_encoder)
+            if COMPEL:
+                self.compel = Compel(
+                    tokenizer=[self.pipe.tokenizer, self.pipe.tokenizer_2 ], 
+                    text_encoder=[self.pipe.text_encoder, self.pipe.text_encoder_2],
+                    returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+                    requires_pooled=[False, True]
+                    )
 
 
             if request.ControlNet:
@@ -247,6 +257,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe.to('cuda')
                 if self.controlnet:
                     self.controlnet.to('cuda')
+            if XPU:
+                self.pipe = self.pipe.to("xpu")
             # Assume directory from request.ModelFile.
             # Only if request.LoraAdapter it's not an absolute path
             if request.LoraAdapter and request.ModelFile != "" and not os.path.isabs(request.LoraAdapter) and request.LoraAdapter:
@@ -386,8 +398,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         image = {}
         if COMPEL:
-            conditioning = self.compel.build_conditioning_tensor(prompt)
-            kwargs["prompt_embeds"]= conditioning
+            conditioning, pooled = self.compel.build_conditioning_tensor(prompt)
+            kwargs["prompt_embeds"] = conditioning
+            kwargs["pooled_prompt_embeds"] = pooled
             # pass the kwargs dictionary to the self.pipe method
             image = self.pipe(
                 guidance_scale=self.cfg_scale,
