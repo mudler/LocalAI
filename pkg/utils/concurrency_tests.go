@@ -5,7 +5,7 @@ package utils
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
+	// "github.com/rs/zerolog/log"
 )
 
 var _ = Describe("utils/concurrency tests", func() {
@@ -16,7 +16,6 @@ var _ = Describe("utils/concurrency tests", func() {
 			c := make(chan int)
 			go func(i int, c chan int) {
 				for ii := 1; ii < 4; ii++ {
-					log.Debug().Msgf("Producer #%d: pushing %d * %d = %d", i, i, ii, i*ii)
 					c <- (i * ii)
 				}
 				close(c)
@@ -26,7 +25,6 @@ var _ = Describe("utils/concurrency tests", func() {
 		Expect(len(individualResultsChannels)).To(Equal(3))
 		finalResultChannel := make(chan int)
 		wg := SliceOfChannelsReducer[int, int](individualResultsChannels, finalResultChannel, func(input int, val int) int {
-			log.Debug().Msgf("Reducer Fn input: %d, before: %d, after: %d", input, val, input+val)
 			return val + input
 		}, initialValue)
 
@@ -35,7 +33,6 @@ var _ = Describe("utils/concurrency tests", func() {
 		result := <-finalResultChannel
 
 		Expect(result).ToNot(Equal(0))
-		Expect(result).To(Equal(18)) // Did I do the math right?
-
+		Expect(result).To(Equal(18))
 	})
 })
