@@ -169,6 +169,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 		}()
 	} else {
 		go func() {
+			log.Debug().Msgf("LLMBS Inference before Predict: %q", grpcPredOpts.Prompt)
 			reply, err := inferenceModel.Predict(ctx, grpcPredOpts)
 			log.Debug().Msgf("LLMBS Inference reply: %+v", reply)
 			if err != nil {
