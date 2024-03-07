@@ -112,6 +112,8 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	grpcPredOpts.Prompt = req.Text
 	grpcPredOpts.Images = req.Images
 
+	log.Debug().Msgf("LLMBS Inference grpcPredOpts: %+v", grpcPredOpts)
+
 	tokenUsage := TokenUsage{}
 
 	promptInfo, pErr := inferenceModel.TokenizeString(ctx, grpcPredOpts)
@@ -119,7 +121,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 		tokenUsage.Prompt = int(promptInfo.Length)
 	}
 
-	log.Debug().Msgf("LLMBS Inference tokenized: %q", promptInfo)
+	log.Debug().Msgf("LLMBS Inference tokenized: %+v", promptInfo)
 
 	rawResultChannel := make(chan utils.ErrorOr[*LLMResponse])
 	// TODO this next line is the biggest argument for taking named return values _back_ out!!!
