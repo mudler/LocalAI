@@ -78,12 +78,8 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 		}
 
 		// TODO is this proper to have exclusive from Stream, or do we need to issue both responses?
-
-		log.Debug().Msgf("|||||||| DOING NON STREAM COMPLETION FOR %q", traceID)
-
 		rawResponse := <-finalResultChannel
 
-		log.Debug().Msgf("|||||||| %q::: %+v", traceID, rawResponse)
 		if rawResponse.Error != nil {
 			return rawResponse.Error
 		}

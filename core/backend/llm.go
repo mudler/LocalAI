@@ -15,6 +15,8 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
+
+	"github.com/rs/zerolog/log"
 )
 
 type LLMRequest struct {
@@ -187,6 +189,8 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	mappingFn func(*LLMResponse) schema.Choice, enableCompletionChannels bool, enableTokenChannels bool) (
 	// Returns:
 	resultChannel <-chan utils.ErrorOr[*LLMResponseBundle], completionChannels []<-chan utils.ErrorOr[*LLMResponse], tokenChannels []<-chan utils.ErrorOr[*LLMResponse], err error) {
+
+	log.Debug().Msgf("LLMBackendService::GenerateText %+v", request)
 
 	rawChannel := make(chan utils.ErrorOr[*LLMResponseBundle])
 	if request.N == 0 { // number of completions to return
