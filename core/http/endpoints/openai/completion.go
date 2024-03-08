@@ -83,7 +83,6 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 		if rawResponse.Error != nil {
 			return rawResponse.Error
 		}
-		log.Debug().Msgf("|||||||| %q::: %+v", traceID, *rawResponse.Value)
 
 		jsonResult, _ := json.Marshal(rawResponse.Value)
 		log.Debug().Msgf("Response: %s", jsonResult)

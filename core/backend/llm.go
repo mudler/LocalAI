@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
@@ -112,16 +111,12 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	grpcPredOpts.Prompt = req.Text
 	grpcPredOpts.Images = req.Images
 
-	log.Debug().Msgf("LLMBS Inference grpcPredOpts: %+v", grpcPredOpts)
-
 	tokenUsage := TokenUsage{}
 
 	promptInfo, pErr := inferenceModel.TokenizeString(ctx, grpcPredOpts)
 	if pErr == nil && promptInfo.Length > 0 {
 		tokenUsage.Prompt = int(promptInfo.Length)
 	}
-
-	log.Debug().Msgf("LLMBS Inference tokenized: %+v", promptInfo)
 
 	rawResultChannel := make(chan utils.ErrorOr[*LLMResponse])
 	// TODO this next line is the biggest argument for taking named return values _back_ out!!!
@@ -169,9 +164,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 		}()
 	} else {
 		go func() {
-			log.Debug().Msgf("LLMBS Inference before Predict: %q", grpcPredOpts.Prompt)
 			reply, err := inferenceModel.Predict(ctx, grpcPredOpts)
-			log.Debug().Msgf("LLMBS Inference reply: %+v", reply)
 			if err != nil {
 				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Error: err}
 				close(rawResultChannel)
@@ -195,8 +188,6 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	mappingFn func(*LLMResponse) schema.Choice, enableCompletionChannels bool, enableTokenChannels bool) (
 	// Returns:
 	resultChannel <-chan utils.ErrorOr[*LLMResponseBundle], completionChannels []<-chan utils.ErrorOr[*LLMResponse], tokenChannels []<-chan utils.ErrorOr[*LLMResponse], err error) {
-
-	// log.Debug().Msgf("LLMBackendService::GenerateText %+v", request)
 
 	rawChannel := make(chan utils.ErrorOr[*LLMResponseBundle])
 	resultChannel = rawChannel

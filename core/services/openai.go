@@ -149,7 +149,6 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	for pI, p := range bc.PromptStrings {
 
 		go func(promptIndex int, prompt string) {
-			log.Debug().Msgf("OpenAIService::GenerateTextFromRequest: (%d)prompt: %q", promptIndex, prompt)
 			if templateFile != "" {
 				promptTemplateData := model.PromptTemplateData{
 					Input: prompt,
@@ -183,7 +182,6 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 	}
 	setupWG.Wait()
-	log.Debug().Msgf("OpenAIService::GenerateTextFromRequest: number of promptResultChannels: %d", len(promptResultsChannels))
 
 	initialResponse := &schema.OpenAIResponse{
 		ID:      traceID.ID,
