@@ -189,6 +189,10 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.FrequencyPenalty = input.FrequencyPenalty
 	}
 
+	if input.PresencePenalty!= 0 {
+		config.PresencePenalty = input.PresencePenalty
+	}
+
 	if input.Keep != 0 {
 		config.Keep = input.Keep
 	}
