@@ -185,6 +185,10 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.RepeatPenalty = input.RepeatPenalty
 	}
 
+	if input.FrequencyPenalty!= 0 {
+		config.FrequencyPenalty = input.FrequencyPenalty
+	}
+
 	if input.Keep != 0 {
 		config.Keep = input.Keep
 	}
