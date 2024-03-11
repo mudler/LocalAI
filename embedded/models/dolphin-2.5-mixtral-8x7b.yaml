@@ -2,10 +2,13 @@ name: dolphin-mixtral-8x7b
 mmap: true
 parameters:
   model: huggingface://TheBloke/dolphin-2.5-mixtral-8x7b-GGUF/dolphin-2.5-mixtral-8x7b.Q2_K.gguf
-  temperature: 0.2
+  temperature: 0.5
   top_k: 40
   top_p: 0.95
   seed: -1
+mirostat: 2
+mirostat_eta: 1.0
+mirostat_tau: 1.0
 template:
   chat_message: |
     <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}
