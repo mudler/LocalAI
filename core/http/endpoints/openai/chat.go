@@ -104,8 +104,6 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 		}
 
 		// TODO is this proper to have exclusive from Stream, or do we need to issue both responses?
-		// ALSO TODO multiple reads????
-		<-finalResultChannel
 		rawResponse := <-finalResultChannel
 
 		if rawResponse.Error != nil {
