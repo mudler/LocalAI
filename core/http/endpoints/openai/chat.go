@@ -40,6 +40,9 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 			c.Set("Transfer-Encoding", "chunked")
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+				w.WriteString("DUMB TEST????\n")
+				w.Flush()
+
 				usage := &backend.TokenUsage{}
 				toolsCalled := false
 				for ev := range tokenChannel {
