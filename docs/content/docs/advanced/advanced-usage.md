@@ -130,13 +130,14 @@ parameters:
   typical_p:
   tfz:
   frequency_penalty:
-  mirostat_eta:
-  mirostat_tau:
-  mirostat: 
+
   rope_freq_base:
   rope_freq_scale:
   negative_prompt_scale:
 
+mirostat_eta:
+mirostat_tau:
+mirostat: 
 # Default context size
 context_size: 512
 # Default number of threads
