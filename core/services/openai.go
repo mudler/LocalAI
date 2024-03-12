@@ -463,12 +463,11 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	go func() {
 		log.Warn().Msgf("[DELETEME GenerateFromMultipleMessagesChatRequest] goroutine started!!!!!!")
 		rawResult := <-rawResultChannel
-		log.Warn().Msgf("[DELETEME GenerateFromMultipleMessagesChatRequest] rawResult: %+v", rawResult)
 		if rawResult.Error != nil {
 			log.Warn().Msgf("OpenAIService::processTools GenerateText error [DEBUG THIS?] %q", rawResult.Error)
 			return
 		}
-
+		log.Warn().Msgf("[DELETEME GenerateFromMultipleMessagesChatRequest] rawResult Value: %+v\n\n%dResponse: %+v", rawResult.Value, len(rawResult.Value.Response), rawResult.Value.Response)
 		llmResponseChoices := rawResult.Value.Response
 
 		if processFunctions && len(llmResponseChoices) > 1 {
