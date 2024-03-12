@@ -42,14 +42,13 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 				usage := &backend.TokenUsage{}
 				toolsCalled := false
-				log.Warn().Msgf("[CHAT EP DELETEME] waiting for tokens, size: %d", w.Size())
 				for ev := range tokenChannel {
-					log.Warn().Msgf("[CHAT EP DELETEME] %+v", ev)
 					if ev.Error != nil {
 						log.Debug().Msgf("chat streaming responseChannel error: %q", ev.Error)
 						request.Cancel()
 						break
 					}
+					log.Warn().Msgf("[CHAT EP DELETEME] %+v", ev.Value)
 					usage = &ev.Value.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
 
 					/// TODO DAVE: THIS IS IMPORTANT BUT IT'S INTENTIONALLY BROKEN RIGHT NOW UNTIL WE FIGURE OUT HOW TO GET A CHOICE PARAM PER TOKEN
@@ -58,7 +57,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 					// }
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
-					enc.Encode(ev)
+					enc.Encode(ev.Value.Response)
 					log.Debug().Msgf("Sending chunk: %s", buf.String())
 					_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
 					if err != nil {
