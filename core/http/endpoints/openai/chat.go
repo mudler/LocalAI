@@ -69,6 +69,8 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 					w.Flush()
 				}
 
+				log.Warn().Msg("[CHAT ENDPOINT] DELETEME MADE IT OUT OF THE TOKEN LOOP!")
+
 				finishReason := "stop"
 				if toolsCalled {
 					finishReason = "tool_calls"
