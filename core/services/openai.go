@@ -99,19 +99,7 @@ func (oais *OpenAIService) Chat(request *schema.OpenAIRequest, notifyOnPromptRes
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse],
 	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
 
-	return oais.GenerateFromMultipleMessagesChatRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) (
-		schemaObject string, templatePath string, templateData model.PromptTemplateData, mappingFn func(resp *backend.LLMResponse, promptIndex int) schema.Choice) {
-		return "temporarily_ignored_", bc.TemplateConfig.Completion, model.PromptTemplateData{
-				SystemPrompt: bc.SystemPrompt,
-				// SuppressSystemPrompt: ,		// Hard to generate here, also this is ignored currently I think???
-			}, func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
-				return schema.Choice{
-					Index:        promptIndex,
-					FinishReason: "stop",
-					Text:         resp.Response,
-				}
-			}
-	}, notifyOnPromptResult, notifyOnToken, nil)
+	return oais.GenerateFromMultipleMessagesChatRequest(request, notifyOnPromptResult, notifyOnToken, nil)
 }
 
 func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest, endpointConfigFn endpointGenerationConfigurationFn, notifyOnPromptResult bool, notifyOnToken bool, initialTraceID *OpenAIRequestTraceID) (
@@ -239,8 +227,8 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 // TODO: For porting sanity, this is distinct from GenerateTextFromRequest and is _currently_ specific to Chat purposes
 // this is not a final decision -- just a reality of moving a lot of parts at once
-// / REMOVED promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle] from RETURNS
-func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *schema.OpenAIRequest, endpointConfigFn endpointGenerationConfigurationFn, notifyOnPromptResult bool, notifyOnToken bool, initialTraceID *OpenAIRequestTraceID) (
+// / This has _become_ Chat which wasn't the goal... More cleanup in the future once it's stable?
+func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool, initialTraceID *OpenAIRequestTraceID) (
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse],
 	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
 
@@ -315,8 +303,6 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	if request.Stream && processFunctions {
 		log.Warn().Msg("Streaming + Functions is highly experimental in this version")
 	}
-
-	_, templateFile, _, mappingFn := endpointConfigFn(bc, request)
 
 	var predInput string
 
@@ -403,8 +389,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	predInput = strings.Join(mess, "\n")
 	log.Debug().Msgf("Prompt (before templating): %s", predInput)
 
-	// TODO Work this into the mappingFn / config bit - currently I think we're just overwriting it here
-
+	templateFile := ""
 	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 	if oais.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
 		templateFile = bc.Model
@@ -449,9 +434,16 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 		rawTokenChannel = make(chan utils.ErrorOr[*backend.LLMResponse])
 	}
 
-	// This should be calling GenerateText
-	// Hastily swapped to such - is the index override correct for functions?
-	rawResultChannel, individualCompletionChannels, tokenChannels, err := oais.llmbs.GenerateText(predInput, request, bc, func(resp *backend.LLMResponse) schema.Choice { return mappingFn(resp, 0) }, notifyOnPromptResult, notifyOnToken)
+	rawResultChannel, individualCompletionChannels, tokenChannels, err := oais.llmbs.GenerateText(predInput, request, bc, func(resp *backend.LLMResponse) schema.Choice {
+		return schema.Choice{
+			Index:        0, // ???
+			FinishReason: "stop",
+			Message: &schema.Message{
+				Role:    "assistant",
+				Content: resp.Response,
+			},
+		}
+	}, notifyOnPromptResult, notifyOnToken)
 
 	if notifyOnPromptResult {
 		utils.SliceOfChannelsRawMergerWithoutMapping(individualCompletionChannels, rawCompletionsChannel, true)
