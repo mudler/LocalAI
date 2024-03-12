@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
@@ -152,9 +151,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 					partialRune = partialRune[size:]
 				}
 			})
-			log.Debug().Msg("[LLM Inference] attempting to close token channel")
 			close(rawTokenChannel)
-			log.Debug().Msg("[LLM Inference] successfully closed token channel")
 			if err != nil {
 				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Error: err}
 			} else {
@@ -163,9 +160,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 					Usage:    tokenUsage,
 				}}
 			}
-			log.Debug().Msg("[LLM Inference] attempting to close result channel")
 			close(rawResultChannel)
-			log.Debug().Msg("[LLM Inference] successfully closed result channel")
 		}()
 	} else {
 		go func() {
