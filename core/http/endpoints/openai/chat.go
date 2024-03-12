@@ -42,7 +42,9 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 				usage := &backend.TokenUsage{}
 				toolsCalled := false
+				log.Warn().Msgf("[CHAT EP DELETEME] waiting for tokens, size: %d", w.Size())
 				for ev := range tokenChannel {
+					log.Warn().Msgf("[CHAT EP DELETEME] %+v", ev)
 					if ev.Error != nil {
 						log.Debug().Msgf("chat streaming responseChannel error: %q", ev.Error)
 						request.Cancel()

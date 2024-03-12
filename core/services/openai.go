@@ -466,7 +466,6 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 			log.Warn().Msgf("OpenAIService::processTools GenerateText error [DEBUG THIS?] %q", rawResult.Error)
 			return
 		}
-		log.Warn().Msgf("[DELETEME GenerateFromMultipleMessagesChatRequest] rawResult Value: %+v", rawResult.Value)
 		llmResponseChoices := rawResult.Value.Response
 
 		if processFunctions && len(llmResponseChoices) > 1 {
@@ -475,8 +474,8 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 		}
 
 		for _, result := range rawResult.Value.Response {
-			log.Warn().Msgf("[DELETEME GenerateFromMultipleMessagesChatRequest] rawResult.Value.Response Loop: %+v", result)
 
+			// If no functions, just return the raw result.
 			if !processFunctions {
 				resp := schema.OpenAIResponse{
 					ID:      traceID.ID,
@@ -495,6 +494,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 
 				continue
 			}
+			// At this point, things are function specific!
 			results := parseFunctionCall(result.Text, bc.FunctionsConfig.ParallelCalls)
 			noActionToRun := (len(results) > 0 && results[0].name == noActionName)
 
@@ -535,7 +535,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
 			} else {
-				log.Warn().Msgf("[DELETEME GenerateFromMultipleMessagesChatRequest] fnResultsBranch: %+v", results)
+				log.Warn().Msgf("[GenerateFromMultipleMessagesChatRequest] fnResultsBranch: %+v", results)
 				for i, ss := range results {
 					name, args := ss.name, ss.arguments
 
