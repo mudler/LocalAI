@@ -632,7 +632,7 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		ss := []map[string]interface{}{}
 		s := utils.EscapeNewLines(llmresult)
 		json.Unmarshal([]byte(s), &ss)
-		log.Debug().Msgf("Function return: %s %+v", s, ss)
+		log.Debug().Msgf("[if] Function return: %s %+v", s, ss)
 
 		for _, s := range ss {
 			func_name, ok := s["function"]
@@ -656,7 +656,7 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		// This prevent newlines to break JSON parsing for clients
 		s := utils.EscapeNewLines(llmresult)
 		json.Unmarshal([]byte(s), &ss)
-		log.Debug().Msgf("Function return: %s %+v", s, ss)
+		log.Debug().Msgf("[else] Function return: %s %+v", s, ss)
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
 		func_name, ok := ss["function"]
