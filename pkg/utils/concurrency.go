@@ -21,8 +21,12 @@ func SliceOfChannelsRawMerger[IR any, MR any](individualResultChannels []<-chan 
 		}(irc)
 	}
 	if closeWhenDone {
-		close(outputChannel)
+		go func() {
+			wg.Wait()
+			close(outputChannel)
+		}()
 	}
+
 	return &wg
 }
 
@@ -52,8 +56,11 @@ func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []
 		}(irc)
 	}
 	if closeWhenDone {
-		close(successChannel)
-		close(errorChannel)
+		go func() {
+			wg.Wait()
+			close(successChannel)
+			close(errorChannel)
+		}()
 	}
 	return &wg
 }
