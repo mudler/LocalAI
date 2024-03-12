@@ -475,7 +475,10 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 		}
 
 		for _, result := range rawResult.Value.Response {
-			results := parseFunctionCall(result.Text, bc.FunctionsConfig.ParallelCalls)
+			var results []funcCallResults
+			if processFunctions {
+				results = parseFunctionCall(result.Text, bc.FunctionsConfig.ParallelCalls)
+			}
 			noActionToRun := len(results) > 0 && results[0].name == noActionName
 
 			if noActionToRun {
