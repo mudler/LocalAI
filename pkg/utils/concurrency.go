@@ -2,69 +2,6 @@ package utils
 
 import "sync"
 
-// This function is intended to be used in the situation where one has a slice of channels that will each eventually publish a single vue and then be closed,
-// 		and one needs to emit a single slice value on another channel that collapses the results down
-// Specifically, this is the most basic variant without error handling
-func SliceOfChannelsResultSynchronizer[IR any, FR any](individualResultChannels []<-chan IR,
-	finalResultChannel chan<- []FR, mappingFn func(IR) FR) {
-
-	var wg sync.WaitGroup
-	wg.Add(len(individualResultChannels))
-	resultMutex := sync.Mutex{}
-	result := []FR{}
-	for _, irc := range individualResultChannels {
-		go func(c <-chan IR) {
-			defer wg.Done()
-			ir := <-c
-			resultMutex.Lock()
-			result = append(result, mappingFn(ir))
-			resultMutex.Unlock()
-		}(irc)
-	}
-	wg.Wait()
-	finalResultChannel <- result
-	close(finalResultChannel)
-}
-
-// This function is intended to be used in the situation where one has a slice of channels that will each eventually publish a single vue and then be closed,
-// 		and one needs to emit a single slice value on another channel that collapses the results down
-// This version assumes any error is fatal - Any Error result on an IRC or any error during mapping will result in an Error value on the final result channel
-// TODO: Should this duplicate code, or be merged with above?
-// TODO NEEDS WORK WAIT MISSING????
-func SliceOfChannelsResultSynchronizerFatalErrors[IR any, FR any](individualResultChannels []<-chan ErrorOr[IR],
-	finalResultChannel chan<- ErrorOr[[]FR], mappingFn func(IR) (FR, error)) {
-
-	var wg sync.WaitGroup
-	wg.Add(len(individualResultChannels))
-	resultMutex := sync.Mutex{}
-	result := []FR{}
-	var err error
-	for _, irc := range individualResultChannels {
-		go func(c <-chan ErrorOr[IR]) {
-			defer wg.Done()
-			ir := <-c
-			resultMutex.Lock()
-			if ir.Error != nil {
-				err = ir.Error
-			} else {
-				mVal, mErr := mappingFn(ir.Value)
-				if mErr != nil {
-					err = mErr
-				} else {
-					result = append(result, mVal)
-				}
-			}
-			resultMutex.Unlock()
-		}(irc)
-	}
-	wg.Wait()
-	if err != nil {
-		finalResultChannel <- ErrorOr[[]FR]{Error: err}
-	}
-	finalResultChannel <- ErrorOr[[]FR]{Value: result}
-	close(finalResultChannel)
-}
-
 func SliceOfChannelsRawMerger[IR any, MR any](individualResultChannels []<-chan IR, outputChannel chan<- MR, mappingFn func(IR) (MR, error)) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(individualResultChannels))
