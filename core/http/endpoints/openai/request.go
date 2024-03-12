@@ -197,7 +197,7 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.IgnoreEOS = input.IgnoreEOS
 	}
 
-	if input.Seed != 0 {
+	if input.Seed != nil {
 		config.Seed = input.Seed
 	}
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -193,11 +194,18 @@ func (cfg *BackendConfig) SetDefaults(debug bool, threads, ctx int, f16 bool) {
 	defaultMirostat := 2
 	defaultMirostatTAU := 5.0
 	defaultMirostatETA := 0.1
+
 	// Try to offload all GPU layers (if GPU is found)
 	defaultNGPULayers := 99999999
 
 	trueV := true
 	falseV := false
+
+	if cfg.Seed == nil {
+		//  random number generator seed
+		defaultSeed := int(rand.Int31())
+		cfg.Seed = &defaultSeed
+	}
 
 	if cfg.TopK == nil {
 		cfg.TopK = &defaultTopK
