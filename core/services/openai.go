@@ -480,7 +480,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 			if processFunctions {
 				results = parseFunctionCall(result.Text, bc.FunctionsConfig.ParallelCalls)
 			}
-			noActionToRun := len(results) > 0 && results[0].name == noActionName
+			noActionToRun := len(results) == 0 || (len(results) > 0 && results[0].name == noActionName)
 
 			if noActionToRun {
 				log.Debug().Msg("-- noActionToRun branch --")
