@@ -497,7 +497,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						return errors.New("model not found")
 					}
 
-					c.Threads = threads
+					c.Threads = &threads
 
 					defer ml.StopAllGRPC()
 
