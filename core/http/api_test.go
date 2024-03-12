@@ -17,6 +17,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/config"
 	. "github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/startup"
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
@@ -675,6 +676,7 @@ var _ = Describe("API test", func() {
 		It("can generate chat completions ", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
+			log.Warn().Msgf("TEMPORARY TEST DEBUG LOG: %+v", resp)
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
 		})
