@@ -481,7 +481,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 
 				tmpMsg := schema.Message{Content: &result, Role: "assistant"}
 
-				log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] tmpMsg: %+v", tmpMsg)
+				log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] tmpMsg: %+v", tmpMsg.Content)
 
 				tmpChoice := schema.Choice{Message: &tmpMsg, Index: 0}
 
