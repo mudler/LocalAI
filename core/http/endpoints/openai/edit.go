@@ -21,8 +21,6 @@ func EditEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 
 		_, finalResultChannel, _, _, _, err := oais.Edit(request, false, request.Stream)
 
-		// TODO: Test completion streaming and port over? Why not??
-
 		rawResponse := <-finalResultChannel
 		if rawResponse.Error != nil {
 			return rawResponse.Error

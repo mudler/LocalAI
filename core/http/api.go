@@ -149,8 +149,8 @@ func App(application *core.Application) (*fiber.App, error) {
 	// openAI compatible API endpoint
 
 	// chat
-	app.Post("/v1/chat/completions", auth, openai.ChatEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
-	app.Post("/chat/completions", auth, openai.ChatEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Post("/v1/chat/completions", auth, openai.ChatEndpoint(fiberContextExtractor, application.OpenAIService))
+	app.Post("/chat/completions", auth, openai.ChatEndpoint(fiberContextExtractor, application.OpenAIService))
 
 	// edit
 	app.Post("/v1/edits", auth, openai.EditEndpoint(fiberContextExtractor, application.OpenAIService))
