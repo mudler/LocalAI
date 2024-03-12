@@ -475,6 +475,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 
 		for _, result := range rawResult.Value.Response {
 
+			log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] rawResult.Value.Response: %+v", result)
 			// If no functions, just return the raw result.
 			if !processFunctions {
 				resp := schema.OpenAIResponse{
