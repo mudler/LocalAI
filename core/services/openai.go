@@ -478,11 +478,14 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 			log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] rawResult.Value.Response: %+v", result)
 			// If no functions, just return the raw result.
 			if !processFunctions {
+				choiceRes := schema.Choice{Delta: &schema.Message{Content: &result}, Index: 0}
+				log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] choiceRes: %+v", choiceRes)
+
 				resp := schema.OpenAIResponse{
 					ID:      traceID.ID,
 					Created: traceID.Created,
 					Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []schema.Choice{{Delta: &schema.Message{Content: &result}, Index: 0}},
+					Choices: []schema.Choice{choiceRes},
 					Object:  "chat.completion.chunk",
 					Usage: schema.OpenAIUsage{
 						PromptTokens:     rawResult.Value.Usage.Prompt,
