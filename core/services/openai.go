@@ -476,11 +476,27 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 
 		for _, result := range rawResult.Value.Response {
 			log.Warn().Msgf("[DELETEME GenerateFromMultipleMessagesChatRequest] rawResult.Value.Response Loop: %+v", result)
-			var results []funcCallResults
-			if processFunctions {
-				results = parseFunctionCall(result.Text, bc.FunctionsConfig.ParallelCalls)
+
+			if !processFunctions {
+				resp := schema.OpenAIResponse{
+					ID:      traceID.ID,
+					Created: traceID.Created,
+					Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
+					Choices: []schema.Choice{{Delta: &schema.Message{Content: &result}, Index: 0}},
+					Object:  "chat.completion.chunk",
+					Usage: schema.OpenAIUsage{
+						PromptTokens:     rawResult.Value.Usage.Prompt,
+						CompletionTokens: rawResult.Value.Usage.Completion,
+						TotalTokens:      rawResult.Value.Usage.Prompt + rawResult.Value.Usage.Prompt,
+					},
+				}
+
+				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
+
+				continue
 			}
-			noActionToRun := len(results) == 0 || (len(results) > 0 && results[0].name == noActionName)
+			results := parseFunctionCall(result.Text, bc.FunctionsConfig.ParallelCalls)
+			noActionToRun := (len(results) > 0 && results[0].name == noActionName)
 
 			if noActionToRun {
 				log.Debug().Msg("-- noActionToRun branch --")
@@ -494,6 +510,8 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
 
 				log.Debug().Msg("[noActionToRun::rawFinalResultChannel] initial message consumed")
+
+				// args := results[0].arguments
 
 				result, err := oais.handleQuestion(bc, request, results[0].arguments, predInput)
 				if err != nil {
@@ -567,7 +585,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 			}
 		}
 
-		close(rawFinalResultChannel)
+		close(rawFinalResultChannel) // TODO SHOULD GENERATEFROMMC close(rawFinalResultChannel)
 	}()
 
 	finalResultChannel = rawFinalResultChannel
