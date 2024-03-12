@@ -98,6 +98,9 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 				w.Flush()
 				log.Warn().Msg("DELETEME:: SetBodyStreamWriter:: Done!!!")
 			}))
+
+			log.Warn().Msgf("DELETEME:: SetBodyStreamWriter called for %+v", traceID)
+
 			return nil
 		}
 
