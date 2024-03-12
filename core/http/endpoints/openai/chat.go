@@ -97,7 +97,6 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 				w.WriteString("data: [DONE]\n\n")
 				w.Flush()
 			}))
-			<-finalResultChannel
 			return nil
 		}
 
