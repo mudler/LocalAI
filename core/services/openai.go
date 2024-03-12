@@ -585,7 +585,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 			}
 		}
 
-		close(rawFinalResultChannel) // TODO SHOULD GENERATEFROMMC close(rawFinalResultChannel)
+		close(rawFinalResultChannel)
 	}()
 
 	finalResultChannel = rawFinalResultChannel
