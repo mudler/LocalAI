@@ -48,7 +48,6 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 						request.Cancel()
 						break
 					}
-					log.Warn().Msgf("[CHAT EP DELETEME] %+v", ev.Value)
 					usage = &ev.Value.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
 
 					/// TODO DAVE: THIS IS IMPORTANT BUT IT'S INTENTIONALLY BROKEN RIGHT NOW UNTIL WE FIGURE OUT HOW TO GET A CHOICE PARAM PER TOKEN
