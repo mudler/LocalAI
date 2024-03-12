@@ -22,7 +22,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		log.Debug().Msgf("`[CHAT] OpenAIRequest`: %+v", request)
+		// log.Debug().Msgf("`[CHAT] OpenAIRequest`: %+v", request)
 
 		traceID, finalResultChannel, _, tokenChannel, err := oais.Chat(request, false, request.Stream)
 		if err != nil {
@@ -35,7 +35,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
 			//
-			c.Set("Content-Type", "text/event-stream")
+			// c.Set("Content-Type", "text/event-stream")
 			// above line was commented, testing with it in place since it's used in a fiber example.
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
@@ -100,8 +100,6 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 				w.Flush()
 				log.Warn().Msg("DELETEME:: SetBodyStreamWriter:: Done!!!")
 			}))
-
-			log.Warn().Msgf("DELETEME:: SetBodyStreamWriter called for %+v", traceID)
 
 			return nil
 		}
