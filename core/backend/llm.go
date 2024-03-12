@@ -215,7 +215,6 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	}
 
 	go func() {
-		// utils.SliceOfChannelsResultSynchronizerFatalErrors(completionChannels, rawChannel, mappingFn)
 		initialBundle := LLMResponseBundle{
 			Request:  request,
 			Response: []schema.Choice{},
