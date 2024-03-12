@@ -34,7 +34,9 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 			log.Debug().Msgf("Stream request received")
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
-			//c.Set("Content-Type", "text/event-stream")
+			//
+			c.Set("Content-Type", "text/event-stream")
+			// above line was commented, testing with it in place since it's used in a fiber example.
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
