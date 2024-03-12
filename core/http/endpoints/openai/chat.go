@@ -96,6 +96,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 				w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
 				w.WriteString("data: [DONE]\n\n")
 				w.Flush()
+				log.Warn().Msg("DELETEME:: SetBodyStreamWriter:: Done!!!")
 			}))
 			return nil
 		}
