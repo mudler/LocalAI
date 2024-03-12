@@ -517,6 +517,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
 			} else {
+				log.Warn().Msgf("[DELETEME GenerateFromMultipleMessagesChatRequest] fnResultsBranch: %+v", results)
 				for i, ss := range results {
 					name, args := ss.name, ss.arguments
 
