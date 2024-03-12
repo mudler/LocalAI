@@ -482,6 +482,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 			noActionToRun := len(results) > 0 && results[0].name == noActionName
 
 			if noActionToRun {
+				log.Debug().Msg("-- noActionToRun branch --")
 				initialMessage := schema.OpenAIResponse{
 					ID:      traceID.ID,
 					Created: traceID.Created,
@@ -490,6 +491,8 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					Object:  "chat.completion.chunk",
 				}
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
+
+				log.Debug().Msg("[noActionToRun::rawFinalResultChannel] initial message consumed")
 
 				result, err := oais.handleQuestion(bc, request, results[0].arguments, predInput)
 				if err != nil {
@@ -572,7 +575,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 }
 
 func (oais *OpenAIService) handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, args, prompt string) (string, error) {
-	log.Debug().Msgf("nothing to do, computing a reply")
+	log.Debug().Msgf("[handleQuestion called] nothing to do, computing a reply")
 
 	// If there is a message that the LLM already sends as part of the JSON reply, use it
 	arguments := map[string]interface{}{}
