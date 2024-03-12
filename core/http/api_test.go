@@ -677,7 +677,7 @@ var _ = Describe("API test", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
-			log.Warn().Msgf("TEMPORARY TEST DEBUG LOG: %+v", resp.Choices[0].Message)
+			log.Warn().Msgf("TEMPORARY TEST DEBUG LOG: %+v", resp.Choices[0].Message.Content)
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
 		})
 

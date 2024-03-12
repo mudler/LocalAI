@@ -500,7 +500,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					},
 				}
 
-				log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] resp: %+v", resp)
+				log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest]\n\nresp.Choices[0].Message.Content: %+v\n\nresp.Choices[0].Text: %+v", resp.Choices[0].Message.Content, resp.Choices[0].Text)
 
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
