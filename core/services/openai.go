@@ -190,10 +190,10 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 				return
 			}
 			if notifyOnPromptResult {
-				utils.SliceOfChannelsRawMergerWithoutMapping(completionChannels, rawCompletionsChannel)
+				utils.SliceOfChannelsRawMergerWithoutMapping(completionChannels, rawCompletionsChannel, true)
 			}
 			if notifyOnToken {
-				utils.SliceOfChannelsRawMergerWithoutMapping(tokenChannels, rawTokenChannel)
+				utils.SliceOfChannelsRawMergerWithoutMapping(tokenChannels, rawTokenChannel, true)
 			}
 			promptResultsChannelLock.Lock()
 			promptResultsChannels = append(promptResultsChannels, promptResultsChannel)
@@ -228,7 +228,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			result.Value.Choices = append(result.Value.Choices, iv.Value.Response...)
 
 			return result
-		}, utils.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse})
+		}, utils.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse}, true)
 
 	finalResultChannel = rawFinalResultChannel
 	completionsChannel = rawCompletionsChannel
@@ -454,10 +454,10 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	rawResultChannel, individualCompletionChannels, tokenChannels, err := oais.llmbs.GenerateText(predInput, request, bc, func(resp *backend.LLMResponse) schema.Choice { return mappingFn(resp, 0) }, notifyOnPromptResult, notifyOnToken)
 
 	if notifyOnPromptResult {
-		utils.SliceOfChannelsRawMergerWithoutMapping(individualCompletionChannels, rawCompletionsChannel)
+		utils.SliceOfChannelsRawMergerWithoutMapping(individualCompletionChannels, rawCompletionsChannel, true)
 	}
 	if notifyOnToken {
-		utils.SliceOfChannelsRawMergerWithoutMapping(tokenChannels, rawTokenChannel)
+		utils.SliceOfChannelsRawMergerWithoutMapping(tokenChannels, rawTokenChannel, true)
 	}
 
 	go func() {

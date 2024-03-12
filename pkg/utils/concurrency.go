@@ -2,7 +2,11 @@ package utils
 
 import "sync"
 
-func SliceOfChannelsRawMerger[IR any, MR any](individualResultChannels []<-chan IR, outputChannel chan<- MR, mappingFn func(IR) (MR, error)) *sync.WaitGroup {
+// TODO: closeWhenDone bool parameter ::
+//			It currently is experimental, and therefore exists.
+//			Is there ever a situation to use false?
+
+func SliceOfChannelsRawMerger[IR any, MR any](individualResultChannels []<-chan IR, outputChannel chan<- MR, mappingFn func(IR) (MR, error), closeWhenDone bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(individualResultChannels))
 	for _, irc := range individualResultChannels {
@@ -16,15 +20,18 @@ func SliceOfChannelsRawMerger[IR any, MR any](individualResultChannels []<-chan 
 			wg.Done()
 		}(irc)
 	}
+	if closeWhenDone {
+		close(outputChannel)
+	}
 	return &wg
 }
 
-func SliceOfChannelsRawMergerWithoutMapping[T any](individualResultsChannels []<-chan T, outputChannel chan<- T) *sync.WaitGroup {
-	return SliceOfChannelsRawMerger(individualResultsChannels, outputChannel, func(v T) (T, error) { return v, nil })
+func SliceOfChannelsRawMergerWithoutMapping[T any](individualResultsChannels []<-chan T, outputChannel chan<- T, closeWhenDone bool) *sync.WaitGroup {
+	return SliceOfChannelsRawMerger(individualResultsChannels, outputChannel, func(v T) (T, error) { return v, nil }, closeWhenDone)
 }
 
 // TODO: now that above mapper is fixed, commonize with above???
-func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []<-chan ErrorOr[IV], successChannel chan<- OV, errorChannel chan<- error, mappingFn func(IV) (OV, error)) *sync.WaitGroup {
+func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []<-chan ErrorOr[IV], successChannel chan<- OV, errorChannel chan<- error, mappingFn func(IV) (OV, error), closeWhenDone bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(individualResultChannels))
 	for _, irc := range individualResultChannels {
@@ -44,11 +51,15 @@ func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []
 			wg.Done()
 		}(irc)
 	}
+	if closeWhenDone {
+		close(successChannel)
+		close(errorChannel)
+	}
 	return &wg
 }
 
 // TODO: This seems like a hack for now. Revist post port?
-func SliceOfChannelsMergerIgnoreErrors[T any](individualResultsChannels []<-chan ErrorOr[*T], outputChannel chan<- *T) *sync.WaitGroup {
+func SliceOfChannelsMergerIgnoreErrors[T any](individualResultsChannels []<-chan ErrorOr[*T], outputChannel chan<- *T, closeWhenDone bool) *sync.WaitGroup {
 	return SliceOfChannelsRawMerger(individualResultsChannels, outputChannel, func(v ErrorOr[*T]) (*T, error) {
 		if v.Error != nil {
 			// TEMPORARY DEBUG LOG LINE GOES HERE LATER
@@ -56,11 +67,11 @@ func SliceOfChannelsMergerIgnoreErrors[T any](individualResultsChannels []<-chan
 			return nil, v.Error
 		}
 		return v.Value, nil
-	})
+	}, closeWhenDone)
 }
 
 func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan IV, outputChannel chan<- OV,
-	reducerFn func(iv IV, ov OV) OV, initialValue OV) (wg *sync.WaitGroup) {
+	reducerFn func(iv IV, ov OV) OV, initialValue OV, closeWhenDone bool) (wg *sync.WaitGroup) {
 	wg = &sync.WaitGroup{}
 	wg.Add(len(individualResultsChannels))
 	reduceLock := sync.Mutex{}
@@ -77,6 +88,9 @@ func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan I
 	go func() {
 		wg.Wait()
 		outputChannel <- initialValue
+		if closeWhenDone {
+			close(outputChannel)
+		}
 	}()
 	return wg
 }

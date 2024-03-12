@@ -236,10 +236,8 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 			ov.Value.Usage.Completion += iv.Value.Usage.Completion
 			ov.Value.Response = append(ov.Value.Response, mappingFn(iv.Value))
 			return ov
-		}, utils.ErrorOr[*LLMResponseBundle]{Value: &initialBundle})
+		}, utils.ErrorOr[*LLMResponseBundle]{Value: &initialBundle}, true)
 		wg.Wait()
-
-		close(rawChannel)
 	}()
 	return
 }

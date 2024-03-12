@@ -26,7 +26,7 @@ var _ = Describe("utils/concurrency tests", func() {
 		finalResultChannel := make(chan int)
 		wg := SliceOfChannelsReducer[int, int](individualResultsChannels, finalResultChannel, func(input int, val int) int {
 			return val + input
-		}, initialValue)
+		}, initialValue, true)
 
 		Expect(wg).ToNot(BeNil())
 
