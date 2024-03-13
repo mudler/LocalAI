@@ -66,7 +66,7 @@ func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPro
 		return "text_completion", bc.TemplateConfig.Completion, model.PromptTemplateData{
 				SystemPrompt: bc.SystemPrompt,
 			}, func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
-				log.Warn().Msgf("[oais.Completion] mappingFn input resp: %+v", resp)
+				log.Warn().Msgf("=== [oais.Completion] === mappingFn input resp: %+v", resp)
 				return schema.Choice{
 					Index:        promptIndex,
 					FinishReason: "stop",
@@ -156,6 +156,8 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 	setupWG := sync.WaitGroup{}
 	setupWG.Add(len(bc.PromptStrings))
+
+	log.Warn().Msgf("[oais::GenerateTextFromRequest] promptStrings: %+v", bc.PromptStrings)
 
 	for pI, p := range bc.PromptStrings {
 
