@@ -174,7 +174,12 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 				}
 			}
 
-			promptResultsChannel, completionChannels, tokenChannels, err := oais.llmbs.GenerateText(prompt, request, bc, func(r *backend.LLMResponse) schema.Choice { return mappingFn(r, promptIndex) }, false, notifyOnToken)
+			log.Debug().Msgf("[OAIS GenerateTextFromRequest] Prompt: %q", prompt)
+			promptResultsChannel, completionChannels, tokenChannels, err := oais.llmbs.GenerateText(prompt, request, bc,
+				func(r *backend.LLMResponse) schema.Choice {
+					log.Debug().Msgf("[OAIS GenerateTextFromRequest::GenerateText::MAPFN] %d => %+v", promptIndex, r)
+					return mappingFn(r, promptIndex)
+				}, false, notifyOnToken)
 			if err != nil {
 				log.Error().Msgf("TODO DEBUG IF HIT:\nprompt: %q\nerr: %q", prompt, err)
 				return
