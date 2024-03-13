@@ -158,7 +158,6 @@ func WithBackendAssets(f embed.FS) AppOption {
 func WithStringGalleries(galls string) AppOption {
 	return func(o *ApplicationConfig) {
 		if galls == "" {
-			log.Debug().Msgf("no galleries to load")
 			o.Galleries = []gallery.Gallery{}
 			return
 		}

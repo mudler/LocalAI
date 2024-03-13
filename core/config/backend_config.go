@@ -15,6 +15,8 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
+
+	"github.com/charmbracelet/glamour"
 )
 
 type BackendConfig struct {
@@ -465,6 +467,20 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 
 	log.Info().Msgf("Preloading models from %s", modelPath)
 
+	renderMode := "dark"
+	if os.Getenv("COLOR") != "" {
+		renderMode = os.Getenv("COLOR")
+	}
+
+	glamText := func(t string) {
+		out, err := glamour.Render(t, renderMode)
+		if err == nil && os.Getenv("NO_COLOR") == "" {
+			fmt.Println(out)
+		} else {
+			fmt.Println(t)
+		}
+	}
+
 	for i, config := range cl.configs {
 
 		// Download files and verify their SHA
@@ -503,13 +519,15 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 			cl.configs[i] = *c
 		}
 		if cl.configs[i].Name != "" {
-			log.Info().Msgf("Model name: %s", cl.configs[i].Name)
+			glamText(fmt.Sprintf("**Model name**: _%s_", cl.configs[i].Name))
 		}
 		if cl.configs[i].Description != "" {
-			log.Info().Msgf("Model description: %s", cl.configs[i].Description)
+			//glamText("**Description**")
+			glamText(cl.configs[i].Description)
 		}
 		if cl.configs[i].Usage != "" {
-			log.Info().Msgf("Model usage: \n%s", cl.configs[i].Usage)
+			//glamText("**Usage**")
+			glamText(cl.configs[i].Usage)
 		}
 	}
 	return nil
