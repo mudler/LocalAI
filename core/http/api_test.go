@@ -669,6 +669,7 @@ var _ = Describe("API test", func() {
 		It("can generate completions", func() {
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: testPrompt})
 			Expect(err).ToNot(HaveOccurred())
+			log.Warn().Msgf("TEMPORARY TEST DEBUG LOG [COMPLETIONS]: %+v", resp)
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})
@@ -677,7 +678,7 @@ var _ = Describe("API test", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
-			log.Warn().Msgf("TEMPORARY TEST DEBUG LOG: %+v", resp.Choices[0].Message.Content)
+			log.Warn().Msgf("TEMPORARY TEST DEBUG LOG [CHAT]: %+v", resp.Choices[0].Message.Content)
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
 		})
 
