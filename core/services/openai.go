@@ -217,7 +217,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 			result.Value.Choices = append(result.Value.Choices, iv.Value.Response...)
 
-			log.Warn().Msgf("[oais::GenerateTextFromRequest] REDUCER RESULT: %+v", result)
+			log.Warn().Msgf("[oais::GenerateTextFromRequest] REDUCER Choices: %+v", result.Value.Choices)
 
 			return result
 		}, utils.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse}, true)
