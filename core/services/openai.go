@@ -118,6 +118,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 	bc, request, err := oais.getConfig(request)
 	if err != nil {
+		log.Error().Msgf("[oais::GenerateTextFromRequest] error getting configuration: %q", err)
 		return
 	}
 
@@ -215,6 +216,8 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			result.Value.Usage.TotalTokens = result.Value.Usage.PromptTokens + result.Value.Usage.CompletionTokens
 
 			result.Value.Choices = append(result.Value.Choices, iv.Value.Response...)
+
+			log.Warn().Msgf("[oais::GenerateTextFromRequest] REDUCER RESULT: %+v", result)
 
 			return result
 		}, utils.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse}, true)
