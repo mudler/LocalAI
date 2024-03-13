@@ -667,9 +667,10 @@ var _ = Describe("API test", func() {
 			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
 		})
 		It("can generate completions", func() {
-			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: testPrompt})
+			req := openai.CompletionRequest{Model: "testmodel", Prompt: testPrompt}
+			resp, err := client.CreateCompletion(context.TODO(), req)
 			Expect(err).ToNot(HaveOccurred())
-			log.Warn().Msgf("TEMPORARY TEST DEBUG LOG [COMPLETIONS]: %+v", resp)
+			log.Warn().Msgf("TEMPORARY TEST DEBUG LOG [COMPLETIONS]: %+v\nFOR: %+v", resp, req)
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})

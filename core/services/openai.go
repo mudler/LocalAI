@@ -66,6 +66,7 @@ func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPro
 		return "text_completion", bc.TemplateConfig.Completion, model.PromptTemplateData{
 				SystemPrompt: bc.SystemPrompt,
 			}, func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
+				log.Warn().Msgf("[oais.Completion] mappingFn input resp: %+v", resp)
 				return schema.Choice{
 					Index:        promptIndex,
 					FinishReason: "stop",
@@ -467,17 +468,9 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 
 		for _, result := range rawResult.Value.Response {
 
-			log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] rawResult.Value.Response: %+v", result)
+			// log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] rawResult.Value.Response: %+v", result)
 			// If no functions, just return the raw result.
 			if !processFunctions {
-
-				// tmpMsg := schema.Message{Content: &result, Role: "assistant"}
-
-				// log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] tmpMsg: %+v", tmpMsg.Content)
-
-				// tmpChoice := schema.Choice{Message: &tmpMsg, Index: 0}
-
-				// log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] tmpChoice: %+v", tmpChoice)
 
 				resp := schema.OpenAIResponse{
 					ID:      traceID.ID,
@@ -492,7 +485,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					},
 				}
 
-				log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest]\n\nresp.Choices[0].Message.Content: %+v\n\nresp.Choices[0].Text: %+v", resp.Choices[0].Message.Content, resp.Choices[0].Text)
+				// log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest]\n\nresp.Choices[0].Message.Content: %+v\n\nresp.Choices[0].Text: %+v", resp.Choices[0].Message.Content, resp.Choices[0].Text)
 
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
