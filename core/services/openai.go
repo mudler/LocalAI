@@ -181,7 +181,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 				func(r *backend.LLMResponse) schema.Choice {
 					log.Debug().Msgf("[OAIS GenerateTextFromRequest::GenerateText::MAPFN] %d => %+v", promptIndex, r)
 					return mappingFn(r, promptIndex)
-				}, false, notifyOnToken)
+				}, notifyOnPromptResult, notifyOnToken)
 			if err != nil {
 				log.Error().Msgf("TODO DEBUG IF HIT:\nprompt: %q\nerr: %q", prompt, err)
 				return
