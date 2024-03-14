@@ -38,9 +38,9 @@ func TestAssistantEndpoints(t *testing.T) {
 	// Preparing the mocked objects
 	cl := &config.BackendConfigLoader{}
 	//configsDir := "/tmp/localai/configs"
-	var ml = model.NewModelLoader("/tmp/localai/models")
-
 	modelPath := "/tmp/localai/model"
+	var ml = model.NewModelLoader(modelPath)
+
 	appConfig := &config.ApplicationConfig{
 		ConfigsDir:    configsDir,
 		UploadLimitMB: 10,
