@@ -167,6 +167,8 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	app.Get("/models/jobs/:uuid", auth, modelGalleryEndpointService.GetOpStatusEndpoint())
 	app.Get("/models/jobs", auth, modelGalleryEndpointService.GetAllStatusEndpoint())
 
+	app.Post("/tts", auth, localai.TTSEndpoint(cl, ml, appConfig))
+
 	// Elevenlabs
 	app.Post("/v1/text-to-speech/:voice-id", auth, elevenlabs.TTSEndpoint(cl, ml, appConfig))
 
@@ -204,7 +206,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// audio
 	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cl, ml, appConfig))
-	app.Post("/tts", auth, localai.TTSEndpoint(cl, ml, appConfig))
+	app.Post("/v1/audio/speech", auth, localai.TTSEndpoint(cl, ml, appConfig))
 
 	// images
 	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(cl, ml, appConfig))
