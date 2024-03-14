@@ -76,7 +76,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         model_name = request.Model
 
-        compute = torch.float32
+        compute = "auto"
         if request.F16Memory == True:
             compute=torch.bfloat16
 
@@ -84,26 +84,40 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         device_map="cpu"
 
-        quantization = BitsAndBytesConfig(
-            load_in_4_bit=request.LowVRAM,
-            bnb_4bit_compute_dtype = compute,
-        )
-
         if self.CUDA:
-            device_map="cuda"
-
+            if request.Device:
+                device_map=request.Device
+            else:
+                device_map="cuda:0"
+            if request.Quantization == "bnb_4bit":
+                quantization = BitsAndBytesConfig(
+                    load_in_4bit = True,
+                    bnb_4bit_compute_dtype = compute,
+                    bnb_4bit_quant_type = "nf4",
+                    bnb_4bit_use_double_quant = True,
+                    load_in_8bit = False,
+                )
+            elif request.Quantization == "bnb_8bit":
+                quantization = BitsAndBytesConfig(
+                    load_in_4bit=False,
+                    bnb_4bit_compute_dtype = None,
+                    load_in_8bit=True,                                   
+                )
+            else:
+                quantization = None                                   
+    
         try:
             if request.Type == "AutoModelForCausalLM":
                 if XPU:
+                    if quantization == "xpu_4bit":
+                        xpu_4bit = True
                     self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,
-                                              device_map="xpu", load_in_4bit=True)
+                                              device_map="xpu", load_in_4bit=xpu_4bit)
                 else:
-                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode, use_safetensors=True, quantization_config=quantization, device_map=device_map)
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode, use_safetensors=True, quantization_config=quantization, device_map=device_map, torch_dtype=compute)
             else:
-                self.model = AutoModel.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode)
-
+                self.model = AutoModel.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,  use_safetensors=True,  quantization_config=quantization, device_map=device_map, torch_dtype=compute)
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
-            self.CUDA = False
             self.XPU = False
 
             if XPU:
@@ -114,13 +128,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 except Exception as err:
                     print("Not using XPU:", err, file=sys.stderr)
 
-            # if request.CUDA or torch.cuda.is_available():
-            #     try:
-            #         print("Loading model", model_name, "to CUDA.", file=sys.stderr)
-            #         self.model = self.model.to("cuda")
-            #         self.CUDA = True
-            #     except Exception as err:
-            #         print("Not using CUDA:", err, file=sys.stderr)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         # Implement your logic here for the LoadModel service
@@ -184,12 +191,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if XPU:
             inputs = inputs.to("xpu")
 
-        outputs = self.model.generate(inputs,max_new_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP)
-
-        generated_text = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
-        # Remove prompt from response if present
-        if request.Prompt in generated_text:
-            generated_text = generated_text.replace(request.Prompt, "")
+        outputs = self.model.generate(inputs,max_new_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP, do_sample=True, pad_token_id=self.tokenizer.eos_token_id)
+        generated_text = self.tokenizer.batch_decode(outputs[:, inputs.shape[1]:], skip_special_tokens=True)[0]
 
         return backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
 
