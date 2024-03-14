@@ -40,7 +40,7 @@ func NewImageGenerationBackendService(ml *model.ModelLoader, bcl *config.Backend
 func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIRequest) <-chan utils.ErrorOr[*schema.OpenAIResponse] {
 	resultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
 	go func(request *schema.OpenAIRequest) {
-		bc, request, err := config.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, igbs.bcl, igbs.appConfig)
+		bc, request, err := igbs.bcl.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, igbs.appConfig)
 		if err != nil {
 			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
 			close(resultChannel)
@@ -185,7 +185,12 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 					return
 				}
 
-				fn, err := imageGeneration(height, width, mode, step, request.Seed, positive_prompt, negative_prompt, src, output, igbs.ml, bc, igbs.appConfig)
+				if request.Seed == nil {
+					zVal := 0 // Idiomatic way to do this? Actually needed?
+					request.Seed = &zVal
+				}
+
+				fn, err := imageGeneration(height, width, mode, step, *request.Seed, positive_prompt, negative_prompt, src, output, igbs.ml, bc, igbs.appConfig)
 				if err != nil {
 					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
 					close(resultChannel)
@@ -233,8 +238,8 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 func imageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {
 
 	threads := backendConfig.Threads
-	if threads == 0 && appConfig.Threads != 0 {
-		threads = appConfig.Threads
+	if *threads == 0 && appConfig.Threads != 0 {
+		threads = &appConfig.Threads
 	}
 
 	gRPCOpts := gRPCModelOpts(backendConfig)
@@ -242,7 +247,7 @@ func imageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithBackendString(backendConfig.Backend),
 		model.WithAssetDir(appConfig.AssetsDestination),
-		model.WithThreads(uint32(threads)),
+		model.WithThreads(uint32(*threads)),
 		model.WithContext(appConfig.Context),
 		model.WithModel(backendConfig.Model),
 		model.WithLoadGRPCLoadModelOpts(gRPCOpts),

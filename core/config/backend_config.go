@@ -1,23 +1,18 @@
 package config
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
+	"math/rand"
 
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/pkg/grammar"
-	"github.com/go-skynet/LocalAI/pkg/utils"
-	"gopkg.in/yaml.v3"
 )
 
 type BackendConfig struct {
 	schema.PredictionOptions `yaml:"parameters"`
 	Name                     string `yaml:"name"`
 
-	F16            bool              `yaml:"f16"`
-	Threads        int               `yaml:"threads"`
-	Debug          bool              `yaml:"debug"`
+	F16            *bool             `yaml:"f16"`
+	Threads        *int              `yaml:"threads"`
+	Debug          *bool             `yaml:"debug"`
 	Roles          map[string]string `yaml:"roles"`
 	Embeddings     bool              `yaml:"embeddings"`
 	Backend        string            `yaml:"backend"`
@@ -100,20 +95,20 @@ type LLMConfig struct {
 	PromptCachePath string   `yaml:"prompt_cache_path"`
 	PromptCacheAll  bool     `yaml:"prompt_cache_all"`
 	PromptCacheRO   bool     `yaml:"prompt_cache_ro"`
-	MirostatETA     float64  `yaml:"mirostat_eta"`
-	MirostatTAU     float64  `yaml:"mirostat_tau"`
-	Mirostat        int      `yaml:"mirostat"`
-	NGPULayers      int      `yaml:"gpu_layers"`
-	MMap            bool     `yaml:"mmap"`
-	MMlock          bool     `yaml:"mmlock"`
-	LowVRAM         bool     `yaml:"low_vram"`
+	MirostatETA     *float64 `yaml:"mirostat_eta"`
+	MirostatTAU     *float64 `yaml:"mirostat_tau"`
+	Mirostat        *int     `yaml:"mirostat"`
+	NGPULayers      *int     `yaml:"gpu_layers"`
+	MMap            *bool    `yaml:"mmap"`
+	MMlock          *bool    `yaml:"mmlock"`
+	LowVRAM         *bool    `yaml:"low_vram"`
 	Grammar         string   `yaml:"grammar"`
 	StopWords       []string `yaml:"stopwords"`
 	Cutstrings      []string `yaml:"cutstrings"`
 	TrimSpace       []string `yaml:"trimspace"`
 	TrimSuffix      []string `yaml:"trimsuffix"`
 
-	ContextSize          int     `yaml:"context_size"`
+	ContextSize          *int    `yaml:"context_size"`
 	NUMA                 bool    `yaml:"numa"`
 	LoraAdapter          string  `yaml:"lora_adapter"`
 	LoraBase             string  `yaml:"lora_base"`
@@ -180,245 +175,95 @@ func (c *BackendConfig) FunctionToCall() string {
 	return c.functionCallNameString
 }
 
-func defaultPredictOptions(modelFile string) schema.PredictionOptions {
-	return schema.PredictionOptions{
-		TopP:        0.7,
-		TopK:        80,
-		Maxtokens:   512,
-		Temperature: 0.9,
-		Model:       modelFile,
-	}
-}
+func (cfg *BackendConfig) SetDefaults(debug bool, threads, ctx int, f16 bool) {
+	defaultTopP := 0.7
+	defaultTopK := 80
+	defaultTemp := 0.9
+	defaultMaxTokens := 2048
+	defaultMirostat := 2
+	defaultMirostatTAU := 5.0
+	defaultMirostatETA := 0.1
 
-func DefaultConfig(modelFile string) *BackendConfig {
-	return &BackendConfig{
-		PredictionOptions: defaultPredictOptions(modelFile),
-	}
-}
+	// Try to offload all GPU layers (if GPU is found)
+	defaultNGPULayers := 99999999
 
-func updateBackendConfigFromOpenAIRequest(config *BackendConfig, input *schema.OpenAIRequest) {
-	if input.Echo {
-		config.Echo = input.Echo
-	}
-	if input.TopK != 0 {
-		config.TopK = input.TopK
-	}
-	if input.TopP != 0 {
-		config.TopP = input.TopP
+	trueV := true
+	falseV := false
+
+	if cfg.Seed == nil {
+		//  random number generator seed
+		defaultSeed := int(rand.Int31())
+		cfg.Seed = &defaultSeed
 	}
 
-	if input.Backend != "" {
-		config.Backend = input.Backend
+	if cfg.TopK == nil {
+		cfg.TopK = &defaultTopK
 	}
 
-	if input.ClipSkip != 0 {
-		config.Diffusers.ClipSkip = input.ClipSkip
+	if cfg.MMap == nil {
+		// MMap is enabled by default
+		cfg.MMap = &trueV
 	}
 
-	if input.ModelBaseName != "" {
-		config.AutoGPTQ.ModelBaseName = input.ModelBaseName
+	if cfg.MMlock == nil {
+		// MMlock is disabled by default
+		cfg.MMlock = &falseV
 	}
 
-	if input.NegativePromptScale != 0 {
-		config.NegativePromptScale = input.NegativePromptScale
+	if cfg.TopP == nil {
+		cfg.TopP = &defaultTopP
+	}
+	if cfg.Temperature == nil {
+		cfg.Temperature = &defaultTemp
 	}
 
-	if input.UseFastTokenizer {
-		config.UseFastTokenizer = input.UseFastTokenizer
+	if cfg.Maxtokens == nil {
+		cfg.Maxtokens = &defaultMaxTokens
 	}
 
-	if input.NegativePrompt != "" {
-		config.NegativePrompt = input.NegativePrompt
+	if cfg.Mirostat == nil {
+		cfg.Mirostat = &defaultMirostat
 	}
 
-	if input.RopeFreqBase != 0 {
-		config.RopeFreqBase = input.RopeFreqBase
+	if cfg.MirostatETA == nil {
+		cfg.MirostatETA = &defaultMirostatETA
 	}
 
-	if input.RopeFreqScale != 0 {
-		config.RopeFreqScale = input.RopeFreqScale
+	if cfg.MirostatTAU == nil {
+		cfg.MirostatTAU = &defaultMirostatTAU
+	}
+	if cfg.NGPULayers == nil {
+		cfg.NGPULayers = &defaultNGPULayers
 	}
 
-	if input.Grammar != "" {
-		config.Grammar = input.Grammar
+	if cfg.LowVRAM == nil {
+		cfg.LowVRAM = &falseV
 	}
 
-	if input.Temperature != 0 {
-		config.Temperature = input.Temperature
+	// Value passed by the top level are treated as default (no implicit defaults)
+	// defaults are set by the user
+	if ctx == 0 {
+		ctx = 1024
 	}
 
-	if input.Maxtokens != 0 {
-		config.Maxtokens = input.Maxtokens
+	if cfg.ContextSize == nil {
+		cfg.ContextSize = &ctx
 	}
 
-	switch stop := input.Stop.(type) {
-	case string:
-		if stop != "" {
-			config.StopWords = append(config.StopWords, stop)
-		}
-	case []interface{}:
-		for _, pp := range stop {
-			if s, ok := pp.(string); ok {
-				config.StopWords = append(config.StopWords, s)
-			}
-		}
+	if threads == 0 {
+		// Threads can't be 0
+		threads = 4
 	}
 
-	if len(input.Tools) > 0 {
-		for _, tool := range input.Tools {
-			input.Functions = append(input.Functions, tool.Function)
-		}
+	if cfg.Threads == nil {
+		cfg.Threads = &threads
 	}
 
-	if input.ToolsChoice != nil {
-		var toolChoice grammar.Tool
-		json.Unmarshal([]byte(input.ToolsChoice.(string)), &toolChoice)
-		input.FunctionCall = map[string]interface{}{
-			"name": toolChoice.Function.Name,
-		}
+	if cfg.F16 == nil {
+		cfg.F16 = &f16
 	}
 
-	// Decode each request's message content
-	index := 0
-	for i, m := range input.Messages {
-		switch content := m.Content.(type) {
-		case string:
-			input.Messages[i].StringContent = content
-		case []interface{}:
-			dat, _ := json.Marshal(content)
-			c := []schema.Content{}
-			json.Unmarshal(dat, &c)
-			for _, pp := range c {
-				if pp.Type == "text" {
-					input.Messages[i].StringContent = pp.Text
-				} else if pp.Type == "image_url" {
-					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
-					base64, err := utils.GetImageURLAsBase64(pp.ImageURL.URL)
-					if err == nil {
-						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
-						// set a placeholder for each image
-						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
-						index++
-					} else {
-						fmt.Print("Failed encoding image", err)
-					}
-				}
-			}
-		}
+	if debug {
+		cfg.Debug = &debug
 	}
-
-	if input.RepeatPenalty != 0 {
-		config.RepeatPenalty = input.RepeatPenalty
-	}
-
-	if input.Keep != 0 {
-		config.Keep = input.Keep
-	}
-
-	if input.Batch != 0 {
-		config.Batch = input.Batch
-	}
-
-	if input.F16 {
-		config.F16 = input.F16
-	}
-
-	if input.IgnoreEOS {
-		config.IgnoreEOS = input.IgnoreEOS
-	}
-
-	if input.Seed != 0 {
-		config.Seed = input.Seed
-	}
-
-	if input.Mirostat != 0 {
-		config.LLMConfig.Mirostat = input.Mirostat
-	}
-
-	if input.MirostatETA != 0 {
-		config.LLMConfig.MirostatETA = input.MirostatETA
-	}
-
-	if input.MirostatTAU != 0 {
-		config.LLMConfig.MirostatTAU = input.MirostatTAU
-	}
-
-	if input.TypicalP != 0 {
-		config.TypicalP = input.TypicalP
-	}
-
-	switch inputs := input.Input.(type) {
-	case string:
-		if inputs != "" {
-			config.InputStrings = append(config.InputStrings, inputs)
-		}
-	case []interface{}:
-		for _, pp := range inputs {
-			switch i := pp.(type) {
-			case string:
-				config.InputStrings = append(config.InputStrings, i)
-			case []interface{}:
-				tokens := []int{}
-				for _, ii := range i {
-					tokens = append(tokens, int(ii.(float64)))
-				}
-				config.InputToken = append(config.InputToken, tokens)
-			}
-		}
-	}
-
-	// Can be either a string or an object
-	switch fnc := input.FunctionCall.(type) {
-	case string:
-		if fnc != "" {
-			config.SetFunctionCallString(fnc)
-		}
-	case map[string]interface{}:
-		var name string
-		n, exists := fnc["name"]
-		if exists {
-			nn, e := n.(string)
-			if e {
-				name = nn
-			}
-		}
-		config.SetFunctionCallNameString(name)
-	}
-
-	switch p := input.Prompt.(type) {
-	case string:
-		config.PromptStrings = append(config.PromptStrings, p)
-	case []interface{}:
-		for _, pp := range p {
-			if s, ok := pp.(string); ok {
-				config.PromptStrings = append(config.PromptStrings, s)
-			}
-		}
-	}
-}
-
-func ReadBackendConfigFile(file string) ([]*BackendConfig, error) {
-	c := &[]*BackendConfig{}
-	f, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read config file: %w", err)
-	}
-	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
-	}
-
-	return *c, nil
-}
-
-func ReadBackendConfig(file string) (*BackendConfig, error) {
-	c := &BackendConfig{}
-	f, err := os.ReadFile(file)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read config file: %w", err)
-	}
-	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
-	}
-
-	return c, nil
 }

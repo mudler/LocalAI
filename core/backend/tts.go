@@ -18,8 +18,6 @@ type TextToSpeechBackendService struct {
 	ml        *model.ModelLoader
 	bcl       *config.BackendConfigLoader
 	appConfig *config.ApplicationConfig
-	// commandChannel  chan *schema.TTSRequest
-	// responseChannel chan utils.ErrorOr[*string]
 }
 
 func NewTextToSpeechBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *TextToSpeechBackendService {
@@ -33,7 +31,12 @@ func NewTextToSpeechBackendService(ml *model.ModelLoader, bcl *config.BackendCon
 func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequest) <-chan utils.ErrorOr[*string] {
 	responseChannel := make(chan utils.ErrorOr[*string])
 	go func(request *schema.TTSRequest) {
-		cfg, err := config.LoadBackendConfigFileByName(request.Model, ttsbs.bcl, ttsbs.appConfig)
+		cfg, err := ttsbs.bcl.LoadBackendConfigFileByName(request.Model, ttsbs.appConfig.ModelPath,
+			config.LoadOptionDebug(ttsbs.appConfig.Debug),
+			config.LoadOptionThreads(ttsbs.appConfig.Threads),
+			config.LoadOptionContextSize(ttsbs.appConfig.ContextSize),
+			config.LoadOptionF16(ttsbs.appConfig.F16),
+		)
 		if err != nil {
 			responseChannel <- utils.ErrorOr[*string]{Error: err}
 			close(responseChannel)

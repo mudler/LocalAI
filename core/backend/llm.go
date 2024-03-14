@@ -65,8 +65,8 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	resultChannel <-chan utils.ErrorOr[*LLMResponse], tokenChannel <-chan utils.ErrorOr[*LLMResponse], err error) {
 
 	threads := bc.Threads
-	if threads == 0 && llmbs.appConfig.Threads != 0 {
-		threads = llmbs.appConfig.Threads
+	if (threads == nil || *threads == 0) && llmbs.appConfig.Threads != 0 {
+		threads = &llmbs.appConfig.Threads
 	}
 
 	grpcOpts := gRPCModelOpts(bc)
@@ -75,7 +75,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 
 	opts := modelOpts(bc, llmbs.appConfig, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(threads)), // some models uses this to allocate threads during startup
+		model.WithThreads(uint32(*threads)), // some models uses this to allocate threads during startup
 		model.WithAssetDir(llmbs.appConfig.AssetsDestination),
 		model.WithModel(bc.Model),
 		model.WithContext(llmbs.appConfig.Context),

@@ -29,7 +29,7 @@ func NewTranscriptionBackendService(ml *model.ModelLoader, bcl *config.BackendCo
 func (tbs *TranscriptionBackendService) Transcribe(request *schema.OpenAIRequest) <-chan utils.ErrorOr[*schema.WhisperResult] {
 	responseChannel := make(chan utils.ErrorOr[*schema.WhisperResult])
 	go func(request *schema.OpenAIRequest) {
-		bc, request, err := config.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, tbs.bcl, tbs.appConfig)
+		bc, request, err := tbs.bcl.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, tbs.appConfig)
 		if err != nil {
 			responseChannel <- utils.ErrorOr[*schema.WhisperResult]{Error: fmt.Errorf("failed reading parameters from request:%w", err)}
 			close(responseChannel)
@@ -54,7 +54,7 @@ func modelTranscription(audio, language string, ml *model.ModelLoader, backendCo
 		model.WithBackendString(model.WhisperBackend),
 		model.WithModel(backendConfig.Model),
 		model.WithContext(appConfig.Context),
-		model.WithThreads(uint32(backendConfig.Threads)),
+		model.WithThreads(uint32(*backendConfig.Threads)),
 		model.WithAssetDir(appConfig.AssetsDestination),
 	})
 
@@ -70,6 +70,6 @@ func modelTranscription(audio, language string, ml *model.ModelLoader, backendCo
 	return whisperModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
 		Dst:      audio,
 		Language: language,
-		Threads:  uint32(backendConfig.Threads),
+		Threads:  uint32(*backendConfig.Threads),
 	})
 }

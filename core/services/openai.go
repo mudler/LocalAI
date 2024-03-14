@@ -47,7 +47,7 @@ func NewOpenAIService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, ap
 
 // Keeping in place as a reminder to POTENTIALLY ADD MORE VALIDATION HERE???
 func (oais *OpenAIService) getConfig(request *schema.OpenAIRequest) (*config.BackendConfig, *schema.OpenAIRequest, error) {
-	return config.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, oais.bcl, oais.appConfig)
+	return oais.bcl.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, oais.appConfig)
 }
 
 // TODO: It would be a lot less messy to make a return struct that had references to each of these channels
