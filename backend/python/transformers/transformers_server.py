@@ -84,6 +84,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         device_map="cpu"
 
+        quantization = None
+
         if self.CUDA:
             if request.Device:
                 device_map=request.Device
@@ -103,8 +105,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     bnb_4bit_compute_dtype = None,
                     load_in_8bit=True,                                   
                 )
-            else:
-                quantization = None                                   
+                                                   
     
         try:
             if request.Type == "AutoModelForCausalLM":
