@@ -50,7 +50,7 @@ func main() {
 	app := &cli.App{
 		Name:    "LocalAI",
 		Version: internal.PrintableVersion(),
-		Usage:   "OpenAI compatible API for running LLaMA/GPT models locally on CPU with consumer grade hardware.",
+		Usage:   "OpenAI, OSS alternative. Drop-in compatible API for running LLM, GPT and genAI models locally on CPU, GPUs with consumer grade hardware. Supported server endpoints: OpenAI, Elevenlabs",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "f16",

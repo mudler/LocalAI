@@ -1,4 +1,4 @@
-package localai
+package elevenlabs
 
 import (
 	"github.com/go-skynet/LocalAI/core/backend"
@@ -14,17 +14,18 @@ import (
 func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		input := new(schema.TTSRequest)
+		input := new(schema.ElevenLabsTTSRequest)
+		voiceID := c.Params("voice-id")
 
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
 			return err
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, false)
+		modelFile, err := fiberContext.ModelFromContext(c, ml, input.ModelID, false)
 		if err != nil {
-			modelFile = input.Model
-			log.Warn().Msgf("Model not found in context: %s", input.Model)
+			modelFile = input.ModelID
+			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
 		}
 
 		cfg, err := cl.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath,
@@ -33,20 +34,19 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			config.LoadOptionContextSize(appConfig.ContextSize),
 			config.LoadOptionF16(appConfig.F16),
 		)
-
 		if err != nil {
-			modelFile = input.Model
-			log.Warn().Msgf("Model not found in context: %s", input.Model)
+			modelFile = input.ModelID
+			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
 		} else {
-			modelFile = cfg.Model
+			if input.ModelID != "" {
+				modelFile = input.ModelID
+			} else {
+				modelFile = cfg.Model
+			}
 		}
 		log.Debug().Msgf("Request for model: %s", modelFile)
 
-		if input.Backend != "" {
-			cfg.Backend = input.Backend
-		}
-
-		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, input.Voice, ml, appConfig, *cfg)
+		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Text, modelFile, voiceID, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}

@@ -191,6 +191,7 @@ message TTSRequest {
   string text = 1;
   string model = 2;
   string dst = 3;
+  string voice = 4;
 }
 
 message TokenizationResponse {
