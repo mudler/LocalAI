@@ -201,15 +201,15 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	}
 
 	for i := 0; i < request.N; i++ {
-		individualResultChannel, tokenChannel, err := llmbs.Inference(request.Context, &LLMRequest{
+		individualResultChannel, tokenChannel, infErr := llmbs.Inference(request.Context, &LLMRequest{
 			Text:   predInput,
 			Images: images,
 		}, bc, enableTokenChannels)
-		if err != nil {
+		if infErr != nil {
+			err = infErr // Avoids complaints about redeclaring err but looks dumb
 			log.Error().Msgf("[llmbs.GenerateText] request #%d error during Inference: %q", i, err)
-			// This is a weird error case, and I'm not entirely sure what best to do to clean up until I'm sure how to trigger it. Best guess here..
-			// return nil, nil, nil, err
-			continue // TODO if this is the right answer invert conditional
+			rawChannel <- utils.ErrorOr[*LLMResponseBundle]{Error: err}
+			return
 		}
 		completionChannels = append(completionChannels, individualResultChannel)
 		tokenChannels = append(tokenChannels, tokenChannel)
