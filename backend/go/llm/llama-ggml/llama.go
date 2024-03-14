@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/go-skynet/go-llama.cpp"
+	"github.com/go-skynet/go-llama-ggml.cpp"
 )
 
 type LLM struct {
