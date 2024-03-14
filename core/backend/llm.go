@@ -191,6 +191,7 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	resultChannel <-chan utils.ErrorOr[*LLMResponseBundle], completionChannels []<-chan utils.ErrorOr[*LLMResponse], tokenChannels []<-chan utils.ErrorOr[*LLMResponse], err error) {
 
 	rawChannel := make(chan utils.ErrorOr[*LLMResponseBundle])
+	resultChannel = rawChannel
 
 	if request.N == 0 { // number of completions to return
 		request.N = 1
@@ -241,8 +242,6 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 		wg.Wait()
 
 	}()
-
-	resultChannel = rawChannel
 
 	return
 }
