@@ -105,6 +105,13 @@ COPY . .
 COPY .git .
 RUN make prepare
 
+# If we are building with clblas support, we need the libraries for the builds
+RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
+    apt-get update && \
+    apt-get install -y libclblast-dev && \
+    apt-get clean \
+    ; fi
+
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
@@ -146,6 +153,13 @@ ENV PIP_CACHE_PURGE=true
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
     apt-get install -y ffmpeg && apt-get clean \
+    ; fi
+
+# Add OpenCL
+RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
+    apt-get update && \
+    apt-get install -y libclblast1 && \
+    apt-get clean \
     ; fi
 
 WORKDIR /build

@@ -2,15 +2,30 @@ version: '3.6'
 
 services:
   api:
-    image: quay.io/go-skynet/local-ai:latest
+    # See https://localai.io/basics/getting_started/#container-images for
+    # a list of available container images (or build your own with the provided Dockerfile)
+    # Available images with CUDA, ROCm, SYCL
+    # Image list (quay.io): https://quay.io/repository/go-skynet/local-ai?tab=tags
+    # Image list (dockerhub): https://hub.docker.com/r/localai/localai
+    image: quay.io/go-skynet/local-ai:master-ffmpeg-core
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+      - IMAGE_TYPE=core
+      - BASE_IMAGE=ubuntu:22.04
     ports:
       - 8080:8080
     env_file:
       - .env
+    environment:
+      - MODELS_PATH=/models
+    #  - DEBUG=true
     volumes:
       - ./models:/models:cached
       - ./images/:/tmp/generated/images/
-    command: ["/usr/bin/local-ai" ]
+    command:
+    # Here we can specify a list of models to run (see quickstart https://localai.io/basics/getting_started/#running-models )
+    # or an URL pointing to a YAML configuration file, for example:
+    # - https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
+    - phi-2

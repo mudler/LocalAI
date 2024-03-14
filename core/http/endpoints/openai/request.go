@@ -74,10 +74,10 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 	if input.Echo {
 		config.Echo = input.Echo
 	}
-	if input.TopK != 0 {
+	if input.TopK != nil {
 		config.TopK = input.TopK
 	}
-	if input.TopP != 0 {
+	if input.TopP != nil {
 		config.TopP = input.TopP
 	}
 
@@ -117,11 +117,11 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.Grammar = input.Grammar
 	}
 
-	if input.Temperature != 0 {
+	if input.Temperature != nil {
 		config.Temperature = input.Temperature
 	}
 
-	if input.Maxtokens != 0 {
+	if input.Maxtokens != nil {
 		config.Maxtokens = input.Maxtokens
 	}
 
@@ -193,28 +193,12 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.Batch = input.Batch
 	}
 
-	if input.F16 {
-		config.F16 = input.F16
-	}
-
 	if input.IgnoreEOS {
 		config.IgnoreEOS = input.IgnoreEOS
 	}
 
-	if input.Seed != 0 {
+	if input.Seed != nil {
 		config.Seed = input.Seed
-	}
-
-	if input.Mirostat != 0 {
-		config.LLMConfig.Mirostat = input.Mirostat
-	}
-
-	if input.MirostatETA != 0 {
-		config.LLMConfig.MirostatETA = input.MirostatETA
-	}
-
-	if input.MirostatTAU != 0 {
-		config.LLMConfig.MirostatTAU = input.MirostatTAU
 	}
 
 	if input.TypicalP != 0 {
@@ -272,7 +256,12 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 }
 
 func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *config.BackendConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.BackendConfig, *schema.OpenAIRequest, error) {
-	cfg, err := config.LoadBackendConfigFileByName(modelFile, loader.ModelPath, cm, debug, threads, ctx, f16)
+	cfg, err := cm.LoadBackendConfigFileByName(modelFile, loader.ModelPath,
+		config.LoadOptionDebug(debug),
+		config.LoadOptionThreads(threads),
+		config.LoadOptionContextSize(ctx),
+		config.LoadOptionF16(f16),
+	)
 
 	// Set the parameters for the language model prediction
 	updateRequestConfig(cfg, input)

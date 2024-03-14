@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,15 +15,17 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
+
+	"github.com/charmbracelet/glamour"
 )
 
 type BackendConfig struct {
 	schema.PredictionOptions `yaml:"parameters"`
 	Name                     string `yaml:"name"`
 
-	F16            bool              `yaml:"f16"`
-	Threads        int               `yaml:"threads"`
-	Debug          bool              `yaml:"debug"`
+	F16            *bool             `yaml:"f16"`
+	Threads        *int              `yaml:"threads"`
+	Debug          *bool             `yaml:"debug"`
 	Roles          map[string]string `yaml:"roles"`
 	Embeddings     bool              `yaml:"embeddings"`
 	Backend        string            `yaml:"backend"`
@@ -105,20 +108,20 @@ type LLMConfig struct {
 	PromptCachePath string   `yaml:"prompt_cache_path"`
 	PromptCacheAll  bool     `yaml:"prompt_cache_all"`
 	PromptCacheRO   bool     `yaml:"prompt_cache_ro"`
-	MirostatETA     float64  `yaml:"mirostat_eta"`
-	MirostatTAU     float64  `yaml:"mirostat_tau"`
-	Mirostat        int      `yaml:"mirostat"`
-	NGPULayers      int      `yaml:"gpu_layers"`
-	MMap            bool     `yaml:"mmap"`
-	MMlock          bool     `yaml:"mmlock"`
-	LowVRAM         bool     `yaml:"low_vram"`
+	MirostatETA     *float64 `yaml:"mirostat_eta"`
+	MirostatTAU     *float64 `yaml:"mirostat_tau"`
+	Mirostat        *int     `yaml:"mirostat"`
+	NGPULayers      *int     `yaml:"gpu_layers"`
+	MMap            *bool    `yaml:"mmap"`
+	MMlock          *bool    `yaml:"mmlock"`
+	LowVRAM         *bool    `yaml:"low_vram"`
 	Grammar         string   `yaml:"grammar"`
 	StopWords       []string `yaml:"stopwords"`
 	Cutstrings      []string `yaml:"cutstrings"`
 	TrimSpace       []string `yaml:"trimspace"`
 	TrimSuffix      []string `yaml:"trimsuffix"`
 
-	ContextSize          int     `yaml:"context_size"`
+	ContextSize          *int    `yaml:"context_size"`
 	NUMA                 bool    `yaml:"numa"`
 	LoraAdapter          string  `yaml:"lora_adapter"`
 	LoraBase             string  `yaml:"lora_base"`
@@ -185,19 +188,96 @@ func (c *BackendConfig) FunctionToCall() string {
 	return c.functionCallNameString
 }
 
-func defaultPredictOptions(modelFile string) schema.PredictionOptions {
-	return schema.PredictionOptions{
-		TopP:        0.7,
-		TopK:        80,
-		Maxtokens:   512,
-		Temperature: 0.9,
-		Model:       modelFile,
-	}
-}
+func (cfg *BackendConfig) SetDefaults(debug bool, threads, ctx int, f16 bool) {
+	defaultTopP := 0.7
+	defaultTopK := 80
+	defaultTemp := 0.9
+	defaultMaxTokens := 2048
+	defaultMirostat := 2
+	defaultMirostatTAU := 5.0
+	defaultMirostatETA := 0.1
 
-func DefaultConfig(modelFile string) *BackendConfig {
-	return &BackendConfig{
-		PredictionOptions: defaultPredictOptions(modelFile),
+	// Try to offload all GPU layers (if GPU is found)
+	defaultNGPULayers := 99999999
+
+	trueV := true
+	falseV := false
+
+	if cfg.Seed == nil {
+		//  random number generator seed
+		defaultSeed := int(rand.Int31())
+		cfg.Seed = &defaultSeed
+	}
+
+	if cfg.TopK == nil {
+		cfg.TopK = &defaultTopK
+	}
+
+	if cfg.MMap == nil {
+		// MMap is enabled by default
+		cfg.MMap = &trueV
+	}
+
+	if cfg.MMlock == nil {
+		// MMlock is disabled by default
+		cfg.MMlock = &falseV
+	}
+
+	if cfg.TopP == nil {
+		cfg.TopP = &defaultTopP
+	}
+	if cfg.Temperature == nil {
+		cfg.Temperature = &defaultTemp
+	}
+
+	if cfg.Maxtokens == nil {
+		cfg.Maxtokens = &defaultMaxTokens
+	}
+
+	if cfg.Mirostat == nil {
+		cfg.Mirostat = &defaultMirostat
+	}
+
+	if cfg.MirostatETA == nil {
+		cfg.MirostatETA = &defaultMirostatETA
+	}
+
+	if cfg.MirostatTAU == nil {
+		cfg.MirostatTAU = &defaultMirostatTAU
+	}
+	if cfg.NGPULayers == nil {
+		cfg.NGPULayers = &defaultNGPULayers
+	}
+
+	if cfg.LowVRAM == nil {
+		cfg.LowVRAM = &falseV
+	}
+
+	// Value passed by the top level are treated as default (no implicit defaults)
+	// defaults are set by the user
+	if ctx == 0 {
+		ctx = 1024
+	}
+
+	if cfg.ContextSize == nil {
+		cfg.ContextSize = &ctx
+	}
+
+	if threads == 0 {
+		// Threads can't be 0
+		threads = 4
+	}
+
+	if cfg.Threads == nil {
+		cfg.Threads = &threads
+	}
+
+	if cfg.F16 == nil {
+		cfg.F16 = &f16
+	}
+
+	if debug {
+		cfg.Debug = &debug
 	}
 }
 
@@ -208,23 +288,63 @@ type BackendConfigLoader struct {
 	sync.Mutex
 }
 
+type LoadOptions struct {
+	debug            bool
+	threads, ctxSize int
+	f16              bool
+}
+
+func LoadOptionDebug(debug bool) ConfigLoaderOption {
+	return func(o *LoadOptions) {
+		o.debug = debug
+	}
+}
+
+func LoadOptionThreads(threads int) ConfigLoaderOption {
+	return func(o *LoadOptions) {
+		o.threads = threads
+	}
+}
+
+func LoadOptionContextSize(ctxSize int) ConfigLoaderOption {
+	return func(o *LoadOptions) {
+		o.ctxSize = ctxSize
+	}
+}
+
+func LoadOptionF16(f16 bool) ConfigLoaderOption {
+	return func(o *LoadOptions) {
+		o.f16 = f16
+	}
+}
+
+type ConfigLoaderOption func(*LoadOptions)
+
+func (lo *LoadOptions) Apply(options ...ConfigLoaderOption) {
+	for _, l := range options {
+		l(lo)
+	}
+}
+
 // Load a config file for a model
-func LoadBackendConfigFileByName(modelName, modelPath string, cl *BackendConfigLoader, debug bool, threads, ctx int, f16 bool) (*BackendConfig, error) {
+func (cl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath string, opts ...ConfigLoaderOption) (*BackendConfig, error) {
+
+	lo := &LoadOptions{}
+	lo.Apply(opts...)
+
 	// Load a config file if present after the model name
-	modelConfig := filepath.Join(modelPath, modelName+".yaml")
-
-	var cfg *BackendConfig
-
-	defaults := func() {
-		cfg = DefaultConfig(modelName)
-		cfg.ContextSize = ctx
-		cfg.Threads = threads
-		cfg.F16 = f16
-		cfg.Debug = debug
+	cfg := &BackendConfig{
+		PredictionOptions: schema.PredictionOptions{
+			Model: modelName,
+		},
 	}
 
 	cfgExisting, exists := cl.GetBackendConfig(modelName)
-	if !exists {
+	if exists {
+		cfg = &cfgExisting
+	} else {
+		// Try loading a model config file
+		modelConfig := filepath.Join(modelPath, modelName+".yaml")
 		if _, err := os.Stat(modelConfig); err == nil {
 			if err := cl.LoadBackendConfig(modelConfig); err != nil {
 				return nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
@@ -232,32 +352,11 @@ func LoadBackendConfigFileByName(modelName, modelPath string, cl *BackendConfigL
 			cfgExisting, exists = cl.GetBackendConfig(modelName)
 			if exists {
 				cfg = &cfgExisting
-			} else {
-				defaults()
 			}
-		} else {
-			defaults()
-		}
-	} else {
-		cfg = &cfgExisting
-	}
-
-	// Set the parameters for the language model prediction
-	//updateConfig(cfg, input)
-
-	// Don't allow 0 as setting
-	if cfg.Threads == 0 {
-		if threads != 0 {
-			cfg.Threads = threads
-		} else {
-			cfg.Threads = 4
 		}
 	}
 
-	// Enforce debug flag if passed from CLI
-	if debug {
-		cfg.Debug = true
-	}
+	cfg.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
 
 	return cfg, nil
 }
@@ -267,7 +366,10 @@ func NewBackendConfigLoader() *BackendConfigLoader {
 		configs: make(map[string]BackendConfig),
 	}
 }
-func ReadBackendConfigFile(file string) ([]*BackendConfig, error) {
+func ReadBackendConfigFile(file string, opts ...ConfigLoaderOption) ([]*BackendConfig, error) {
+	lo := &LoadOptions{}
+	lo.Apply(opts...)
+
 	c := &[]*BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
@@ -277,10 +379,17 @@ func ReadBackendConfigFile(file string) ([]*BackendConfig, error) {
 		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
 	}
 
+	for _, cc := range *c {
+		cc.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+	}
+
 	return *c, nil
 }
 
-func ReadBackendConfig(file string) (*BackendConfig, error) {
+func ReadBackendConfig(file string, opts ...ConfigLoaderOption) (*BackendConfig, error) {
+	lo := &LoadOptions{}
+	lo.Apply(opts...)
+
 	c := &BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
@@ -290,13 +399,14 @@ func ReadBackendConfig(file string) (*BackendConfig, error) {
 		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
 	}
 
+	c.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
 	return c, nil
 }
 
-func (cm *BackendConfigLoader) LoadBackendConfigFile(file string) error {
+func (cm *BackendConfigLoader) LoadBackendConfigFile(file string, opts ...ConfigLoaderOption) error {
 	cm.Lock()
 	defer cm.Unlock()
-	c, err := ReadBackendConfigFile(file)
+	c, err := ReadBackendConfigFile(file, opts...)
 	if err != nil {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}
@@ -307,10 +417,10 @@ func (cm *BackendConfigLoader) LoadBackendConfigFile(file string) error {
 	return nil
 }
 
-func (cl *BackendConfigLoader) LoadBackendConfig(file string) error {
+func (cl *BackendConfigLoader) LoadBackendConfig(file string, opts ...ConfigLoaderOption) error {
 	cl.Lock()
 	defer cl.Unlock()
-	c, err := ReadBackendConfig(file)
+	c, err := ReadBackendConfig(file, opts...)
 	if err != nil {
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
@@ -357,6 +467,20 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 
 	log.Info().Msgf("Preloading models from %s", modelPath)
 
+	renderMode := "dark"
+	if os.Getenv("COLOR") != "" {
+		renderMode = os.Getenv("COLOR")
+	}
+
+	glamText := func(t string) {
+		out, err := glamour.Render(t, renderMode)
+		if err == nil && os.Getenv("NO_COLOR") == "" {
+			fmt.Println(out)
+		} else {
+			fmt.Println(t)
+		}
+	}
+
 	for i, config := range cl.configs {
 
 		// Download files and verify their SHA
@@ -395,19 +519,23 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 			cl.configs[i] = *c
 		}
 		if cl.configs[i].Name != "" {
-			log.Info().Msgf("Model name: %s", cl.configs[i].Name)
+			glamText(fmt.Sprintf("**Model name**: _%s_", cl.configs[i].Name))
 		}
 		if cl.configs[i].Description != "" {
-			log.Info().Msgf("Model description: %s", cl.configs[i].Description)
+			//glamText("**Description**")
+			glamText(cl.configs[i].Description)
 		}
 		if cl.configs[i].Usage != "" {
-			log.Info().Msgf("Model usage: \n%s", cl.configs[i].Usage)
+			//glamText("**Usage**")
+			glamText(cl.configs[i].Usage)
 		}
 	}
 	return nil
 }
 
-func (cm *BackendConfigLoader) LoadBackendConfigsFromPath(path string) error {
+// LoadBackendConfigsFromPath reads all the configurations of the models from a path
+// (non-recursive)
+func (cm *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...ConfigLoaderOption) error {
 	cm.Lock()
 	defer cm.Unlock()
 	entries, err := os.ReadDir(path)
@@ -427,7 +555,7 @@ func (cm *BackendConfigLoader) LoadBackendConfigsFromPath(path string) error {
 		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
 			continue
 		}
-		c, err := ReadBackendConfig(filepath.Join(path, file.Name()))
+		c, err := ReadBackendConfig(filepath.Join(path, file.Name()), opts...)
 		if err == nil {
 			cm.configs[c.Name] = *c
 		}

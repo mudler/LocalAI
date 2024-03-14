@@ -23,7 +23,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(backendConfig.Threads)),
+		model.WithThreads(uint32(*backendConfig.Threads)),
 		model.WithAssetDir(appConfig.AssetsDestination),
 		model.WithModel(modelFile),
 		model.WithContext(appConfig.Context),

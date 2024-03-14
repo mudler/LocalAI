@@ -26,7 +26,14 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		}
-		cfg, err := config.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath, cl, false, 0, 0, false)
+
+		cfg, err := cl.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath,
+			config.LoadOptionDebug(appConfig.Debug),
+			config.LoadOptionThreads(appConfig.Threads),
+			config.LoadOptionContextSize(appConfig.ContextSize),
+			config.LoadOptionF16(appConfig.F16),
+		)
+
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
