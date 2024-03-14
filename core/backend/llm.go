@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
@@ -201,6 +202,7 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	}
 
 	for i := 0; i < request.N; i++ {
+		log.Debug().Msgf("[llmbs.GenerateText] predInput: %q", predInput)
 		individualResultChannel, tokenChannel, err := llmbs.Inference(request.Context, &LLMRequest{
 			Text:   predInput,
 			Images: images,
