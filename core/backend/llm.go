@@ -191,7 +191,6 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	resultChannel <-chan utils.ErrorOr[*LLMResponseBundle], completionChannels []<-chan utils.ErrorOr[*LLMResponse], tokenChannels []<-chan utils.ErrorOr[*LLMResponse], err error) {
 
 	rawChannel := make(chan utils.ErrorOr[*LLMResponseBundle])
-	resultChannel = rawChannel
 
 	if request.N == 0 { // number of completions to return
 		request.N = 1
@@ -202,7 +201,6 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	}
 
 	for i := 0; i < request.N; i++ {
-		log.Debug().Msgf("[llmbs.GenerateText] predInput: %q", predInput)
 		individualResultChannel, tokenChannel, err := llmbs.Inference(request.Context, &LLMRequest{
 			Text:   predInput,
 			Images: images,
@@ -223,6 +221,8 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 			Usage:    TokenUsage{},
 		}
 
+		log.Debug().Msgf("[llmbs.GenerateText] inside goroutine, size of completionChannels: %d", len(completionChannels))
+
 		wg := utils.SliceOfChannelsReducer(completionChannels, rawChannel, func(iv utils.ErrorOr[*LLMResponse], ov utils.ErrorOr[*LLMResponseBundle]) utils.ErrorOr[*LLMResponseBundle] {
 			if iv.Error != nil {
 				ov.Error = iv.Error
@@ -231,11 +231,18 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 			}
 			ov.Value.Usage.Prompt += iv.Value.Usage.Prompt
 			ov.Value.Usage.Completion += iv.Value.Usage.Completion
+
+			log.Debug().Msgf("[llmbs.GenerateText] inside goroutine REDUCER iv.Value %+v", iv.Value)
+
 			ov.Value.Response = append(ov.Value.Response, mappingFn(iv.Value))
 			return ov
 		}, utils.ErrorOr[*LLMResponseBundle]{Value: &initialBundle}, true)
 		wg.Wait()
+
 	}()
+
+	resultChannel = rawChannel
+
 	return
 }
 
