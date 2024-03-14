@@ -395,6 +395,12 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						Required: true,
 					},
 					&cli.StringFlag{
+						Name:     "voice",
+						Aliases:  []string{"v"},
+						Usage:    "Voice name to run the TTS (optional)",
+						Required: true,
+					},
+					&cli.StringFlag{
 						Name:    "output-file",
 						Aliases: []string{"o"},
 						Usage:   "The path to write the output wav file",
@@ -427,7 +433,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer ml.StopAllGRPC()
 
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ml, opts, config.BackendConfig{})
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ctx.String("voice"), ml, opts, config.BackendConfig{})
 					if err != nil {
 						return err
 					}
