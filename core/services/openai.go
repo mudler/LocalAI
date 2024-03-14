@@ -157,8 +157,6 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	setupWG := sync.WaitGroup{}
 	setupWG.Add(len(bc.PromptStrings))
 
-	log.Warn().Msgf("[oais::GenerateTextFromRequest] promptStrings: %+v", bc.PromptStrings)
-
 	for pI, p := range bc.PromptStrings {
 
 		go func(promptIndex int, prompt string) {
@@ -184,7 +182,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 				}, notifyOnPromptResult, notifyOnToken)
 			if err != nil {
 				log.Error().Msgf("TODO DEBUG IF HIT:\nprompt: %q\nerr: %q", prompt, err)
-				
+
 				return
 			}
 			if notifyOnPromptResult {
@@ -200,7 +198,9 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 		}(pI, p)
 
 	}
+	log.Debug().Msgf("[OAIS GenerateTextFromRequest] Setup Kicked Off %d goroutines ... waiting for completion", len(bc.PromptStrings))
 	setupWG.Wait()
+	log.Debug().Msg("=== [OAIS GenerateTextFromRequest] === MADE IT PAST SETUP WAIT!!!!")
 
 	initialResponse := &schema.OpenAIResponse{
 		ID:      traceID.ID,
