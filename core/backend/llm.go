@@ -210,7 +210,9 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 			err = infErr // Avoids complaints about redeclaring err but looks dumb
 			log.Error().Msgf("[llmbs.GenerateText] request #%d error during Inference: %q", i, err)
 			rawChannel <- utils.ErrorOr[*LLMResponseBundle]{Error: err}
+			log.Error().Msgf("[llmbs.GenerateText] request #%d error sent to rawChannel", i)
 			close(rawChannel)
+			log.Error().Msgf("[llmbs.GenerateText] request #%d rawChannel closed", i)
 			return
 		}
 		completionChannels = append(completionChannels, individualResultChannel)
