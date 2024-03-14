@@ -51,7 +51,7 @@ func main() {
 	app := &cli.App{
 		Name:    "LocalAI",
 		Version: internal.PrintableVersion(),
-		Usage:   "OpenAI compatible API for running LLaMA/GPT models locally on CPU with consumer grade hardware.",
+		Usage:   "OpenAI, OSS alternative. Drop-in compatible API for running LLM, GPT and genAI models locally on CPU, GPUs with consumer grade hardware. Supported server endpoints: OpenAI, Elevenlabs",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "f16",
@@ -396,6 +396,12 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						Required: true,
 					},
 					&cli.StringFlag{
+						Name:     "voice",
+						Aliases:  []string{"v"},
+						Usage:    "Voice name to run the TTS (optional)",
+						Required: true,
+					},
+					&cli.StringFlag{
 						Name:    "output-file",
 						Aliases: []string{"o"},
 						Usage:   "The path to write the output wav file",
@@ -434,6 +440,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						Model:   modelOption,
 						Input:   text,
 						Backend: backendOption,
+						Voice:   ctx.String("voice"),
 					}
 
 					resultsChannel := ttsbs.TextToAudioFile(request)
@@ -449,7 +456,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						}
 						fmt.Printf("Generate file %s\n", outputFile)
 					} else {
-						fmt.Printf("Generate file %s\n", rawResult.Value)
+						fmt.Printf("Generate file %s\n", *rawResult.Value)
 					}
 					return nil
 				},

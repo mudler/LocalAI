@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core"
 	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
+	"github.com/go-skynet/LocalAI/core/http/endpoints/elevenlabs"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 	"github.com/go-skynet/LocalAI/core/schema"
@@ -17,6 +18,24 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
+
+func readAuthHeader(c *fiber.Ctx) string {
+	authHeader := c.Get("Authorization")
+
+	// elevenlabs
+	xApiKey := c.Get("xi-api-key")
+	if xApiKey != "" {
+		authHeader = "Bearer " + xApiKey
+	}
+
+	// anthropic
+	xApiKey = c.Get("x-api-key")
+	if xApiKey != "" {
+		authHeader = "Bearer " + xApiKey
+	}
+
+	return authHeader
+}
 
 func App(application *core.Application) (*fiber.App, error) {
 	// Return errors as JSON responses
@@ -91,10 +110,12 @@ func App(application *core.Application) (*fiber.App, error) {
 		// 	return c.Next()
 		// }
 
-		authHeader := c.Get("Authorization")
+		authHeader := readAuthHeader(c)
 		if authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
 		}
+
+		// If it's a bearer token
 		authHeaderParts := strings.Split(authHeader, " ")
 		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
@@ -108,7 +129,6 @@ func App(application *core.Application) (*fiber.App, error) {
 		}
 
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
-
 	}
 
 	if application.ApplicationConfig.CORS {
@@ -184,6 +204,9 @@ func App(application *core.Application) (*fiber.App, error) {
 
 	// images
 	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(fiberContextExtractor, application.ImageGenerationBackendService))
+
+	// Elevenlabs
+	app.Post("/v1/text-to-speech/:voice-id", auth, elevenlabs.TTSEndpoint(fiberContextExtractor, application.TextToSpeechBackendService))
 
 	if application.ApplicationConfig.ImageDir != "" {
 		app.Static("/generated-images", application.ApplicationConfig.ImageDir)

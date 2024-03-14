@@ -47,7 +47,7 @@ func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequ
 			cfg.Backend = request.Backend
 		}
 
-		outFile, _, err := modelTTS(cfg.Backend, request.Input, cfg.Model, ttsbs.ml, ttsbs.appConfig, cfg)
+		outFile, _, err := modelTTS(cfg.Backend, request.Input, cfg.Model, request.Voice, ttsbs.ml, ttsbs.appConfig, cfg)
 		if err != nil {
 			responseChannel <- utils.ErrorOr[*string]{Error: err}
 			close(responseChannel)
@@ -59,7 +59,7 @@ func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequ
 	return responseChannel
 }
 
-func modelTTS(backend, text, modelFile string, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig *config.BackendConfig) (string, *proto.Result, error) {
+func modelTTS(backend, text, modelFile string, voice string, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig *config.BackendConfig) (string, *proto.Result, error) {
 	bb := backend
 	if bb == "" {
 		bb = model.PiperBackend
@@ -74,12 +74,12 @@ func modelTTS(backend, text, modelFile string, loader *model.ModelLoader, appCon
 		model.WithAssetDir(appConfig.AssetsDestination),
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 	})
-	piperModel, err := loader.BackendLoader(opts...)
+	ttsModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return "", nil, err
 	}
 
-	if piperModel == nil {
+	if ttsModel == nil {
 		return "", nil, fmt.Errorf("could not load piper model")
 	}
 
@@ -87,25 +87,31 @@ func modelTTS(backend, text, modelFile string, loader *model.ModelLoader, appCon
 		return "", nil, fmt.Errorf("failed creating audio directory: %s", err)
 	}
 
-	fileName := generateUniqueFileName(appConfig.AudioDir, "piper", ".wav")
+	fileName := generateUniqueFileName(appConfig.AudioDir, "tts", ".wav")
 	filePath := filepath.Join(appConfig.AudioDir, fileName)
 
 	// If the model file is not empty, we pass it joined with the model path
 	modelPath := ""
 	if modelFile != "" {
-		if bb != model.TransformersMusicGen {
-			modelPath = filepath.Join(loader.ModelPath, modelFile)
-			if err := utils.VerifyPath(modelPath, appConfig.ModelPath); err != nil {
+		// If the model file is not empty, we pass it joined with the model path
+		// Checking first that it exists and is not outside ModelPath
+		// TODO: we should actually first check if the modelFile is looking like
+		// a FS path
+		mp := filepath.Join(loader.ModelPath, modelFile)
+		if _, err := os.Stat(mp); err == nil {
+			if err := utils.VerifyPath(mp, appConfig.ModelPath); err != nil {
 				return "", nil, err
 			}
+			modelPath = mp
 		} else {
 			modelPath = modelFile
 		}
 	}
 
-	res, err := piperModel.TTS(context.Background(), &proto.TTSRequest{
+	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{
 		Text:  text,
 		Model: modelPath,
+		Voice: voice,
 		Dst:   filePath,
 	})
 

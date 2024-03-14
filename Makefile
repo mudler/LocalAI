@@ -464,7 +464,6 @@ backend-assets/grpc/llama: backend-assets/grpc sources/go-llama/libbinding.a
 # TODO: every binary should have its own folder instead, so can have different  implementations
 ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama/llama.cpp/ggml-common.h backend-assets/grpc/
-	cp backend/cpp/llama/llama.cpp/ggml-metal.metal backend-assets/grpc/
 endif
 
 ## BACKEND CPP LLAMA START
