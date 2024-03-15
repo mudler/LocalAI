@@ -462,9 +462,6 @@ backend-assets/grpc/llama: backend-assets/grpc sources/go-llama/libbinding.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama LIBRARY_PATH=$(CURDIR)/sources/go-llama \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama ./backend/go/llm/llama/
 # TODO: every binary should have its own folder instead, so can have different  implementations
-ifeq ($(BUILD_TYPE),metal)
-	cp backend/cpp/llama/llama.cpp/ggml-common.h backend-assets/grpc/
-endif
 
 ## BACKEND CPP LLAMA START
 # Sets the variables in case it has to build the gRPC locally.
@@ -494,7 +491,7 @@ backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/grpc-server
 	cp -rfv backend/cpp/llama/grpc-server backend-assets/grpc/llama-cpp
 # TODO: every binary should have its own folder instead, so can have different metal implementations
 ifeq ($(BUILD_TYPE),metal)
-	cp backend/cpp/llama/llama.cpp/build/bin/ggml-common.h backend-assets/grpc/
+	cp backend/cpp/llama/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
 
 backend-assets/grpc/llama-ggml: backend-assets/grpc sources/go-llama-ggml/libbinding.a
