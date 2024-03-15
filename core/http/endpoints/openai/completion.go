@@ -26,6 +26,7 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 		log.Debug().Msgf("`OpenAIRequest`: %+v", request)
 
 		traceID, finalResultChannel, _, _, tokenChannel, err := oais.Completion(request, false, request.Stream)
+		log.Debug().Msgf("===========[COMPLETION ENDPOINT] KICKED OFF COMPLETION REQUEST stream: %t", request.Stream)
 		if err != nil {
 			return err
 		}
@@ -76,14 +77,14 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 			}))
 			return nil
 		}
-
+		log.Debug().Msg("====###=====[COMPLETION ENDPOINT] NON STREAMING WAITING FOR FINAL RESPONSE")
 		// TODO is this proper to have exclusive from Stream, or do we need to issue both responses?
 		rawResponse := <-finalResultChannel
-
+		log.Debug().Msgf("###########[COMPLETION ENDPOINT] rawResponse: %+v", rawResponse)
 		if rawResponse.Error != nil {
 			return rawResponse.Error
 		}
-
+		log.Debug().Msgf("###########[COMPLETION ENDPOINT] rawResponse,Value: %+v", rawResponse.Value)
 		jsonResult, _ := json.Marshal(rawResponse.Value)
 		log.Debug().Msgf("Response: %s", jsonResult)
 
