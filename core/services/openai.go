@@ -182,7 +182,8 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 				}, notifyOnPromptResult, notifyOnToken)
 			if err != nil {
 				log.Error().Msgf("TODO DEBUG IF HIT:\nprompt: %q\nerr: %q", prompt, err)
-
+				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(rawFinalResultChannel)
 				return
 			}
 			if notifyOnPromptResult {
