@@ -72,7 +72,7 @@ UNAME_S := $(shell uname -s)
 endif
 
 ifeq ($(OS),Darwin)
-	CGO_LDFLAGS += -lcblas -framework Accelerate
+	CGO_LDFLAGS += -lcblas
 	ifeq ($(OSX_SIGNING_IDENTITY),)
 		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
 	endif
@@ -83,6 +83,11 @@ ifeq ($(OS),Darwin)
 	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+	endif
+
+# 	Move the accelerate down here to try and avoid problems on x64 CI Macs
+	ifeq ($(BUILD_TYPE),metal)
+		CGO_LDFLAGS += -framework Accelerate
 	endif
 endif
 
