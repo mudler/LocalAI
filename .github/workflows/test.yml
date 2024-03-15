@@ -107,7 +107,7 @@ jobs:
           GO_TAGS="stablediffusion tts" make test
 
   tests-apple:
-    runs-on: macOS-latest
+    runs-on: macOS-14
     strategy:
       matrix:
         go-version: ['1.21.x']
@@ -130,4 +130,4 @@ jobs:
         run: |
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
-          BUILD_TYPE=TESTNONMETAL CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
+          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
