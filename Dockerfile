@@ -63,7 +63,9 @@ WORKDIR /build
 RUN test -n "$TARGETARCH" \
     || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
 
-# Extras requirements
+###################################
+###################################
+
 FROM requirements-core as requirements-extras
 
 RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
@@ -93,8 +95,11 @@ FROM requirements-${IMAGE_TYPE} as builder
 ARG GO_TAGS="stablediffusion tts"
 ARG GRPC_BACKENDS
 ARG BUILD_GRPC=true
+ARG MAKEFLAGS
+
 ENV GRPC_BACKENDS=${GRPC_BACKENDS}
 ENV GO_TAGS=${GO_TAGS}
+ENV MAKEFLAGS=${MAKEFLAGS}
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
@@ -116,10 +121,10 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
 RUN if [ "${BUILD_GRPC}" = "true" ]; then \
-    git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    git clone --recurse-submodules --jobs 4 -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
     cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
       -DgRPC_BUILD_TESTS=OFF \
-       ../.. && make -j12 install \
+       ../.. && make install \
     ; fi
 
 # Rebuild with defaults backends
@@ -139,10 +144,12 @@ ARG FFMPEG
 ARG BUILD_TYPE
 ARG TARGETARCH
 ARG IMAGE_TYPE=extras
+ARG MAKEFLAGS
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 ENV REBUILD=false
 ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
+ENV MAKEFLAGS=${MAKEFLAGS}
 
 ARG CUDA_MAJOR_VERSION=11
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -186,43 +193,43 @@ COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/
 
 ## Duplicated from Makefile to avoid having a big layer that's hard to push
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/autogptq \
+    make -C backend/python/autogptq \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/bark \
+    make -C backend/python/bark \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/diffusers \
+    make -C backend/python/diffusers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/vllm \
+    make -C backend/python/vllm \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/mamba \
+    make -C backend/python/mamba \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/sentencetransformers \
+    make -C backend/python/sentencetransformers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/transformers \
+    make -C backend/python/transformers \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/vall-e-x \
+    make -C backend/python/vall-e-x \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/exllama \
+    make -C backend/python/exllama \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-     make -C backend/python/exllama2 \
+    make -C backend/python/exllama2 \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/petals \
+    make -C backend/python/petals \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/transformers-musicgen \
+    make -C backend/python/transformers-musicgen \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-	 make -C backend/python/coqui \
+    make -C backend/python/coqui \
     ; fi
 
 # Make sure the models directory exists

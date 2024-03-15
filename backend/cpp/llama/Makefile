@@ -36,7 +36,7 @@ llama.cpp:
 	fi
 	cd llama.cpp && git checkout -b build $(LLAMA_VERSION) && git submodule update --init --recursive --depth 1
 
-llama.cpp/examples/grpc-server:
+llama.cpp/examples/grpc-server: llama.cpp
 	mkdir -p llama.cpp/examples/grpc-server
 	cp -r $(abspath ./)/CMakeLists.txt llama.cpp/examples/grpc-server/
 	cp -r $(abspath ./)/grpc-server.cpp llama.cpp/examples/grpc-server/
