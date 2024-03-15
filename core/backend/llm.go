@@ -105,7 +105,8 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	}
 
 	if err != nil {
-		return nil, nil, err
+		log.Error().Msgf("[llmbs.Inference] failed to load a backend: %q", err)
+		return
 	}
 
 	grpcPredOpts := gRPCPredictOpts(bc, llmbs.appConfig.ModelPath)
@@ -202,6 +203,7 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	}
 
 	for i := 0; i < request.N; i++ {
+
 		individualResultChannel, tokenChannel, infErr := llmbs.Inference(request.Context, &LLMRequest{
 			Text:   predInput,
 			Images: images,
