@@ -526,7 +526,7 @@ backend-assets/grpc/stablediffusion: backend-assets/grpc
 	fi
 
 backend-assets/grpc/tinydream: backend-assets/grpc sources/go-tiny-dream/libtinydream.a
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/go-tiny-dream \
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-tiny-dream \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
 
 backend-assets/grpc/piper: backend-assets/grpc backend-assets/espeak-ng-data sources/go-piper/libpiper_binding.a
