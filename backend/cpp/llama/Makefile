@@ -18,6 +18,9 @@ else ifeq ($(BUILD_TYPE),clblas)
 # If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++ 
 else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON
+# If it's OSX, embed the metal library for fewer moving parts.
+else ifeq ($(BUILD_TYPE),metal)
+	CMAKE_ARGS+=-DLLAMA_METAL_EMBED_LIBRARY=ON
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)

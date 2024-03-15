@@ -17,5 +17,6 @@ type BackendMonitorResponse struct {
 type TTSRequest struct {
 	Model   string `json:"model" yaml:"model"`
 	Input   string `json:"input" yaml:"input"`
+	Voice   string `json:"voice" yaml:"voice"`
 	Backend string `json:"backend" yaml:"backend"`
 }

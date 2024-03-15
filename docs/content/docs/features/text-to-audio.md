@@ -6,7 +6,13 @@ weight = 11
 url = "/features/text-to-audio/"
 +++
 
-The `/tts` endpoint can be used to generate speech from text.
+## API Compatibility
+
+The LocalAI TTS API is compatible with the [OpenAI TTS API](https://platform.openai.com/docs/guides/text-to-speech) and the [Elevenlabs](https://api.elevenlabs.io/docs) API.
+
+## LocalAI API
+
+The `/tts` endpoint can also be used to generate speech from text.
 
 ## Usage
 

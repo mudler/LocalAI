@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-skynet/LocalAI/core/http/endpoints/elevenlabs"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 
@@ -20,6 +21,24 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
+
+func readAuthHeader(c *fiber.Ctx) string {
+	authHeader := c.Get("Authorization")
+
+	// elevenlabs
+	xApiKey := c.Get("xi-api-key")
+	if xApiKey != "" {
+		authHeader = "Bearer " + xApiKey
+	}
+
+	// anthropic
+	xApiKey = c.Get("x-api-key")
+	if xApiKey != "" {
+		authHeader = "Bearer " + xApiKey
+	}
+
+	return authHeader
+}
 
 func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
 	// Return errors as JSON responses
@@ -94,10 +113,12 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 			return c.Next()
 		}
 
-		authHeader := c.Get("Authorization")
+		authHeader := readAuthHeader(c)
 		if authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
 		}
+
+		// If it's a bearer token
 		authHeaderParts := strings.Split(authHeader, " ")
 		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
@@ -111,7 +132,6 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		}
 
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
-
 	}
 
 	if appConfig.CORS {
@@ -147,6 +167,11 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	app.Get("/models/jobs/:uuid", auth, modelGalleryEndpointService.GetOpStatusEndpoint())
 	app.Get("/models/jobs", auth, modelGalleryEndpointService.GetAllStatusEndpoint())
 
+	app.Post("/tts", auth, localai.TTSEndpoint(cl, ml, appConfig))
+
+	// Elevenlabs
+	app.Post("/v1/text-to-speech/:voice-id", auth, elevenlabs.TTSEndpoint(cl, ml, appConfig))
+
 	// openAI compatible API endpoint
 
 	// chat
@@ -181,7 +206,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// audio
 	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(cl, ml, appConfig))
-	app.Post("/tts", auth, localai.TTSEndpoint(cl, ml, appConfig))
+	app.Post("/v1/audio/speech", auth, localai.TTSEndpoint(cl, ml, appConfig))
 
 	// images
 	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(cl, ml, appConfig))
