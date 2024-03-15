@@ -19,8 +19,8 @@ else ifeq ($(BUILD_TYPE),clblas)
 else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON
 # If it's OSX, embed the metal library for fewer moving parts.
-else ifeq ($(BUILD_TYPE),metal)
-	CMAKE_ARGS+=-DLLAMA_METAL_EMBED_LIBRARY=ON
+# else ifeq ($(BUILD_TYPE),metal)
+# CMAKE_ARGS+=-DLLAMA_METAL_EMBED_LIBRARY=ON
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
