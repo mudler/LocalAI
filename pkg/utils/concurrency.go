@@ -1,6 +1,10 @@
 package utils
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/rs/zerolog/log"
+)
 
 // TODO: closeWhenDone bool parameter ::
 //			It currently is experimental, and therefore exists.
@@ -93,10 +97,13 @@ func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan I
 		}(irc)
 	}
 	go func() {
+		log.Debug().Msgf("==================== DELTEME SliceOfChannelsReducer Goroutine TOP %d", len(individualResultsChannels))
 		wg.Wait()
+		log.Debug().Msgf("==================== DELTEME SliceOfChannelsReducer Goroutine WAIT DONE CLOSE? %t", closeWhenDone)
 		outputChannel <- initialValue
 		if closeWhenDone {
 			close(outputChannel)
+			log.Debug().Msg("==================== DELTEME SliceOfChannelsReducer output channel CLOSED!!!"))
 		}
 	}()
 	return wg
