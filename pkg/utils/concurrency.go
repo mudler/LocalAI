@@ -103,7 +103,7 @@ func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan I
 		outputChannel <- initialValue
 		if closeWhenDone {
 			close(outputChannel)
-			log.Debug().Msg("==================== DELTEME SliceOfChannelsReducer output channel CLOSED!!!"))
+			log.Debug().Msg("==================== DELTEME SliceOfChannelsReducer output channel CLOSED!!!")
 		}
 	}()
 	return wg
