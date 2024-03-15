@@ -30,14 +30,10 @@ import (
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
 
-const testPrompt = `### System:
-You are an AI assistant that follows instruction extremely well. Help as much as you can.
-
-### User:
-
-Can you help rephrasing sentences?
-
-### Response:`
+const testPrompt = `<|im_start|>system
+You are an AI assistant that follows instruction extremely well. Help as much as you can.<|im_end|>
+<|im_start|>user
+`
 
 type modelApplyRequest struct {
 	ID        string                 `json:"id"`
