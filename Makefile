@@ -177,14 +177,6 @@ sources/go-bert:
 sources/go-bert/libgobert.a: sources/go-bert
 	$(MAKE) -C sources/go-bert libgobert.a
 
-## go-llama
-sources/go-llama:
-	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp sources/go-llama
-	cd sources/go-llama && git checkout -b build $(GOLLAMA_VERSION) && git submodule update --init --recursive --depth 1
-
-sources/go-llama/libbinding.a: sources/go-llama
-	$(MAKE) -C sources/go-llama BUILD_TYPE=$(BUILD_TYPE) libbinding.a
-
 ## go-llama-ggml
 sources/go-llama-ggml:
 	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp sources/go-llama-ggml
@@ -241,20 +233,17 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && make libwhisper.a
 
-get-sources: backend/cpp/llama/llama.cpp sources/go-llama sources/go-llama-ggml sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion sources/go-tiny-dream
-
-backend/cpp/llama/llama.cpp:
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama llama.cpp
+get-sources: sources/go-llama-ggml sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion sources/go-tiny-dream
 
 replace:
-	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(CURDIR)/sources/go-rwkv
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(CURDIR)/sources/go-bert
-	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/M0Rf30/go-tiny-dream=$(CURDIR)/sources/go-tiny-dream
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(CURDIR)/sources/go-piper
+	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
+	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
@@ -262,7 +251,6 @@ prepare-sources: get-sources replace
 ## GENERIC
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
-	$(MAKE) -C sources/go-llama clean
 	$(MAKE) -C sources/go-llama-ggml clean
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ clean
 	$(MAKE) -C sources/go-rwkv clean
@@ -286,7 +274,6 @@ clean: ## Remove build related file
 	$(MAKE) -C backend/cpp/llama clean
 
 ## Build:
-
 build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
@@ -464,11 +451,8 @@ backend-assets/grpc/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/go
 backend-assets/grpc/langchain-huggingface: backend-assets/grpc
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/langchain-huggingface ./backend/go/llm/langchain/
 
-backend-assets/grpc/llama: sources/go-llama sources/go-llama/libbinding.a backend-assets/grpc
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama LIBRARY_PATH=$(CURDIR)/sources/go-llama \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama ./backend/go/llm/llama/
-# TODO: every binary should have its own folder instead, so can have different  implementations
+backend/cpp/llama/llama.cpp:
+	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama llama.cpp
 
 INSTALLED_PACKAGES=$(CURDIR)/backend/cpp/grpc/installed_packages
 INSTALLED_LIB_CMAKE=$(INSTALLED_PACKAGES)/lib/cmake
@@ -481,9 +465,9 @@ backend/cpp/llama/grpc-server:
 # Conditionally build grpc for the llama backend to use if needed
 ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	$(MAKE) -C backend/cpp/grpc build
-	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto && \
-	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin && \
-	export PATH="${INSTALLED_PACKAGES}/bin:${PATH}" && \
+	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto
+	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin
+	export PATH="${INSTALLED_PACKAGES}/bin:${PATH}"
 	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
 else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
