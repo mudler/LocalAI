@@ -105,6 +105,9 @@ jobs:
       - name: Test
         run: |
           GO_TAGS="stablediffusion tts" make test
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
 
   tests-apple:
     runs-on: macOS-14
