@@ -302,6 +302,7 @@ clean: ## Remove build related file
 clean-tests:
 	rm -rf test-models
 	rm -rf test-dir
+	rm -rf core/http/backend-assets
 
 ## Build:
 
