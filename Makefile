@@ -464,10 +464,12 @@ backend/cpp/llama/grpc-server:
 # Conditionally build grpc for the llama backend to use if needed
 ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	$(MAKE) -C backend/cpp/grpc build
-	export _PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto
-	export _GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin
-	export PATH="${INSTALLED_PACKAGES}/bin:${PATH}"
-	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
+	_PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto \
+	_GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin \
+	PATH="${INSTALLED_PACKAGES}/bin:${PATH}" \
+	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" \
+	LLAMA_VERSION=$(CPPLLAMA_VERSION) \
+	$(MAKE) -C backend/cpp/llama grpc-server
 else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server

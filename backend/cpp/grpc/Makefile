@@ -48,7 +48,7 @@ $(INSTALLED_PACKAGES): grpc_build
 
 $(GRPC_REPO):
 	git clone --depth $(GIT_CLONE_DEPTH) -b $(TAG_LIB_GRPC) $(GIT_REPO_LIB_GRPC) $(GRPC_REPO)/grpc
-	cd $(GRPC_REPO)/grpc && git submodule update --init --recursive --depth $(GIT_CLONE_DEPTH)
+	cd $(GRPC_REPO)/grpc && git submodule update --jobs 2 --init --recursive --depth $(GIT_CLONE_DEPTH)
 
 $(GRPC_BUILD): $(GRPC_REPO)
 	mkdir -p $(GRPC_BUILD)
