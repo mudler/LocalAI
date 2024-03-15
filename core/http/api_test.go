@@ -32,8 +32,11 @@ import (
 
 const testPrompt = `### System:
 You are an AI assistant that follows instruction extremely well. Help as much as you can.
+
 ### User:
+
 Can you help rephrasing sentences?
+
 ### Response:`
 
 type modelApplyRequest struct {
