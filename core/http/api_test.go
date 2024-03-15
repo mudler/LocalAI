@@ -33,7 +33,8 @@ import (
 const testPrompt = `<|im_start|>system
 You are an AI assistant that follows instruction extremely well. Help as much as you can.<|im_end|>
 <|im_start|>user
-`
+Can you help rephrasing sentences?<|im_end|>
+<|im_start|>assistant`
 
 type modelApplyRequest struct {
 	ID        string                 `json:"id"`
