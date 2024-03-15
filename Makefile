@@ -19,7 +19,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=37a709f6558c6d9783199e2b8cbb136e1c41d346
+WHISPER_CPP_VERSION?=de4d067f1e162527044498a7ec23a9ee458ac280
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
@@ -72,7 +72,7 @@ UNAME_S := $(shell uname -s)
 endif
 
 ifeq ($(OS),Darwin)
-	CGO_LDFLAGS += -lcblas -framework Accelerate
+	
 	ifeq ($(OSX_SIGNING_IDENTITY),)
 		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
 	endif
@@ -83,6 +83,12 @@ ifeq ($(OS),Darwin)
 	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+		export LLAMA_NO_ACCELERATE=1
+	endif
+
+	ifeq ($(BUILD_TYPE),metal)
+#			-lcblas 	removed: it seems to always be listed as a duplicate flag.
+		CGO_LDFLAGS += -framework Accelerate
 	endif
 endif
 
@@ -298,6 +304,11 @@ clean: ## Remove build related file
 	rm -rf backend-assets
 	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/cpp/llama clean
+
+clean-tests:
+	rm -rf test-models
+	rm -rf test-dir
+	rm -rf core/http/backend-assets
 
 ## Build:
 
