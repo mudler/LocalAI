@@ -330,10 +330,10 @@ osx-signed: build
 run: prepare ## run local-ai
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./
 
-test-models/testmodel:
+test-models/testmodel.ggml:
 	mkdir test-models
 	mkdir test-dir
-	wget -q https://huggingface.co/MaziyarPanahi/TinyMistral-248M-SFT-v4-GGUF/resolve/main/TinyMistral-248M-SFT-v4.Q4_K_S.gguf -O test-models/testmodel
+	wget -q https://huggingface.co/TheBloke/orca_mini_3B-GGML/resolve/main/orca-mini-3b.ggmlv3.q4_0.bin -O test-models/testmodel.ggml
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
@@ -345,7 +345,7 @@ prepare-test: grpcs
 	cp -rf backend-assets core/http
 	cp tests/models_fixtures/* test-models
 
-test: prepare test-models/testmodel grpcs
+test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
 	export GO_TAGS="tts stablediffusion"
 	$(MAKE) prepare-test

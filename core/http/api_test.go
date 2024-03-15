@@ -30,11 +30,11 @@ import (
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
 
-const testPrompt = `<|im_start|>system
-You are an AI assistant that follows instruction extremely well. Help as much as you can.<|im_end|>
-<|im_start|>user
-Can you help rephrasing sentences?<|im_end|>
-<|im_start|>assistant`
+const testPrompt = `### System:
+You are an AI assistant that follows instruction extremely well. Help as much as you can.
+### User:
+Can you help rephrasing sentences?
+### Response:`
 
 type modelApplyRequest struct {
 	ID        string                 `json:"id"`
@@ -663,15 +663,15 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
 		})
-		It("can generate completions", func() {
-			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: testPrompt})
+		It("can generate completions via ggml", func() {
+			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel.ggml", Prompt: testPrompt})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})
 
-		It("can generate chat completions ", func() {
-			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
+		It("can generate chat completions via ggml", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel.ggml", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
