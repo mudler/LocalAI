@@ -145,7 +145,6 @@ endif
 
 ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface
 ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
