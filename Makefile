@@ -83,6 +83,7 @@ ifeq ($(OS),Darwin)
 	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+		export LLAMA_NO_ACCELERATE=1
 	endif
 
 	ifeq ($(BUILD_TYPE),metal)
