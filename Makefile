@@ -244,6 +244,16 @@ replace:
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang
 
+dropreplace:
+	$(GOCMD) mod edit -dropreplace github.com/donomii/go-rwkv.cpp
+	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
+	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
+	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-bert.cpp
+	$(GOCMD) mod edit -dropreplace github.com/M0Rf30/go-tiny-dream
+	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
+	$(GOCMD) mod edit -dropreplace github.com/mudler/go-stable-diffusion
+	$(GOCMD) mod edit -dropreplace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang
+
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
 
@@ -271,6 +281,7 @@ clean: ## Remove build related file
 	rm -rf backend-assets
 	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/cpp/llama clean
+	$(MAKE) dropreplace
 
 ## Build:
 build: prepare backend-assets grpcs ## Build the project
@@ -436,7 +447,7 @@ backend-assets/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/golang/
 	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.dylib backend-assets/gpt4all/ || true
 	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
 
-backend-assets/grpc:
+backend-assets/grpc: replace
 	mkdir -p backend-assets/grpc
 
 backend-assets/grpc/bert-embeddings: sources/go-bert sources/go-bert/libgobert.a backend-assets/grpc
