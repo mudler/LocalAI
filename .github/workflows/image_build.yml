@@ -160,6 +160,7 @@ jobs:
             FFMPEG=${{ inputs.ffmpeg }}
             IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
+            MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile
           platforms: ${{ inputs.platforms }}
