@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=37a709f6558c6d9783199e2b8cbb136e1c41d346
+WHISPER_CPP_VERSION?=a56f435fd475afd7edf02bfbf9f8c77f527198c2
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
@@ -35,6 +35,7 @@ export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
 export CMAKE_ARGS?=
 
 CGO_LDFLAGS?=
+CGO_LDFLAGS_WHISPER?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
 BUILD_ID?=git
@@ -88,10 +89,12 @@ ifeq ($(BUILD_TYPE),openblas)
 	export WHISPER_OPENBLAS=1
 endif
 
+
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 	export LLAMA_CUBLAS=1
 	export WHISPER_CUBLAS=1
+	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -515,7 +518,7 @@ backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libti
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/whisper.cpp LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH=$(CURDIR)/sources/whisper.cpp LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
 
 grpcs: prepare $(GRPC_BACKENDS)
