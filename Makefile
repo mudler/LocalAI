@@ -19,7 +19,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=37a709f6558c6d9783199e2b8cbb136e1c41d346
+WHISPER_CPP_VERSION?=a56f435fd475afd7edf02bfbf9f8c77f527198c2
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
@@ -92,7 +92,7 @@ ifeq ($(BUILD_TYPE),openblas)
 endif
 
 ifeq ($(BUILD_TYPE),cublas)
-	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
+	CGO_LDFLAGS+=-lcublas -lcudart -lculibos -lcublasLt -L$(CUDA_LIBPATH)
 	export LLAMA_CUBLAS=1
 	export WHISPER_CUBLAS=1
 endif
