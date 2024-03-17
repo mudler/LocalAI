@@ -46,6 +46,11 @@ on:
         required: true
         default: ''
         type: string
+      makeflags:
+        description: 'Make Flags'
+        required: false
+        default: ''
+        type: string
     secrets:
       dockerUsername:
         required: true
@@ -160,6 +165,7 @@ jobs:
             FFMPEG=${{ inputs.ffmpeg }}
             IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
+            MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile
           platforms: ${{ inputs.platforms }}
