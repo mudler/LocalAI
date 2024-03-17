@@ -432,6 +432,14 @@ func updateBackendConfigFromOpenAIRequest(config *BackendConfig, input *schema.O
 		config.RepeatPenalty = input.RepeatPenalty
 	}
 
+	if input.FrequencyPenalty != 0 {
+		config.FrequencyPenalty = input.FrequencyPenalty
+	}
+
+	if input.PresencePenalty != 0 {
+		config.PresencePenalty = input.PresencePenalty
+	}
+
 	if input.Keep != 0 {
 		config.Keep = input.Keep
 	}
