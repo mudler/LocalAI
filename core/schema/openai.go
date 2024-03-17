@@ -108,7 +108,7 @@ type ChatCompletionResponseFormat struct {
 type OpenAIRequest struct {
 	PredictionOptions
 
-	Context context.Context    `json:"-"`
+	Context context.Context  `json:"-"`
 	Cancel  context.CancelFunc `json:"-"`
 
 	// whisper
