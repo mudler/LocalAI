@@ -46,6 +46,11 @@ on:
         required: true
         default: ''
         type: string
+      makeflags:
+        description: 'Make Flags'
+        required: false
+        default: ''
+        type: string
     secrets:
       dockerUsername:
         required: true
