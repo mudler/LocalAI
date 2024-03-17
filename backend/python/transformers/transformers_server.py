@@ -22,6 +22,8 @@ if XPU:
     import intel_extension_for_pytorch as ipex
     from intel_extension_for_transformers.transformers.modeling import AutoModelForCausalLM
     from transformers import AutoTokenizer, AutoModel, set_seed
+    from optimum.intel.openvino import OVModelForCausalLM
+    from openvino.runtime import Core
 else:
     from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed, BitsAndBytesConfig
 
@@ -81,6 +83,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             compute=torch.bfloat16
 
         self.CUDA = request.CUDA
+        self.OV=False
 
         device_map="cpu"
 
@@ -105,17 +108,33 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     bnb_4bit_compute_dtype = None,
                     load_in_8bit=True,                                   
                 )
-                                                   
-    
+                                               
         try:
             if request.Type == "AutoModelForCausalLM":
                 if XPU:
-                    if quantization == "xpu_4bit":
+                    device_map="xpu"
+                    compute=torch.float16
+                    if request.Quantization == "xpu_4bit":
                         xpu_4bit = True
-                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,
-                                              device_map="xpu", load_in_4bit=xpu_4bit)
+                        xpu_8bit = False
+                    elif request.Quantization == "xpu_8bit":
+                        xpu_4bit = False
+                        xpu_8bit = True
+                    else:
+                        xpu_4bit = False
+                        xpu_8bit = False
+
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode, use_safetensors=True,
+                                              device_map=device_map, load_in_4bit=xpu_4bit, load_in_8bit=xpu_8bit, torch_dtype=compute)
                 else:
                     self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode, use_safetensors=True, quantization_config=quantization, device_map=device_map, torch_dtype=compute)
+            elif request.Type == "OVModelForCausalLM":
+                if "GPU" in Core().available_devices:
+                    device_map="GPU"
+                else:
+                    device_map="CPU"
+                self.model = OVModelForCausalLM(model_name, compile=True, device=device_map)
+                self.OV = True
             else:
                 self.model = AutoModel.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,  use_safetensors=True,  quantization_config=quantization, device_map=device_map, torch_dtype=compute)
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
@@ -189,8 +208,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         inputs = self.tokenizer(request.Prompt, return_tensors="pt").input_ids
         if self.CUDA:
             inputs = inputs.to("cuda")
-        if XPU:
-            inputs = inputs.to("xpu")
+        if XPU and self.OV == False:
+                inputs = inputs.to("xpu")
+
 
         outputs = self.model.generate(inputs,max_new_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP, do_sample=True, pad_token_id=self.tokenizer.eos_token_id)
         generated_text = self.tokenizer.batch_decode(outputs[:, inputs.shape[1]:], skip_special_tokens=True)[0]
