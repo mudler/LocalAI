@@ -15,12 +15,11 @@ import (
 )
 
 var Aliases map[string]string = map[string]string{
-	"go-llama": GoLlamaBackend,
+	"go-llama": LLamaCPP,
 	"llama":    LLamaCPP,
 }
 
 const (
-	GoLlamaBackend      = "llama"
 	LlamaGGML           = "llama-ggml"
 	LLamaCPP            = "llama-cpp"
 	Gpt4AllLlamaBackend = "gpt4all-llama"
@@ -43,7 +42,6 @@ const (
 var AutoLoadBackends []string = []string{
 	LLamaCPP,
 	LlamaGGML,
-	GoLlamaBackend,
 	Gpt4All,
 	BertEmbeddingsBackend,
 	RwkvBackend,
