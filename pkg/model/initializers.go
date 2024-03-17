@@ -34,9 +34,6 @@ const (
 	TinyDreamBackend       = "tinydream"
 	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "langchain-huggingface"
-
-	// External Backends that need special handling within LocalAI:
-	TransformersMusicGen = "transformers-musicgen"
 )
 
 var AutoLoadBackends []string = []string{
