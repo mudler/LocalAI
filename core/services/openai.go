@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -131,6 +132,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	}
 
 	rawFinalResultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
+	finalResultChannel = rawFinalResultChannel
 	promptResultsChannels = []<-chan utils.ErrorOr[*backend.LLMResponseBundle]{}
 	var rawCompletionsChannel chan utils.ErrorOr[*backend.LLMResponse]
 	var rawTokenChannel chan utils.ErrorOr[*backend.LLMResponse]
@@ -185,10 +187,14 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			if err != nil {
 				log.Error().Msgf("Unable to generate text ::::QUEUE DEPTH::: %d prompt: %q\nerr: %q", len(rawFinalResultChannel), prompt, err)
 				promptResultsChannelLock.Lock()
-				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-				setupError = err
+				log.Error().Msg("got promptResultsChannelLock")
+				setupError = errors.Join(setupError, err)
+				log.Error().Msg("set setupError, unlocking")
 				promptResultsChannelLock.Unlock()
+				log.Error().Msg("released promptResultsChannelLock")
 				setupWG.Done()
+				log.Error().Msgf("released setupWG #%d", promptIndex)
+				return
 			}
 			if notifyOnPromptResult {
 				utils.SliceOfChannelsRawMergerWithoutMapping(completionChannels, rawCompletionsChannel, true)
@@ -207,7 +213,9 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	setupWG.Wait()
 	log.Debug().Msg("=== [OAIS GenerateTextFromRequest] === MADE IT PAST SETUP WAIT!!!!")
 
+	// If any of the setup goroutines experienced an error, quit early here.
 	if setupError != nil {
+		rawCompletionsChannel <- utils.ErrorOr[*backend.LLMResponse]{Error: setupError}
 		close(rawCompletionsChannel)
 		return
 	}
@@ -240,7 +248,6 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			return result
 		}, utils.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse}, true)
 
-	finalResultChannel = rawFinalResultChannel
 	completionsChannel = rawCompletionsChannel
 	tokenChannel = rawTokenChannel
 
