@@ -157,6 +157,8 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	setupWG := sync.WaitGroup{}
 	setupWG.Add(len(bc.PromptStrings))
 
+	var setupError error = nil
+
 	for pI, p := range bc.PromptStrings {
 
 		go func(promptIndex int, prompt string) {
@@ -181,11 +183,12 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 					return mappingFn(r, promptIndex)
 				}, notifyOnPromptResult, notifyOnToken)
 			if err != nil {
-				log.Error().Msgf("TODO DEBUG IF HIT ::::QUEUE DEPTH::: %d prompt: %q\nerr: %q", len(rawFinalResultChannel), prompt, err)
+				log.Error().Msgf("Unable to generate text ::::QUEUE DEPTH::: %d prompt: %q\nerr: %q", len(rawFinalResultChannel), prompt, err)
+				promptResultsChannelLock.Lock()
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
-				log.Error().Msgf("ERR WRITTEN TO rawFinalResultChannel:\nprompt: %q\nerr: %q", prompt, err)
-				close(rawFinalResultChannel)
-				return
+				setupError = err
+				promptResultsChannelLock.Unlock()
+				setupWG.Done()
 			}
 			if notifyOnPromptResult {
 				utils.SliceOfChannelsRawMergerWithoutMapping(completionChannels, rawCompletionsChannel, true)
@@ -203,6 +206,11 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	log.Debug().Msgf("[OAIS GenerateTextFromRequest] Setup Kicked Off %d goroutines ... waiting for completion", len(bc.PromptStrings))
 	setupWG.Wait()
 	log.Debug().Msg("=== [OAIS GenerateTextFromRequest] === MADE IT PAST SETUP WAIT!!!!")
+
+	if setupError != nil {
+		close(rawCompletionsChannel)
+		return
+	}
 
 	initialResponse := &schema.OpenAIResponse{
 		ID:      traceID.ID,
