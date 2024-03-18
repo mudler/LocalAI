@@ -20,6 +20,9 @@ func EditEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 		}
 
 		_, finalResultChannel, _, _, _, err := oais.Edit(request, false, request.Stream)
+		if err != nil {
+			return err
+		}
 
 		rawResponse := <-finalResultChannel
 		if rawResponse.Error != nil {
