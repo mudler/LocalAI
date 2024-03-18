@@ -317,108 +317,108 @@ func (bcl *BackendConfigLoader) LoadBackendConfigForModelAndOpenAIRequest(modelF
 	return cfg, input, err
 }
 
-func updateBackendConfigFromOpenAIRequest(config *BackendConfig, input *schema.OpenAIRequest) {
-	if input.Echo {
-		config.Echo = input.Echo
+func updateBackendConfigFromOpenAIRequest(bc *BackendConfig, request *schema.OpenAIRequest) {
+	if request.Echo {
+		bc.Echo = request.Echo
 	}
-	if input.TopK != nil && *input.TopK != 0 {
-		config.TopK = input.TopK
+	if request.TopK != nil && *request.TopK != 0 {
+		bc.TopK = request.TopK
 	}
-	if input.TopP != nil && *input.TopP != 0 {
-		config.TopP = input.TopP
-	}
-
-	if input.Backend != "" {
-		config.Backend = input.Backend
+	if request.TopP != nil && *request.TopP != 0 {
+		bc.TopP = request.TopP
 	}
 
-	if input.ClipSkip != 0 {
-		config.Diffusers.ClipSkip = input.ClipSkip
+	if request.Backend != "" {
+		bc.Backend = request.Backend
 	}
 
-	if input.ModelBaseName != "" {
-		config.AutoGPTQ.ModelBaseName = input.ModelBaseName
+	if request.ClipSkip != 0 {
+		bc.Diffusers.ClipSkip = request.ClipSkip
 	}
 
-	if input.NegativePromptScale != 0 {
-		config.NegativePromptScale = input.NegativePromptScale
+	if request.ModelBaseName != "" {
+		bc.AutoGPTQ.ModelBaseName = request.ModelBaseName
 	}
 
-	if input.UseFastTokenizer {
-		config.UseFastTokenizer = input.UseFastTokenizer
+	if request.NegativePromptScale != 0 {
+		bc.NegativePromptScale = request.NegativePromptScale
 	}
 
-	if input.NegativePrompt != "" {
-		config.NegativePrompt = input.NegativePrompt
+	if request.UseFastTokenizer {
+		bc.UseFastTokenizer = request.UseFastTokenizer
 	}
 
-	if input.RopeFreqBase != 0 {
-		config.RopeFreqBase = input.RopeFreqBase
+	if request.NegativePrompt != "" {
+		bc.NegativePrompt = request.NegativePrompt
 	}
 
-	if input.RopeFreqScale != 0 {
-		config.RopeFreqScale = input.RopeFreqScale
+	if request.RopeFreqBase != 0 {
+		bc.RopeFreqBase = request.RopeFreqBase
 	}
 
-	if input.Grammar != "" {
-		config.Grammar = input.Grammar
+	if request.RopeFreqScale != 0 {
+		bc.RopeFreqScale = request.RopeFreqScale
 	}
 
-	if input.Temperature != nil && *input.Temperature != 0 {
-		config.Temperature = input.Temperature
+	if request.Grammar != "" {
+		bc.Grammar = request.Grammar
 	}
 
-	if input.Maxtokens != nil && *input.Maxtokens != 0 {
-		config.Maxtokens = input.Maxtokens
+	if request.Temperature != nil && *request.Temperature != 0 {
+		bc.Temperature = request.Temperature
 	}
 
-	switch stop := input.Stop.(type) {
+	if request.Maxtokens != nil && *request.Maxtokens != 0 {
+		bc.Maxtokens = request.Maxtokens
+	}
+
+	switch stop := request.Stop.(type) {
 	case string:
 		if stop != "" {
-			config.StopWords = append(config.StopWords, stop)
+			bc.StopWords = append(bc.StopWords, stop)
 		}
 	case []interface{}:
 		for _, pp := range stop {
 			if s, ok := pp.(string); ok {
-				config.StopWords = append(config.StopWords, s)
+				bc.StopWords = append(bc.StopWords, s)
 			}
 		}
 	}
 
-	if len(input.Tools) > 0 {
-		for _, tool := range input.Tools {
-			input.Functions = append(input.Functions, tool.Function)
+	if len(request.Tools) > 0 {
+		for _, tool := range request.Tools {
+			request.Functions = append(request.Functions, tool.Function)
 		}
 	}
 
-	if input.ToolsChoice != nil {
+	if request.ToolsChoice != nil {
 		var toolChoice grammar.Tool
-		json.Unmarshal([]byte(input.ToolsChoice.(string)), &toolChoice)
-		input.FunctionCall = map[string]interface{}{
+		json.Unmarshal([]byte(request.ToolsChoice.(string)), &toolChoice)
+		request.FunctionCall = map[string]interface{}{
 			"name": toolChoice.Function.Name,
 		}
 	}
 
 	// Decode each request's message content
 	index := 0
-	for i, m := range input.Messages {
+	for i, m := range request.Messages {
 		switch content := m.Content.(type) {
 		case string:
-			input.Messages[i].StringContent = content
+			request.Messages[i].StringContent = content
 		case []interface{}:
 			dat, _ := json.Marshal(content)
 			c := []schema.Content{}
 			json.Unmarshal(dat, &c)
 			for _, pp := range c {
 				if pp.Type == "text" {
-					input.Messages[i].StringContent = pp.Text
+					request.Messages[i].StringContent = pp.Text
 				} else if pp.Type == "image_url" {
 					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
 					base64, err := utils.GetImageURLAsBase64(pp.ImageURL.URL)
 					if err == nil {
-						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
+						request.Messages[i].StringImages = append(request.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
 						// set a placeholder for each image
-						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
+						request.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + request.Messages[i].StringContent
 						index++
 					} else {
 						fmt.Print("Failed encoding image", err)
@@ -428,81 +428,64 @@ func updateBackendConfigFromOpenAIRequest(config *BackendConfig, input *schema.O
 		}
 	}
 
-	if input.RepeatPenalty != 0 {
-		config.RepeatPenalty = input.RepeatPenalty
+	if request.RepeatPenalty != 0 {
+		bc.RepeatPenalty = request.RepeatPenalty
 	}
 
-	if input.FrequencyPenalty != 0 {
-		config.FrequencyPenalty = input.FrequencyPenalty
+	if request.FrequencyPenalty != 0 {
+		bc.FrequencyPenalty = request.FrequencyPenalty
 	}
 
-	if input.PresencePenalty != 0 {
-		config.PresencePenalty = input.PresencePenalty
+	if request.PresencePenalty != 0 {
+		bc.PresencePenalty = request.PresencePenalty
 	}
 
-	if input.Keep != 0 {
-		config.Keep = input.Keep
+	if request.Keep != 0 {
+		bc.Keep = request.Keep
 	}
 
-	if input.Batch != 0 {
-		config.Batch = input.Batch
+	if request.Batch != 0 {
+		bc.Batch = request.Batch
 	}
 
-	// No longer needed - set elsewhere from ConfigLoaderOptions. Preserving for future removal TODO FIXME
-	// if input.F16 {
-	// 	config.F16 = input.F16
-	// }
-
-	if input.IgnoreEOS {
-		config.IgnoreEOS = input.IgnoreEOS
+	if request.IgnoreEOS {
+		bc.IgnoreEOS = request.IgnoreEOS
 	}
 
-	if input.Seed != nil {
-		config.Seed = input.Seed
+	if request.Seed != nil {
+		bc.Seed = request.Seed
 	}
 
-	// No longer needed - set elsewhere via config file only now, I believe? Preserving for future removal TODO FIXME
-	// if input.TopP != nil && *input.Mirostat != 0 {
-	// 	config.LLMConfig.Mirostat = input.Mirostat
-	// }
-
-	// if input.MirostatETA != 0 {
-	// 	config.LLMConfig.MirostatETA = input.MirostatETA
-	// }
-
-	// if input.MirostatTAU != 0 {
-	// 	config.LLMConfig.MirostatTAU = input.MirostatTAU
-	// }
-
-	if input.TypicalP != 0 {
-		config.TypicalP = input.TypicalP
+	if request.TypicalP != 0 {
+		bc.TypicalP = request.TypicalP
 	}
 
-	switch inputs := input.Input.(type) {
+	switch inputs := request.Input.(type) {
 	case string:
+		log.Debug().Msgf("[BCL INPUT] |%q|", inputs)
 		if inputs != "" {
-			config.InputStrings = append(config.InputStrings, inputs)
+			bc.InputStrings = append(bc.InputStrings, inputs)
 		}
 	case []interface{}:
 		for _, pp := range inputs {
 			switch i := pp.(type) {
 			case string:
-				config.InputStrings = append(config.InputStrings, i)
+				bc.InputStrings = append(bc.InputStrings, i)
 			case []interface{}:
 				tokens := []int{}
 				for _, ii := range i {
 					tokens = append(tokens, int(ii.(float64)))
 				}
-				config.InputToken = append(config.InputToken, tokens)
+				bc.InputToken = append(bc.InputToken, tokens)
 			}
 		}
 	}
 
 	// Can be either a string or an object
-	switch fnc := input.FunctionCall.(type) {
+	switch fnc := request.FunctionCall.(type) {
 	case string:
 		if fnc != "" {
-			config.SetFunctionCallString(fnc)
+			bc.SetFunctionCallString(fnc)
 		}
 	case map[string]interface{}:
 		var name string
@@ -513,16 +496,16 @@ func updateBackendConfigFromOpenAIRequest(config *BackendConfig, input *schema.O
 				name = nn
 			}
 		}
-		config.SetFunctionCallNameString(name)
+		bc.SetFunctionCallNameString(name)
 	}
 
-	switch p := input.Prompt.(type) {
+	switch p := request.Prompt.(type) {
 	case string:
-		config.PromptStrings = append(config.PromptStrings, p)
+		bc.PromptStrings = append(bc.PromptStrings, p)
 	case []interface{}:
 		for _, pp := range p {
 			if s, ok := pp.(string); ok {
-				config.PromptStrings = append(config.PromptStrings, s)
+				bc.PromptStrings = append(bc.PromptStrings, s)
 			}
 		}
 	}
