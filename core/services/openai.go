@@ -215,9 +215,11 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 	// If any of the setup goroutines experienced an error, quit early here.
 	if setupError != nil {
-		log.Error().Msgf("[OAIS GenerateTextFromRequest] caught an error during setup: %q", setupError)
+		log.Error().Msgf("[OAIS GenerateTextFromRequest] [D:%d] caught an error during setup: %q", len(rawFinalResultChannel), setupError)
 		rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: setupError}
+		log.Error().Msgf("[OAIS GenerateTextFromRequest] wrote to rawFinalResultChannel %d", len(rawFinalResultChannel))
 		close(rawFinalResultChannel)
+		log.Error().Msg("[OAIS GenerateTextFromRequest] closed rawFinalResultChannel")
 		return
 	}
 
