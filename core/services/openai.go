@@ -67,7 +67,7 @@ func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPro
 		return "text_completion", bc.TemplateConfig.Completion, model.PromptTemplateData{
 				SystemPrompt: bc.SystemPrompt,
 			}, func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
-				log.Warn().Msgf("=== [oais.Completion] === mappingFn input resp: %+v", resp)
+				// log.Warn().Msgf("=== [oais.Completion] === mappingFn input resp: %+v", resp)
 				return schema.Choice{
 					Index:        promptIndex,
 					FinishReason: "stop",
@@ -216,8 +216,8 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	// If any of the setup goroutines experienced an error, quit early here.
 	if setupError != nil {
 		log.Error().Msgf("[OAIS GenerateTextFromRequest] caught an error during setup: %q", setupError)
-		rawCompletionsChannel <- utils.ErrorOr[*backend.LLMResponse]{Error: setupError}
-		close(rawCompletionsChannel)
+		rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: setupError}
+		close(rawFinalResultChannel)
 		return
 	}
 
@@ -230,7 +230,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	}
 
 	// utils.SliceOfChannelsRawMerger[[]schema.Choice](promptResultsChannels, rawFinalResultChannel, func(results []schema.Choice) (*schema.OpenAIResponse, error) {
-	utils.SliceOfChannelsReducer[utils.ErrorOr[*backend.LLMResponseBundle], utils.ErrorOr[*schema.OpenAIResponse]](
+	utils.SliceOfChannelsReducer(
 		promptResultsChannels, rawFinalResultChannel,
 		func(iv utils.ErrorOr[*backend.LLMResponseBundle], result utils.ErrorOr[*schema.OpenAIResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
 
