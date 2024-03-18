@@ -108,6 +108,7 @@ WORKDIR /build
 
 COPY . .
 COPY .git .
+RUN echo "GO_TAGS: $GO_TAGS"
 RUN make prepare
 
 # If we are building with clblas support, we need the libraries for the builds

@@ -666,15 +666,15 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
 		})
-		It("can generate completions", func() {
-			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel", Prompt: testPrompt})
+		It("can generate completions via ggml", func() {
+			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel.ggml", Prompt: testPrompt})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
 		})
 
-		It("can generate chat completions ", func() {
-			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
+		It("can generate chat completions via ggml", func() {
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel.ggml", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())

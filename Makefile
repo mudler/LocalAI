@@ -70,7 +70,7 @@ UNAME_S := $(shell uname -s)
 endif
 
 ifeq ($(OS),Darwin)
-	CGO_LDFLAGS += -lcblas -framework Accelerate
+	
 	ifeq ($(OSX_SIGNING_IDENTITY),)
 		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
 	endif
@@ -81,6 +81,12 @@ ifeq ($(OS),Darwin)
 	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+		export LLAMA_NO_ACCELERATE=1
+	endif
+
+	ifeq ($(BUILD_TYPE),metal)
+#			-lcblas 	removed: it seems to always be listed as a duplicate flag.
+		CGO_LDFLAGS += -framework Accelerate
 	endif
 endif
 
@@ -286,6 +292,11 @@ clean: ## Remove build related file
 	$(MAKE) -C backend/cpp/llama clean
 	$(MAKE) dropreplace
 
+clean-tests:
+	rm -rf test-models
+	rm -rf test-dir
+	rm -rf core/http/backend-assets
+
 ## Build:
 build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
@@ -305,10 +316,10 @@ osx-signed: build
 run: prepare ## run local-ai
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./
 
-test-models/testmodel:
+test-models/testmodel.ggml:
 	mkdir test-models
 	mkdir test-dir
-	wget -q https://huggingface.co/TheBloke/orca_mini_3B-GGML/resolve/main/orca-mini-3b.ggmlv3.q4_0.bin -O test-models/testmodel
+	wget -q https://huggingface.co/TheBloke/orca_mini_3B-GGML/resolve/main/orca-mini-3b.ggmlv3.q4_0.bin -O test-models/testmodel.ggml
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
@@ -320,7 +331,7 @@ prepare-test: grpcs
 	cp -rf backend-assets core/http
 	cp tests/models_fixtures/* test-models
 
-test: prepare test-models/testmodel grpcs
+test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
 	export GO_TAGS="tts stablediffusion"
 	$(MAKE) prepare-test

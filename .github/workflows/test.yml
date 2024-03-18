@@ -105,9 +105,13 @@ jobs:
       - name: Test
         run: |
           GO_TAGS="stablediffusion tts" make test
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 5
 
   tests-apple:
-    runs-on: macOS-latest
+    runs-on: macOS-14
     strategy:
       matrix:
         go-version: ['1.21.x']
@@ -130,4 +134,8 @@ jobs:
         run: |
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
-          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
+          BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 5
