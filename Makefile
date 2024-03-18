@@ -297,6 +297,9 @@ clean-tests:
 	rm -rf test-dir
 	rm -rf core/http/backend-assets
 
+halt-backends:		## Used to clean up stray backends sometimes left running when debugging manually
+	ps aux | grep 'backend-assets/grpc/' | awk '{print $2}' | xargs -I {} kill -9 {}
+
 ## Build:
 build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
