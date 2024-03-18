@@ -25,6 +25,7 @@ type PredictionOptions struct {
 	Keep          int     `json:"n_keep" yaml:"n_keep"`
 
 	FrequencyPenalty float64 `json:"frequency_penalty" yaml:"frequency_penalty"`
+	PresencePenalty  float64 `json:"presence_penalty" yaml:"presence_penalty"`
 	TFZ              float64 `json:"tfz" yaml:"tfz"`
 
 	TypicalP float64 `json:"typical_p" yaml:"typical_p"`
