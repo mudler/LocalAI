@@ -91,10 +91,13 @@ ifeq ($(BUILD_TYPE),openblas)
 	export WHISPER_OPENBLAS=1
 endif
 
+
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -lculibos -lcublasLt -L$(CUDA_LIBPATH)
 	export LLAMA_CUBLAS=1
+# required by whisper.cpp
 	export WHISPER_CUBLAS=1
+	CGO_LDFLAGS+=-L$(CUDA_PATH)/stubs -lcuda
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
