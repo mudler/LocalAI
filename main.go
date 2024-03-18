@@ -306,11 +306,16 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 			}
 
-			closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
-			defer closeConfigWatcherFn()
+			configdir := ctx.String("localai-config-dir")
+			// Watch the configuration directory
+			// If the directory does not exist, we don't watch it
+			if _, err := os.Stat(configdir); err == nil {
+				closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
+				defer closeConfigWatcherFn()
 
-			if err != nil {
-				return fmt.Errorf("failed while watching configuration directory %s", ctx.String("localai-config-dir"))
+				if err != nil {
+					return fmt.Errorf("failed while watching configuration directory %s", ctx.String("localai-config-dir"))
+				}
 			}
 
 			appHTTP, err := http.App(cl, ml, options)
