@@ -108,6 +108,7 @@ jobs:
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 5
 
   tests-apple:
     runs-on: macOS-14
@@ -137,3 +138,4 @@ jobs:
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 5
