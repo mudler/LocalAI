@@ -157,11 +157,18 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	}
 
 	setupWG := sync.WaitGroup{}
-	setupWG.Add(len(bc.PromptStrings))
+	var prompts []string
+	if lPS := len(bc.PromptStrings); lPS > 0 {
+		setupWG.Add(lPS)
+		prompts = bc.PromptStrings
+	} else {
+		setupWG.Add(len(bc.InputStrings))
+		prompts = bc.InputStrings
+	}
 
 	var setupError error = nil
 
-	for pI, p := range bc.PromptStrings {
+	for pI, p := range prompts {
 
 		go func(promptIndex int, prompt string) {
 			if templateFile != "" {
