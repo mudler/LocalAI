@@ -19,6 +19,11 @@ else ifeq ($(BUILD_TYPE),clblas)
 else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON
 # If it's OSX, DO NOT embed the metal library - -DLLAMA_METAL_EMBED_LIBRARY=ON requires further investigation
+# But if it's OSX without metal, disable it here
+else ifeq ($(OS),darwin)
+	ifneq ($(BUILD_TYPE),metal)
+		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+	endif
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
