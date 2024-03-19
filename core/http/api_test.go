@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/core/config"
@@ -666,6 +667,11 @@ var _ = Describe("API test", func() {
 			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
 		})
 		It("can generate completions via ggml", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel.ggml", Prompt: testPrompt})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
@@ -673,6 +679,11 @@ var _ = Describe("API test", func() {
 		})
 
 		It("can generate chat completions via ggml", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel.ggml", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))

@@ -597,10 +597,6 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				}
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
 
-				log.Debug().Msg("[noActionToRun::rawFinalResultChannel] initial message consumed")
-
-				// args := results[0].arguments
-
 				result, err := oais.handleQuestion(bc, request, results[0].arguments, predInput)
 				if err != nil {
 					log.Error().Msgf("error handling question: %s", err.Error())
