@@ -45,7 +45,7 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
 					if ev.Error != nil {
-						log.Warn().Msgf("[CompletionEndpoint] error to debug during tokenChannel handler")
+						log.Debug().Msgf("[CompletionEndpoint] error to debug during tokenChannel handler: %q", ev.Error)
 						enc.Encode(ev.Error)
 					} else {
 

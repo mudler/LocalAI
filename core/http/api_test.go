@@ -798,9 +798,10 @@ var _ = Describe("API test", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					fmt.Printf("===== rwkv response ====> %+v", response)
-
-					text += response.Choices[0].Text
-					tokens++
+					if len(response.Choices) > 0 {
+						text += response.Choices[0].Text
+						tokens++
+					}
 				}
 				Expect(text).ToNot(BeEmpty())
 				Expect(text).To(ContainSubstring("five"))

@@ -462,7 +462,6 @@ func updateBackendConfigFromOpenAIRequest(bc *BackendConfig, request *schema.Ope
 
 	switch inputs := request.Input.(type) {
 	case string:
-		log.Debug().Msgf("[BCL INPUT] |%q|", inputs)
 		if inputs != "" {
 			bc.InputStrings = append(bc.InputStrings, inputs)
 		}

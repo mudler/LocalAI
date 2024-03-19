@@ -67,7 +67,6 @@ func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPro
 		return "text_completion", bc.TemplateConfig.Completion, model.PromptTemplateData{
 				SystemPrompt: bc.SystemPrompt,
 			}, func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
-				// log.Warn().Msgf("=== [oais.Completion] === mappingFn input resp: %+v", resp)
 				return schema.Choice{
 					Index:        promptIndex,
 					FinishReason: "stop",
@@ -188,19 +187,14 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			log.Debug().Msgf("[OAIS GenerateTextFromRequest] Prompt: %q", prompt)
 			promptResultsChannel, completionChannels, tokenChannels, err := oais.llmbs.GenerateText(prompt, request, bc,
 				func(r *backend.LLMResponse) schema.Choice {
-					log.Debug().Msgf("[OAIS GenerateTextFromRequest::GenerateText::MAPFN] %d => %+v", promptIndex, r)
 					return mappingFn(r, promptIndex)
 				}, notifyOnPromptResult, notifyOnToken)
 			if err != nil {
-				log.Error().Msgf("Unable to generate text ::::QUEUE DEPTH::: %d prompt: %q\nerr: %q", len(rawFinalResultChannel), prompt, err)
+				log.Error().Msgf("Unable to generate text prompt: %q\nerr: %q", prompt, err)
 				promptResultsChannelLock.Lock()
-				log.Error().Msg("got promptResultsChannelLock")
 				setupError = errors.Join(setupError, err)
-				log.Error().Msg("set setupError, unlocking")
 				promptResultsChannelLock.Unlock()
-				log.Error().Msg("released promptResultsChannelLock")
 				setupWG.Done()
-				log.Error().Msgf("released setupWG #%d", promptIndex)
 				return
 			}
 			if notifyOnPromptResult {
@@ -223,11 +217,9 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	// If any of the setup goroutines experienced an error, quit early here.
 	if setupError != nil {
 		go func() {
-			log.Error().Msgf("[OAIS GenerateTextFromRequest] [D:%d] caught an error during setup: %q", len(rawFinalResultChannel), setupError)
+			log.Error().Msgf("[OAIS GenerateTextFromRequest] caught an error during setup: %q", setupError)
 			rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: setupError}
-			log.Error().Msgf("[OAIS GenerateTextFromRequest] wrote to rawFinalResultChannel %d", len(rawFinalResultChannel))
 			close(rawFinalResultChannel)
-			log.Error().Msg("[OAIS GenerateTextFromRequest] closed rawFinalResultChannel")
 		}()
 		return
 	}
@@ -254,8 +246,6 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			result.Value.Usage.TotalTokens = result.Value.Usage.PromptTokens + result.Value.Usage.CompletionTokens
 
 			result.Value.Choices = append(result.Value.Choices, iv.Value.Response...)
-
-			log.Warn().Msgf("[oais::GenerateTextFromRequest] REDUCER Choices: %+v", result.Value.Choices)
 
 			return result
 		}, utils.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse}, true)
