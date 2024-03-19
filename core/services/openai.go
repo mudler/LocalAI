@@ -26,8 +26,26 @@ type endpointConfiguration struct {
 	TemplatePath        string
 	TemplateData        model.PromptTemplateData
 	ResultMappingFn     func(resp *backend.LLMResponse, index int) schema.Choice
-	CompletionMappingFn func(resp *backend.LLMResponse, index int) schema.Choice
-	TokenMappingFn      func(resp *backend.LLMResponse, index int) schema.Choice
+	CompletionMappingFn func(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse]
+	TokenMappingFn      func(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse]
+}
+
+// TODO: Does this need to vary by endpoint? Originally I felt yes. But the first version... it's all the same?
+// If we never change this function, remove it and the Completion/Token configuration points above
+// Otherwise... probably remove this function anyway if at least two don't use the same one.
+func simpleMapper(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
+	if resp.Error != nil || resp.Value == nil {
+		return utils.ErrorOr[*schema.OpenAIResponse]{Error: resp.Error}
+	}
+	return utils.ErrorOr[*schema.OpenAIResponse]{
+		Value: &schema.OpenAIResponse{
+			Choices: []schema.Choice{
+				{
+					Text: resp.Value.Response,
+				},
+			},
+		},
+	}
 }
 
 // TODO: Consider alternative names for this.
@@ -68,7 +86,7 @@ func (oais *OpenAIService) getConfig(request *schema.OpenAIRequest) (*config.Bac
 // tokensChannel is a channel that emits one *LLMResponse per generated token. Let's see what happens!
 func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool) (
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle],
-	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
+	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	return oais.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) endpointConfiguration {
 		return endpointConfiguration{
@@ -84,13 +102,15 @@ func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPro
 					Text:         resp.Response,
 				}
 			},
+			CompletionMappingFn: simpleMapper,
+			TokenMappingFn:      simpleMapper,
 		}
 	}, notifyOnPromptResult, notifyOnToken, nil)
 }
 
 func (oais *OpenAIService) Edit(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool) (
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle],
-	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
+	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	return oais.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) endpointConfiguration {
 
@@ -108,6 +128,8 @@ func (oais *OpenAIService) Edit(request *schema.OpenAIRequest, notifyOnPromptRes
 					Text:         resp.Response,
 				}
 			},
+			CompletionMappingFn: simpleMapper,
+			TokenMappingFn:      simpleMapper,
 		}
 	}, notifyOnPromptResult, notifyOnToken, nil)
 }
@@ -121,7 +143,7 @@ func (oais *OpenAIService) Chat(request *schema.OpenAIRequest, notifyOnPromptRes
 
 func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest, endpointConfigFn endpointGenerationConfigurationFn, notifyOnPromptResult bool, notifyOnToken bool, initialTraceID *OpenAIRequestTraceID) (
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle],
-	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
+	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	if initialTraceID == nil {
 		traceID = &OpenAIRequestTraceID{
@@ -149,13 +171,13 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	rawFinalResultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
 	finalResultChannel = rawFinalResultChannel
 	promptResultsChannels = []<-chan utils.ErrorOr[*backend.LLMResponseBundle]{}
-	var rawCompletionsChannel chan utils.ErrorOr[*backend.LLMResponse]
-	var rawTokenChannel chan utils.ErrorOr[*backend.LLMResponse]
+	var rawCompletionsChannel chan utils.ErrorOr[*schema.OpenAIResponse]
+	var rawTokenChannel chan utils.ErrorOr[*schema.OpenAIResponse]
 	if notifyOnPromptResult {
-		rawCompletionsChannel = make(chan utils.ErrorOr[*backend.LLMResponse])
+		rawCompletionsChannel = make(chan utils.ErrorOr[*schema.OpenAIResponse])
 	}
 	if notifyOnToken {
-		rawTokenChannel = make(chan utils.ErrorOr[*backend.LLMResponse])
+		rawTokenChannel = make(chan utils.ErrorOr[*schema.OpenAIResponse])
 	}
 
 	promptResultsChannelLock := sync.Mutex{}
@@ -214,10 +236,11 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 				return
 			}
 			if notifyOnPromptResult {
-				utils.SliceOfChannelsRawMergerWithoutMapping(completionChannels, rawCompletionsChannel, true)
+				// [utils.ErrorOr[*backend.LLMResponse], utils.ErrorOr[*schema.OpenAIResponse]]
+				utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(completionChannels, endpointConfig.CompletionMappingFn), rawCompletionsChannel, true)
 			}
 			if notifyOnToken {
-				utils.SliceOfChannelsRawMergerWithoutMapping(tokenChannels, rawTokenChannel, true)
+				utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(tokenChannels, endpointConfig.TokenMappingFn), rawTokenChannel, true)
 			}
 			promptResultsChannelLock.Lock()
 			promptResultsChannels = append(promptResultsChannels, promptResultsChannel)
@@ -226,9 +249,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 		}(pI, p)
 
 	}
-	log.Debug().Msgf("[OAIS GenerateTextFromRequest] Setup Kicked Off %d goroutines ... waiting for completion", len(bc.PromptStrings))
 	setupWG.Wait()
-	log.Debug().Msg("=== [OAIS GenerateTextFromRequest] === MADE IT PAST SETUP WAIT!!!!")
 
 	// If any of the setup goroutines experienced an error, quit early here.
 	if setupError != nil {
