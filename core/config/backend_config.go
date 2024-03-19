@@ -276,8 +276,12 @@ func (cfg *BackendConfig) SetDefaults(debug bool, threads, ctx int, f16 bool) {
 		cfg.F16 = &f16
 	}
 
+	if cfg.Debug == nil {
+		cfg.Debug = &falseV
+	}
+
 	if debug {
-		cfg.Debug = &debug
+		cfg.Debug = &trueV
 	}
 }
 

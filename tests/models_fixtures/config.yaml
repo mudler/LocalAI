@@ -1,6 +1,6 @@
 - name: list1
   parameters:
-    model: testmodel
+    model: testmodel.ggml
     top_p: 80
     top_k: 0.9
     temperature: 0.1
@@ -19,7 +19,7 @@
     top_p: 80
     top_k: 0.9
     temperature: 0.1
-    model: testmodel
+    model: testmodel.ggml
   context_size: 200
   stopwords:
   - "HUMAN:"

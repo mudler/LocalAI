@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=d01b3c4c32357567f3531d4e6ceffc5d23e87583
+CPPLLAMA_VERSION?=2d15886bb092c3b780c676b5cc57ff3337af9c83
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=37a709f6558c6d9783199e2b8cbb136e1c41d346
+WHISPER_CPP_VERSION?=e7794a868ffb53f5299125aaaf74fbcad93cd06c
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
@@ -35,6 +35,7 @@ export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
 export CMAKE_ARGS?=
 
 CGO_LDFLAGS?=
+CGO_LDFLAGS_WHISPER?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
 BUILD_ID?=git
@@ -69,7 +70,7 @@ UNAME_S := $(shell uname -s)
 endif
 
 ifeq ($(OS),Darwin)
-	CGO_LDFLAGS += -lcblas -framework Accelerate
+	
 	ifeq ($(OSX_SIGNING_IDENTITY),)
 		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
 	endif
@@ -80,6 +81,12 @@ ifeq ($(OS),Darwin)
 	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+		export LLAMA_NO_ACCELERATE=1
+	endif
+
+	ifeq ($(BUILD_TYPE),metal)
+#			-lcblas 	removed: it seems to always be listed as a duplicate flag.
+		CGO_LDFLAGS += -framework Accelerate
 	endif
 endif
 
@@ -88,10 +95,12 @@ ifeq ($(BUILD_TYPE),openblas)
 	export WHISPER_OPENBLAS=1
 endif
 
+
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 	export LLAMA_CUBLAS=1
 	export WHISPER_CUBLAS=1
+	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -283,6 +292,11 @@ clean: ## Remove build related file
 	$(MAKE) -C backend/cpp/llama clean
 	$(MAKE) dropreplace
 
+clean-tests:
+	rm -rf test-models
+	rm -rf test-dir
+	rm -rf core/http/backend-assets
+
 ## Build:
 build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
@@ -302,10 +316,10 @@ osx-signed: build
 run: prepare ## run local-ai
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./
 
-test-models/testmodel:
+test-models/testmodel.ggml:
 	mkdir test-models
 	mkdir test-dir
-	wget -q https://huggingface.co/TheBloke/orca_mini_3B-GGML/resolve/main/orca-mini-3b.ggmlv3.q4_0.bin -O test-models/testmodel
+	wget -q https://huggingface.co/TheBloke/orca_mini_3B-GGML/resolve/main/orca-mini-3b.ggmlv3.q4_0.bin -O test-models/testmodel.ggml
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
@@ -317,7 +331,7 @@ prepare-test: grpcs
 	cp -rf backend-assets core/http
 	cp tests/models_fixtures/* test-models
 
-test: prepare test-models/testmodel grpcs
+test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
 	export GO_TAGS="tts stablediffusion"
 	$(MAKE) prepare-test
@@ -518,7 +532,7 @@ backend-assets/grpc/tinydream: backend-assets/grpc sources/go-tiny-dream/libtiny
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/whisper.cpp LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH=$(CURDIR)/sources/whisper.cpp LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
 
 grpcs: prepare $(GRPC_BACKENDS)
