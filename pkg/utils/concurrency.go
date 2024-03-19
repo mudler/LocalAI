@@ -1,9 +1,8 @@
 package utils
 
 import (
+	"fmt"
 	"sync"
-
-	"github.com/rs/zerolog/log"
 )
 
 // TODO: closeWhenDone bool parameter ::
@@ -93,6 +92,7 @@ func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappin
 			close(oc)
 		}()
 		rawOutputChannels[ci] = oc
+		fmt.Printf("=== %d ===\n", ci)
 	}
 
 	outputChannels = rawOutputChannels
@@ -115,13 +115,10 @@ func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan I
 		}(irc)
 	}
 	go func() {
-		log.Debug().Msgf("==================== DELTEME SliceOfChannelsReducer Goroutine TOP %d", len(individualResultsChannels))
 		wg.Wait()
-		log.Debug().Msgf("==================== DELTEME SliceOfChannelsReducer Goroutine WAIT DONE CLOSE? %t", closeWhenDone)
 		outputChannel <- initialValue
 		if closeWhenDone {
 			close(outputChannel)
-			log.Debug().Msg("==================== DELTEME SliceOfChannelsReducer output channel CLOSED!!!")
 		}
 	}()
 	return wg
