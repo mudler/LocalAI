@@ -38,7 +38,6 @@ func SliceOfChannelsRawMergerWithoutMapping[T any](individualResultsChannels []<
 	return SliceOfChannelsRawMerger(individualResultsChannels, outputChannel, func(v T) (T, error) { return v, nil }, closeWhenDone)
 }
 
-// TODO: now that above mapper is fixed, commonize with above???
 func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []<-chan ErrorOr[IV], successChannel chan<- OV, errorChannel chan<- error, mappingFn func(IV) (OV, error), closeWhenDone bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(individualResultChannels))
@@ -80,6 +79,24 @@ func SliceOfChannelsMergerIgnoreErrors[T any](individualResultsChannels []<-chan
 		}
 		return v.Value, nil
 	}, closeWhenDone)
+}
+
+func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappingFn func(v IV) OV) (outputChannels []<-chan OV) {
+	rawOutputChannels := make([]<-chan OV, len(inputChanels))
+
+	for _, c := range inputChanels {
+		oc := make(chan OV)
+		go func() {
+			for iv := range c {
+				oc <- mappingFn(iv)
+			}
+			close(oc)
+		}()
+		rawOutputChannels = append(rawOutputChannels, oc)
+	}
+
+	outputChannels = rawOutputChannels
+	return
 }
 
 func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan IV, outputChannel chan<- OV,

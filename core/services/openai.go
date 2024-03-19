@@ -19,7 +19,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type endpointGenerationConfigurationFn func(bc *config.BackendConfig, request *schema.OpenAIRequest) (schemaObject string, templatePath string, templateData model.PromptTemplateData, mappingFn func(resp *backend.LLMResponse, index int) schema.Choice)
+type endpointGenerationConfigurationFn func(bc *config.BackendConfig, request *schema.OpenAIRequest) endpointConfiguration
+
+type endpointConfiguration struct {
+	SchemaObject        string
+	TemplatePath        string
+	TemplateData        model.PromptTemplateData
+	ResultMappingFn     func(resp *backend.LLMResponse, index int) schema.Choice
+	CompletionMappingFn func(resp *backend.LLMResponse, index int) schema.Choice
+	TokenMappingFn      func(resp *backend.LLMResponse, index int) schema.Choice
+}
 
 // TODO: Consider alternative names for this.
 // The purpose of this struct is to hold a reference to the OpenAI request context information
@@ -61,18 +70,21 @@ func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPro
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle],
 	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
 
-	return oais.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) (
-		schemaObject string, templatePath string, templateData model.PromptTemplateData, mappingFn func(resp *backend.LLMResponse, promptIndex int) schema.Choice) {
-
-		return "text_completion", bc.TemplateConfig.Completion, model.PromptTemplateData{
+	return oais.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) endpointConfiguration {
+		return endpointConfiguration{
+			SchemaObject: "text_completion",
+			TemplatePath: bc.TemplateConfig.Completion,
+			TemplateData: model.PromptTemplateData{
 				SystemPrompt: bc.SystemPrompt,
-			}, func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
+			},
+			ResultMappingFn: func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
 				return schema.Choice{
 					Index:        promptIndex,
 					FinishReason: "stop",
 					Text:         resp.Response,
 				}
-			}
+			},
+		}
 	}, notifyOnPromptResult, notifyOnToken, nil)
 }
 
@@ -80,19 +92,23 @@ func (oais *OpenAIService) Edit(request *schema.OpenAIRequest, notifyOnPromptRes
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle],
 	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
 
-	return oais.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) (
-		schemaObject string, templatePath string, templateData model.PromptTemplateData, mappingFn func(resp *backend.LLMResponse, promptIndex int) schema.Choice) {
+	return oais.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) endpointConfiguration {
 
-		return "edit", bc.TemplateConfig.Edit, model.PromptTemplateData{
+		return endpointConfiguration{
+			SchemaObject: "edit",
+			TemplatePath: bc.TemplateConfig.Edit,
+			TemplateData: model.PromptTemplateData{
 				SystemPrompt: bc.SystemPrompt,
 				Instruction:  request.Instruction,
-			}, func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
+			},
+			ResultMappingFn: func(resp *backend.LLMResponse, promptIndex int) schema.Choice {
 				return schema.Choice{
 					Index:        promptIndex,
 					FinishReason: "stop",
 					Text:         resp.Response,
 				}
-			}
+			},
+		}
 	}, notifyOnPromptResult, notifyOnToken, nil)
 }
 
@@ -144,12 +160,12 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 	promptResultsChannelLock := sync.Mutex{}
 
-	schemaObject, templateFile, commonPromptData, mappingFn := endpointConfigFn(bc, request)
+	endpointConfig := endpointConfigFn(bc, request)
 
-	if len(templateFile) == 0 {
+	if len(endpointConfig.TemplatePath) == 0 {
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
 		if oais.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
-			templateFile = bc.Model
+			endpointConfig.TemplatePath = bc.Model
 		} else {
 			log.Warn().Msgf("failed to find any template for %+v", request)
 		}
@@ -170,13 +186,13 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	for pI, p := range prompts {
 
 		go func(promptIndex int, prompt string) {
-			if templateFile != "" {
+			if endpointConfig.TemplatePath != "" {
 				promptTemplateData := model.PromptTemplateData{
 					Input: prompt,
 				}
-				err := mergo.Merge(promptTemplateData, commonPromptData, mergo.WithOverride)
+				err := mergo.Merge(promptTemplateData, endpointConfig.TemplateData, mergo.WithOverride)
 				if err == nil {
-					templatedInput, err := oais.ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, promptTemplateData)
+					templatedInput, err := oais.ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, endpointConfig.TemplatePath, promptTemplateData)
 					if err == nil {
 						prompt = templatedInput
 						log.Debug().Msgf("Template found, input modified to: %s", prompt)
@@ -187,7 +203,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			log.Debug().Msgf("[OAIS GenerateTextFromRequest] Prompt: %q", prompt)
 			promptResultsChannel, completionChannels, tokenChannels, err := oais.llmbs.GenerateText(prompt, request, bc,
 				func(r *backend.LLMResponse) schema.Choice {
-					return mappingFn(r, promptIndex)
+					return endpointConfig.ResultMappingFn(r, promptIndex)
 				}, notifyOnPromptResult, notifyOnToken)
 			if err != nil {
 				log.Error().Msgf("Unable to generate text prompt: %q\nerr: %q", prompt, err)
@@ -228,7 +244,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 		ID:      traceID.ID,
 		Created: traceID.Created,
 		Model:   request.Model,
-		Object:  schemaObject,
+		Object:  endpointConfig.SchemaObject,
 		Usage:   schema.OpenAIUsage{},
 	}
 

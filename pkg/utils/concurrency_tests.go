@@ -3,6 +3,7 @@ package utils
 // TODO: noramlly, these go in utils_tests, right? Why does this cause problems only in pkg/utils?
 
 import (
+	"fmt"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -63,5 +64,32 @@ var _ = Describe("utils/concurrency tests", func() {
 		Expect(outputSlice[0]).To(BeZero())
 		Expect(outputSlice[3]).To(Equal(1))
 		Expect(outputSlice[8]).To(Equal(6))
+	})
+
+	It("SliceOfChannelsTransformer works", func() {
+		individualResultsChannels := []<-chan int{}
+		for i := 0; i < 3; i++ {
+			c := make(chan int)
+			go func(i int, c chan int) {
+				for ii := 1; ii < 4; ii++ {
+					c <- (i * ii)
+				}
+				close(c)
+			}(i, c)
+			individualResultsChannels = append(individualResultsChannels, c)
+		}
+		Expect(len(individualResultsChannels)).To(Equal(3))
+		mappingFn := func(i int) string {
+			return fmt.Sprintf("$%d", i)
+		}
+
+		outputChannels := SliceOfChannelsTransformer(individualResultsChannels, mappingFn)
+		Expect(len(outputChannels)).To(Equal(3))
+		checkFirst := <-outputChannels[0]
+		Expect(checkFirst).To(Equal("$0"))
+		twoZero := <-outputChannels[2]
+		Expect(twoZero).To(Equal("$0"))
+		twoOne := <-outputChannels[2]
+		Expect(twoOne).To(Equal("$2"))
 	})
 })

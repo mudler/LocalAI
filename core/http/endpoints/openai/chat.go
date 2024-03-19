@@ -31,7 +31,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 
 		if request.Stream {
 
-			log.Debug().Msgf("Stream request received")
+			log.Debug().Msgf("Chat Stream request received")
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
 			//
@@ -59,7 +59,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
 					enc.Encode(ev.Value.Response)
-					log.Debug().Msgf("Sending chunk: %s", buf.String())
+					log.Debug().Msgf("chat streaming sending chunk: %s", buf.String())
 					_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
 					if err != nil {
 						log.Debug().Msgf("Sending chunk failed: %v", err)
