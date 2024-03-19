@@ -73,6 +73,7 @@ var _ = Describe("utils/concurrency tests", func() {
 			c := make(chan int)
 			go func(i int, c chan int) {
 				for ii := 1; ii < 4; ii++ {
+					fmt.Printf("input channel %d <- %d\n", i, (i * ii))
 					c <- (i * ii)
 				}
 				close(c)
@@ -81,7 +82,6 @@ var _ = Describe("utils/concurrency tests", func() {
 		}
 		Expect(len(individualResultsChannels)).To(Equal(3))
 		mappingFn := func(i int) string {
-			fmt.Printf("-map- %d\n", i)
 			return fmt.Sprintf("$%d", i)
 		}
 
