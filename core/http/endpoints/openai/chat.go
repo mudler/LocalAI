@@ -249,6 +249,8 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					RoleName:     role,
 					Content:      i.StringContent,
 					FunctionName: i.Name,
+					LastMessage:  messageIndex == (len(input.Messages) - 1),
+					Function:     config.Grammar != "" && (messageIndex == (len(input.Messages) - 1)),
 					MessageIndex: messageIndex,
 				}
 				templatedChatMessage, err := ml.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)

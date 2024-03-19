@@ -36,6 +36,8 @@ type ChatMessageTemplateData struct {
 	FunctionName string
 	Content      string
 	MessageIndex int
+	Function     bool
+	LastMessage  bool
 }
 
 // Keep this in sync with config.TemplateConfig. Is there a more idiomatic way to accomplish this in go?
