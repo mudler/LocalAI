@@ -89,7 +89,7 @@ func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappin
 		oc := make(chan OV)
 		go func() {
 			for iv := range c {
-				fmt.Printf("TMP: %+v => %+v", iv, mappingFn(iv))
+				fmt.Printf("TMP: %+v => %+v\n", iv, mappingFn(iv))
 				oc <- mappingFn(iv)
 			}
 			close(oc)
