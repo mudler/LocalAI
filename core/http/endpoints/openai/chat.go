@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-skynet/LocalAI/core/backend"
 	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/services"
@@ -42,7 +41,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 			c.Set("Transfer-Encoding", "chunked")
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
-				usage := &backend.TokenUsage{}
+				usage := &schema.OpenAIUsage{}
 				toolsCalled := false
 				for ev := range tokenChannel {
 					if ev.Error != nil {
@@ -53,12 +52,12 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 					usage = &ev.Value.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
 
 					/// TODO DAVE: THIS IS IMPORTANT BUT IT'S INTENTIONALLY BROKEN RIGHT NOW UNTIL WE FIGURE OUT HOW TO GET A CHOICE PARAM PER TOKEN
-					// if len(ev.Value.Choices[0].Delta.ToolCalls) > 0 {
-					// 	toolsCalled = true
-					// }
+					if len(ev.Value.Choices[0].Delta.ToolCalls) > 0 {
+						toolsCalled = true
+					}
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
-					enc.Encode(ev.Value.Response)
+					enc.Encode(ev.Value.Choices[0].Delta.Content)
 					log.Debug().Msgf("chat streaming sending chunk: %s", buf.String())
 					_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
 					if err != nil {
@@ -87,11 +86,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 							Delta:        &schema.Message{Content: ""},
 						}},
 					Object: "chat.completion.chunk",
-					Usage: schema.OpenAIUsage{
-						PromptTokens:     usage.Prompt,
-						CompletionTokens: usage.Completion,
-						TotalTokens:      usage.Completion + usage.Prompt,
-					},
+					Usage:  *usage,
 				}
 				respData, _ := json.Marshal(resp)
 

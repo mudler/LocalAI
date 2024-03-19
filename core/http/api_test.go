@@ -798,7 +798,6 @@ var _ = Describe("API test", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					if len(response.Choices) > 0 {
-						fmt.Printf("===== rwkv response ====> %+v\n", response.Choices[0].Text)
 						text += response.Choices[0].Text
 						tokens++
 					}

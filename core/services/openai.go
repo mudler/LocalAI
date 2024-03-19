@@ -30,9 +30,7 @@ type endpointConfiguration struct {
 	TokenMappingFn      func(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse]
 }
 
-// TODO: Does this need to vary by endpoint? Originally I felt yes. But the first version... it's all the same?
-// If we never change this function, remove it and the Completion/Token configuration points above
-// Otherwise... probably remove this function anyway if at least two don't use the same one.
+// TODO: This is used for completion and edit. I am pretty sure I forgot parts, but fix it later.
 func simpleMapper(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
 	if resp.Error != nil || resp.Value == nil {
 		return utils.ErrorOr[*schema.OpenAIResponse]{Error: resp.Error}
@@ -43,6 +41,11 @@ func simpleMapper(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schem
 				{
 					Text: resp.Value.Response,
 				},
+			},
+			Usage: schema.OpenAIUsage{
+				PromptTokens:     resp.Value.Usage.Prompt,
+				CompletionTokens: resp.Value.Usage.Completion,
+				TotalTokens:      resp.Value.Usage.Prompt + resp.Value.Usage.Completion,
 			},
 		},
 	}
@@ -136,7 +139,7 @@ func (oais *OpenAIService) Edit(request *schema.OpenAIRequest, notifyOnPromptRes
 
 func (oais *OpenAIService) Chat(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool) (
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse],
-	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
+	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	return oais.GenerateFromMultipleMessagesChatRequest(request, notifyOnPromptResult, notifyOnToken, nil)
 }
@@ -236,7 +239,6 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 				return
 			}
 			if notifyOnPromptResult {
-				// [utils.ErrorOr[*backend.LLMResponse], utils.ErrorOr[*schema.OpenAIResponse]]
 				utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(completionChannels, endpointConfig.CompletionMappingFn), rawCompletionsChannel, true)
 			}
 			if notifyOnToken {
@@ -298,7 +300,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 // / This has _become_ Chat which wasn't the goal... More cleanup in the future once it's stable?
 func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool, initialTraceID *OpenAIRequestTraceID) (
 	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse],
-	completionsChannel <-chan utils.ErrorOr[*backend.LLMResponse], tokenChannel <-chan utils.ErrorOr[*backend.LLMResponse], err error) {
+	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	if initialTraceID == nil {
 		traceID = &OpenAIRequestTraceID{
@@ -492,14 +494,13 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	}
 
 	rawFinalResultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
-	// promptResultsChannels = []<-chan utils.ErrorOr[*backend.LLMResponseBundle]{}
-	var rawCompletionsChannel chan utils.ErrorOr[*backend.LLMResponse]
-	var rawTokenChannel chan utils.ErrorOr[*backend.LLMResponse]
+	var rawCompletionsChannel chan utils.ErrorOr[*schema.OpenAIResponse]
+	var rawTokenChannel chan utils.ErrorOr[*schema.OpenAIResponse]
 	if notifyOnPromptResult {
-		rawCompletionsChannel = make(chan utils.ErrorOr[*backend.LLMResponse])
+		rawCompletionsChannel = make(chan utils.ErrorOr[*schema.OpenAIResponse])
 	}
 	if notifyOnToken {
-		rawTokenChannel = make(chan utils.ErrorOr[*backend.LLMResponse])
+		rawTokenChannel = make(chan utils.ErrorOr[*schema.OpenAIResponse])
 	}
 
 	rawResultChannel, individualCompletionChannels, tokenChannels, err := oais.llmbs.GenerateText(predInput, request, bc, func(resp *backend.LLMResponse) schema.Choice {
@@ -513,11 +514,34 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 		}
 	}, notifyOnPromptResult, notifyOnToken)
 
+	chatSimpleMappingFn := func(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
+		if resp.Error != nil || resp.Value == nil {
+			return utils.ErrorOr[*schema.OpenAIResponse]{Error: resp.Error}
+		}
+		return utils.ErrorOr[*schema.OpenAIResponse]{
+			Value: &schema.OpenAIResponse{
+				Choices: []schema.Choice{
+					{
+						Delta: &schema.Message{
+							Role:    "assistant",
+							Content: resp.Value.Response,
+						},
+					},
+				},
+				Usage: schema.OpenAIUsage{
+					PromptTokens:     resp.Value.Usage.Prompt,
+					CompletionTokens: resp.Value.Usage.Completion,
+					TotalTokens:      resp.Value.Usage.Prompt + resp.Value.Usage.Completion,
+				},
+			},
+		}
+	}
+
 	if notifyOnPromptResult {
-		utils.SliceOfChannelsRawMergerWithoutMapping(individualCompletionChannels, rawCompletionsChannel, true)
+		utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(individualCompletionChannels, chatSimpleMappingFn), rawCompletionsChannel, true)
 	}
 	if notifyOnToken {
-		utils.SliceOfChannelsRawMergerWithoutMapping(tokenChannels, rawTokenChannel, true)
+		utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(tokenChannels, chatSimpleMappingFn), rawTokenChannel, true)
 	}
 
 	go func() {
