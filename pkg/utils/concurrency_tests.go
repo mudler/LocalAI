@@ -90,6 +90,7 @@ var _ = Describe("utils/concurrency tests", func() {
 		rSlice := []string{}
 		for ii := 1; ii < 4; ii++ {
 			for i := 0; i < 3; i++ {
+				fmt.Printf("pulling off element %d from channel %d", ii, i)
 				rSlice = append(rSlice, <-outputChannels[i])
 			}
 		}
