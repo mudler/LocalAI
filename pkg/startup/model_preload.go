@@ -60,7 +60,23 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 				}
 			}
 		default:
-			log.Warn().Msgf("[startup] failed resolving model '%s'", url)
+			if _, err := os.Stat(url); err == nil {
+				log.Debug().Msgf("[startup] resolved local model: %s", url)
+				// copy to modelPath
+				md5Name := utils.MD5(url)
+
+				modelYAML, err := os.ReadFile(url)
+				if err != nil {
+					log.Error().Msgf("error loading model: %s", err.Error())
+					continue
+				}
+
+				if err := os.WriteFile(filepath.Join(modelPath, md5Name)+".yaml", modelYAML, os.ModePerm); err != nil {
+					log.Error().Msgf("error loading model: %s", err.Error())
+				}
+			} else {
+				log.Warn().Msgf("[startup] failed resolving model '%s'", url)
+			}
 		}
 	}
 }
