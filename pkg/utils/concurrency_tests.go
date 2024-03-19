@@ -90,8 +90,9 @@ var _ = Describe("utils/concurrency tests", func() {
 		rSlice := []string{}
 		for ii := 1; ii < 4; ii++ {
 			for i := 0; i < 3; i++ {
-				fmt.Printf("pulling off element %d from channel %d\n", ii, i)
-				rSlice = append(rSlice, <-outputChannels[i])
+				res := <-outputChannels[i]
+				fmt.Printf("pulling off element %d from channel %d::: %q\n", ii, i, res)
+				rSlice = append(rSlice, res)
 			}
 		}
 		slices.Sort(rSlice)
