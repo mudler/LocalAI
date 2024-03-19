@@ -1,0 +1,29 @@
+name: phi-2
+context_size: 2048
+f16: true
+gpu_layers: 90
+mmap: true
+trimsuffix: 
+- "\n"
+parameters:
+  model: huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+  seed: -1
+  
+mirostat: 2
+mirostat_eta: 1.0
+mirostat_tau: 1.0
+template:
+  chat: &template |-
+    Instruct: {{.Input}}
+    Output:
+  completion: *template
+
+usage: |
+      To use this model, interact with the API (in another terminal) with curl for instance:
+      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+          "model": "phi-2",
+          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+      }'
