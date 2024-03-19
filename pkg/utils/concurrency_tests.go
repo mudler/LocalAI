@@ -81,6 +81,7 @@ var _ = Describe("utils/concurrency tests", func() {
 		}
 		Expect(len(individualResultsChannels)).To(Equal(3))
 		mappingFn := func(i int) string {
+			fmt.Printf("-map- %d\n", i)
 			return fmt.Sprintf("$%d", i)
 		}
 
