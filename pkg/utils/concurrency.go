@@ -85,15 +85,15 @@ func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappin
 
 	for ci, c := range inputChanels {
 		roc := make(chan OV)
-		go func(i int, oc chan OV) {
-			for iv := range c {
+		go func(i int, ic <-chan IV, oc chan OV) {
+			for iv := range ic {
 				mv := mappingFn(iv)
 				fmt.Printf("sending %+v to %d\n", mv, i)
 				oc <- mv
 			}
 			fmt.Printf("closing %d\n", i)
 			close(oc)
-		}(ci, roc)
+		}(ci, c, roc)
 		rawOutputChannels[ci] = roc
 		fmt.Printf("=== %d ===\n", ci)
 	}
