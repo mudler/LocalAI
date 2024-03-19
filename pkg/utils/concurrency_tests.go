@@ -5,6 +5,7 @@ package utils
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -92,7 +93,7 @@ var _ = Describe("utils/concurrency tests", func() {
 			}
 		}
 		slices.Sort(rSlice)
-		fmt.Printf("SORTED rSlice: %+v\n", rSlice)
+		fmt.Printf("SORTED rSlice: %q\n", strings.Join(rSlice, "|"))
 		Expect(rSlice[0]).To(Equal("$0"))
 		Expect(rSlice[3]).To(Equal("$1"))
 		Expect(rSlice[8]).To(Equal("$6"))

@@ -89,6 +89,7 @@ func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappin
 			for iv := range c {
 				oc <- mappingFn(iv)
 			}
+			fmt.Printf("closing %d\n", ci)
 			close(oc)
 		}()
 		rawOutputChannels[ci] = oc
