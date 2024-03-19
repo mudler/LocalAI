@@ -27,7 +27,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	openaigo "github.com/otiai10/openaigo"
-	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
@@ -798,7 +797,7 @@ var _ = Describe("API test", func() {
 
 					Expect(err).ToNot(HaveOccurred())
 
-					log.Debug().Msgf("rwkv response ====> %+v", response)
+					fmt.Printf("===== rwkv response ====> %+v", response)
 
 					text += response.Choices[0].Text
 					tokens++
