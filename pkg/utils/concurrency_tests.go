@@ -5,7 +5,6 @@ package utils
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,7 +72,6 @@ var _ = Describe("utils/concurrency tests", func() {
 			c := make(chan int)
 			go func(i int, c chan int) {
 				for ii := 1; ii < 4; ii++ {
-					fmt.Printf("input channel %d <- %d\n", i, (i * ii))
 					c <- (i * ii)
 				}
 				close(c)
@@ -82,7 +80,6 @@ var _ = Describe("utils/concurrency tests", func() {
 		}
 		Expect(len(individualResultsChannels)).To(Equal(3))
 		mappingFn := func(i int) string {
-			fmt.Printf("map %d\n", i)
 			return fmt.Sprintf("$%d", i)
 		}
 
@@ -92,12 +89,10 @@ var _ = Describe("utils/concurrency tests", func() {
 		for ii := 1; ii < 4; ii++ {
 			for i := 0; i < 3; i++ {
 				res := <-outputChannels[i]
-				fmt.Printf("pulling off element %d from channel %d::: %q\n", ii, i, res)
 				rSlice = append(rSlice, res)
 			}
 		}
 		slices.Sort(rSlice)
-		fmt.Printf("SORTED rSlice: %q\n", strings.Join(rSlice, "|"))
 		Expect(rSlice[0]).To(Equal("$0"))
 		Expect(rSlice[3]).To(Equal("$1"))
 		Expect(rSlice[8]).To(Equal("$6"))

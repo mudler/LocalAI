@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -87,15 +86,11 @@ func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappin
 		roc := make(chan OV)
 		go func(i int, ic <-chan IV, oc chan OV) {
 			for iv := range ic {
-				mv := mappingFn(iv)
-				fmt.Printf("sending %+v to %d\n", mv, i)
-				oc <- mv
+				oc <- mappingFn(iv)
 			}
-			fmt.Printf("closing %d\n", i)
 			close(oc)
 		}(ci, c, roc)
 		rawOutputChannels[ci] = roc
-		fmt.Printf("=== %d ===\n", ci)
 	}
 
 	outputChannels = rawOutputChannels
