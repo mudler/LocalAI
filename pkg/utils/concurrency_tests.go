@@ -88,7 +88,7 @@ var _ = Describe("utils/concurrency tests", func() {
 		rSlice := make([]string, 9)
 		for ii := 1; ii < 4; ii++ {
 			for i := 0; i < 3; i++ {
-				rSlice[(4*ii)+i] = <-outputChannels[i]
+				rSlice[(4*i)+ii] = <-outputChannels[i]
 			}
 		}
 		slices.Sort(rSlice)
