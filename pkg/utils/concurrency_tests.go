@@ -85,15 +85,16 @@ var _ = Describe("utils/concurrency tests", func() {
 
 		outputChannels := SliceOfChannelsTransformer(individualResultsChannels, mappingFn)
 		Expect(len(outputChannels)).To(Equal(3))
+		rSlice := make([]string, 9)
 		for ii := 1; ii < 4; ii++ {
-			rSlice := make([]string, 3)
 			for i := 0; i < 3; i++ {
-				rSlice[i] = <-outputChannels[i]
+				rSlice[(4*ii)+i] = <-outputChannels[i]
 			}
-			slices.Sort(rSlice)
-			fmt.Printf("%d SORTED rSlice: %+v\n", ii, rSlice)
-			Expect(rSlice[0]).To(Equal("$0"))
-			Expect(rSlice[2]).To(Equal(fmt.Sprintf("$%d", 2*ii)))
 		}
+		slices.Sort(rSlice)
+		fmt.Printf("SORTED rSlice: %+v\n", rSlice)
+		Expect(rSlice[0]).To(Equal("$0"))
+		Expect(rSlice[3]).To(Equal("$1"))
+		Expect(rSlice[8]).To(Equal("$6"))
 	})
 })

@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -89,7 +88,6 @@ func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappin
 		oc := make(chan OV)
 		go func() {
 			for iv := range c {
-				fmt.Printf("%d TMP: %+v => %+v\n", ci, iv, mappingFn(iv))
 				oc <- mappingFn(iv)
 			}
 			close(oc)
