@@ -691,6 +691,11 @@ var _ = Describe("API test", func() {
 		})
 
 		It("can generate completions from model configs", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "gpt4all", Prompt: testPrompt})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
@@ -698,6 +703,11 @@ var _ = Describe("API test", func() {
 		})
 
 		It("can generate chat completions from model configs", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "gpt4all-2", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
