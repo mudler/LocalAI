@@ -3,6 +3,8 @@ package utils
 // TODO: noramlly, these go in utils_tests, right? Why does this cause problems only in pkg/utils?
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	// "github.com/rs/zerolog/log"
@@ -34,5 +36,32 @@ var _ = Describe("utils/concurrency tests", func() {
 
 		Expect(result).ToNot(Equal(0))
 		Expect(result).To(Equal(18))
+	})
+
+	It("SliceOfChannelsRawMergerWithoutMapping works", func() {
+		individualResultsChannels := []<-chan int{}
+		for i := 0; i < 3; i++ {
+			c := make(chan int)
+			go func(i int, c chan int) {
+				for ii := 1; ii < 4; ii++ {
+					c <- (i * ii)
+				}
+				close(c)
+			}(i, c)
+			individualResultsChannels = append(individualResultsChannels, c)
+		}
+		Expect(len(individualResultsChannels)).To(Equal(3))
+		outputChannel := make(chan int)
+		wg := SliceOfChannelsRawMergerWithoutMapping(individualResultsChannels, outputChannel, true)
+		Expect(wg).ToNot(BeNil())
+		outputSlice := []int{}
+		for v := range outputChannel {
+			outputSlice = append(outputSlice, v)
+		}
+		Expect(len(outputSlice)).To(Equal(9))
+		slices.Sort(outputSlice)
+		Expect(outputSlice[0]).To(BeZero())
+		Expect(outputSlice[4]).To(Equal(1))
+		Expect(outputSlice[9]).To(Equal(6))
 	})
 })
