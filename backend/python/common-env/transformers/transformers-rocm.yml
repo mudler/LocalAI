@@ -83,7 +83,6 @@ dependencies:
       - triton==2.1.0
       - typing-extensions==4.8.0
       - tzdata==2023.3
-      - auto-gptq==0.6.0
       - urllib3==1.26.17
       - xxhash==3.4.1
       - yarl==1.9.2
