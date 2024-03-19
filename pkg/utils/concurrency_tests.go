@@ -91,6 +91,7 @@ var _ = Describe("utils/concurrency tests", func() {
 				rSlice[i] = <-outputChannels[i]
 			}
 			slices.Sort(rSlice)
+			fmt.Printf("%d SORTED rSlice: %+v\n", ii, rSlice)
 			Expect(rSlice[0]).To(Equal("$0"))
 			Expect(rSlice[2]).To(Equal(fmt.Sprintf("$%d", 2*ii)))
 		}
