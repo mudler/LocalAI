@@ -84,7 +84,7 @@ func SliceOfChannelsMergerIgnoreErrors[T any](individualResultsChannels []<-chan
 func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappingFn func(v IV) OV) (outputChannels []<-chan OV) {
 	rawOutputChannels := make([]<-chan OV, len(inputChanels))
 
-	for _, c := range inputChanels {
+	for ci, c := range inputChanels {
 		oc := make(chan OV)
 		go func() {
 			for iv := range c {
@@ -92,7 +92,7 @@ func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappin
 			}
 			close(oc)
 		}()
-		rawOutputChannels = append(rawOutputChannels, oc)
+		rawOutputChannels[ci] = oc
 	}
 
 	outputChannels = rawOutputChannels
