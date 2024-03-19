@@ -1,3 +1,7 @@
+####
+# Attention! This file is abandoned. 
+# Please use the ../common-env/transformers/transformers.yml file to manage dependencies.
+###
 name: autogptq
 channels:
   - defaults
