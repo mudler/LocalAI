@@ -9,14 +9,28 @@ import time
 import grpc
 import backend_pb2
 import backend_pb2_grpc
-from auto_gptq import AutoGPTQForCausalLM
-from transformers import AutoTokenizer
+from auto_gptq.modeling._base import BaseGPTQForCausalLM
+from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import TextGenerationPipeline
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
+
+class InternLMXComposer2QForCausalLM(BaseGPTQForCausalLM):
+    layers_block_name = "model.layers"
+    outside_layer_modules = [
+        'vit', 'vision_proj', 'model.tok_embeddings', 'model.norm', 'output',
+    ]
+    inside_layer_modules = [
+        ["attention.wqkv.linear"],
+        ["attention.wo.linear"],
+        ["feed_forward.w1.linear", "feed_forward.w3.linear"],
+        ["feed_forward.w2.linear"],
+    ]
+
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
@@ -28,9 +42,26 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.Device != "":
                 device = request.Device
 
-            tokenizer = AutoTokenizer.from_pretrained(request.Model, use_fast=request.UseFastTokenizer)
+            # support loading local model files
+            model_path = os.path.join(os.environ.get('MODELS_PATH', './'), request.Model)
+            tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True, trust_remote_code=request.TrustRemoteCode)
 
-            model = AutoGPTQForCausalLM.from_quantized(request.Model,
+            # support model `internlm/internlm-xcomposer2-vl-7b-4bit`
+            if "xcomposer2-vl" in request.Model.lower():
+                model = InternLMXComposer2QForCausalLM.from_quantized(model_path, 
+                    trust_remote_code=request.TrustRemoteCode, 
+                    # maybe add this to request params?
+                    use_marlin=True,
+                    use_triton=request.UseTriton,
+                    device=device).eval()
+            # support model `Qwen/Qwen-VL-Chat-Int4`
+            elif "qwen-vl" in request.Model.lower():
+                model = AutoModelForCausalLM.from_pretrained(model_path, 
+                    trust_remote_code=request.TrustRemoteCode,
+                    use_triton=request.UseTriton,
+                    device_map="auto").eval()
+            else:
+                model = AutoGPTQForCausalLM.from_quantized(model_path,
                     model_basename=request.ModelBaseName,
                     use_safetensors=True,
                     trust_remote_code=request.TrustRemoteCode,
