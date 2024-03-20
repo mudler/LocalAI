@@ -248,6 +248,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					Role:         r,
 					RoleName:     role,
 					Content:      i.StringContent,
+					FunctionCall: i.FunctionCall,
 					FunctionName: i.Name,
 					LastMessage:  messageIndex == (len(input.Messages) - 1),
 					Function:     config.Grammar != "" && (messageIndex == (len(input.Messages) - 1)),

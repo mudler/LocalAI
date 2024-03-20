@@ -38,6 +38,7 @@ type ChatMessageTemplateData struct {
 	Content      string
 	MessageIndex int
 	Function     bool
+	FunctionCall interface{}
 	LastMessage  bool
 }
 
