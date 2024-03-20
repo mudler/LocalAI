@@ -34,8 +34,6 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
 			//
-			// c.Set("Content-Type", "text/event-stream")
-			// above line was commented, testing with it in place since it's used in a fiber example.
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
@@ -51,7 +49,6 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 					}
 					usage = &ev.Value.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
 
-					/// TODO DAVE: THIS IS IMPORTANT BUT IT'S INTENTIONALLY BROKEN RIGHT NOW UNTIL WE FIGURE OUT HOW TO GET A CHOICE PARAM PER TOKEN
 					if len(ev.Value.Choices[0].Delta.ToolCalls) > 0 {
 						toolsCalled = true
 					}
@@ -65,7 +62,12 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 						request.Cancel()
 						break
 					}
-					w.Flush()
+					err = w.Flush()
+					if err != nil {
+						log.Debug().Msg("error while flushing, closing connection")
+						request.Cancel()
+						break
+					}
 				}
 
 				finishReason := "stop"
