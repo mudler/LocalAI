@@ -2,7 +2,6 @@ package openai
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -52,11 +51,11 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 					if len(ev.Value.Choices[0].Delta.ToolCalls) > 0 {
 						toolsCalled = true
 					}
-					var buf bytes.Buffer
-					enc := json.NewEncoder(&buf)
-					enc.Encode(ev.Value.Choices[0].Delta.Content)
-					log.Debug().Msgf("chat streaming sending chunk: %s", buf.String())
-					_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
+					// var buf bytes.Buffer
+					// enc := json.NewEncoder(&buf)
+					// enc.Encode(ev.Value.Choices[0].Delta.Content)
+					log.Debug().Msgf("chat streaming sending chunk: %s", ev.Value)
+					_, err := fmt.Fprintf(w, "data: %v\n", ev.Value)
 					if err != nil {
 						log.Debug().Msgf("Sending chunk failed: %v", err)
 						request.Cancel()

@@ -47,7 +47,6 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 						log.Debug().Msgf("[CompletionEndpoint] error to debug during tokenChannel handler: %q", ev.Error)
 						enc.Encode(ev.Error)
 					} else {
-
 						enc.Encode(ev.Value)
 					}
 
