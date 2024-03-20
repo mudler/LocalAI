@@ -457,6 +457,7 @@ var _ = Describe("API test", func() {
 					})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp2.Choices)).To(Equal(1))
+				fmt.Printf("\n--- %+v\n\n", resp2.Choices[0].Message)
 				Expect(resp2.Choices[0].Message.FunctionCall).ToNot(BeNil())
 				Expect(resp2.Choices[0].Message.FunctionCall.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.FunctionCall.Name)
 

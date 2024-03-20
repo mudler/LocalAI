@@ -563,8 +563,6 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 		}
 
 		for _, result := range rawResult.Value.Response {
-
-			// log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest] rawResult.Value.Response: %+v", result)
 			// If no functions, just return the raw result.
 			if !processFunctions {
 
@@ -588,12 +586,8 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				continue
 			}
 			// At this point, things are function specific!
-			// TODO: do we need more robust error handling?
-			// fBytes, err := json.Marshal(result.Message.Content)
-			// if err != nil {
-			// 	log.Error().Msgf("error marshalling %+v", result.Message.Content)
-			// }
-			// Oh no try bad things again
+
+			// Oh no this can't be the right way to do this... but it works. Save us, mudler!
 			fString := fmt.Sprintf("%s", result.Message.Content)
 			results := parseFunctionCall(fString, bc.FunctionsConfig.ParallelCalls)
 			noActionToRun := (len(results) > 0 && results[0].name == noActionName)
