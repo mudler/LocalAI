@@ -124,23 +124,40 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         xpu_4bit = False
                         xpu_8bit = False
 
-                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode, use_safetensors=True,
-                                              device_map=device_map, load_in_4bit=xpu_4bit, load_in_8bit=xpu_8bit, torch_dtype=compute)
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, 
+                                                                      trust_remote_code=request.TrustRemoteCode, 
+                                                                      use_safetensors=True,
+                                                                      device_map=device_map, 
+                                                                      load_in_4bit=xpu_4bit, 
+                                                                      load_in_8bit=xpu_8bit, 
+                                                                      torch_dtype=compute)
                 else:
-                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode, use_safetensors=True, quantization_config=quantization, device_map=device_map, torch_dtype=compute)
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, 
+                                                                      trust_remote_code=request.TrustRemoteCode, 
+                                                                      use_safetensors=True, 
+                                                                      quantization_config=quantization, 
+                                                                      device_map=device_map, 
+                                                                      torch_dtype=compute)
             elif request.Type == "OVModelForCausalLM":
                 if "GPU" in Core().available_devices:
                     device_map="GPU"
                 else:
                     device_map="CPU"
-                self.model = OVModelForCausalLM(model_name, compile=True, device=device_map)
+                self.model = OVModelForCausalLM.from_pretrained(model_name, 
+                                                                compile=True, 
+                                                                device=device_map)
                 self.OV = True
             else:
-                self.model = AutoModel.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,  use_safetensors=True,  quantization_config=quantization, device_map=device_map, torch_dtype=compute)
+                self.model = AutoModel.from_pretrained(model_name, 
+                                                       trust_remote_code=request.TrustRemoteCode,  
+                                                       use_safetensors=True,  
+                                                       quantization_config=quantization, 
+                                                       device_map=device_map, 
+                                                       torch_dtype=compute)
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
             self.XPU = False
 
-            if XPU:
+            if XPU and self.OV == False:
                 self.XPU = True
                 try:
                     print("Optimizing model", model_name, "to XPU.", file=sys.stderr)
@@ -205,15 +222,22 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.Tokens > 0:
             max_tokens = request.Tokens
 
-        inputs = self.tokenizer(request.Prompt, return_tensors="pt").input_ids
         if self.CUDA:
             inputs = inputs.to("cuda")
         if XPU and self.OV == False:
-                inputs = inputs.to("xpu")
+            inputs = inputs.to("xpu")
 
-
-        outputs = self.model.generate(inputs,max_new_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP, do_sample=True, pad_token_id=self.tokenizer.eos_token_id)
-        generated_text = self.tokenizer.batch_decode(outputs[:, inputs.shape[1]:], skip_special_tokens=True)[0]
+        inputs = self.tokenizer(request.Prompt, return_tensors="pt")
+        outputs = self.model.generate(inputs["input_ids"],
+                                      max_new_tokens=max_tokens, 
+                                      temperature=float(request.Temperature), 
+                                      top_p=request.TopP,
+                                      top_k=request.TopK, 
+                                      do_sample=True,
+                                      attention_mask=inputs["attention_mask"],
+                                      eos_token_id=self.tokenizer.eos_token_id,
+                                      pad_token_id=self.tokenizer.eos_token_id)
+        generated_text = self.tokenizer.batch_decode(outputs[:, inputs["input_ids"].shape[1]:], skip_special_tokens=True)[0]
 
         return backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
 
