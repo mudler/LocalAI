@@ -583,7 +583,10 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				continue
 			}
 			// At this point, things are function specific!
-			results := parseFunctionCall(result.Text, bc.FunctionsConfig.ParallelCalls)
+
+			// TODO this next line seems _gross_ - there has to be a better way? Using a local to keep the gross contained!
+			fText := fmt.Sprintf("%+v", result)
+			results := parseFunctionCall(fText, bc.FunctionsConfig.ParallelCalls)
 			noActionToRun := (len(results) > 0 && results[0].name == noActionName)
 
 			if noActionToRun {
@@ -735,6 +738,8 @@ type funcCallResults struct {
 }
 
 func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults {
+
+	log.Debug().Msgf("hit parseFunctionCall, len(llmresult)=%d", len(llmresult))
 	results := []funcCallResults{}
 
 	// TODO: use generics to avoid this code duplication
@@ -766,7 +771,7 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		// This prevent newlines to break JSON parsing for clients
 		s := utils.EscapeNewLines(llmresult)
 		json.Unmarshal([]byte(s), &ss)
-		log.Debug().Msgf("[else] Function return: %s %+v", s, ss)
+		log.Debug().Msgf("[else] Function return: %q %+v", s, ss)
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
 		func_name, ok := ss["function"]
