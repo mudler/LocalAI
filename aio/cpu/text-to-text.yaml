@@ -1,4 +1,4 @@
-name: phi-2
+name: gpt-3.5-turbo
 context_size: 2048
 f16: true
 gpu_layers: 90
@@ -7,14 +7,7 @@ trimsuffix:
 - "\n"
 parameters:
   model: huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
-  temperature: 0.2
-  top_k: 40
-  top_p: 0.95
-  seed: -1
-  
-mirostat: 2
-mirostat_eta: 1.0
-mirostat_tau: 1.0
+
 template:
   chat: &template |-
     Instruct: {{.Input}}
