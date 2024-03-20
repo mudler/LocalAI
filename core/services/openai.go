@@ -599,7 +599,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					Created: traceID.Created,
 					Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: ""}}},
-					Object:  "chat.completion.chunk",
+					Object:  "stop",
 				}
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
 
@@ -634,7 +634,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 						Created: traceID.Created,
 						Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
 						Choices: []schema.Choice{{
-							FinishReason: "stop",
+							FinishReason: "function_call",
 							Message: &schema.Message{
 								Role: "assistant",
 								ToolCalls: []schema.ToolCall{
@@ -652,26 +652,6 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 						Object: "chat.completion.chunk",
 					}
 					rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
-
-					// rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &schema.OpenAIResponse{
-					// 	ID:      traceID.ID,
-					// 	Created: traceID.Created,
-					// 	Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
-					// 	Choices: []schema.Choice{{
-					// 		FinishReason: "stop",
-					// 		Message: &schema.Message{
-					// 			Role: "assistant",
-					// 			ToolCalls: []schema.ToolCall{
-					// 				{
-					// 					Index:        i,
-					// 					ID:           traceID.ID,
-					// 					Type:         "function",
-					// 					FunctionCall: schema.FunctionCall{},
-					// 				},
-					// 			},
-					// 		}}},
-					// 	Object: "chat.completion",
-					// }}
 				}
 			}
 		}
@@ -799,34 +779,3 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 	}
 	return results
 }
-
-// TODO RENAME THIS POST REFACTOR OBVIOUSLY!!!!!
-// func (oais *OpenAIService) oldProcessFunc(traceID *OpenAIRequestTraceID, s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
-// 	initialMessage := schema.OpenAIResponse{
-// 		ID:      traceID.ID,
-// 		Created: traceID.Created,
-// 		Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-// 		Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: ""}}},
-// 		Object:  "chat.completion.chunk",
-// 	}
-// 	responses <- initialMessage
-
-// 	ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
-// 		resp := schema.OpenAIResponse{
-// 			ID:      id,
-// 			Created: created,
-// 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-// 			Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0}},
-// 			Object:  "chat.completion.chunk",
-// 			Usage: schema.OpenAIUsage{
-// 				PromptTokens:     usage.Prompt,
-// 				CompletionTokens: usage.Completion,
-// 				TotalTokens:      usage.Prompt + usage.Completion,
-// 			},
-// 		}
-
-// 		responses <- resp
-// 		return true
-// 	})
-// 	close(responses)
-// }

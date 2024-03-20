@@ -463,7 +463,7 @@ var _ = Describe("API test", func() {
 				Expect(resp2.Choices[0].Message.ToolCalls[0].Function.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.ToolCalls[0].Function.Name)
 
 				var res map[string]string
-				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
+				err = json.Unmarshal([]byte(resp2.Choices[0].Message.ToolCalls[0].Function.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
