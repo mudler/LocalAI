@@ -583,9 +583,9 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				continue
 			}
 			// At this point, things are function specific!
-
-			// TODO this next line seems _gross_ - there has to be a better way? Using a local to keep the gross contained!
-			fText := fmt.Sprintf("%+v", result)
+			log.Warn().Msgf("========= result: %+v", result)
+			// TODO this next line seems broken and is temporary
+			var fText string = result.Text
 			results := parseFunctionCall(fText, bc.FunctionsConfig.ParallelCalls)
 			noActionToRun := (len(results) > 0 && results[0].name == noActionName)
 
