@@ -66,19 +66,6 @@ func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []
 	return &wg
 }
 
-// TODO: This seems like a hack for now. Revist post port?
-// TODO: It's also no longer used... Delete this?
-func SliceOfChannelsMergerIgnoreErrors[T any](individualResultsChannels []<-chan ErrorOr[*T], outputChannel chan<- *T, closeWhenDone bool) *sync.WaitGroup {
-	return SliceOfChannelsRawMerger(individualResultsChannels, outputChannel, func(v ErrorOr[*T]) (*T, error) {
-		if v.Error != nil {
-			// TEMPORARY DEBUG LOG LINE GOES HERE LATER
-
-			return nil, v.Error
-		}
-		return v.Value, nil
-	}, closeWhenDone)
-}
-
 func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappingFn func(v IV) OV) (outputChannels []<-chan OV) {
 	rawOutputChannels := make([]<-chan OV, len(inputChanels))
 

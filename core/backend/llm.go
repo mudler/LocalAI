@@ -223,8 +223,6 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 			Usage:    TokenUsage{},
 		}
 
-		log.Debug().Msgf("[llmbs.GenerateText] inside goroutine, size of completionChannels: %d", len(completionChannels))
-
 		wg := utils.SliceOfChannelsReducer(completionChannels, rawChannel, func(iv utils.ErrorOr[*LLMResponse], ov utils.ErrorOr[*LLMResponseBundle]) utils.ErrorOr[*LLMResponseBundle] {
 			if iv.Error != nil {
 				ov.Error = iv.Error
@@ -233,8 +231,6 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 			}
 			ov.Value.Usage.Prompt += iv.Value.Usage.Prompt
 			ov.Value.Usage.Completion += iv.Value.Usage.Completion
-
-			log.Debug().Msgf("[llmbs.GenerateText] inside goroutine REDUCER iv.Value %+v", iv.Value)
 
 			ov.Value.Response = append(ov.Value.Response, mappingFn(iv.Value))
 			return ov

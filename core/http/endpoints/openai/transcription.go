@@ -23,7 +23,7 @@ func TranscriptEndpoint(fce *fiberContext.FiberContextExtractor, tbs *backend.Tr
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		// TODO: Investigate this later
+		// TODO: Investigate this file copy stuff later - potentially belongs in service.
 
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")

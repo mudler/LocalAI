@@ -579,8 +579,6 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					},
 				}
 
-				// log.Warn().Msgf("[OAIS GenerateFromMultipleMessagesChatRequest]\n\nresp.Choices[0].Message.Content: %+v\n\nresp.Choices[0].Text: %+v", resp.Choices[0].Message.Content, resp.Choices[0].Text)
-
 				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
 				continue
@@ -723,7 +721,6 @@ type funcCallResults struct {
 
 func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults {
 
-	log.Debug().Msgf("hit parseFunctionCall, llmresult=%q", llmresult)
 	results := []funcCallResults{}
 
 	// TODO: use generics to avoid this code duplication
@@ -731,7 +728,6 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		ss := []map[string]interface{}{}
 		s := utils.EscapeNewLines(llmresult)
 		json.Unmarshal([]byte(s), &ss)
-		log.Debug().Msgf("[if] Function return: %s %+v", s, ss)
 
 		for _, s := range ss {
 			func_name, ok := s["function"]
@@ -755,7 +751,6 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		// This prevent newlines to break JSON parsing for clients
 		// s := utils.EscapeNewLines(llmresult)
 		json.Unmarshal([]byte(llmresult), &ss)
-		log.Debug().Msgf("[else] Function return: %+v", ss)
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
 		func_name, ok := ss["function"]
