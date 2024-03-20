@@ -771,8 +771,8 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		// As we have to change the result before processing, we can't stream the answer token-by-token (yet?)
 		ss := map[string]interface{}{}
 		// This prevent newlines to break JSON parsing for clients
-		s := utils.EscapeNewLines(llmresult)
-		json.Unmarshal([]byte(s), &ss)
+		// s := utils.EscapeNewLines(llmresult)
+		json.Unmarshal([]byte(llmresult), &ss)
 		log.Debug().Msgf("[else] Function return: %+v", ss)
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
