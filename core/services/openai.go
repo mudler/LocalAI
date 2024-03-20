@@ -525,7 +525,9 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{
 					{
-						Delta: &schema.Message{
+						// I feel like this should be Delta not Message according to the spec.
+						// But the unit tests say I am wrong. TODO investigate spec
+						Message: &schema.Message{
 							Role:    "assistant",
 							Content: resp.Value.Response,
 						},
