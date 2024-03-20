@@ -458,8 +458,9 @@ var _ = Describe("API test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp2.Choices)).To(Equal(1))
 				fmt.Printf("\n--- %+v\n\n", resp2.Choices[0].Message)
-				Expect(resp2.Choices[0].Message.FunctionCall).ToNot(BeNil())
-				Expect(resp2.Choices[0].Message.FunctionCall.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.FunctionCall.Name)
+				Expect(resp2.Choices[0].Message.ToolCalls).ToNot(BeNil())
+				Expect(resp2.Choices[0].Message.ToolCalls[0]).ToNot(BeNil())
+				Expect(resp2.Choices[0].Message.ToolCalls[0].Function.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.ToolCalls[0].Function.Name)
 
 				var res map[string]string
 				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
