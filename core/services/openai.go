@@ -741,7 +741,7 @@ type funcCallResults struct {
 
 func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults {
 
-	log.Debug().Msgf("hit parseFunctionCall, len(llmresult)=%d", len(llmresult))
+	log.Debug().Msgf("hit parseFunctionCall, llmresult=%q", llmresult)
 	results := []funcCallResults{}
 
 	// TODO: use generics to avoid this code duplication
@@ -773,7 +773,7 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		// This prevent newlines to break JSON parsing for clients
 		s := utils.EscapeNewLines(llmresult)
 		json.Unmarshal([]byte(s), &ss)
-		log.Debug().Msgf("[else] Function return: %q %+v", s, ss)
+		log.Debug().Msgf("[else] Function return: %+v", ss)
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
 		func_name, ok := ss["function"]
