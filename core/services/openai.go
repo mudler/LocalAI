@@ -520,14 +520,19 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 		}
 		return utils.ErrorOr[*schema.OpenAIResponse]{
 			Value: &schema.OpenAIResponse{
+				ID:      traceID.ID,
+				Created: traceID.Created,
+				Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{
 					{
 						Delta: &schema.Message{
 							Role:    "assistant",
 							Content: resp.Value.Response,
 						},
+						Index: 0,
 					},
 				},
+				Object: "chat.completion.chunk",
 				Usage: schema.OpenAIUsage{
 					PromptTokens:     resp.Value.Usage.Prompt,
 					CompletionTokens: resp.Value.Usage.Completion,
@@ -584,11 +589,13 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 			}
 			// At this point, things are function specific!
 			// TODO: do we need more robust error handling?
-			fBytes, err := json.Marshal(result.Message.Content)
-			if err != nil {
-				log.Error().Msgf("error marshalling %+v", result.Message.Content)
-			}
-			results := parseFunctionCall(string(fBytes), bc.FunctionsConfig.ParallelCalls)
+			// fBytes, err := json.Marshal(result.Message.Content)
+			// if err != nil {
+			// 	log.Error().Msgf("error marshalling %+v", result.Message.Content)
+			// }
+			// Oh no try bad things again
+			fString := fmt.Sprintf("%s", result.Message.Content)
+			results := parseFunctionCall(fString, bc.FunctionsConfig.ParallelCalls)
 			noActionToRun := (len(results) > 0 && results[0].name == noActionName)
 
 			if noActionToRun {
