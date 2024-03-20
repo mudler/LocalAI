@@ -583,9 +583,9 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				continue
 			}
 			// At this point, things are function specific!
-			log.Warn().Msgf("========= result: %+v", result)
-			// TODO this next line seems broken and is temporary
-			var fText string = result.Text
+			log.Warn().Msgf("========= result.Message: %+v", result.Message)
+			// TODO this next line seems broken and is temporary. Should probably do something to avoid all this JSON roundtripping? This isn't even the right way to serialize to JSON!
+			var fText string = fmt.Sprintf("%+v", result.Message)
 			results := parseFunctionCall(fText, bc.FunctionsConfig.ParallelCalls)
 			noActionToRun := (len(results) > 0 && results[0].name == noActionName)
 
