@@ -669,7 +669,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 									},
 								},
 							}}},
-						Object: "chat.completion.chunk",
+						Object: "chat.completion",
 					}}
 				}
 			}
