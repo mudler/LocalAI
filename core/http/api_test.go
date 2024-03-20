@@ -796,9 +796,9 @@ var _ = Describe("API test", func() {
 
 		Context("backends", func() {
 			It("runs rwkv completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
+				// if runtime.GOOS != "linux" {
+				// 	Skip("test supported only on linux")
+				// }
 				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices) > 0).To(BeTrue())
@@ -830,9 +830,9 @@ var _ = Describe("API test", func() {
 				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
 			})
 			It("runs rwkv chat completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
+				// if runtime.GOOS != "linux" {
+				// 	Skip("test supported only on linux")
+				// }
 				resp, err := client.CreateChatCompletion(context.TODO(),
 					openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())
