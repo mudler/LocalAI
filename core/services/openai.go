@@ -634,28 +634,6 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 						Created: traceID.Created,
 						Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
 						Choices: []schema.Choice{{
-							Delta: &schema.Message{
-								Role: "assistant",
-								ToolCalls: []schema.ToolCall{
-									{
-										Index: i,
-										ID:    traceID.ID,
-										Type:  "function",
-										FunctionCall: schema.FunctionCall{
-											Name: name,
-										},
-									},
-								},
-							}}},
-						Object: "chat.completion.chunk",
-					}
-					rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
-
-					rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &schema.OpenAIResponse{
-						ID:      traceID.ID,
-						Created: traceID.Created,
-						Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
-						Choices: []schema.Choice{{
 							FinishReason: "stop",
 							Message: &schema.Message{
 								Role: "assistant",
@@ -665,13 +643,35 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 										ID:    traceID.ID,
 										Type:  "function",
 										FunctionCall: schema.FunctionCall{
+											Name:      name,
 											Arguments: args,
 										},
 									},
 								},
 							}}},
-						Object: "chat.completion",
-					}}
+						Object: "chat.completion.chunk",
+					}
+					rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
+
+					// rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &schema.OpenAIResponse{
+					// 	ID:      traceID.ID,
+					// 	Created: traceID.Created,
+					// 	Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
+					// 	Choices: []schema.Choice{{
+					// 		FinishReason: "stop",
+					// 		Message: &schema.Message{
+					// 			Role: "assistant",
+					// 			ToolCalls: []schema.ToolCall{
+					// 				{
+					// 					Index:        i,
+					// 					ID:           traceID.ID,
+					// 					Type:         "function",
+					// 					FunctionCall: schema.FunctionCall{},
+					// 				},
+					// 			},
+					// 		}}},
+					// 	Object: "chat.completion",
+					// }}
 				}
 			}
 		}
