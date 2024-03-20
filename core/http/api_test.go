@@ -839,7 +839,7 @@ var _ = Describe("API test", func() {
 				Expect(len(resp.Choices) > 0).To(BeTrue())
 				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("Sure"), ContainSubstring("five")))
 
-				stream, err := client.CreateChatCompletionStream(context.TODO(), openai.ChatCompletionRequest{Model: "rwkv_test", Temperature: 0.2, Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
+				stream, err := client.CreateChatCompletionStream(context.TODO(), openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())
 				defer stream.Close()
 
@@ -847,7 +847,6 @@ var _ = Describe("API test", func() {
 				text := ""
 				for {
 					response, err := stream.Recv()
-					fmt.Printf("\n!!!\n\nresponse %+v\n\n%q\n\n", response, err)
 					if errors.Is(err, io.EOF) {
 						break
 					}
