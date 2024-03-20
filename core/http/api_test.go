@@ -847,6 +847,7 @@ var _ = Describe("API test", func() {
 				text := ""
 				for {
 					response, err := stream.Recv()
+					fmt.Printf("\n!!!\n\nresponse %+v\n\n%q\n\n", response, err)
 					if errors.Is(err, io.EOF) {
 						break
 					}
