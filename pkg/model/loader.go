@@ -10,6 +10,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	grammar "github.com/go-skynet/LocalAI/pkg/grammar"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	process "github.com/mudler/go-processmanager"
@@ -263,7 +264,7 @@ func (ml *ModelLoader) loadTemplateIfExists(templateType TemplateType, templateN
 	}
 
 	// Parse the template
-	tmpl, err := template.New("prompt").Parse(dat)
+	tmpl, err := template.New("prompt").Funcs(sprig.FuncMap()).Parse(dat)
 	if err != nil {
 		return err
 	}
