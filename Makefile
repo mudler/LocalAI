@@ -536,7 +536,6 @@ grpcs: prepare $(GRPC_BACKENDS)
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
-DOCKER_AIO_SIZE?=cpu
 IMAGE_TYPE?=core
 BASE_IMAGE?=ubuntu:22.04
 
@@ -549,11 +548,9 @@ docker:
 		-t $(DOCKER_IMAGE) .
 	
 docker-aio:
-	@echo "Building AIO image with size $(DOCKER_AIO_SIZE)"
-	@echo "Building AIO image with base image $(BASE_IMAGE)"
+	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
 	docker build \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
-		--build-arg SIZE=$(DOCKER_AIO_SIZE) \
 		-t $(DOCKER_AIO_IMAGE) -f Dockerfile.aio .
 
 docker-aio-all:
