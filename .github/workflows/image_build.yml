@@ -51,6 +51,11 @@ on:
         required: false
         default: ''
         type: string
+      aio:
+        description: 'AIO Image Name'
+        required: false
+        default: ''
+        type: string
     secrets:
       dockerUsername:
         required: true
@@ -129,7 +134,30 @@ jobs:
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
-
+      - name: Docker meta AIO (quay.io)
+        if: inputs.aio != ''
+        id: meta_aio
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            quay.io/go-skynet/local-ai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+          flavor: |
+            suffix=${{ inputs.aio }}
+      - name: Docker meta AIO (dockerhub)
+        if: inputs.aio != ''
+        id: meta_aio_dockerhub
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            localai/localai
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+          flavor: |
+            suffix=${{ inputs.aio }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -172,6 +200,44 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      -
+        name: Inspect image
+        if: github.event_name != 'pull_request'
+        run: |
+          docker pull localai/localai:${{ steps.meta.outputs.version }}
+          docker image inspect localai/localai:${{ steps.meta.outputs.version }}
+          docker pull quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
+          docker image inspect quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
+      - name: Build and push AIO image
+        if: inputs.aio != ''
+        uses: docker/build-push-action@v5
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BASE_IMAGE=quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
+          context: .
+          file: ./Dockerfile.aio
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta_aio.outputs.tags }}
+          labels: ${{ steps.meta_aio.outputs.labels }}
+      - name: Build and push AIO image (dockerhub)
+        if: inputs.aio != ''
+        uses: docker/build-push-action@v5
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BASE_IMAGE=localai/localai:${{ steps.meta_aio_dockerhub.outputs.version }}
+          context: .
+          file: ./Dockerfile.aio
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta_aio_dockerhub.outputs.tags }}
+          labels: ${{ steps.meta_aio_dockerhub.outputs.labels }}
       - name: job summary
         run: |
           echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
+      - name: job summary(AIO)
+        if: inputs.aio != ''
+        run: |
+          echo "Built image: ${{ steps.meta_aio.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
