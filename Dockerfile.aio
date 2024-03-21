@@ -1,0 +1,9 @@
+ARG BASE_IMAGE=ubuntu:22.04
+
+FROM ${BASE_IMAGE} 
+ARG SIZE=cpu
+ENV MODELS="/aio-models/embeddings.yaml,/aio-models/text-to-speech.yaml,/aio-models/image-gen.yaml,/aio-models/text-to-text.yaml,/aio-models/speech-to-text.yaml,/aio-models/vision.yaml"
+
+COPY aio/${SIZE} /aio-models
+
+ENTRYPOINT [ "/build/entrypoint.sh" ]

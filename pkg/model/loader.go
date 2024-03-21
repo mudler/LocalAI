@@ -10,6 +10,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	grammar "github.com/go-skynet/LocalAI/pkg/grammar"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	process "github.com/mudler/go-processmanager"
@@ -36,6 +37,9 @@ type ChatMessageTemplateData struct {
 	FunctionName string
 	Content      string
 	MessageIndex int
+	Function     bool
+	FunctionCall interface{}
+	LastMessage  bool
 }
 
 // Keep this in sync with config.TemplateConfig. Is there a more idiomatic way to accomplish this in go?
@@ -261,7 +265,7 @@ func (ml *ModelLoader) loadTemplateIfExists(templateType TemplateType, templateN
 	}
 
 	// Parse the template
-	tmpl, err := template.New("prompt").Parse(dat)
+	tmpl, err := template.New("prompt").Funcs(sprig.FuncMap()).Parse(dat)
 	if err != nil {
 		return err
 	}
