@@ -43,6 +43,7 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- All-in-one image: https://github.com/mudler/LocalAI/issues/1855
 - Parallel function calling: https://github.com/mudler/LocalAI/pull/1726
 - Upload file API: https://github.com/mudler/LocalAI/pull/1703
 - Tools API support: https://github.com/mudler/LocalAI/pull/1715
