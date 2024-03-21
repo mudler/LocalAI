@@ -45,7 +45,7 @@ To install the dependencies follow the instructions below:
 {{< tabs tabTotal="3"  >}}
 {{% tab tabName="Apple" %}}
 
-Install `xcode` from the Apps Store
+Install `xcode` from the App Store
 
 ```bash
 brew install abseil cmake go grpc protobuf wget
