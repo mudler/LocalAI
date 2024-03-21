@@ -541,6 +541,8 @@ backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.
 grpcs: prepare $(GRPC_BACKENDS)
 
 DOCKER_IMAGE?=local-ai
+DOCKER_AIO_IMAGE?=local-ai-aio
+DOCKER_AIO_SIZE?=cpu
 IMAGE_TYPE?=core
 BASE_IMAGE?=ubuntu:22.04
 
@@ -551,6 +553,18 @@ docker:
 		--build-arg GO_TAGS=$(GO_TAGS) \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		-t $(DOCKER_IMAGE) .
+	
+docker-aio:
+	@echo "Building AIO image with size $(DOCKER_AIO_SIZE)"
+	@echo "Building AIO image with base image $(BASE_IMAGE)"
+	docker build \
+		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg SIZE=$(DOCKER_AIO_SIZE) \
+		-t $(DOCKER_AIO_IMAGE) -f Dockerfile.aio .
+
+docker-aio-all:
+	$(MAKE) docker-aio DOCKER_AIO_SIZE=cpu
+	$(MAKE) docker-aio DOCKER_AIO_SIZE=cpu
 
 docker-image-intel:
 	docker build \

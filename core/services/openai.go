@@ -401,7 +401,10 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				Role:         r,
 				RoleName:     role,
 				Content:      i.StringContent,
+				FunctionCall: i.FunctionCall,
 				FunctionName: i.Name,
+				LastMessage:  messageIndex == (len(request.Messages) - 1),
+				Function:     bc.Grammar != "" && (messageIndex == (len(request.Messages) - 1)),
 				MessageIndex: messageIndex,
 			}
 			templatedChatMessage, err := oais.ml.EvaluateTemplateForChatMessage(bc.TemplateConfig.ChatMessage, chatMessageData)
