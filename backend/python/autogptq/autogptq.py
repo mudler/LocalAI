@@ -86,6 +86,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.TopP != 0.0:
             top_p = request.TopP
 
+        
+        prompt_images = self.recompile_vl_prompt(request)
+        print(f"Prompt: {prompt_images[0]}", file=sys.stderr)
+
         # Implement Predict RPC
         pipeline = TextGenerationPipeline(
             model=self.model, 
@@ -95,10 +99,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             top_p=top_p,
             repetition_penalty=penalty,
             )
-        t = pipeline(request.Prompt)[0]["generated_text"]
+        t = pipeline(prompt_images[0])[0]["generated_text"]
         # Remove prompt from response if present
+        print(f"generated_text: {t}", file=sys.stderr)
         if request.Prompt in t:
             t = t.replace(request.Prompt, "")
+        # house keeping. Remove the image files from /tmp folder
+        for img_path in prompt_images[1]:
+            try:
+                os.remove(img_path)
+            except Exception as e:
+                print(f"Error removing image file: {img_path}, {e}", file=sys.stderr)
 
         return backend_pb2.Result(message=bytes(t, encoding='utf-8'))
 
@@ -109,6 +120,30 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # Not implemented yet
         return self.Predict(request, context)
 
+    def recompile_vl_prompt(request):
+        print(f"Model name: {request}",  file=sys.stderr)
+        prompt = request.Prompt
+        image_paths = []
+
+        if "xcomposer2-vl" in request.Model.lower():
+            # request.Images is an array which contains base64 encoded images. Iterate the request.Images array, decode and save each image to /tmp folder with a random filename.
+            # Then, save the image file paths to an array "image_paths".
+            # read "request.Prompt", replace "[img-%d]" with the image file paths in the order they appear in "image_paths". Save the new prompt to "prompt".
+            pass
+        elif "qwen-vl" in request.Model.lower():
+            # request.Images is an array which contains base64 encoded images. Iterate the request.Images array, decode and save each image to /tmp folder with a random filename.
+            # Then, save the image file paths to an array "image_paths".
+            # read "request.Prompt", replace "[img-%d]" with the image file paths in the order they appear in "image_paths". Save the new prompt to "prompt".
+            for i, img in enumerate(request.Images):
+                timestamp = str(int(time.time() * 1000))  # Generate timestamp
+                img_path = f"/tmp/vl-{timestamp}.jpg"  # Use timestamp in filename
+                with open(img_path, "wb") as f:
+                    f.write(img)
+                image_paths.append(img_path)
+                prompt = prompt.replace(f"[img-{i}]", img_path)
+        else:
+            prompt = request.Prompt
+        return (prompt, image_paths)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))
