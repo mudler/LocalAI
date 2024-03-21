@@ -26,6 +26,7 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
+      aio: ${{ matrix.aio }}
       makeflags: "-j3"
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -86,6 +87,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+            aio: "-aio-gpu-nvidia-cuda-11"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -96,6 +98,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+            aio: "-aio-gpu-nvidia-cuda-12"
           - build-type: ''
             #platforms: 'linux/amd64,linux/arm64'
             platforms: 'linux/amd64'
@@ -199,6 +202,7 @@ jobs:
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
+      aio: ${{ matrix.aio }}
       base-image: ${{ matrix.base-image }}
       makeflags: "-j3"
     secrets:
@@ -217,6 +221,7 @@ jobs:
             image-type: 'core'
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
+            aio: "-aio-cpu"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
