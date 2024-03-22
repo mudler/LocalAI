@@ -51,10 +51,8 @@ download_files:
 - filename: "stablediffusion_assets/vocab.txt"
   sha256: "e30e57b6f1e47616982ef898d8922be24e535b4fa3d0110477b3a6f02ebbae7d"
   uri: "https://raw.githubusercontent.com/EdVince/Stable-Diffusion-NCNN/main/x86/linux/assets/vocab.txt"
-# nextcloud files
+# nextcloud files, sha mismatches
 - filename: "stablediffusion_assets/UNetModel-fp16.bin"
-  sha256: "3fae3d2180fc332d800e3372384c333e6a661839e22bcebe0bd4ef293f7c1c0b"
   uri: "https://huggingface.co/camenduru/Stable-Diffusion-NCNN/raw/017c34bc871b25262c18ff6c146668223faf1d1a/UNetModel-fp16.bin"
 - filename: "stablediffusion_assets/UNetModel-fp16.param"
-  sha256: "c72842bb06f8089dc6e2a01af4d694275848835b649b67ae839c02cfc8362f11"
   uri: "https://huggingface.co/camenduru/Stable-Diffusion-NCNN/raw/017c34bc871b25262c18ff6c146668223faf1d1a/UNetModel-fp16.param"
