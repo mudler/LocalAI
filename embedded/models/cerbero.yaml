@@ -1,0 +1,24 @@
+backend: llama
+context_size: 8192
+f16: false
+gpu_layers: 90
+name: cerbero
+mmap: false
+parameters:
+  model: huggingface://galatolo/cerbero-7b-gguf/ggml-model-Q8_0.gguf
+  top_k: 80
+  temperature: 0.2
+  top_p: 0.7
+template:
+  completion: "{{.Input}}"
+  chat: "Questa è una conversazione tra un umano ed un assistente AI.\n{{.Input}}\n[|Assistente|]  "
+roles:
+  user: "[|Umano|] "
+  system: "[|Umano|] "
+  assistant: "[|Assistente|] "
+
+stopwords:
+- "[|Umano|]"
+
+trimsuffix: 
+- "\n"

@@ -1,0 +1,37 @@
+backend: llama-cpp
+context_size: 4096
+f16: true
+
+gpu_layers: 90
+mmap: true
+name: llava-1.6-vicuna
+
+roles:
+  user: "USER:"
+  assistant: "ASSISTANT:"
+  system: "SYSTEM:"
+
+mmproj: mmproj-vicuna7b-f16.gguf
+parameters:
+  model: vicuna-7b-q5_k.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+  seed: -1
+
+template:
+  chat: |
+    A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.
+    {{.Input}}
+    ASSISTANT:
+
+download_files:
+- filename: vicuna-7b-q5_k.gguf
+  uri: https://huggingface.co/cmp-nct/llava-1.6-gguf/resolve/main/vicuna-7b-q5_k.gguf
+- filename: mmproj-vicuna7b-f16.gguf
+  uri: https://huggingface.co/cmp-nct/llava-1.6-gguf/resolve/main/mmproj-vicuna7b-f16.gguf
+
+usage: |
+    curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+        "model": "llava-1.6-vicuna",
+        "messages": [{"role": "user", "content": [{"type":"text", "text": "What is in the image?"}, {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" }}], "temperature": 0.9}]}'
