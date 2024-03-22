@@ -188,7 +188,14 @@ func (c *BackendConfig) FunctionToCall() string {
 	return c.functionCallNameString
 }
 
-func (cfg *BackendConfig) SetDefaults(debug bool, threads, ctx int, f16 bool) {
+func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
+	lo := &LoadOptions{}
+	lo.Apply(opts...)
+
+	ctx := lo.ctxSize
+	threads := lo.threads
+	f16 := lo.f16
+	debug := lo.debug
 	defaultTopP := 0.7
 	defaultTopK := 80
 	defaultTemp := 0.9
@@ -333,9 +340,6 @@ func (lo *LoadOptions) Apply(options ...ConfigLoaderOption) {
 // Load a config file for a model
 func (cl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath string, opts ...ConfigLoaderOption) (*BackendConfig, error) {
 
-	lo := &LoadOptions{}
-	lo.Apply(opts...)
-
 	// Load a config file if present after the model name
 	cfg := &BackendConfig{
 		PredictionOptions: schema.PredictionOptions{
@@ -350,7 +354,9 @@ func (cl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath 
 		// Try loading a model config file
 		modelConfig := filepath.Join(modelPath, modelName+".yaml")
 		if _, err := os.Stat(modelConfig); err == nil {
-			if err := cl.LoadBackendConfig(modelConfig); err != nil {
+			if err := cl.LoadBackendConfig(
+				modelConfig, opts...,
+			); err != nil {
 				return nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
 			}
 			cfgExisting, exists = cl.GetBackendConfig(modelName)
@@ -360,7 +366,7 @@ func (cl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath 
 		}
 	}
 
-	cfg.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+	cfg.SetDefaults(opts...)
 
 	return cfg, nil
 }
@@ -371,9 +377,6 @@ func NewBackendConfigLoader() *BackendConfigLoader {
 	}
 }
 func ReadBackendConfigFile(file string, opts ...ConfigLoaderOption) ([]*BackendConfig, error) {
-	lo := &LoadOptions{}
-	lo.Apply(opts...)
-
 	c := &[]*BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
@@ -384,7 +387,7 @@ func ReadBackendConfigFile(file string, opts ...ConfigLoaderOption) ([]*BackendC
 	}
 
 	for _, cc := range *c {
-		cc.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+		cc.SetDefaults(opts...)
 	}
 
 	return *c, nil
@@ -403,7 +406,7 @@ func ReadBackendConfig(file string, opts ...ConfigLoaderOption) (*BackendConfig,
 		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
 	}
 
-	c.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+	c.SetDefaults(opts...)
 	return c, nil
 }
 
