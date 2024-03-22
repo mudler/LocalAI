@@ -54,7 +54,7 @@ download_files:
 # nextcloud files
 - filename: "stablediffusion_assets/UNetModel-fp16.bin"
   sha256: "3fae3d2180fc332d800e3372384c333e6a661839e22bcebe0bd4ef293f7c1c0b"
-  uri: "https://raw.githubusercontent.com/sbe-arg/Stable-Diffusion-NCNN_nextcloud_assets/assets/UNetModel-fp16.bin"
+  uri: "https://huggingface.co/camenduru/Stable-Diffusion-NCNN/raw/main/UNetModel-fp16.bin"
 - filename: "stablediffusion_assets/UNetModel-fp16.param"
   sha256: "c72842bb06f8089dc6e2a01af4d694275848835b649b67ae839c02cfc8362f11"
-  uri: "https://raw.githubusercontent.com/sbe-arg/Stable-Diffusion-NCNN_nextcloud_assets/assets/UNetModel-fp16.param"
+  uri: "https://huggingface.co/camenduru/Stable-Diffusion-NCNN/raw/main/UNetModel-fp16.param"
