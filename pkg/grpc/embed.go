@@ -85,6 +85,22 @@ func (e *embedBackend) Status(ctx context.Context) (*pb.StatusResponse, error) {
 	return e.s.Status(ctx, &pb.HealthMessage{})
 }
 
+func (e *embedBackend) StoresSet(ctx context.Context, in *pb.StoresSetOptions, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StoresSet(ctx, in)
+}
+
+func (e *embedBackend) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StoresDelete(ctx, in)
+}
+
+func (e *embedBackend) StoresGet(ctx context.Context, in *pb.StoresGetOptions, opts ...grpc.CallOption) (*pb.StoresGetResult, error) {
+	return e.s.StoresGet(ctx, in)
+}
+
+func (e *embedBackend) StoresFind(ctx context.Context, in *pb.StoresFindOptions, opts ...grpc.CallOption) (*pb.StoresFindResult, error) {
+	return e.s.StoresFind(ctx, in)
+}
+
 type embedBackendServerStream struct {
 	ctx context.Context
 	fn  func(s []byte)

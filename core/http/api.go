@@ -172,6 +172,13 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	// Elevenlabs
 	app.Post("/v1/text-to-speech/:voice-id", auth, elevenlabs.TTSEndpoint(cl, ml, appConfig))
 
+	// Stores
+	sl := model.NewModelLoader("")
+	app.Post("/stores/set", auth, localai.StoresSetEndpoint(sl, appConfig))
+	app.Post("/stores/delete", auth, localai.StoresDeleteEndpoint(sl, appConfig))
+	app.Post("/stores/get", auth, localai.StoresGetEndpoint(sl, appConfig))
+	app.Post("/stores/find", auth, localai.StoresFindEndpoint(sl, appConfig))
+
 	// openAI compatible API endpoint
 
 	// chat

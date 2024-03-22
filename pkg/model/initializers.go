@@ -17,6 +17,7 @@ import (
 var Aliases map[string]string = map[string]string{
 	"go-llama": LLamaCPP,
 	"llama":    LLamaCPP,
+	"embedded-store": LocalStoreBackend,
 }
 
 const (
@@ -34,6 +35,8 @@ const (
 	TinyDreamBackend       = "tinydream"
 	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "langchain-huggingface"
+
+	LocalStoreBackend = "local-store"
 )
 
 var AutoLoadBackends []string = []string{
