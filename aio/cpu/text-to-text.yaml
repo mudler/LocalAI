@@ -1,22 +1,25 @@
-name: gpt-3.5-turbo
-context_size: 2048
-f16: true
-gpu_layers: 90
+name: gpt-4
 mmap: true
-trimsuffix: 
-- "\n"
 parameters:
-  model: huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
+  model: huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q8_0.gguf
 
 template:
-  chat: &template |-
-    Instruct: {{.Input}}
-    Output:
-  completion: *template
-
+  chat_message: |
+    <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}
+    {{if .Content}}{{.Content}}{{end}}
+    <|im_end|>
+  chat: |
+    {{.Input}}
+    <|im_start|>assistant
+  completion: |
+    {{.Input}}
+context_size: 2048
+f16: true
+stopwords:
+- <|im_end|>
+- <dummy32000>
 usage: |
-      To use this model, interact with the API (in another terminal) with curl for instance:
       curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-          "model": "phi-2",
+          "model": "phi-2-chat",
           "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
       }'

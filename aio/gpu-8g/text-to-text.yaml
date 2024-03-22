@@ -1,4 +1,4 @@
-name: gpt-3.5-turbo
+name: gpt-4
 mmap: true
 parameters:
   model: huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q6_K.gguf
@@ -46,6 +46,6 @@ stopwords:
 - <dummy32000>
 usage: |
       curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-          "model": "hermes-2-pro-mistral",
+          "model": "gpt-4",
           "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
       }'

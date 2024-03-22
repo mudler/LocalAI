@@ -1,4 +1,4 @@
-name: dreamshaper
+name: stablediffusion
 parameters:
   model: huggingface://Lykon/DreamShaper/DreamShaper_8_pruned.safetensors
 backend: diffusers

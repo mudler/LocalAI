@@ -88,8 +88,8 @@ function check_vars() {
 detect_gpu
 detect_gpu_size
 
-SIZE=${SIZE:-$GPU_SIZE} # default to cpu
-MODELS=${MODELS:-/aio/${SIZE}/embeddings.yaml,/aio/${SIZE}/text-to-speech.yaml,/aio/${SIZE}/image-gen.yaml,/aio/${SIZE}/text-to-text.yaml,/aio/${SIZE}/speech-to-text.yaml,/aio/${SIZE}/vision.yaml}
+SIZE="${SIZE:-$GPU_SIZE}" # default to cpu
+export MODELS="${MODELS:-/aio/${SIZE}/embeddings.yaml,/aio/${SIZE}/text-to-speech.yaml,/aio/${SIZE}/image-gen.yaml,/aio/${SIZE}/text-to-text.yaml,/aio/${SIZE}/speech-to-text.yaml,/aio/${SIZE}/vision.yaml}"
 
 check_vars
 
