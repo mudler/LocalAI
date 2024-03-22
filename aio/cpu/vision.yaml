@@ -4,7 +4,7 @@ f16: true
 
 gpu_layers: 90
 mmap: true
-name: llava
+name: gpt-4-vision-preview
 
 roles:
   user: "USER:"
@@ -36,5 +36,5 @@ download_files:
 
 usage: |
     curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-        "model": "llava",
+        "model": "gpt-4-vision-preview",
         "messages": [{"role": "user", "content": [{"type":"text", "text": "What is in the image?"}, {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" }}], "temperature": 0.9}]}'
