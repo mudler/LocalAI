@@ -227,7 +227,7 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
-            BASE_IMAGE=localai/localai:${{ steps.meta_aio_dockerhub.outputs.version }}
+            BASE_IMAGE=localai/localai:${{ steps.meta.outputs.version }}
           context: .
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}
