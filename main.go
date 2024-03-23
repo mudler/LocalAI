@@ -50,7 +50,7 @@ func main() {
 	app := &cli.App{
 		Name:    "LocalAI",
 		Version: internal.PrintableVersion(),
-		Usage:   "OpenAI compatible API for running LLaMA/GPT models locally on CPU with consumer grade hardware.",
+		Usage:   "OpenAI, OSS alternative. Drop-in compatible API for running LLM, GPT and genAI models locally on CPU, GPUs with consumer grade hardware. Supported server endpoints: OpenAI, Elevenlabs",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "f16",
@@ -313,11 +313,16 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 			}
 
-			closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
-			defer closeConfigWatcherFn()
+			configdir := ctx.String("localai-config-dir")
+			// Watch the configuration directory
+			// If the directory does not exist, we don't watch it
+			if _, err := os.Stat(configdir); err == nil {
+				closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
+				defer closeConfigWatcherFn()
 
-			if err != nil {
-				return fmt.Errorf("failed while watching configuration directory %s", ctx.String("localai-config-dir"))
+				if err != nil {
+					return fmt.Errorf("failed while watching configuration directory %s", ctx.String("localai-config-dir"))
+				}
 			}
 
 			appHTTP, err := http.App(cl, ml, options)
@@ -402,6 +407,12 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						Required: true,
 					},
 					&cli.StringFlag{
+						Name:     "voice",
+						Aliases:  []string{"v"},
+						Usage:    "Voice name to run the TTS (optional)",
+						Required: true,
+					},
+					&cli.StringFlag{
 						Name:    "output-file",
 						Aliases: []string{"o"},
 						Usage:   "The path to write the output wav file",
@@ -434,7 +445,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer ml.StopAllGRPC()
 
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ml, opts, config.BackendConfig{})
+					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ctx.String("voice"), ml, opts, config.BackendConfig{})
 					if err != nil {
 						return err
 					}
@@ -504,7 +515,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						return errors.New("model not found")
 					}
 
-					c.Threads = threads
+					c.Threads = &threads
 
 					defer ml.StopAllGRPC()
 

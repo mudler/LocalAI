@@ -26,6 +26,8 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
+      aio: ${{ matrix.aio }}
+      makeflags: "-j3"
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -85,6 +87,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+            aio: "-aio-gpu-nvidia-cuda-11"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -95,6 +98,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+            aio: "-aio-gpu-nvidia-cuda-12"
           - build-type: ''
             #platforms: 'linux/amd64,linux/arm64'
             platforms: 'linux/amd64'
@@ -119,6 +123,22 @@ jobs:
             ffmpeg: 'false'
             image-type: 'extras'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            runs-on: 'arc-runner-set'
+          - build-type: 'sycl_f16'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            tag-suffix: '-sycl-f16-ffmpeg'
+            ffmpeg: 'true'
+            image-type: 'extras'
+            runs-on: 'arc-runner-set'
+          - build-type: 'sycl_f32'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            tag-suffix: '-sycl-f32-ffmpeg'
+            ffmpeg: 'true'
+            image-type: 'extras'
             runs-on: 'arc-runner-set'
           # Core images
           - build-type: 'sycl_f16'
@@ -182,7 +202,9 @@ jobs:
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
+      aio: ${{ matrix.aio }}
       base-image: ${{ matrix.base-image }}
+      makeflags: "-j3"
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -199,6 +221,7 @@ jobs:
             image-type: 'core'
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
+            aio: "-aio-cpu"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"

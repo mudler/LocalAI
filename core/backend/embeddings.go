@@ -10,10 +10,6 @@ import (
 )
 
 func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
-	if !backendConfig.Embeddings {
-		return nil, fmt.Errorf("endpoint disabled for this model by API configuration")
-	}
-
 	modelFile := backendConfig.Model
 
 	grpcOpts := gRPCModelOpts(backendConfig)
@@ -23,7 +19,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(backendConfig.Threads)),
+		model.WithThreads(uint32(*backendConfig.Threads)),
 		model.WithAssetDir(appConfig.AssetsDestination),
 		model.WithModel(modelFile),
 		model.WithContext(appConfig.Context),

@@ -6,6 +6,10 @@ parameters:
   top_k: 40
   top_p: 0.95
   seed: -1
+mirostat: 2
+mirostat_eta: 1.0
+mirostat_tau: 1.0
+
 template:
   chat_message: |
     <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}

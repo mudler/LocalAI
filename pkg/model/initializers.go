@@ -15,12 +15,12 @@ import (
 )
 
 var Aliases map[string]string = map[string]string{
-	"go-llama": GoLlamaBackend,
+	"go-llama": LLamaCPP,
 	"llama":    LLamaCPP,
+	"embedded-store": LocalStoreBackend,
 }
 
 const (
-	GoLlamaBackend      = "llama"
 	LlamaGGML           = "llama-ggml"
 	LLamaCPP            = "llama-cpp"
 	Gpt4AllLlamaBackend = "gpt4all-llama"
@@ -36,14 +36,12 @@ const (
 	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "langchain-huggingface"
 
-	// External Backends that need special handling within LocalAI:
-	TransformersMusicGen = "transformers-musicgen"
+	LocalStoreBackend = "local-store"
 )
 
 var AutoLoadBackends []string = []string{
 	LLamaCPP,
 	LlamaGGML,
-	GoLlamaBackend,
 	Gpt4All,
 	BertEmbeddingsBackend,
 	RwkvBackend,
@@ -67,6 +65,13 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
 			}
 			return fmt.Sprintf("127.0.0.1:%d", port), nil
+		}
+
+		// If no specific model path is set for transformers/HF, set it to the model path
+		for _, env := range []string{"HF_HOME", "TRANSFORMERS_CACHE", "HUGGINGFACE_HUB_CACHE"} {
+			if os.Getenv(env) == "" {
+				os.Setenv(env, ml.ModelPath)
+			}
 		}
 
 		// Check if the backend is provided as external

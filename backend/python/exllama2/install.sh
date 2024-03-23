@@ -2,10 +2,14 @@
 set -e
 ##
 ## A bash script installs the required dependencies of VALL-E-X and prepares the environment
-export PATH=$PATH:/opt/conda/bin
 export SHA=c0ddebaaaf8ffd1b3529c2bb654e650bce2f790f
 
-# Activate conda environment
+if [ "$BUILD_TYPE" != "cublas" ]; then
+    echo "[exllamav2] Attention!!! Nvidia GPU is required - skipping installation"
+    exit 0
+fi
+
+export PATH=$PATH:/opt/conda/bin
 source activate transformers
 
 echo $CONDA_PREFIX

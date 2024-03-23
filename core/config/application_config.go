@@ -159,7 +159,6 @@ func WithBackendAssets(f embed.FS) AppOption {
 func WithStringGalleries(galls string) AppOption {
 	return func(o *ApplicationConfig) {
 		if galls == "" {
-			log.Debug().Msgf("no galleries to load")
 			o.Galleries = []gallery.Gallery{}
 			return
 		}
@@ -263,6 +262,21 @@ func WithConfigsDir(configsDir string) AppOption {
 func WithApiKeys(apiKeys []string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ApiKeys = apiKeys
+	}
+}
+
+// ToConfigLoaderOptions returns a slice of ConfigLoader Option.
+// Some options defined at the application level are going to be passed as defaults for
+// all the configuration for the models.
+// This includes for instance the context size or the number of threads.
+// If a model doesn't set configs directly to the config model file
+// it will use the defaults defined here.
+func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
+	return []ConfigLoaderOption{
+		LoadOptionContextSize(o.ContextSize),
+		LoadOptionDebug(o.Debug),
+		LoadOptionF16(o.F16),
+		LoadOptionThreads(o.Threads),
 	}
 }
 

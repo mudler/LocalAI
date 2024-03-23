@@ -1,0 +1,18 @@
+backend: bert-embeddings
+embeddings: true
+f16: true
+
+gpu_layers: 90
+mmap: true
+name: text-embedding-ada-002
+
+parameters:
+  model: huggingface://mudler/all-MiniLM-L6-v2/ggml-model-q4_0.bin
+
+usage: |
+    You can test this model with curl like this:
+
+    curl http://localhost:8080/embeddings -X POST -H "Content-Type: application/json" -d '{
+      "input": "Your text string goes here",
+      "model": "text-embedding-ada-002"
+    }'
