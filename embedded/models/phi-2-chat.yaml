@@ -1,4 +1,4 @@
-name: gpt-4
+name: phi-2-chat
 mmap: true
 parameters:
   model: huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q8_0.gguf
@@ -13,7 +13,7 @@ template:
     <|im_start|>assistant
   completion: |
     {{.Input}}
-context_size: 2048
+context_size: 4096
 f16: true
 stopwords:
 - <|im_end|>

@@ -18,6 +18,48 @@ service Backend {
   rpc TTS(TTSRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
+
+  rpc StoresSet(StoresSetOptions) returns (Result) {}
+  rpc StoresDelete(StoresDeleteOptions) returns (Result) {}
+  rpc StoresGet(StoresGetOptions) returns (StoresGetResult) {}
+  rpc StoresFind(StoresFindOptions) returns (StoresFindResult) {}
+}
+
+message StoresKey {
+  repeated float Floats = 1;
+}
+
+message StoresValue {
+  bytes Bytes = 1;
+}
+
+message StoresSetOptions {
+  repeated StoresKey Keys = 1;
+  repeated StoresValue Values = 2;
+}
+
+message StoresDeleteOptions {
+  repeated StoresKey Keys = 1;
+}
+
+message StoresGetOptions {
+  repeated StoresKey Keys = 1;
+}
+
+message StoresGetResult {
+  repeated StoresKey Keys = 1;
+  repeated StoresValue Values = 2;
+}
+
+message StoresFindOptions {
+  StoresKey Key = 1;
+  int32 TopK = 2;
+}
+
+message StoresFindResult {
+  repeated StoresKey Keys = 1;
+  repeated StoresValue Values = 2;
+  repeated float Similarities = 3;
 }
 
 message HealthMessage {}
@@ -121,7 +163,7 @@ message ModelOptions {
 
   bool NoMulMatQ = 37;
   string DraftModel = 39;
-  
+
   string AudioPath = 38;
 
   // vllm

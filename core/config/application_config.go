@@ -258,6 +258,21 @@ func WithApiKeys(apiKeys []string) AppOption {
 	}
 }
 
+// ToConfigLoaderOptions returns a slice of ConfigLoader Option.
+// Some options defined at the application level are going to be passed as defaults for
+// all the configuration for the models.
+// This includes for instance the context size or the number of threads.
+// If a model doesn't set configs directly to the config model file
+// it will use the defaults defined here.
+func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
+	return []ConfigLoaderOption{
+		LoadOptionContextSize(o.ContextSize),
+		LoadOptionDebug(o.Debug),
+		LoadOptionF16(o.F16),
+		LoadOptionThreads(o.Threads),
+	}
+}
+
 // func WithMetrics(meter *metrics.Metrics) AppOption {
 // 	return func(o *StartupOptions) {
 // 		o.Metrics = meter

@@ -12,6 +12,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
+	model "github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -165,6 +166,13 @@ func App(application *core.Application) (*fiber.App, error) {
 	app.Delete("/models/galleries", auth, modelGalleryEndpointService.RemoveModelGalleryEndpoint())
 	app.Get("/models/jobs/:uuid", auth, modelGalleryEndpointService.GetOpStatusEndpoint())
 	app.Get("/models/jobs", auth, modelGalleryEndpointService.GetAllStatusEndpoint())
+
+	// Stores
+	storeLoader := model.NewModelLoader("") // TODO: Investigate if this should be migrated to application and reused. Should the path be configurable? Merging for now.
+	app.Post("/stores/set", auth, localai.StoresSetEndpoint(storeLoader, application.ApplicationConfig))
+	app.Post("/stores/delete", auth, localai.StoresDeleteEndpoint(storeLoader, application.ApplicationConfig))
+	app.Post("/stores/get", auth, localai.StoresGetEndpoint(storeLoader, application.ApplicationConfig))
+	app.Post("/stores/find", auth, localai.StoresFindEndpoint(storeLoader, application.ApplicationConfig))
 
 	// openAI compatible API endpoint
 

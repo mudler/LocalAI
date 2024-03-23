@@ -175,7 +175,14 @@ func (c *BackendConfig) FunctionToCall() string {
 	return c.functionCallNameString
 }
 
-func (cfg *BackendConfig) SetDefaults(debug bool, threads, ctx int, f16 bool) {
+func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
+	lo := &ConfigLoaderOptions{}
+	lo.Apply(opts...)
+
+	ctx := lo.ctxSize
+	threads := lo.threads
+	f16 := lo.f16
+	debug := lo.debug
 	defaultTopP := 0.7
 	defaultTopK := 80
 	defaultTemp := 0.9

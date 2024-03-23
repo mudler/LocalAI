@@ -24,10 +24,6 @@ type BackendConfigLoader struct {
 	sync.Mutex
 }
 
-// Merged over from #1822, not entirely sure if it should stay or be subsumed into *appConfig based service refactors
-// It's not too bad to convert one to the other by calling all existing setter functions...
-//
-//	but it'll be a pain to maintain that if we add more setters and forget to add elsewhere.
 type ConfigLoaderOptions struct {
 	debug            bool
 	threads, ctxSize int
@@ -235,8 +231,6 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFile(file string, opts ...Confi
 
 // Load a config file for a model
 func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName string, modelPath string, opts ...ConfigLoaderOption) (*BackendConfig, error) {
-	lo := &ConfigLoaderOptions{}
-	lo.Apply(opts...)
 
 	// Load a config file if present after the model name
 	cfg := &BackendConfig{
@@ -262,14 +256,11 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName string, mo
 		}
 	}
 
-	cfg.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+	cfg.SetDefaults(opts...)
 	return cfg, nil
 }
 
 func readBackendConfigFile(file string, opts ...ConfigLoaderOption) ([]*BackendConfig, error) {
-	lo := &ConfigLoaderOptions{}
-	lo.Apply(opts...)
-
 	c := &[]*BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
@@ -280,16 +271,13 @@ func readBackendConfigFile(file string, opts ...ConfigLoaderOption) ([]*BackendC
 	}
 
 	for _, cc := range *c {
-		cc.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+		cc.SetDefaults(opts...)
 	}
 
 	return *c, nil
 }
 
 func readBackendConfig(file string, opts ...ConfigLoaderOption) (*BackendConfig, error) {
-	lo := &ConfigLoaderOptions{}
-	lo.Apply(opts...)
-
 	c := &BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
@@ -299,7 +287,7 @@ func readBackendConfig(file string, opts ...ConfigLoaderOption) (*BackendConfig,
 		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
 	}
 
-	c.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+	c.SetDefaults(opts...)
 	return c, nil
 }
 

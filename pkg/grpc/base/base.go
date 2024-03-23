@@ -72,6 +72,22 @@ func (llm *Base) Status() (pb.StatusResponse, error) {
 	}, nil
 }
 
+func (llm *Base) StoresSet(*pb.StoresSetOptions) error {
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) StoresGet(*pb.StoresGetOptions) (pb.StoresGetResult, error) {
+	return pb.StoresGetResult{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) StoresDelete(*pb.StoresDeleteOptions) error {
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error) {
+	return pb.StoresFindResult{}, fmt.Errorf("unimplemented")
+}
+
 func memoryUsage() *pb.MemoryUsageData {
 	mud := pb.MemoryUsageData{
 		Breakdown: make(map[string]uint64),

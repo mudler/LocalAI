@@ -19,6 +19,11 @@ type LLM interface {
 	TTS(*pb.TTSRequest) error
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
 	Status() (pb.StatusResponse, error)
+
+	StoresSet(*pb.StoresSetOptions) error
+	StoresDelete(*pb.StoresDeleteOptions) error
+	StoresGet(*pb.StoresGetOptions) (pb.StoresGetResult, error)
+	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
 }
 
 func newReply(s string) *pb.Reply {

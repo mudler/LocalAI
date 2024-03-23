@@ -57,18 +57,14 @@ func Startup(opts ...config.AppOption) (*core.Application, error) {
 
 	app := createApplication(options)
 
-	//
 	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
 
-	// app.BackendConfigLoader = config.NewBackendConfigLoader()
-	// app.ModelLoader = model.NewModelLoader(options.ModelPath)
-
-	if err := app.BackendConfigLoader.LoadBackendConfigsFromPath(options.ModelPath); err != nil {
+	if err := app.BackendConfigLoader.LoadBackendConfigsFromPath(options.ModelPath, app.ApplicationConfig.ToConfigLoaderOptions()...); err != nil {
 		log.Error().Msgf("error loading config files: %s", err.Error())
 	}
 
 	if options.ConfigFile != "" {
-		if err := app.BackendConfigLoader.LoadBackendConfigFile(options.ConfigFile); err != nil {
+		if err := app.BackendConfigLoader.LoadBackendConfigFile(options.ConfigFile, app.ApplicationConfig.ToConfigLoaderOptions()...); err != nil {
 			log.Error().Msgf("error loading config file: %s", err.Error())
 		}
 	}
