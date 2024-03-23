@@ -43,14 +43,14 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-- All-in-one image: https://github.com/mudler/LocalAI/issues/1855
+- Vector store: https://github.com/mudler/LocalAI/pull/1795
+- All-in-one container image: https://github.com/mudler/LocalAI/issues/1855
 - Parallel function calling: https://github.com/mudler/LocalAI/pull/1726
 - Upload file API: https://github.com/mudler/LocalAI/pull/1703
 - Tools API support: https://github.com/mudler/LocalAI/pull/1715
 - LLaVa 1.6: https://github.com/mudler/LocalAI/pull/1714
 - ROCm container images: https://github.com/mudler/LocalAI/pull/1595
 - Intel GPU support (sycl, transformers, diffusers): https://github.com/mudler/LocalAI/issues/1653
-- Deprecation of old backends: https://github.com/mudler/LocalAI/issues/1651
 - Mamba support: https://github.com/mudler/LocalAI/pull/1589
 - Start and share models with config file: https://github.com/mudler/LocalAI/pull/1522
 - 🐸 Coqui: https://github.com/mudler/LocalAI/pull/1489
