@@ -114,6 +114,7 @@ jobs:
             tag-suffix: '-hipblas-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
+            aio: "-aio-gpu-hipblas"
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
             runs-on: 'arc-runner-set'
           - build-type: 'hipblas'
@@ -132,6 +133,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
+            aio: "-aio-gpu-intel-f16"
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -140,6 +142,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
+            aio: "-aio-gpu-intel-f32"
           # Core images
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
