@@ -51,7 +51,7 @@ jobs:
             base-image: "ubuntu:22.04"
           - build-type: ''
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -81,7 +81,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-cublas-cuda11-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -92,7 +92,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "1"
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-cublas-cuda12-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -110,10 +110,11 @@ jobs:
             runs-on: 'arc-runner-set'
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-hipblas-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
+            aio: "-aio-gpu-hipblas"
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
             runs-on: 'arc-runner-set'
           - build-type: 'hipblas'
@@ -126,20 +127,22 @@ jobs:
             runs-on: 'arc-runner-set'
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
             tag-suffix: '-sycl-f16-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
+            aio: "-aio-gpu-intel-f16"
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
             tag-suffix: '-sycl-f32-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
+            aio: "-aio-gpu-intel-f32"
           # Core images
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
@@ -215,7 +218,7 @@ jobs:
         include:
           - build-type: ''
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
