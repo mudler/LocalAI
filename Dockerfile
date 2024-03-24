@@ -239,6 +239,7 @@ RUN mkdir -p /build/models
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f $HEALTHCHECK_ENDPOINT || exit 1
-
+  
+VOLUME /build/models
 EXPOSE 8080
 ENTRYPOINT [ "/build/entrypoint.sh" ]
