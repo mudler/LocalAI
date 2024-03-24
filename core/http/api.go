@@ -174,7 +174,7 @@ func App(application *core.Application) (*fiber.App, error) {
 	app.Post("/stores/get", auth, localai.StoresGetEndpoint(storeLoader, application.ApplicationConfig))
 	app.Post("/stores/find", auth, localai.StoresFindEndpoint(storeLoader, application.ApplicationConfig))
 
-	// openAI compatible API endpoint
+	// openAI compatible API endpoints
 
 	// chat
 	app.Post("/v1/chat/completions", auth, openai.ChatEndpoint(fiberContextExtractor, application.OpenAIService))
@@ -208,13 +208,16 @@ func App(application *core.Application) (*fiber.App, error) {
 
 	// audio
 	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(fiberContextExtractor, application.TranscriptionBackendService))
-	app.Post("/tts", auth, localai.TTSEndpoint(fiberContextExtractor, application.TextToSpeechBackendService))
+	app.Post("/v1/audio/speech", auth, localai.TTSEndpoint(fiberContextExtractor, application.TextToSpeechBackendService))
 
 	// images
 	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(fiberContextExtractor, application.ImageGenerationBackendService))
 
 	// Elevenlabs
 	app.Post("/v1/text-to-speech/:voice-id", auth, elevenlabs.TTSEndpoint(fiberContextExtractor, application.TextToSpeechBackendService))
+
+	// LocalAI TTS?
+	app.Post("/tts", auth, localai.TTSEndpoint(fiberContextExtractor, application.TextToSpeechBackendService))
 
 	if application.ApplicationConfig.ImageDir != "" {
 		app.Static("/generated-images", application.ApplicationConfig.ImageDir)
