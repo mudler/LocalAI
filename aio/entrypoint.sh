@@ -33,6 +33,17 @@ function detect_gpu() {
                 else
                     echo "Intel GPU detected, but Intel GPU drivers are not installed. GPU acceleration will not be available."
                 fi
+            elif lspci | grep -E 'VGA|3D' | grep -iq "Microsoft Corporation Device 008e"; then
+                # We make the assumption this WSL2 cars is NVIDIA, then check for nvidia-smi
+                # Make sure the container was run with `--gpus all` as the only required parameter
+                echo "NVIDIA GPU detected via WSL2"
+                # nvidia-smi should be installed in the container
+                if nvidia-smi; then
+                    GPU_ACCELERATION=true
+                    GPU_VENDOR=nvidia
+                else
+                    echo "NVIDIA GPU detected via WSL2, but nvidia-smi is not installed. GPU acceleration will not be available."
+                fi
             fi
             ;;
         Darwin)
