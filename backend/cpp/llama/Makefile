@@ -18,6 +18,12 @@ else ifeq ($(BUILD_TYPE),clblas)
 # If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++ 
 else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON
+# If it's OSX, DO NOT embed the metal library - -DLLAMA_METAL_EMBED_LIBRARY=ON requires further investigation
+# But if it's OSX without metal, disable it here
+else ifeq ($(OS),darwin)
+	ifneq ($(BUILD_TYPE),metal)
+		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+	endif
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
@@ -35,7 +41,7 @@ llama.cpp:
 	fi
 	cd llama.cpp && git checkout -b build $(LLAMA_VERSION) && git submodule update --init --recursive --depth 1
 
-llama.cpp/examples/grpc-server:
+llama.cpp/examples/grpc-server: llama.cpp
 	mkdir -p llama.cpp/examples/grpc-server
 	cp -r $(abspath ./)/CMakeLists.txt llama.cpp/examples/grpc-server/
 	cp -r $(abspath ./)/grpc-server.cpp llama.cpp/examples/grpc-server/

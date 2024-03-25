@@ -1,0 +1,51 @@
+name: gpt-4
+mmap: true
+parameters:
+  model: huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q6_K.gguf
+
+roles:
+  assistant_function_call: assistant
+  function: tool
+template:
+  chat_message: |
+    <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "function"}}{{.Role}}{{else if eq .RoleName "user"}}user{{end}}
+    {{ if eq .RoleName "assistant_function_call" }}<tool_call>{{end}}
+    {{ if eq .RoleName "function" }}<tool_result>{{end}}
+    {{if .Content}}{{.Content}}{{end}}
+    {{if .FunctionCall}}{{toJson .FunctionCall}}{{end}}
+    {{ if eq .RoleName "assistant_function_call" }}</tool_call>{{end}}
+    {{ if eq .RoleName "function" }}</tool_result>{{end}}
+    <|im_end|>
+  # https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF#prompt-format-for-function-calling
+  function: |
+    <|im_start|>system
+    You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools: 
+    <tools>
+    {{range .Functions}}
+    {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+    {{end}}
+    </tools> 
+    Use the following pydantic model json schema for each tool call you will make: 
+    {'title': 'FunctionCall', 'type': 'object', 'properties': {'arguments': {'title': 'Arguments', 'type': 'object'}, 'name': {'title': 'Name', 'type': 'string'}}, 'required': ['arguments', 'name']} 
+    For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:
+    <tool_call>
+    {'arguments': <args-dict>, 'name': <function-name>}
+    </tool_call><|im_end|>
+    {{.Input}}
+    <|im_start|>assistant
+    <tool_call>
+  chat: |
+    {{.Input}}
+    <|im_start|>assistant
+  completion: |
+    {{.Input}}
+context_size: 4096
+f16: true
+stopwords:
+- <|im_end|>
+- <dummy32000>
+usage: |
+      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+          "model": "gpt-4",
+          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+      }'

@@ -15,12 +15,12 @@ import (
 )
 
 var Aliases map[string]string = map[string]string{
-	"go-llama": GoLlamaBackend,
+	"go-llama": LLamaCPP,
 	"llama":    LLamaCPP,
+	"embedded-store": LocalStoreBackend,
 }
 
 const (
-	GoLlamaBackend      = "llama"
 	LlamaGGML           = "llama-ggml"
 	LLamaCPP            = "llama-cpp"
 	Gpt4AllLlamaBackend = "gpt4all-llama"
@@ -36,14 +36,12 @@ const (
 	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "langchain-huggingface"
 
-	// External Backends that need special handling within LocalAI:
-	TransformersMusicGen = "transformers-musicgen"
+	LocalStoreBackend = "local-store"
 )
 
 var AutoLoadBackends []string = []string{
 	LLamaCPP,
 	LlamaGGML,
-	GoLlamaBackend,
 	Gpt4All,
 	BertEmbeddingsBackend,
 	RwkvBackend,

@@ -1,0 +1,25 @@
+name: phi-2-chat
+mmap: true
+parameters:
+  model: huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q8_0.gguf
+
+template:
+  chat_message: |
+    <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}
+    {{if .Content}}{{.Content}}{{end}}
+    <|im_end|>
+  chat: |
+    {{.Input}}
+    <|im_start|>assistant
+  completion: |
+    {{.Input}}
+context_size: 4096
+f16: true
+stopwords:
+- <|im_end|>
+- <dummy32000>
+usage: |
+      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+          "model": "phi-2-chat",
+          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+      }'

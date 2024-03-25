@@ -22,6 +22,7 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
+      makeflags: "-j3"
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -80,6 +81,7 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
+      makeflags: "-j3"
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
