@@ -73,7 +73,7 @@ function detect_gpu_size() {
             #fi
         else
             echo "Unable to determine NVIDIA GPU memory size. Falling back to CPU."
-            GPU_SIZE=cpu
+            GPU_SIZE=gpu-8g
         fi
 
     # Default to a generic GPU size until we implement GPU size detection for non NVIDIA GPUs
