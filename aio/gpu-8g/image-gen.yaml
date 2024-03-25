@@ -1,6 +1,6 @@
 name: stablediffusion
 parameters:
-  model: huggingface://Lykon/DreamShaper/DreamShaper_8_pruned.safetensors
+  model: DreamShaper_8_pruned.safetensors
 backend: diffusers
 step: 25
 f16: true
@@ -10,6 +10,10 @@ diffusers:
   cuda: true
   enable_parameters: "negative_prompt,num_inference_steps"
   scheduler_type: "k_dpmpp_2m"
+
+download_files:
+- filename: DreamShaper_8_pruned.safetensors
+  uri: huggingface://Lykon/DreamShaper/DreamShaper_8_pruned.safetensors
 
 usage: |
         curl http://localhost:8080/v1/images/generations \
