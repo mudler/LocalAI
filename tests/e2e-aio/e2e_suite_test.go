@@ -51,9 +51,6 @@ var _ = BeforeSuite(func() {
 
 	Eventually(func() error {
 		_, err := client.ListModels(context.TODO())
-		if err != nil {
-			fmt.Println(err)
-		}
 		return err
 	}, "20m").ShouldNot(HaveOccurred())
 })
