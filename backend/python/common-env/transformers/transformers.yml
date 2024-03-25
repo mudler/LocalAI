@@ -61,7 +61,7 @@ dependencies:
       - onnx==1.15.0
       - openvino==2024.0.0
       - openvino-telemetry==2023.2.1
-      - git+https://github.com/huggingface/optimum-intel.git
+      - optimum[openvino]==1.17.1
       - packaging==23.2
       - pandas
       - peft==0.5.0
