@@ -31,14 +31,14 @@ icon = "info"
 </a>
 </p>
 
-[<img src="https://img.shields.io/badge/dockerhub-images-important.svg?logo=Docker">](https://hub.docker.com/r/localai/localai)
-[<img src="https://img.shields.io/badge/quay.io-images-important.svg?">](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest)
-
-> 💡 Get help - [❓FAQ](https://localai.io/faq/) [❓How tos](https://io.midori-ai.xyz/howtos/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [💭Discord](https://discord.gg/uJAeKSAGDy)
->
-> [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/) [ 🚀 Roadmap ](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
-
-**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families and architectures. Does not require GPU. It is maintained by [mudler](https://github.com/mudler).
+<p align="center">
+<a href="https://hub.docker.com/r/localai/localai" target="blank">
+<img src="https://img.shields.io/badge/dockerhub-images-important.svg?logo=Docker" alt="LocalAI Docker hub"/>
+</a>
+<a href="https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest" target="blank">
+<img src="https://img.shields.io/badge/quay.io-images-important.svg?" alt="LocalAI Quay.io"/>
+</a>
+</p>
 
 <p align="center">
 <a href="https://twitter.com/LocalAI_API" target="blank">
@@ -47,6 +47,35 @@ icon = "info"
 <a href="https://discord.gg/uJAeKSAGDy" target="blank">
 <img src="https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted" alt="Join LocalAI Discord Community"/>
 </a>
+</p>
+
+
+> 💡 Get help - [❓FAQ](https://localai.io/faq/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [💭Discord](https://discord.gg/uJAeKSAGDy)
+>
+> [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/) [ 🚀 Roadmap ](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
+
+
+
+
+**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families and architectures. Does not require GPU. It is maintained by [mudler](https://github.com/mudler).
+
+
+## Start LocalAI
+
+Start the image with Docker to have a functional clone of OpenAI! 🚀:
+
+```bash
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
+# Do you have a Nvidia GPUs? Use this instead
+# CUDA 11
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-cuda-11
+# CUDA 12
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-cuda-12
+```
+
+See the [💻 Quickstart](https://localai.io/basics/getting_started/) for all the options and way you can run LocalAI!
+
+## What is LocalAI?
 
 In a nutshell:
 
@@ -61,8 +90,7 @@ LocalAI is focused on making the AI accessible to anyone. Any contribution, feed
 
 Note that this started just as a fun weekend project by [mudler](https://github.com/mudler) in order to try to create the necessary pieces for a full AI assistant like `ChatGPT`: the community is growing fast and we are working hard to make it better and more stable. If you want to help, please consider contributing (see below)!
 
-
-## 🚀 Features
+### 🚀 Features
 
 - 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `gpt4all.cpp`, ... [:book: and more](https://localai.io/model-compatibility/index.html#model-compatibility-table))
 - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
