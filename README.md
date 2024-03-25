@@ -37,7 +37,7 @@
 <img src="https://dcbadge.vercel.app/api/server/uJAeKSAGDy?style=flat-square&theme=default-inverted" alt="Join LocalAI Discord Community"/>
 </a>
 
-**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that’s compatible with OpenAI API specifications for local inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU.
+**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that’s compatible with OpenAI (Elevenlabs, Anthropic... ) API specifications for local AI inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU.
 
 ## 🔥🔥 Hot topics / Roadmap
 
@@ -67,10 +67,14 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 
 ## 💻 [Getting started](https://localai.io/basics/getting_started/index.html)
 
-For a detailed step-by-step introduction, refer to the [Getting Started](https://localai.io/basics/getting_started/index.html) guide. For those in a hurry, here's a straightforward one-liner to launch a LocalAI instance with [phi-2](https://huggingface.co/microsoft/phi-2) using `docker`:
+For a detailed step-by-step introduction, refer to the [Getting Started](https://localai.io/basics/getting_started/index.html) guide. 
 
-```
-docker run -ti -p 8080:8080 localai/localai:v2.9.0-ffmpeg-core phi-2
+For those in a hurry, here's a straightforward one-liner to launch a LocalAI AIO(All-in-one) Image using `docker`:
+
+```bash
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
+# or, if you have an Nvidia GPU:
+# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-cuda12
 ```
 
 ## 🚀 [Features](https://localai.io/features/)
