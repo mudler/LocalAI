@@ -8,6 +8,7 @@ import argparse
 import signal
 import sys
 import os
+from threading import Thread
 
 import time
 import backend_pb2
@@ -16,7 +17,7 @@ import backend_pb2_grpc
 import grpc
 import torch
 import torch.cuda
-from threading import Thread
+
 
 XPU=os.environ.get("XPU", "0") == "1"
 if XPU:
@@ -26,7 +27,7 @@ if XPU:
     from optimum.intel.openvino import OVModelForCausalLM
     from openvino.runtime import Core
 else:
-    from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed, BitsAndBytesConfig
+    from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed, BitsAndBytesConfig, TextIteratorStreamer
 
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -124,7 +125,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     else:
                         xpu_4bit = False
                         xpu_8bit = False
-
                     self.model = AutoModelForCausalLM.from_pretrained(model_name, 
                                                                       trust_remote_code=request.TrustRemoteCode, 
                                                                       use_safetensors=True,
@@ -167,6 +167,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     print("Not using XPU:", err, file=sys.stderr)
 
         except Exception as err:
+            print("Error:", err, file=sys.stderr)
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         # Implement your logic here for the LoadModel service
         # Replace this with your desired response
@@ -223,19 +224,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.Tokens > 0:
             max_tokens = request.Tokens
 
+        inputs = self.tokenizer(request.Prompt, return_tensors="pt")
         if self.CUDA:
             inputs = inputs.to("cuda")
         if XPU and self.OV == False:
             inputs = inputs.to("xpu")
+            streaming = False
 
-        inputs = self.tokenizer(request.Prompt, return_tensors="pt")
         if streaming:
             streamer=TextIteratorStreamer(self.tokenizer,
                                         skip_prompt=True,
                                         skip_special_tokens=True)
             config=dict(inputs,
                         max_new_tokens=max_tokens, 
-                        temperature=float(request.Temperature), 
+                        temperature=request.Temperature, 
                         top_p=request.TopP,
                         top_k=request.TopK, 
                         do_sample=True,
@@ -251,15 +253,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 yield backend_pb2.Reply(message=bytes(new_text, encoding='utf-8'))
         else:
             outputs = self.model.generate(inputs["input_ids"],
-                                        max_new_tokens=max_tokens, 
-                                        temperature=float(request.Temperature), 
-                                        top_p=request.TopP,
-                                        top_k=request.TopK, 
-                                        do_sample=True,
-                                        attention_mask=inputs["attention_mask"],
-                                        eos_token_id=self.tokenizer.eos_token_id,
-                                        pad_token_id=self.tokenizer.eos_token_id)
+                                max_new_tokens=max_tokens, 
+                                temperature=request.Temperature, 
+                                top_p=request.TopP,
+                                top_k=request.TopK, 
+                                do_sample=True,
+                                pad_token=self.tokenizer.eos_token_id)
             generated_text = self.tokenizer.batch_decode(outputs[:, inputs["input_ids"].shape[1]:], skip_special_tokens=True)[0]
+            yield backend_pb2.Reply(message=bytes(new_text, encoding='utf-8'))
         return backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
 
     def PredictStream(self, request, context):
