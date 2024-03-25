@@ -10,16 +10,7 @@ icon = "rocket_launch"
 
 **LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI API specifications for local inferencing. It allows you to run [LLMs]({{%relref "docs/features/text-generation" %}}), generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families and architectures.
 
-## Installation Methods
-
 LocalAI is available as a container image and binary, compatible with various container engines like Docker, Podman, and Kubernetes. Container images are published on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest) and [Docker Hub](https://hub.docker.com/r/localai/localai). Binaries can be downloaded from [GitHub](https://github.com/mudler/LocalAI/releases).
-
-
-{{% alert icon="💡" %}}
-
-**Hardware Requirements:** The hardware requirements for LocalAI vary based on the model size and quantization method used. For performance benchmarks with different backends, such as `llama.cpp`, visit [this link](https://github.com/ggerganov/llama.cpp#memorydisk-requirements). The `rwkv` backend is noted for its lower resource consumption.
-
-{{% /alert %}}
 
 ## Prerequisites
 
@@ -29,14 +20,80 @@ Before you begin, ensure you have a container engine installed if you are not us
 - [Install Podman (Linux)](https://podman.io/getting-started/installation)
 - [Install Docker engine (Servers)](https://docs.docker.com/engine/install/#get-started)
 
+{{% alert icon="💡" %}}
+
+**Hardware Requirements:** The hardware requirements for LocalAI vary based on the model size and quantization method used. For performance benchmarks with different backends, such as `llama.cpp`, visit [this link](https://github.com/ggerganov/llama.cpp#memorydisk-requirements). The `rwkv` backend is noted for its lower resource consumption.
+
+{{% /alert %}}
+
+## Running LocalAI with All-in-One (AIO) Images
+
+LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. 
+
+These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and requires no configuration.
+
+It suggested to use the AIO images if you don't want to configure the models to run on LocalAI. If you want to run specific models, you can use the [manual method]({{%relref "docs/getting-started/manual" %}}).
+
+The AIO Images comes pre-configured with the following features:
+- Text to Speech (TTS)
+- Speech to Text
+- Function calling
+- Large Language Models (LLM) for text generation
+- Image generation
+- Embedding server
+
+
+Start the image with Docker:
+
+```bash
+docker run -p 8080:8080 --name local-ai -ti localai/localai:{{< version >}}-aio-cpu
+# For Nvidia GPUs:
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:{{< version >}}-aio-gpu-cuda-11
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:{{< version >}}-aio-gpu-cuda-12
+```
+
+
+Or with a docker-compose file:
+
+```yaml
+version: "3.9"
+services:
+  api:
+    image: localai/localai:{{< version >}}-aio-cpu
+    # For Nvidia GPUs decomment one of the following (cuda11 or cuda12):
+    # image: localai/localai:{{< version >}}-aio-gpu-cuda-11
+    # image: localai/localai:{{< version >}}-aio-gpu-cuda-12
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
+      interval: 1m
+      timeout: 120m
+      retries: 120
+    ports:
+      - 8080:8080
+    environment:
+      - DEBUG=true
+      # ...
+    volumes:
+      - ./models:/build/models:cached
+    # decomment the following piece if running with Nvidia GPUs
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+```
 
 ## Running Models
 
 > _Do you have already a model file? Skip to [Run models manually]({{%relref "docs/getting-started/manual" %}})_.
 
-LocalAI allows one-click runs with popular models. It downloads the model and starts the API with the model loaded. 
+To load models into LocalAI, you can either [use models manually]({{%relref "docs/getting-started/manual" %}}) or configure LocalAI to pull the models from external sources, like Huggingface and configure the model.
 
-There are different categories of models: [LLMs]({{%relref "docs/features/text-generation" %}}), [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) , [Embeddings]({{%relref "docs/features/embeddings" %}}), [Audio to Text]({{%relref "docs/features/audio-to-text" %}}), and [Text to Audio]({{%relref "docs/features/text-to-audio" %}}) depending on the backend being used and the model architecture.
+To do that, you can point LocalAI to an URL to a YAML configuration file - however - LocalAI does also have some popular model configuration embedded in the binary as well. Below you can find a list of the models configuration that LocalAI has pre-built, see [Model customization]({{%relref "docs/getting-started/customize-model" %}}) on how to configure models from URLs.
+
+There are different categories of models: [LLMs]({{%relref "docs/features/text-generation" %}}), [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) , [Embeddings]({{%relref "docs/features/embeddings" %}}), [Image Generation]({{%relref "docs/features/image-generation" %}}), [Audio to Text]({{%relref "docs/features/audio-to-text" %}}), and [Text to Audio]({{%relref "docs/features/text-to-audio" %}}) depending on the backend being used and the model architecture.
 
 {{% alert icon="💡" %}}
 
@@ -51,7 +108,10 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | Model | Category | Docker command |
 | --- | --- | --- |
 | [phi-2](https://huggingface.co/microsoft/phi-2) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core phi-2``` |
-| 🌋 [llava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava``` |
+| 🌋 [bakllava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core bakllava``` |
+| 🌋 [llava-1.5](https://llava-vl.github.io/) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava-1.5``` |
+| 🌋 [llava-1.6-mistral](https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava-1.6-mistral``` |
+| 🌋 [llava-1.6-vicuna](https://huggingface.co/cmp-nct/llava-1.6-gguf) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core llava-1.6-vicuna``` |
 | [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core mistral-openorca``` |
 | [bert-cpp](https://github.com/skeskinen/bert.cpp) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core bert-cpp``` |
 | [all-minilm-l6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg all-minilm-l6-v2``` |
@@ -68,7 +128,9 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | transformers-tinyllama | [LLM]({{%relref "docs/features/text-generation" %}}) | GPU-only |
 | [codellama-7b](https://huggingface.co/codellama/CodeLlama-7b-hf) (with transformers) | [LLM]({{%relref "docs/features/text-generation" %}}) | GPU-only |
 | [codellama-7b-gguf](https://huggingface.co/TheBloke/CodeLlama-7B-GGUF) (with llama.cpp) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core codellama-7b-gguf``` |
+| [hermes-2-pro-mistral](https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core hermes-2-pro-mistral``` |
 {{% /tab %}}
+
 {{% tab tabName="GPU (CUDA 11)" %}}
 
 
@@ -77,7 +139,10 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | Model | Category | Docker command |
 | --- | --- | --- |
 | [phi-2](https://huggingface.co/microsoft/phi-2) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core phi-2``` |
-| 🌋 [llava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core llava``` |
+| 🌋 [bakllava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core bakllava``` |
+| 🌋 [llava-1.5](https://llava-vl.github.io/) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda11-core llava-1.5``` |
+| 🌋 [llava-1.6-mistral](https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda11-core llava-1.6-mistral``` |
+| 🌋 [llava-1.6-vicuna](https://huggingface.co/cmp-nct/llava-1.6-gguf) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda11-core llava-1.6-vicuna``` |
 | [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core mistral-openorca``` |
 | [bert-cpp](https://github.com/skeskinen/bert.cpp) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core bert-cpp``` |
 | [all-minilm-l6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 all-minilm-l6-v2``` |
@@ -94,6 +159,7 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | transformers-tinyllama | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 transformers-tinyllama``` |
 | [codellama-7b](https://huggingface.co/codellama/CodeLlama-7b-hf) | [LLM]({{%relref "docs/features/text-generation" %}})  | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 codellama-7b``` |
 | [codellama-7b-gguf](https://huggingface.co/TheBloke/CodeLlama-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}})  | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core codellama-7b-gguf``` |
+| [hermes-2-pro-mistral](https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda11-core hermes-2-pro-mistral``` |
 {{% /tab %}}
 
 
@@ -104,7 +170,10 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | Model | Category | Docker command |
 | --- | --- | --- |
 | [phi-2](https://huggingface.co/microsoft/phi-2) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core phi-2``` |
-| 🌋 [llava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core llava``` |
+| 🌋 [bakllava](https://github.com/SkunkworksAI/BakLLaVA) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core bakllava``` |
+| 🌋 [llava-1.5](https://llava-vl.github.io/) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda12-core llava-1.5``` |
+| 🌋 [llava-1.6-mistral](https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda12-core llava-1.6-mistral``` |
+| 🌋 [llava-1.6-vicuna](https://huggingface.co/cmp-nct/llava-1.6-gguf) | [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda12-core llava-1.6-vicuna``` |
 | [mistral-openorca](https://huggingface.co/Open-Orca/Mistral-7B-OpenOrca) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core mistral-openorca``` |
 | [bert-cpp](https://github.com/skeskinen/bert.cpp) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core bert-cpp``` |
 | [all-minilm-l6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | [Embeddings]({{%relref "docs/features/embeddings" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 all-minilm-l6-v2``` |
@@ -121,6 +190,7 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | transformers-tinyllama | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 transformers-tinyllama``` |
 | [codellama-7b](https://huggingface.co/codellama/CodeLlama-7b-hf) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 codellama-7b``` |
 | [codellama-7b-gguf](https://huggingface.co/TheBloke/CodeLlama-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}})  | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core codellama-7b-gguf``` |
+| [hermes-2-pro-mistral](https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda12-core hermes-2-pro-mistral``` |
 {{% /tab %}}
 
 {{< /tabs >}}
