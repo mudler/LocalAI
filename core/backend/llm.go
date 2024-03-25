@@ -99,6 +99,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	}
 
 	if bc.Backend == "" {
+		log.Debug().Msgf("backend not known for %q, falling back to greedy loader to find it", bc.Model)
 		inferenceModel, err = llmbs.ml.GreedyLoader(opts...)
 	} else {
 		inferenceModel, err = llmbs.ml.BackendLoader(opts...)
