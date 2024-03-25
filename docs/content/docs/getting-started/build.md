@@ -15,19 +15,7 @@ LocalAI's extensible architecture allows you to add your own backends, which can
 
 In some cases you might want to re-build LocalAI from source (for instance to leverage Apple Silicon acceleration), or to build a custom container image with your own backends. This section contains instructions on how to build LocalAI from source.
 
-#### Container image
 
-Requirements:
-
-- Docker or podman, or a container engine
-
-In order to build the `LocalAI` container image locally you can use `docker`, for example:
-
-```
-# build the image
-docker build -t localai .
-docker run localai
-```
 
 #### Build LocalAI locally
 
@@ -110,6 +98,27 @@ docker run --rm -ti -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS
 ```
 
 {{% /alert %}}
+
+#### Container image
+
+Requirements:
+
+- Docker or podman, or a container engine
+
+In order to build the `LocalAI` container image locally you can use `docker`, for example:
+
+```
+# build the image
+docker build -t localai .
+docker run localai
+```
+
+There are some build arguments that can be used to customize the build:
+
+| Variable | Default | Description |
+| ---------------------| ------- | ----------- |
+| `IMAGE_TYPE`         |   `extras`      | Build type. Available: `core`, `extras` |
+
 
 ### Example: Build on mac
 
