@@ -22,6 +22,7 @@ var containerImage = os.Getenv("LOCALAI_IMAGE")
 var containerImageTag = os.Getenv("LOCALAI_IMAGE_TAG")
 var modelsDir = os.Getenv("LOCALAI_MODELS_DIR")
 var apiPort = os.Getenv("LOCALAI_API_PORT")
+var apiEndpoint = os.Getenv("LOCALAI_API_ENDPOINT")
 
 func TestLocalAI(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -30,16 +31,45 @@ func TestLocalAI(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 
-	if containerImage == "" {
-		Fail("LOCALAI_IMAGE is not set")
-	}
-	if containerImageTag == "" {
-		Fail("LOCALAI_IMAGE_TAG is not set")
-	}
 	if apiPort == "" {
 		apiPort = "8080"
 	}
 
+	var defaultConfig openai.ClientConfig
+	if apiEndpoint == "" {
+		startDockerImage()
+		defaultConfig = openai.DefaultConfig("")
+		defaultConfig.BaseURL = "http://localhost:" + apiPort + "/v1"
+	} else {
+		fmt.Println("Default ", apiEndpoint)
+		defaultConfig = openai.DefaultConfig("")
+		defaultConfig.BaseURL = apiEndpoint
+	}
+
+	// Wait for API to be ready
+	client = openai.NewClientWithConfig(defaultConfig)
+
+	Eventually(func() error {
+		_, err := client.ListModels(context.TODO())
+		return err
+	}, "20m").ShouldNot(HaveOccurred())
+})
+
+var _ = AfterSuite(func() {
+	if resource != nil {
+		Expect(pool.Purge(resource)).To(Succeed())
+	}
+	//dat, err := os.ReadFile(resource.Container.LogPath)
+	//Expect(err).To(Not(HaveOccurred()))
+	//Expect(string(dat)).To(ContainSubstring("GRPC Service Ready"))
+	//fmt.Println(string(dat))
+})
+
+var _ = AfterEach(func() {
+	//Expect(dbClient.Clear()).To(Succeed())
+})
+
+func startDockerImage() {
 	p, err := dockertest.NewPool("")
 	Expect(err).To(Not(HaveOccurred()))
 	Expect(p.Client.Ping()).To(Succeed())
@@ -71,27 +101,4 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(Not(HaveOccurred()))
 
 	resource = r
-
-	defaultConfig := openai.DefaultConfig("")
-	defaultConfig.BaseURL = "http://localhost:" + apiPort + "/v1"
-
-	// Wait for API to be ready
-	client = openai.NewClientWithConfig(defaultConfig)
-
-	Eventually(func() error {
-		_, err := client.ListModels(context.TODO())
-		return err
-	}, "20m").ShouldNot(HaveOccurred())
-})
-
-var _ = AfterSuite(func() {
-	Expect(pool.Purge(resource)).To(Succeed())
-	//dat, err := os.ReadFile(resource.Container.LogPath)
-	//Expect(err).To(Not(HaveOccurred()))
-	//Expect(string(dat)).To(ContainSubstring("GRPC Service Ready"))
-	//fmt.Println(string(dat))
-})
-
-var _ = AfterEach(func() {
-	//Expect(dbClient.Clear()).To(Succeed())
-})
+}
