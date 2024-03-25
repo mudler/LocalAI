@@ -93,7 +93,7 @@ To load models into LocalAI, you can either [use models manually]({{%relref "doc
 
 To do that, you can point LocalAI to an URL to a YAML configuration file - however - LocalAI does also have some popular model configuration embedded in the binary as well. Below you can find a list of the models configuration that LocalAI has pre-built, see [Model customization]({{%relref "docs/getting-started/customize-model" %}}) on how to configure models from URLs.
 
-There are different categories of models: [LLMs]({{%relref "docs/features/text-generation" %}}), [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) , [Embeddings]({{%relref "docs/features/embeddings" %}}), [Audio to Text]({{%relref "docs/features/audio-to-text" %}}), and [Text to Audio]({{%relref "docs/features/text-to-audio" %}}) depending on the backend being used and the model architecture.
+There are different categories of models: [LLMs]({{%relref "docs/features/text-generation" %}}), [Multimodal LLM]({{%relref "docs/features/gpt-vision" %}}) , [Embeddings]({{%relref "docs/features/embeddings" %}}), [Image Generation]({{%relref "docs/features/image-generation" %}}), [Audio to Text]({{%relref "docs/features/audio-to-text" %}}), and [Text to Audio]({{%relref "docs/features/text-to-audio" %}}) depending on the backend being used and the model architecture.
 
 {{% alert icon="💡" %}}
 
