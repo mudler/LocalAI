@@ -263,6 +263,7 @@ dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-stable-diffusion
 	$(GOCMD) mod edit -dropreplace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang
+	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-llama.cpp
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
