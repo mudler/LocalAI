@@ -224,7 +224,7 @@ sources/go-stable-diffusion:
 	cd sources/go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
-	$(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
+	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
 
 ## tiny-dream
 sources/go-tiny-dream:
@@ -531,7 +531,7 @@ backend-assets/grpc/rwkv: sources/go-rwkv sources/go-rwkv/librwkv.a backend-asse
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/rwkv ./backend/go/llm/rwkv
 
 backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stable-diffusion/libstablediffusion.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-stable-diffusion/ LIBRARY_PATH=$(CURDIR)/sources/go-stable-diffusion/ \
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/go-stable-diffusion/:/usr/include/opencv4" LIBRARY_PATH=$(CURDIR)/sources/go-stable-diffusion/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/stablediffusion
 
 backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libtinydream.a backend-assets/grpc
