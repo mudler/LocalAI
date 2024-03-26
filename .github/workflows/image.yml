@@ -27,7 +27,7 @@ jobs:
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
       aio: ${{ matrix.aio }}
-      makeflags: "-j3"
+      makeflags: "--jobs=3 --output-sync=target"
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -207,7 +207,7 @@ jobs:
       runs-on: ${{ matrix.runs-on }}
       aio: ${{ matrix.aio }}
       base-image: ${{ matrix.base-image }}
-      makeflags: "-j3"
+      makeflags: "--jobs=3 --output-sync=target"
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
