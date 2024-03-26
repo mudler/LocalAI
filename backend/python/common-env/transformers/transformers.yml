@@ -34,6 +34,7 @@ dependencies:
       - boto3==1.28.61
       - botocore==1.31.61
       - certifi==2023.7.22
+      - coloredlogs==15.0.1
       - TTS==0.22.0
       - charset-normalizer==3.3.0
       - datasets==2.14.5
@@ -48,6 +49,7 @@ dependencies:
       - funcy==2.0
       - grpcio==1.59.0
       - huggingface-hub
+      - humanfriendly==10.0
       - idna==3.4
       - jinja2==3.1.2
       - jmespath==1.0.1
@@ -57,7 +59,10 @@ dependencies:
       - multiprocess==0.70.15
       - networkx
       - numpy==1.26.0
-      - optimum==1.17.1
+      - onnx==1.15.0
+      - openvino==2024.0.0
+      - openvino-telemetry==2023.2.1
+      - optimum[openvino]==1.17.1
       - packaging==23.2
       - pandas
       - peft==0.5.0
