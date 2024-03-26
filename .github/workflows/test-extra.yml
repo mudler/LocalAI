@@ -33,7 +33,7 @@ jobs:
              sudo apt-get update && \
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch
-          sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+          sudo apt-get install -y libopencv-dev
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -62,7 +62,7 @@ jobs:
              sudo apt-get update && \
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch
-          sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+          sudo apt-get install -y libopencv-dev
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -91,7 +91,7 @@ jobs:
              sudo apt-get update && \
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch
-          sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+          sudo apt-get install -y libopencv-dev
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -121,7 +121,7 @@ jobs:
              sudo apt-get update && \
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch
-          sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+          sudo apt-get install -y libopencv-dev
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -152,7 +152,7 @@ jobs:
              sudo apt-get update && \
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch
-          sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+          sudo apt-get install -y libopencv-dev
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -223,7 +223,7 @@ jobs:
   #            sudo apt-get update && \
   #            sudo apt-get install -y conda
   #         sudo apt-get install -y ca-certificates cmake curl patch
-  #         sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+  #         sudo apt-get install -y libopencv-dev
           
   #         sudo rm -rfv /usr/bin/conda || true
 
@@ -255,7 +255,7 @@ jobs:
   #            sudo apt-get update && \
   #            sudo apt-get install -y conda
   #         sudo apt-get install -y ca-certificates cmake curl patch
-  #         sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+  #         sudo apt-get install -y libopencv-dev
   #         sudo rm -rfv /usr/bin/conda || true
   #     - name: Test vllm
   #       run: |
@@ -281,7 +281,7 @@ jobs:
              sudo apt-get update && \
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch
-          sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2    
+          sudo apt-get install -y libopencv-dev    
           sudo rm -rfv /usr/bin/conda || true
       - name: Test vall-e-x
         run: |
