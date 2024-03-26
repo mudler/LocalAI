@@ -5,12 +5,14 @@ import signal
 import sys
 import os
 import time
+import base64
 
 import grpc
 import backend_pb2
 import backend_pb2_grpc
+
 from auto_gptq import AutoGPTQForCausalLM
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import TextGenerationPipeline
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -28,9 +30,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.Device != "":
                 device = request.Device
 
-            tokenizer = AutoTokenizer.from_pretrained(request.Model, use_fast=request.UseFastTokenizer)
+            # support loading local model files
+            model_path = os.path.join(os.environ.get('MODELS_PATH', './'), request.Model)
+            tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True, trust_remote_code=request.TrustRemoteCode)
 
-            model = AutoGPTQForCausalLM.from_quantized(request.Model,
+            # support model `Qwen/Qwen-VL-Chat-Int4`
+            if "qwen-vl" in request.Model.lower():
+                self.model_name = "Qwen-VL-Chat"
+                model = AutoModelForCausalLM.from_pretrained(model_path, 
+                    trust_remote_code=request.TrustRemoteCode,
+                    use_triton=request.UseTriton,
+                    device_map="auto").eval()
+            else:
+                model = AutoGPTQForCausalLM.from_quantized(model_path,
                     model_basename=request.ModelBaseName,
                     use_safetensors=True,
                     trust_remote_code=request.TrustRemoteCode,
@@ -55,6 +67,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.TopP != 0.0:
             top_p = request.TopP
 
+        
+        prompt_images = self.recompile_vl_prompt(request)
+        compiled_prompt = prompt_images[0]
+        print(f"Prompt: {compiled_prompt}", file=sys.stderr)
+
         # Implement Predict RPC
         pipeline = TextGenerationPipeline(
             model=self.model, 
@@ -64,10 +81,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             top_p=top_p,
             repetition_penalty=penalty,
             )
-        t = pipeline(request.Prompt)[0]["generated_text"]
-        # Remove prompt from response if present
-        if request.Prompt in t:
-            t = t.replace(request.Prompt, "")
+        t = pipeline(compiled_prompt)[0]["generated_text"]
+        print(f"generated_text: {t}", file=sys.stderr)
+        
+        if compiled_prompt in t:
+            t = t.replace(compiled_prompt, "")
+        # house keeping. Remove the image files from /tmp folder
+        for img_path in prompt_images[1]:
+            try:
+                os.remove(img_path)
+            except Exception as e:
+                print(f"Error removing image file: {img_path}, {e}", file=sys.stderr)
 
         return backend_pb2.Result(message=bytes(t, encoding='utf-8'))
 
@@ -78,6 +102,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # Not implemented yet
         return self.Predict(request, context)
 
+    def recompile_vl_prompt(self, request):
+        prompt = request.Prompt
+        image_paths = []
+
+        if "qwen-vl" in self.model_name.lower():
+            # request.Images is an array which contains base64 encoded images. Iterate the request.Images array, decode and save each image to /tmp folder with a random filename.
+            # Then, save the image file paths to an array "image_paths".
+            # read "request.Prompt", replace "[img-%d]" with the image file paths in the order they appear in "image_paths". Save the new prompt to "prompt".
+            for i, img in enumerate(request.Images):
+                timestamp = str(int(time.time() * 1000))  # Generate timestamp
+                img_path = f"/tmp/vl-{timestamp}.jpg"  # Use timestamp in filename
+                with open(img_path, "wb") as f:
+                    f.write(base64.b64decode(img))
+                image_paths.append(img_path)
+                prompt = prompt.replace(f"[img-{i}]", "<img>" + img_path + "</img>,")
+        else:
+            prompt = request.Prompt
+        return (prompt, image_paths)
 
 def serve(address):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))
