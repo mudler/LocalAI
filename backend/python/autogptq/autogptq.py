@@ -5,6 +5,7 @@ import signal
 import sys
 import os
 import time
+import urllib.parse
 
 import grpc
 import backend_pb2
@@ -68,7 +69,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         
         prompt_images = self.recompile_vl_prompt(request)
-        print(f"Prompt: {prompt_images[0]}", file=sys.stderr)
+        compiled_prompt = prompt_images[0]
+        print(f"Prompt: {compiled_prompt}", file=sys.stderr)
 
         # Implement Predict RPC
         pipeline = TextGenerationPipeline(
@@ -79,11 +81,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             top_p=top_p,
             repetition_penalty=penalty,
             )
-        t = pipeline(prompt_images[0])[0]["generated_text"]
-        # Remove prompt from response if present
+        t = pipeline(compiled_prompt)[0]["generated_text"]
         print(f"generated_text: {t}", file=sys.stderr)
-        if request.Prompt in t:
-            t = t.replace(request.Prompt, "")
+        
+        if compiled_prompt in t:
+            t = t.replace(compiled_prompt, "")
         # house keeping. Remove the image files from /tmp folder
         for img_path in prompt_images[1]:
             try:
