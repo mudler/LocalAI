@@ -5,7 +5,7 @@ import signal
 import sys
 import os
 import time
-import urllib.parse
+import base64
 
 import grpc
 import backend_pb2
@@ -114,7 +114,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 timestamp = str(int(time.time() * 1000))  # Generate timestamp
                 img_path = f"/tmp/vl-{timestamp}.jpg"  # Use timestamp in filename
                 with open(img_path, "wb") as f:
-                    f.write(img)
+                    f.write(base64.b64decode(img))
                 image_paths.append(img_path)
                 prompt = prompt.replace(f"[img-{i}]", "<img>" + img_path + "</img>,")
         else:
