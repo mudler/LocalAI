@@ -1,8 +1,6 @@
 backend: llama-cpp
 context_size: 4096
 f16: true
-
-gpu_layers: 90
 mmap: true
 name: gpt-4-vision-preview
 
