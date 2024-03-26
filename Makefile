@@ -556,7 +556,7 @@ docker:
 	docker build \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
-		--build-arg GO_TAGS=$(GO_TAGS) \
+		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		-t $(DOCKER_IMAGE) .
 	
