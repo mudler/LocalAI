@@ -89,8 +89,8 @@ dependencies:
       - six==1.16.0
       - sympy==1.12
       - tokenizers
-      - torch==2.2.1
-      - torchvision==0.17.1
+      - torch==2.1.2
+      - torchvision==0.16.2
       - torchaudio==2.1.2
       - tqdm==4.66.1
       - triton==2.1.0
