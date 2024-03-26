@@ -260,7 +260,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                 do_sample=True,
                                 pad_token=self.tokenizer.eos_token_id)
             generated_text = self.tokenizer.batch_decode(outputs[:, inputs["input_ids"].shape[1]:], skip_special_tokens=True)[0]
-            yield backend_pb2.Reply(message=bytes(new_text, encoding='utf-8'))
         return backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
 
     def PredictStream(self, request, context):
