@@ -7,11 +7,13 @@ import (
 	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
+	openaiendpoint "github.com/go-skynet/LocalAI/core/http/endpoints/openai" // TODO: This is dubious. Fix this when splitting assistant api up.
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	pkgStartup "github.com/go-skynet/LocalAI/pkg/startup"
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -54,6 +56,17 @@ func Startup(opts ...config.AppOption) (*core.Application, error) {
 			return nil, fmt.Errorf("unable to create UploadDir: %q", err)
 		}
 	}
+	if options.ConfigsDir != "" {
+		err := os.MkdirAll(options.ConfigsDir, 0755)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create ConfigsDir: %q", err)
+		}
+	}
+
+	// Load config jsons
+	utils.LoadConfig(options.UploadDir, openaiendpoint.UploadedFilesFile, &openaiendpoint.UploadedFiles)
+	utils.LoadConfig(options.ConfigsDir, openaiendpoint.AssistantsConfigFile, &openaiendpoint.Assistants)
+	utils.LoadConfig(options.ConfigsDir, openaiendpoint.AssistantsFileConfigFile, &openaiendpoint.AssistantFiles)
 
 	app := createApplication(options)
 

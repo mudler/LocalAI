@@ -7,6 +7,15 @@ weight = 26
 
 All-In-One images are images that come pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and requires no configuration. Models configuration can be found [here](https://github.com/mudler/LocalAI/tree/master/aio) separated by size.
 
+What you can find configured out of the box:
+
+- Image generation
+- Text generation
+- Text to audio
+- Audio transcription
+- Embeddings
+- GPT Vision
+
 
 | Description | Quay | Docker Hub                                   |
 | --- | --- |-----------------------------------------------|

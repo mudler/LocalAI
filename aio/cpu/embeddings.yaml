@@ -1,11 +1,5 @@
-backend: bert-embeddings
-embeddings: true
-f16: true
-
-gpu_layers: 90
-mmap: true
 name: text-embedding-ada-002
-
+backend: bert-embeddings
 parameters:
   model: huggingface://mudler/all-MiniLM-L6-v2/ggml-model-q4_0.bin
 

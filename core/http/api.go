@@ -155,9 +155,6 @@ func App(application *core.Application) (*fiber.App, error) {
 		}{Version: internal.PrintableVersion()})
 	})
 
-	// Load upload json
-	openai.LoadUploadConfig(application.ApplicationConfig.UploadDir)
-
 	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(application.ApplicationConfig.Galleries, application.ApplicationConfig.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
 	app.Get("/models/available", auth, modelGalleryEndpointService.ListModelFromGalleryEndpoint())
@@ -183,6 +180,27 @@ func App(application *core.Application) (*fiber.App, error) {
 	// edit
 	app.Post("/v1/edits", auth, openai.EditEndpoint(fiberContextExtractor, application.OpenAIService))
 	app.Post("/edits", auth, openai.EditEndpoint(fiberContextExtractor, application.OpenAIService))
+
+	// assistant
+	// TODO: Refactor this to the new style eventually
+	app.Get("/v1/assistants", openai.ListAssistantsEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Get("/assistants", openai.ListAssistantsEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Post("/v1/assistants", openai.CreateAssistantEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Post("/assistants", openai.CreateAssistantEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Delete("/v1/assistants/:assistant_id", openai.DeleteAssistantEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Delete("/assistants/:assistant_id", openai.DeleteAssistantEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Get("/v1/assistants/:assistant_id", openai.GetAssistantEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Get("/assistants/:assistant_id", openai.GetAssistantEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Post("/v1/assistants/:assistant_id", openai.ModifyAssistantEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Post("/assistants/:assistant_id", openai.ModifyAssistantEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Get("/v1/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Get("/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Post("/v1/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Post("/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Delete("/v1/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Delete("/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Get("/v1/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Get("/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
 
 	// files
 	app.Post("/v1/files", auth, openai.UploadFilesEndpoint(application.BackendConfigLoader, application.ApplicationConfig))
