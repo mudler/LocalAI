@@ -30,6 +30,7 @@ function detect_gpu() {
                 echo "Intel GPU detected"
                 if [ -d /opt/intel ]; then
                     GPU_ACCELERATION=true
+                    GPU_VENDOR=intel
                 else
                     echo "Intel GPU detected, but Intel GPU drivers are not installed. GPU acceleration will not be available."
                 fi
@@ -75,7 +76,8 @@ function detect_gpu_size() {
             echo "Unable to determine NVIDIA GPU memory size. Falling back to CPU."
             GPU_SIZE=gpu-8g
         fi
-
+    elif [ "$GPU_ACCELERATION" = true ] && [ "$GPU_VENDOR" = "intel" ]; then
+        GPU_SIZE=intel
     # Default to a generic GPU size until we implement GPU size detection for non NVIDIA GPUs
     elif [ "$GPU_ACCELERATION" = true ]; then
         echo "Non-NVIDIA GPU detected. Specific GPU memory size detection is not implemented."
