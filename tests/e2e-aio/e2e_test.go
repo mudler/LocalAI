@@ -51,7 +51,7 @@ var _ = Describe("E2E test", func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
-				Expect(resp.Data[0].URL).To(ContainSubstring("http://localhost:8080"), fmt.Sprint(resp.Data[0].URL))
+				Expect(resp.Data[0].URL).To(ContainSubstring("png"), fmt.Sprint(resp.Data[0].URL))
 			})
 		})
 		Context("embeddings", func() {

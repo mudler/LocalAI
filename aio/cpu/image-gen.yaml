@@ -51,3 +51,12 @@ download_files:
 - filename: "stablediffusion_assets/vocab.txt"
   sha256: "e30e57b6f1e47616982ef898d8922be24e535b4fa3d0110477b3a6f02ebbae7d"
   uri: "https://raw.githubusercontent.com/EdVince/Stable-Diffusion-NCNN/main/x86/linux/assets/vocab.txt"
+
+usage: |
+        curl http://localhost:8080/v1/images/generations \
+          -H "Content-Type: application/json" \
+          -d '{
+            "prompt": "<positive prompt>|<negative prompt>",
+            "step": 25,
+            "size": "512x512"
+          }'
