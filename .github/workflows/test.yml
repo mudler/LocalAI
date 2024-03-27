@@ -98,13 +98,13 @@ jobs:
           git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
-            ../.. && sudo make -j12
+            ../.. && sudo make --jobs 5
       - name: Install gRPC
         run: |
-          cd grpc && cd cmake/build && sudo make -j12 install
+          cd grpc && cd cmake/build && sudo make --jobs 5 install
       - name: Test
         run: |
-          GO_TAGS="stablediffusion tts" make test
+          GO_TAGS="stablediffusion tts" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3
@@ -151,7 +151,7 @@ jobs:
           submodules: true
       - name: Build images
         run: |
-          docker build --build-arg FFMPEG=true --build-arg IMAGE_TYPE=core -t local-ai:tests -f Dockerfile .
+          docker build --build-arg FFMPEG=true --build-arg IMAGE_TYPE=core --build-arg MAKEFLAGS="--jobs=5 --output-sync=target" -t local-ai:tests -f Dockerfile .
           BASE_IMAGE=local-ai:tests DOCKER_AIO_IMAGE=local-ai-aio:test make docker-aio
       - name: Test
         run: |
@@ -186,7 +186,7 @@ jobs:
         run: |
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
-          BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
+          BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make --jobs 4 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3

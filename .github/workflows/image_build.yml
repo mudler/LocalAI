@@ -49,7 +49,7 @@ on:
       makeflags:
         description: 'Make Flags'
         required: false
-        default: ''
+        default: '--jobs=3 --output-sync=target'
         type: string
       aio:
         description: 'AIO Image Name'
@@ -217,6 +217,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
             BASE_IMAGE=quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
+            MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}
@@ -230,6 +231,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
             BASE_IMAGE=localai/localai:${{ steps.meta.outputs.version }}
+            MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}

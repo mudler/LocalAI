@@ -61,10 +61,10 @@ jobs:
           git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
-            ../.. && sudo make -j12
+            ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
         run: |
-          cd grpc && cd cmake/build && sudo make -j12 install
+          cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
       - name: Build
         id: build
         env:

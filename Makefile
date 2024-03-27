@@ -558,6 +558,7 @@ docker:
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
+		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		-t $(DOCKER_IMAGE) .
 	
@@ -565,6 +566,7 @@ docker-aio:
 	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
 	docker build \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		-t $(DOCKER_AIO_IMAGE) -f Dockerfile.aio .
 
 docker-aio-all:
@@ -576,6 +578,7 @@ docker-image-intel:
 		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
+		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
 
 docker-image-intel-xpu:
@@ -583,4 +586,5 @@ docker-image-intel-xpu:
 		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
+		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
