@@ -102,7 +102,6 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get install -y --no-install-recommends libopencv-dev
-          sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
       - name: Build stablediffusion
         run: |
           make backend-assets/grpc/stablediffusion
