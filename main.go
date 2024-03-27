@@ -190,6 +190,12 @@ func main() {
 				Value:   false,
 			},
 			&cli.BoolFlag{
+				Name:    "disable-welcome",
+				Usage:   "Disable welcome pages",
+				EnvVars: []string{"DISABLE_WELCOME"},
+				Value:   false,
+			},
+			&cli.BoolFlag{
 				Name:    "enable-watchdog-busy",
 				Usage:   "Enable watchdog for stopping busy backends that exceed a defined threshold.",
 				EnvVars: []string{"WATCHDOG_BUSY"},
@@ -264,6 +270,11 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 			idleWatchDog := ctx.Bool("enable-watchdog-idle")
 			busyWatchDog := ctx.Bool("enable-watchdog-busy")
+
+			if ctx.Bool("disable-welcome") {
+				opts = append(opts, config.DisableWelcomePage)
+			}
+
 			if idleWatchDog || busyWatchDog {
 				opts = append(opts, config.EnableWatchDog)
 				if idleWatchDog {
