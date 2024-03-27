@@ -299,5 +299,21 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	app.Get("/metrics", localai.LocalAIMetricsEndpoint())
 
+	// Define a custom 404 handler
+	app.Use(func(c *fiber.Ctx) error {
+
+		// Check if the request accepts JSON
+		if string(c.Context().Request.Header.ContentType()) == "application/json" || len(c.Accepts("html")) == 0 {
+			// The client expects a JSON response
+			c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Resource not found",
+			})
+		} else {
+			// The client expects an HTML response
+			c.Status(fiber.StatusNotFound).Render("views/404", fiber.Map{})
+		}
+		return nil
+	})
+
 	return app, nil
 }
