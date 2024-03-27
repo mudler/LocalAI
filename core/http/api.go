@@ -1,11 +1,14 @@
 package http
 
 import (
+	"embed"
 	"encoding/json"
 	"errors"
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"net/http"
 	"os"
 	"strings"
+
+	"github.com/go-skynet/LocalAI/pkg/utils"
 
 	"github.com/go-skynet/LocalAI/core/http/endpoints/elevenlabs"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
@@ -21,6 +24,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/template/html/v2"
 )
 
 func readAuthHeader(c *fiber.Ctx) string {
@@ -41,9 +45,14 @@ func readAuthHeader(c *fiber.Ctx) string {
 	return authHeader
 }
 
+//go:embed views/*
+var viewsfs embed.FS
+
 func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
+	engine := html.NewFileSystem(http.FS(viewsfs), ".html")
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
+		Views:                 engine,
 		BodyLimit:             appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
 		DisableStartupMessage: appConfig.DisableMessage,
 		// Override default error handler
@@ -168,6 +177,21 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
 	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
+	if !appConfig.DisableWelcomePage {
+		models, _ := ml.ListModels()
+		backendConfigs := cl.GetAllBackendConfigs()
+		app.Get("/", auth, func(c *fiber.Ctx) error {
+			// Render index
+			return c.Render("views/index", fiber.Map{
+				"Title":             "LocalAI API - " + internal.PrintableVersion(),
+				"Version":           internal.PrintableVersion(),
+				"Models":            models,
+				"ModelsConfig":      backendConfigs,
+				"ApplicationConfig": appConfig,
+			})
+		})
+	}
+
 	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
 	app.Get("/models/available", auth, modelGalleryEndpointService.ListModelFromGalleryEndpoint())
@@ -274,6 +298,22 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	app.Get("/models", auth, openai.ListModelsEndpoint(cl, ml))
 
 	app.Get("/metrics", localai.LocalAIMetricsEndpoint())
+
+	// Define a custom 404 handler
+	app.Use(func(c *fiber.Ctx) error {
+
+		// Check if the request accepts JSON
+		if string(c.Context().Request.Header.ContentType()) == "application/json" || len(c.Accepts("html")) == 0 {
+			// The client expects a JSON response
+			c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Resource not found",
+			})
+		} else {
+			// The client expects an HTML response
+			c.Status(fiber.StatusNotFound).Render("views/404", fiber.Map{})
+		}
+		return nil
+	})
 
 	return app, nil
 }

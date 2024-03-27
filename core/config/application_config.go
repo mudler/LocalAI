@@ -15,6 +15,7 @@ type ApplicationConfig struct {
 	ConfigFile                          string
 	ModelPath                           string
 	UploadLimitMB, Threads, ContextSize int
+	DisableWelcomePage                  bool
 	F16                                 bool
 	Debug, DisableMessage               bool
 	ImageDir                            string
@@ -103,6 +104,10 @@ var EnableWatchDogIdleCheck = func(o *ApplicationConfig) {
 var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
 	o.WatchDog = true
 	o.WatchDogBusy = true
+}
+
+var DisableWelcomePage = func(o *ApplicationConfig) {
+	o.DisableWelcomePage = true
 }
 
 func SetWatchDogBusyTimeout(t time.Duration) AppOption {
