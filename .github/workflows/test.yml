@@ -181,7 +181,7 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc
+          brew install protobuf grpc make
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include
