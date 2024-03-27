@@ -79,7 +79,7 @@ For those in a hurry, here's a straightforward one-liner to launch a LocalAI AIO
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 # or, if you have an Nvidia GPU:
-# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-cuda12
+# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
 ```
 
 ## 🚀 [Features](https://localai.io/features/)
