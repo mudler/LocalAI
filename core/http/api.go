@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"github.com/go-skynet/LocalAI/pkg/utils"
 	"os"
 	"strings"
 
@@ -155,8 +156,17 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		}{Version: internal.PrintableVersion()})
 	})
 
-	// Load upload json
-	openai.LoadUploadConfig(appConfig.UploadDir)
+	// Make sure directories exists
+	os.MkdirAll(appConfig.ImageDir, 0755)
+	os.MkdirAll(appConfig.AudioDir, 0755)
+	os.MkdirAll(appConfig.UploadDir, 0755)
+	os.MkdirAll(appConfig.ConfigsDir, 0755)
+	os.MkdirAll(appConfig.ModelPath, 0755)
+
+	// Load config jsons
+	utils.LoadConfig(appConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
+	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
+	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
 	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
@@ -188,6 +198,26 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	// edit
 	app.Post("/v1/edits", auth, openai.EditEndpoint(cl, ml, appConfig))
 	app.Post("/edits", auth, openai.EditEndpoint(cl, ml, appConfig))
+
+	// assistant
+	app.Get("/v1/assistants", openai.ListAssistantsEndpoint(cl, ml, appConfig))
+	app.Get("/assistants", openai.ListAssistantsEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants", openai.CreateAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/assistants", openai.CreateAssistantEndpoint(cl, ml, appConfig))
+	app.Delete("/v1/assistants/:assistant_id", openai.DeleteAssistantEndpoint(cl, ml, appConfig))
+	app.Delete("/assistants/:assistant_id", openai.DeleteAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id", openai.GetAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id", openai.GetAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants/:assistant_id", openai.ModifyAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/assistants/:assistant_id", openai.ModifyAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
+	app.Post("/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
+	app.Delete("/v1/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
+	app.Delete("/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(cl, ml, appConfig))
 
 	// files
 	app.Post("/v1/files", auth, openai.UploadFilesEndpoint(cl, appConfig))

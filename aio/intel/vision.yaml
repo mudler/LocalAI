@@ -1,7 +1,7 @@
 backend: llama-cpp
 context_size: 4096
-f16: true
-mmap: true
+mmap: false
+f16: false
 name: gpt-4-vision-preview
 
 roles:
@@ -9,9 +9,13 @@ roles:
   assistant: "ASSISTANT:"
   system: "SYSTEM:"
 
-mmproj: bakllava-mmproj.gguf
+mmproj: llava-v1.6-7b-mmproj-f16.gguf
 parameters:
-  model: bakllava.gguf
+  model: llava-v1.6-mistral-7b.Q5_K_M.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+  seed: -1
 
 template:
   chat: |
@@ -20,10 +24,10 @@ template:
     ASSISTANT:
 
 download_files:
-- filename: bakllava.gguf
-  uri: huggingface://mys/ggml_bakllava-1/ggml-model-q4_k.gguf
-- filename: bakllava-mmproj.gguf
-  uri: huggingface://mys/ggml_bakllava-1/mmproj-model-f16.gguf
+- filename: llava-v1.6-mistral-7b.Q5_K_M.gguf
+  uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/llava-v1.6-mistral-7b.Q5_K_M.gguf
+- filename: llava-v1.6-7b-mmproj-f16.gguf
+  uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/mmproj-model-f16.gguf
 
 usage: |
     curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
