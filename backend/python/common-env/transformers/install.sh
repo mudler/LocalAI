@@ -25,7 +25,7 @@ if [ -d "/opt/intel" ]; then
     # Intel GPU: If the directory exists, we assume we are using the intel image
     # (no conda env)
     # https://github.com/intel/intel-extension-for-pytorch/issues/538
-    pip install intel-extension-for-transformers datasets sentencepiece tiktoken neural_speed
+    pip install intel-extension-for-transformers datasets sentencepiece tiktoken neural_speed optimum[openvino]
 fi
 
 if [ "$PIP_CACHE_PURGE" = true ] ; then
