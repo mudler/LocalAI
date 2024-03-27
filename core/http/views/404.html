@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+{{template "views/partials/head" .}}
+
+<body class="bg-black text-white">
+<div class="flex flex-col min-h-screen">
+   
+    {{template "views/partials/navbar" .}}
+    
+    <div class="container mx-auto px-4 flex-grow">
+        <div class="header text-center py-12">
+            <h1 class="text-5xl font-bold">Welcome to your LocalAI instance!</h1>
+            <div class="mt-6">
+         <!--       <a href="/" aria-label="HomePage" alt="HomePage">           
+                    <img class="mx-auto w-1/4 h-auto" src="https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd" alt="LocalAI Logo">            
+                </a>
+            -->
+            </div>
+            <p class="mt-4 text-lg">The FOSS alternative to OpenAI, Claude, ...</p>
+            <a href="https://localai.io" target="_blank" class="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded transition duration-300 ease-in-out hover:bg-blue-700"><i class="fas fa-book-reader pr-2"></i>Documentation</a>
+        </div>
+
+        <div class="models mt-12">
+            <h2 class="text-center text-3xl font-semibold">Nothing found!</h2>
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+</body>
+</html>
