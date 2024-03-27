@@ -30,8 +30,10 @@ func NewFiberContextExtractor(ml *model.ModelLoader, appConfig *config.Applicati
 // Takes a model string as input which should be the one received from the user request.
 // It returns the model name resolved from the context and an error if any.
 func (fce *FiberContextExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput string, firstModel bool) (string, error) {
-	if ctx.Params("model") != "" {
-		modelInput = ctx.Params("model")
+	ctxPM := ctx.Params("model")
+	if ctxPM != "" {
+		log.Debug().Msgf("[FCE] Overriding param modelInput %q with ctx.Params value %q", modelInput, ctxPM)
+		modelInput = ctxPM
 	}
 
 	// Set model from bearer token, if available
@@ -43,16 +45,16 @@ func (fce *FiberContextExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput st
 		models, _ := fce.ml.ListModels()
 		if len(models) > 0 {
 			modelInput = models[0]
-			log.Debug().Msgf("No model specified, using: %s", modelInput)
+			log.Debug().Msgf("[FCE] No model specified, using first available: %s", modelInput)
 		} else {
-			log.Debug().Msgf("No model specified, returning error")
+			log.Debug().Msgf("[FCE] No model specified, none available, returning error")
 			return "", fmt.Errorf("no model specified")
 		}
 	}
 
 	// If a model is found in bearer token takes precedence
 	if bearerExists {
-		log.Debug().Msgf("Using model from bearer token: %s", bearer)
+		log.Debug().Msgf("[FCE] Using model from bearer token: %s", bearer)
 		modelInput = bearer
 	}
 	return modelInput, nil

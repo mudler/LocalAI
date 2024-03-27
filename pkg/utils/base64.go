@@ -6,7 +6,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
+
+var base64DownloadClient http.Client = http.Client{
+	Timeout: 30 * time.Second,
+}
 
 // this function check if the string is an URL, if it's an URL downloads the image in memory
 // encodes it in base64 and returns the base64 string
@@ -18,7 +23,7 @@ import (
 func GetImageURLAsBase64(s string) (string, error) {
 	if strings.HasPrefix(s, "http") {
 		// download the image
-		resp, err := http.Get(s)
+		resp, err := base64DownloadClient.Get(s)
 		if err != nil {
 			return "", err
 		}
