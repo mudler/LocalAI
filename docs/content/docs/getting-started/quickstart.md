@@ -50,8 +50,8 @@ Start the image with Docker:
 ```bash
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
 # For Nvidia GPUs:
-# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-cuda-11
-# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-cuda-12
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-nvidia-cuda-11
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-nvidia-cuda-12
 ```
 
 
