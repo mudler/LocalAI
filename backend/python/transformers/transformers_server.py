@@ -8,6 +8,7 @@ import argparse
 import signal
 import sys
 import os
+from threading import Thread
 
 import time
 import backend_pb2
@@ -17,13 +18,16 @@ import grpc
 import torch
 import torch.cuda
 
+
 XPU=os.environ.get("XPU", "0") == "1"
 if XPU:
     import intel_extension_for_pytorch as ipex
     from intel_extension_for_transformers.transformers.modeling import AutoModelForCausalLM
-    from transformers import AutoTokenizer, AutoModel, set_seed
+    from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreamer
+    from optimum.intel.openvino import OVModelForCausalLM
+    from openvino.runtime import Core
 else:
-    from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed, BitsAndBytesConfig
+    from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed, BitsAndBytesConfig, TextIteratorStreamer
 
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -81,6 +85,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             compute=torch.bfloat16
 
         self.CUDA = request.CUDA
+        self.OV=False
 
         device_map="cpu"
 
@@ -105,23 +110,55 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     bnb_4bit_compute_dtype = None,
                     load_in_8bit=True,                                   
                 )
-                                                   
-    
+                                               
         try:
             if request.Type == "AutoModelForCausalLM":
                 if XPU:
-                    if quantization == "xpu_4bit":
+                    device_map="xpu"
+                    compute=torch.float16
+                    if request.Quantization == "xpu_4bit":
                         xpu_4bit = True
-                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,
-                                              device_map="xpu", load_in_4bit=xpu_4bit)
+                        xpu_8bit = False
+                    elif request.Quantization == "xpu_8bit":
+                        xpu_4bit = False
+                        xpu_8bit = True
+                    else:
+                        xpu_4bit = False
+                        xpu_8bit = False
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, 
+                                                                      trust_remote_code=request.TrustRemoteCode, 
+                                                                      use_safetensors=True,
+                                                                      device_map=device_map, 
+                                                                      load_in_4bit=xpu_4bit, 
+                                                                      load_in_8bit=xpu_8bit, 
+                                                                      torch_dtype=compute)
                 else:
-                    self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode, use_safetensors=True, quantization_config=quantization, device_map=device_map, torch_dtype=compute)
+                    self.model = AutoModelForCausalLM.from_pretrained(model_name, 
+                                                                      trust_remote_code=request.TrustRemoteCode, 
+                                                                      use_safetensors=True, 
+                                                                      quantization_config=quantization, 
+                                                                      device_map=device_map, 
+                                                                      torch_dtype=compute)
+            elif request.Type == "OVModelForCausalLM":
+                if "GPU" in Core().available_devices:
+                    device_map="GPU"
+                else:
+                    device_map="CPU"
+                self.model = OVModelForCausalLM.from_pretrained(model_name, 
+                                                                compile=True, 
+                                                                device=device_map)
+                self.OV = True
             else:
-                self.model = AutoModel.from_pretrained(model_name, trust_remote_code=request.TrustRemoteCode,  use_safetensors=True,  quantization_config=quantization, device_map=device_map, torch_dtype=compute)
+                self.model = AutoModel.from_pretrained(model_name, 
+                                                       trust_remote_code=request.TrustRemoteCode,  
+                                                       use_safetensors=True,  
+                                                       quantization_config=quantization, 
+                                                       device_map=device_map, 
+                                                       torch_dtype=compute)
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
             self.XPU = False
 
-            if XPU:
+            if XPU and self.OV == False:
                 self.XPU = True
                 try:
                     print("Optimizing model", model_name, "to XPU.", file=sys.stderr)
@@ -130,6 +167,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     print("Not using XPU:", err, file=sys.stderr)
 
         except Exception as err:
+            print("Error:", err, file=sys.stderr)
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         # Implement your logic here for the LoadModel service
         # Replace this with your desired response
@@ -167,7 +205,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         print("Embeddings:", sentence_embeddings, file=sys.stderr)
         return backend_pb2.EmbeddingResult(embeddings=sentence_embeddings[0])
 
-    def Predict(self, request, context):
+    def Predict(self, request, context, streaming=False):
         """
         Generates text based on the given prompt and sampling parameters.
 
@@ -186,15 +224,42 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.Tokens > 0:
             max_tokens = request.Tokens
 
-        inputs = self.tokenizer(request.Prompt, return_tensors="pt").input_ids
+        inputs = self.tokenizer(request.Prompt, return_tensors="pt")
         if self.CUDA:
             inputs = inputs.to("cuda")
-        if XPU:
+        if XPU and self.OV == False:
             inputs = inputs.to("xpu")
+            streaming = False
 
-        outputs = self.model.generate(inputs,max_new_tokens=max_tokens, temperature=request.Temperature, top_p=request.TopP, do_sample=True, pad_token_id=self.tokenizer.eos_token_id)
-        generated_text = self.tokenizer.batch_decode(outputs[:, inputs.shape[1]:], skip_special_tokens=True)[0]
-
+        if streaming:
+            streamer=TextIteratorStreamer(self.tokenizer,
+                                        skip_prompt=True,
+                                        skip_special_tokens=True)
+            config=dict(inputs,
+                        max_new_tokens=max_tokens, 
+                        temperature=request.Temperature, 
+                        top_p=request.TopP,
+                        top_k=request.TopK, 
+                        do_sample=True,
+                        attention_mask=inputs["attention_mask"],
+                        eos_token_id=self.tokenizer.eos_token_id,
+                        pad_token_id=self.tokenizer.eos_token_id,
+                        streamer=streamer)
+            thread=Thread(target=self.model.generate, kwargs=config)
+            thread.start()
+            generated_text = ""
+            for new_text in streamer:
+                generated_text += new_text
+                yield backend_pb2.Reply(message=bytes(new_text, encoding='utf-8'))
+        else:
+            outputs = self.model.generate(inputs["input_ids"],
+                                max_new_tokens=max_tokens, 
+                                temperature=request.Temperature, 
+                                top_p=request.TopP,
+                                top_k=request.TopK, 
+                                do_sample=True,
+                                pad_token=self.tokenizer.eos_token_id)
+            generated_text = self.tokenizer.batch_decode(outputs[:, inputs["input_ids"].shape[1]:], skip_special_tokens=True)[0]
         return backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
 
     def PredictStream(self, request, context):
@@ -208,7 +273,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         Returns:
             backend_pb2.Result: The predict stream result.
         """
-        yield self.Predict(request, context)
+        iterations = self.Predict(request, context, streaming=True)
+        for iteration in iterations:
+            yield iteration
 
 
 def serve(address):
