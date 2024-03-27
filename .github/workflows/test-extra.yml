@@ -40,8 +40,8 @@ jobs:
       - name: Test transformers
         run: |
            export PATH=$PATH:/opt/conda/bin
-           make -C backend/python/transformers
-           make -C backend/python/transformers test
+           make --jobs=5 --output-sync=target -C backend/python/transformers
+           make --jobs=5 --output-sync=target -C backend/python/transformers test
 
   tests-sentencetransformers:
     runs-on: ubuntu-latest
@@ -69,8 +69,8 @@ jobs:
       - name: Test sentencetransformers
         run: |
            export PATH=$PATH:/opt/conda/bin
-           make -C backend/python/sentencetransformers
-           make -C backend/python/sentencetransformers test
+           make --jobs=5 --output-sync=target -C backend/python/sentencetransformers
+           make --jobs=5 --output-sync=target -C backend/python/sentencetransformers test
 
   tests-diffusers:
     runs-on: ubuntu-latest
@@ -98,8 +98,8 @@ jobs:
       - name: Test diffusers
         run: |
            export PATH=$PATH:/opt/conda/bin
-           make -C backend/python/diffusers
-           make -C backend/python/diffusers test
+           make --jobs=5 --output-sync=target -C backend/python/diffusers
+           make --jobs=5 --output-sync=target -C backend/python/diffusers test
 
 
   tests-transformers-musicgen:
@@ -128,8 +128,8 @@ jobs:
       - name: Test transformers-musicgen
         run: |
            export PATH=$PATH:/opt/conda/bin
-           make -C backend/python/transformers-musicgen
-           make -C backend/python/transformers-musicgen test
+           make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen
+           make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen test
 
 
 
@@ -159,8 +159,8 @@ jobs:
       - name: Test petals
         run: |
            export PATH=$PATH:/opt/conda/bin
-           make -C backend/python/petals
-           make -C backend/python/petals test
+           make --jobs=5 --output-sync=target -C backend/python/petals
+           make --jobs=5 --output-sync=target -C backend/python/petals test
 
            
 
@@ -230,8 +230,8 @@ jobs:
   #     - name: Test bark
   #       run: |
   #          export PATH=$PATH:/opt/conda/bin
-  #          make -C backend/python/bark
-  #          make -C backend/python/bark test
+  #          make --jobs=5 --output-sync=target -C backend/python/bark
+  #          make --jobs=5 --output-sync=target -C backend/python/bark test
 
            
   # Below tests needs GPU. Commented out for now
@@ -260,8 +260,8 @@ jobs:
   #     - name: Test vllm
   #       run: |
   #          export PATH=$PATH:/opt/conda/bin
-  #          make -C backend/python/vllm
-  #          make -C backend/python/vllm test
+  #          make --jobs=5 --output-sync=target -C backend/python/vllm
+  #          make --jobs=5 --output-sync=target -C backend/python/vllm test
   tests-vallex:
     runs-on: ubuntu-latest
     steps:
@@ -286,8 +286,8 @@ jobs:
       - name: Test vall-e-x
         run: |
            export PATH=$PATH:/opt/conda/bin
-           make -C backend/python/vall-e-x
-           make -C backend/python/vall-e-x test
+           make --jobs=5 --output-sync=target -C backend/python/vall-e-x
+           make --jobs=5 --output-sync=target -C backend/python/vall-e-x test
 
   tests-coqui:
     runs-on: ubuntu-latest
@@ -313,5 +313,5 @@ jobs:
       - name: Test coqui
         run: |
            export PATH=$PATH:/opt/conda/bin
-           make -C backend/python/coqui
-           make -C backend/python/coqui test
+           make --jobs=5 --output-sync=target -C backend/python/coqui
+           make --jobs=5 --output-sync=target -C backend/python/coqui test
