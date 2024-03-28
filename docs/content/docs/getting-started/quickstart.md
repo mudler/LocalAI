@@ -68,8 +68,8 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       interval: 1m
-      timeout: 120m
-      retries: 120
+      timeout: 20m
+      retries: 5
     ports:
       - 8080:8080
     environment:
@@ -89,7 +89,207 @@ services:
 
 For a list of all the container-images available, see [Container images]({{%relref "docs/reference/container-images" %}}). To learn more about All-in-one images instead, see [All-in-one Images]({{%relref "docs/reference/aio-images" %}}).
 
+{{% alert icon="💡" %}}
+
+**Models caching**: The **AIO** image will download the needed models on the first run if not already present and store those in `/build/models` inside the container. The AIO models will be automatically updated with new versions of AIO images.
+
+You can change the directory inside the container by specifying a `MODELS_PATH` environment variable (or `--models-path`). 
+
+If you want to use a named model or a local directory, you can mount it as a volume to `/build/models`:
+
+```bash
+docker run -p 8080:8080 --name local-ai -ti -v $PWD/models:/build/models localai/localai:latest-aio-cpu
+```
+
+or associate a volume:
+
+```bash
+docker volume create localai-models
+docker run -p 8080:8080 --name local-ai -ti -v localai-models:/build/models localai/localai:latest-aio-cpu
+```
+
+{{% /alert %}}
+
+## Try it out
+
+LocalAI does not ship a webui by default, however you can use 3rd party projects to interact with it (see also [All-in-one Images]({{%relref "docs/integrations" %}}) ). However, you can test out the API endpoints using `curl`.
+
+### Text Generation
+
+Creates a model response for the given chat conversation. [OpenAI documentation](https://platform.openai.com/docs/api-reference/chat/create).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+      -H "Content-Type: application/json" \
+      -d '{ "model": "gpt-4", "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}] }' 
+```
+
+</details>
+
+### GPT Vision
+
+Understand images.
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{ 
+        "model": "gpt-4-vision-preview", 
+        "messages": [
+          {
+            "role": "user", "content": [
+              {"type":"text", "text": "What is in the image?"},
+              {
+                "type": "image_url", 
+                "image_url": {
+                  "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" 
+                }
+              }
+            ], 
+          "temperature": 0.9
+          }
+        ]
+      }' 
+```
+
+</details>
+
+### Function calling
+
+Call functions
+
+<details>
+
+```bash
+curl https://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the weather like in Boston?"
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_current_weather",
+          "description": "Get the current weather in a given location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA"
+              },
+              "unit": {
+                "type": "string",
+                "enum": ["celsius", "fahrenheit"]
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  }'
+```
+
+</details>
+
+### Image Generation
+
+Creates an image given a prompt. [OpenAI documentation](https://platform.openai.com/docs/api-reference/images/create).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/images/generations \
+      -H "Content-Type: application/json" -d '{
+          "prompt": "A cute baby sea otter",
+          "size": "256x256"
+        }'
+```
+
+</details>
+
+### Text to speech
+
+
+Generates audio from the input text. [OpenAI documentation](https://platform.openai.com/docs/api-reference/audio/createSpeech).
+
+<details>
+
+```bash
+curl http://localhost:8080/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "tts-1",
+    "input": "The quick brown fox jumped over the lazy dog.",
+    "voice": "alloy"
+  }' \
+  --output speech.mp3
+```
+
+</details>
+
+
+### Audio Transcription
+
+Transcribes audio into the input language. [OpenAI Documentation](https://platform.openai.com/docs/api-reference/audio/createTranscription).
+
+<details>
+
+Download first a sample to transcribe:
+
+```bash
+wget --quiet --show-progress -O gb1.ogg https://upload.wikimedia.org/wikipedia/commons/1/1f/George_W_Bush_Columbia_FINAL.ogg 
+```
+
+Send the example audio file to the transcriptions endpoint :
+```bash
+curl http://localhost:8080/v1/audio/transcriptions \
+    -H "Content-Type: multipart/form-data" \
+    -F file="@$PWD/gb1.ogg" -F model="whisper-1"
+```
+
+</details>
+
+### Embeddings Generation
+
+Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms. [OpenAI Embeddings](https://platform.openai.com/docs/api-reference/embeddings).
+
+<details>
+
+```bash
+curl http://localhost:8080/embeddings \
+    -X POST -H "Content-Type: application/json" \
+    -d '{ 
+        "input": "Your text string goes here", 
+        "model": "text-embedding-ada-002"
+      }'
+```
+
+</details>
+
+{{% alert icon="💡" %}}
+
+Don't use the model file as `model` in the request unless you want to handle the prompt template for yourself.
+
+Use the model names like you would do with OpenAI like in the examples below. For instance `gpt-4-vision-preview`, or `gpt-4`.
+
+{{% /alert %}}
+
 ## What's next?
+
+There is much more to explore! run any model from huggingface, video generation, and voice cloning with LocalAI, check out the [features]({{%relref "docs/features" %}}) section for a full overview.
 
 Explore further resources and community contributions:
 
