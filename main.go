@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/schema"
 
 	"github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/startup"
@@ -314,11 +315,11 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			}
 
 			if ctx.Bool("preload-backend-only") {
-				_, _, _, err := startup.Startup(opts...)
+				_, err := startup.Startup(opts...)
 				return err
 			}
 
-			cl, ml, options, err := startup.Startup(opts...)
+			application, err := startup.Startup(opts...)
 
 			if err != nil {
 				return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
@@ -328,7 +329,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 			// Watch the configuration directory
 			// If the directory does not exist, we don't watch it
 			if _, err := os.Stat(configdir); err == nil {
-				closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), options)
+				closeConfigWatcherFn, err := startup.WatchConfigDirectory(ctx.String("localai-config-dir"), application.ApplicationConfig)
 				defer closeConfigWatcherFn()
 
 				if err != nil {
@@ -336,7 +337,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				}
 			}
 
-			appHTTP, err := http.App(cl, ml, options)
+			appHTTP, err := http.App(application)
 			if err != nil {
 				log.Error().Msg("Error during HTTP App constructor")
 				return err
@@ -456,17 +457,29 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer ml.StopAllGRPC()
 
-					filePath, _, err := backend.ModelTTS(backendOption, text, modelOption, ctx.String("voice"), ml, opts, config.BackendConfig{})
-					if err != nil {
-						return err
+					ttsbs := backend.NewTextToSpeechBackendService(ml, config.NewBackendConfigLoader(), opts)
+
+					request := &schema.TTSRequest{
+						Model:   modelOption,
+						Input:   text,
+						Backend: backendOption,
+						Voice:   ctx.String("voice"),
+					}
+
+					resultsChannel := ttsbs.TextToAudioFile(request)
+
+					rawResult := <-resultsChannel
+
+					if rawResult.Error != nil {
+						return rawResult.Error
 					}
 					if outputFile != "" {
-						if err := os.Rename(filePath, outputFile); err != nil {
+						if err := os.Rename(*rawResult.Value, outputFile); err != nil {
 							return err
 						}
 						fmt.Printf("Generate file %s\n", outputFile)
 					} else {
-						fmt.Printf("Generate file %s\n", filePath)
+						fmt.Printf("Generate file %s\n", *rawResult.Value)
 					}
 					return nil
 				},
@@ -530,11 +543,21 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 					defer ml.StopAllGRPC()
 
-					tr, err := backend.ModelTranscription(filename, language, ml, c, opts)
-					if err != nil {
-						return err
+					tbs := backend.NewTranscriptionBackendService(ml, cl, opts)
+
+					resultChannel := tbs.Transcribe(&schema.OpenAIRequest{
+						PredictionOptions: schema.PredictionOptions{
+							Language: language,
+						},
+						File: filename,
+					})
+
+					r := <-resultChannel
+
+					if r.Error != nil {
+						return r.Error
 					}
-					for _, segment := range tr.Segments {
+					for _, segment := range r.Value.Segments {
 						fmt.Println(segment.Start.String(), "-", segment.Text)
 					}
 					return nil

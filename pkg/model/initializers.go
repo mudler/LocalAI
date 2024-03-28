@@ -81,7 +81,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			if _, err := os.Stat(uri); err == nil {
 				serverAddress, err := getFreeAddress()
 				if err != nil {
-					return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
+					return "", fmt.Errorf("%s failed allocating free ports: %s", backend, err.Error())
 				}
 				// Make sure the process is executable
 				if err := ml.startProcess(uri, o.model, serverAddress); err != nil {
@@ -134,7 +134,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		if !ready {
 			log.Debug().Msgf("GRPC Service NOT ready")
-			return "", fmt.Errorf("grpc service not ready")
+			return "", fmt.Errorf("%s grpc service not ready", backend)
 		}
 
 		options := *o.gRPCOptions
@@ -145,10 +145,10 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, &options)
 		if err != nil {
-			return "", fmt.Errorf("could not load model: %w", err)
+			return "", fmt.Errorf("\"%s\" could not load model: %w", backend, err)
 		}
 		if !res.Success {
-			return "", fmt.Errorf("could not load model (no success): %s", res.Message)
+			return "", fmt.Errorf("\"%s\" could not load model (no success): %s", backend, res.Message)
 		}
 
 		return client, nil

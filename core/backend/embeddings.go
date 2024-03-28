@@ -2,14 +2,100 @@ package backend
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/google/uuid"
 
+	"github.com/go-skynet/LocalAI/pkg/concurrency"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
+type EmbeddingsBackendService struct {
+	ml        *model.ModelLoader
+	bcl       *config.BackendConfigLoader
+	appConfig *config.ApplicationConfig
+}
+
+func NewEmbeddingsBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *EmbeddingsBackendService {
+	return &EmbeddingsBackendService{
+		ml:        ml,
+		bcl:       bcl,
+		appConfig: appConfig,
+	}
+}
+
+func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) <-chan concurrency.ErrorOr[*schema.OpenAIResponse] {
+
+	resultChannel := make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
+	go func(request *schema.OpenAIRequest) {
+		if request.Model == "" {
+			request.Model = model.StableDiffusionBackend
+		}
+
+		bc, request, err := ebs.bcl.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, ebs.appConfig)
+		if err != nil {
+			resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
+			close(resultChannel)
+			return
+		}
+
+		items := []schema.Item{}
+
+		for i, s := range bc.InputToken {
+			// get the model function to call for the result
+			embedFn, err := modelEmbedding("", s, ebs.ml, bc, ebs.appConfig)
+			if err != nil {
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
+			}
+
+			embeddings, err := embedFn()
+			if err != nil {
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
+			}
+			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
+		}
+
+		for i, s := range bc.InputStrings {
+			// get the model function to call for the result
+			embedFn, err := modelEmbedding(s, []int{}, ebs.ml, bc, ebs.appConfig)
+			if err != nil {
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
+			}
+
+			embeddings, err := embedFn()
+			if err != nil {
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				close(resultChannel)
+				return
+			}
+			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
+		}
+
+		id := uuid.New().String()
+		created := int(time.Now().Unix())
+		resp := &schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
+			Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Data:    items,
+			Object:  "list",
+		}
+		resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: resp}
+		close(resultChannel)
+	}(request)
+	return resultChannel
+}
+
+func modelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
 	modelFile := backendConfig.Model
 
 	grpcOpts := gRPCModelOpts(backendConfig)
