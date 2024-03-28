@@ -1,56 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-    </style>
-</head>
-<body class="bg-black text-white">
+{{template "views/partials/head" .}}
 
+<body class="bg-gray-900 text-gray-200">
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
     
     <div class="container mx-auto px-4 flex-grow">
         <div class="header text-center py-12">
-            <h1 class="text-5xl font-bold">Welcome to your LocalAI instance!</h1>
+            <h1 class="text-5xl font-bold text-gray-100">Welcome to <i>your</i> LocalAI instance!</h1>
             <div class="mt-6">
-         <!--       <a href="/" aria-label="HomePage" alt="HomePage">           
-                    <img class="mx-auto w-1/4 h-auto" src="https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd" alt="LocalAI Logo">            
-                </a>
-            -->
+                <!-- Logo can be uncommented and updated with a valid URL -->
             </div>
             <p class="mt-4 text-lg">The FOSS alternative to OpenAI, Claude, ...</p>
-            <a href="https://localai.io" target="_blank" class="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded transition duration-300 ease-in-out hover:bg-blue-700"><i class="fas fa-book-reader pr-2"></i>Documentation</a>
+            <a href="https://localai.io" target="_blank" class="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded-lg shadow transition duration-300 ease-in-out hover:bg-blue-700 hover:shadow-lg">
+                <i class="fas fa-book-reader pr-2"></i>Documentation
+            </a>
         </div>
 
         <div class="models mt-12">
-            <h2 class="text-center text-3xl font-semibold">Installed models</h2>
+            <h2 class="text-center text-3xl font-semibold text-gray-100">Installed models</h2>
             <p class="text-center mt-4 text-xl">We have {{len .ModelsConfig}} pre-loaded models available.</p>
-            <ul class="mt-8">
+            <ul class="mt-8 space-y-4">
                 {{ range .ModelsConfig }}
-                <li class="border border-gray-600 p-4 rounded mb-4">
-                    <p class="font-bold"><i class="fas fa-brain pr-2"></i>{{.Name}}</p>
-                    {{ if .Usage }}
-                    <div class="text-sm bg-gray-800 text-gray-300 p-2 rounded mt-2"><code>{{.Usage}}</code></div>
-                    {{ end }}
-                    {{ if .Description }}
-                    <p class="mt-2 text-gray-400">{{.Description}}</p>
-                    {{ end }}
+                <li class="bg-gray-800 border border-gray-700 p-4 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <p class="font-bold text-white flex items-center"><i class="fas fa-brain pr-2"></i>{{.Name}}</p>
+                        {{ if .Backend }}
+                        <!-- Badge for Backend -->
+                        <span class="inline-block bg-blue-500 text-white py-1 px-3 rounded-full text-xs">
+                            {{.Backend}}
+                        </span>
+                        {{ else }}
+                        <span class="inline-block bg-yellow-500 text-white py-1 px-3 rounded-full text-xs">
+                            auto
+                        </span>
+                        {{ end }}
+                    </div>
+                    <!-- Additional details can go here -->
                 </li>
                 {{ end }}
             </ul>
         </div>
     </div>
-    
+
     {{template "views/partials/footer" .}}
 </div>
 
