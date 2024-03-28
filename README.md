@@ -50,6 +50,7 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- Landing page: https://github.com/mudler/LocalAI/pull/1922
 - Openvino support: https://github.com/mudler/LocalAI/pull/1892
 - Vector store: https://github.com/mudler/LocalAI/pull/1795
 - All-in-one container image: https://github.com/mudler/LocalAI/issues/1855
