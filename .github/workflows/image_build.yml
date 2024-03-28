@@ -197,7 +197,7 @@ jobs:
             IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             MAKEFLAGS=${{ inputs.makeflags }}
-            GRPC_VERSION="v1.58.0"
+            GRPC_VERSION=v1.58.0
           context: .
           file: ./Dockerfile
           cache-from: type=gha

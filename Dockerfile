@@ -93,7 +93,7 @@ RUN if [ ! -e /usr/bin/python ]; then \
 FROM ${BASE_IMAGE} as grpc
 
 ARG MAKEFLAGS
-ARG GRPC_VERSION="v1.58.0"
+ARG GRPC_VERSION=v1.58.0
 
 ENV MAKEFLAGS=${MAKEFLAGS}
 
