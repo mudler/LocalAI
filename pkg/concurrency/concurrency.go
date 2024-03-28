@@ -11,16 +11,17 @@ import (
 func SliceOfChannelsRawMerger[IR any, MR any](individualResultChannels []<-chan IR, outputChannel chan<- MR, mappingFn func(IR) (MR, error), closeWhenDone bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(individualResultChannels))
-	for _, irc := range individualResultChannels {
-		go func(c <-chan IR) {
-			for r := range c {
-				mr, err := mappingFn(r)
-				if err == nil {
-					outputChannel <- mr
-				}
+	mergingFn := func(c <-chan IR) {
+		for r := range c {
+			mr, err := mappingFn(r)
+			if err == nil {
+				outputChannel <- mr
 			}
-			wg.Done()
-		}(irc)
+		}
+		wg.Done()
+	}
+	for _, irc := range individualResultChannels {
+		go mergingFn(irc)
 	}
 	if closeWhenDone {
 		go func() {
@@ -39,22 +40,23 @@ func SliceOfChannelsRawMergerWithoutMapping[T any](individualResultsChannels []<
 func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []<-chan ErrorOr[IV], successChannel chan<- OV, errorChannel chan<- error, mappingFn func(IV) (OV, error), closeWhenDone bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(individualResultChannels))
-	for _, irc := range individualResultChannels {
-		go func(c <-chan ErrorOr[IV]) {
-			for r := range c {
-				if r.Error != nil {
-					errorChannel <- r.Error
+	mergingFn := func(c <-chan ErrorOr[IV]) {
+		for r := range c {
+			if r.Error != nil {
+				errorChannel <- r.Error
+			} else {
+				mv, err := mappingFn(r.Value)
+				if err != nil {
+					errorChannel <- err
 				} else {
-					mv, err := mappingFn(r.Value)
-					if err != nil {
-						errorChannel <- err
-					} else {
-						successChannel <- mv
-					}
+					successChannel <- mv
 				}
 			}
-			wg.Done()
-		}(irc)
+		}
+		wg.Done()
+	}
+	for _, irc := range individualResultChannels {
+		go mergingFn(irc)
 	}
 	if closeWhenDone {
 		go func() {
@@ -69,14 +71,16 @@ func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []
 func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappingFn func(v IV) OV) (outputChannels []<-chan OV) {
 	rawOutputChannels := make([]<-chan OV, len(inputChanels))
 
+	transformingFn := func(i int, ic <-chan IV, oc chan OV) {
+		for iv := range ic {
+			oc <- mappingFn(iv)
+		}
+		close(oc)
+	}
+
 	for ci, c := range inputChanels {
 		roc := make(chan OV)
-		go func(i int, ic <-chan IV, oc chan OV) {
-			for iv := range ic {
-				oc <- mappingFn(iv)
-			}
-			close(oc)
-		}(ci, c, roc)
+		go transformingFn(ci, c, roc)
 		rawOutputChannels[ci] = roc
 	}
 
@@ -89,15 +93,16 @@ func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan I
 	wg = &sync.WaitGroup{}
 	wg.Add(len(individualResultsChannels))
 	reduceLock := sync.Mutex{}
+	reducingFn := func(c <-chan IV) {
+		for iv := range c {
+			reduceLock.Lock()
+			initialValue = reducerFn(iv, initialValue)
+			reduceLock.Unlock()
+		}
+		wg.Done()
+	}
 	for _, irc := range individualResultsChannels {
-		go func(c <-chan IV) {
-			for iv := range c {
-				reduceLock.Lock()
-				initialValue = reducerFn(iv, initialValue)
-				reduceLock.Unlock()
-			}
-			wg.Done()
-		}(irc)
+		go reducingFn(irc)
 	}
 	go func() {
 		wg.Wait()
