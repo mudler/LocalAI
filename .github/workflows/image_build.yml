@@ -201,7 +201,7 @@ jobs:
           context: .
           file: ./Dockerfile
           cache-from: type=gha
-          cache-to: type=gha
+          cache-to: type=gha,ignore-error=true
           target: grpc
           platforms: ${{ inputs.platforms }}
           push: false
