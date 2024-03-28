@@ -80,7 +80,7 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | transformers-tinyllama | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 transformers-tinyllama``` |
 | [codellama-7b](https://huggingface.co/codellama/CodeLlama-7b-hf) | [LLM]({{%relref "docs/features/text-generation" %}})  | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11 codellama-7b``` |
 | [codellama-7b-gguf](https://huggingface.co/TheBloke/CodeLlama-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}})  | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core codellama-7b-gguf``` |
-| [hermes-2-pro-mistral](https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda11-core hermes-2-pro-mistral``` |
+| [hermes-2-pro-mistral](https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda11-core hermes-2-pro-mistral``` |
 {{% /tab %}}
 
 
@@ -111,7 +111,7 @@ To customize the models, see [Model customization]({{%relref "docs/getting-start
 | transformers-tinyllama | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 transformers-tinyllama``` |
 | [codellama-7b](https://huggingface.co/codellama/CodeLlama-7b-hf) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12 codellama-7b``` |
 | [codellama-7b-gguf](https://huggingface.co/TheBloke/CodeLlama-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}})  | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core codellama-7b-gguf``` |
-| [hermes-2-pro-mistral](https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 localai/localai:{{< version >}}-cublas-cuda12-core hermes-2-pro-mistral``` |
+| [hermes-2-pro-mistral](https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF) | [LLM]({{%relref "docs/features/text-generation" %}}) | ```docker run -ti -p 8080:8080 --gpus all localai/localai:{{< version >}}-cublas-cuda12-core hermes-2-pro-mistral``` |
 {{% /tab %}}
 
 {{< /tabs >}}
