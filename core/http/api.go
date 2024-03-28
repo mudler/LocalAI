@@ -210,24 +210,24 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	app.Post("/edits", auth, openai.EditEndpoint(cl, ml, appConfig))
 
 	// assistant
-	app.Get("/v1/assistants", openai.ListAssistantsEndpoint(cl, ml, appConfig))
-	app.Get("/assistants", openai.ListAssistantsEndpoint(cl, ml, appConfig))
-	app.Post("/v1/assistants", openai.CreateAssistantEndpoint(cl, ml, appConfig))
-	app.Post("/assistants", openai.CreateAssistantEndpoint(cl, ml, appConfig))
-	app.Delete("/v1/assistants/:assistant_id", openai.DeleteAssistantEndpoint(cl, ml, appConfig))
-	app.Delete("/assistants/:assistant_id", openai.DeleteAssistantEndpoint(cl, ml, appConfig))
-	app.Get("/v1/assistants/:assistant_id", openai.GetAssistantEndpoint(cl, ml, appConfig))
-	app.Get("/assistants/:assistant_id", openai.GetAssistantEndpoint(cl, ml, appConfig))
-	app.Post("/v1/assistants/:assistant_id", openai.ModifyAssistantEndpoint(cl, ml, appConfig))
-	app.Post("/assistants/:assistant_id", openai.ModifyAssistantEndpoint(cl, ml, appConfig))
-	app.Get("/v1/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
-	app.Get("/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
-	app.Post("/v1/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
-	app.Post("/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
-	app.Delete("/v1/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
-	app.Delete("/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
-	app.Get("/v1/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(cl, ml, appConfig))
-	app.Get("/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants", auth, openai.ListAssistantsEndpoint(cl, ml, appConfig))
+	app.Get("/assistants", auth, openai.ListAssistantsEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants", auth, openai.CreateAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/assistants", auth, openai.CreateAssistantEndpoint(cl, ml, appConfig))
+	app.Delete("/v1/assistants/:assistant_id", auth, openai.DeleteAssistantEndpoint(cl, ml, appConfig))
+	app.Delete("/assistants/:assistant_id", auth, openai.DeleteAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id", auth, openai.GetAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id", auth, openai.GetAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants/:assistant_id", auth, openai.ModifyAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/assistants/:assistant_id", auth, openai.ModifyAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id/files", auth, openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id/files", auth, openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants/:assistant_id/files", auth, openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
+	app.Post("/assistants/:assistant_id/files", auth, openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
+	app.Delete("/v1/assistants/:assistant_id/files/:file_id", auth, openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
+	app.Delete("/assistants/:assistant_id/files/:file_id", auth, openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id/files/:file_id", auth, openai.GetAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id/files/:file_id", auth, openai.GetAssistantFileEndpoint(cl, ml, appConfig))
 
 	// files
 	app.Post("/v1/files", auth, openai.UploadFilesEndpoint(cl, appConfig))
@@ -276,14 +276,14 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Experimental Backend Statistics Module
 	backendMonitor := services.NewBackendMonitor(cl, ml, appConfig) // Split out for now
-	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitor))
-	app.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitor))
+	app.Get("/backend/monitor", auth, localai.BackendMonitorEndpoint(backendMonitor))
+	app.Post("/backend/shutdown", auth, localai.BackendShutdownEndpoint(backendMonitor))
 
 	// models
 	app.Get("/v1/models", auth, openai.ListModelsEndpoint(cl, ml))
 	app.Get("/models", auth, openai.ListModelsEndpoint(cl, ml))
 
-	app.Get("/metrics", localai.LocalAIMetricsEndpoint())
+	app.Get("/metrics", auth, localai.LocalAIMetricsEndpoint())
 
 	// Define a custom 404 handler
 	// Note: keep this at the bottom!
