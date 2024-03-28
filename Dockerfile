@@ -90,11 +90,34 @@ RUN if [ ! -e /usr/bin/python ]; then \
 ###################################
 ###################################
 
+FROM ${BASE_IMAGE} as grpc
+
+ARG MAKEFLAGS
+ARG GRPC_VERSION="v1.58.0"
+
+ENV MAKEFLAGS=${MAKEFLAGS}
+
+WORKDIR /build
+
+RUN apt-get update && \
+    apt-get install -y build-essential cmake git && \
+    apt-get clean
+
+RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc
+
+RUN cd grpc && \
+    mkdir -p cmake/build && \
+    cd cmake/build && \
+    cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF ../.. && \
+    make
+
+###################################
+###################################
+
 FROM requirements-${IMAGE_TYPE} as builder
 
 ARG GO_TAGS="stablediffusion tts"
 ARG GRPC_BACKENDS
-ARG BUILD_GRPC=true
 ARG MAKEFLAGS
 
 ENV GRPC_BACKENDS=${GRPC_BACKENDS}
@@ -121,12 +144,9 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
-RUN if [ "${BUILD_GRPC}" = "true" ]; then \
-    git clone --recurse-submodules --jobs 4 -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-    cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-      -DgRPC_BUILD_TESTS=OFF \
-       ../.. && make install \
-    ; fi
+COPY --from=grpc /build/grpc ./grpc/
+
+RUN cd /build/grpc/cmake/build && make install
 
 # Rebuild with defaults backends
 RUN make build
@@ -179,7 +199,7 @@ WORKDIR /build
 COPY . .
 
 COPY --from=builder /build/sources ./sources/
-COPY --from=builder /build/grpc ./grpc/
+COPY --from=grpc /build/grpc ./grpc/
 
 RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf grpc
 
