@@ -100,8 +100,9 @@ ENV MAKEFLAGS=${MAKEFLAGS}
 WORKDIR /build
 
 RUN apt-get update && \
-    apt-get install -y build-essential cmake git && \
-    apt-get clean
+    apt-get install -y g++ cmake git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc
 
