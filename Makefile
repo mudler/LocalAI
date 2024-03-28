@@ -590,3 +590,7 @@ docker-image-intel-xpu:
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+
+.PHONY: swagger
+swagger:
+	swag init -g core/http/api.go --output swagger

@@ -25,6 +25,8 @@ import (
 	"github.com/rs/zerolog/log"
 	progressbar "github.com/schollz/progressbar/v3"
 	"github.com/urfave/cli/v2"
+
+	_ "github.com/go-skynet/LocalAI/swagger"
 )
 
 const (

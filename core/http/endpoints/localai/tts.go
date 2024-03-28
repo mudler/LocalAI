@@ -11,6 +11,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// TTSEndpoint is the OpenAI Speech API endpoint https://platform.openai.com/docs/api-reference/audio/createSpeech
+// @Summary Generates audio from the input text.
+// @Param request body schema.TTSRequest true "query params"
+// @Success 200 {string} binary	 "Response"
+// @Router /v1/audio/speech [post]
 func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
