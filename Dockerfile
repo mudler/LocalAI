@@ -119,17 +119,17 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
     ; fi
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
-RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build -j $(nproc)
 
 RUN if [ "${BUILD_GRPC}" = "true" ]; then \
-    git clone --recurse-submodules --jobs 4 -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    git clone --recurse-submodules --jobs $(nproc) -b v1.58.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
     cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
       -DgRPC_BUILD_TESTS=OFF \
-       ../.. && make install \
+       ../.. && make install -j $(nproc) \
     ; fi
 
 # Rebuild with defaults backends
-RUN make build
+RUN make build -j $(nproc)
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
     mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
@@ -181,7 +181,7 @@ COPY . .
 COPY --from=builder /build/sources ./sources/
 COPY --from=builder /build/grpc ./grpc/
 
-RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf grpc
+RUN make prepare-sources && cd /build/grpc/cmake/build && make install -j $(nproc) && rm -rf grpc
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
@@ -194,43 +194,43 @@ COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/
 
 ## Duplicated from Makefile to avoid having a big layer that's hard to push
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/autogptq \
+    make -C backend/python/autogptq -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/bark \
+    make -C backend/python/bark -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/diffusers \
+    make -C backend/python/diffusers -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/vllm \
+    make -C backend/python/vllm -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/mamba \
+    make -C backend/python/mamba -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/sentencetransformers \
+    make -C backend/python/sentencetransformers -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/transformers \
+    make -C backend/python/transformers -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/vall-e-x \
+    make -C backend/python/vall-e-x -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/exllama \
+    make -C backend/python/exllama -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/exllama2 \
+    make -C backend/python/exllama2 -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/petals \
+    make -C backend/python/petals -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/transformers-musicgen \
+    make -C backend/python/transformers-musicgen -j $(nproc) \
     ; fi
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/coqui \
+    make -C backend/python/coqui -j $(nproc) \
     ; fi
 
 # Make sure the models directory exists
