@@ -76,12 +76,13 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 				if event.Has(fsnotify.Write) {
 					for targetName, watchFn := range CONFIG_FILE_UPDATES {
 						if event.Name == targetName {
-							err := watchFn(configDir, appConfig)
-							log.Warn().Msgf("WatchConfigDirectory goroutine for %s: failed to update options: %+v", targetName, err)
+							if err := watchFn(configDir, appConfig); err != nil {
+								log.Warn().Msgf("WatchConfigDirectory goroutine for %s: failed to update options: %+v", targetName, err)
+							}
 						}
 					}
 				}
-			case _, ok := <-configWatcher.Errors:
+			case err, ok := <-configWatcher.Errors:
 				if !ok {
 					return
 				}

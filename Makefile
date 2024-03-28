@@ -518,8 +518,9 @@ ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
 
-backend-assets/grpc/llama-ggml: sources/go-llama-ggml sources/go-llama-ggml/libbinding.a backend-assets/grpc
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama-ggml
+
+backend-assets/grpc/llama-ggml: backend-assets/grpc sources/go-llama-ggml/libbinding.a
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama-ggml.cpp=$(CURDIR)/sources/go-llama-ggml
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama-ggml LIBRARY_PATH=$(CURDIR)/sources/go-llama-ggml \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
 
@@ -535,8 +536,10 @@ backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stab
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/go-stable-diffusion/:/usr/include/opencv4" LIBRARY_PATH=$(CURDIR)/sources/go-stable-diffusion/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/stablediffusion
 
-backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libtinydream.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/go-tiny-dream \
+
+backend-assets/grpc/tinydream: backend-assets/grpc sources/go-tiny-dream/libtinydream.a
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-tiny-dream \
+
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
