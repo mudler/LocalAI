@@ -8,10 +8,14 @@ import (
 //			It currently is experimental, and therefore exists.
 //			Is there ever a situation to use false?
 
-func SliceOfChannelsRawMerger[IR any, MR any](individualResultChannels []<-chan IR, outputChannel chan<- MR, mappingFn func(IR) (MR, error), closeWhenDone bool) *sync.WaitGroup {
+// This function is used to merge the results of a slice of channels of a specific result type down to a single result channel of a second type.
+// mappingFn allows the caller to convert from the input type to the output type
+// if closeWhenDone is set to true, the output channel will be closed when all individual result channels of the slice have been closed - otherwise it will be left open for future use.
+// The same WaitGroup used to trigger that optional closing is returned for any other synchronization purposes.
+func SliceOfChannelsRawMerger[IndividualResultType any, OutputResultType any](individualResultChannels []<-chan IndividualResultType, outputChannel chan<- OutputResultType, mappingFn func(IndividualResultType) (OutputResultType, error), closeWhenDone bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(individualResultChannels))
-	mergingFn := func(c <-chan IR) {
+	mergingFn := func(c <-chan IndividualResultType) {
 		for r := range c {
 			mr, err := mappingFn(r)
 			if err == nil {
@@ -33,14 +37,22 @@ func SliceOfChannelsRawMerger[IR any, MR any](individualResultChannels []<-chan 
 	return &wg
 }
 
-func SliceOfChannelsRawMergerWithoutMapping[T any](individualResultsChannels []<-chan T, outputChannel chan<- T, closeWhenDone bool) *sync.WaitGroup {
-	return SliceOfChannelsRawMerger(individualResultsChannels, outputChannel, func(v T) (T, error) { return v, nil }, closeWhenDone)
+// This function is used to merge the results of a slice of channels of a specific result type down to a single result channel of THE SAME TYPE.
+// if closeWhenDone is set to true, the output channel will be closed when all individual result channels of the slice have been closed - otherwise it will be left open for future use.
+// The same WaitGroup used to trigger that optional closing is returned for any other synchronization purposes.
+func SliceOfChannelsRawMergerWithoutMapping[ResultType any](individualResultsChannels []<-chan ResultType, outputChannel chan<- ResultType, closeWhenDone bool) *sync.WaitGroup {
+	return SliceOfChannelsRawMerger(individualResultsChannels, outputChannel, func(v ResultType) (ResultType, error) { return v, nil }, closeWhenDone)
 }
 
-func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []<-chan ErrorOr[IV], successChannel chan<- OV, errorChannel chan<- error, mappingFn func(IV) (OV, error), closeWhenDone bool) *sync.WaitGroup {
+// This function is used to merge the results of a slice of channels of a specific result type down to a single succcess result channel of a second type, and an error channel
+// mappingFn allows the caller to convert from the input type to the output type
+// This variant is designed to be aware of concurrency.ErrorOr[T], splitting successes from failures.
+// if closeWhenDone is set to true, the output channel will be closed when all individual result channels of the slice have been closed - otherwise it will be left open for future use.
+// The same WaitGroup used to trigger that optional closing is returned for any other synchronization purposes.
+func SliceOfChannelsMergerWithErrors[IndividualResultType any, OutputResultType any](individualResultChannels []<-chan ErrorOr[IndividualResultType], successChannel chan<- OutputResultType, errorChannel chan<- error, mappingFn func(IndividualResultType) (OutputResultType, error), closeWhenDone bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(individualResultChannels))
-	mergingFn := func(c <-chan ErrorOr[IV]) {
+	mergingFn := func(c <-chan ErrorOr[IndividualResultType]) {
 		for r := range c {
 			if r.Error != nil {
 				errorChannel <- r.Error
@@ -68,32 +80,16 @@ func SliceOfChannelsMergerWithErrors[IV any, OV any](individualResultChannels []
 	return &wg
 }
 
-func SliceOfChannelsTransformer[IV any, OV any](inputChanels []<-chan IV, mappingFn func(v IV) OV) (outputChannels []<-chan OV) {
-	rawOutputChannels := make([]<-chan OV, len(inputChanels))
-
-	transformingFn := func(i int, ic <-chan IV, oc chan OV) {
-		for iv := range ic {
-			oc <- mappingFn(iv)
-		}
-		close(oc)
-	}
-
-	for ci, c := range inputChanels {
-		roc := make(chan OV)
-		go transformingFn(ci, c, roc)
-		rawOutputChannels[ci] = roc
-	}
-
-	outputChannels = rawOutputChannels
-	return
-}
-
-func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan IV, outputChannel chan<- OV,
-	reducerFn func(iv IV, ov OV) OV, initialValue OV, closeWhenDone bool) (wg *sync.WaitGroup) {
+// This function is used to reduce down the results of a slice of channels of a specific result type down to a single result value of a second type.
+// reducerFn allows the caller to convert from the input type to the output type
+// if closeWhenDone is set to true, the output channel will be closed when all individual result channels of the slice have been closed - otherwise it will be left open for future use.
+// The same WaitGroup used to trigger that optional closing is returned for any other synchronization purposes.
+func SliceOfChannelsReducer[InputResultType any, OutputResultType any](individualResultsChannels []<-chan InputResultType, outputChannel chan<- OutputResultType,
+	reducerFn func(iv InputResultType, ov OutputResultType) OutputResultType, initialValue OutputResultType, closeWhenDone bool) (wg *sync.WaitGroup) {
 	wg = &sync.WaitGroup{}
 	wg.Add(len(individualResultsChannels))
 	reduceLock := sync.Mutex{}
-	reducingFn := func(c <-chan IV) {
+	reducingFn := func(c <-chan InputResultType) {
 		for iv := range c {
 			reduceLock.Lock()
 			initialValue = reducerFn(iv, initialValue)
@@ -112,4 +108,28 @@ func SliceOfChannelsReducer[IV any, OV any](individualResultsChannels []<-chan I
 		}
 	}()
 	return wg
+}
+
+// This function is primarily designed to be used in combination with the above utility functions.
+// A slice of input result channels of a specific type is provided, along with a function to map those values to another type
+// A slice of output result channels is returned, where each value is mapped as it comes in.
+// The order of the slice will be retained.
+func SliceOfChannelsTransformer[InputResultType any, OutputResultType any](inputChanels []<-chan InputResultType, mappingFn func(v InputResultType) OutputResultType) (outputChannels []<-chan OutputResultType) {
+	rawOutputChannels := make([]<-chan OutputResultType, len(inputChanels))
+
+	transformingFn := func(ic <-chan InputResultType, oc chan OutputResultType) {
+		for iv := range ic {
+			oc <- mappingFn(iv)
+		}
+		close(oc)
+	}
+
+	for ci, c := range inputChanels {
+		roc := make(chan OutputResultType)
+		go transformingFn(c, roc)
+		rawOutputChannels[ci] = roc
+	}
+
+	outputChannels = rawOutputChannels
+	return
 }
