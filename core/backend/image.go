@@ -17,9 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	"github.com/go-skynet/LocalAI/pkg/concurrency"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/go-skynet/LocalAI/pkg/model"
 )
 
 type ImageGenerationBackendService struct {
@@ -37,12 +37,12 @@ func NewImageGenerationBackendService(ml *model.ModelLoader, bcl *config.Backend
 	}
 }
 
-func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIRequest) <-chan utils.ErrorOr[*schema.OpenAIResponse] {
-	resultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
+func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIRequest) <-chan concurrency.ErrorOr[*schema.OpenAIResponse] {
+	resultChannel := make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
 	go func(request *schema.OpenAIRequest) {
 		bc, request, err := igbs.bcl.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, igbs.appConfig)
 		if err != nil {
-			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+			resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 			close(resultChannel)
 			return
 		}
@@ -56,7 +56,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 			if strings.HasPrefix(request.File, "http://") || strings.HasPrefix(request.File, "https://") {
 				out, err := downloadFile(request.File)
 				if err != nil {
-					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("failed downloading file:%w", err)}
+					resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("failed downloading file:%w", err)}
 					close(resultChannel)
 					return
 				}
@@ -64,7 +64,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 
 				fileData, err = os.ReadFile(out)
 				if err != nil {
-					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("failed reading file:%w", err)}
+					resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("failed reading file:%w", err)}
 					close(resultChannel)
 					return
 				}
@@ -74,7 +74,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 				// that we will cleanup
 				fileData, err = base64.StdEncoding.DecodeString(request.File)
 				if err != nil {
-					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 					close(resultChannel)
 					return
 				}
@@ -83,7 +83,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 			// Create a temporary file
 			outputFile, err := os.CreateTemp(igbs.appConfig.ImageDir, "b64")
 			if err != nil {
-				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 				close(resultChannel)
 				return
 			}
@@ -92,7 +92,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 			_, err = writer.Write(fileData)
 			if err != nil {
 				outputFile.Close()
-				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 				close(resultChannel)
 				return
 			}
@@ -114,19 +114,19 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 
 		sizeParts := strings.Split(request.Size, "x")
 		if len(sizeParts) != 2 {
-			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
+			resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
 			close(resultChannel)
 			return
 		}
 		width, err := strconv.Atoi(sizeParts[0])
 		if err != nil {
-			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
+			resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
 			close(resultChannel)
 			return
 		}
 		height, err := strconv.Atoi(sizeParts[1])
 		if err != nil {
-			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
+			resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: fmt.Errorf("invalid value for 'size'")}
 			close(resultChannel)
 			return
 		}
@@ -171,7 +171,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 				// Create a temporary file
 				outputFile, err := os.CreateTemp(tempDir, "b64")
 				if err != nil {
-					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 					close(resultChannel)
 					return
 				}
@@ -180,7 +180,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 				// Rename the temporary file
 				err = os.Rename(outputFile.Name(), output)
 				if err != nil {
-					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 					close(resultChannel)
 					return
 				}
@@ -192,12 +192,12 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 
 				fn, err := imageGeneration(height, width, mode, step, *request.Seed, positive_prompt, negative_prompt, src, output, igbs.ml, bc, igbs.appConfig)
 				if err != nil {
-					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 					close(resultChannel)
 					return
 				}
 				if err := fn(); err != nil {
-					resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+					resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 					close(resultChannel)
 					return
 				}
@@ -208,7 +208,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 					defer os.RemoveAll(output)
 					data, err := os.ReadFile(output)
 					if err != nil {
-						resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+						resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 						close(resultChannel)
 						return
 					}
@@ -229,7 +229,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 			Created: created,
 			Data:    result,
 		}
-		resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: resp}
+		resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: resp}
 		close(resultChannel)
 	}(request)
 	return resultChannel

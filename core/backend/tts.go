@@ -9,8 +9,9 @@ import (
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 
+	"github.com/go-skynet/LocalAI/pkg/concurrency"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
@@ -28,8 +29,8 @@ func NewTextToSpeechBackendService(ml *model.ModelLoader, bcl *config.BackendCon
 	}
 }
 
-func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequest) <-chan utils.ErrorOr[*string] {
-	responseChannel := make(chan utils.ErrorOr[*string])
+func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequest) <-chan concurrency.ErrorOr[*string] {
+	responseChannel := make(chan concurrency.ErrorOr[*string])
 	go func(request *schema.TTSRequest) {
 		cfg, err := ttsbs.bcl.LoadBackendConfigFileByName(request.Model, ttsbs.appConfig.ModelPath,
 			config.LoadOptionDebug(ttsbs.appConfig.Debug),
@@ -38,7 +39,7 @@ func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequ
 			config.LoadOptionF16(ttsbs.appConfig.F16),
 		)
 		if err != nil {
-			responseChannel <- utils.ErrorOr[*string]{Error: err}
+			responseChannel <- concurrency.ErrorOr[*string]{Error: err}
 			close(responseChannel)
 			return
 		}
@@ -49,11 +50,11 @@ func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequ
 
 		outFile, _, err := modelTTS(cfg.Backend, request.Input, cfg.Model, request.Voice, ttsbs.ml, ttsbs.appConfig, cfg)
 		if err != nil {
-			responseChannel <- utils.ErrorOr[*string]{Error: err}
+			responseChannel <- concurrency.ErrorOr[*string]{Error: err}
 			close(responseChannel)
 			return
 		}
-		responseChannel <- utils.ErrorOr[*string]{Value: &outFile}
+		responseChannel <- concurrency.ErrorOr[*string]{Value: &outFile}
 		close(responseChannel)
 	}(request)
 	return responseChannel

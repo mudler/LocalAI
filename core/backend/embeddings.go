@@ -8,9 +8,9 @@ import (
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/google/uuid"
 
+	"github.com/go-skynet/LocalAI/pkg/concurrency"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
-	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/go-skynet/LocalAI/pkg/model"
 )
 
 type EmbeddingsBackendService struct {
@@ -27,9 +27,9 @@ func NewEmbeddingsBackendService(ml *model.ModelLoader, bcl *config.BackendConfi
 	}
 }
 
-func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) <-chan utils.ErrorOr[*schema.OpenAIResponse] {
+func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) <-chan concurrency.ErrorOr[*schema.OpenAIResponse] {
 
-	resultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
+	resultChannel := make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
 	go func(request *schema.OpenAIRequest) {
 		if request.Model == "" {
 			request.Model = model.StableDiffusionBackend
@@ -37,7 +37,7 @@ func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) <
 
 		bc, request, err := ebs.bcl.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, ebs.appConfig)
 		if err != nil {
-			resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+			resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 			close(resultChannel)
 			return
 		}
@@ -48,14 +48,14 @@ func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) <
 			// get the model function to call for the result
 			embedFn, err := modelEmbedding("", s, ebs.ml, bc, ebs.appConfig)
 			if err != nil {
-				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 				close(resultChannel)
 				return
 			}
 
 			embeddings, err := embedFn()
 			if err != nil {
-				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 				close(resultChannel)
 				return
 			}
@@ -66,14 +66,14 @@ func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) <
 			// get the model function to call for the result
 			embedFn, err := modelEmbedding(s, []int{}, ebs.ml, bc, ebs.appConfig)
 			if err != nil {
-				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 				close(resultChannel)
 				return
 			}
 
 			embeddings, err := embedFn()
 			if err != nil {
-				resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: err}
+				resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: err}
 				close(resultChannel)
 				return
 			}
@@ -89,7 +89,7 @@ func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) <
 			Data:    items,
 			Object:  "list",
 		}
-		resultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: resp}
+		resultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: resp}
 		close(resultChannel)
 	}(request)
 	return resultChannel

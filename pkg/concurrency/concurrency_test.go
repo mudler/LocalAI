@@ -1,10 +1,12 @@
-package utils
+package concurrency_test
 
 // TODO: noramlly, these go in utils_tests, right? Why does this cause problems only in pkg/utils?
 
 import (
 	"fmt"
 	"slices"
+
+	. "github.com/go-skynet/LocalAI/pkg/concurrency"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

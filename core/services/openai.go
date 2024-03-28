@@ -11,6 +11,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/go-skynet/LocalAI/pkg/concurrency"
 	"github.com/go-skynet/LocalAI/pkg/grammar"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -26,16 +27,16 @@ type endpointConfiguration struct {
 	TemplatePath        string
 	TemplateData        model.PromptTemplateData
 	ResultMappingFn     func(resp *backend.LLMResponse, index int) schema.Choice
-	CompletionMappingFn func(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse]
-	TokenMappingFn      func(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse]
+	CompletionMappingFn func(resp concurrency.ErrorOr[*backend.LLMResponse]) concurrency.ErrorOr[*schema.OpenAIResponse]
+	TokenMappingFn      func(resp concurrency.ErrorOr[*backend.LLMResponse]) concurrency.ErrorOr[*schema.OpenAIResponse]
 }
 
 // TODO: This is used for completion and edit. I am pretty sure I forgot parts, but fix it later.
-func simpleMapper(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
+func simpleMapper(resp concurrency.ErrorOr[*backend.LLMResponse]) concurrency.ErrorOr[*schema.OpenAIResponse] {
 	if resp.Error != nil || resp.Value == nil {
-		return utils.ErrorOr[*schema.OpenAIResponse]{Error: resp.Error}
+		return concurrency.ErrorOr[*schema.OpenAIResponse]{Error: resp.Error}
 	}
-	return utils.ErrorOr[*schema.OpenAIResponse]{
+	return concurrency.ErrorOr[*schema.OpenAIResponse]{
 		Value: &schema.OpenAIResponse{
 			Choices: []schema.Choice{
 				{
@@ -88,8 +89,8 @@ func (oais *OpenAIService) getConfig(request *schema.OpenAIRequest) (*config.Bac
 // completionsChannel is a channel that emits one *LLMResponse per generated completion, be that different prompts or N. Seems the most useful other than "entire request" Request is available to attempt tracing???
 // tokensChannel is a channel that emits one *LLMResponse per generated token. Let's see what happens!
 func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool) (
-	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle],
-	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
+	traceID *OpenAIRequestTraceID, finalResultChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan concurrency.ErrorOr[*backend.LLMResponseBundle],
+	completionsChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	return oais.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) endpointConfiguration {
 		return endpointConfiguration{
@@ -112,8 +113,8 @@ func (oais *OpenAIService) Completion(request *schema.OpenAIRequest, notifyOnPro
 }
 
 func (oais *OpenAIService) Edit(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool) (
-	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle],
-	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
+	traceID *OpenAIRequestTraceID, finalResultChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan concurrency.ErrorOr[*backend.LLMResponseBundle],
+	completionsChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	return oais.GenerateTextFromRequest(request, func(bc *config.BackendConfig, request *schema.OpenAIRequest) endpointConfiguration {
 
@@ -138,15 +139,15 @@ func (oais *OpenAIService) Edit(request *schema.OpenAIRequest, notifyOnPromptRes
 }
 
 func (oais *OpenAIService) Chat(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool) (
-	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse],
-	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
+	traceID *OpenAIRequestTraceID, finalResultChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse],
+	completionsChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	return oais.GenerateFromMultipleMessagesChatRequest(request, notifyOnPromptResult, notifyOnToken, nil)
 }
 
 func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest, endpointConfigFn endpointGenerationConfigurationFn, notifyOnPromptResult bool, notifyOnToken bool, initialTraceID *OpenAIRequestTraceID) (
-	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan utils.ErrorOr[*backend.LLMResponseBundle],
-	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
+	traceID *OpenAIRequestTraceID, finalResultChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], promptResultsChannels []<-chan concurrency.ErrorOr[*backend.LLMResponseBundle],
+	completionsChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	if initialTraceID == nil {
 		traceID = &OpenAIRequestTraceID{
@@ -171,16 +172,16 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 		log.Warn().Msg("potentially cannot handle more than 1 `PromptStrings` when Streaming?")
 	}
 
-	rawFinalResultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
+	rawFinalResultChannel := make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
 	finalResultChannel = rawFinalResultChannel
-	promptResultsChannels = []<-chan utils.ErrorOr[*backend.LLMResponseBundle]{}
-	var rawCompletionsChannel chan utils.ErrorOr[*schema.OpenAIResponse]
-	var rawTokenChannel chan utils.ErrorOr[*schema.OpenAIResponse]
+	promptResultsChannels = []<-chan concurrency.ErrorOr[*backend.LLMResponseBundle]{}
+	var rawCompletionsChannel chan concurrency.ErrorOr[*schema.OpenAIResponse]
+	var rawTokenChannel chan concurrency.ErrorOr[*schema.OpenAIResponse]
 	if notifyOnPromptResult {
-		rawCompletionsChannel = make(chan utils.ErrorOr[*schema.OpenAIResponse])
+		rawCompletionsChannel = make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
 	}
 	if notifyOnToken {
-		rawTokenChannel = make(chan utils.ErrorOr[*schema.OpenAIResponse])
+		rawTokenChannel = make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
 	}
 
 	promptResultsChannelLock := sync.Mutex{}
@@ -239,10 +240,10 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 				return
 			}
 			if notifyOnPromptResult {
-				utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(completionChannels, endpointConfig.CompletionMappingFn), rawCompletionsChannel, true)
+				concurrency.SliceOfChannelsRawMergerWithoutMapping(concurrency.SliceOfChannelsTransformer(completionChannels, endpointConfig.CompletionMappingFn), rawCompletionsChannel, true)
 			}
 			if notifyOnToken {
-				utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(tokenChannels, endpointConfig.TokenMappingFn), rawTokenChannel, true)
+				concurrency.SliceOfChannelsRawMergerWithoutMapping(concurrency.SliceOfChannelsTransformer(tokenChannels, endpointConfig.TokenMappingFn), rawTokenChannel, true)
 			}
 			promptResultsChannelLock.Lock()
 			promptResultsChannels = append(promptResultsChannels, promptResultsChannel)
@@ -257,7 +258,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	if setupError != nil {
 		go func() {
 			log.Error().Msgf("[OAIS GenerateTextFromRequest] caught an error during setup: %q", setupError)
-			rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Error: setupError}
+			rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: setupError}
 			close(rawFinalResultChannel)
 		}()
 		return
@@ -272,9 +273,9 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	}
 
 	// utils.SliceOfChannelsRawMerger[[]schema.Choice](promptResultsChannels, rawFinalResultChannel, func(results []schema.Choice) (*schema.OpenAIResponse, error) {
-	utils.SliceOfChannelsReducer(
+	concurrency.SliceOfChannelsReducer(
 		promptResultsChannels, rawFinalResultChannel,
-		func(iv utils.ErrorOr[*backend.LLMResponseBundle], result utils.ErrorOr[*schema.OpenAIResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
+		func(iv concurrency.ErrorOr[*backend.LLMResponseBundle], result concurrency.ErrorOr[*schema.OpenAIResponse]) concurrency.ErrorOr[*schema.OpenAIResponse] {
 
 			if iv.Error != nil {
 				result.Error = iv.Error
@@ -287,7 +288,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 			result.Value.Choices = append(result.Value.Choices, iv.Value.Response...)
 
 			return result
-		}, utils.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse}, true)
+		}, concurrency.ErrorOr[*schema.OpenAIResponse]{Value: initialResponse}, true)
 
 	completionsChannel = rawCompletionsChannel
 	tokenChannel = rawTokenChannel
@@ -299,8 +300,8 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 // this is not a final decision -- just a reality of moving a lot of parts at once
 // / This has _become_ Chat which wasn't the goal... More cleanup in the future once it's stable?
 func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *schema.OpenAIRequest, notifyOnPromptResult bool, notifyOnToken bool, initialTraceID *OpenAIRequestTraceID) (
-	traceID *OpenAIRequestTraceID, finalResultChannel <-chan utils.ErrorOr[*schema.OpenAIResponse],
-	completionsChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan utils.ErrorOr[*schema.OpenAIResponse], err error) {
+	traceID *OpenAIRequestTraceID, finalResultChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse],
+	completionsChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], tokenChannel <-chan concurrency.ErrorOr[*schema.OpenAIResponse], err error) {
 
 	if initialTraceID == nil {
 		traceID = &OpenAIRequestTraceID{
@@ -496,14 +497,14 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 		log.Debug().Msgf("Grammar: %+v", bc.Grammar)
 	}
 
-	rawFinalResultChannel := make(chan utils.ErrorOr[*schema.OpenAIResponse])
-	var rawCompletionsChannel chan utils.ErrorOr[*schema.OpenAIResponse]
-	var rawTokenChannel chan utils.ErrorOr[*schema.OpenAIResponse]
+	rawFinalResultChannel := make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
+	var rawCompletionsChannel chan concurrency.ErrorOr[*schema.OpenAIResponse]
+	var rawTokenChannel chan concurrency.ErrorOr[*schema.OpenAIResponse]
 	if notifyOnPromptResult {
-		rawCompletionsChannel = make(chan utils.ErrorOr[*schema.OpenAIResponse])
+		rawCompletionsChannel = make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
 	}
 	if notifyOnToken {
-		rawTokenChannel = make(chan utils.ErrorOr[*schema.OpenAIResponse])
+		rawTokenChannel = make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
 	}
 
 	rawResultChannel, individualCompletionChannels, tokenChannels, err := oais.llmbs.GenerateText(predInput, request, bc, func(resp *backend.LLMResponse) schema.Choice {
@@ -517,11 +518,11 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 		}
 	}, notifyOnPromptResult, notifyOnToken)
 
-	chatSimpleMappingFn := func(resp utils.ErrorOr[*backend.LLMResponse]) utils.ErrorOr[*schema.OpenAIResponse] {
+	chatSimpleMappingFn := func(resp concurrency.ErrorOr[*backend.LLMResponse]) concurrency.ErrorOr[*schema.OpenAIResponse] {
 		if resp.Error != nil || resp.Value == nil {
-			return utils.ErrorOr[*schema.OpenAIResponse]{Error: resp.Error}
+			return concurrency.ErrorOr[*schema.OpenAIResponse]{Error: resp.Error}
 		}
-		return utils.ErrorOr[*schema.OpenAIResponse]{
+		return concurrency.ErrorOr[*schema.OpenAIResponse]{
 			Value: &schema.OpenAIResponse{
 				ID:      traceID.ID,
 				Created: traceID.Created,
@@ -546,10 +547,10 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	}
 
 	if notifyOnPromptResult {
-		utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(individualCompletionChannels, chatSimpleMappingFn), rawCompletionsChannel, true)
+		concurrency.SliceOfChannelsRawMergerWithoutMapping(concurrency.SliceOfChannelsTransformer(individualCompletionChannels, chatSimpleMappingFn), rawCompletionsChannel, true)
 	}
 	if notifyOnToken {
-		utils.SliceOfChannelsRawMergerWithoutMapping(utils.SliceOfChannelsTransformer(tokenChannels, chatSimpleMappingFn), rawTokenChannel, true)
+		concurrency.SliceOfChannelsRawMergerWithoutMapping(concurrency.SliceOfChannelsTransformer(tokenChannels, chatSimpleMappingFn), rawTokenChannel, true)
 	}
 
 	go func() {
@@ -582,7 +583,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					},
 				}
 
-				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
+				rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
 				continue
 			}
@@ -602,7 +603,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: ""}}},
 					Object:  "stop",
 				}
-				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
+				rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
 
 				result, err := oais.handleQuestion(bc, request, results[0].arguments, predInput)
 				if err != nil {
@@ -623,7 +624,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					},
 				}
 
-				rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
+				rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
 			} else {
 				log.Warn().Msgf("[GenerateFromMultipleMessagesChatRequest] fnResultsBranch: %+v", results)
@@ -652,7 +653,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 							}}},
 						Object: "chat.completion.chunk",
 					}
-					rawFinalResultChannel <- utils.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
+					rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: &initialMessage}
 				}
 			}
 		}

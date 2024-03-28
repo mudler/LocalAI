@@ -12,9 +12,10 @@ import (
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/rs/zerolog/log"
 
+	"github.com/go-skynet/LocalAI/pkg/concurrency"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
@@ -63,7 +64,7 @@ func NewLLMBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader
 
 // TODO: Should ctx param be removed and replaced with hardcoded req.Context?
 func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, bc *config.BackendConfig, enableTokenChannel bool) (
-	resultChannel <-chan utils.ErrorOr[*LLMResponse], tokenChannel <-chan utils.ErrorOr[*LLMResponse], err error) {
+	resultChannel <-chan concurrency.ErrorOr[*LLMResponse], tokenChannel <-chan concurrency.ErrorOr[*LLMResponse], err error) {
 
 	threads := bc.Threads
 	if (threads == nil || *threads == 0) && llmbs.appConfig.Threads != 0 {
@@ -121,12 +122,12 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 		tokenUsage.Prompt = int(promptInfo.Length)
 	}
 
-	rawResultChannel := make(chan utils.ErrorOr[*LLMResponse])
+	rawResultChannel := make(chan concurrency.ErrorOr[*LLMResponse])
 	// TODO this next line is the biggest argument for taking named return values _back_ out!!!
-	var rawTokenChannel chan utils.ErrorOr[*LLMResponse]
+	var rawTokenChannel chan concurrency.ErrorOr[*LLMResponse]
 
 	if enableTokenChannel {
-		rawTokenChannel = make(chan utils.ErrorOr[*LLMResponse])
+		rawTokenChannel = make(chan concurrency.ErrorOr[*LLMResponse])
 
 		// TODO Needs better name
 		ss := ""
@@ -144,7 +145,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 					}
 
 					tokenUsage.Completion++
-					rawTokenChannel <- utils.ErrorOr[*LLMResponse]{Value: &LLMResponse{
+					rawTokenChannel <- concurrency.ErrorOr[*LLMResponse]{Value: &LLMResponse{
 						Response: string(r),
 						Usage:    tokenUsage,
 					}}
@@ -156,9 +157,9 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 			})
 			close(rawTokenChannel)
 			if err != nil {
-				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Error: err}
+				rawResultChannel <- concurrency.ErrorOr[*LLMResponse]{Error: err}
 			} else {
-				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Value: &LLMResponse{
+				rawResultChannel <- concurrency.ErrorOr[*LLMResponse]{Value: &LLMResponse{
 					Response: ss,
 					Usage:    tokenUsage,
 				}}
@@ -169,10 +170,10 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 		go func() {
 			reply, err := inferenceModel.Predict(ctx, grpcPredOpts)
 			if err != nil {
-				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Error: err}
+				rawResultChannel <- concurrency.ErrorOr[*LLMResponse]{Error: err}
 				close(rawResultChannel)
 			} else {
-				rawResultChannel <- utils.ErrorOr[*LLMResponse]{Value: &LLMResponse{
+				rawResultChannel <- concurrency.ErrorOr[*LLMResponse]{Value: &LLMResponse{
 					Response: string(reply.Message),
 					Usage:    tokenUsage,
 				}}
@@ -190,9 +191,9 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.OpenAIRequest, bc *config.BackendConfig,
 	mappingFn func(*LLMResponse) schema.Choice, enableCompletionChannels bool, enableTokenChannels bool) (
 	// Returns:
-	resultChannel <-chan utils.ErrorOr[*LLMResponseBundle], completionChannels []<-chan utils.ErrorOr[*LLMResponse], tokenChannels []<-chan utils.ErrorOr[*LLMResponse], err error) {
+	resultChannel <-chan concurrency.ErrorOr[*LLMResponseBundle], completionChannels []<-chan concurrency.ErrorOr[*LLMResponse], tokenChannels []<-chan concurrency.ErrorOr[*LLMResponse], err error) {
 
-	rawChannel := make(chan utils.ErrorOr[*LLMResponseBundle])
+	rawChannel := make(chan concurrency.ErrorOr[*LLMResponseBundle])
 	resultChannel = rawChannel
 
 	if request.N == 0 { // number of completions to return
@@ -224,7 +225,7 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 			Usage:    TokenUsage{},
 		}
 
-		wg := utils.SliceOfChannelsReducer(completionChannels, rawChannel, func(iv utils.ErrorOr[*LLMResponse], ov utils.ErrorOr[*LLMResponseBundle]) utils.ErrorOr[*LLMResponseBundle] {
+		wg := concurrency.SliceOfChannelsReducer(completionChannels, rawChannel, func(iv concurrency.ErrorOr[*LLMResponse], ov concurrency.ErrorOr[*LLMResponseBundle]) concurrency.ErrorOr[*LLMResponseBundle] {
 			if iv.Error != nil {
 				ov.Error = iv.Error
 				// TODO: Decide if we should wipe partials or not?
@@ -235,7 +236,7 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 
 			ov.Value.Response = append(ov.Value.Response, mappingFn(iv.Value))
 			return ov
-		}, utils.ErrorOr[*LLMResponseBundle]{Value: &initialBundle}, true)
+		}, concurrency.ErrorOr[*LLMResponseBundle]{Value: &initialBundle}, true)
 		wg.Wait()
 
 	}()
