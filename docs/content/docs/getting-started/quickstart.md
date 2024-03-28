@@ -89,9 +89,9 @@ services:
 
 For a list of all the container-images available, see [Container images]({{%relref "docs/reference/container-images" %}}). To learn more about All-in-one images instead, see [All-in-one Images]({{%relref "docs/reference/aio-images" %}}).
 
-{{% alert icon="💡 Models caching" %}}
+{{% alert icon="💡" %}}
 
-The **AIO** image will download the needed models on the first run if not already present and store those in `/build/models` inside the container. The AIO models will be automatically updated with new versions of AIO images.
+**Models caching**: The **AIO** image will download the needed models on the first run if not already present and store those in `/build/models` inside the container. The AIO models will be automatically updated with new versions of AIO images.
 
 You can change the directory inside the container by specifying a `MODELS_PATH` environment variable (or `--models-path`). 
 
@@ -104,7 +104,7 @@ docker run -p 8080:8080 --name local-ai -ti -v $PWD/models:/build/models localai
 or associate a volume:
 
 ```bash
-docker create volume localai-models
+docker volume create localai-models
 docker run -p 8080:8080 --name local-ai -ti -v localai-models:/build/models localai/localai:latest-aio-cpu
 ```
 
