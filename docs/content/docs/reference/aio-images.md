@@ -7,15 +7,28 @@ weight = 26
 
 All-In-One images are images that come pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and requires no configuration. Models configuration can be found [here](https://github.com/mudler/LocalAI/tree/master/aio) separated by size.
 
-What you can find configured out of the box:
+In the AIO images there are models configured with the names of OpenAI models, however, they are really backed by Open Source models. You can find the table below
 
-- Image generation
-- Text generation
-- Text to audio
-- Audio transcription
-- Embeddings
-- GPT Vision
+| Category | Model name | Real model |
+| Text Generation | `gpt-4` | `phi-2`(CPU) or `hermes-2-pro-mistral`(GPU) |
+| Multimodal | `gpt-4-vision-preview` | `bakllava`(CPU) or `llava-1.6-mistral`(GPU) |
+| Text generation | `stablediffusion` | `stablediffusion`(CPU) `dreamshaper-8` (GPU) |
+| Audio transcription | `whisper-1` | `whisper` with the `whisper-base` model |
+| Text to Audio | `tts-1` | the `en-us-amy-low.onnx` model with `rhasspy` |
+| Embeddings | `text-embedding-ada-002` | | 
 
+## Usage
+
+Select the image (CPU or GPU) and start the container with Docker:
+
+```bash
+# CPU example
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
+```
+
+LocalAI will automatically download all the required models, and the API will be available at [localhost:8080](http://localhost:8080/v1/models).
+
+## Available images
 
 | Description | Quay | Docker Hub                                   |
 | --- | --- |-----------------------------------------------|
@@ -37,12 +50,3 @@ The AIO Images are inheriting the same environment variables as the base images 
 | `MODELS` | Auto-detected | A list of models YAML Configuration file URI/URL (see also [running models]({{%relref "docs/getting-started/run-other-models" %}})) |
 
 
-## Example
-
-Start the image with Docker:
-
-```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
-```
-
-LocalAI will automatically download all the required models, and will be available at [localhost:8080](http://localhost:8080/v1/models).
