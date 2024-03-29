@@ -368,12 +368,12 @@ definitions:
 host: localhost:8080
 info:
   contact:
-    name: OpenAI Support
-    url: https://help.openai.com/
-  description: The OpenAI REST API.
+    name: LocalAI
+    url: https://localai.io
+  description: The LocalAI Rest API.
   license:
     name: MIT
-    url: https://github.com/openai/openai-openapi/blob/master/LICENSE
+    url: https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
   title: LocalAI API
   version: 2.0.0
 paths:

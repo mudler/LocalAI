@@ -11,12 +11,12 @@ const docTemplate = `{
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
         "contact": {
-            "name": "OpenAI Support",
-            "url": "https://help.openai.com/"
+            "name": "LocalAI",
+            "url": "https://localai.io"
         },
         "license": {
             "name": "MIT",
-            "url": "https://github.com/openai/openai-openapi/blob/master/LICENSE"
+            "url": "https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE"
         },
         "version": "{{.Version}}"
     },
@@ -789,7 +789,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "LocalAI API",
-	Description:      "The OpenAI REST API.",
+	Description:      "The LocalAI Rest API.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

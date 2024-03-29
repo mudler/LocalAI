@@ -1,15 +1,15 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "The OpenAI REST API.",
+        "description": "The LocalAI Rest API.",
         "title": "LocalAI API",
         "contact": {
-            "name": "OpenAI Support",
-            "url": "https://help.openai.com/"
+            "name": "LocalAI",
+            "url": "https://localai.io"
         },
         "license": {
             "name": "MIT",
-            "url": "https://github.com/openai/openai-openapi/blob/master/LICENSE"
+            "url": "https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE"
         },
         "version": "2.0.0"
     },
