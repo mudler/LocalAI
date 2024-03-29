@@ -27,7 +27,7 @@ jobs:
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
       aio: ${{ matrix.aio }}
-      makeflags: "--jobs=3 --output-sync=target"
+      makeflags: ${{ matrix.makeflags }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -49,6 +49,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: ''
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -57,6 +58,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -67,6 +69,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -77,6 +80,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -88,6 +92,7 @@ jobs:
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             aio: "-aio-gpu-nvidia-cuda-11"
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -99,6 +104,7 @@ jobs:
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             aio: "-aio-gpu-nvidia-cuda-12"
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: ''
             #platforms: 'linux/amd64,linux/arm64'
             platforms: 'linux/amd64'
@@ -108,6 +114,7 @@ jobs:
             image-type: 'extras'
             base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -117,6 +124,7 @@ jobs:
             aio: "-aio-gpu-hipblas"
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -125,6 +133,7 @@ jobs:
             image-type: 'extras'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -134,6 +143,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             aio: "-aio-gpu-intel-f16"
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -143,6 +153,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             aio: "-aio-gpu-intel-f32"
+            makeflags: "--jobs=3 --output-sync=target"
           # Core images
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
@@ -152,6 +163,7 @@ jobs:
             ffmpeg: 'false'
             image-type: 'core'
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -160,6 +172,7 @@ jobs:
             ffmpeg: 'false'
             image-type: 'core'
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -168,6 +181,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -176,6 +190,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -184,6 +199,7 @@ jobs:
             image-type: 'core'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -192,6 +208,7 @@ jobs:
             image-type: 'core'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
             runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
   
   core-image-build:
     uses: ./.github/workflows/image_build.yml
@@ -207,7 +224,7 @@ jobs:
       runs-on: ${{ matrix.runs-on }}
       aio: ${{ matrix.aio }}
       base-image: ${{ matrix.base-image }}
-      makeflags: "--jobs=3 --output-sync=target"
+      makeflags: ${{ matrix.makeflags }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -225,6 +242,7 @@ jobs:
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
             aio: "-aio-cpu"
+            makeflags: "--jobs=5 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -235,6 +253,7 @@ jobs:
             image-type: 'core'
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
+            makeflags: "--jobs=5 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -245,6 +264,7 @@ jobs:
             image-type: 'core'
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
+            makeflags: "--jobs=5 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -255,6 +275,7 @@ jobs:
             image-type: 'core'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
+            makeflags: "--jobs=5 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -265,3 +286,4 @@ jobs:
             image-type: 'core'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
+            makeflags: "--jobs=5 --output-sync=target"
