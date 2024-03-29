@@ -1,0 +1,519 @@
+basePath: /
+definitions:
+  grammar.Argument:
+    properties:
+      properties:
+        additionalProperties: true
+        type: object
+      type:
+        type: string
+    type: object
+  grammar.Function:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parameters:
+        additionalProperties: true
+        type: object
+    type: object
+  grammar.FunctionName:
+    properties:
+      const:
+        type: string
+    type: object
+  grammar.Item:
+    properties:
+      properties:
+        $ref: '#/definitions/grammar.Properties'
+      type:
+        type: string
+    type: object
+  grammar.JSONFunctionStructure:
+    properties:
+      $defs:
+        additionalProperties: true
+        type: object
+      anyOf:
+        items:
+          $ref: '#/definitions/grammar.Item'
+        type: array
+      oneOf:
+        items:
+          $ref: '#/definitions/grammar.Item'
+        type: array
+    type: object
+  grammar.Properties:
+    properties:
+      arguments:
+        $ref: '#/definitions/grammar.Argument'
+      function:
+        $ref: '#/definitions/grammar.FunctionName'
+    type: object
+  grammar.Tool:
+    properties:
+      function:
+        $ref: '#/definitions/grammar.Function'
+      type:
+        type: string
+    type: object
+  openai.Assistant:
+    properties:
+      created:
+        description: The time at which the assistant was created.
+        type: integer
+      description:
+        description: The description of the assistant.
+        type: string
+      file_ids:
+        description: A list of file IDs attached to this assistant.
+        items:
+          type: string
+        type: array
+      id:
+        description: The unique identifier of the assistant.
+        type: string
+      instructions:
+        description: The system instructions that the assistant uses.
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        description: Set of key-value pairs attached to the assistant.
+        type: object
+      model:
+        description: The model ID used by the assistant.
+        type: string
+      name:
+        description: The name of the assistant.
+        type: string
+      object:
+        description: Object type, which is "assistant".
+        type: string
+      tools:
+        description: A list of tools enabled on the assistant.
+        items:
+          $ref: '#/definitions/openai.Tool'
+        type: array
+    type: object
+  openai.AssistantRequest:
+    properties:
+      description:
+        type: string
+      file_ids:
+        items:
+          type: string
+        type: array
+      instructions:
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      name:
+        type: string
+      tools:
+        items:
+          $ref: '#/definitions/openai.Tool'
+        type: array
+    type: object
+  openai.Tool:
+    properties:
+      type:
+        $ref: '#/definitions/openai.ToolType'
+    type: object
+  openai.ToolType:
+    enum:
+    - code_interpreter
+    - retrieval
+    - function
+    type: string
+    x-enum-varnames:
+    - CodeInterpreter
+    - Retrieval
+    - Function
+  schema.ChatCompletionResponseFormat:
+    properties:
+      type:
+        type: string
+    type: object
+  schema.Choice:
+    properties:
+      delta:
+        $ref: '#/definitions/schema.Message'
+      finish_reason:
+        type: string
+      index:
+        type: integer
+      message:
+        $ref: '#/definitions/schema.Message'
+      text:
+        type: string
+    type: object
+  schema.FunctionCall:
+    properties:
+      arguments:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.Item:
+    properties:
+      b64_json:
+        type: string
+      embedding:
+        items:
+          type: number
+        type: array
+      index:
+        type: integer
+      object:
+        type: string
+      url:
+        description: Images
+        type: string
+    type: object
+  schema.Message:
+    properties:
+      content:
+        description: The message content
+      function_call:
+        description: A result of a function call
+      name:
+        description: The message name (used for tools calls)
+        type: string
+      role:
+        description: The message role
+        type: string
+      string_content:
+        type: string
+      string_images:
+        items:
+          type: string
+        type: array
+      tool_calls:
+        items:
+          $ref: '#/definitions/schema.ToolCall'
+        type: array
+    type: object
+  schema.OpenAIRequest:
+    properties:
+      backend:
+        type: string
+      batch:
+        description: Custom parameters - not present in the OpenAI API
+        type: integer
+      clip_skip:
+        description: Diffusers
+        type: integer
+      echo:
+        type: boolean
+      file:
+        description: whisper
+        type: string
+      frequency_penalty:
+        type: number
+      function_call:
+        description: might be a string or an object
+      functions:
+        description: A list of available functions to call
+        items:
+          $ref: '#/definitions/grammar.Function'
+        type: array
+      grammar:
+        description: A grammar to constrain the LLM output
+        type: string
+      grammar_json_functions:
+        $ref: '#/definitions/grammar.JSONFunctionStructure'
+      ignore_eos:
+        type: boolean
+      input: {}
+      instruction:
+        description: Edit endpoint
+        type: string
+      language:
+        description: Also part of the OpenAI official spec
+        type: string
+      max_tokens:
+        type: integer
+      messages:
+        description: Messages is read only by chat/completion API calls
+        items:
+          $ref: '#/definitions/schema.Message'
+        type: array
+      mode:
+        description: Image (not supported by OpenAI)
+        type: integer
+      model:
+        description: Also part of the OpenAI official spec
+        type: string
+      model_base_name:
+        description: AutoGPTQ
+        type: string
+      "n":
+        description: Also part of the OpenAI official spec. use it for returning multiple
+          results
+        type: integer
+      n_keep:
+        type: integer
+      negative_prompt:
+        type: string
+      negative_prompt_scale:
+        type: number
+      presence_penalty:
+        type: number
+      prompt:
+        description: Prompt is read only by completion/image API calls
+      repeat_penalty:
+        type: number
+      response_format:
+        allOf:
+        - $ref: '#/definitions/schema.ChatCompletionResponseFormat'
+        description: whisper/image
+      rope_freq_base:
+        type: number
+      rope_freq_scale:
+        type: number
+      seed:
+        type: integer
+      size:
+        description: image
+        type: string
+      step:
+        type: integer
+      stop: {}
+      stream:
+        type: boolean
+      temperature:
+        type: number
+      tfz:
+        type: number
+      tokenizer:
+        description: RWKV (?)
+        type: string
+      tool_choice: {}
+      tools:
+        items:
+          $ref: '#/definitions/grammar.Tool'
+        type: array
+      top_k:
+        type: integer
+      top_p:
+        description: Common options between all the API calls, part of the OpenAI
+          spec
+        type: number
+      typical_p:
+        type: number
+      use_fast_tokenizer:
+        description: AutoGPTQ
+        type: boolean
+    required:
+    - file
+    type: object
+  schema.OpenAIResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/schema.Choice'
+        type: array
+      created:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/schema.Item'
+        type: array
+      id:
+        type: string
+      model:
+        type: string
+      object:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.OpenAIUsage'
+    type: object
+  schema.OpenAIUsage:
+    properties:
+      completion_tokens:
+        type: integer
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  schema.TTSRequest:
+    properties:
+      backend:
+        type: string
+      input:
+        type: string
+      model:
+        type: string
+      voice:
+        type: string
+    type: object
+  schema.ToolCall:
+    properties:
+      function:
+        $ref: '#/definitions/schema.FunctionCall'
+      id:
+        type: string
+      index:
+        type: integer
+      type:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: OpenAI Support
+    url: https://help.openai.com/
+  description: The OpenAI REST API.
+  license:
+    name: MIT
+    url: https://github.com/openai/openai-openapi/blob/master/LICENSE
+  title: LocalAI API
+  version: 2.0.0
+paths:
+  /v1/assistants:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/openai.AssistantRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/openai.Assistant'
+      summary: Create an assistant with a model and instructions.
+  /v1/audio/speech:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+  /v1/audio/transcriptions:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: file
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Transcribes audio into the input language.
+  /v1/chat/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Generate a chat completions for a given prompt and model.
+  /v1/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Generate completions for a given prompt and model.
+  /v1/embeddings:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Get a vector representation of a given input that can be easily consumed
+        by machine learning models and algorithms.
+  /v1/images/generations:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates an image given a prompt.
+  /v1/text-to-speech/{voice-id}:
+    post:
+      parameters:
+      - description: Account ID
+        in: path
+        name: voice-id
+        required: true
+        type: string
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

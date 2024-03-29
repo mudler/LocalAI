@@ -49,7 +49,7 @@ on:
       makeflags:
         description: 'Make Flags'
         required: false
-        default: ''
+        default: '--jobs=3 --output-sync=target'
         type: string
       aio:
         description: 'AIO Image Name'
@@ -79,6 +79,7 @@ jobs:
           && sudo apt-get install -y git
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Release space from worker
         if: inputs.runs-on == 'ubuntu-latest'
         run: |
@@ -120,6 +121,7 @@ jobs:
           sudo rm -rf "/usr/local/share/boost" || true
           sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
           df -h
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -134,6 +136,7 @@ jobs:
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
+
       - name: Docker meta AIO (quay.io)
         if: inputs.aio != ''
         id: meta_aio
@@ -147,6 +150,7 @@ jobs:
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.aio }}
+
       - name: Docker meta AIO (dockerhub)
         if: inputs.aio != ''
         id: meta_aio_dockerhub
@@ -160,6 +164,7 @@ jobs:
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.aio }}
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -184,6 +189,25 @@ jobs:
           username: ${{ secrets.quayUsername }}
           password: ${{ secrets.quayPassword }}
 
+      - name: Cache GRPC
+        uses: docker/build-push-action@v5
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            IMAGE_TYPE=${{ inputs.image-type }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            MAKEFLAGS=${{ inputs.makeflags }}
+            GRPC_VERSION=v1.58.0
+          context: .
+          file: ./Dockerfile
+          cache-from: type=gha
+          cache-to: type=gha,ignore-error=true
+          target: grpc
+          platforms: ${{ inputs.platforms }}
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -198,18 +222,20 @@ jobs:
             MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile
+          cache-from: type=gha
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      -
-        name: Inspect image
+
+      - name: Inspect image
         if: github.event_name != 'pull_request'
         run: |
           docker pull localai/localai:${{ steps.meta.outputs.version }}
           docker image inspect localai/localai:${{ steps.meta.outputs.version }}
           docker pull quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
           docker image inspect quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
+
       - name: Build and push AIO image
         if: inputs.aio != ''
         uses: docker/build-push-action@v5
@@ -217,12 +243,14 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
             BASE_IMAGE=quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
+            MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta_aio.outputs.tags }}
           labels: ${{ steps.meta_aio.outputs.labels }}
+
       - name: Build and push AIO image (dockerhub)
         if: inputs.aio != ''
         uses: docker/build-push-action@v5
@@ -230,15 +258,18 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
             BASE_IMAGE=localai/localai:${{ steps.meta.outputs.version }}
+            MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta_aio_dockerhub.outputs.tags }}
           labels: ${{ steps.meta_aio_dockerhub.outputs.labels }}
+
       - name: job summary
         run: |
           echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
+
       - name: job summary(AIO)
         if: inputs.aio != ''
         run: |

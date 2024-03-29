@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/gofiber/swagger" // swagger handler
 
 	"github.com/go-skynet/LocalAI/core/http/endpoints/elevenlabs"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
@@ -41,6 +42,20 @@ func readAuthHeader(c *fiber.Ctx) string {
 
 	return authHeader
 }
+
+// @title LocalAI API
+// @version 2.0.0
+// @description The LocalAI Rest API.
+// @termsOfService
+// @contact.name LocalAI
+// @contact.url https://localai.io
+// @license.name MIT
+// @license.url https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
+// @host localhost:8080
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 
 func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
 	// Return errors as JSON responses
@@ -169,6 +184,8 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	utils.LoadConfig(appConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
 	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
 	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
+
+	app.Get("/swagger/*", swagger.HandlerDefault) // default
 
 	welcomeRoute(
 		app,
