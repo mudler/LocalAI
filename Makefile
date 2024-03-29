@@ -307,6 +307,12 @@ build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
+build-minimal:
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS=backend-assets/grpc/llama-cpp GO_TAGS=none $(MAKE) build
+
+build-api:
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
+
 dist: build
 	mkdir -p release
 	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH)
@@ -584,3 +590,7 @@ docker-image-intel-xpu:
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+
+.PHONY: swagger
+swagger:
+	swag init -g core/http/api.go --output swagger

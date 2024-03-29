@@ -2,17 +2,18 @@ package openai
 
 import (
 	"fmt"
-	"github.com/go-skynet/LocalAI/core/config"
-	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/gofiber/fiber/v2"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/go-skynet/LocalAI/core/config"
+	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 )
 
 // ToolType defines a type for tool options
@@ -65,6 +66,11 @@ type AssistantRequest struct {
 	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
+// CreateAssistantEndpoint is the OpenAI Assistant API endpoint https://platform.openai.com/docs/api-reference/assistants/createAssistant
+// @Summary Create an assistant with a model and instructions.
+// @Param request body AssistantRequest true "query params"
+// @Success 200 {object} Assistant "Response"
+// @Router /v1/assistants [post]
 func CreateAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		request := new(AssistantRequest)
