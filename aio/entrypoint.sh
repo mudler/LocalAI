@@ -5,54 +5,77 @@ echo "===> LocalAI All-in-One (AIO) container starting..."
 GPU_ACCELERATION=false
 GPU_VENDOR=""
 
+function check_intel() {
+    if lspci | grep -E 'VGA|3D' | grep -iq intel; then
+        echo "Intel GPU detected"
+        if [ -d /opt/intel ]; then
+            GPU_ACCELERATION=true
+            GPU_VENDOR=intel
+        else
+            echo "Intel GPU detected, but Intel GPU drivers are not installed. GPU acceleration will not be available."
+        fi
+    fi
+}
+
+function check_nvidia_wsl() {
+    if lspci | grep -E 'VGA|3D' | grep -iq "Microsoft Corporation Device 008e"; then
+        # We make the assumption this WSL2 cars is NVIDIA, then check for nvidia-smi
+        # Make sure the container was run with `--gpus all` as the only required parameter
+        echo "NVIDIA GPU detected via WSL2"
+        # nvidia-smi should be installed in the container
+        if nvidia-smi; then
+            GPU_ACCELERATION=true
+            GPU_VENDOR=nvidia
+        else
+            echo "NVIDIA GPU detected via WSL2, but nvidia-smi is not installed. GPU acceleration will not be available."
+        fi
+    fi
+}
+
+function check_amd() {
+    if lspci | grep -E 'VGA|3D' | grep -iq amd; then
+        echo "AMD GPU detected"
+        # Check if ROCm is installed
+        if [ -d /opt/rocm ]; then
+            GPU_ACCELERATION=true
+            GPU_VENDOR=amd
+        else
+            echo "AMD GPU detected, but ROCm is not installed. GPU acceleration will not be available."
+        fi
+    fi
+}
+
+function check_nvidia() {
+    if lspci | grep -E 'VGA|3D' | grep -iq nvidia; then
+        echo "NVIDIA GPU detected"
+        # nvidia-smi should be installed in the container
+        if nvidia-smi; then
+            GPU_ACCELERATION=true
+            GPU_VENDOR=nvidia
+        else
+            echo "NVIDIA GPU detected, but nvidia-smi is not installed. GPU acceleration will not be available."
+        fi
+    fi
+}
+
+function check_metal() {
+    if system_profiler SPDisplaysDataType | grep -iq 'Metal'; then
+        echo "Apple Metal supported GPU detected"
+        GPU_ACCELERATION=true
+        GPU_VENDOR=apple
+    fi
+}
+
 function detect_gpu() {
     case "$(uname -s)" in
         Linux)
-            if lspci | grep -E 'VGA|3D' | grep -iq nvidia; then
-                echo "NVIDIA GPU detected"
-                # nvidia-smi should be installed in the container
-                if nvidia-smi; then
-                    GPU_ACCELERATION=true
-                    GPU_VENDOR=nvidia
-                else
-                    echo "NVIDIA GPU detected, but nvidia-smi is not installed. GPU acceleration will not be available."
-                fi
-            elif lspci | grep -E 'VGA|3D' | grep -iq amd; then
-                echo "AMD GPU detected"
-                # Check if ROCm is installed
-                if [ -d /opt/rocm ]; then
-                    GPU_ACCELERATION=true
-                    GPU_VENDOR=amd
-                else
-                    echo "AMD GPU detected, but ROCm is not installed. GPU acceleration will not be available."
-                fi
-            elif lspci | grep -E 'VGA|3D' | grep -iq intel; then
-                echo "Intel GPU detected"
-                if [ -d /opt/intel ]; then
-                    GPU_ACCELERATION=true
-                    GPU_VENDOR=intel
-                else
-                    echo "Intel GPU detected, but Intel GPU drivers are not installed. GPU acceleration will not be available."
-                fi
-            elif lspci | grep -E 'VGA|3D' | grep -iq "Microsoft Corporation Device 008e"; then
-                # We make the assumption this WSL2 cars is NVIDIA, then check for nvidia-smi
-                # Make sure the container was run with `--gpus all` as the only required parameter
-                echo "NVIDIA GPU detected via WSL2"
-                # nvidia-smi should be installed in the container
-                if nvidia-smi; then
-                    GPU_ACCELERATION=true
-                    GPU_VENDOR=nvidia
-                else
-                    echo "NVIDIA GPU detected via WSL2, but nvidia-smi is not installed. GPU acceleration will not be available."
-                fi
-            fi
+            check_nvidia
+            check_amd
+            check_intel
+            check_nvidia_wsl
             ;;
         Darwin)
-            if system_profiler SPDisplaysDataType | grep -iq 'Metal'; then
-                echo "Apple Metal supported GPU detected"
-                GPU_ACCELERATION=true
-                GPU_VENDOR=apple
-            fi
+            check_metal
             ;;
     esac
 }
@@ -96,8 +119,8 @@ function check_vars() {
         exit 1
     fi
 
-    if [ -z "$SIZE" ]; then
-        echo "SIZE environment variable is not set. Please set it to one of the following: cpu, gpu-8g, gpu-16g, apple"
+    if [ -z "$PROFILE" ]; then
+        echo "PROFILE environment variable is not set. Please set it to one of the following: cpu, gpu-8g, gpu-16g, apple"
         exit 1
     fi
 }
@@ -105,11 +128,11 @@ function check_vars() {
 detect_gpu
 detect_gpu_size
 
-SIZE="${SIZE:-$GPU_SIZE}" # default to cpu
-export MODELS="${MODELS:-/aio/${SIZE}/embeddings.yaml,/aio/${SIZE}/text-to-speech.yaml,/aio/${SIZE}/image-gen.yaml,/aio/${SIZE}/text-to-text.yaml,/aio/${SIZE}/speech-to-text.yaml,/aio/${SIZE}/vision.yaml}"
+PROFILE="${PROFILE:-$GPU_SIZE}" # default to cpu
+export MODELS="${MODELS:-/aio/${PROFILE}/embeddings.yaml,/aio/${PROFILE}/text-to-speech.yaml,/aio/${PROFILE}/image-gen.yaml,/aio/${PROFILE}/text-to-text.yaml,/aio/${PROFILE}/speech-to-text.yaml,/aio/${PROFILE}/vision.yaml}"
 
 check_vars
 
-echo "Starting LocalAI with the following models: $MODELS"
+echo "===> Starting LocalAI[$PROFILE] with the following models: $MODELS"
 
 /build/entrypoint.sh "$@"

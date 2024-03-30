@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core"
 	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
+	"github.com/gofiber/swagger" // swagger handler
 
 	"github.com/go-skynet/LocalAI/core/http/endpoints/elevenlabs"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
@@ -39,6 +40,18 @@ func readAuthHeader(c *fiber.Ctx) string {
 	return authHeader
 }
 
+// @title LocalAI API
+// @version 2.0.0
+// @description The LocalAI Rest API.
+// @termsOfService
+// @contact.name LocalAI
+// @contact.url https://localai.io
+// @license.name MIT
+// @license.url https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func App(application *core.Application) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
@@ -156,6 +169,8 @@ func App(application *core.Application) (*fiber.App, error) {
 			Version string `json:"version"`
 		}{Version: internal.PrintableVersion()})
 	})
+
+	app.Get("/swagger/*", swagger.HandlerDefault) // default
 
 	welcomeRoute(
 		app,

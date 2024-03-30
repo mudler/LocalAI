@@ -112,7 +112,7 @@ docker run -p 8080:8080 --name local-ai -ti -v localai-models:/build/models loca
 
 ## Try it out
 
-LocalAI does not ship a webui by default, however you can use 3rd party projects to interact with it (see also [All-in-one Images]({{%relref "docs/integrations" %}}) ). However, you can test out the API endpoints using `curl`.
+LocalAI does not ship a webui by default, however you can use 3rd party projects to interact with it (see also [Integrations]({{%relref "docs/integrations" %}}) ). However, you can test out the API endpoints using `curl`, you can find few examples below.
 
 ### Text Generation
 

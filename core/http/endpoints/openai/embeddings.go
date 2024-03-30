@@ -11,7 +11,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// https://platform.openai.com/docs/api-reference/embeddings
+// EmbeddingsEndpoint is the OpenAI Embeddings API endpoint https://platform.openai.com/docs/api-reference/embeddings
+// @Summary Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.
+// @Param request body schema.OpenAIRequest true "query params"
+// @Success 200 {object} schema.OpenAIResponse "Response"
+// @Router /v1/embeddings [post]
 func EmbeddingsEndpoint(fce *fiberContext.FiberContextExtractor, ebs *backend.EmbeddingsBackendService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		_, input, err := fce.OpenAIRequestFromContext(c, true)

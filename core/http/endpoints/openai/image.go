@@ -27,6 +27,12 @@ import (
 
 *
 */
+
+// ImageEndpoint is the OpenAI Image generation API endpoint https://platform.openai.com/docs/api-reference/images/create
+// @Summary Creates an image given a prompt.
+// @Param request body schema.OpenAIRequest true "query params"
+// @Success 200 {object} schema.OpenAIResponse "Response"
+// @Router /v1/images/generations [post]
 func ImageEndpoint(fce *fiberContext.FiberContextExtractor, igbs *backend.ImageGenerationBackendService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		// TODO: Somewhat a hack. Is there a better place to assign this?

@@ -15,7 +15,11 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-// https://platform.openai.com/docs/api-reference/completions
+// CompletionEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/completions
+// @Summary Generate completions for a given prompt and model.
+// @Param request body schema.OpenAIRequest true "query params"
+// @Success 200 {object} schema.OpenAIResponse "Response"
+// @Router /v1/completions [post]
 func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAIService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		_, request, err := fce.OpenAIRequestFromContext(c, false)

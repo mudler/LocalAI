@@ -14,6 +14,11 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
+// @Summary Generate a chat completions for a given prompt and model.
+// @Param request body schema.OpenAIRequest true "query params"
+// @Success 200 {object} schema.OpenAIResponse "Response"
+// @Router /v1/chat/completions [post]
 func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAIService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		_, request, err := fce.OpenAIRequestFromContext(c, false)

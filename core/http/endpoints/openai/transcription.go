@@ -15,7 +15,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// https://platform.openai.com/docs/api-reference/audio/create
+// TranscriptEndpoint is the OpenAI Whisper API endpoint https://platform.openai.com/docs/api-reference/audio/create
+// @Summary Transcribes audio into the input language.
+// @accept multipart/form-data
+// @Param model formData string true "model"
+// @Param file formData file true "file"
+// @Success 200 {object} map[string]string	 "Response"
+// @Router /v1/audio/transcriptions [post]
 func TranscriptEndpoint(fce *fiberContext.FiberContextExtractor, tbs *backend.TranscriptionBackendService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		_, request, err := fce.OpenAIRequestFromContext(c, false)
