@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -40,6 +41,36 @@ var _ = Describe("E2E test", func() {
 				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("4"), ContainSubstring("four")), fmt.Sprint(resp.Choices[0].Message.Content))
 			})
 		})
+
+		Context("json", func() {
+			It("correctly", func() {
+				model := "gpt-4"
+
+				req := openai.ChatCompletionRequest{
+					ResponseFormat: &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject},
+					Model:          model,
+					Messages: []openai.ChatCompletionMessage{
+						{
+
+							Role:    "user",
+							Content: "An animal with 'name', 'gender' and 'legs' fields",
+						},
+					},
+				}
+
+				resp, err := client.CreateChatCompletion(context.TODO(), req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
+
+				var i map[string]interface{}
+				err = json.Unmarshal([]byte(resp.Choices[0].Message.Content), &i)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(i).To(HaveKey("name"))
+				Expect(i).To(HaveKey("gender"))
+				Expect(i).To(HaveKey("legs"))
+			})
+		})
+
 		Context("images", func() {
 			It("correctly", func() {
 				resp, err := client.CreateImage(context.TODO(),
