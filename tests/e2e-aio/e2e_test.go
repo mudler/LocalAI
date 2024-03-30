@@ -10,8 +10,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/sashabaranov/go-openai"
+	"github.com/sashabaranov/go-openai/jsonschema"
 )
 
 var _ = Describe("E2E test", func() {
@@ -42,6 +42,52 @@ var _ = Describe("E2E test", func() {
 			})
 		})
 
+		Context("function calls", func() {
+			It("correctly invoke", func() {
+				params := jsonschema.Definition{
+					Type: jsonschema.Object,
+					Properties: map[string]jsonschema.Definition{
+						"location": {
+							Type:        jsonschema.String,
+							Description: "The city and state, e.g. San Francisco, CA",
+						},
+						"unit": {
+							Type: jsonschema.String,
+							Enum: []string{"celsius", "fahrenheit"},
+						},
+					},
+					Required: []string{"location"},
+				}
+
+				f := openai.FunctionDefinition{
+					Name:        "get_current_weather",
+					Description: "Get the current weather in a given location",
+					Parameters:  params,
+				}
+				t := openai.Tool{
+					Type:     openai.ToolTypeFunction,
+					Function: &f,
+				}
+
+				dialogue := []openai.ChatCompletionMessage{
+					{Role: openai.ChatMessageRoleUser, Content: "What is the weather in Boston today?"},
+				}
+				resp, err := client.CreateChatCompletion(context.TODO(),
+					openai.ChatCompletionRequest{
+						Model:    openai.GPT4,
+						Messages: dialogue,
+						Tools:    []openai.Tool{t},
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
+
+				msg := resp.Choices[0].Message
+				Expect(len(msg.ToolCalls)).To(Equal(1), fmt.Sprint(msg.ToolCalls))
+				Expect(msg.ToolCalls[0].Function.Name).To(Equal("get_current_weather"), fmt.Sprint(msg.ToolCalls[0].Function.Name))
+				Expect(msg.ToolCalls[0].Function.Arguments).To(ContainSubstring("Boston"), fmt.Sprint(msg.ToolCalls[0].Function.Arguments))
+			})
+		})
 		Context("json", func() {
 			It("correctly", func() {
 				model := "gpt-4"
