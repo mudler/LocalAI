@@ -13,7 +13,6 @@
         },
         "version": "2.0.0"
     },
-    "host": "localhost:8080",
     "basePath": "/",
     "paths": {
         "/v1/assistants": {
