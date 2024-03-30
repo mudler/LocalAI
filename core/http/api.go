@@ -51,7 +51,6 @@ func readAuthHeader(c *fiber.Ctx) string {
 // @contact.url https://localai.io
 // @license.name MIT
 // @license.url https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
-// @host localhost:8080
 // @BasePath /
 // @securityDefinitions.apikey BearerAuth
 // @in header
