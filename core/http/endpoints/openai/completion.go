@@ -73,6 +73,8 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			input.Grammar = grammar.JSONBNF
 		}
 
+		config.Grammar = input.Grammar
+
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
 		if input.Stream {
