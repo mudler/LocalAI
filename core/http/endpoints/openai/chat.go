@@ -236,7 +236,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 			// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
 			// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
-			if i.FunctionCall != nil && i.Role == "assistant" {
+			if (i.FunctionCall != nil || i.ToolCalls != nil) && i.Role == "assistant" {
 				roleFn := "assistant_function_call"
 				r := config.Roles[roleFn]
 				if r != "" {
@@ -246,6 +246,11 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			r := config.Roles[role]
 			contentExists := i.Content != nil && i.StringContent != ""
 
+			fcall := i.FunctionCall
+			if len(i.ToolCalls) > 0 {
+				fcall = i.ToolCalls
+			}
+
 			// First attempt to populate content via a chat message specific template
 			if config.TemplateConfig.ChatMessage != "" {
 				chatMessageData := model.ChatMessageTemplateData{
@@ -253,7 +258,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					Role:         r,
 					RoleName:     role,
 					Content:      i.StringContent,
-					FunctionCall: i.FunctionCall,
+					FunctionCall: fcall,
 					FunctionName: i.Name,
 					LastMessage:  messageIndex == (len(input.Messages) - 1),
 					Function:     config.Grammar != "" && (messageIndex == (len(input.Messages) - 1)),
@@ -271,35 +276,49 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					content = templatedChatMessage
 				}
 			}
+
+			marshalAnyRole := func(f any) {
+				j, err := json.Marshal(f)
+				if err == nil {
+					if contentExists {
+						content += "\n" + fmt.Sprint(r, " ", string(j))
+					} else {
+						content = fmt.Sprint(r, " ", string(j))
+					}
+				}
+			}
+			marshalAny := func(f any) {
+				j, err := json.Marshal(f)
+				if err == nil {
+					if contentExists {
+						content += "\n" + string(j)
+					} else {
+						content = string(j)
+					}
+				}
+			}
 			// If this model doesn't have such a template, or if that template fails to return a value, template at the message level.
 			if content == "" {
 				if r != "" {
 					if contentExists {
 						content = fmt.Sprint(r, i.StringContent)
 					}
+
 					if i.FunctionCall != nil {
-						j, err := json.Marshal(i.FunctionCall)
-						if err == nil {
-							if contentExists {
-								content += "\n" + fmt.Sprint(r, " ", string(j))
-							} else {
-								content = fmt.Sprint(r, " ", string(j))
-							}
-						}
+						marshalAnyRole(i.FunctionCall)
+					}
+					if i.ToolCalls != nil {
+						marshalAnyRole(i.ToolCalls)
 					}
 				} else {
 					if contentExists {
 						content = fmt.Sprint(i.StringContent)
 					}
 					if i.FunctionCall != nil {
-						j, err := json.Marshal(i.FunctionCall)
-						if err == nil {
-							if contentExists {
-								content += "\n" + string(j)
-							} else {
-								content = string(j)
-							}
-						}
+						marshalAny(i.FunctionCall)
+					}
+					if i.ToolCalls != nil {
+						marshalAny(i.ToolCalls)
 					}
 				}
 				// Special Handling: System. We care if it was printed at all, not the r branch, so check seperately
