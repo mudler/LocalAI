@@ -1,4 +1,4 @@
-name: phi-2-chat
+name: phi-2-orange
 mmap: true
 parameters:
   model: huggingface://l3utterfly/phi-2-orange-GGUF/phi-2-orange.Q6_K.gguf
@@ -25,6 +25,6 @@ description: |
 
 usage: |
       curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-          "model": "phi-2-chat",
+          "model": "phi-2-orange",
           "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
       }'
