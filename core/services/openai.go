@@ -168,6 +168,8 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 		request.Grammar = grammar.JSONBNF
 	}
 
+	bc.Grammar = request.Grammar
+
 	if request.Stream && len(bc.PromptStrings) > 1 {
 		log.Warn().Msg("potentially cannot handle more than 1 `PromptStrings` when Streaming?")
 	}
@@ -332,6 +334,8 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	if request.ResponseFormat.Type == "json_object" {
 		request.Grammar = grammar.JSONBNF
 	}
+
+	bc.Grammar = request.Grammar
 
 	processFunctions := false
 	funcs := grammar.Functions{}

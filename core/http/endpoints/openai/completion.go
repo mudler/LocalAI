@@ -36,6 +36,7 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 
 		if request.Stream {
 			log.Debug().Msgf("Completion Stream request received")
+
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
 			//c.Set("Content-Type", "text/event-stream")

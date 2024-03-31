@@ -1,0 +1,30 @@
+name: phi-2-orange
+mmap: true
+parameters:
+  model: huggingface://l3utterfly/phi-2-orange-GGUF/phi-2-orange.Q6_K.gguf
+
+template:
+  chat_message: |
+    <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "user"}}user{{end}}
+    {{if .Content}}{{.Content}}{{end}}
+    <|im_end|>
+  chat: |
+    {{.Input}}
+    <|im_start|>assistant
+  completion: |
+    {{.Input}}
+context_size: 4096
+f16: true
+stopwords:
+- <|im_end|>
+- <dummy32000>
+
+description: |
+  This model is a chatbot that can be used for general conversation.
+  [Model card](https://huggingface.co/TheBloke/phi-2-orange-GGUF)
+
+usage: |
+      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+          "model": "phi-2-orange",
+          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+      }'
