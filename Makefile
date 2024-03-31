@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=ba0c7c70ab5b15f1f2be7fb0dfbe0366dda30d6c
+CPPLLAMA_VERSION?=37e7854c104301c5b5323ccc40e07699f3a62c3e
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=1e8f28c42a1472ae7c49d0502ea06e2f5bc29a69
+WHISPER_CPP_VERSION?=ac283dbce7d42735e3ed985329037bf23fe180aa
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
