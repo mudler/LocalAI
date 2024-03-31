@@ -185,6 +185,8 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			input.Grammar = grammar.JSONBNF
 		}
 
+		config.Grammar = input.Grammar
+
 		// process functions if we have any defined or if we have a function call string
 		if len(input.Functions) > 0 && config.ShouldUseFunctions() {
 			log.Debug().Msgf("Response needs to process functions")
