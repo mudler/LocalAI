@@ -381,7 +381,13 @@ func updateBackendConfigFromOpenAIRequest(bc *BackendConfig, request *schema.Ope
 
 	if request.ToolsChoice != nil {
 		var toolChoice grammar.Tool
-		json.Unmarshal([]byte(request.ToolsChoice.(string)), &toolChoice)
+		switch content := request.ToolsChoice.(type) {
+		case string:
+			_ = json.Unmarshal([]byte(content), &toolChoice)
+		case map[string]interface{}:
+			dat, _ := json.Marshal(content)
+			_ = json.Unmarshal(dat, &toolChoice)
+		}
 		request.FunctionCall = map[string]interface{}{
 			"name": toolChoice.Function.Name,
 		}
