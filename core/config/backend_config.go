@@ -185,7 +185,12 @@ func (c *BackendConfig) ShouldCallSpecificFunction() bool {
 }
 
 func (c *BackendConfig) FunctionToCall() string {
-	return c.functionCallNameString
+	if c.functionCallNameString != "" &&
+		c.functionCallNameString != "none" && c.functionCallNameString != "auto" {
+		return c.functionCallNameString
+	}
+
+	return c.functionCallString
 }
 
 func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
