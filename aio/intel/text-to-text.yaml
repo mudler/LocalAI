@@ -40,6 +40,7 @@ template:
 context_size: 4096
 stopwords:
 - <|im_end|>
+- "\n</tool_call>"
 - <dummy32000>
 usage: |
       curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
