@@ -28,6 +28,7 @@ jobs:
       base-image: ${{ matrix.base-image }}
       aio: ${{ matrix.aio }}
       makeflags: ${{ matrix.makeflags }}
+      latest-image: ${{ matrix.latest-image }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -92,6 +93,7 @@ jobs:
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             aio: "-aio-gpu-nvidia-cuda-11"
+            latest-image: 'latest-aio-gpu-nvidia-cuda-11'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -104,6 +106,7 @@ jobs:
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             aio: "-aio-gpu-nvidia-cuda-12"
+            latest-image: 'latest-aio-gpu-nvidia-cuda-12'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: ''
             #platforms: 'linux/amd64,linux/arm64'
@@ -123,6 +126,7 @@ jobs:
             image-type: 'extras'
             aio: "-aio-gpu-hipblas"
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            latest-image: 'latest-aio-gpu-hipblas'
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'hipblas'
@@ -143,6 +147,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             aio: "-aio-gpu-intel-f16"
+            latest-image: 'latest-aio-gpu-intel-f16'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
@@ -153,6 +158,7 @@ jobs:
             image-type: 'extras'
             runs-on: 'arc-runner-set'
             aio: "-aio-gpu-intel-f32"
+            latest-image: 'latest-aio-gpu-intel-f32'
             makeflags: "--jobs=3 --output-sync=target"
           # Core images
           - build-type: 'sycl_f16'
@@ -225,6 +231,7 @@ jobs:
       aio: ${{ matrix.aio }}
       base-image: ${{ matrix.base-image }}
       makeflags: ${{ matrix.makeflags }}
+      latest-image: ${{ matrix.latest-image }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -242,6 +249,7 @@ jobs:
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
             aio: "-aio-cpu"
+            latest-image: 'latest-aio-cpu'
             makeflags: "--jobs=5 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
