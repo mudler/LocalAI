@@ -47,4 +47,4 @@ else
 	echo "@@@@@"
 fi
 
-./local-ai "$@"
+exec ./local-ai "$@"
