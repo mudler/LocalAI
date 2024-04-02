@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -455,6 +456,11 @@ func (cl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
 	for _, v := range cl.configs {
 		res = append(res, v)
 	}
+
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].Name < res[j].Name
+	})
+
 	return res
 }
 
