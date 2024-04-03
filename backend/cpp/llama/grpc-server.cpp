@@ -3,7 +3,7 @@
 // Ettore Di Giacinto <mudler@localai.io> and llama.cpp authors
 //
 // This is a gRPC server for llama.cpp compatible with the LocalAI proto
-// Note: this is a re-adaptation of the original llama.cpp example/server.cpp for HTTP (https://github.com/ggerganov/llama.cpp/tree/master/examples/server), 
+// Note: this is a re-adaptation of the original llama.cpp example/server.cpp for HTTP (https://github.com/ggerganov/llama.cpp/tree/master/examples/server),
 // but modified to work with gRPC
 //
 
@@ -338,6 +338,9 @@ struct llama_client_slot
         sprintf(buffer, "generation eval time = %10.2f ms / %5d runs   (%8.2f ms per token, %8.2f tokens per second)",
                 t_token_generation, n_decoded,
                 t_token, n_tokens_second);
+
+        log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
+				log.Error().Msg("METRICS: %s", buffer)
         LOG_INFO(buffer, {
             {"slot_id",            id},
             {"task_id",            task_id},
@@ -618,7 +621,7 @@ struct llama_server_context
     bool launch_slot_with_data(llama_client_slot* &slot, json data) {
         slot_params default_params;
         llama_sampling_params default_sparams;
- 
+
         slot->params.stream             = json_value(data, "stream",            false);
         slot->params.cache_prompt       = json_value(data, "cache_prompt",      false);
         slot->params.n_predict          = json_value(data, "n_predict",         default_params.n_predict);
@@ -2059,7 +2062,7 @@ static void start_llama_server() {
 
 json parse_options(bool streaming, const backend::PredictOptions* predict, llama_server_context &llama)
 {
-    
+
     // This is for example a slot data from the json data
     //     slot->params.stream           = json_value(data, "stream",            false);
     //     slot->params.cache_prompt     = json_value(data, "cache_prompt",      false);
@@ -2192,7 +2195,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
 
 static void params_parse(const backend::ModelOptions* request,
                                 gpt_params & params) {
-   
+
     // this is comparable to: https://github.com/ggerganov/llama.cpp/blob/d9b33fe95bd257b36c84ee5769cc048230067d6f/examples/server/server.cpp#L1809
 
     params.model = request->modelfile();
