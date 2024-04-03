@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"math/rand"
 	"os"
 	"path/filepath"
 
@@ -33,12 +34,20 @@ func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []mode
 	return opts
 }
 
+func getSeed(c config.BackendConfig) int32 {
+	seed := int32(*c.Seed)
+	if seed == config.RAND_SEED {
+		seed = rand.Int31()
+	}
+
+	return seed
+}
+
 func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
 	}
-
 	return &pb.ModelOptions{
 		CUDA:                 c.CUDA || c.Diffusers.CUDA,
 		SchedulerType:        c.Diffusers.SchedulerType,
@@ -54,7 +63,7 @@ func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
 		ControlNet:           c.Diffusers.ControlNet,
 		ContextSize:          int32(*c.ContextSize),
-		Seed:                 int32(*c.Seed),
+		Seed:                 getSeed(c),
 		NBatch:               int32(b),
 		NoMulMatQ:            c.NoMulMatQ,
 		DraftModel:           c.DraftModel,
@@ -129,7 +138,7 @@ func gRPCPredictOpts(c config.BackendConfig, modelPath string) *pb.PredictOption
 		NKeep:               int32(c.Keep),
 		Batch:               int32(c.Batch),
 		IgnoreEOS:           c.IgnoreEOS,
-		Seed:                int32(*c.Seed),
+		Seed:                getSeed(c),
 		FrequencyPenalty:    float32(c.FrequencyPenalty),
 		MLock:               *c.MMlock,
 		MMap:                *c.MMap,
