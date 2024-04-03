@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
@@ -18,6 +17,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/charmbracelet/glamour"
+)
+
+const (
+	RAND_SEED = -1
 )
 
 type BackendConfig struct {
@@ -218,7 +221,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.Seed == nil {
 		//  random number generator seed
-		defaultSeed := int(rand.Int31())
+		defaultSeed := RAND_SEED
 		cfg.Seed = &defaultSeed
 	}
 

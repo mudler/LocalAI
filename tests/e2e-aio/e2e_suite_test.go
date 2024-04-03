@@ -23,6 +23,7 @@ var containerImageTag = os.Getenv("LOCALAI_IMAGE_TAG")
 var modelsDir = os.Getenv("LOCALAI_MODELS_DIR")
 var apiPort = os.Getenv("LOCALAI_API_PORT")
 var apiEndpoint = os.Getenv("LOCALAI_API_ENDPOINT")
+var apiKey = os.Getenv("LOCALAI_API_KEY")
 
 func TestLocalAI(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -38,11 +39,11 @@ var _ = BeforeSuite(func() {
 	var defaultConfig openai.ClientConfig
 	if apiEndpoint == "" {
 		startDockerImage()
-		defaultConfig = openai.DefaultConfig("")
+		defaultConfig = openai.DefaultConfig(apiKey)
 		defaultConfig.BaseURL = "http://localhost:" + apiPort + "/v1"
 	} else {
 		fmt.Println("Default ", apiEndpoint)
-		defaultConfig = openai.DefaultConfig("")
+		defaultConfig = openai.DefaultConfig(apiKey)
 		defaultConfig.BaseURL = apiEndpoint
 	}
 
