@@ -35,14 +35,15 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 			modelYAML, err := embedded.ResolveContent(url)
 			// If we resolve something, just save it to disk and continue
 			if err != nil {
-				log.Error().Msgf("error loading model: %s", err.Error())
+				log.Error().Err(err).Msg("error resolving model content")
 				continue
 			}
 
 			log.Debug().Msgf("[startup] resolved embedded model: %s", url)
 			md5Name := utils.MD5(url)
-			if err := os.WriteFile(filepath.Join(modelPath, md5Name)+".yaml", modelYAML, os.ModePerm); err != nil {
-				log.Error().Msgf("error loading model: %s", err.Error())
+			modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
+			if err := os.WriteFile(modelDefinitionFilePath, modelYAML, os.ModePerm); err != nil {
+				log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error writing model definition")
 			}
 		case downloader.LooksLikeURL(url):
 			log.Debug().Msgf("[startup] resolved model to download: %s", url)
@@ -52,11 +53,12 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-				err := downloader.DownloadFile(url, filepath.Join(modelPath, md5Name)+".yaml", "", func(fileName, current, total string, percent float64) {
+				modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
+				err := downloader.DownloadFile(url, modelDefinitionFilePath, "", func(fileName, current, total string, percent float64) {
 					utils.DisplayDownloadFunction(fileName, current, total, percent)
 				})
 				if err != nil {
-					log.Error().Msgf("error loading model: %s", err.Error())
+					log.Error().Err(err).Str("url", url).Str("filepath", modelDefinitionFilePath).Msg("error downloading model")
 				}
 			}
 		default:
@@ -67,12 +69,13 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 
 				modelYAML, err := os.ReadFile(url)
 				if err != nil {
-					log.Error().Msgf("error loading model: %s", err.Error())
+					log.Error().Err(err).Str("filepath", url).Msg("error reading model definition")
 					continue
 				}
 
-				if err := os.WriteFile(filepath.Join(modelPath, md5Name)+".yaml", modelYAML, os.ModePerm); err != nil {
-					log.Error().Msgf("error loading model: %s", err.Error())
+				modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
+				if err := os.WriteFile(modelDefinitionFilePath, modelYAML, os.ModePerm); err != nil {
+					log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error loading model: %s")
 				}
 			} else {
 				log.Warn().Msgf("[startup] failed resolving model '%s'", url)

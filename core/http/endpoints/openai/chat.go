@@ -84,7 +84,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 			result, err := handleQuestion(config, req, ml, startupOptions, results[0].arguments, prompt)
 			if err != nil {
-				log.Error().Msgf("error handling question: %s", err.Error())
+				log.Error().Err(err).Msg("error handling question")
 				return
 			}
 
@@ -268,7 +268,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				}
 				templatedChatMessage, err := ml.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 				if err != nil {
-					log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, config.TemplateConfig.ChatMessage, err)
+					log.Error().Err(err).Interface("message", chatMessageData).Str("template", config.TemplateConfig.ChatMessage).Msg("error processing message with template, skipping")
 				} else {
 					if templatedChatMessage == "" {
 						log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", config.TemplateConfig.ChatMessage, chatMessageData)
@@ -455,7 +455,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				case noActionsToRun:
 					result, err := handleQuestion(config, input, ml, startupOptions, results[0].arguments, predInput)
 					if err != nil {
-						log.Error().Msgf("error handling question: %s", err.Error())
+						log.Error().Err(err).Msg("error handling question")
 						return
 					}
 					*c = append(*c, schema.Choice{
@@ -565,13 +565,13 @@ func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, m
 
 	predFunc, err := backend.ModelInference(input.Context, prompt, images, ml, *config, o, nil)
 	if err != nil {
-		log.Error().Msgf("inference error: %s", err.Error())
+		log.Error().Err(err).Msg("model inference failed")
 		return "", err
 	}
 
 	prediction, err := predFunc()
 	if err != nil {
-		log.Error().Msgf("inference error: %s", err.Error())
+		log.Error().Err(err).Msg("prediction failed")
 		return "", err
 	}
 	return backend.Finetune(*config, prompt, prediction.Response), nil

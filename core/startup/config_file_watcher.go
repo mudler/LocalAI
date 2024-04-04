@@ -85,7 +85,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 				if !ok {
 					return
 				}
-				log.Error().Msgf("WatchConfigDirectory goroutine error: %+v", err)
+				log.Error().Err(err).Msg("error encountered while watching config directory")
 			}
 		}
 	}()

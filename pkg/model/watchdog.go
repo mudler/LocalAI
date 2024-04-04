@@ -110,10 +110,10 @@ func (wd *WatchDog) checkIdle() {
 		log.Debug().Msgf("[WatchDog] %s: idle connection", address)
 		if time.Since(t) > wd.idletimeout {
 			log.Warn().Msgf("[WatchDog] Address %s is idle for too long, killing it", address)
-			p, ok := wd.addressModelMap[address]
+			model, ok := wd.addressModelMap[address]
 			if ok {
-				if err := wd.pm.ShutdownModel(p); err != nil {
-					log.Error().Msgf("[watchdog] Error shutting down model %s: %v", p, err)
+				if err := wd.pm.ShutdownModel(model); err != nil {
+					log.Error().Err(err).Str("model", model).Msg("[watchdog] error shutting down model")
 				}
 				log.Debug().Msgf("[WatchDog] model shut down: %s", address)
 				delete(wd.idleTime, address)
@@ -141,7 +141,7 @@ func (wd *WatchDog) checkBusy() {
 			if ok {
 				log.Warn().Msgf("[WatchDog] Model %s is busy for too long, killing it", model)
 				if err := wd.pm.ShutdownModel(model); err != nil {
-					log.Error().Msgf("[watchdog] Error shutting down model %s: %v", model, err)
+					log.Error().Err(err).Str("model", model).Msg("[watchdog] error shutting down model")
 				}
 				log.Debug().Msgf("[WatchDog] model shut down: %s", address)
 				delete(wd.timetable, address)

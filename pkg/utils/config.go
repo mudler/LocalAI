@@ -2,21 +2,22 @@ package utils
 
 import (
 	"encoding/json"
-	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
+
+	"github.com/rs/zerolog/log"
 )
 
 func SaveConfig(filePath, fileName string, obj any) {
 	file, err := json.MarshalIndent(obj, "", " ")
 	if err != nil {
-		log.Error().Msgf("Failed to JSON marshal the uploadedFiles: %s", err)
+		log.Error().Err(err).Msg("failed to JSON marshal the uploadedFiles")
 	}
 
 	absolutePath := filepath.Join(filePath, fileName)
 	err = os.WriteFile(absolutePath, file, 0644)
 	if err != nil {
-		log.Error().Msgf("Failed to save configuration file to %s: %s", absolutePath, err)
+		log.Error().Err(err).Str("filepath", absolutePath).Msg("failed to save configuration file")
 	}
 }
 
@@ -31,11 +32,11 @@ func LoadConfig(filePath, fileName string, obj interface{}) {
 
 	file, err := os.ReadFile(uploadFilePath)
 	if err != nil {
-		log.Error().Msgf("Failed to read file: %s", err)
+		log.Error().Err(err).Str("filepath", uploadFilePath).Msg("failed to read file")
 	} else {
 		err = json.Unmarshal(file, &obj)
 		if err != nil {
-			log.Error().Msgf("Failed to JSON unmarshal the file %s: %v", uploadFilePath, err)
+			log.Error().Err(err).Str("filepath", uploadFilePath).Msg("failed to parse file as JSON")
 		}
 	}
 }

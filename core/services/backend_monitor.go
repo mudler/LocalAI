@@ -63,7 +63,7 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.Backe
 	pid, err := bm.modelLoader.GetGRPCPID(backend)
 
 	if err != nil {
-		log.Error().Msgf("model %s : failed to find pid %+v", model, err)
+		log.Error().Err(err).Str("model", model).Msg("failed to find GRPC pid")
 		return nil, err
 	}
 
@@ -71,26 +71,26 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.Backe
 	backendProcess, err := gopsutil.NewProcess(int32(pid))
 
 	if err != nil {
-		log.Error().Msgf("model %s [PID %d] : error getting process info %+v", model, pid, err)
+		log.Error().Err(err).Str("model", model).Int("pid", pid).Msg("error getting process info")
 		return nil, err
 	}
 
 	memInfo, err := backendProcess.MemoryInfo()
 
 	if err != nil {
-		log.Error().Msgf("model %s [PID %d] : error getting memory info %+v", model, pid, err)
+		log.Error().Err(err).Str("model", model).Int("pid", pid).Msg("error getting memory info")
 		return nil, err
 	}
 
 	memPercent, err := backendProcess.MemoryPercent()
 	if err != nil {
-		log.Error().Msgf("model %s [PID %d] : error getting memory percent %+v", model, pid, err)
+		log.Error().Err(err).Str("model", model).Int("pid", pid).Msg("error getting memory percent")
 		return nil, err
 	}
 
 	cpuPercent, err := backendProcess.CPUPercent()
 	if err != nil {
-		log.Error().Msgf("model %s [PID %d] : error getting cpu percent %+v", model, pid, err)
+		log.Error().Err(err).Str("model", model).Int("pid", pid).Msg("error getting cpu percent")
 		return nil, err
 	}
 
