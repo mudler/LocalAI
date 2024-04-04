@@ -169,7 +169,7 @@ func WithStringGalleries(galls string) AppOption {
 		}
 		var galleries []gallery.Gallery
 		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
-			log.Error().Msgf("failed loading galleries: %s", err.Error())
+			log.Error().Err(err).Msg("failed loading galleries")
 		}
 		o.Galleries = append(o.Galleries, galleries...)
 	}

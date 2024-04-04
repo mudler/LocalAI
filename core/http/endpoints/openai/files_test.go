@@ -3,7 +3,6 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-skynet/LocalAI/core/config"
 
@@ -297,7 +298,7 @@ func responseToListFile(t *testing.T, resp *http.Response) ListFiles {
 
 	err := json.NewDecoder(strings.NewReader(responseToString)).Decode(&listFiles)
 	if err != nil {
-		log.Error().Msgf("Failed to decode response: %s", err)
+		log.Error().Err(err).Msg("failed to decode response")
 	}
 
 	return listFiles

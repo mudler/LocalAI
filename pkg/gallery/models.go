@@ -67,7 +67,7 @@ func GetGalleryConfigFromURL(url string) (Config, error) {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
-		log.Error().Msgf("GetGalleryConfigFromURL error for url %s\n%s", url, err.Error())
+		log.Error().Err(err).Str("url", url).Msg("failed to get gallery config for url")
 		return config, err
 	}
 	return config, nil

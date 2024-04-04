@@ -61,17 +61,17 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
 	if err := cl.LoadBackendConfigsFromPath(options.ModelPath, configLoaderOpts...); err != nil {
-		log.Error().Msgf("error loading config files: %s", err.Error())
+		log.Error().Err(err).Msg("error loading config files")
 	}
 
 	if options.ConfigFile != "" {
 		if err := cl.LoadBackendConfigFile(options.ConfigFile, configLoaderOpts...); err != nil {
-			log.Error().Msgf("error loading config file: %s", err.Error())
+			log.Error().Err(err).Msg("error loading config file")
 		}
 	}
 
 	if err := cl.Preload(options.ModelPath); err != nil {
-		log.Error().Msgf("error downloading models: %s", err.Error())
+		log.Error().Err(err).Msg("error downloading models")
 	}
 
 	if options.PreloadJSONModels != "" {

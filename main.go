@@ -45,7 +45,7 @@ func main() {
 
 	path, err := os.Getwd()
 	if err != nil {
-		log.Error().Msgf("error: %s", err.Error())
+		log.Error().Err(err).Msg("failed to get current directory")
 		os.Exit(1)
 	}
 
@@ -340,7 +340,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 			appHTTP, err := http.App(cl, ml, options)
 			if err != nil {
-				log.Error().Msg("Error during HTTP App constructor")
+				log.Error().Err(err).Msg("error during HTTP App construction")
 				return err
 			}
 
@@ -357,7 +357,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						Action: func(ctx *cli.Context) error {
 							var galleries []gallery.Gallery
 							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
-								log.Error().Msgf("unable to load galleries: %s", err.Error())
+								log.Error().Err(err).Msg("unable to load galleries")
 							}
 
 							models, err := gallery.AvailableGalleryModels(galleries, ctx.String("models-path"))
@@ -382,7 +382,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 							var galleries []gallery.Gallery
 							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
-								log.Error().Msgf("unable to load galleries: %s", err.Error())
+								log.Error().Err(err).Msg("unable to load galleries")
 							}
 
 							progressBar := progressbar.NewOptions(
@@ -547,7 +547,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 	err = app.Run(os.Args)
 	if err != nil {
-		log.Error().Msgf("error: %s", err.Error())
+		log.Error().Err(err).Msg("application runtime error")
 		os.Exit(1)
 	}
 }
