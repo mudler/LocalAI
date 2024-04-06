@@ -107,7 +107,7 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	}
 
 	if err != nil {
-		log.Error().Msgf("[llmbs.Inference] failed to load a backend: %q", err)
+		log.Error().Err(err).Msg("[llmbs.Inference] failed to load a backend")
 		return
 	}
 
