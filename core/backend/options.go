@@ -144,7 +144,7 @@ func gRPCPredictOpts(bc *config.BackendConfig, modelPath string) *pb.PredictOpti
 		MMap:                *bc.MMap,
 		MainGPU:             bc.MainGPU,
 		TensorSplit:         bc.TensorSplit,
-		TailFreeSamplingZ:   float32(bc.TFZ),
-		TypicalP:            float32(bc.TypicalP),
+		TailFreeSamplingZ:   float32(*bc.TFZ),
+		TypicalP:            float32(*bc.TypicalP),
 	}
 }
