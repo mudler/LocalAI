@@ -34,7 +34,7 @@ func modelOpts(bc *config.BackendConfig, so *config.ApplicationConfig, opts []mo
 	return opts
 }
 
-func getSeed(c config.BackendConfig) int32 {
+func getSeed(c *config.BackendConfig) int32 {
 	seed := int32(*c.Seed)
 	if seed == config.RAND_SEED {
 		seed = rand.Int31()
@@ -122,32 +122,6 @@ func gRPCPredictOpts(bc *config.BackendConfig, modelPath string) *pb.PredictOpti
 		PromptCacheAll:      bc.PromptCacheAll,
 		PromptCacheRO:       bc.PromptCacheRO,
 		PromptCachePath:     promptCachePath,
-<<<<<<< HEAD
-		F16KV:               *c.F16,
-		DebugMode:           *c.Debug,
-		Grammar:             c.Grammar,
-		NegativePromptScale: c.NegativePromptScale,
-		RopeFreqBase:        c.RopeFreqBase,
-		RopeFreqScale:       c.RopeFreqScale,
-		NegativePrompt:      c.NegativePrompt,
-		Mirostat:            int32(*c.LLMConfig.Mirostat),
-		MirostatETA:         float32(*c.LLMConfig.MirostatETA),
-		MirostatTAU:         float32(*c.LLMConfig.MirostatTAU),
-		Debug:               *c.Debug,
-		StopPrompts:         c.StopWords,
-		Repeat:              int32(c.RepeatPenalty),
-		NKeep:               int32(c.Keep),
-		Batch:               int32(c.Batch),
-		IgnoreEOS:           c.IgnoreEOS,
-		Seed:                getSeed(c),
-		FrequencyPenalty:    float32(c.FrequencyPenalty),
-		MLock:               *c.MMlock,
-		MMap:                *c.MMap,
-		MainGPU:             c.MainGPU,
-		TensorSplit:         c.TensorSplit,
-		TailFreeSamplingZ:   float32(c.TFZ),
-		TypicalP:            float32(c.TypicalP),
-=======
 		F16KV:               *bc.F16,
 		DebugMode:           *bc.Debug,
 		Grammar:             bc.Grammar,
@@ -164,7 +138,7 @@ func gRPCPredictOpts(bc *config.BackendConfig, modelPath string) *pb.PredictOpti
 		NKeep:               int32(bc.Keep),
 		Batch:               int32(bc.Batch),
 		IgnoreEOS:           bc.IgnoreEOS,
-		Seed:                int32(*bc.Seed),
+		Seed:                getSeed(bc),
 		FrequencyPenalty:    float32(bc.FrequencyPenalty),
 		MLock:               *bc.MMlock,
 		MMap:                *bc.MMap,
@@ -172,6 +146,5 @@ func gRPCPredictOpts(bc *config.BackendConfig, modelPath string) *pb.PredictOpti
 		TensorSplit:         bc.TensorSplit,
 		TailFreeSamplingZ:   float32(bc.TFZ),
 		TypicalP:            float32(bc.TypicalP),
->>>>>>> rf-core-3
 	}
 }
