@@ -205,13 +205,16 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	threads := lo.threads
 	f16 := lo.f16
 	debug := lo.debug
-	defaultTopP := 0.7
-	defaultTopK := 80
+	// https://github.com/ggerganov/llama.cpp/blob/75cd4c77292034ecec587ecb401366f57338f7c0/common/sampling.h#L22
+	defaultTopP := 0.95
+	defaultTopK := 40
 	defaultTemp := 0.9
 	defaultMaxTokens := 2048
 	defaultMirostat := 2
 	defaultMirostatTAU := 5.0
 	defaultMirostatETA := 0.1
+	defaultTypicalP := 1.0
+	defaultTFZ := 1.0
 
 	// Try to offload all GPU layers (if GPU is found)
 	defaultNGPULayers := 99999999
@@ -227,6 +230,14 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.TopK == nil {
 		cfg.TopK = &defaultTopK
+	}
+
+	if cfg.TypicalP == nil {
+		cfg.TypicalP = &defaultTypicalP
+	}
+
+	if cfg.TFZ == nil {
+		cfg.TFZ = &defaultTFZ
 	}
 
 	if cfg.MMap == nil {

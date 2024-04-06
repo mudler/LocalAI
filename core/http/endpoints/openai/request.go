@@ -192,11 +192,11 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.RepeatPenalty = input.RepeatPenalty
 	}
 
-	if input.FrequencyPenalty!= 0 {
+	if input.FrequencyPenalty != 0 {
 		config.FrequencyPenalty = input.FrequencyPenalty
 	}
 
-	if input.PresencePenalty!= 0 {
+	if input.PresencePenalty != 0 {
 		config.PresencePenalty = input.PresencePenalty
 	}
 
@@ -216,7 +216,7 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.Seed = input.Seed
 	}
 
-	if input.TypicalP != 0 {
+	if input.TypicalP != nil {
 		config.TypicalP = input.TypicalP
 	}
 
