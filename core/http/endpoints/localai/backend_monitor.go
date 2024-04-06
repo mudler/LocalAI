@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func BackendMonitorEndpoint(bm services.BackendMonitor) func(c *fiber.Ctx) error {
+func BackendMonitorEndpoint(bm *services.BackendMonitorService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.BackendMonitorRequest)
@@ -23,7 +23,7 @@ func BackendMonitorEndpoint(bm services.BackendMonitor) func(c *fiber.Ctx) error
 	}
 }
 
-func BackendShutdownEndpoint(bm services.BackendMonitor) func(c *fiber.Ctx) error {
+func BackendShutdownEndpoint(bm *services.BackendMonitorService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		input := new(schema.BackendMonitorRequest)
 		// Get input data from the request body

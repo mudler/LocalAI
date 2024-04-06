@@ -5,17 +5,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
-	"time"
 
-	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
+	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/pkg/grammar"
-	model "github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
@@ -25,6 +19,7 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
+<<<<<<< HEAD
 func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	emptyMessage := ""
 	id := uuid.New().String()
@@ -155,38 +150,27 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		close(responses)
 	}
 
+=======
+func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAIService) func(c *fiber.Ctx) error {
+>>>>>>> rf-core-3
 	return func(c *fiber.Ctx) error {
-		processFunctions := false
-		funcs := grammar.Functions{}
-		modelFile, input, err := readRequest(c, ml, startupOptions, true)
+		_, request, err := fce.OpenAIRequestFromContext(c, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, startupOptions.Debug, startupOptions.Threads, startupOptions.ContextSize, startupOptions.F16)
+		// log.Debug().Msgf("`[CHAT] OpenAIRequest`: %+v", request)
+
+		traceID, finalResultChannel, _, tokenChannel, err := oais.Chat(request, false, request.Stream)
 		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
-		}
-		log.Debug().Msgf("Configuration read: %+v", config)
-
-		// Allow the user to set custom actions via config file
-		// to be "embedded" in each model
-		noActionName := "answer"
-		noActionDescription := "use this action to answer without performing any action"
-
-		if config.FunctionsConfig.NoActionFunctionName != "" {
-			noActionName = config.FunctionsConfig.NoActionFunctionName
-		}
-		if config.FunctionsConfig.NoActionDescriptionName != "" {
-			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
+			return err
 		}
 
-		if input.ResponseFormat.Type == "json_object" {
-			input.Grammar = grammar.JSONBNF
-		}
+		if request.Stream {
 
-		config.Grammar = input.Grammar
+			log.Debug().Msgf("Chat Stream request received")
 
+<<<<<<< HEAD
 		// process functions if we have any defined or if we have a function call string
 		if len(input.Functions) > 0 && config.ShouldUseFunctions() {
 			log.Debug().Msgf("Response needs to process functions")
@@ -337,96 +321,68 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 		if toStream {
 			log.Debug().Msgf("Stream request received")
+=======
+>>>>>>> rf-core-3
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
-			//	c.Set("Content-Type", "text/event-stream")
+			//
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
-		}
-
-		templateFile := ""
-
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
-			templateFile = config.Model
-		}
-
-		if config.TemplateConfig.Chat != "" && !processFunctions {
-			templateFile = config.TemplateConfig.Chat
-		}
-
-		if config.TemplateConfig.Functions != "" && processFunctions {
-			templateFile = config.TemplateConfig.Functions
-		}
-
-		if templateFile != "" {
-			templatedInput, err := ml.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
-				SystemPrompt:         config.SystemPrompt,
-				SuppressSystemPrompt: suppressConfigSystemPrompt,
-				Input:                predInput,
-				Functions:            funcs,
-			})
-			if err == nil {
-				predInput = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", predInput)
-			} else {
-				log.Debug().Msgf("Template failed loading: %s", err.Error())
-			}
-		}
-
-		log.Debug().Msgf("Prompt (after templating): %s", predInput)
-		if processFunctions {
-			log.Debug().Msgf("Grammar: %+v", config.Grammar)
-		}
-
-		switch {
-		case toStream:
-			responses := make(chan schema.OpenAIResponse)
-
-			if !processFunctions {
-				go process(predInput, input, config, ml, responses)
-			} else {
-				go processTools(noActionName, predInput, input, config, ml, responses)
-			}
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 				usage := &schema.OpenAIUsage{}
 				toolsCalled := false
-				for ev := range responses {
-					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
-					if len(ev.Choices[0].Delta.ToolCalls) > 0 {
+				for ev := range tokenChannel {
+					if ev.Error != nil {
+						log.Debug().Msgf("chat streaming responseChannel error: %q", ev.Error)
+						request.Cancel()
+						break
+					}
+					usage = &ev.Value.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
+
+					if len(ev.Value.Choices[0].Delta.ToolCalls) > 0 {
 						toolsCalled = true
 					}
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
-					enc.Encode(ev)
-					log.Debug().Msgf("Sending chunk: %s", buf.String())
+					if ev.Error != nil {
+						log.Debug().Msgf("[ChatEndpoint] error to debug during tokenChannel handler: %q", ev.Error)
+						enc.Encode(ev.Error)
+					} else {
+						enc.Encode(ev.Value)
+					}
+					log.Debug().Msgf("chat streaming sending chunk: %s", buf.String())
 					_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
 					if err != nil {
 						log.Debug().Msgf("Sending chunk failed: %v", err)
-						input.Cancel()
+						request.Cancel()
 						break
 					}
-					w.Flush()
+					err = w.Flush()
+					if err != nil {
+						log.Debug().Msg("error while flushing, closing connection")
+						request.Cancel()
+						break
+					}
 				}
 
 				finishReason := "stop"
 				if toolsCalled {
 					finishReason = "tool_calls"
-				} else if toolsCalled && len(input.Tools) == 0 {
+				} else if toolsCalled && len(request.Tools) == 0 {
 					finishReason = "function_call"
 				}
 
 				resp := &schema.OpenAIResponse{
-					ID:      id,
-					Created: created,
-					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+					ID:      traceID.ID,
+					Created: traceID.Created,
+					Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: []schema.Choice{
 						{
 							FinishReason: finishReason,
 							Index:        0,
-							Delta:        &schema.Message{Content: &emptyMessage},
+							Delta:        &schema.Message{Content: ""},
 						}},
 					Object: "chat.completion.chunk",
 					Usage:  *usage,
@@ -437,7 +393,9 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				w.WriteString("data: [DONE]\n\n")
 				w.Flush()
 			}))
+
 			return nil
+<<<<<<< HEAD
 
 		// no streaming mode
 		default:
@@ -529,10 +487,25 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 			// Return the prediction in the response body
 			return c.JSON(resp)
+=======
+>>>>>>> rf-core-3
 		}
 
+		// TODO is this proper to have exclusive from Stream, or do we need to issue both responses?
+		rawResponse := <-finalResultChannel
+
+		if rawResponse.Error != nil {
+			return rawResponse.Error
+		}
+
+		jsonResult, _ := json.Marshal(rawResponse.Value)
+		log.Debug().Msgf("Chat Final Response: %s", jsonResult)
+
+		// Return the prediction in the response body
+		return c.JSON(rawResponse.Value)
 	}
 }
+<<<<<<< HEAD
 
 func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, ml *model.ModelLoader, o *config.ApplicationConfig, args, prompt string) (string, error) {
 	log.Debug().Msgf("nothing to do, computing a reply")
@@ -636,3 +609,5 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 
 	return results
 }
+=======
+>>>>>>> rf-core-3

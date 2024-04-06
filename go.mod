@@ -13,8 +13,8 @@ require (
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230716133540-6abe312cded1
 	github.com/go-skynet/go-llama.cpp v0.0.0-20231009155254-aeba71ee8428
 	github.com/gofiber/fiber/v2 v2.52.0
+	github.com/gofiber/swagger v1.0.0
 	github.com/gofiber/template/html/v2 v2.1.1
-	github.com/gomarkdown/markdown v0.0.0-20231222211730-1d6d20845b47
 	github.com/google/uuid v1.5.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hpcloud/tail v1.0.0
@@ -30,9 +30,11 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.17.0
 	github.com/rs/zerolog v1.31.0
+	github.com/russross/blackfriday v1.6.0
 	github.com/sashabaranov/go-openai v1.20.4
 	github.com/schollz/progressbar/v3 v3.13.1
 	github.com/stretchr/testify v1.9.0
+	github.com/swaggo/swag v1.16.3
 	github.com/tmc/langchaingo v0.0.0-20231019140956-c636b3da7701
 	github.com/urfave/cli/v2 v2.27.1
 	github.com/valyala/fasthttp v1.51.0
@@ -64,8 +66,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
-	github.com/PuerkitoBio/purell v1.2.1 // indirect
-	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/aymanbagabas/go-osc52 v1.0.3 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
@@ -85,7 +85,6 @@ require (
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/spec v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
-	github.com/gofiber/swagger v1.0.0 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/utils v1.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -119,12 +118,10 @@ require (
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
-	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/swaggo/files/v2 v2.0.0 // indirect
-	github.com/swaggo/swag v1.16.3 // indirect
 	github.com/ulikunitz/xz v0.5.9 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
@@ -140,7 +137,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 require (

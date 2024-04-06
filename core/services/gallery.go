@@ -28,7 +28,7 @@ func NewGalleryService(modelPath string) *GalleryService {
 	}
 }
 
-func prepareModel(modelPath string, req gallery.GalleryModel, cl *config.BackendConfigLoader, downloadStatus func(string, string, string, float64)) error {
+func prepareModel(modelPath string, req gallery.GalleryModel, downloadStatus func(string, string, string, float64)) error {
 
 	config, err := gallery.GetGalleryConfigFromURL(req.URL)
 	if err != nil {
@@ -91,7 +91,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 						err = gallery.InstallModelFromGalleryByName(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
 					}
 				} else {
-					err = prepareModel(g.modelPath, op.Req, cl, progressCallback)
+					err = prepareModel(g.modelPath, op.Req, progressCallback)
 				}
 
 				if err != nil {
@@ -123,12 +123,12 @@ type galleryModel struct {
 	ID                   string           `json:"id"`
 }
 
-func processRequests(modelPath, s string, cm *config.BackendConfigLoader, galleries []gallery.Gallery, requests []galleryModel) error {
+func processRequests(modelPath string, galleries []gallery.Gallery, requests []galleryModel) error {
 	var err error
 	for _, r := range requests {
 		utils.ResetDownloadTimers()
 		if r.ID == "" {
-			err = prepareModel(modelPath, r.GalleryModel, cm, utils.DisplayDownloadFunction)
+			err = prepareModel(modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
 		} else {
 			if strings.Contains(r.ID, "@") {
 				err = gallery.InstallModelFromGallery(
@@ -153,7 +153,7 @@ func ApplyGalleryFromFile(modelPath, s string, cl *config.BackendConfigLoader, g
 		return err
 	}
 
-	return processRequests(modelPath, s, cl, galleries, requests)
+	return processRequests(modelPath, galleries, requests)
 }
 
 func ApplyGalleryFromString(modelPath, s string, cl *config.BackendConfigLoader, galleries []gallery.Gallery) error {
@@ -163,5 +163,5 @@ func ApplyGalleryFromString(modelPath, s string, cl *config.BackendConfigLoader,
 		return err
 	}
 
-	return processRequests(modelPath, s, cl, galleries, requests)
+	return processRequests(modelPath, galleries, requests)
 }
