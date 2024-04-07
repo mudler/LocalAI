@@ -61,10 +61,14 @@ Or with a docker-compose file:
 version: "3.9"
 services:
   api:
-    image: localai/localai:{{< version >}}-aio-cpu
+    image: localai/localai:latest-aio-cpu
+    # For a specific version:
+    # image: localai/localai:{{< version >}}-aio-cpu
     # For Nvidia GPUs decomment one of the following (cuda11 or cuda12):
-    # image: localai/localai:{{< version >}}-aio-gpu-cuda-11
-    # image: localai/localai:{{< version >}}-aio-gpu-cuda-12
+    # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-11
+    # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-12
+    # image: localai/localai:latest-aio-gpu-nvidia-cuda-11
+    # image: localai/localai:latest-aio-gpu-nvidia-cuda-12
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       interval: 1m
