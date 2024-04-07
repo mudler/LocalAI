@@ -454,7 +454,7 @@ func updateBackendConfigFromOpenAIRequest(bc *BackendConfig, request *schema.Ope
 		bc.Seed = request.Seed
 	}
 
-	if request.TypicalP != 0 {
+	if request.TypicalP != nil {
 		bc.TypicalP = request.TypicalP
 	}
 
