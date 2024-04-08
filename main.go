@@ -18,7 +18,7 @@ import (
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	model "github.com/go-skynet/LocalAI/pkg/model"
-	_ "github.com/joho/godotenv/autoload"
+	"github.com/joho/godotenv"
 	progressbar "github.com/schollz/progressbar/v3"
 
 	"github.com/go-skynet/LocalAI/core/http"
@@ -347,6 +347,7 @@ var cli struct {
 }
 
 func main() {
+	var err error
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
@@ -357,6 +358,20 @@ func main() {
 		<-c
 		os.Exit(1)
 	}()
+
+	envFiles := []string{".env", "localai.env"}
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		envFiles = append(envFiles, filepath.Join(homeDir, "localai.env"), filepath.Join(homeDir, ".config/localai.env"))
+	}
+	envFiles = append(envFiles, "/etc/localai.env")
+
+	for _, envFile := range envFiles {
+		if _, err := os.Stat(envFile); err == nil {
+			log.Info().Str("envFile", envFile).Msg("loading environment variables from file")
+			godotenv.Load(envFile)
+		}
+	}
 
 	ctx := kong.Parse(&cli,
 		kong.Description(
@@ -413,7 +428,7 @@ Version: ${version}
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
-	err := ctx.Run(&cli.Context)
+	err = ctx.Run(&cli.Context)
 
 	ctx.FatalIfErrorf(err)
 }
