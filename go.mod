@@ -140,7 +140,6 @@ require (
 
 require (
 	github.com/alecthomas/kong v0.9.0
-	github.com/alecthomas/kong-yaml v0.2.0
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/go-audio/audio v1.0.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
@@ -149,6 +148,7 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
