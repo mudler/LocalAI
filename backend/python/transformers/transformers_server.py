@@ -22,11 +22,7 @@ import torch.cuda
 
 XPU=os.environ.get("XPU", "0") == "1"
 if XPU:
-    import intel_extension_for_pytorch as ipex
-    from intel_extension_for_transformers.transformers.modeling import AutoModelForCausalLM
     from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreamer
-    from optimum.intel.openvino import OVModelForCausalLM
-    from openvino.runtime import Core
 else:
     from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed, BitsAndBytesConfig, TextIteratorStreamer
 
@@ -115,6 +111,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             if request.Type == "AutoModelForCausalLM":
                 if XPU:
+                    import intel_extension_for_pytorch as ipex
+                    from intel_extension_for_transformers.transformers.modeling import AutoModelForCausalLM
+
                     device_map="xpu"
                     compute=torch.float16
                     if request.Quantization == "xpu_4bit":
@@ -141,6 +140,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                       device_map=device_map, 
                                                                       torch_dtype=compute)
             elif request.Type == "OVModelForCausalLM":
+                from optimum.intel.openvino import OVModelForCausalLM
+                from openvino.runtime import Core
+
                 if "GPU" in Core().available_devices:
                     device_map="GPU"
                 else:
