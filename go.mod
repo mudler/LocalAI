@@ -140,6 +140,7 @@ require (
 
 require (
 	github.com/alecthomas/kong v0.9.0
+	github.com/alecthomas/kong-yaml v0.2.0
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/go-audio/audio v1.0.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect

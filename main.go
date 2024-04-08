@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	kongyaml "github.com/alecthomas/kong-yaml"
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/internal"
@@ -43,7 +44,7 @@ type Context struct {
 	ConfigPath        string
 	LocalaiConfigDir  string
 	// TODO: Figure out what ConfigFile is used for
-	ConfigFile string
+	ModelsConfigFile string
 }
 
 type ModelsArgs struct {
@@ -83,7 +84,7 @@ type RunCMD struct {
 func (r *RunCMD) Run(ctx *Context) error {
 	log.Debug().Interface("args", r.ModelsArgs.ModelArgs).Msg("In run command")
 	opts := []config.AppOption{
-		config.WithConfigFile(ctx.ConfigFile),
+		config.WithConfigFile(ctx.ModelsConfigFile),
 		config.WithJSONStringPreload(r.PreloadModels),
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
 		config.WithModelPath(ctx.ModelsPath),
@@ -341,9 +342,9 @@ var cli struct {
 	UploadPath        string `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"/tmp/localai/upload" help:"Path to store uploads from files api" group:"storage"`
 	BackendAssetsPath string `env:"LOCALAI_BACKEND_ASSETS_PATH,BACKEND_ASSETS_PATH" type:"path" default:"/tmp/localai/backend_data" help:"Path used to extract libraries that are required by some of the backends in runtime" group:"storage"`
 	ConfigPath        string `env:"LOCALAI_CONFIG_PATH,CONFIG_PATH" default:"/tmp/localai/config" group:"storage"`
-	LocalaiConfigDir  string `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory to use for the configuration files of LocalAI itself. This is NOT where model files should be placed" group:"storage"`
-	// TODO: Figure out what ConfigFile is used for
-	ConfigFile string `env:"LOCALAI_CONFIG_FILE,CONFIG_FILE" help:"Config file" group:"storage"`
+	LocalaiConfigDir  string `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json)" group:"storage"`
+	// The alias on this option is there to preserve functionality with the old `--config-file` parameter
+	ModelsConfigFile string `env:"LOCALAI_MODELS_CONFIG_FILE,CONFIG_FILE" aliases:"config-file" help:"YAML file containing a list of model backend configs" group:"storage"`
 
 	Run        RunCMD        `cmd:"" help:"Run LocalAI, this the default command if no other command is specified" default:"withargs"`
 	Models     ModelsCMD     `cmd:"" help:"Manage LocalAI models and definitions"`
@@ -364,6 +365,7 @@ func main() {
 	}()
 
 	ctx := kong.Parse(&cli,
+		kong.Configuration(kongyaml.Loader, "./localai.yaml", "~/.config/localai.yaml", "/etc/localai.yaml"),
 		kong.Description(
 			`  LocalAI is a drop-in replacement OpenAI API for running LLM, GPT and genAI models locally on CPU, GPUs with consumer grade hardware.
 
@@ -393,7 +395,6 @@ Version: ${version}
 
 	// This is here to preserve the existing --debug flag functionality
 	logLevel := "info"
-	fmt.Println(cli.LogLevel)
 	if cli.Debug && cli.LogLevel == nil {
 		logLevel = "debug"
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -434,7 +435,7 @@ Version: ${version}
 		ConfigPath:        cli.ConfigPath,
 		LocalaiConfigDir:  cli.LocalaiConfigDir,
 		// TODO: Figure out what ConfigFile is used for
-		ConfigFile: cli.ConfigFile,
+		ModelsConfigFile: cli.ModelsConfigFile,
 	})
 	ctx.FatalIfErrorf(err)
 }
