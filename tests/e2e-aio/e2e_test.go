@@ -123,7 +123,6 @@ var _ = Describe("E2E test", func() {
 					openai.ImageRequest{
 						Prompt: "test",
 						Size:   openai.CreateImageSize512x512,
-						Model:  "stablediffusion", // Specify this to avoid relying on ListModels order?
 						//ResponseFormat: openai.CreateImageResponseFormatURL,
 					},
 				)

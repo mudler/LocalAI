@@ -26,29 +26,29 @@ func NewTranscriptionBackendService(ml *model.ModelLoader, bcl *config.BackendCo
 	}
 }
 
-func (tbs *TranscriptionBackendService) Transcribe(request *schema.OpenAIRequest) <-chan concurrency.ErrorOr[*schema.WhisperResult] {
-	responseChannel := make(chan concurrency.ErrorOr[*schema.WhisperResult])
+func (tbs *TranscriptionBackendService) Transcribe(request *schema.OpenAIRequest) <-chan concurrency.ErrorOr[*schema.TranscriptionResult] {
+	responseChannel := make(chan concurrency.ErrorOr[*schema.TranscriptionResult])
 	go func(request *schema.OpenAIRequest) {
 		bc, request, err := tbs.bcl.LoadBackendConfigForModelAndOpenAIRequest(request.Model, request, tbs.appConfig)
 		if err != nil {
-			responseChannel <- concurrency.ErrorOr[*schema.WhisperResult]{Error: fmt.Errorf("failed reading parameters from request:%w", err)}
+			responseChannel <- concurrency.ErrorOr[*schema.TranscriptionResult]{Error: fmt.Errorf("failed reading parameters from request:%w", err)}
 			close(responseChannel)
 			return
 		}
 
 		tr, err := modelTranscription(request.File, request.Language, tbs.ml, bc, tbs.appConfig)
 		if err != nil {
-			responseChannel <- concurrency.ErrorOr[*schema.WhisperResult]{Error: err}
+			responseChannel <- concurrency.ErrorOr[*schema.TranscriptionResult]{Error: err}
 			close(responseChannel)
 			return
 		}
-		responseChannel <- concurrency.ErrorOr[*schema.WhisperResult]{Value: tr}
+		responseChannel <- concurrency.ErrorOr[*schema.TranscriptionResult]{Value: tr}
 		close(responseChannel)
 	}(request)
 	return responseChannel
 }
 
-func modelTranscription(audio, language string, ml *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (*schema.WhisperResult, error) {
+func modelTranscription(audio, language string, ml *model.ModelLoader, backendConfig *config.BackendConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
 
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithBackendString(model.WhisperBackend),

@@ -10,7 +10,7 @@ type Segment struct {
 	Tokens []int         `json:"tokens"`
 }
 
-type WhisperResult struct {
+type TranscriptionResult struct {
 	Segments []Segment `json:"segments"`
 	Text     string    `json:"text"`
 }
