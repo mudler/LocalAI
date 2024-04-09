@@ -77,8 +77,7 @@ type RunCMD struct {
 }
 
 func (r *RunCMD) Run(ctx *Context) error {
-	log.Debug().Interface("args", r.ModelArgs).Int("threads", r.Threads).Bool("f16", r.F16).Msg("In run command")
-	log.Debug().Str("storagePath", r.ImagePath).Msg("test")
+	log.Debug().Msg("In run command")
 	opts := []config.AppOption{
 		config.WithConfigFile(r.ModelsConfigFile),
 		config.WithJSONStringPreload(r.PreloadModels),
