@@ -39,7 +39,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.model_name = "Qwen-VL-Chat"
                 model = AutoModelForCausalLM.from_pretrained(model_path, 
                     trust_remote_code=request.TrustRemoteCode,
-                    use_triton=request.UseTriton,
                     device_map="auto").eval()
             else:
                 model = AutoGPTQForCausalLM.from_quantized(model_path,
