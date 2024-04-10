@@ -1,5 +1,5 @@
 .PHONY: vllm
-vllm: protogen
+vllm:
 	$(MAKE) -C ../common-env/transformers
 
 .PHONY: run

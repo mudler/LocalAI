@@ -1,5 +1,5 @@
 .PHONY: petals
-petals: protogen
+petals:
 	@echo "Creating virtual environment..."
 	bash install.sh "petals.yml"
 	@echo "Virtual environment created."

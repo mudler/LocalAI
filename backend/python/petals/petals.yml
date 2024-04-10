@@ -25,6 +25,8 @@ dependencies:
   # - xz=5.4.2=h5eee18b_0
   # - zlib=1.2.13=h5eee18b_0
   - pip:
+      - grpcio==1.59.0
+      - grpcio-tools==1.62.1
       - torch==2.1.0
       - git+https://github.com/bigscience-workshop/petals
 prefix: /opt/conda/envs/petals

@@ -1,5 +1,5 @@
 .PHONY: mamba
-mamba: protogen
+mamba:
 	$(MAKE) -C ../common-env/transformers
 	bash install.sh
 

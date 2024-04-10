@@ -1,5 +1,5 @@
 .PHONY: coqui
-coqui: protogen
+coqui:
 	$(MAKE) -C ../common-env/transformers
 
 .PHONY: run

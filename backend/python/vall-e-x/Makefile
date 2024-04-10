@@ -3,7 +3,7 @@ export SKIP_CONDA=1
 endif
 
 .PHONY: ttsvalle
-ttsvalle: protogen
+ttsvalle:
 	$(MAKE) -C ../common-env/transformers
 	bash install.sh
 
