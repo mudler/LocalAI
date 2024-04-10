@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -9,9 +10,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/schema"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
+	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 )
@@ -26,7 +29,7 @@ type TokenUsage struct {
 	Completion int
 }
 
-func ModelInference(ctx context.Context, s string, images []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages []schema.Message, images []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 	threads := c.Threads
 	if *threads == 0 && o.Threads != 0 {
@@ -71,10 +74,30 @@ func ModelInference(ctx context.Context, s string, images []string, loader *mode
 		return nil, err
 	}
 
+	var protoMessages []*proto.Message
+	// if we are using the tokenizer template, we need to convert the messages to proto messages
+	// unless the prompt has already been tokenized (non-chat endpoints + functions)
+	if c.TemplateConfig.UseTokenizerTemplate && s == "" {
+		protoMessages = make([]*proto.Message, len(messages), len(messages))
+		for i, message := range messages {
+			protoMessages[i] = &proto.Message{
+				Role: message.Role,
+			}
+			switch ct := message.Content.(type) {
+			case string:
+				protoMessages[i].Content = ct
+			default:
+				return nil, fmt.Errorf("Unsupported type for schema.Message.Content for inference: %T", ct)
+			}
+		}
+	}
+
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
 	fn := func() (LLMResponse, error) {
 		opts := gRPCPredictOpts(c, loader.ModelPath)
 		opts.Prompt = s
+		opts.Messages = protoMessages
+		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate
 		opts.Images = images
 
 		tokenUsage := TokenUsage{}

@@ -165,11 +165,12 @@ type Functions struct {
 }
 
 type TemplateConfig struct {
-	Chat        string `yaml:"chat"`
-	ChatMessage string `yaml:"chat_message"`
-	Completion  string `yaml:"completion"`
-	Edit        string `yaml:"edit"`
-	Functions   string `yaml:"function"`
+	Chat                 string `yaml:"chat"`
+	ChatMessage          string `yaml:"chat_message"`
+	Completion           string `yaml:"completion"`
+	Edit                 string `yaml:"edit"`
+	Functions            string `yaml:"function"`
+	UseTokenizerTemplate bool   `yaml:"use_tokenizer_template"`
 }
 
 func (c *BackendConfig) SetFunctionCallString(s string) {
