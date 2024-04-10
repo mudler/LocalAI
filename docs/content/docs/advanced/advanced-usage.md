@@ -416,8 +416,8 @@ You can control LocalAI with command line arguments, to specify a binding addres
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | --f16 |  | Enable GPU acceleration | $LOCALAI_F16 |
-| -t, --threads | 4 | Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested |$LOCALAI_THREADS |
-| --context-size | 512 | Default context size for models |$LOCALAI_CONTEXT_SIZE |
+| -t, --threads | 4 | Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested | $LOCALAI_THREADS |
+| --context-size | 512 | Default context size for models | $LOCALAI_CONTEXT_SIZE |
 
 #### API Flags
 | Parameter | Default | Description | Environment Variable |
@@ -432,9 +432,9 @@ You can control LocalAI with command line arguments, to specify a binding addres
 #### Backend Flags
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
-| --parallel-requests |  | Enable backends to handle multiple requests in parallel if they support it  |e.g.: llama.cpp or vllm | $LOCALAI_PARALLEL_REQUESTS |
+| --parallel-requests |  | Enable backends to handle multiple requests in parallel if they support it (e.g.: llama.cpp or vllm) | $LOCALAI_PARALLEL_REQUESTS |
 | --single-active-backend |  | Allow only one backend to be run at a time | $LOCALAI_SINGLE_ACTIVE_BACKEND |
-| --preload-backend-only |  | Do not launch the API services, only the preloaded models / backends are started  |useful for multi-node setups | $LOCALAI_PRELOAD_BACKEND_ONLY |
+| --preload-backend-only |  | Do not launch the API services, only the preloaded models / backends are started (useful for multi-node setups) | $LOCALAI_PRELOAD_BACKEND_ONLY |
 | --external-grpc-backends | EXTERNAL-GRPC-BACKENDS,... | A list of external grpc backends | $LOCALAI_EXTERNAL_GRPC_BACKENDS |
 | --enable-watchdog-idle |  | Enable watchdog for stopping backends that are idle longer than the watchdog-idle-timeout | $LOCALAI_WATCHDOG_IDLE |
 | --watchdog-idle-timeout | 15m | Threshold beyond which an idle backend should be stopped | $LOCALAI_WATCHDOG_IDLE_TIMEOUT, $WATCHDOG_IDLE_TIMEOUT |
