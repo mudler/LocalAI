@@ -6,6 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/gofiber/swagger" // swagger handler
+
 	"github.com/go-skynet/LocalAI/core/http/endpoints/elevenlabs"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
@@ -40,9 +43,23 @@ func readAuthHeader(c *fiber.Ctx) string {
 	return authHeader
 }
 
+// @title LocalAI API
+// @version 2.0.0
+// @description The LocalAI Rest API.
+// @termsOfService
+// @contact.name LocalAI
+// @contact.url https://localai.io
+// @license.name MIT
+// @license.url https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
 func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
+		Views:                 renderEngine(),
 		BodyLimit:             appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
 		DisableStartupMessage: appConfig.DisableMessage,
 		// Override default error handler
@@ -155,8 +172,27 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		}{Version: internal.PrintableVersion()})
 	})
 
-	// Load upload json
-	openai.LoadUploadConfig(appConfig.UploadDir)
+	// Make sure directories exists
+	os.MkdirAll(appConfig.ImageDir, 0755)
+	os.MkdirAll(appConfig.AudioDir, 0755)
+	os.MkdirAll(appConfig.UploadDir, 0755)
+	os.MkdirAll(appConfig.ConfigsDir, 0755)
+	os.MkdirAll(appConfig.ModelPath, 0755)
+
+	// Load config jsons
+	utils.LoadConfig(appConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
+	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
+	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
+
+	app.Get("/swagger/*", swagger.HandlerDefault) // default
+
+	welcomeRoute(
+		app,
+		cl,
+		ml,
+		appConfig,
+		auth,
+	)
 
 	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
@@ -172,6 +208,13 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	// Elevenlabs
 	app.Post("/v1/text-to-speech/:voice-id", auth, elevenlabs.TTSEndpoint(cl, ml, appConfig))
 
+	// Stores
+	sl := model.NewModelLoader("")
+	app.Post("/stores/set", auth, localai.StoresSetEndpoint(sl, appConfig))
+	app.Post("/stores/delete", auth, localai.StoresDeleteEndpoint(sl, appConfig))
+	app.Post("/stores/get", auth, localai.StoresGetEndpoint(sl, appConfig))
+	app.Post("/stores/find", auth, localai.StoresFindEndpoint(sl, appConfig))
+
 	// openAI compatible API endpoint
 
 	// chat
@@ -181,6 +224,26 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	// edit
 	app.Post("/v1/edits", auth, openai.EditEndpoint(cl, ml, appConfig))
 	app.Post("/edits", auth, openai.EditEndpoint(cl, ml, appConfig))
+
+	// assistant
+	app.Get("/v1/assistants", auth, openai.ListAssistantsEndpoint(cl, ml, appConfig))
+	app.Get("/assistants", auth, openai.ListAssistantsEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants", auth, openai.CreateAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/assistants", auth, openai.CreateAssistantEndpoint(cl, ml, appConfig))
+	app.Delete("/v1/assistants/:assistant_id", auth, openai.DeleteAssistantEndpoint(cl, ml, appConfig))
+	app.Delete("/assistants/:assistant_id", auth, openai.DeleteAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id", auth, openai.GetAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id", auth, openai.GetAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants/:assistant_id", auth, openai.ModifyAssistantEndpoint(cl, ml, appConfig))
+	app.Post("/assistants/:assistant_id", auth, openai.ModifyAssistantEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id/files", auth, openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id/files", auth, openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
+	app.Post("/v1/assistants/:assistant_id/files", auth, openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
+	app.Post("/assistants/:assistant_id/files", auth, openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
+	app.Delete("/v1/assistants/:assistant_id/files/:file_id", auth, openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
+	app.Delete("/assistants/:assistant_id/files/:file_id", auth, openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants/:assistant_id/files/:file_id", auth, openai.GetAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/assistants/:assistant_id/files/:file_id", auth, openai.GetAssistantFileEndpoint(cl, ml, appConfig))
 
 	// files
 	app.Post("/v1/files", auth, openai.UploadFilesEndpoint(cl, appConfig))
@@ -229,14 +292,18 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Experimental Backend Statistics Module
 	backendMonitor := services.NewBackendMonitor(cl, ml, appConfig) // Split out for now
-	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitor))
-	app.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitor))
+	app.Get("/backend/monitor", auth, localai.BackendMonitorEndpoint(backendMonitor))
+	app.Post("/backend/shutdown", auth, localai.BackendShutdownEndpoint(backendMonitor))
 
 	// models
 	app.Get("/v1/models", auth, openai.ListModelsEndpoint(cl, ml))
 	app.Get("/models", auth, openai.ListModelsEndpoint(cl, ml))
 
-	app.Get("/metrics", localai.LocalAIMetricsEndpoint())
+	app.Get("/metrics", auth, localai.LocalAIMetricsEndpoint())
+
+	// Define a custom 404 handler
+	// Note: keep this at the bottom!
+	app.Use(notFoundHandler)
 
 	return app, nil
 }

@@ -25,6 +25,8 @@ import (
 	"github.com/rs/zerolog/log"
 	progressbar "github.com/schollz/progressbar/v3"
 	"github.com/urfave/cli/v2"
+
+	_ "github.com/go-skynet/LocalAI/swagger"
 )
 
 const (
@@ -43,7 +45,7 @@ func main() {
 
 	path, err := os.Getwd()
 	if err != nil {
-		log.Error().Msgf("error: %s", err.Error())
+		log.Error().Err(err).Msg("failed to get current directory")
 		os.Exit(1)
 	}
 
@@ -150,6 +152,12 @@ func main() {
 				Value:   "/tmp/localai/upload",
 			},
 			&cli.StringFlag{
+				Name:    "config-path",
+				Usage:   "Path to store uploads from files api",
+				EnvVars: []string{"CONFIG_PATH"},
+				Value:   "/tmp/localai/config",
+			},
+			&cli.StringFlag{
 				Name:    "backend-assets-path",
 				Usage:   "Path used to extract libraries that are required by some of the backends in runtime.",
 				EnvVars: []string{"BACKEND_ASSETS_PATH"},
@@ -181,6 +189,12 @@ func main() {
 				Name:    "enable-watchdog-idle",
 				Usage:   "Enable watchdog for stopping idle backends. This will stop the backends if are in idle state for too long.",
 				EnvVars: []string{"WATCHDOG_IDLE"},
+				Value:   false,
+			},
+			&cli.BoolFlag{
+				Name:    "disable-welcome",
+				Usage:   "Disable welcome pages",
+				EnvVars: []string{"DISABLE_WELCOME"},
 				Value:   false,
 			},
 			&cli.BoolFlag{
@@ -241,6 +255,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 				config.WithImageDir(ctx.String("image-path")),
 				config.WithAudioDir(ctx.String("audio-path")),
 				config.WithUploadDir(ctx.String("upload-path")),
+				config.WithConfigsDir(ctx.String("config-path")),
 				config.WithF16(ctx.Bool("f16")),
 				config.WithStringGalleries(ctx.String("galleries")),
 				config.WithModelLibraryURL(ctx.String("remote-library")),
@@ -257,6 +272,11 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 			idleWatchDog := ctx.Bool("enable-watchdog-idle")
 			busyWatchDog := ctx.Bool("enable-watchdog-busy")
+
+			if ctx.Bool("disable-welcome") {
+				opts = append(opts, config.DisableWelcomePage)
+			}
+
 			if idleWatchDog || busyWatchDog {
 				opts = append(opts, config.EnableWatchDog)
 				if idleWatchDog {
@@ -320,7 +340,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 			appHTTP, err := http.App(cl, ml, options)
 			if err != nil {
-				log.Error().Msg("Error during HTTP App constructor")
+				log.Error().Err(err).Msg("error during HTTP App construction")
 				return err
 			}
 
@@ -337,7 +357,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 						Action: func(ctx *cli.Context) error {
 							var galleries []gallery.Gallery
 							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
-								log.Error().Msgf("unable to load galleries: %s", err.Error())
+								log.Error().Err(err).Msg("unable to load galleries")
 							}
 
 							models, err := gallery.AvailableGalleryModels(galleries, ctx.String("models-path"))
@@ -362,7 +382,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 							var galleries []gallery.Gallery
 							if err := json.Unmarshal([]byte(ctx.String("galleries")), &galleries); err != nil {
-								log.Error().Msgf("unable to load galleries: %s", err.Error())
+								log.Error().Err(err).Msg("unable to load galleries")
 							}
 
 							progressBar := progressbar.NewOptions(
@@ -527,7 +547,7 @@ For a list of compatible model, check out: https://localai.io/model-compatibilit
 
 	err = app.Run(os.Args)
 	if err != nil {
-		log.Error().Msgf("error: %s", err.Error())
+		log.Error().Err(err).Msg("application runtime error")
 		os.Exit(1)
 	}
 }

@@ -155,10 +155,10 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
-	return ml.StopModel(modelName)
+	return ml.stopModel(modelName)
 }
 
-func (ml *ModelLoader) StopModel(modelName string) error {
+func (ml *ModelLoader) stopModel(modelName string) error {
 	defer ml.deleteProcess(modelName)
 	if _, ok := ml.models[modelName]; !ok {
 		return fmt.Errorf("model %s not found", modelName)

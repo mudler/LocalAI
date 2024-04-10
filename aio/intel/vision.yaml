@@ -1,0 +1,35 @@
+backend: llama-cpp
+context_size: 4096
+mmap: false
+f16: false
+name: gpt-4-vision-preview
+
+roles:
+  user: "USER:"
+  assistant: "ASSISTANT:"
+  system: "SYSTEM:"
+
+mmproj: llava-v1.6-7b-mmproj-f16.gguf
+parameters:
+  model: llava-v1.6-mistral-7b.Q5_K_M.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.95
+  seed: -1
+
+template:
+  chat: |
+    A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.
+    {{.Input}}
+    ASSISTANT:
+
+download_files:
+- filename: llava-v1.6-mistral-7b.Q5_K_M.gguf
+  uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/llava-v1.6-mistral-7b.Q5_K_M.gguf
+- filename: llava-v1.6-7b-mmproj-f16.gguf
+  uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/mmproj-model-f16.gguf
+
+usage: |
+    curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+        "model": "gpt-4-vision-preview",
+        "messages": [{"role": "user", "content": [{"type":"text", "text": "What is in the image?"}, {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" }}], "temperature": 0.9}]}'

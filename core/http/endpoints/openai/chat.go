@@ -20,6 +20,11 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
+// @Summary Generate a chat completions for a given prompt and model.
+// @Param request body schema.OpenAIRequest true "query params"
+// @Success 200 {object} schema.OpenAIResponse "Response"
+// @Router /v1/chat/completions [post]
 func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	emptyMessage := ""
 	id := uuid.New().String()
@@ -79,7 +84,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 			result, err := handleQuestion(config, req, ml, startupOptions, results[0].arguments, prompt)
 			if err != nil {
-				log.Error().Msgf("error handling question: %s", err.Error())
+				log.Error().Err(err).Msg("error handling question")
 				return
 			}
 
@@ -180,6 +185,8 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			input.Grammar = grammar.JSONBNF
 		}
 
+		config.Grammar = input.Grammar
+
 		// process functions if we have any defined or if we have a function call string
 		if len(input.Functions) > 0 && config.ShouldUseFunctions() {
 			log.Debug().Msgf("Response needs to process functions")
@@ -231,7 +238,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 			// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
 			// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
-			if i.FunctionCall != nil && i.Role == "assistant" {
+			if (i.FunctionCall != nil || i.ToolCalls != nil) && i.Role == "assistant" {
 				roleFn := "assistant_function_call"
 				r := config.Roles[roleFn]
 				if r != "" {
@@ -241,6 +248,11 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			r := config.Roles[role]
 			contentExists := i.Content != nil && i.StringContent != ""
 
+			fcall := i.FunctionCall
+			if len(i.ToolCalls) > 0 {
+				fcall = i.ToolCalls
+			}
+
 			// First attempt to populate content via a chat message specific template
 			if config.TemplateConfig.ChatMessage != "" {
 				chatMessageData := model.ChatMessageTemplateData{
@@ -248,7 +260,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					Role:         r,
 					RoleName:     role,
 					Content:      i.StringContent,
-					FunctionCall: i.FunctionCall,
+					FunctionCall: fcall,
 					FunctionName: i.Name,
 					LastMessage:  messageIndex == (len(input.Messages) - 1),
 					Function:     config.Grammar != "" && (messageIndex == (len(input.Messages) - 1)),
@@ -256,7 +268,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				}
 				templatedChatMessage, err := ml.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 				if err != nil {
-					log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, config.TemplateConfig.ChatMessage, err)
+					log.Error().Err(err).Interface("message", chatMessageData).Str("template", config.TemplateConfig.ChatMessage).Msg("error processing message with template, skipping")
 				} else {
 					if templatedChatMessage == "" {
 						log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", config.TemplateConfig.ChatMessage, chatMessageData)
@@ -266,35 +278,49 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					content = templatedChatMessage
 				}
 			}
+
+			marshalAnyRole := func(f any) {
+				j, err := json.Marshal(f)
+				if err == nil {
+					if contentExists {
+						content += "\n" + fmt.Sprint(r, " ", string(j))
+					} else {
+						content = fmt.Sprint(r, " ", string(j))
+					}
+				}
+			}
+			marshalAny := func(f any) {
+				j, err := json.Marshal(f)
+				if err == nil {
+					if contentExists {
+						content += "\n" + string(j)
+					} else {
+						content = string(j)
+					}
+				}
+			}
 			// If this model doesn't have such a template, or if that template fails to return a value, template at the message level.
 			if content == "" {
 				if r != "" {
 					if contentExists {
 						content = fmt.Sprint(r, i.StringContent)
 					}
+
 					if i.FunctionCall != nil {
-						j, err := json.Marshal(i.FunctionCall)
-						if err == nil {
-							if contentExists {
-								content += "\n" + fmt.Sprint(r, " ", string(j))
-							} else {
-								content = fmt.Sprint(r, " ", string(j))
-							}
-						}
+						marshalAnyRole(i.FunctionCall)
+					}
+					if i.ToolCalls != nil {
+						marshalAnyRole(i.ToolCalls)
 					}
 				} else {
 					if contentExists {
 						content = fmt.Sprint(i.StringContent)
 					}
 					if i.FunctionCall != nil {
-						j, err := json.Marshal(i.FunctionCall)
-						if err == nil {
-							if contentExists {
-								content += "\n" + string(j)
-							} else {
-								content = string(j)
-							}
-						}
+						marshalAny(i.FunctionCall)
+					}
+					if i.ToolCalls != nil {
+						marshalAny(i.ToolCalls)
 					}
 				}
 				// Special Handling: System. We care if it was printed at all, not the r branch, so check seperately
@@ -429,7 +455,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				case noActionsToRun:
 					result, err := handleQuestion(config, input, ml, startupOptions, results[0].arguments, predInput)
 					if err != nil {
-						log.Error().Msgf("error handling question: %s", err.Error())
+						log.Error().Err(err).Msg("error handling question")
 						return
 					}
 					*c = append(*c, schema.Choice{
@@ -539,13 +565,13 @@ func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, m
 
 	predFunc, err := backend.ModelInference(input.Context, prompt, images, ml, *config, o, nil)
 	if err != nil {
-		log.Error().Msgf("inference error: %s", err.Error())
+		log.Error().Err(err).Msg("model inference failed")
 		return "", err
 	}
 
 	prediction, err := predFunc()
 	if err != nil {
-		log.Error().Msgf("inference error: %s", err.Error())
+		log.Error().Err(err).Msg("prediction failed")
 		return "", err
 	}
 	return backend.Finetune(*config, prompt, prediction.Response), nil

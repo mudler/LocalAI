@@ -15,19 +15,7 @@ LocalAI's extensible architecture allows you to add your own backends, which can
 
 In some cases you might want to re-build LocalAI from source (for instance to leverage Apple Silicon acceleration), or to build a custom container image with your own backends. This section contains instructions on how to build LocalAI from source.
 
-#### Container image
 
-Requirements:
-
-- Docker or podman, or a container engine
-
-In order to build the `LocalAI` container image locally you can use `docker`, for example:
-
-```
-# build the image
-docker build -t localai .
-docker run localai
-```
 
 #### Build LocalAI locally
 
@@ -44,6 +32,8 @@ To install the dependencies follow the instructions below:
 
 {{< tabs tabTotal="3"  >}}
 {{% tab tabName="Apple" %}}
+
+Install `xcode` from the App Store
 
 ```bash
 brew install abseil cmake go grpc protobuf wget
@@ -109,11 +99,34 @@ docker run --rm -ti -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS
 
 {{% /alert %}}
 
+#### Container image
+
+Requirements:
+
+- Docker or podman, or a container engine
+
+In order to build the `LocalAI` container image locally you can use `docker`, for example:
+
+```
+# build the image
+docker build -t localai .
+docker run localai
+```
+
+There are some build arguments that can be used to customize the build:
+
+| Variable | Default | Description |
+| ---------------------| ------- | ----------- |
+| `IMAGE_TYPE`         |   `extras`      | Build type. Available: `core`, `extras` |
+
+
 ### Example: Build on mac
 
-Building on Mac (M1 or M2) works, but you may need to install some prerequisites using `brew`. 
+Building on Mac (M1, M2 or M3) works, but you may need to install some prerequisites using `brew`. 
 
 The below has been tested by one mac user and found to work. Note that this doesn't use Docker to run the server:
+
+Install `xcode` from the Apps Store (needed for metalkit)
 
 ```
 # install build dependencies
@@ -146,8 +159,20 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
    }'
 ```
 
-### Build with Image generation support
+#### Troublshooting mac
 
+If you encounter errors regarding a missing utility metal, install `Xcode` from the App Store.
+If completions are slow, ensure that `gpu-layers` in your model yaml matches the number of layers from the model in use (or simply use a high number such as 256).
+If you a get a compile error: `error: only virtual member functions can be marked 'final'`, reinstall all the necessary brew packages, clean the build, and try again.
+
+```
+# reinstall build dependencies
+brew reinstall abseil cmake go grpc protobuf wget
+
+make clean
+
+make build
+```
 
 **Requirements**: OpenCV, Gomp
 
@@ -239,12 +264,11 @@ make BUILD_TYPE=sycl_f32 build # for float32
 #### Metal (Apple Silicon)
 
 ```
-make BUILD_TYPE=metal build
+make build
 
-# Set `gpu_layers: 1` to your YAML model config file and `f16: true`
-# Note: only models quantized with q4_0 are supported!
+# correct build type is automatically used on mac (BUILD_TYPE=metal)
+# Set `gpu_layers: 256` (or equal to the number of model layers) to your YAML model config file and `f16: true`
 ```
-
 
 ### Windows compatibility
 

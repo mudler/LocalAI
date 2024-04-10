@@ -15,11 +15,13 @@ type ApplicationConfig struct {
 	ConfigFile                          string
 	ModelPath                           string
 	UploadLimitMB, Threads, ContextSize int
+	DisableWelcomePage                  bool
 	F16                                 bool
 	Debug, DisableMessage               bool
 	ImageDir                            string
 	AudioDir                            string
 	UploadDir                           string
+	ConfigsDir                          string
 	CORS                                bool
 	PreloadJSONModels                   string
 	PreloadModelsFromPath               string
@@ -104,6 +106,10 @@ var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
 	o.WatchDogBusy = true
 }
 
+var DisableWelcomePage = func(o *ApplicationConfig) {
+	o.DisableWelcomePage = true
+}
+
 func SetWatchDogBusyTimeout(t time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		o.WatchDogBusyTimeout = t
@@ -163,7 +169,7 @@ func WithStringGalleries(galls string) AppOption {
 		}
 		var galleries []gallery.Gallery
 		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
-			log.Error().Msgf("failed loading galleries: %s", err.Error())
+			log.Error().Err(err).Msg("failed loading galleries")
 		}
 		o.Galleries = append(o.Galleries, galleries...)
 	}
@@ -252,9 +258,30 @@ func WithUploadDir(uploadDir string) AppOption {
 	}
 }
 
+func WithConfigsDir(configsDir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ConfigsDir = configsDir
+	}
+}
+
 func WithApiKeys(apiKeys []string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ApiKeys = apiKeys
+	}
+}
+
+// ToConfigLoaderOptions returns a slice of ConfigLoader Option.
+// Some options defined at the application level are going to be passed as defaults for
+// all the configuration for the models.
+// This includes for instance the context size or the number of threads.
+// If a model doesn't set configs directly to the config model file
+// it will use the defaults defined here.
+func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
+	return []ConfigLoaderOption{
+		LoadOptionContextSize(o.ContextSize),
+		LoadOptionDebug(o.Debug),
+		LoadOptionF16(o.F16),
+		LoadOptionThreads(o.Threads),
 	}
 }
 

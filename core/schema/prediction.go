@@ -24,12 +24,12 @@ type PredictionOptions struct {
 	RepeatPenalty float64 `json:"repeat_penalty" yaml:"repeat_penalty"`
 	Keep          int     `json:"n_keep" yaml:"n_keep"`
 
-	FrequencyPenalty float64 `json:"frequency_penalty" yaml:"frequency_penalty"`
-	PresencePenalty  float64 `json:"presence_penalty" yaml:"presence_penalty"`
-	TFZ              float64 `json:"tfz" yaml:"tfz"`
+	FrequencyPenalty float64  `json:"frequency_penalty" yaml:"frequency_penalty"`
+	PresencePenalty  float64  `json:"presence_penalty" yaml:"presence_penalty"`
+	TFZ              *float64 `json:"tfz" yaml:"tfz"`
 
-	TypicalP float64 `json:"typical_p" yaml:"typical_p"`
-	Seed     *int    `json:"seed" yaml:"seed"`
+	TypicalP *float64 `json:"typical_p" yaml:"typical_p"`
+	Seed     *int     `json:"seed" yaml:"seed"`
 
 	NegativePrompt      string  `json:"negative_prompt" yaml:"negative_prompt"`
 	RopeFreqBase        float32 `json:"rope_freq_base" yaml:"rope_freq_base"`

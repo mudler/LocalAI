@@ -1,0 +1,19 @@
+enhancements:
+ - head-branch: ['^feature', 'feature']
+
+kind/documentation:
+- any:
+  - changed-files:
+    - any-glob-to-any-file: 'docs/*'
+  - changed-files:
+    - any-glob-to-any-file: '*.md'
+
+examples:
+- any:
+  - changed-files:
+    - any-glob-to-any-file: 'examples/*'
+
+ci:
+- any:
+  - changed-files:
+    - any-glob-to-any-file: '.github/*'

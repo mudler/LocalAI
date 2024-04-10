@@ -1,0 +1,20 @@
+name: stablediffusion
+parameters:
+  model: runwayml/stable-diffusion-v1-5
+backend: diffusers
+step: 25
+f16: true
+diffusers:
+  pipeline_type: StableDiffusionPipeline
+  cuda: true
+  enable_parameters: "negative_prompt,num_inference_steps"
+  scheduler_type: "k_dpmpp_2m"
+
+usage: |
+        curl http://localhost:8080/v1/images/generations \
+          -H "Content-Type: application/json" \
+          -d '{
+            "prompt": "<positive prompt>|<negative prompt>",
+            "step": 25,
+            "size": "512x512"
+          }'

@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=1c51f98adcbad40e3c41f0a6ffadeb723190b417
+CPPLLAMA_VERSION?=cc4a95426d17417d3c83f12bdb514fbe8abe2a88
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=79d5765e7e1a904d976adfd5636da7da43163eb3
+WHISPER_CPP_VERSION?=13c22321d1ac758ce68a429c23104e234b440769
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
@@ -28,7 +28,7 @@ PIPER_VERSION?=9d0100873a7dbb0824dfea40e8cec70a1b110759
 STABLEDIFFUSION_VERSION?=362df9da29f882dbf09ade61972d16a1f53c3485
 
 # tinydream version
-TINYDREAM_VERSION?=772a9c0d9aaf768290e63cca3c904fe69faf677a
+TINYDREAM_VERSION?=22a12a4bc0ac5455856f28f3b771331a551a4293
 
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
@@ -159,6 +159,7 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
+ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
 
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
@@ -223,7 +224,7 @@ sources/go-stable-diffusion:
 	cd sources/go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
-	$(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
+	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
 
 ## tiny-dream
 sources/go-tiny-dream:
@@ -262,6 +263,7 @@ dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-stable-diffusion
 	$(GOCMD) mod edit -dropreplace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang
+	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-llama.cpp
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
@@ -305,6 +307,12 @@ build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
+build-minimal:
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS=backend-assets/grpc/llama-cpp GO_TAGS=none $(MAKE) build
+
+build-api:
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
+
 dist: build
 	mkdir -p release
 	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH)
@@ -333,7 +341,7 @@ prepare-test: grpcs
 
 test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
-	export GO_TAGS="tts stablediffusion"
+	export GO_TAGS="tts stablediffusion debug"
 	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/sentencetransformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!gpt4all && !llama && !llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
@@ -347,11 +355,15 @@ prepare-e2e:
 	mkdir -p $(TEST_DIR)
 	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
 	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
-	docker build --build-arg BUILD_GRPC=true --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=11 --build-arg CUDA_MINOR_VERSION=7 --build-arg FFMPEG=true -t localai-tests .
+	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=11 --build-arg CUDA_MINOR_VERSION=7 --build-arg FFMPEG=true -t localai-tests .
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
 	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
+
+run-e2e-aio:
+	@echo 'Running e2e AIO tests'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts 5 -v -r ./tests/e2e-aio
 
 test-e2e:
 	@echo 'Running e2e tests'
@@ -382,6 +394,11 @@ test-tts: prepare-test
 test-stablediffusion: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stablediffusion" --flake-attempts 1 -v -r $(TEST_PATHS)
+
+test-stores: backend-assets/grpc/local-store
+	mkdir -p tests/integration/backend-assets/grpc
+	cp -f backend-assets/grpc/local-store tests/integration/backend-assets/grpc/
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts 1 -v -r tests/integration
 
 test-container:
 	docker build --target requirements -t local-ai-test-container .
@@ -521,7 +538,7 @@ backend-assets/grpc/rwkv: sources/go-rwkv sources/go-rwkv/librwkv.a backend-asse
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/rwkv ./backend/go/llm/rwkv
 
 backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stable-diffusion/libstablediffusion.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-stable-diffusion/ LIBRARY_PATH=$(CURDIR)/sources/go-stable-diffusion/ \
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/go-stable-diffusion/:/usr/include/opencv4" LIBRARY_PATH=$(CURDIR)/sources/go-stable-diffusion/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/stablediffusion
 
 backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libtinydream.a backend-assets/grpc
@@ -532,11 +549,13 @@ backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH=$(CURDIR)/sources/whisper.cpp LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
 
+backend-assets/grpc/local-store: backend-assets/grpc
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/local-store ./backend/go/stores/
+
 grpcs: prepare $(GRPC_BACKENDS)
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
-DOCKER_AIO_SIZE?=cpu
 IMAGE_TYPE?=core
 BASE_IMAGE?=ubuntu:22.04
 
@@ -544,16 +563,16 @@ docker:
 	docker build \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
-		--build-arg GO_TAGS=$(GO_TAGS) \
+		--build-arg GO_TAGS="$(GO_TAGS)" \
+		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		-t $(DOCKER_IMAGE) .
 	
 docker-aio:
-	@echo "Building AIO image with size $(DOCKER_AIO_SIZE)"
-	@echo "Building AIO image with base image $(BASE_IMAGE)"
+	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
 	docker build \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
-		--build-arg SIZE=$(DOCKER_AIO_SIZE) \
+		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		-t $(DOCKER_AIO_IMAGE) -f Dockerfile.aio .
 
 docker-aio-all:
@@ -565,6 +584,7 @@ docker-image-intel:
 		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
+		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
 
 docker-image-intel-xpu:
@@ -572,4 +592,9 @@ docker-image-intel-xpu:
 		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
+		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+
+.PHONY: swagger
+swagger:
+	swag init -g core/http/api.go --output swagger

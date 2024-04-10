@@ -12,10 +12,20 @@ changelog:
     - title: "Bug fixes :bug:"
       labels:
         - bug
+        - regression
     - title: Exciting New Features 🎉
       labels:
         - Semver-Minor
         - enhancement
+        - ux
+        - roadmap
+    - title: 🧠 Models
+      labels:
+        - area/ai-model
+    - title: 📖 Documentation and examples
+      labels:
+        - kind/documentation
+        - examples
     - title: 👒 Dependencies
       labels:
         - dependencies

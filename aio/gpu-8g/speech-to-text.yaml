@@ -1,4 +1,4 @@
-name: whisper
+name: whisper-1
 backend: whisper
 parameters:
   model: ggml-whisper-base.bin
@@ -10,7 +10,7 @@ usage: |
     ## Send the example audio file to the transcriptions endpoint
     curl http://localhost:8080/v1/audio/transcriptions \
          -H "Content-Type: multipart/form-data" \
-         -F file="@$PWD/gb1.ogg" -F model="whisper"
+         -F file="@$PWD/gb1.ogg" -F model="whisper-1"
 
 download_files:
 - filename: "ggml-whisper-base.bin"

@@ -304,6 +304,7 @@ The backend will automatically download the required files in order to run the m
 | Type | Description |
 | --- | --- |
 | `AutoModelForCausalLM` | `AutoModelForCausalLM` is a model that can be used to generate sequences. |
+| `OVModelForCausalLM` | for OpenVINO models |
 | N/A | Defaults to `AutoModel` |
 
 
@@ -324,4 +325,35 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
    "prompt": "Hello, my name is",
    "temperature": 0.1, "top_p": 0.1
  }'
+```
+
+#### Examples
+
+##### OpenVINO
+
+A model configuration file for openvion and starling model:
+
+```yaml
+name: starling-openvino
+backend: transformers
+parameters:
+  model: fakezeta/Starling-LM-7B-beta-openvino-int8
+context_size: 8192
+threads: 6
+f16: true
+type: OVModelForCausalLM
+stopwords:
+- <|end_of_turn|>
+- <|endoftext|>
+prompt_cache_path: "cache"
+prompt_cache_all: true
+template:
+  chat_message: |
+    {{if eq .RoleName "system"}}{{.Content}}<|end_of_turn|>{{end}}{{if eq .RoleName "assistant"}}<|end_of_turn|>GPT4 Correct Assistant: {{.Content}}<|end_of_turn|>{{end}}{{if eq .RoleName "user"}}GPT4 Correct User: {{.Content}}{{end}}
+
+  chat: |
+    {{.Input}}<|end_of_turn|>GPT4 Correct Assistant:
+
+  completion: |
+    {{.Input}}
 ```

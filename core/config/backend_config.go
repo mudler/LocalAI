@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -17,6 +17,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/charmbracelet/glamour"
+)
+
+const (
+	RAND_SEED = -1
 )
 
 type BackendConfig struct {
@@ -185,17 +189,32 @@ func (c *BackendConfig) ShouldCallSpecificFunction() bool {
 }
 
 func (c *BackendConfig) FunctionToCall() string {
-	return c.functionCallNameString
+	if c.functionCallNameString != "" &&
+		c.functionCallNameString != "none" && c.functionCallNameString != "auto" {
+		return c.functionCallNameString
+	}
+
+	return c.functionCallString
 }
 
-func (cfg *BackendConfig) SetDefaults(debug bool, threads, ctx int, f16 bool) {
-	defaultTopP := 0.7
-	defaultTopK := 80
+func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
+	lo := &LoadOptions{}
+	lo.Apply(opts...)
+
+	ctx := lo.ctxSize
+	threads := lo.threads
+	f16 := lo.f16
+	debug := lo.debug
+	// https://github.com/ggerganov/llama.cpp/blob/75cd4c77292034ecec587ecb401366f57338f7c0/common/sampling.h#L22
+	defaultTopP := 0.95
+	defaultTopK := 40
 	defaultTemp := 0.9
 	defaultMaxTokens := 2048
 	defaultMirostat := 2
 	defaultMirostatTAU := 5.0
 	defaultMirostatETA := 0.1
+	defaultTypicalP := 1.0
+	defaultTFZ := 1.0
 
 	// Try to offload all GPU layers (if GPU is found)
 	defaultNGPULayers := 99999999
@@ -205,12 +224,20 @@ func (cfg *BackendConfig) SetDefaults(debug bool, threads, ctx int, f16 bool) {
 
 	if cfg.Seed == nil {
 		//  random number generator seed
-		defaultSeed := int(rand.Int31())
+		defaultSeed := RAND_SEED
 		cfg.Seed = &defaultSeed
 	}
 
 	if cfg.TopK == nil {
 		cfg.TopK = &defaultTopK
+	}
+
+	if cfg.TypicalP == nil {
+		cfg.TypicalP = &defaultTypicalP
+	}
+
+	if cfg.TFZ == nil {
+		cfg.TFZ = &defaultTFZ
 	}
 
 	if cfg.MMap == nil {
@@ -333,9 +360,6 @@ func (lo *LoadOptions) Apply(options ...ConfigLoaderOption) {
 // Load a config file for a model
 func (cl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath string, opts ...ConfigLoaderOption) (*BackendConfig, error) {
 
-	lo := &LoadOptions{}
-	lo.Apply(opts...)
-
 	// Load a config file if present after the model name
 	cfg := &BackendConfig{
 		PredictionOptions: schema.PredictionOptions{
@@ -350,7 +374,9 @@ func (cl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath 
 		// Try loading a model config file
 		modelConfig := filepath.Join(modelPath, modelName+".yaml")
 		if _, err := os.Stat(modelConfig); err == nil {
-			if err := cl.LoadBackendConfig(modelConfig); err != nil {
+			if err := cl.LoadBackendConfig(
+				modelConfig, opts...,
+			); err != nil {
 				return nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
 			}
 			cfgExisting, exists = cl.GetBackendConfig(modelName)
@@ -360,7 +386,7 @@ func (cl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath 
 		}
 	}
 
-	cfg.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+	cfg.SetDefaults(opts...)
 
 	return cfg, nil
 }
@@ -371,9 +397,6 @@ func NewBackendConfigLoader() *BackendConfigLoader {
 	}
 }
 func ReadBackendConfigFile(file string, opts ...ConfigLoaderOption) ([]*BackendConfig, error) {
-	lo := &LoadOptions{}
-	lo.Apply(opts...)
-
 	c := &[]*BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
@@ -384,7 +407,7 @@ func ReadBackendConfigFile(file string, opts ...ConfigLoaderOption) ([]*BackendC
 	}
 
 	for _, cc := range *c {
-		cc.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+		cc.SetDefaults(opts...)
 	}
 
 	return *c, nil
@@ -403,7 +426,7 @@ func ReadBackendConfig(file string, opts ...ConfigLoaderOption) (*BackendConfig,
 		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
 	}
 
-	c.SetDefaults(lo.debug, lo.threads, lo.ctxSize, lo.f16)
+	c.SetDefaults(opts...)
 	return c, nil
 }
 
@@ -447,6 +470,11 @@ func (cl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
 	for _, v := range cl.configs {
 		res = append(res, v)
 	}
+
+	sort.SliceStable(res, func(i, j int) bool {
+		return res[i].Name < res[j].Name
+	})
+
 	return res
 }
 

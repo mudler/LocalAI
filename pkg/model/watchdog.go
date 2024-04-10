@@ -30,7 +30,7 @@ type WatchDog struct {
 }
 
 type ProcessManager interface {
-	StopModel(modelName string) error
+	ShutdownModel(modelName string) error
 }
 
 func NewWatchDog(pm ProcessManager, timeoutBusy, timeoutIdle time.Duration, busy, idle bool) *WatchDog {
@@ -110,11 +110,12 @@ func (wd *WatchDog) checkIdle() {
 		log.Debug().Msgf("[WatchDog] %s: idle connection", address)
 		if time.Since(t) > wd.idletimeout {
 			log.Warn().Msgf("[WatchDog] Address %s is idle for too long, killing it", address)
-			p, ok := wd.addressModelMap[address]
+			model, ok := wd.addressModelMap[address]
 			if ok {
-				if err := wd.pm.StopModel(p); err != nil {
-					log.Error().Msgf("[watchdog] Error shutting down model %s: %v", p, err)
+				if err := wd.pm.ShutdownModel(model); err != nil {
+					log.Error().Err(err).Str("model", model).Msg("[watchdog] error shutting down model")
 				}
+				log.Debug().Msgf("[WatchDog] model shut down: %s", address)
 				delete(wd.idleTime, address)
 				delete(wd.addressModelMap, address)
 				delete(wd.addressMap, address)
@@ -139,9 +140,10 @@ func (wd *WatchDog) checkBusy() {
 			model, ok := wd.addressModelMap[address]
 			if ok {
 				log.Warn().Msgf("[WatchDog] Model %s is busy for too long, killing it", model)
-				if err := wd.pm.StopModel(model); err != nil {
-					log.Error().Msgf("[watchdog] Error shutting down model %s: %v", model, err)
+				if err := wd.pm.ShutdownModel(model); err != nil {
+					log.Error().Err(err).Str("model", model).Msg("[watchdog] error shutting down model")
 				}
+				log.Debug().Msgf("[WatchDog] model shut down: %s", address)
 				delete(wd.timetable, address)
 				delete(wd.addressModelMap, address)
 				delete(wd.addressMap, address)
@@ -149,7 +151,6 @@ func (wd *WatchDog) checkBusy() {
 				log.Warn().Msgf("[WatchDog] Address %s unresolvable", address)
 				delete(wd.timetable, address)
 			}
-
 		}
 	}
 }
