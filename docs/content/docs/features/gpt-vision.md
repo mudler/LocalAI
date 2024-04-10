@@ -25,7 +25,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 Grammars and function tools can be used as well in conjunction with vision APIs:
 
 ```bash
- curl http://10.1.0.36:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
      "model": "llava", "grammar": "root ::= (\"yes\" | \"no\")",
      "messages": [{"role": "user", "content": [{"type":"text", "text": "Is there some grass in the image?"}, {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" }}], "temperature": 0.9}]}'
 ```
