@@ -35,7 +35,6 @@ dependencies:
       - filelock==3.12.4
       - fsspec==2023.9.2
       - grpcio==1.59.0
-      - grpcio-tools==1.59.0
       - huggingface-hub>=0.19.4
       - idna==3.4
       - importlib-metadata==6.8.0

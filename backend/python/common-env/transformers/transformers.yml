@@ -48,7 +48,6 @@ dependencies:
       - fsspec==2023.6.0
       - funcy==2.0
       - grpcio==1.59.0
-      - grpcio-tools==1.59.0
       - huggingface-hub
       - humanfriendly==10.0
       - idna==3.4

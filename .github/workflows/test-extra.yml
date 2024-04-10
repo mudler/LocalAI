@@ -32,8 +32,9 @@ jobs:
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
+          pip install --user grpcio-tools
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -61,8 +62,9 @@ jobs:
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
+          pip install --user grpcio-tools
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -90,8 +92,9 @@ jobs:
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
+          pip install --user grpcio-tools
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -120,8 +123,9 @@ jobs:
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
+          pip install --user grpcio-tools
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -151,8 +155,9 @@ jobs:
   #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
   #            sudo apt-get update && \
   #            sudo apt-get install -y conda
-  #         sudo apt-get install -y ca-certificates cmake curl patch
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
+  #         pip install --user grpcio-tools
           
   #         sudo rm -rfv /usr/bin/conda || true
 
@@ -222,8 +227,9 @@ jobs:
   #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
   #            sudo apt-get update && \
   #            sudo apt-get install -y conda
-  #         sudo apt-get install -y ca-certificates cmake curl patch
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
+  #         pip install --user grpcio-tools
           
   #         sudo rm -rfv /usr/bin/conda || true
 
@@ -254,8 +260,9 @@ jobs:
   #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
   #            sudo apt-get update && \
   #            sudo apt-get install -y conda
-  #         sudo apt-get install -y ca-certificates cmake curl patch
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
+  #         pip install --user grpcio-tools
   #         sudo rm -rfv /usr/bin/conda || true
   #     - name: Test vllm
   #       run: |
@@ -280,8 +287,9 @@ jobs:
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch
-          sudo apt-get install -y libopencv-dev    
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          sudo apt-get install -y libopencv-dev
+          pip install --user grpcio-tools
           sudo rm -rfv /usr/bin/conda || true
       - name: Test vall-e-x
         run: |
@@ -307,7 +315,8 @@ jobs:
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng          
+          sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng python3-pip
+          pip install --user grpcio-tools
           sudo rm -rfv /usr/bin/conda || true
 
       - name: Test coqui

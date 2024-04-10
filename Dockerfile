@@ -24,10 +24,7 @@ RUN apt-get update && \
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -C /usr/local -xz
-ENV PATH $PATH:/usr/local/go/bin:$HOME/go/bin
-# Install grpc compilers
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+ENV PATH $PATH:/usr/local/go/bin
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -136,6 +133,12 @@ WORKDIR /build
 COPY . .
 COPY .git .
 RUN echo "GO_TAGS: $GO_TAGS"
+
+ENV PATH $PATH:/root/go/bin
+# Install grpc compilers
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
 RUN make prepare
 
 # If we are building with clblas support, we need the libraries for the builds
