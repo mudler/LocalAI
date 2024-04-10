@@ -44,6 +44,3 @@ prepare
 *.pb.go
 *pb2.py
 *pb2_grpc.py
-
-# Buildtime helpers
-bin
