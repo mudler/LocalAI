@@ -187,6 +187,7 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc
+          pip install --user grpcio-tools
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include
