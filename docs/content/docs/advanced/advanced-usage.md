@@ -384,7 +384,6 @@ docker run --env-file .env localai
 
 You can control LocalAI with command line arguments, to specify a binding address, or the number of threads. Any command line parameter can be specified via an environment variable.
 
-
 #### Global Flags
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
@@ -442,6 +441,25 @@ You can control LocalAI with command line arguments, to specify a binding addres
 | --enable-watchdog-busy |  | Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout | $LOCALAI_WATCHDOG_BUSY |
 | --watchdog-busy-timeout | 5m | Threshold beyond which a busy backend should be stopped | $LOCALAI_WATCHDOG_BUSY_TIMEOUT |
 
+### .env files
+
+Any settings being provided by an Environment Variable can also be provided from within .env files.  There are several locations that will be checked for relevant .env files. In order of precedence they are:
+
+- .env within the current directory
+- localai.env within the current directory
+- localai.env within the home directory
+- .config/localai.env within the home directory
+- /etc/localai.env
+
+Environment variables within files earlier in the list will take precedence over environment variables defined in files later in the list.
+
+An example .env file is:
+
+```
+LOCALAI_THREADS=10
+LOCALAI_MODELS_PATH=/mnt/storage/localai/models
+LOCALAI_F16=true
+```
 
 ### Extra backends
 
