@@ -78,7 +78,7 @@ jobs:
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch
+          sudo apt-get install -y ca-certificates cmake curl patch protobuf-compiler-grpc python3-grpc-tools
           sudo apt-get install -y libopencv-dev
           
           sudo rm -rfv /usr/bin/conda || true
@@ -186,7 +186,7 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include
