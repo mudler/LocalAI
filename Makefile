@@ -174,6 +174,15 @@ ifeq ($(BUILD_API_ONLY),true)
 	GRPC_BACKENDS=
 endif
 
+# Check for build dependencies
+EXECUTABLES = go gcc protoc protoc-gen-go protoc-gen-go-grpc pip
+K := $(foreach exec,$(EXECUTABLES),\
+        $(if $(shell which $(exec)),dependency met,$(error "No $(exec) in PATH, please reference https://localai.io/basics/build/#build for build instructions")))
+
+PYTHON_LIBS = grpcio-tools
+K := $(foreach plib,$(PYTHON_LIBS),\
+        $(if $(shell pip show $(plib)),dependency met,$(error "Python is missing $(plib), please reference https://localai.io/basics/build/#build for build instructions")))
+
 .PHONY: all test build vendor get-sources prepare-sources prepare
 
 all: help
@@ -289,13 +298,12 @@ clean: ## Remove build related file
 	rm -rf ./sources
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
-	rm -rf backend-assets
+	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/cpp/llama clean
 	$(MAKE) dropreplace
 	$(MAKE) protogen-clean
 	rmdir pkg/grpc/proto || true
-	rmdir bin || true
 
 clean-tests:
 	rm -rf test-models
@@ -419,16 +427,16 @@ help: ## Show this help.
 		else if (/^## .*$$/) {printf "  ${CYAN}%s${RESET}\n", substr($$1,4)} \
 		}' $(MAKEFILE_LIST)
 
+.PHONY: protogen
 protogen: protogen-go protogen-python
 
+.PHONY: protogen-clean
 protogen-clean: protogen-go-clean protogen-python-clean
 
 .PHONY: protogen-go
 protogen-go:
-	mkdir -p pkg/grpc/proto bin
-	GOBIN=$(PWD)/bin go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
-	GOBIN=$(PWD)/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
-	PATH="$(PWD)/bin:$(PATH)" protoc -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	mkdir -p pkg/grpc/proto
+	protoc -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
 .PHONY: protogen-go-clean
