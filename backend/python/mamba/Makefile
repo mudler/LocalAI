@@ -10,7 +10,7 @@ run: protogen
 	@echo "mamba run."
 
 .PHONY: test
-test:
+test: protogen
 	@echo "Testing mamba..."
 	bash test.sh
 	@echo "mamba tested."

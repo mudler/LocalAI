@@ -14,7 +14,7 @@ run: protogen
 	@echo "ttsvalle run."
 
 .PHONY: test
-test:
+test: protogen
 	@echo "Testing valle..."
 	bash test.sh
 	@echo "valle tested."

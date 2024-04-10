@@ -11,7 +11,7 @@ run: protogen
 
 # It is not working well by using command line. It only6 works with IDE like VSCode.
 .PHONY: test
-test:
+test: protogen
 	@echo "Testing sentencetransformers..."
 	bash test.sh
 	@echo "sentencetransformers tested."

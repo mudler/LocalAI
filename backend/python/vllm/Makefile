@@ -9,7 +9,7 @@ run: protogen
 	@echo "vllm run."
 
 .PHONY: test
-test:
+test: protogen
 	@echo "Testing vllm..."
 	bash test.sh
 	@echo "vllm tested."

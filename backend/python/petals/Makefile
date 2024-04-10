@@ -11,7 +11,7 @@ run: protogen
 	@echo "petals run."
 
 .PHONY: test
-test:
+test: protogen
 	@echo "Testing petals..."
 	bash test.sh
 	@echo "petals tested."

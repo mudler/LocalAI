@@ -9,7 +9,7 @@ run: protogen
 	@echo "coqui run."
 
 .PHONY: test
-test:
+test: protogen
 	@echo "Testing coqui..."
 	bash test.sh
 	@echo "coqui tested."

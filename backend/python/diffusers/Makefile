@@ -22,7 +22,7 @@ run: protogen
 	bash run.sh
 	@echo "Diffusers run."
 
-test:
+test: protogen
 	bash test.sh
 
 .PHONY: protogen
