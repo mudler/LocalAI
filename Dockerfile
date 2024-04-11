@@ -235,11 +235,6 @@ COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
-# Install grpc compilers
-# ENV PATH $PATH:/root/go/bin
-# RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-#     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
 ## Duplicated from Makefile to avoid having a big layer that's hard to push
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
     make -C backend/python/autogptq \
