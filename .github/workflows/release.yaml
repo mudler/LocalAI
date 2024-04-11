@@ -82,7 +82,7 @@ jobs:
           else
             STATIC=true make dist
           fi
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.build }}
           path: release/
@@ -111,7 +111,7 @@ jobs:
         run: |
           make backend-assets/grpc/stablediffusion
           mkdir -p release && cp backend-assets/grpc/stablediffusion release
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: stablediffusion
           path: release/
@@ -154,7 +154,7 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           make dist
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.build }}
           path: release/
