@@ -20,7 +20,7 @@ ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface
 ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates curl patch cmake git python3-grpc-tools unzip && apt-get clean
+    apt-get install -y ca-certificates curl python3-grpc-tools unzip && apt-get clean
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -C /usr/local -xz
@@ -73,7 +73,8 @@ RUN test -n "$TARGETARCH" \
 
 FROM requirements-core as requirements-extras
 
-RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
+RUN apt install -y gpg && \
+    curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
     install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
     gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
@@ -105,7 +106,7 @@ ENV MAKEFLAGS=${MAKEFLAGS}
 WORKDIR /build
 
 RUN apt-get update && \
-    apt-get install -y g++ cmake git && \
+    apt-get install -y build-essential cmake git  && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -143,6 +144,11 @@ RUN echo "GO_TAGS: $GO_TAGS"
 ENV PATH $PATH:/root/go/bin
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+RUN apt-get update && \
+    apt-get install -y build-essential cmake git  && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN make prepare
 
@@ -202,6 +208,11 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
     apt-get clean \
     ; fi
 
+RUN apt-get update && \
+    apt-get install -y cmake git  && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
 # we start fresh & re-copy all assets because `make build` does not clean up nicely after itself
@@ -213,7 +224,7 @@ COPY . .
 COPY --from=builder /build/sources ./sources/
 COPY --from=grpc /build/grpc ./grpc/
 
-RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf grpc
+RUN cd /build/grpc/cmake/build && make install && rm -rf /build/grpc
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
@@ -225,9 +236,9 @@ COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
 # Install grpc compilers
-ENV PATH $PATH:/root/go/bin
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+# ENV PATH $PATH:/root/go/bin
+# RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+#     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 ## Duplicated from Makefile to avoid having a big layer that's hard to push
 RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
