@@ -70,15 +70,15 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
+          sudo apt-get install build-essential curl ffmpeg
           curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
              sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
+             gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch python3-grpc-tools unzip
+          sudo apt-get install -y ca-certificates cmake patch python3-pip unzip
           sudo apt-get install -y libopencv-dev
 
           curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
@@ -87,7 +87,10 @@ jobs:
 
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-          
+
+          # The python3-grpc-tools package in 22.04 is too old
+          pip install --user grpcio-tools
+
           sudo rm -rfv /usr/bin/conda || true
           PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers
 
@@ -115,7 +118,7 @@ jobs:
           cd grpc && cd cmake/build && sudo make --jobs 5 install
       - name: Test
         run: |
-          GO_TAGS="stablediffusion tts" make --jobs 5 --output-sync=target test
+          PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3
