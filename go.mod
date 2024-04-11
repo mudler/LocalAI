@@ -12,7 +12,7 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/go-bert.cpp v0.0.0-20230716133540-6abe312cded1
 	github.com/go-skynet/go-llama.cpp v0.0.0-20231009155254-aeba71ee8428
-	github.com/gofiber/fiber/v2 v2.52.0
+	github.com/gofiber/fiber/v2 v2.52.1
 	github.com/gofiber/swagger v1.0.0
 	github.com/gofiber/template/html/v2 v2.1.1
 	github.com/google/uuid v1.5.0
