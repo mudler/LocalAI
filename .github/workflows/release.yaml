@@ -194,7 +194,7 @@ jobs:
           make dist
       - uses: actions/upload-artifact@v4
         with:
-          name: LocalAI-MacOS-${{ matrix.build }}
+          name: LocalAI-MacOS-arm64-${{ matrix.build }}
           path: release/
       - name: Release
         uses: softprops/action-gh-release@v1
