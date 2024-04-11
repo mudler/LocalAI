@@ -174,15 +174,6 @@ ifeq ($(BUILD_API_ONLY),true)
 	GRPC_BACKENDS=
 endif
 
-# Check for build dependencies
-EXECUTABLES = go gcc protoc protoc-gen-go protoc-gen-go-grpc pip
-K := $(foreach exec,$(EXECUTABLES),\
-        $(if $(shell which $(exec)),dependency met,$(error "No $(exec) in PATH, please reference https://localai.io/basics/build/#build for build instructions")))
-
-PYTHON_LIBS = grpcio-tools
-K := $(foreach plib,$(PYTHON_LIBS),\
-        $(if $(shell pip show $(plib)),dependency met,$(error "Python is missing $(plib), please reference https://localai.io/basics/build/#build for build instructions")))
-
 .PHONY: all test build vendor get-sources prepare-sources prepare
 
 all: help
