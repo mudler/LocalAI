@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -15,14 +16,16 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/concurrency"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
+	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
 type LLMRequest struct {
-	Id     int // TODO Remove if not used.
-	Text   string
-	Images []string
+	Id          int // TODO Remove if not used.
+	Text        string
+	Images      []string
+	RawMessages []schema.Message
 	// TODO: Other Modalities?
 }
 
@@ -114,6 +117,23 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	grpcPredOpts := gRPCPredictOpts(bc, llmbs.appConfig.ModelPath)
 	grpcPredOpts.Prompt = req.Text
 	grpcPredOpts.Images = req.Images
+
+	if bc.TemplateConfig.UseTokenizerTemplate && req.Text == "" {
+		grpcPredOpts.UseTokenizerTemplate = true
+		protoMessages := make([]*proto.Message, len(req.RawMessages), len(req.RawMessages))
+		for i, message := range req.RawMessages {
+			protoMessages[i] = &proto.Message{
+				Role: message.Role,
+			}
+			switch ct := message.Content.(type) {
+			case string:
+				protoMessages[i].Content = ct
+			default:
+				err = fmt.Errorf("unsupported type for schema.Message.Content for inference: %T", ct)
+				return
+			}
+		}
+	}
 
 	tokenUsage := TokenUsage{}
 
@@ -207,8 +227,9 @@ func (llmbs *LLMBackendService) GenerateText(predInput string, request *schema.O
 	for i := 0; i < request.N; i++ {
 
 		individualResultChannel, tokenChannel, infErr := llmbs.Inference(request.Context, &LLMRequest{
-			Text:   predInput,
-			Images: images,
+			Text:        predInput,
+			Images:      images,
+			RawMessages: request.Messages,
 		}, bc, enableTokenChannels)
 		if infErr != nil {
 			err = infErr // Avoids complaints about redeclaring err but looks dumb

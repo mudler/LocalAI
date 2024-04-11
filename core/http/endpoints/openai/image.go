@@ -39,7 +39,7 @@ func ImageEndpoint(fce *fiberContext.FiberContextExtractor, igbs *backend.ImageG
 		if igbs.BaseUrlForGeneratedImages == "" {
 			igbs.BaseUrlForGeneratedImages = c.BaseURL() + "/generated-images/"
 		}
-		_, request, err := fce.OpenAIRequestFromContext(c, true)
+		_, request, err := fce.OpenAIRequestFromContext(c, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

@@ -64,6 +64,26 @@ class BackendStub(object):
                 request_serializer=backend__pb2.HealthMessage.SerializeToString,
                 response_deserializer=backend__pb2.StatusResponse.FromString,
                 )
+        self.StoresSet = channel.unary_unary(
+                '/backend.Backend/StoresSet',
+                request_serializer=backend__pb2.StoresSetOptions.SerializeToString,
+                response_deserializer=backend__pb2.Result.FromString,
+                )
+        self.StoresDelete = channel.unary_unary(
+                '/backend.Backend/StoresDelete',
+                request_serializer=backend__pb2.StoresDeleteOptions.SerializeToString,
+                response_deserializer=backend__pb2.Result.FromString,
+                )
+        self.StoresGet = channel.unary_unary(
+                '/backend.Backend/StoresGet',
+                request_serializer=backend__pb2.StoresGetOptions.SerializeToString,
+                response_deserializer=backend__pb2.StoresGetResult.FromString,
+                )
+        self.StoresFind = channel.unary_unary(
+                '/backend.Backend/StoresFind',
+                request_serializer=backend__pb2.StoresFindOptions.SerializeToString,
+                response_deserializer=backend__pb2.StoresFindResult.FromString,
+                )
 
 
 class BackendServicer(object):
@@ -129,6 +149,30 @@ class BackendServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StoresSet(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StoresDelete(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StoresGet(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StoresFind(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_BackendServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -181,6 +225,26 @@ def add_BackendServicer_to_server(servicer, server):
                     servicer.Status,
                     request_deserializer=backend__pb2.HealthMessage.FromString,
                     response_serializer=backend__pb2.StatusResponse.SerializeToString,
+            ),
+            'StoresSet': grpc.unary_unary_rpc_method_handler(
+                    servicer.StoresSet,
+                    request_deserializer=backend__pb2.StoresSetOptions.FromString,
+                    response_serializer=backend__pb2.Result.SerializeToString,
+            ),
+            'StoresDelete': grpc.unary_unary_rpc_method_handler(
+                    servicer.StoresDelete,
+                    request_deserializer=backend__pb2.StoresDeleteOptions.FromString,
+                    response_serializer=backend__pb2.Result.SerializeToString,
+            ),
+            'StoresGet': grpc.unary_unary_rpc_method_handler(
+                    servicer.StoresGet,
+                    request_deserializer=backend__pb2.StoresGetOptions.FromString,
+                    response_serializer=backend__pb2.StoresGetResult.SerializeToString,
+            ),
+            'StoresFind': grpc.unary_unary_rpc_method_handler(
+                    servicer.StoresFind,
+                    request_deserializer=backend__pb2.StoresFindOptions.FromString,
+                    response_serializer=backend__pb2.StoresFindResult.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -359,5 +423,73 @@ class Backend(object):
         return grpc.experimental.unary_unary(request, target, '/backend.Backend/Status',
             backend__pb2.HealthMessage.SerializeToString,
             backend__pb2.StatusResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StoresSet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/backend.Backend/StoresSet',
+            backend__pb2.StoresSetOptions.SerializeToString,
+            backend__pb2.Result.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StoresDelete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/backend.Backend/StoresDelete',
+            backend__pb2.StoresDeleteOptions.SerializeToString,
+            backend__pb2.Result.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StoresGet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/backend.Backend/StoresGet',
+            backend__pb2.StoresGetOptions.SerializeToString,
+            backend__pb2.StoresGetResult.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StoresFind(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/backend.Backend/StoresFind',
+            backend__pb2.StoresFindOptions.SerializeToString,
+            backend__pb2.StoresFindResult.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

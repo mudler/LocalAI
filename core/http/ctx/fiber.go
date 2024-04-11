@@ -47,8 +47,8 @@ func (fce *FiberContextExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput st
 			modelInput = models[0]
 			log.Debug().Msgf("[FCE] No model specified, using first available: %s", modelInput)
 		} else {
-			log.Debug().Msgf("[FCE] No model specified, none available, returning error")
-			return "", fmt.Errorf("no model specified")
+			log.Warn().Msgf("[FCE] No model specified, none available, non-fatal, this is a warning only")
+			return "", nil
 		}
 	}
 

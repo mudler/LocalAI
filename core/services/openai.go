@@ -381,138 +381,141 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 
 	var predInput string
 
-	suppressConfigSystemPrompt := false
-	mess := []string{}
-	for messageIndex, i := range request.Messages {
-		var content string
-		role := i.Role
+	if !bc.TemplateConfig.UseTokenizerTemplate || processFunctions {
 
-		// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
-		// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
-		if (i.FunctionCall != nil || i.ToolCalls != nil) && i.Role == "assistant" {
-			roleFn := "assistant_function_call"
-			r := bc.Roles[roleFn]
-			if r != "" {
-				role = roleFn
-			}
-		}
-		r := bc.Roles[role]
-		contentExists := i.Content != nil && i.StringContent != ""
+		suppressConfigSystemPrompt := false
+		mess := []string{}
+		for messageIndex, i := range request.Messages {
+			var content string
+			role := i.Role
 
-		fcall := i.FunctionCall
-		if len(i.ToolCalls) > 0 {
-			fcall = i.ToolCalls
-		}
-
-		// First attempt to populate content via a chat message specific template
-		if bc.TemplateConfig.ChatMessage != "" {
-			chatMessageData := model.ChatMessageTemplateData{
-				SystemPrompt: bc.SystemPrompt,
-				Role:         r,
-				RoleName:     role,
-				Content:      i.StringContent,
-				FunctionCall: fcall,
-				FunctionName: i.Name,
-				LastMessage:  messageIndex == (len(request.Messages) - 1),
-				Function:     bc.Grammar != "" && (messageIndex == (len(request.Messages) - 1)),
-				MessageIndex: messageIndex,
-			}
-			templatedChatMessage, err := oais.ml.EvaluateTemplateForChatMessage(bc.TemplateConfig.ChatMessage, chatMessageData)
-			if err != nil {
-				log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, bc.TemplateConfig.ChatMessage, err)
-			} else {
-				if templatedChatMessage == "" {
-					log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", bc.TemplateConfig.ChatMessage, chatMessageData)
-					continue // TODO: This continue is here intentionally to skip over the line `mess = append(mess, content)` below, and to prevent the sprintf
+			// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
+			// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
+			if (i.FunctionCall != nil || i.ToolCalls != nil) && i.Role == "assistant" {
+				roleFn := "assistant_function_call"
+				r := bc.Roles[roleFn]
+				if r != "" {
+					role = roleFn
 				}
-				log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
-				content = templatedChatMessage
 			}
-		}
-		marshalAnyRole := func(f any) {
-			j, err := json.Marshal(f)
-			if err == nil {
-				if contentExists {
-					content += "\n" + fmt.Sprint(r, " ", string(j))
+			r := bc.Roles[role]
+			contentExists := i.Content != nil && i.StringContent != ""
+
+			fcall := i.FunctionCall
+			if len(i.ToolCalls) > 0 {
+				fcall = i.ToolCalls
+			}
+
+			// First attempt to populate content via a chat message specific template
+			if bc.TemplateConfig.ChatMessage != "" {
+				chatMessageData := model.ChatMessageTemplateData{
+					SystemPrompt: bc.SystemPrompt,
+					Role:         r,
+					RoleName:     role,
+					Content:      i.StringContent,
+					FunctionCall: fcall,
+					FunctionName: i.Name,
+					LastMessage:  messageIndex == (len(request.Messages) - 1),
+					Function:     bc.Grammar != "" && (messageIndex == (len(request.Messages) - 1)),
+					MessageIndex: messageIndex,
+				}
+				templatedChatMessage, err := oais.ml.EvaluateTemplateForChatMessage(bc.TemplateConfig.ChatMessage, chatMessageData)
+				if err != nil {
+					log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, bc.TemplateConfig.ChatMessage, err)
 				} else {
-					content = fmt.Sprint(r, " ", string(j))
+					if templatedChatMessage == "" {
+						log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", bc.TemplateConfig.ChatMessage, chatMessageData)
+						continue // TODO: This continue is here intentionally to skip over the line `mess = append(mess, content)` below, and to prevent the sprintf
+					}
+					log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
+					content = templatedChatMessage
 				}
 			}
-		}
-		marshalAny := func(f any) {
-			j, err := json.Marshal(f)
-			if err == nil {
-				if contentExists {
-					content += "\n" + string(j)
+			marshalAnyRole := func(f any) {
+				j, err := json.Marshal(f)
+				if err == nil {
+					if contentExists {
+						content += "\n" + fmt.Sprint(r, " ", string(j))
+					} else {
+						content = fmt.Sprint(r, " ", string(j))
+					}
+				}
+			}
+			marshalAny := func(f any) {
+				j, err := json.Marshal(f)
+				if err == nil {
+					if contentExists {
+						content += "\n" + string(j)
+					} else {
+						content = string(j)
+					}
+				}
+			}
+			// If this model doesn't have such a template, or if that template fails to return a value, template at the message level.
+			if content == "" {
+				if r != "" {
+					if contentExists {
+						content = fmt.Sprint(r, i.StringContent)
+					}
+
+					if i.FunctionCall != nil {
+						marshalAnyRole(i.FunctionCall)
+					}
 				} else {
-					content = string(j)
+					if contentExists {
+						content = fmt.Sprint(i.StringContent)
+					}
+
+					if i.FunctionCall != nil {
+						marshalAny(i.FunctionCall)
+					}
+
+					if i.ToolCalls != nil {
+						marshalAny(i.ToolCalls)
+					}
+				}
+				// Special Handling: System. We care if it was printed at all, not the r branch, so check seperately
+				if contentExists && role == "system" {
+					suppressConfigSystemPrompt = true
 				}
 			}
-		}
-		// If this model doesn't have such a template, or if that template fails to return a value, template at the message level.
-		if content == "" {
-			if r != "" {
-				if contentExists {
-					content = fmt.Sprint(r, i.StringContent)
-				}
 
-				if i.FunctionCall != nil {
-					marshalAnyRole(i.FunctionCall)
-				}
+			mess = append(mess, content)
+		}
+
+		predInput = strings.Join(mess, "\n")
+
+		log.Debug().Msgf("Prompt (before templating): %s", predInput)
+
+		templateFile := ""
+		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
+		if oais.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
+			templateFile = bc.Model
+		}
+
+		if bc.TemplateConfig.Chat != "" && !processFunctions {
+			templateFile = bc.TemplateConfig.Chat
+		}
+
+		if bc.TemplateConfig.Functions != "" && processFunctions {
+			templateFile = bc.TemplateConfig.Functions
+		}
+
+		if templateFile != "" {
+			templatedInput, err := oais.ml.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
+				SystemPrompt:         bc.SystemPrompt,
+				SuppressSystemPrompt: suppressConfigSystemPrompt,
+				Input:                predInput,
+				Functions:            funcs,
+			})
+			if err == nil {
+				predInput = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", predInput)
 			} else {
-				if contentExists {
-					content = fmt.Sprint(i.StringContent)
-				}
-
-				if i.FunctionCall != nil {
-					marshalAny(i.FunctionCall)
-				}
-
-				if i.ToolCalls != nil {
-					marshalAny(i.ToolCalls)
-				}
-			}
-			// Special Handling: System. We care if it was printed at all, not the r branch, so check seperately
-			if contentExists && role == "system" {
-				suppressConfigSystemPrompt = true
+				log.Debug().Msgf("Template failed loading: %s", err.Error())
 			}
 		}
-
-		mess = append(mess, content)
 	}
-
-	predInput = strings.Join(mess, "\n")
-	log.Debug().Msgf("Prompt (before templating): %s", predInput)
-
-	templateFile := ""
-	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-	if oais.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
-		templateFile = bc.Model
-	}
-
-	if bc.TemplateConfig.Chat != "" && !processFunctions {
-		templateFile = bc.TemplateConfig.Chat
-	}
-
-	if bc.TemplateConfig.Functions != "" && processFunctions {
-		templateFile = bc.TemplateConfig.Functions
-	}
-
-	if templateFile != "" {
-		templatedInput, err := oais.ml.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
-			SystemPrompt:         bc.SystemPrompt,
-			SuppressSystemPrompt: suppressConfigSystemPrompt,
-			Input:                predInput,
-			Functions:            funcs,
-		})
-		if err == nil {
-			predInput = templatedInput
-			log.Debug().Msgf("Template found, input modified to: %s", predInput)
-		} else {
-			log.Debug().Msgf("Template failed loading: %s", err.Error())
-		}
-	}
-
 	log.Debug().Msgf("Prompt (after templating): %s", predInput)
 	if processFunctions {
 		log.Debug().Msgf("Grammar: %+v", bc.Grammar)
@@ -718,8 +721,9 @@ func (oais *OpenAIService) handleQuestion(config *config.BackendConfig, input *s
 	}
 
 	resultChannel, _, err := oais.llmbs.Inference(input.Context, &backend.LLMRequest{
-		Text:   prompt,
-		Images: images,
+		Text:        prompt,
+		Images:      images,
+		RawMessages: input.Messages, // Experimental
 	}, config, false)
 
 	if err != nil {
