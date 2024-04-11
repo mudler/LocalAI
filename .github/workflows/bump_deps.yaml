@@ -49,7 +49,7 @@ jobs:
         run: |
           bash .github/bump_deps.sh ${{ matrix.repository }} ${{ matrix.branch }} ${{ matrix.variable }}
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
