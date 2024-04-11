@@ -137,7 +137,7 @@ func (r *RunCMD) Run(ctx *Context) error {
 	// Watch the configuration directory
 	// If the directory does not exist, we don't watch it
 	if _, err := os.Stat(r.LocalaiConfigDir); err == nil {
-		closeConfigWatcherFn, err := startup.WatchConfigDirectory(r.LocalaiConfigDir, options)
+		closeConfigWatcherFn, err := startup.WatchConfigDirectory(r.LocalaiConfigDir, application.ApplicationConfig)
 		defer closeConfigWatcherFn()
 
 		if err != nil {
