@@ -547,7 +547,7 @@ vllm-protogen-clean:
 
 ## GRPC
 # Note: it is duplicated in the Dockerfile
-prepare-extra-conda-environments:
+prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/autogptq
 	$(MAKE) -C backend/python/bark
 	$(MAKE) -C backend/python/coqui
@@ -562,7 +562,7 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/petals
 	$(MAKE) -C backend/python/exllama2
 
-prepare-test-extra:
+prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/diffusers
 
