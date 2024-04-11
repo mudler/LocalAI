@@ -67,9 +67,9 @@ Start the image with Docker to have a functional clone of OpenAI! 🚀:
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
 # Do you have a Nvidia GPUs? Use this instead
 # CUDA 11
-# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-cuda-11
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-nvidia-cuda-11
 # CUDA 12
-# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-cuda-12
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-nvidia-cuda-12
 ```
 
 See the [💻 Quickstart](https://localai.io/basics/getting_started/) for all the options and way you can run LocalAI!
