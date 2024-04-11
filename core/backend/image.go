@@ -110,6 +110,9 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 			bc.Backend = model.TinyDreamBackend
 		case "":
 			bc.Backend = model.StableDiffusionBackend
+			if bc.Model == "" {
+				bc.Model = "stablediffusion_assets" // TODO: check?
+			}
 		}
 
 		sizeParts := strings.Split(request.Size, "x")
