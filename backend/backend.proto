@@ -107,6 +107,8 @@ message PredictOptions {
   string NegativePrompt = 40;
   int32 NDraft = 41;
   repeated string Images = 42;
+  bool UseTokenizerTemplate = 43;
+  repeated Message Messages = 44;
 }
 
 // The response message containing the result
@@ -255,4 +257,9 @@ message StatusResponse {
   }
   State state = 1;
   MemoryUsageData memory = 2;
+}
+
+message Message {
+  string role = 1;
+  string content = 2;
 }
