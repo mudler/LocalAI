@@ -1,5 +1,5 @@
 .PHONY: transformers
-transformers:
+transformers: protogen
 	$(MAKE) -C ../common-env/transformers
 
 .PHONY: run

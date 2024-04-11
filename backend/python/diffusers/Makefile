@@ -12,7 +12,7 @@ export SKIP_CONDA=1
 endif
 
 .PHONY: diffusers
-diffusers:
+diffusers: protogen
 	@echo "Installing $(CONDA_ENV_PATH)..."
 	bash install.sh $(CONDA_ENV_PATH)
 

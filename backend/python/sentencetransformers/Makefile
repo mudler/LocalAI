@@ -1,5 +1,5 @@
 .PHONY: sentencetransformers
-sentencetransformers:
+sentencetransformers: protogen
 	$(MAKE) -C ../common-env/transformers
 
 

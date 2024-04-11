@@ -1,7 +1,7 @@
 export CONDA_ENV_PATH = "exllama.yml"
 
 .PHONY: exllama
-exllama:
+exllama: protogen
 	bash install.sh ${CONDA_ENV_PATH}
 
 .PHONY: run

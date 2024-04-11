@@ -1,5 +1,5 @@
 .PHONY: transformers-musicgen
-transformers-musicgen:
+transformers-musicgen: protogen
 	$(MAKE) -C ../common-env/transformers
 
 .PHONY: run

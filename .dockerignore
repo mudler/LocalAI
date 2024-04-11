@@ -1,4 +1,6 @@
 .idea
+.github
+.vscode
 models
 examples/chatbot-ui/models
 examples/rwkv/models

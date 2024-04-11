@@ -1,5 +1,5 @@
 .PHONY: ttsbark
-ttsbark:
+ttsbark: protogen
 	$(MAKE) -C ../common-env/transformers
 
 .PHONY: run

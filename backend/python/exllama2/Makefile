@@ -1,5 +1,5 @@
 .PHONY: exllama2
-exllama2:
+exllama2: protogen
 	$(MAKE) -C ../common-env/transformers
 	bash install.sh
 

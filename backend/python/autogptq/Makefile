@@ -1,5 +1,5 @@
 .PHONY: autogptq
-autogptq:
+autogptq: protogen
 	$(MAKE) -C ../common-env/transformers
 
 .PHONY: protogen
