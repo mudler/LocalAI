@@ -84,7 +84,7 @@ jobs:
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.build }}
+          name: LocalAI-linux-${{ matrix.build }}
           path: release/
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -115,12 +115,6 @@ jobs:
         with:
           name: stablediffusion
           path: release/
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            release/*
 
   build-macOS:
     strategy:
@@ -156,7 +150,7 @@ jobs:
           make dist
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.build }}
+          name: LocalAI-MacOS-${{ matrix.build }}
           path: release/
       - name: Release
         uses: softprops/action-gh-release@v1
