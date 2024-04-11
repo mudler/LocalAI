@@ -47,8 +47,8 @@ func (fce *FiberContextExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput st
 			modelInput = models[0]
 			log.Debug().Msgf("[FCE] No model specified, using first available: %s", modelInput)
 		} else {
-			log.Warn().Msgf("[FCE] No model specified, none available, non-fatal, this is a warning only")
-			return "", nil
+			log.Warn().Msgf("[FCE] No model specified, none available")
+			return "", fmt.Errorf("[fce] no model specified, none available")
 		}
 	}
 
@@ -56,6 +56,10 @@ func (fce *FiberContextExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput st
 	if bearerExists {
 		log.Debug().Msgf("[FCE] Using model from bearer token: %s", bearer)
 		modelInput = bearer
+	}
+
+	if modelInput == "" {
+		log.Warn().Msg("[FCE] modelInput is empty")
 	}
 	return modelInput, nil
 }
