@@ -19,7 +19,8 @@ type ModelGalleryEndpointService struct {
 }
 
 type GalleryModel struct {
-	ID string `json:"id"`
+	ID        string `json:"id"`
+	ConfigURL string `json:"config_url"`
 	gallery.GalleryModel
 }
 
@@ -64,6 +65,7 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 			Id:          uuid.String(),
 			GalleryName: input.ID,
 			Galleries:   mgs.galleries,
+			ConfigURL:   input.ConfigURL,
 		}
 		return c.JSON(struct {
 			ID        string `json:"uuid"`

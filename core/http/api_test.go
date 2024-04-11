@@ -43,6 +43,7 @@ Can you help rephrasing sentences?
 type modelApplyRequest struct {
 	ID        string                 `json:"id"`
 	URL       string                 `json:"url"`
+	ConfigURL string                 `json:"config_url"`
 	Name      string                 `json:"name"`
 	Overrides map[string]interface{} `json:"overrides"`
 }
@@ -365,6 +366,29 @@ var _ = Describe("API test", func() {
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["backend"]).To(Equal("llama"))
+			})
+			It("apply models from config", func() {
+				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/models/hermes-2-pro-mistral.yaml",
+				})
+
+				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+
+				uuid := response["uuid"].(string)
+
+				Eventually(func() bool {
+					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					return response["processed"].(bool)
+				}, "360s", "10s").Should(Equal(true))
+
+				Eventually(func() []string {
+					models, _ := client.ListModels(context.TODO())
+					modelList := []string{}
+					for _, m := range models.Models {
+						modelList = append(modelList, m.ID)
+					}
+					return modelList
+				}, "360s", "10s").Should(ContainElements("hermes-2-pro-mistral"))
 			})
 			It("apply models without overrides", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{

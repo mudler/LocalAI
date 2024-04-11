@@ -5,6 +5,7 @@ type GalleryOp struct {
 	Id          string
 	Galleries   []Gallery
 	GalleryName string
+	ConfigURL   string
 }
 
 type GalleryOpStatus struct {
