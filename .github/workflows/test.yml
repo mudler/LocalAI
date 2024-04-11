@@ -80,6 +80,9 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch protobuf-compiler-grpc python3-grpc-tools
           sudo apt-get install -y libopencv-dev
+
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
           
           sudo rm -rfv /usr/bin/conda || true
           PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers
@@ -89,7 +92,7 @@ jobs:
           GO_TAGS="tts" make -C sources/go-piper piper.o && \
           sudo cp -rfv sources/go-piper/piper-phonemize/pi/lib/. /usr/lib/ && \
           # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
-          GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+          PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
