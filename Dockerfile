@@ -20,11 +20,16 @@ ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface
 ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates curl patch pip cmake git protobuf-compiler python3-grpc-tools && apt-get clean
+    apt-get install -y ca-certificates curl patch pip cmake git python3-grpc-tools && apt-get clean
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -C /usr/local -xz
 ENV PATH $PATH:/usr/local/go/bin
+
+# Install protobuf (the version in 22.04 is too old)
+RUN curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+    unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+    rm protoc.zip
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
