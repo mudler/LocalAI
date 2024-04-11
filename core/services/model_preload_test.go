@@ -1,12 +1,13 @@
-package startup_test
+package services_test
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
-	. "github.com/go-skynet/LocalAI/pkg/startup"
 	"github.com/go-skynet/LocalAI/pkg/utils"
+
+	. "github.com/go-skynet/LocalAI/core/services"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

@@ -12,7 +12,6 @@ import (
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/go-skynet/LocalAI/pkg/model"
-	pkgStartup "github.com/go-skynet/LocalAI/pkg/startup"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -70,7 +69,7 @@ func Startup(opts ...config.AppOption) (*core.Application, error) {
 
 	app := createApplication(options)
 
-	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
+	services.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
 
 	if err := app.BackendConfigLoader.LoadBackendConfigsFromPath(options.ModelPath, app.ApplicationConfig.ToConfigLoaderOptions()...); err != nil {
 		log.Error().Err(err).Msg("error loading config files")

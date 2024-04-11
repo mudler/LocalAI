@@ -146,11 +146,15 @@ In the body of the request you must specify the model configuration file URL (`u
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "url": "<MODEL_CONFIG_FILE>"
+     "config_url": "<MODEL_CONFIG_FILE_URL>"
    }' 
 # or if from a repository
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
      "id": "<GALLERY>@<MODEL_NAME>"
+   }' 
+# or from a gallery config
+curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
+     "url": "<MODEL_CONFIG_FILE_URL>"
    }' 
 ```
 
@@ -159,8 +163,8 @@ An example that installs openllama can be:
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "url": "https://github.com/go-skynet/model-gallery/blob/main/openllama_3b.yaml"
-   }'  
+     "config_url": "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/models/hermes-2-pro-mistral.yaml"
+   }' 
 ```
 
 The API will return a job `uuid` that you can use to track the job progress:
