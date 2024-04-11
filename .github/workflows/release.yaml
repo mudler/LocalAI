@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.21.x'
           cache: false
@@ -55,7 +55,7 @@ jobs:
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
       - name: Cache grpc
         id: cache-grpc
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: grpc
           key: ${{ runner.os }}-grpc-${{ env.GRPC_VERSION }}
@@ -100,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.21.x'
           cache: false
@@ -138,7 +138,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.21.x'
           cache: false

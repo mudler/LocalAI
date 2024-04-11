@@ -60,7 +60,7 @@ jobs:
         with: 
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: false
@@ -92,7 +92,7 @@ jobs:
           GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
       - name: Cache grpc
         id: cache-grpc
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: grpc
           key: ${{ runner.os }}-grpc-${{ env.GRPC_VERSION }}
@@ -177,7 +177,7 @@ jobs:
         with: 
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: false
