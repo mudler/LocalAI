@@ -648,7 +648,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
 			} else {
-				log.Warn().Msgf("[GenerateFromMultipleMessagesChatRequest] fnResultsBranch: %+v", results)
+				log.Debug().Msgf("[GenerateFromMultipleMessagesChatRequest] fnResultsBranch: %+v", results)
 				for i, ss := range results {
 					name, args := ss.name, ss.arguments
 
