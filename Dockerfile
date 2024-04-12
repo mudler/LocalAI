@@ -26,6 +26,11 @@ RUN apt-get update && \
 RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -C /usr/local -xz
 ENV PATH $PATH:/usr/local/go/bin
 
+# Install grpc compilers
+ENV PATH $PATH:/root/go/bin
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
 # Install protobuf (the version in 22.04 is too old)
 RUN curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
     unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
@@ -143,11 +148,6 @@ COPY . .
 COPY .git .
 RUN echo "GO_TAGS: $GO_TAGS"
 
-# Install grpc compilers
-ENV PATH $PATH:/root/go/bin
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
 RUN apt-get update && \
     apt-get install -y build-essential cmake git  && \
     apt-get clean && \
@@ -227,7 +227,7 @@ COPY . .
 COPY --from=builder /build/sources ./sources/
 COPY --from=grpc /build/grpc ./grpc/
 
-RUN cd /build/grpc/cmake/build && make install && rm -rf /build/grpc
+RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf /build/grpc
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
