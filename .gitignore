@@ -39,3 +39,6 @@ backend-assets/*
 !backend-assets/.keep
 prepare
 /ggml-metal.metal
+target/
+Cargo.lock
+model.bin
