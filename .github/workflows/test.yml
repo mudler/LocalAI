@@ -113,7 +113,7 @@ jobs:
         if: ${{ failure() }}
         uses: dave-gray101/action-tmate@master
         with:
-          connect-timeout: 180
+          connect-timeout-seconds: 180
 
   tests-aio-container:
     runs-on: ubuntu-latest
@@ -166,7 +166,7 @@ jobs:
         if: ${{ failure() }}
         uses: dave-gray101/action-tmate@master
         with:
-          connect-timeout: 180
+          connect-timeout-seconds: 180
 
   tests-apple:
     runs-on: macOS-14
@@ -200,4 +200,4 @@ jobs:
         if: ${{ failure() }}
         uses: dave-gray101/action-tmate@master
         with:
-          connect-timeout: 180
+          connect-timeout-seconds: 180
