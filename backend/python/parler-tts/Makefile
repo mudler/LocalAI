@@ -36,4 +36,5 @@ protogen-clean:
 	$(RM) backend_pb2_grpc.py backend_pb2.py
 
 backend_pb2_grpc.py backend_pb2.py:
-	python3 -m grpc_tools.protoc -I../.. --python_out=. --grpc_python_out=. backend.proto
+	bash install.sh $(CONDA_ENV_PATH)
+	bash gen_grpc.sh
