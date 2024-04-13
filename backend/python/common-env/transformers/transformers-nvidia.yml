@@ -74,7 +74,7 @@ dependencies:
       - packaging==23.2
       - pandas
       - peft==0.5.0
-      - protobuf==4.24.4
+      - protobuf==3.20.2
       - psutil==5.9.5
       - pyarrow==13.0.0
       - python-dateutil==2.8.2
