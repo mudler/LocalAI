@@ -124,11 +124,11 @@ func (r *RunCMD) Run(ctx *Context) error {
 	}
 
 	if r.PreloadBackendOnly {
-		_, _, _, err := startup.Startup(opts...)
+		_, err := startup.Startup(opts...)
 		return err
 	}
 
-	cl, ml, options, err := startup.Startup(opts...)
+	application, err := startup.Startup(opts...)
 
 	if err != nil {
 		return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
@@ -137,7 +137,7 @@ func (r *RunCMD) Run(ctx *Context) error {
 	// Watch the configuration directory
 	// If the directory does not exist, we don't watch it
 	if _, err := os.Stat(r.LocalaiConfigDir); err == nil {
-		closeConfigWatcherFn, err := startup.WatchConfigDirectory(r.LocalaiConfigDir, options)
+		closeConfigWatcherFn, err := startup.WatchConfigDirectory(r.LocalaiConfigDir, application.ApplicationConfig)
 		defer closeConfigWatcherFn()
 
 		if err != nil {
@@ -145,7 +145,7 @@ func (r *RunCMD) Run(ctx *Context) error {
 		}
 	}
 
-	appHTTP, err := http.App(cl, ml, options)
+	appHTTP, err := http.App(application)
 	if err != nil {
 		log.Error().Err(err).Msg("error during HTTP App construction")
 		return err

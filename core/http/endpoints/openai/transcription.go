@@ -9,8 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -23,17 +22,15 @@ import (
 // @Param file formData file true "file"
 // @Success 200 {object} map[string]string	 "Response"
 // @Router /v1/audio/transcriptions [post]
-func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func TranscriptEndpoint(fce *fiberContext.FiberContextExtractor, tbs *backend.TranscriptionBackendService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, ml, appConfig, false)
+		_, request, err := fce.OpenAIRequestFromContext(c, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
-		}
+		// TODO: Investigate this file copy stuff later - potentially belongs in service.
+
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -65,13 +62,16 @@ func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		tr, err := backend.ModelTranscription(dst, input.Language, ml, *config, appConfig)
-		if err != nil {
-			return err
-		}
+		request.File = dst
 
-		log.Debug().Msgf("Trascribed: %+v", tr)
+		responseChannel := tbs.Transcribe(request)
+		rawResponse := <-responseChannel
+
+		if rawResponse.Error != nil {
+			return rawResponse.Error
+		}
+		log.Debug().Msgf("Transcribed: %+v", rawResponse.Value)
 		// TODO: handle different outputs here
-		return c.Status(http.StatusOK).JSON(tr)
+		return c.Status(http.StatusOK).JSON(rawResponse.Value)
 	}
 }
