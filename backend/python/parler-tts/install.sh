@@ -21,9 +21,13 @@ else
     fi
 fi
 
-# https://github.com/descriptinc/audiotools/issues/101
-# incompatible protobuf versions.
-curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o $CONDA_PREFIX/envs/parler/lib/python3.11/site-packages/google/protobuf/internal/builder.py
+if [ $SKIP_CONDA -ne 1 ]; then
+    # Activate conda environment
+    source activate parler
+    # https://github.com/descriptinc/audiotools/issues/101
+    # incompatible protobuf versions.
+    curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o $CONDA_PREFIX/lib/python3.11/site-packages/google/protobuf/internal/builder.py
+fi
 
 if [ "$PIP_CACHE_PURGE" = true ] ; then
     if [ $SKIP_CONDA -ne 1 ]; then
