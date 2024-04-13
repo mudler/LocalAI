@@ -1,6 +1,20 @@
+export CONDA_ENV_PATH = "parler.yml"
+SKIP_CONDA?=0
+ifeq ($(BUILD_TYPE), cublas)
+export CONDA_ENV_PATH = "parler-nvidia.yml"
+endif
+
+# Intel GPU are supposed to have dependencies installed in the main python
+# environment, so we skip conda installation for SYCL builds.
+# https://github.com/intel/intel-extension-for-pytorch/issues/538
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+export SKIP_CONDA=1
+endif
+
 .PHONY: parler-tts
 parler-tts: protogen
-	$(MAKE) -C ../common-env/transformers
+	@echo "Installing $(CONDA_ENV_PATH)..."
+	bash install.sh $(CONDA_ENV_PATH)
 
 .PHONY: run
 run: protogen
