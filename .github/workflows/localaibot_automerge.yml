@@ -12,13 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.actor == 'localai-bot' }}
     steps:
-      - name: Dependabot metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@v1.3.4
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          skip-commit-verification: true
-
       - name: Checkout repository
         uses: actions/checkout@v3
 
