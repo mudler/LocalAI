@@ -1,6 +1,8 @@
 name: Build and Release
 
-on: push
+on: 
+- push
+- pull_request
 
 env:
   GRPC_VERSION: v1.58.0
@@ -40,7 +42,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
+          sudo apt-get install build-essential ffmpeg protobuf-compiler
       - name: Install CUDA Dependencies
         if: ${{ matrix.build == 'cuda12' || matrix.build == 'cuda11' }}
         run: |
@@ -75,6 +77,9 @@ jobs:
           CMAKE_ARGS: "${{ matrix.defines }}"
           BUILD_ID: "${{ matrix.build }}"
         run: |
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          export PATH=$PATH:$GOPATH/bin
           if [ "${{ matrix.build }}" == "cuda12" ] || [ "${{ matrix.build }}" == "cuda11" ]; then
             export BUILD_TYPE=cublas
             export PATH=/usr/local/cuda/bin:$PATH
@@ -106,9 +111,12 @@ jobs:
           cache: false
       - name: Dependencies
         run: |
-          sudo apt-get install -y --no-install-recommends libopencv-dev
+          sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - name: Build stablediffusion
         run: |
+          export PATH=$PATH:$GOPATH/bin
           make backend-assets/grpc/stablediffusion
           mkdir -p release && cp backend-assets/grpc/stablediffusion release
       - uses: actions/upload-artifact@v4
@@ -139,6 +147,8 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - name: Build
         id: build
         env:
@@ -147,6 +157,7 @@ jobs:
         run: |
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
+          export PATH=$PATH:$GOPATH/bin
           make dist
       - uses: actions/upload-artifact@v4
         with:
@@ -183,6 +194,8 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - name: Build
         id: build
         env:
@@ -191,6 +204,7 @@ jobs:
         run: |
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
+          export PATH=$PATH:$GOPATH/bin
           make dist
       - uses: actions/upload-artifact@v4
         with:
