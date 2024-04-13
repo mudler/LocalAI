@@ -1,4 +1,4 @@
-name: Dependabot auto-merge
+name: LocalAI-bot auto-merge
 on:
 - pull_request_target
 
