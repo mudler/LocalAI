@@ -20,11 +20,24 @@ ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface
 ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates curl patch pip cmake git && apt-get clean
+    apt-get install -y ca-certificates curl python3-pip unzip && apt-get clean
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -C /usr/local -xz
 ENV PATH $PATH:/usr/local/go/bin
+
+# Install grpc compilers
+ENV PATH $PATH:/root/go/bin
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Install protobuf (the version in 22.04 is too old)
+RUN curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+    unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+    rm protoc.zip
+
+# Install grpcio-tools (the version in 22.04 is too old)
+RUN pip install --user grpcio-tools
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -68,7 +81,8 @@ RUN test -n "$TARGETARCH" \
 
 FROM requirements-core as requirements-extras
 
-RUN curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
+RUN apt install -y gpg && \
+    curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
     install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
     gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
@@ -100,7 +114,7 @@ ENV MAKEFLAGS=${MAKEFLAGS}
 WORKDIR /build
 
 RUN apt-get update && \
-    apt-get install -y g++ cmake git && \
+    apt-get install -y build-essential cmake git  && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -133,6 +147,12 @@ WORKDIR /build
 COPY . .
 COPY .git .
 RUN echo "GO_TAGS: $GO_TAGS"
+
+RUN apt-get update && \
+    apt-get install -y build-essential cmake git  && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN make prepare
 
 # If we are building with clblas support, we need the libraries for the builds
@@ -191,6 +211,11 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
     apt-get clean \
     ; fi
 
+RUN apt-get update && \
+    apt-get install -y cmake git  && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
 # we start fresh & re-copy all assets because `make build` does not clean up nicely after itself
@@ -202,7 +227,7 @@ COPY . .
 COPY --from=builder /build/sources ./sources/
 COPY --from=grpc /build/grpc ./grpc/
 
-RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf grpc
+RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf /build/grpc
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./

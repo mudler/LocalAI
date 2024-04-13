@@ -289,10 +289,12 @@ clean: ## Remove build related file
 	rm -rf ./sources
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
-	rm -rf backend-assets
+	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/cpp/llama clean
 	$(MAKE) dropreplace
+	$(MAKE) protogen-clean
+	rmdir pkg/grpc/proto || true
 
 clean-tests:
 	rm -rf test-models
@@ -416,30 +418,136 @@ help: ## Show this help.
 		else if (/^## .*$$/) {printf "  ${CYAN}%s${RESET}\n", substr($$1,4)} \
 		}' $(MAKEFILE_LIST)
 
+.PHONY: protogen
 protogen: protogen-go protogen-python
 
+.PHONY: protogen-clean
+protogen-clean: protogen-go-clean protogen-python-clean
+
+.PHONY: protogen-go
 protogen-go:
+	mkdir -p pkg/grpc/proto
 	protoc -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
-protogen-python:
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/sentencetransformers/ --grpc_python_out=backend/python/sentencetransformers/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/transformers/ --grpc_python_out=backend/python/transformers/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/transformers-musicgen/ --grpc_python_out=backend/python/transformers-musicgen/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/autogptq/ --grpc_python_out=backend/python/autogptq/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/exllama/ --grpc_python_out=backend/python/exllama/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/bark/ --grpc_python_out=backend/python/bark/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/diffusers/ --grpc_python_out=backend/python/diffusers/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/coqui/ --grpc_python_out=backend/python/coqui/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vall-e-x/ --grpc_python_out=backend/python/vall-e-x/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/vllm/ --grpc_python_out=backend/python/vllm/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/petals/ --grpc_python_out=backend/python/petals/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/mamba/ --grpc_python_out=backend/python/mamba/ backend/backend.proto
-	python3 -m grpc_tools.protoc -Ibackend/ --python_out=backend/python/exllama2/ --grpc_python_out=backend/python/exllama2/ backend/backend.proto
+.PHONY: protogen-go-clean
+protogen-go-clean:
+	$(RM) pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go
+	$(RM) bin/*
+
+.PHONY: protogen-python
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen petals-protogen sentencetransformers-protogen transformers-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen
+
+.PHONY: protogen-python-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean petals-protogen-clean sentencetransformers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean
+
+.PHONY: autogptq-protogen
+autogptq-protogen:
+	$(MAKE) -C backend/python/autogptq protogen
+
+.PHONY: autogptq-protogen-clean
+autogptq-protogen-clean:
+	$(MAKE) -C backend/python/autogptq protogen-clean
+
+.PHONY: bark-protogen
+bark-protogen:
+	$(MAKE) -C backend/python/bark protogen
+
+.PHONY: bark-protogen-clean
+bark-protogen-clean:
+	$(MAKE) -C backend/python/bark protogen-clean
+
+.PHONY: coqui-protogen
+coqui-protogen:
+	$(MAKE) -C backend/python/coqui protogen
+
+.PHONY: coqui-protogen-clean
+coqui-protogen-clean:
+	$(MAKE) -C backend/python/coqui protogen-clean
+
+.PHONY: diffusers-protogen
+diffusers-protogen:
+	$(MAKE) -C backend/python/diffusers protogen
+
+.PHONY: diffusers-protogen-clean
+diffusers-protogen-clean:
+	$(MAKE) -C backend/python/diffusers protogen-clean
+
+.PHONY: exllama-protogen
+exllama-protogen:
+	$(MAKE) -C backend/python/exllama protogen
+
+.PHONY: exllama-protogen-clean
+exllama-protogen-clean:
+	$(MAKE) -C backend/python/exllama protogen-clean
+
+.PHONY: exllama2-protogen
+exllama2-protogen:
+	$(MAKE) -C backend/python/exllama2 protogen
+
+.PHONY: exllama2-protogen-clean
+exllama2-protogen-clean:
+	$(MAKE) -C backend/python/exllama2 protogen-clean
+
+.PHONY: mamba-protogen
+mamba-protogen:
+	$(MAKE) -C backend/python/mamba protogen
+
+.PHONY: mamba-protogen-clean
+mamba-protogen-clean:
+	$(MAKE) -C backend/python/mamba protogen-clean
+
+.PHONY: petals-protogen
+petals-protogen:
+	$(MAKE) -C backend/python/petals protogen
+
+.PHONY: petals-protogen-clean
+petals-protogen-clean:
+	$(MAKE) -C backend/python/petals protogen-clean
+
+.PHONY: sentencetransformers-protogen
+sentencetransformers-protogen:
+	$(MAKE) -C backend/python/sentencetransformers protogen
+
+.PHONY: sentencetransformers-protogen-clean
+sentencetransformers-protogen-clean:
+	$(MAKE) -C backend/python/sentencetransformers protogen-clean
+
+.PHONY: transformers-protogen
+transformers-protogen:
+	$(MAKE) -C backend/python/transformers protogen
+
+.PHONY: transformers-protogen-clean
+transformers-protogen-clean:
+	$(MAKE) -C backend/python/transformers protogen-clean
+
+.PHONY: transformers-musicgen-protogen
+transformers-musicgen-protogen:
+	$(MAKE) -C backend/python/transformers-musicgen protogen
+
+.PHONY: transformers-musicgen-protogen-clean
+transformers-musicgen-protogen-clean:
+	$(MAKE) -C backend/python/transformers-musicgen protogen-clean
+
+.PHONY: vall-e-x-protogen
+vall-e-x-protogen:
+	$(MAKE) -C backend/python/vall-e-x protogen
+
+.PHONY: vall-e-x-protogen-clean
+vall-e-x-protogen-clean:
+	$(MAKE) -C backend/python/vall-e-x protogen-clean
+
+.PHONY: vllm-protogen
+vllm-protogen:
+	$(MAKE) -C backend/python/vllm protogen
+
+.PHONY: vllm-protogen-clean
+vllm-protogen-clean:
+	$(MAKE) -C backend/python/vllm protogen-clean
 
 ## GRPC
 # Note: it is duplicated in the Dockerfile
-prepare-extra-conda-environments:
+prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/autogptq
 	$(MAKE) -C backend/python/bark
 	$(MAKE) -C backend/python/coqui
@@ -454,7 +562,7 @@ prepare-extra-conda-environments:
 	$(MAKE) -C backend/python/petals
 	$(MAKE) -C backend/python/exllama2
 
-prepare-test-extra:
+prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/diffusers
 
@@ -478,7 +586,7 @@ backend-assets/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/golang/
 	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.dylib backend-assets/gpt4all/ || true
 	@cp sources/gpt4all/gpt4all-bindings/golang/buildllm/*.dll backend-assets/gpt4all/ || true
 
-backend-assets/grpc: replace
+backend-assets/grpc: protogen-go replace
 	mkdir -p backend-assets/grpc
 
 backend-assets/grpc/bert-embeddings: sources/go-bert sources/go-bert/libgobert.a backend-assets/grpc
