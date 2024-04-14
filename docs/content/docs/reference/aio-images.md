@@ -14,8 +14,8 @@ In the AIO images there are models configured with the names of OpenAI models, h
 | Text Generation | `gpt-4` | `phi-2` | `hermes-2-pro-mistral` |
 | Multimodal Vision | `gpt-4-vision-preview` | `bakllava` | `llava-1.6-mistral` |
 | Image Generation | `stablediffusion` | `stablediffusion` | `dreamshaper-8` |
-| Speech to Text | `whisper-1` | `whisper` with `whisper-base` model | none |
-| Text to Speech | `tts-1` | `en-us-amy-low.onnx` from `rhasspy/piper` | none |
+| Speech to Text | `whisper-1` | `whisper` with `whisper-base` model | <= same |
+| Text to Speech | `tts-1` | `en-us-amy-low.onnx` from `rhasspy/piper` | <= same |
 | Embeddings | `text-embedding-ada-002` | `all-MiniLM-L6-v2` in Q4 | `all-MiniLM-L6-v2` |
 
 ## Usage
