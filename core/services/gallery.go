@@ -33,6 +33,21 @@ func NewGalleryService(modelPath string) *GalleryService {
 	}
 }
 
+<<<<<<< HEAD
+=======
+func prepareModel(modelPath string, req gallery.GalleryModel, downloadStatus func(string, string, string, float64)) error {
+
+	config, err := gallery.GetGalleryConfigFromURL(req.URL)
+	if err != nil {
+		return err
+	}
+
+	config.Files = append(config.Files, req.AdditionalFiles...)
+
+	return gallery.InstallModel(modelPath, req.Name, &config, req.Overrides, downloadStatus)
+}
+
+>>>>>>> feat-grules
 func (g *GalleryService) UpdateStatus(s string, op *gallery.GalleryOpStatus) {
 	g.Lock()
 	defer g.Unlock()

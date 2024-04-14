@@ -1,0 +1,31 @@
+[
+    {
+        "name": "OnlyTwoLT2",
+        "desc": "Test Rule: Only allow 2 backends to be loaded at once, unload the least recently used if a 3rd request comes in",
+        "salience": 10,
+        "when": [
+            "Result.Action == ActionDefs.Blank",
+            "LoadedModelCount <= 1"
+        ],
+        "then": [
+            "Result.Action = ActionDefs.Continue",
+            "Result.ModelName = RequestedModelName"
+        ]
+    },
+    {
+        "name": "OnlyTwoGT2",
+        "desc": "Test Rule: Only allow 2 backends to be loaded at once, unload the least recently used if a 3rd request comes in",
+        "salience": 10,
+        "when": [
+            "Result.Action == ActionDefs.Blank",
+            "LoadedModelCount >= 2"
+        ],
+        "then": [
+            "Log(\"Too many backends in use, unloading least recently used...\")",
+            "LRU = LoadedModels[0].ModelName",
+            "ModelLoader.ShutdownModel(LRU)",
+            "Result.Action = ActionDefs.Continue",
+            "Result.ModelName = RequestedModelName"
+        ]
+    }
+]

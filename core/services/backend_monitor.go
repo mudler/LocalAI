@@ -29,8 +29,10 @@ func NewBackendMonitorService(modelLoader *model.ModelLoader, configLoader *conf
 	}
 }
 
-func (bms BackendMonitorService) getModelLoaderIDFromModelName(modelName string) (string, error) {
-	config, exists := bms.configLoader.GetBackendConfig(modelName)
+// This utility extension is used for backend_monitor and backend_rules, but nowhere outside of service.
+// trying out this style - TODO is it better or worse, should it be extracted elsewhere?
+func getModelLoaderIDFromModelName(bcl *config.BackendConfigLoader, modelName string) (string, config.BackendConfig, error) {
+	config, exists := bcl.GetBackendConfig(modelName)
 	var backendId string
 	if exists {
 		backendId = config.Model
@@ -43,7 +45,7 @@ func (bms BackendMonitorService) getModelLoaderIDFromModelName(modelName string)
 		backendId = fmt.Sprintf("%s.bin", backendId)
 	}
 
-	return backendId, nil
+	return backendId, config, nil
 }
 
 func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
@@ -102,16 +104,16 @@ func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*sche
 }
 
 func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.StatusResponse, error) {
-	backendId, err := bms.getModelLoaderIDFromModelName(modelName)
+	backendId, _, err := getModelLoaderIDFromModelName(bms.configLoader, modelName)
 	if err != nil {
 		return nil, err
 	}
-	modelAddr := bms.modelLoader.CheckIsLoaded(backendId)
-	if modelAddr == "" {
+	lmm := bms.modelLoader.CheckIsLoaded(backendId, false)
+	if lmm.ModelAddress == "" {
 		return nil, fmt.Errorf("backend %s is not currently loaded", backendId)
 	}
 
-	status, rpcErr := modelAddr.GRPC(false, nil).Status(context.TODO())
+	status, rpcErr := lmm.ModelAddress.GRPC(false, nil).Status(context.TODO())
 	if rpcErr != nil {
 		log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", backendId, rpcErr.Error())
 		val, slbErr := bms.SampleLocalBackendProcess(backendId)
@@ -132,7 +134,7 @@ func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.Status
 }
 
 func (bms BackendMonitorService) ShutdownModel(modelName string) error {
-	backendId, err := bms.getModelLoaderIDFromModelName(modelName)
+	backendId, _, err := getModelLoaderIDFromModelName(bms.configLoader, modelName)
 	if err != nil {
 		return err
 	}

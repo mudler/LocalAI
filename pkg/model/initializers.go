@@ -201,12 +201,12 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 		backendToConsume = backend
 	}
 
-	addr, err := ml.LoadModel(o.model, ml.grpcModel(backendToConsume, o))
+	lmm, err := ml.LoadModel(o.model, ml.grpcModel(backendToConsume, o))
 	if err != nil {
 		return nil, err
 	}
 
-	return ml.resolveAddress(addr, o.parallelRequests)
+	return ml.resolveAddress(lmm.ModelAddress, o.parallelRequests)
 }
 
 func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
@@ -215,11 +215,11 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 	ml.mu.Lock()
 	// Return earlier if we have a model already loaded
 	// (avoid looping through all the backends)
-	if m := ml.CheckIsLoaded(o.model); m != "" {
+	if m := ml.CheckIsLoaded(o.model, false); m.ModelAddress != "" {
 		log.Debug().Msgf("Model '%s' already loaded", o.model)
 		ml.mu.Unlock()
 
-		return ml.resolveAddress(m, o.parallelRequests)
+		return ml.resolveAddress(m.ModelAddress, o.parallelRequests)
 	}
 	// If we can have only one backend active, kill all the others (except external backends)
 	if o.singleActiveBackend {
