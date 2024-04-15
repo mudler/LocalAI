@@ -108,24 +108,6 @@ func App(application *core.Application) (*fiber.App, error) {
 			return c.Next()
 		}
 
-		// // Check for api_keys.json file
-		// fileContent, err := os.ReadFile("api_keys.json")
-		// if err == nil {
-		// 	// Parse JSON content from the file
-		// 	var fileKeys []string
-		// 	err := json.Unmarshal(fileContent, &fileKeys)
-		// 	if err != nil {
-		// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Error parsing api_keys.json"})
-		// 	}
-
-		// 	// Add file keys to options.ApiKeys
-		// 	application.ApplicationConfig.ApiKeys = append(application.ApplicationConfig.ApiKeys, fileKeys...)
-		// }
-
-		// if len(application.ApplicationConfig.ApiKeys) == 0 {
-		// 	return c.Next()
-		// }
-
 		authHeader := readAuthHeader(c)
 		if authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
