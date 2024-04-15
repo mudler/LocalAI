@@ -92,7 +92,7 @@ jobs:
           name: LocalAI-linux-${{ matrix.build }}
           path: release/
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
@@ -164,7 +164,7 @@ jobs:
           name: LocalAI-MacOS-${{ matrix.build }}
           path: release/
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
@@ -211,7 +211,7 @@ jobs:
           name: LocalAI-MacOS-arm64-${{ matrix.build }}
           path: release/
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
