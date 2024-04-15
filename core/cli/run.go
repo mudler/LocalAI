@@ -60,7 +60,7 @@ func (r *RunCMD) Run(ctx *Context) error {
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
 		config.WithModelPath(r.ModelsPath),
 		config.WithContextSize(r.ContextSize),
-		config.WithDebug(ctx.Debug),
+		config.WithDebug(*ctx.LogLevel == "debug"),
 		config.WithImageDir(r.ImagePath),
 		config.WithAudioDir(r.AudioPath),
 		config.WithUploadDir(r.UploadPath),
