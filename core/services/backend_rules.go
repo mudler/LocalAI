@@ -28,7 +28,7 @@ type ruleBasedBackendResultActionDefinitionsStruct struct {
 	Enqueue  string
 }
 
-var ruleBasedBackendResultActionDefinitions := ruleBasedBackendResultActionDefinitionsStruct{
+var ruleBasedBackendResultActionDefinitions ruleBasedBackendResultActionDefinitionsStruct = ruleBasedBackendResultActionDefinitionsStruct{
 	Blank:    "",
 	Continue: "continue",
 	Error:    "error",

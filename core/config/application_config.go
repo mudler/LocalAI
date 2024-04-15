@@ -41,6 +41,7 @@ type ApplicationConfig struct {
 
 	SingleBackend           bool
 	ParallelBackendRequests bool
+	BackendLoaderStrategy   string
 
 	WatchDogIdle bool
 	WatchDogBusy bool
@@ -267,6 +268,12 @@ func WithConfigsDir(configsDir string) AppOption {
 func WithApiKeys(apiKeys []string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ApiKeys = apiKeys
+	}
+}
+
+func WithBackendLoaderStrategy(strategy string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.BackendLoaderStrategy = strategy
 	}
 }
 
