@@ -73,11 +73,13 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 				if !ok {
 					return
 				}
-				if event.Has(fsnotify.Write) {
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
 					for targetName, watchFn := range CONFIG_FILE_UPDATES {
-						if event.Name == targetName {
+						if path.Base(event.Name) == targetName {
 							err := watchFn(configDir, appConfig)
-							log.Warn().Msgf("WatchConfigDirectory goroutine for %s: failed to update options: %+v", targetName, err)
+							if err != nil {
+								log.Warn().Msgf("WatchConfigDirectory goroutine for %s: failed to update options: %+v", targetName, err)
+							}
 						}
 					}
 				}
@@ -94,6 +96,13 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 	err = configWatcher.Add(configDir)
 	if err != nil {
 		return ret, fmt.Errorf("unable to establish watch on the LocalAI Configuration Directory: %+v", err)
+	}
+
+	for name, watchFn := range CONFIG_FILE_UPDATES {
+		err := watchFn(configDir, appConfig)
+		if err != nil {
+			log.Warn().Msgf("Error during initial read of %q, %q - non fatal during startup", name, err)
+		}
 	}
 
 	return ret, nil
