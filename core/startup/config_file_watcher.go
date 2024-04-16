@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-skynet/LocalAI/core/config"
@@ -15,7 +15,7 @@ import (
 type WatchConfigDirectoryCloser func() error
 
 func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig) error {
-	fileContent, err := os.ReadFile(path.Join(configDir, "api_keys.json"))
+	fileContent, err := os.ReadFile(filepath.Join(configDir, "api_keys.json"))
 	if err == nil {
 		// Parse JSON content from the file
 		var fileKeys []string
@@ -30,7 +30,7 @@ func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig) erro
 }
 
 func ReadExternalBackendsJson(configDir string, appConfig *config.ApplicationConfig) error {
-	fileContent, err := os.ReadFile(path.Join(configDir, "external_backends.json"))
+	fileContent, err := os.ReadFile(filepath.Join(configDir, "external_backends.json"))
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 				}
 				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
 					for targetName, watchFn := range CONFIG_FILE_UPDATES {
-						if path.Base(event.Name) == targetName {
+						if filepath.Base(event.Name) == targetName {
 							err := watchFn(configDir, appConfig)
 							if err != nil {
 								log.Warn().Msgf("WatchConfigDirectory goroutine for %s: failed to update options: %+v", targetName, err)
