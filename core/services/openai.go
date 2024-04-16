@@ -778,13 +778,16 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		// As we have to change the result before processing, we can't stream the answer token-by-token (yet?)
 		ss := map[string]interface{}{}
 		// This prevent newlines to break JSON parsing for clients
-		// s := utils.EscapeNewLines(llmresult)
-		json.Unmarshal([]byte(llmresult), &ss)
+		s := utils.EscapeNewLines(llmresult)
+		if err := json.Unmarshal([]byte(s), &ss); err != nil {
+			log.Error().Msgf("error unmarshalling JSON: %s", err.Error())
+			return results
+		}
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
 		func_name, ok := ss["function"]
 		if !ok {
-			log.Debug().Msg("ss[function] is not OK!")
+			log.Debug().Msgf("ss[function] is not OK!, llm result: %q", llmresult)
 			return results
 		}
 		// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
