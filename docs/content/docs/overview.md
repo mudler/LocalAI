@@ -100,7 +100,7 @@ Note that this started just as a fun weekend project by [mudler](https://github.
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
 - 🆕 [Vision API](https://localai.io/features/gpt-vision/)
-- 💾 [Stores](https://localai.io/features/stores)
+- 💾 [Stores](https://localai.io/stores)
 
 ## Contribute and help
 
