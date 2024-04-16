@@ -787,7 +787,7 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		// The grammar defines the function name as "function", while OpenAI returns "name"
 		func_name, ok := ss["function"]
 		if !ok {
-			log.Debug().Msg("ss[function] is not OK!, llm result: " + llmresult)
+			log.Debug().Msgf("ss[function] is not OK!, llm result: %q", llmresult)
 			return results
 		}
 		// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
