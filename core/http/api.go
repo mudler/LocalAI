@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/go-skynet/LocalAI/core"
@@ -156,6 +157,28 @@ func App(application *core.Application) (*fiber.App, error) {
 		}
 
 		app.Use(c)
+	}
+
+	if application.ApplicationConfig.EnableDynamicRouting {
+		dynamicRoutingMW := func(ctx *fiber.Ctx) error {
+			var anyBody interface{}
+			initialPath := ctx.Path()
+			if err := ctx.BodyParser(anyBody); err != nil {
+				return err
+			}
+			destination, endpoint, request, err := application.RequestRoutingService.RouteRequest("http", initialPath, anyBody)
+			if err != nil {
+				return err
+			}
+			if destination != "http" {
+				fmt.Printf("\n\n!!!!!!!\nTemporary Log: NonHTTP destination %q\nendpoint: %q\n%+v\n\n", destination, endpoint, request)
+			}
+			if endpoint != initialPath {
+				ctx.Path(endpoint)
+			}
+			return ctx.Next()
+		}
+		app.Use(dynamicRoutingMW)
 	}
 
 	fiberContextExtractor := fiberContext.NewFiberContextExtractor(application.ModelLoader, application.ApplicationConfig)

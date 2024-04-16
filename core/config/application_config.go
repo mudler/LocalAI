@@ -41,7 +41,9 @@ type ApplicationConfig struct {
 
 	SingleBackend           bool
 	ParallelBackendRequests bool
-	BackendLoaderStrategy   string
+
+	EnableDynamicRouting  bool // Feature Flag for the advanced routing until it's confirmed stable
+	BackendLoaderStrategy string
 
 	WatchDogIdle bool
 	WatchDogBusy bool
@@ -133,6 +135,10 @@ var EnableParallelBackendRequests = func(o *ApplicationConfig) {
 
 var EnableGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadGalleries = true
+}
+
+var EnableDynamicRouting = func(o *ApplicationConfig) {
+	o.EnableDynamicRouting = true
 }
 
 func WithExternalBackend(name string, uri string) AppOption {

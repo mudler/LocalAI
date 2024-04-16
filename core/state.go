@@ -28,6 +28,7 @@ type Application struct {
 	TextToSpeechBackendService    *backend.TextToSpeechBackendService
 
 	// LocalAI System Services
+	RequestRoutingService *services.RequestRoutingService
 	BackendMonitorService *services.BackendMonitorService
 	GalleryService        *services.GalleryService
 	ListModelsService     *services.ListModelsService

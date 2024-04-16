@@ -167,5 +167,10 @@ func createApplication(appConfig *config.ApplicationConfig) *core.Application {
 		log.Warn().Msg("Unable to initialize LocalAIMetricsService - non-fatal, optional service")
 	}
 
+	// Should this even be conditional?
+	if app.ApplicationConfig.EnableDynamicRouting {
+		app.RequestRoutingService = services.NewRequestRoutingService(app.BackendConfigLoader, app.ModelLoader, app.ApplicationConfig)
+	}
+
 	return app
 }

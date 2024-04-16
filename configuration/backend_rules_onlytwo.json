@@ -2,30 +2,53 @@
     {
         "name": "OnlyTwoLT2",
         "desc": "Test Rule: Only allow 2 backends to be loaded at once, unload the least recently used if a 3rd request comes in",
-        "salience": 10,
+        "salience": 20,
         "when": [
-            "Result.Action == ActionDefs.Blank",
             "LoadedModelCount <= 1"
         ],
         "then": [
-            "Result.Action = ActionDefs.Continue",
             "Result.ModelName = RequestedModelName"
         ]
     },
     {
         "name": "OnlyTwoGT2",
         "desc": "Test Rule: Only allow 2 backends to be loaded at once, unload the least recently used if a 3rd request comes in",
-        "salience": 10,
+        "salience": 20,
         "when": [
-            "Result.Action == ActionDefs.Blank",
             "LoadedModelCount >= 2"
         ],
         "then": [
             "Log(\"Too many backends in use, unloading least recently used...\")",
             "LRU = LoadedModels[0].ModelName",
             "ModelLoader.ShutdownModel(LRU)",
-            "Result.Action = ActionDefs.Continue",
             "Result.ModelName = RequestedModelName"
         ]
-    }
+    },
+    {
+        "name": "HttpPassthroughAlways",
+        "desc": "Basic Operating Mode: HTTP Requests Pass-Through",
+        "salience": 10,
+        "when": [
+            "Result.Action == ActionDefs.Blank",
+            "Source == DestinationDefs.Http"
+        ],
+        "then": [
+            "Result.Action = ActionDefs.Continue"
+        ]
+    },
+    {
+        "name": "HttpBreakOne",
+        "desc": "HTTP Requests Pass-Through Temp Fail",
+        "salience": 15,
+        "when": [
+            "Result.Action == ActionDefs.Blank",
+            "Source == DestinationDefs.Http",
+            "Result.Endpoint == \"/v1/embeddings\""
+        ],
+        "then": [
+            "Result.Destination = DestinationDefs.Mqtt",
+            "Result.Action = ActionDefs.Continue"
+        ]
+    },
+    
 ]
