@@ -51,6 +51,8 @@ type RunCMD struct {
 	WatchdogIdleTimeout  string   `env:"LOCALAI_WATCHDOG_IDLE_TIMEOUT,WATCHDOG_IDLE_TIMEOUT" default:"15m" help:"Threshold beyond which an idle backend should be stopped" group:"backends"`
 	EnableWatchdogBusy   bool     `env:"LOCALAI_WATCHDOG_BUSY,WATCHDOG_BUSY" default:"false" help:"Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout" group:"backends"`
 	WatchdogBusyTimeout  string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
+
+	EnableDynamicRouting bool `env:"LOCALAI_ENABLE_DYNAMIC_ROUTING,ENABLE_DYNAMIC_ROUTING" help:"Enable the advanced dynamic routing engine. Experimental!" group:"experimental"`
 }
 
 func (r *RunCMD) Run(ctx *Context) error {
@@ -126,6 +128,10 @@ func (r *RunCMD) Run(ctx *Context) error {
 	if r.PreloadBackendOnly {
 		_, err := startup.Startup(opts...)
 		return err
+	}
+
+	if r.EnableDynamicRouting {
+		opts = append(opts, config.EnableDynamicRouting)
 	}
 
 	application, err := startup.Startup(opts...)

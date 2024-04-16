@@ -2,7 +2,6 @@ package http
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/go-skynet/LocalAI/core"
@@ -15,12 +14,14 @@ import (
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+
+	"github.com/rs/zerolog/log"
 )
 
 func readAuthHeader(c *fiber.Ctx) string {
@@ -143,19 +144,23 @@ func App(application *core.Application) (*fiber.App, error) {
 
 	if application.ApplicationConfig.EnableDynamicRouting {
 		dynamicRoutingMW := func(ctx *fiber.Ctx) error {
-			var anyBody interface{}
+			log.Debug().Msg("TOP OF DYNAMIC ROUTING MIDDLEWARE!")
+			var anyBody interface{} // Not sure this works, may need a lookup of endpoint to request type here, does mean we can go generic :D
 			initialPath := ctx.Path()
 			if err := ctx.BodyParser(anyBody); err != nil {
+				log.Error().Msgf("[DYNAMIC ROUTING ERROR] %q", err)
 				return err
 			}
 			destination, endpoint, request, err := application.RequestRoutingService.RouteRequest("http", initialPath, anyBody)
 			if err != nil {
+				log.Error().Msgf("[Dynamic Routing Rules Error] %q", err)
 				return err
 			}
 			if destination != "http" {
-				fmt.Printf("\n\n!!!!!!!\nTemporary Log: NonHTTP destination %q\nendpoint: %q\n%+v\n\n", destination, endpoint, request)
+				log.Warn().Msgf("!!!!!!! Temporary Log: NonHTTP destination %q endpoint: %q %+v", destination, endpoint, request)
 			}
 			if endpoint != initialPath {
+				log.Debug().Msgf("[Dynamic Routing] Overriding Path from %q to %q", initialPath, endpoint)
 				ctx.Path(endpoint)
 			}
 			return ctx.Next()

@@ -6,6 +6,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/rs/zerolog/log"
 )
 
 type RequestRoutingService struct {
@@ -83,15 +84,19 @@ func (rrs *RequestRoutingService) ExtractModelName(request interface{}) (string,
 }
 
 func (rrs *RequestRoutingService) RouteRequest(source string, endpoint string, request interface{}) (string, string, interface{}, error) {
+	log.Debug().Msgf("[RRS] RouteRequest top source: %q endpoint: %q request %+v", source, endpoint, request)
 	if rrs.ruleBasedBackendService == nil {
+		log.Debug().Msg("[RRS] early exit")
 		return source, endpoint, request, nil
 	}
 	modelName, err := rrs.ExtractModelName(request)
+	log.Debug().Msgf("[RRS] ExtractModelName %q // %q", modelName, err)
 	if err != nil {
 		return source, endpoint, request, err
 	}
 	ruleResult, err := rrs.ruleBasedBackendService.RuleBasedLoad(modelName, rrs.continueIfLoaded, source, request)
 	if err != nil {
+		log.Error().Msgf("[RRS] RULE ERROR: %q", err)
 		if ruleResult != nil {
 			// Partial Success of Rule Evaluation
 			source = ruleResult.Destination
@@ -99,6 +104,7 @@ func (rrs *RequestRoutingService) RouteRequest(source string, endpoint string, r
 		}
 		return source, endpoint, request, err
 	}
+	log.Debug().Msgf("[RRS] result: %+v", ruleResult)
 	switch ruleResult.Action {
 	case ruleBasedBackendResultActionDefinitions.Continue:
 		return ruleResult.Destination, ruleResult.Endpoint, request, nil
