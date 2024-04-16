@@ -15,18 +15,31 @@ import (
 type WatchConfigDirectoryCloser func() error
 
 func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig) error {
-	fileContent, err := os.ReadFile(path.Join(configDir, "api_keys.json"))
-	if err == nil {
-		// Parse JSON content from the file
-		var fileKeys []string
-		err := json.Unmarshal(fileContent, &fileKeys)
-		if err == nil {
-			appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
-			return nil
-		}
-		return err
-	}
-	return err
+    fmt.Println("Config directory:", configDir) // Print the configDir
+
+    fileContent, err := os.ReadFile(path.Join(configDir, "api_keys.json"))
+    if err != nil {
+        // Check if the file exists in the /build directory
+        buildFilePath := path.Join("/build", "api_keys.json")
+        fileContent, err = os.ReadFile(buildFilePath)
+        if err != nil {
+            return err
+        } else {
+            fmt.Println("Loaded api_keys.json from /build") // Indicate successful load from /build
+        }
+    } else {
+        fmt.Println("Loaded api_keys.json from config directory") // Indicate successful load from configDir
+    }
+
+    // Parse JSON content from the file
+    var fileKeys []string
+    err = json.Unmarshal(fileContent, &fileKeys)
+    if err != nil {
+        return err
+    }
+
+    appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
+    return nil
 }
 
 func ReadExternalBackendsJson(configDir string, appConfig *config.ApplicationConfig) error {
