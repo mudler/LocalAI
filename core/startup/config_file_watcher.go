@@ -15,7 +15,7 @@ import (
 type WatchConfigDirectoryCloser func() error
 
 func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig) error {
-    log.Debug().Msg("Config directory:", configDir) // Print the configDir
+    log.Debug().Str("config_dir", configDir).Msg("Configuration directory path")
 
     fileContent, err := os.ReadFile(path.Join(configDir, "api_keys.json"))
     if err != nil {
