@@ -153,6 +153,12 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			if err != nil {
 				return LLMResponse{}, err
 			}
+			if tokenUsage.Prompt == 0 {
+				tokenUsage.Prompt = int(reply.PromptTokens)
+			}
+			if tokenUsage.Completion == 0 {
+				tokenUsage.Completion = int(reply.Tokens)
+			}
 			return LLMResponse{
 				Response: string(reply.Message),
 				Usage:    tokenUsage,
