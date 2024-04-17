@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
@@ -81,14 +82,17 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 					return
 				}
 				if event.Has(fsnotify.Write | fsnotify.Create | fsnotify.Rename) {
-					for targetName, watchFn := range CONFIG_FILE_UPDATES {
-						if filepath.Base(event.Name) == targetName {
-							err := watchFn(configDir, appConfig)
-							if err != nil {
-								log.Warn().Err(err).Str("filename", targetName).Msg("WatchConfigDirectory goroutine failed to update options")
-							}
-						}
+					watchFn, ok := CONFIG_FILE_UPDATES[path.Base(event.Name)]
+					if !ok {
+						log.Warn().Str("filename", event.Name).Msg("no configuration file handler found for file")
+						continue
 					}
+
+					err := watchFn(configDir, appConfig)
+					if err != nil {
+						log.Warn().Err(err).Str("filename", event.Name).Msg("WatchConfigDirectory goroutine failed to update options")
+					}
+
 				}
 			case _, ok := <-configWatcher.Errors:
 				if !ok {
