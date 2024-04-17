@@ -2,7 +2,9 @@ package elevenlabs
 
 import (
 	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/config"
 	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
+	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/gofiber/fiber/v2"
@@ -15,7 +17,7 @@ import (
 // @Param request body schema.TTSRequest true "query params"
 // @Success 200 {string} binary	 "Response"
 // @Router /v1/text-to-speech/{voice-id} [post]
-func TTSEndpoint(fce *fiberContext.FiberContextExtractor, ttsbs *backend.TextToSpeechBackendService) func(c *fiber.Ctx) error {
+func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.ElevenLabsTTSRequest)
@@ -26,21 +28,34 @@ func TTSEndpoint(fce *fiberContext.FiberContextExtractor, ttsbs *backend.TextToS
 			return err
 		}
 
-		var err error
-		input.ModelID, err = fce.ModelFromContext(c, input.ModelID, false)
+		modelFile, err := fiberContext.ModelFromContext(c, ml, input.ModelID, false)
 		if err != nil {
+			modelFile = input.ModelID
 			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
 		}
 
-		responseChannel := ttsbs.TextToAudioFile(&schema.TTSRequest{
-			Model: input.ModelID,
-			Voice: voiceID,
-			Input: input.Text,
-		})
-		rawValue := <-responseChannel
-		if rawValue.Error != nil {
-			return rawValue.Error
+		cfg, err := cl.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath,
+			config.LoadOptionDebug(appConfig.Debug),
+			config.LoadOptionThreads(appConfig.Threads),
+			config.LoadOptionContextSize(appConfig.ContextSize),
+			config.LoadOptionF16(appConfig.F16),
+		)
+		if err != nil {
+			modelFile = input.ModelID
+			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
+		} else {
+			if input.ModelID != "" {
+				modelFile = input.ModelID
+			} else {
+				modelFile = cfg.Model
+			}
 		}
-		return c.Download(*rawValue.Value)
+		log.Debug().Msgf("Request for model: %s", modelFile)
+
+		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Text, modelFile, voiceID, ml, appConfig, *cfg)
+		if err != nil {
+			return err
+		}
+		return c.Download(filePath)
 	}
 }

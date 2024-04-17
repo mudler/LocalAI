@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/model"
 )
 
@@ -44,21 +43,11 @@ func (t *TranscriptCMD) Run(ctx *Context) error {
 
 	defer ml.StopAllGRPC()
 
-	tbs := backend.NewTranscriptionBackendService(ml, cl, opts)
-
-	resultChannel := tbs.Transcribe(&schema.OpenAIRequest{
-		PredictionOptions: schema.PredictionOptions{
-			Language: t.Language,
-		},
-		File: t.Filename,
-	})
-
-	r := <-resultChannel
-
-	if r.Error != nil {
-		return r.Error
+	tr, err := backend.ModelTranscription(t.Filename, t.Language, ml, c, opts)
+	if err != nil {
+		return err
 	}
-	for _, segment := range r.Value.Segments {
+	for _, segment := range tr.Segments {
 		fmt.Println(segment.Start.String(), "-", segment.Text)
 	}
 	return nil

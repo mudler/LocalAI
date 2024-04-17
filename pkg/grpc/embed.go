@@ -53,12 +53,12 @@ func (e *embedBackend) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.
 	return e.s.TTS(ctx, in)
 }
 
-func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*schema.TranscriptionResult, error) {
+func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*schema.Result, error) {
 	r, err := e.s.AudioTranscription(ctx, in)
 	if err != nil {
 		return nil, err
 	}
-	tr := &schema.TranscriptionResult{}
+	tr := &schema.Result{}
 	for _, s := range r.Segments {
 		var tks []int
 		for _, t := range s.Tokens {
