@@ -95,7 +95,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 	// Add a path.
 	err = configWatcher.Add(configDir)
 	if err != nil {
-		return ret, fmt.Errorf("unable to establish watch on the LocalAI Configuration Directory: %+v", err)
+		return ret, fmt.Errorf("unable to establish watch on the LocalAI Configuration Directory: %w", err)
 	}
 
 	for name, watchFn := range CONFIG_FILE_UPDATES {
