@@ -101,7 +101,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 	for name, watchFn := range CONFIG_FILE_UPDATES {
 		err := watchFn(configDir, appConfig)
 		if err != nil {
-			log.Warn().Msgf("Error during initial read of %q, %q - non fatal during startup", name, err)
+			log.Warn().Msgf("Error during initial read of %q, %+v - non fatal during startup", name, err)
 		}
 	}
 
