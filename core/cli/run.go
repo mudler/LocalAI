@@ -134,15 +134,6 @@ func (r *RunCMD) Run(ctx *Context) error {
 		return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 	}
 
-	// Watch the configuration directory
-	// If the directory does not exist, we don't watch it
-	// if _, err := os.Stat(r.LocalaiConfigDir); err == nil {
-	// 	err := startup.WatchWithDefaults(r.LocalaiConfigDir, application.ApplicationConfig)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed while watching configuration directory %s", r.LocalaiConfigDir)
-	// 	}
-	// }
-
 	appHTTP, err := http.App(application)
 	if err != nil {
 		log.Error().Err(err).Msg("error during HTTP App construction")
