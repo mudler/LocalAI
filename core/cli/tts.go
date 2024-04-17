@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/model"
 )
 
@@ -43,29 +42,20 @@ func (t *TTSCMD) Run(ctx *Context) error {
 
 	defer ml.StopAllGRPC()
 
-	ttsbs := backend.NewTextToSpeechBackendService(ml, config.NewBackendConfigLoader(), opts)
+	options := config.BackendConfig{}
+	options.SetDefaults()
 
-	request := &schema.TTSRequest{
-		Model:   t.Model,
-		Input:   text,
-		Backend: t.Backend,
-		Voice:   t.Voice,
-	}
-
-	resultsChannel := ttsbs.TextToAudioFile(request)
-
-	rawResult := <-resultsChannel
-
-	if rawResult.Error != nil {
-		return rawResult.Error
+	filePath, _, err := backend.ModelTTS(t.Backend, text, t.Model, t.Voice, ml, opts, options)
+	if err != nil {
+		return err
 	}
 	if outputFile != "" {
-		if err := os.Rename(*rawResult.Value, outputFile); err != nil {
+		if err := os.Rename(filePath, outputFile); err != nil {
 			return err
 		}
-		fmt.Printf("Generated file %q\n", outputFile)
+		fmt.Printf("Generate file %s\n", outputFile)
 	} else {
-		fmt.Printf("Generated file %q\n", *rawResult.Value)
+		fmt.Printf("Generate file %s\n", filePath)
 	}
 	return nil
 }
