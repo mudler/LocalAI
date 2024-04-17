@@ -27,7 +27,7 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		log.Debug().Msgf("`OpenAIRequest`: %+v", request)
+		log.Debug().Interface("request", request).Msg("received request to completions endpoint")
 
 		traceID, finalResultChannel, _, _, tokenChannel, err := oais.Completion(request, false, request.Stream)
 		if err != nil {
@@ -35,7 +35,7 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 		}
 
 		if request.Stream {
-			log.Debug().Msgf("Completion Stream request received")
+			log.Debug().Msg("completion stream request received")
 
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
@@ -49,13 +49,12 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
 					if ev.Error != nil {
-						log.Debug().Msgf("[CompletionEndpoint] error to debug during tokenChannel handler: %q", ev.Error)
+						log.Error().Err(ev.Error).Msg("[CompletionEndpoint] received error over tokenChannel")
 						enc.Encode(ev.Error)
 					} else {
 						enc.Encode(ev.Value)
 					}
-
-					log.Debug().Msgf("completion streaming sending chunk: %s", buf.String())
+					log.Debug().Str("buffer", buf.String()).Msg("completion streaming sending chunk")
 					fmt.Fprintf(w, "data: %v\n", buf.String())
 					w.Flush()
 				}
@@ -86,7 +85,7 @@ func CompletionEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.
 			return rawResponse.Error
 		}
 		jsonResult, _ := json.Marshal(rawResponse.Value)
-		log.Debug().Msgf("Response: %s", jsonResult)
+		log.Debug().Bytes("body", jsonResult).Msg("sending response")
 
 		// Return the prediction in the response body
 		return c.JSON(rawResponse.Value)

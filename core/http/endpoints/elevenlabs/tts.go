@@ -29,7 +29,7 @@ func TTSEndpoint(fce *fiberContext.FiberContextExtractor, ttsbs *backend.TextToS
 		var err error
 		input.ModelID, err = fce.ModelFromContext(c, input.ModelID, false)
 		if err != nil {
-			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
+			log.Warn().Str("modelID", input.ModelID).Msg("model not found in context")
 		}
 
 		responseChannel := ttsbs.TextToAudioFile(&schema.TTSRequest{

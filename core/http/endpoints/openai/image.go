@@ -55,7 +55,7 @@ func ImageEndpoint(fce *fiberContext.FiberContextExtractor, igbs *backend.ImageG
 		if err != nil {
 			return err
 		}
-		log.Debug().Msgf("Response: %s", jsonResult)
+		log.Debug().Bytes("body", jsonResult).Msg("sending response")
 		// Return the prediction in the response body
 		return c.JSON(rawResponse.Value)
 	}

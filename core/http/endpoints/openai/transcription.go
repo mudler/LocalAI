@@ -56,11 +56,11 @@ func TranscriptEndpoint(fce *fiberContext.FiberContextExtractor, tbs *backend.Tr
 		}
 
 		if _, err := io.Copy(dstFile, f); err != nil {
-			log.Debug().Msgf("Audio file copying error %+v - %+v - err %+v", file.Filename, dst, err)
+			log.Error().Err(err).Str("destination", dst).Str("source", file.Filename).Msg("failed to copy audio file")
 			return err
 		}
 
-		log.Debug().Msgf("Audio file copied to: %+v", dst)
+		log.Debug().Str("destination", dst).Msg("audio file copied")
 
 		request.File = dst
 
@@ -70,7 +70,7 @@ func TranscriptEndpoint(fce *fiberContext.FiberContextExtractor, tbs *backend.Tr
 		if rawResponse.Error != nil {
 			return rawResponse.Error
 		}
-		log.Debug().Msgf("Transcribed: %+v", rawResponse.Value)
+		log.Debug().Str("text", rawResponse.Value.Text).Msg("transcription complete")
 		// TODO: handle different outputs here
 		return c.Status(http.StatusOK).JSON(rawResponse.Value)
 	}

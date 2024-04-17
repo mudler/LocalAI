@@ -30,7 +30,7 @@ func EditEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 		}
 
 		jsonResult, _ := json.Marshal(rawResponse.Value)
-		log.Debug().Msgf("Response: %s", jsonResult)
+		log.Debug().Bytes("body", jsonResult).Msg("sending response")
 
 		// Return the prediction in the response body
 		return c.JSON(rawResponse.Value)

@@ -33,7 +33,7 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 
 		if request.Stream {
 
-			log.Debug().Msgf("Chat Stream request received")
+			log.Debug().Msg("chat stream request received")
 
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
@@ -64,16 +64,16 @@ func ChatEndpoint(fce *fiberContext.FiberContextExtractor, oais *services.OpenAI
 					} else {
 						enc.Encode(ev.Value)
 					}
-					log.Debug().Msgf("chat streaming sending chunk: %s", buf.String())
+					log.Debug().Str("buffer", buf.String()).Msg("chat streaming sending chunk")
 					_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
 					if err != nil {
-						log.Debug().Err(err).Msgf("Sending chunk failed")
+						log.Error().Err(err).Msg("sending chunk failed")
 						request.Cancel()
 						break
 					}
 					err = w.Flush()
 					if err != nil {
-						log.Debug().Msg("error while flushing, closing connection")
+						log.Error().Err(err).Msg("failed to write buffered data to stream, closing connection")
 						request.Cancel()
 						break
 					}

@@ -80,7 +80,7 @@ func CreateAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoad
 		}
 
 		if !modelExists(ml, request.Model) {
-			log.Warn().Msgf("Model: %s was not found in list of models.", request.Model)
+			log.Warn().Str("model", request.Model).Msg("model was not found in loader")
 			return c.Status(fiber.StatusBadRequest).SendString("Model " + request.Model + " not found")
 		}
 
@@ -254,7 +254,7 @@ func DeleteAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoad
 			}
 		}
 
-		log.Warn().Msgf("Unable to find assistant %s for deletion", assistantID)
+		log.Warn().Str("assistant", assistantID).Msg("Unable to find assistant for deletion")
 		return c.Status(fiber.StatusNotFound).JSON(DeleteAssistantResponse{
 			ID:      assistantID,
 			Object:  "assistant.deleted",
@@ -474,7 +474,7 @@ func DeleteAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.Model
 					}
 				}
 
-				log.Warn().Msgf("Unable to locate file_id: %s in assistants: %s. Continuing to delete assistant file.", fileId, assistantID)
+				log.Warn().Str("file", fileId).Str("assistant", assistantID).Msg("unable to locate file in assistants, continuing to delete assistant file")
 				for i, assistantFile := range AssistantFiles {
 					if assistantFile.AssistantID == assistantID {
 
@@ -490,7 +490,7 @@ func DeleteAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.Model
 				}
 			}
 		}
-		log.Warn().Msgf("Unable to find assistant: %s", assistantID)
+		log.Warn().Str("assistant", assistantID).Msg("unable to find assistant")
 
 		return c.Status(fiber.StatusNotFound).JSON(DeleteAssistantFileResponse{
 			ID:      fileId,

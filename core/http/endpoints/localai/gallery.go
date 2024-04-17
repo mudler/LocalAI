@@ -76,15 +76,14 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 
 func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		log.Debug().Msgf("Listing models from galleries: %+v", mgs.galleries)
+		log.Debug().Interface("galleryConfig", mgs.galleries).Msg("listing models from galleries")
 
 		models, err := gallery.AvailableGalleryModels(mgs.galleries, mgs.modelPath)
 		if err != nil {
 			return err
 		}
-		log.Debug().Msgf("Models found from galleries: %+v", models)
 		for _, m := range models {
-			log.Debug().Msgf("Model found from galleries: %+v", m)
+			log.Debug().Str("modelName", m.Name).Str("galleryName", m.Gallery.Name).Msg("model found in gallery")
 		}
 		dat, err := json.Marshal(models)
 		if err != nil {
@@ -97,7 +96,7 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint() func(c *f
 // NOTE: This is different (and much simpler!) than above! This JUST lists the model galleries that have been loaded, not their contents!
 func (mgs *ModelGalleryEndpointService) ListModelGalleriesEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		log.Debug().Msgf("Listing model galleries %+v", mgs.galleries)
+		log.Debug().Interface("galleries", mgs.galleries).Msg("listing model galleries")
 		dat, err := json.Marshal(mgs.galleries)
 		if err != nil {
 			return err
@@ -122,7 +121,7 @@ func (mgs *ModelGalleryEndpointService) AddModelGalleryEndpoint() func(c *fiber.
 		if err != nil {
 			return err
 		}
-		log.Debug().Msgf("Adding %+v to gallery list", *input)
+		log.Debug().Str("galleryName", input.Name).Str("galleryURL", input.URL).Msg("adding model gallery")
 		mgs.galleries = append(mgs.galleries, *input)
 		return c.Send(dat)
 	}
