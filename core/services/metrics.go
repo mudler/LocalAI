@@ -49,6 +49,6 @@ func (lams LocalAIMetricsService) Shutdown() error {
 	//// setupOTelSDK bootstraps the OpenTelemetry pipeline.
 	//// If it does not return an error, make sure to call shutdown for proper cleanup.
 
-	log.Warn().Msgf("LocalAIMetricsService Shutdown called, but OTelSDK proper shutdown not yet implemented?")
+	log.Warn().Msg("LocalAIMetricsService Shutdown called, but OTelSDK proper shutdown is not yet implemented")
 	return nil
 }

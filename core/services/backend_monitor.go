@@ -113,7 +113,7 @@ func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.Status
 
 	status, rpcErr := modelAddr.GRPC(false, nil).Status(context.TODO())
 	if rpcErr != nil {
-		log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", backendId, rpcErr.Error())
+		log.Error().Err(rpcErr).Str("backend", backendId).Msg("failed to retrieve status info from backend")
 		val, slbErr := bms.SampleLocalBackendProcess(backendId)
 		if slbErr != nil {
 			return nil, fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", backendId, rpcErr.Error(), slbErr.Error())

@@ -174,7 +174,7 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 			lib, err := embedded.GetRemoteLibraryShorteners(modelLibraryURL)
 			if err == nil {
 				if lib[url] != "" {
-					log.Debug().Msgf("[startup] model configuration is defined remotely: %s (%s)", url, lib[url])
+					log.Debug().Str("url", url).Str("config", lib[url]).Msg("[startup] model configuration is defined remotely")
 					url = lib[url]
 				}
 			}
@@ -190,14 +190,14 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 				continue
 			}
 
-			log.Debug().Msgf("[startup] resolved embedded model: %s", url)
+			log.Debug().Str("url", url).Msg("[startup] resolved embedded model")
 			md5Name := utils.MD5(url)
 			modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
 			if err := os.WriteFile(modelDefinitionFilePath, modelYAML, os.ModePerm); err != nil {
 				log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error writing model definition")
 			}
 		case downloader.LooksLikeURL(url):
-			log.Debug().Msgf("[startup] resolved model to download: %s", url)
+			log.Debug().Str("url", url).Msg("[startup] resolved model to download")
 
 			// md5 of model name
 			md5Name := utils.MD5(url)
@@ -214,7 +214,7 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 			}
 		default:
 			if _, err := os.Stat(url); err == nil {
-				log.Debug().Msgf("[startup] resolved local model: %s", url)
+				log.Debug().Str("url", url).Msg("[startup] resolved local model")
 				// copy to modelPath
 				md5Name := utils.MD5(url)
 
@@ -229,7 +229,7 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 					log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error loading model: %s")
 				}
 			} else {
-				log.Warn().Msgf("[startup] failed resolving model '%s'", url)
+				log.Warn().Str("url", url).Msg("[startup] failed resolving model")
 			}
 		}
 	}

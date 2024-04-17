@@ -160,7 +160,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 	bc, request, err := oais.getConfig(request)
 	if err != nil {
-		log.Error().Err(err).Msgf("[oais::GenerateTextFromRequest] error getting configuration")
+		log.Error().Err(err).Msg("[oais::GenerateTextFromRequest] failed to get configuration")
 		return
 	}
 
@@ -195,7 +195,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 		if oais.ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", bc.Model)) {
 			endpointConfig.TemplatePath = bc.Model
 		} else {
-			log.Warn().Msgf("failed to find any template for %+v", request)
+			log.Warn().Str("model", bc.Model).Msg("unable to locate .tmpl file for model")
 		}
 	}
 
@@ -223,18 +223,18 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 					templatedInput, err := oais.ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, endpointConfig.TemplatePath, promptTemplateData)
 					if err == nil {
 						prompt = templatedInput
-						log.Debug().Msgf("Template found, input modified to: %s", prompt)
+						log.Debug().Str("prompt", prompt).Msg("template found, input modified")
 					}
 				}
 			}
 
-			log.Debug().Msgf("[OAIS GenerateTextFromRequest] Prompt: %q", prompt)
+			log.Debug().Str("prompt", prompt).Msg("[OAIS GenerateTextFromRequest] final prompt")
 			promptResultsChannel, completionChannels, tokenChannels, err := oais.llmbs.GenerateText(prompt, request, bc,
 				func(r *backend.LLMResponse) schema.Choice {
 					return endpointConfig.ResultMappingFn(r, promptIndex)
 				}, notifyOnPromptResult, notifyOnToken)
 			if err != nil {
-				log.Error().Msgf("Unable to generate text prompt: %q\nerr: %q", prompt, err)
+				log.Error().Err(err).Str("prompt", prompt).Msg("unable to generate text prompt")
 				promptResultsChannelLock.Lock()
 				setupError = errors.Join(setupError, err)
 				promptResultsChannelLock.Unlock()
@@ -259,7 +259,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	// If any of the setup goroutines experienced an error, quit early here.
 	if setupError != nil {
 		go func() {
-			log.Error().Err(setupError).Msgf("[OAIS GenerateTextFromRequest] caught an error during setup")
+			log.Error().Err(setupError).Msg("[OAIS GenerateTextFromRequest] errors encountered during startup")
 			rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: setupError}
 			close(rawFinalResultChannel)
 		}()
@@ -341,7 +341,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	funcs := grammar.Functions{}
 	// process functions if we have any defined or if we have a function call string
 	if len(request.Functions) > 0 && bc.ShouldUseFunctions() {
-		log.Debug().Msgf("Response needs to process functions")
+		log.Debug().Msg("response needs to process functions")
 
 		processFunctions = true
 
@@ -421,13 +421,13 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				}
 				templatedChatMessage, err := oais.ml.EvaluateTemplateForChatMessage(bc.TemplateConfig.ChatMessage, chatMessageData)
 				if err != nil {
-					log.Error().Msgf("error processing message %+v using template \"%s\": %v. Skipping!", chatMessageData, bc.TemplateConfig.ChatMessage, err)
+					log.Error().Err(err).Interface("chatMessage", chatMessageData).Str("template", bc.TemplateConfig.ChatMessage).Msg("could not process message")
 				} else {
 					if templatedChatMessage == "" {
-						log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", bc.TemplateConfig.ChatMessage, chatMessageData)
+						log.Warn().Interface("chatMessage", chatMessageData).Str("template", bc.TemplateConfig.ChatMessage).Msg("template produced blank output for chat message, skipping")
 						continue // TODO: This continue is here intentionally to skip over the line `mess = append(mess, content)` below, and to prevent the sprintf
 					}
-					log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
+					log.Debug().Str("message", templatedChatMessage).Msg("templated message for chat")
 					content = templatedChatMessage
 				}
 			}
@@ -485,7 +485,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 
 		predInput = strings.Join(mess, "\n")
 
-		log.Debug().Msgf("Prompt (before templating): %s", predInput)
+		log.Debug().Str("prompt", predInput).Msg("prompt before templating")
 
 		templateFile := ""
 		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
@@ -510,15 +510,15 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 			})
 			if err == nil {
 				predInput = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", predInput)
+				log.Debug().Str("prompt", predInput).Msg("template found, input modified")
 			} else {
-				log.Debug().Msgf("Template failed loading: %s", err.Error())
+				log.Error().Err(err).Msg("failed to load template")
 			}
 		}
 	}
-	log.Debug().Msgf("Prompt (after templating): %s", predInput)
+	log.Debug().Str("prompt", predInput).Msg("prompt after templating")
 	if processFunctions {
-		log.Debug().Msgf("Grammar: %+v", bc.Grammar)
+		log.Debug().Str("grammar", bc.Grammar).Msg("function grammar specified")
 	}
 
 	rawFinalResultChannel := make(chan concurrency.ErrorOr[*schema.OpenAIResponse])
@@ -580,14 +580,13 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 	go func() {
 		rawResult := <-rawResultChannel
 		if rawResult.Error != nil {
-			log.Warn().Msgf("OpenAIService::processTools GenerateText error [DEBUG THIS?] %q", rawResult.Error)
+			log.Error().Err(err).Msg("OpenAIService::processTools GenerateText error [DEBUG THIS?]")
 			return
 		}
 		llmResponseChoices := rawResult.Value.Response
 
 		if processFunctions && len(llmResponseChoices) > 1 {
-			log.Warn().Msgf("chat functions response with %d choices in response, debug this?", len(llmResponseChoices))
-			log.Debug().Msgf("%+v", llmResponseChoices)
+			log.Warn().Interface("responseChoices", llmResponseChoices).Msg("chat functions response with multiple choices in response, debug this?")
 		}
 
 		for _, result := range rawResult.Value.Response {
@@ -631,7 +630,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 
 				result, err := oais.handleQuestion(bc, request, results[0].arguments, predInput)
 				if err != nil {
-					log.Error().Msgf("error handling question: %s", err.Error())
+					log.Error().Err(err).Msg("failed to handle question")
 					return
 				}
 
@@ -651,7 +650,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 				rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Value: &resp}
 
 			} else {
-				log.Debug().Msgf("[GenerateFromMultipleMessagesChatRequest] fnResultsBranch: %+v", results)
+				log.Debug().Interface("results", results).Msg("[GenerateFromMultipleMessagesChatRequest] fnResultsBranch")
 				for i, ss := range results {
 					name, args := ss.name, ss.arguments
 
@@ -692,7 +691,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 }
 
 func (oais *OpenAIService) handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, args, prompt string) (string, error) {
-	log.Debug().Msgf("[handleQuestion called] nothing to do, computing a reply")
+	log.Debug().Msg("[handleQuestion called] nothing to do, computing a reply")
 
 	// If there is a message that the LLM already sends as part of the JSON reply, use it
 	arguments := map[string]interface{}{}
@@ -702,16 +701,16 @@ func (oais *OpenAIService) handleQuestion(config *config.BackendConfig, input *s
 		switch message := m.(type) {
 		case string:
 			if message != "" {
-				log.Debug().Msgf("Reply received from LLM: %s", message)
+				log.Debug().Str("message", message).Msg("reply received from LLM")
 				message = oais.llmbs.Finetune(*config, prompt, message)
-				log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
+				log.Debug().Str("message", message).Msg("reply received from LLM(finetuned)")
 
 				return message, nil
 			}
 		}
 	}
 
-	log.Debug().Msgf("No action received from LLM, without a message, computing a reply")
+	log.Debug().Msg("no action received from LLM, without a message, computing a reply")
 	// Otherwise ask the LLM to understand the JSON output and the context, and return a message
 	// Note: This costs (in term of CPU/GPU) another computation
 	config.Grammar = ""
@@ -727,17 +726,17 @@ func (oais *OpenAIService) handleQuestion(config *config.BackendConfig, input *s
 	}, config, false)
 
 	if err != nil {
-		log.Error().Msgf("inference setup error: %s", err.Error())
+		log.Error().Err(err).Msg("failed to setup inference")
 		return "", err
 	}
 
 	raw := <-resultChannel
 	if raw.Error != nil {
-		log.Error().Msgf("inference error: %q", raw.Error.Error())
+		log.Error().Err(raw.Error).Msg("error received over result channel")
 		return "", err
 	}
 	if raw.Value == nil {
-		log.Warn().Msgf("nil inference response")
+		log.Warn().Msg("nil inference response")
 		return "", nil
 	}
 	return oais.llmbs.Finetune(*config, prompt, raw.Value.Response), nil
@@ -780,26 +779,26 @@ func parseFunctionCall(llmresult string, multipleResults bool) []funcCallResults
 		// This prevent newlines to break JSON parsing for clients
 		s := utils.EscapeNewLines(llmresult)
 		if err := json.Unmarshal([]byte(s), &ss); err != nil {
-			log.Error().Msgf("error unmarshalling JSON: %s", err.Error())
+			log.Error().Err(err).Msg("failed to unmarshall json")
 			return results
 		}
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
 		func_name, ok := ss["function"]
 		if !ok {
-			log.Debug().Msgf("ss[function] is not OK!, llm result: %q", llmresult)
+			log.Debug().Str("result", llmresult).Msg("ss[function] is not OK!")
 			return results
 		}
 		// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
 		args, ok := ss["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
 		if !ok {
-			log.Debug().Msg("ss[arguments] is not OK!")
+			log.Debug().Interface("args", args).Msg("ss[arguments] is not OK!")
 			return results
 		}
 		d, _ := json.Marshal(args)
 		funcName, ok := func_name.(string)
 		if !ok {
-			log.Debug().Msgf("unexpected func_name: %+v", func_name)
+			log.Debug().Interface("funcName", func_name).Msg("failed to determine func name")
 			return results
 		}
 		results = append(results, funcCallResults{name: funcName, arguments: string(d)})
