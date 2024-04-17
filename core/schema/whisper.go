@@ -10,7 +10,7 @@ type Segment struct {
 	Tokens []int         `json:"tokens"`
 }
 
-type TranscriptionResult struct {
+type Result struct {
 	Segments []Segment `json:"segments"`
 	Text     string    `json:"text"`
 }
