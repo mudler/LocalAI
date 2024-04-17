@@ -121,8 +121,9 @@ jobs:
           PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 5
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          connect-timeout-seconds: 180
 
   tests-aio-container:
     runs-on: ubuntu-latest
@@ -173,8 +174,9 @@ jobs:
             make run-e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 5
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          connect-timeout-seconds: 180
 
   tests-apple:
     runs-on: macOS-14
@@ -207,5 +209,6 @@ jobs:
           BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make --jobs 4 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 5
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          connect-timeout-seconds: 180

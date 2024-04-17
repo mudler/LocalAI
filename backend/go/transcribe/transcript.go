@@ -21,7 +21,7 @@ func runCommand(command []string) (string, error) {
 // AudioToWav converts audio to wav for transcribe.
 // TODO: use https://github.com/mccoyst/ogg?
 func audioToWav(src, dst string) error {
-    command := []string{"ffmpeg", "-i", src, "-format", "s16le", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", dst}
+	command := []string{"ffmpeg", "-i", src, "-format", "s16le", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", dst}
 	out, err := runCommand(command)
 	if err != nil {
 		return fmt.Errorf("error: %w out: %s", err, out)
@@ -29,8 +29,8 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Transcript(model whisper.Model, audiopath, language string, threads uint) (schema.Result, error) {
-	res := schema.Result{}
+func Transcript(model whisper.Model, audiopath, language string, threads uint) (schema.TranscriptionResult, error) {
+	res := schema.TranscriptionResult{}
 
 	dir, err := os.MkdirTemp("", "whisper")
 	if err != nil {

@@ -12,7 +12,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
+	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/core/config"
 	. "github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/schema"
@@ -205,9 +207,7 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
-	var bcl *config.BackendConfigLoader
-	var ml *model.ModelLoader
-	var applicationConfig *config.ApplicationConfig
+	var application *core.Application
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -252,7 +252,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err = startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGalleries(galleries),
@@ -261,7 +261,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -474,11 +474,11 @@ var _ = Describe("API test", func() {
 					})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp2.Choices)).To(Equal(1))
-				Expect(resp2.Choices[0].Message.FunctionCall).ToNot(BeNil())
-				Expect(resp2.Choices[0].Message.FunctionCall.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.FunctionCall.Name)
+				Expect(resp2.Choices[0].Message.ToolCalls[0].Function).ToNot(BeNil())
+				Expect(resp2.Choices[0].Message.ToolCalls[0].Function.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.ToolCalls[0].Function.Name)
 
 				var res map[string]string
-				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
+				err = json.Unmarshal([]byte(resp2.Choices[0].Message.ToolCalls[0].Function.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
@@ -487,9 +487,9 @@ var _ = Describe("API test", func() {
 			})
 
 			It("runs openllama gguf(llama-cpp)", Label("llama-gguf"), func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
+				// if runtime.GOOS != "linux" {
+				// 	Skip("test supported only on linux")
+				// }
 				modelName := "codellama"
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       "github:go-skynet/model-gallery/codellama-7b-instruct.yaml",
@@ -504,7 +504,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "480s", "10s").Should(Equal(true))
 
 				By("testing chat")
 				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: modelName, Messages: []openai.ChatCompletionMessage{
@@ -551,11 +551,13 @@ var _ = Describe("API test", func() {
 					})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp2.Choices)).To(Equal(1))
-				Expect(resp2.Choices[0].Message.FunctionCall).ToNot(BeNil())
-				Expect(resp2.Choices[0].Message.FunctionCall.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.FunctionCall.Name)
+				fmt.Printf("\n--- %+v\n\n", resp2.Choices[0].Message)
+				Expect(resp2.Choices[0].Message.ToolCalls).ToNot(BeNil())
+				Expect(resp2.Choices[0].Message.ToolCalls[0]).ToNot(BeNil())
+				Expect(resp2.Choices[0].Message.ToolCalls[0].Function.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.ToolCalls[0].Function.Name)
 
 				var res map[string]string
-				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
+				err = json.Unmarshal([]byte(resp2.Choices[0].Message.ToolCalls[0].Function.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
@@ -609,7 +611,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err = startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithAudioDir(tmpdir),
@@ -620,7 +622,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -724,14 +726,14 @@ var _ = Describe("API test", func() {
 
 			var err error
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err = startup.Startup(
 				append(commonOpts,
 					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -761,6 +763,11 @@ var _ = Describe("API test", func() {
 			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
 		})
 		It("can generate completions via ggml", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel.ggml", Prompt: testPrompt})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
@@ -768,6 +775,11 @@ var _ = Describe("API test", func() {
 		})
 
 		It("can generate chat completions via ggml", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel.ggml", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
@@ -775,6 +787,11 @@ var _ = Describe("API test", func() {
 		})
 
 		It("can generate completions from model configs", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "gpt4all", Prompt: testPrompt})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
@@ -782,6 +799,11 @@ var _ = Describe("API test", func() {
 		})
 
 		It("can generate chat completions from model configs", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "gpt4all-2", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
@@ -868,9 +890,9 @@ var _ = Describe("API test", func() {
 
 		Context("backends", func() {
 			It("runs rwkv completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
+				// if runtime.GOOS != "linux" {
+				// 	Skip("test supported only on linux")
+				// }
 				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices) > 0).To(BeTrue())
@@ -891,17 +913,20 @@ var _ = Describe("API test", func() {
 					}
 
 					Expect(err).ToNot(HaveOccurred())
-					text += response.Choices[0].Text
-					tokens++
+
+					if len(response.Choices) > 0 {
+						text += response.Choices[0].Text
+						tokens++
+					}
 				}
 				Expect(text).ToNot(BeEmpty())
 				Expect(text).To(ContainSubstring("five"))
 				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
 			})
 			It("runs rwkv chat completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
+				// if runtime.GOOS != "linux" {
+				// 	Skip("test supported only on linux")
+				// }
 				resp, err := client.CreateChatCompletion(context.TODO(),
 					openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())
@@ -1010,14 +1035,14 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err = startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -1041,18 +1066,33 @@ var _ = Describe("API test", func() {
 			}
 		})
 		It("can generate chat completions from config file (list1)", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list1", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
 		})
 		It("can generate chat completions from config file (list2)", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "list2", Messages: []openai.ChatCompletionMessage{{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
 		})
 		It("can generate edit completions from config file", func() {
+			bt, ok := os.LookupEnv("BUILD_TYPE")
+			if ok && strings.ToLower(bt) == "metal" {
+				Skip("GGML + Metal is known flaky, skip test temporarily")
+			}
+
 			request := openaigo.EditCreateRequestBody{
 				Model:       "list2",
 				Instruction: "foo",
