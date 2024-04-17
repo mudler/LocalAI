@@ -16,22 +16,29 @@ type WatchConfigDirectoryCloser func() error
 
 func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig) error {
 	fileContent, err := os.ReadFile(filepath.Join(configDir, "api_keys.json"))
-	if err == nil {
-		// Parse JSON content from the file
-		var fileKeys []string
-		err := json.Unmarshal(fileContent, &fileKeys)
-		if err == nil {
-			appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
+	if err != nil {
+		if os.IsNotExist(err) {
 			return nil
 		}
 		return err
 	}
+	// Parse JSON content from the file
+	var fileKeys []string
+	err = json.Unmarshal(fileContent, &fileKeys)
+	if err == nil {
+		appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
+		return nil
+	}
 	return err
+
 }
 
 func ReadExternalBackendsJson(configDir string, appConfig *config.ApplicationConfig) error {
 	fileContent, err := os.ReadFile(filepath.Join(configDir, "external_backends.json"))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	// Parse JSON content from the file
@@ -58,7 +65,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 	}
 	configWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal().Msgf("Unable to create a watcher for the LocalAI Configuration Directory: %+v", err)
+		log.Fatal().Err(err).Msg("Unable to create a watcher for the LocalAI Configuration Directory")
 	}
 	ret := func() error {
 		configWatcher.Close()
@@ -73,12 +80,12 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 				if !ok {
 					return
 				}
-				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
+				if event.Has(fsnotify.Write | fsnotify.Create | fsnotify.Rename) {
 					for targetName, watchFn := range CONFIG_FILE_UPDATES {
 						if filepath.Base(event.Name) == targetName {
 							err := watchFn(configDir, appConfig)
 							if err != nil {
-								log.Warn().Msgf("WatchConfigDirectory goroutine for %s: failed to update options: %+v", targetName, err)
+								log.Warn().Err(err).Str("filename", targetName).Msg("WatchConfigDirectory goroutine failed to update options")
 							}
 						}
 					}
@@ -101,7 +108,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 	for name, watchFn := range CONFIG_FILE_UPDATES {
 		err := watchFn(configDir, appConfig)
 		if err != nil {
-			log.Warn().Msgf("Error during initial read of %q, %+v - non fatal during startup", name, err)
+			log.Warn().Err(err).Str("filename", name).Msg("could not process file")
 		}
 	}
 
