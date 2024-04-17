@@ -189,12 +189,6 @@ func (llmbs *LLMBackendService) Inference(ctx context.Context, req *LLMRequest, 
 	} else {
 		go func() {
 			reply, err := inferenceModel.Predict(ctx, grpcPredOpts)
-			if tokenUsage.Prompt == 0 {
-				tokenUsage.Prompt = int(reply.PromptTokens)
-			}
-			if tokenUsage.Completion == 0 {
-				tokenUsage.Completion = int(reply.Tokens)
-			}
 			if err != nil {
 				rawResultChannel <- concurrency.ErrorOr[*LLMResponse]{Error: err}
 				close(rawResultChannel)

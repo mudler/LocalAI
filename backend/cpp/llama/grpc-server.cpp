@@ -2332,10 +2332,6 @@ public:
                 std::string completion_text = result.result_json.value("content", "");
 
                 reply.set_message(completion_text);
-                int32_t tokens_predicted = result.result_json.value("tokens_predicted", 0);
-                reply.set_tokens(tokens_predicted);
-                int32_t tokens_evaluated = result.result_json.value("tokens_evaluated", 0);
-                reply.set_prompt_tokens(tokens_evaluated);
 
                 // Send the reply
                 writer->Write(reply);
@@ -2361,10 +2357,6 @@ public:
         task_result result = llama.queue_results.recv(task_id);
         if (!result.error && result.stop) {
             completion_text = result.result_json.value("content", "");
-            int32_t tokens_predicted = result.result_json.value("tokens_predicted", 0);
-            int32_t tokens_evaluated = result.result_json.value("tokens_evaluated", 0);
-            reply->set_prompt_tokens(tokens_evaluated);
-            reply->set_tokens(tokens_predicted);
             reply->set_message(completion_text);
         }
         else

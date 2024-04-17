@@ -160,7 +160,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 
 	bc, request, err := oais.getConfig(request)
 	if err != nil {
-		log.Error().Err(err).Msgf("[oais::GenerateTextFromRequest] error getting configuration")
+		log.Error().Msgf("[oais::GenerateTextFromRequest] error getting configuration: %q", err)
 		return
 	}
 
@@ -259,7 +259,7 @@ func (oais *OpenAIService) GenerateTextFromRequest(request *schema.OpenAIRequest
 	// If any of the setup goroutines experienced an error, quit early here.
 	if setupError != nil {
 		go func() {
-			log.Error().Err(setupError).Msgf("[OAIS GenerateTextFromRequest] caught an error during setup")
+			log.Error().Msgf("[OAIS GenerateTextFromRequest] caught an error during setup: %q", setupError)
 			rawFinalResultChannel <- concurrency.ErrorOr[*schema.OpenAIResponse]{Error: setupError}
 			close(rawFinalResultChannel)
 		}()
@@ -603,7 +603,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					Usage: schema.OpenAIUsage{
 						PromptTokens:     rawResult.Value.Usage.Prompt,
 						CompletionTokens: rawResult.Value.Usage.Completion,
-						TotalTokens:      rawResult.Value.Usage.Prompt + rawResult.Value.Usage.Completion,
+						TotalTokens:      rawResult.Value.Usage.Prompt + rawResult.Value.Usage.Prompt,
 					},
 				}
 
@@ -644,7 +644,7 @@ func (oais *OpenAIService) GenerateFromMultipleMessagesChatRequest(request *sche
 					Usage: schema.OpenAIUsage{
 						PromptTokens:     rawResult.Value.Usage.Prompt,
 						CompletionTokens: rawResult.Value.Usage.Completion,
-						TotalTokens:      rawResult.Value.Usage.Prompt + rawResult.Value.Usage.Completion,
+						TotalTokens:      rawResult.Value.Usage.Prompt + rawResult.Value.Usage.Prompt,
 					},
 				}
 
