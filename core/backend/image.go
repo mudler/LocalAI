@@ -101,7 +101,7 @@ func (igbs *ImageGenerationBackendService) GenerateImage(request *schema.OpenAIR
 			defer os.RemoveAll(src)
 		}
 
-		log.Debug().Msgf("Parameter Config: %+v", bc)
+		log.Debug().Interface("backendConfig", bc).Msg("model backend config")
 
 		switch bc.Backend {
 		case "stablediffusion":

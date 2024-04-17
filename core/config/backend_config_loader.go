@@ -120,7 +120,7 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 		utils.DisplayDownloadFunction(fileName, current, total, percent)
 	}
 
-	log.Info().Msgf("Preloading models from %s", modelPath)
+	log.Info().Str("modelPath", modelPath).Msg("preloading models")
 
 	renderMode := "dark"
 	if os.Getenv("COLOR") != "" {
@@ -140,7 +140,7 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 
 		// Download files and verify their SHA
 		for _, file := range config.DownloadFiles {
-			log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
+			log.Debug().Str("filename", file.Filename).Msg("checking if file exists and matches checksum")
 
 			if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
 				return err

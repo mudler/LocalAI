@@ -32,7 +32,7 @@ func NewFiberContextExtractor(ml *model.ModelLoader, appConfig *config.Applicati
 func (fce *FiberContextExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput string, firstModel bool) (string, error) {
 	ctxPM := ctx.Params("model")
 	if ctxPM != "" {
-		log.Debug().Msgf("[FCE] Overriding param modelInput %q with ctx.Params value %q", modelInput, ctxPM)
+		log.Debug().Str("modelInput", modelInput).Str("contextParams", ctxPM).Msg("[FCE] overriding model parameter with value from context")
 		modelInput = ctxPM
 	}
 
@@ -43,18 +43,18 @@ func (fce *FiberContextExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput st
 	// If no model was specified, take the first available
 	if modelInput == "" && !bearerExists && firstModel {
 		models, _ := fce.ml.ListModels()
-		if len(models) > 0 {
-			modelInput = models[0]
-			log.Debug().Msgf("[FCE] No model specified, using first available: %s", modelInput)
-		} else {
-			log.Warn().Msgf("[FCE] No model specified, none available")
-			return "", fmt.Errorf("[fce] no model specified, none available")
+		if len(models) == 0 {
+			err := fmt.Errorf("[FCE] no models configured")
+			log.Error().Err(err).Msg("[FCE] could not discover a model")
+			return "", err
 		}
+		modelInput = models[0]
+		log.Debug().Str("modelInput", modelInput).Msg("[FCE] no model specified, using first available")
 	}
 
 	// If a model is found in bearer token takes precedence
 	if bearerExists {
-		log.Debug().Msgf("[FCE] Using model from bearer token: %s", bearer)
+		log.Debug().Str("bearer", bearer).Msg("[FCE] using model from bearer token")
 		modelInput = bearer
 	}
 
@@ -79,7 +79,7 @@ func (fce *FiberContextExtractor) OpenAIRequestFromContext(c *fiber.Ctx, firstMo
 	input.Context = ctx
 	input.Cancel = cancel
 
-	log.Debug().Msgf("Request received: %s", string(received))
+	log.Debug().Bytes("request", received).Msg("request received")
 
 	var err error
 	input.Model, err = fce.ModelFromContext(c, input.Model, firstModel)
