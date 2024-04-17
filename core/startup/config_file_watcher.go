@@ -15,7 +15,7 @@ import (
 
 type WatchConfigDirectoryCloser func() error
 
-func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig) error {
+func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig, initialAppConfig *config.ApplicationConfig) error {
 	fileContent, err := os.ReadFile(filepath.Join(configDir, "api_keys.json"))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -27,14 +27,15 @@ func ReadApiKeysJson(configDir string, appConfig *config.ApplicationConfig) erro
 	var fileKeys []string
 	err = json.Unmarshal(fileContent, &fileKeys)
 	if err == nil {
-		appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
+		keys := initialAppConfig.ApiKeys
+		appConfig.ApiKeys = append(keys, fileKeys...)
 		return nil
 	}
 	return err
 
 }
 
-func ReadExternalBackendsJson(configDir string, appConfig *config.ApplicationConfig) error {
+func ReadExternalBackendsJson(configDir string, appConfig *config.ApplicationConfig, initialAppConfig *config.ApplicationConfig) error {
 	fileContent, err := os.ReadFile(filepath.Join(configDir, "external_backends.json"))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -48,6 +49,7 @@ func ReadExternalBackendsJson(configDir string, appConfig *config.ApplicationCon
 	if err != nil {
 		return err
 	}
+	appConfig.ExternalGRPCBackends = initialAppConfig.ExternalGRPCBackends
 	err = mergo.Merge(&appConfig.ExternalGRPCBackends, fileBackends)
 	if err != nil {
 		return err
@@ -55,7 +57,7 @@ func ReadExternalBackendsJson(configDir string, appConfig *config.ApplicationCon
 	return nil
 }
 
-var CONFIG_FILE_UPDATES = map[string]func(configDir string, appConfig *config.ApplicationConfig) error{
+var CONFIG_FILE_UPDATES = map[string]func(configDir string, appConfig *config.ApplicationConfig, initialAppConfig *config.ApplicationConfig) error{
 	"api_keys.json":          ReadApiKeysJson,
 	"external_backends.json": ReadExternalBackendsJson,
 }
@@ -72,6 +74,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 		configWatcher.Close()
 		return nil
 	}
+	initialAppConfig := *appConfig
 
 	// Start listening for events.
 	go func() {
@@ -88,7 +91,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 						continue
 					}
 
-					err := watchFn(configDir, appConfig)
+					err := watchFn(configDir, appConfig, &initialAppConfig)
 					if err != nil {
 						log.Warn().Err(err).Str("filename", event.Name).Msg("WatchConfigDirectory goroutine failed to update options")
 					}
@@ -110,7 +113,7 @@ func WatchConfigDirectory(configDir string, appConfig *config.ApplicationConfig)
 	}
 
 	for name, watchFn := range CONFIG_FILE_UPDATES {
-		err := watchFn(configDir, appConfig)
+		err := watchFn(configDir, appConfig, &initialAppConfig)
 		if err != nil {
 			log.Warn().Err(err).Str("filename", name).Msg("could not process file")
 		}
