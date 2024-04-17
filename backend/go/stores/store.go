@@ -116,7 +116,7 @@ func (s *Store) StoresSet(opts *pb.StoresSetOptions) error {
 		s.keyLen = len(opts.Keys[0].Floats)
 	} else {
 		if len(opts.Keys[0].Floats) != s.keyLen {
-			return fmt.Errorf("Try to add key with length %d when existing length is %d", len(opts.Keys[0].Floats), s.keyLen)
+			return fmt.Errorf("try to add key with length %d when existing length is %d", len(opts.Keys[0].Floats), s.keyLen)
 		}
 	}
 
@@ -131,7 +131,7 @@ func (s *Store) StoresSet(opts *pb.StoresSetOptions) error {
 			} else {
 				sample = k.Floats
 			}
-			log.Debug().Msgf("Key is not normalized: %v", sample)
+			log.Debug().Floats32("sample", sample).Msg("key is not normalized")
 		}
 
 		kvs[i] = Pair{
@@ -210,7 +210,7 @@ func (s *Store) StoresDelete(opts *pb.StoresDeleteOptions) error {
 		s.keyLen = len(opts.Keys[0].Floats)
 	} else {
 		if len(opts.Keys[0].Floats) != s.keyLen {
-			return fmt.Errorf("Trying to delete key with length %d when existing length is %d", len(opts.Keys[0].Floats), s.keyLen)
+			return fmt.Errorf("trying to delete key with length %d when existing length is %d", len(opts.Keys[0].Floats), s.keyLen)
 		}
 	}
 
@@ -234,7 +234,7 @@ func (s *Store) StoresDelete(opts *pb.StoresDeleteOptions) error {
 			assert(!hasKey(s.keys, k), fmt.Sprintf("Key exists, but was not found: t=%d, %v", len(tail_ks), k))
 		}
 
-		log.Debug().Msgf("Delete: found = %v, t = %d, j = %d, len(merge_ks) = %d, len(merge_vs) = %d", found, len(tail_ks), j, len(merge_ks), len(merge_vs))
+		log.Debug().Bool("found", found).Int("t", len(tail_ks)).Int("j", j).Int("len(merge_ks)", len(merge_ks)).Int("len(merge_vs)", len(merge_vs)).Msg("delete from store")
 	}
 
 	merge_ks = append(merge_ks, tail_ks...)
@@ -257,7 +257,7 @@ func (s *Store) StoresDelete(opts *pb.StoresDeleteOptions) error {
 	}(), "Keys to delete still present")
 
 	if len(s.keys) != l {
-		log.Debug().Msgf("Delete: Some keys not found: len(s.keys) = %d, l = %d", len(s.keys), l)
+		log.Debug().Int("len(s.keys)", len(s.keys)).Int("l", l).Msg("delete: some keys not found")
 	}
 
 	return nil
@@ -269,14 +269,14 @@ func (s *Store) StoresGet(opts *pb.StoresGetOptions) (pb.StoresGetResult, error)
 	ks := sortIntoKeySlicese(opts.Keys)
 
 	if len(s.keys) == 0 {
-		log.Debug().Msgf("Get: No keys in store")
+		log.Debug().Msg("get: no keys in store")
 	}
 
 	if s.keyLen == -1 {
 		s.keyLen = len(opts.Keys[0].Floats)
 	} else {
 		if len(opts.Keys[0].Floats) != s.keyLen {
-			return pb.StoresGetResult{}, fmt.Errorf("Try to get a key with length %d when existing length is %d", len(opts.Keys[0].Floats), s.keyLen)
+			return pb.StoresGetResult{}, fmt.Errorf("try to get a key with length %d when existing length is %d", len(opts.Keys[0].Floats), s.keyLen)
 		}
 	}
 
@@ -301,7 +301,7 @@ func (s *Store) StoresGet(opts *pb.StoresGetOptions) (pb.StoresGetResult, error)
 	}
 
 	if len(pbKeys) != len(opts.Keys) {
-		log.Debug().Msgf("Get: Some keys not found: len(pbKeys) = %d, len(opts.Keys) = %d, len(s.Keys) = %d", len(pbKeys), len(opts.Keys), len(s.keys))
+		log.Debug().Int("len(pbKeys)", len(pbKeys)).Int("len(opts.Keys)", len(opts.Keys)).Int("len(s.keys)", len(s.keys)).Msg("get: some keys not found")
 	}
 
 	return pb.StoresGetResult{
@@ -474,7 +474,7 @@ func (s *Store) StoresFind(opts *pb.StoresFindOptions) (pb.StoresFindResult, err
 	tk := opts.Key.Floats
 
 	if len(tk) != s.keyLen {
-		return pb.StoresFindResult{}, fmt.Errorf("Try to find key with length %d when existing length is %d", len(tk), s.keyLen)
+		return pb.StoresFindResult{}, fmt.Errorf("try to find key with length %d when existing length is %d", len(tk), s.keyLen)
 	}
 
 	if opts.TopK < 1 {
@@ -485,7 +485,7 @@ func (s *Store) StoresFind(opts *pb.StoresFindOptions) (pb.StoresFindResult, err
 		s.keyLen = len(opts.Key.Floats)
 	} else {
 		if len(opts.Key.Floats) != s.keyLen {
-			return pb.StoresFindResult{}, fmt.Errorf("Try to add key with length %d when existing length is %d", len(opts.Key.Floats), s.keyLen)
+			return pb.StoresFindResult{}, fmt.Errorf("try to add key with length %d when existing length is %d", len(opts.Key.Floats), s.keyLen)
 		}
 	}
 
@@ -499,7 +499,7 @@ func (s *Store) StoresFind(opts *pb.StoresFindOptions) (pb.StoresFindResult, err
 			} else {
 				sample = tk
 			}
-			log.Debug().Msgf("Trying to compare non-normalized key with normalized keys: %v", sample)
+			log.Debug().Floats32("sample", sample).Msg("trying to compare non-normalized key with normalized keys")
 		}
 
 		return s.StoresFindFallback(opts)
