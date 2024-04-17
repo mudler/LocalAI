@@ -136,6 +136,11 @@ func Startup(opts ...config.AppOption) (*core.Application, error) {
 		}()
 	}
 
+	// Watch the configuration directory
+	// If the directory does not exist, we don't watch it
+	configHandler := newConfigFileHandler(options)
+	configHandler.Watch()
+
 	log.Info().Msg("core/startup process completed!")
 	return app, nil
 }

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -65,6 +64,7 @@ func (r *RunCMD) Run(ctx *Context) error {
 		config.WithAudioDir(r.AudioPath),
 		config.WithUploadDir(r.UploadPath),
 		config.WithConfigsDir(r.ConfigPath),
+		config.WithDynamicConfigDir(r.LocalaiConfigDir),
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
 		config.WithModelLibraryURL(r.RemoteLibrary),
@@ -136,14 +136,12 @@ func (r *RunCMD) Run(ctx *Context) error {
 
 	// Watch the configuration directory
 	// If the directory does not exist, we don't watch it
-	if _, err := os.Stat(r.LocalaiConfigDir); err == nil {
-		closeConfigWatcherFn, err := startup.WatchConfigDirectory(r.LocalaiConfigDir, application.ApplicationConfig)
-		defer closeConfigWatcherFn()
-
-		if err != nil {
-			return fmt.Errorf("failed while watching configuration directory %s", r.LocalaiConfigDir)
-		}
-	}
+	// if _, err := os.Stat(r.LocalaiConfigDir); err == nil {
+	// 	err := startup.WatchWithDefaults(r.LocalaiConfigDir, application.ApplicationConfig)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed while watching configuration directory %s", r.LocalaiConfigDir)
+	// 	}
+	// }
 
 	appHTTP, err := http.App(application)
 	if err != nil {
