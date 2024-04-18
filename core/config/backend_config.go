@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
+	"github.com/go-skynet/LocalAI/pkg/functions"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
@@ -39,7 +40,7 @@ type BackendConfig struct {
 	InputToken                                 [][]int  `yaml:"-"`
 	functionCallString, functionCallNameString string   `yaml:"-"`
 
-	FunctionsConfig Functions `yaml:"function"`
+	FunctionsConfig functions.FunctionsConfig `yaml:"function"`
 
 	FeatureFlag FeatureFlag `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 	// LLM configs (GPT4ALL, Llama.cpp, ...)
@@ -155,13 +156,6 @@ type AutoGPTQ struct {
 	Device           string `yaml:"device"`
 	Triton           bool   `yaml:"triton"`
 	UseFastTokenizer bool   `yaml:"use_fast_tokenizer"`
-}
-
-type Functions struct {
-	DisableNoAction         bool   `yaml:"disable_no_action"`
-	NoActionFunctionName    string `yaml:"no_action_function_name"`
-	NoActionDescriptionName string `yaml:"no_action_description_name"`
-	ParallelCalls           bool   `yaml:"parallel_calls"`
 }
 
 type TemplateConfig struct {

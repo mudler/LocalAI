@@ -12,7 +12,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/config"
 
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/pkg/grammar"
+	"github.com/go-skynet/LocalAI/pkg/functions"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -70,7 +70,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 		}
 
 		if input.ResponseFormat.Type == "json_object" {
-			input.Grammar = grammar.JSONBNF
+			input.Grammar = functions.JSONBNF
 		}
 
 		config.Grammar = input.Grammar

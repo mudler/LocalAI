@@ -11,7 +11,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	grammar "github.com/go-skynet/LocalAI/pkg/grammar"
+	"github.com/go-skynet/LocalAI/pkg/functions"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"
@@ -25,7 +25,7 @@ type PromptTemplateData struct {
 	SuppressSystemPrompt bool // used by chat specifically to indicate that SystemPrompt above should be _ignored_
 	Input                string
 	Instruction          string
-	Functions            []grammar.Function
+	Functions            []functions.Function
 	MessageIndex         int
 }
 
