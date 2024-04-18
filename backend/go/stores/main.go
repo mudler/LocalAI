@@ -19,8 +19,12 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	flag.Parse()
+	s, err := NewStore()
+	if err != nil {
+		panic(err)
+	}
 
-	if err := grpc.StartServer(*addr, NewStore()); err != nil {
+	if err := grpc.StartServer(*addr, s); err != nil {
 		panic(err)
 	}
 }
