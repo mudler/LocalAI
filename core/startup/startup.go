@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/internal"
@@ -132,4 +133,34 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	log.Info().Msg("core/startup process completed!")
 	return cl, ml, options, nil
+}
+
+// In Lieu of a proper DI framework, this function wires up the Application manually.
+// This is in core/startup rather than core/state.go to keep package references clean!
+func createApplication(appConfig *config.ApplicationConfig) *core.Application {
+	app := &core.Application{
+		ApplicationConfig:   appConfig,
+		BackendConfigLoader: config.NewBackendConfigLoader(),
+		ModelLoader:         model.NewModelLoader(appConfig.ModelPath),
+	}
+
+	var err error
+
+	// app.EmbeddingsBackendService = backend.NewEmbeddingsBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
+	// app.ImageGenerationBackendService = backend.NewImageGenerationBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
+	// app.LLMBackendService = backend.NewLLMBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
+	// app.TranscriptionBackendService = backend.NewTranscriptionBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
+	// app.TextToSpeechBackendService = backend.NewTextToSpeechBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
+
+	app.BackendMonitorService = services.NewBackendMonitorService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
+	app.GalleryService = services.NewGalleryService(app.ApplicationConfig.ModelPath)
+	// app.ListModelsService = services.NewListModelsService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
+	// app.OpenAIService = services.NewOpenAIService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig, app.LLMBackendService)
+
+	app.LocalAIMetricsService, err = services.NewLocalAIMetricsService()
+	if err != nil {
+		log.Warn().Msg("Unable to initialize LocalAIMetricsService - non-fatal, optional service")
+	}
+
+	return app
 }
