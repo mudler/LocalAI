@@ -2,9 +2,15 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
+
+func ExistsInPath(path string, s string) bool {
+	_, err := os.Stat(filepath.Join(path, s))
+	return err == nil
+}
 
 func inTrustedRoot(path string, trustedRoot string) error {
 	for path != "/" {
