@@ -291,7 +291,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	app.Get("/readyz", ok)
 
 	// Experimental Backend Statistics Module
-	backendMonitor := services.NewBackendMonitorService(cl, ml, appConfig) // Split out for now
+	backendMonitor := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
 	app.Get("/backend/monitor", auth, localai.BackendMonitorEndpoint(backendMonitor))
 	app.Post("/backend/shutdown", auth, localai.BackendShutdownEndpoint(backendMonitor))
 
