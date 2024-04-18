@@ -1,4 +1,4 @@
-package grammar
+package functions
 
 // a golang port of https://github.com/ggerganov/llama.cpp/pull/1887
 

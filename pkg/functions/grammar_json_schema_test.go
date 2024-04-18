@@ -1,9 +1,9 @@
-package grammar_test
+package functions_test
 
 import (
 	"strings"
 
-	. "github.com/go-skynet/LocalAI/pkg/grammar"
+	. "github.com/go-skynet/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
