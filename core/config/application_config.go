@@ -22,6 +22,7 @@ type ApplicationConfig struct {
 	AudioDir                            string
 	UploadDir                           string
 	ConfigsDir                          string
+	DynamicConfigsDir                   string
 	CORS                                bool
 	PreloadJSONModels                   string
 	PreloadModelsFromPath               string
@@ -261,6 +262,12 @@ func WithUploadDir(uploadDir string) AppOption {
 func WithConfigsDir(configsDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ConfigsDir = configsDir
+	}
+}
+
+func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DynamicConfigsDir = dynamicConfigsDir
 	}
 }
 
