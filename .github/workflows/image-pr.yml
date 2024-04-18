@@ -22,6 +22,7 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
+      grpc-base-image: ${{ matrix.grpc-base-image }}
       makeflags: ${{ matrix.makeflags }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -61,12 +62,14 @@ jobs:
             ffmpeg: 'false'
             image-type: 'extras'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            grpc-base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            grpc-base-image: "ubuntu:22.04"
             tag-suffix: 'sycl-f16-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -85,6 +88,7 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
+      grpc-base-image: ${{ matrix.grpc-base-image }}
       makeflags: ${{ matrix.makeflags }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -102,11 +106,12 @@ jobs:
             image-type: 'core'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
-            makeflags: "--jobs=5 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            grpc-base-image: "ubuntu:22.04"
             tag-suffix: 'sycl-f16-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
@@ -122,4 +127,4 @@ jobs:
             image-type: 'core'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
-            makeflags: "--jobs=5 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"

@@ -26,6 +26,7 @@ jobs:
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
+      grpc-base-image: ${{ matrix.grpc-base-image }}
       aio: ${{ matrix.aio }}
       makeflags: ${{ matrix.makeflags }}
       latest-image: ${{ matrix.latest-image }}
@@ -129,6 +130,7 @@ jobs:
             image-type: 'extras'
             aio: "-aio-gpu-hipblas"
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            grpc-base-image: "ubuntu:22.04"
             latest-image: 'latest-gpu-hipblas'
             latest-image-aio: 'latest-aio-gpu-hipblas'
             runs-on: 'arc-runner-set'
@@ -140,12 +142,14 @@ jobs:
             ffmpeg: 'false'
             image-type: 'extras'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            grpc-base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f16-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -158,6 +162,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f32-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -171,6 +176,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f16-core'
             ffmpeg: 'false'
             image-type: 'core'
@@ -180,6 +186,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f32-core'
             ffmpeg: 'false'
             image-type: 'core'
@@ -189,6 +196,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f16-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
@@ -198,6 +206,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f32-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
@@ -210,6 +219,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            grpc-base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'hipblas'
@@ -219,6 +229,7 @@ jobs:
             ffmpeg: 'false'
             image-type: 'core'
             base-image: "rocm/dev-ubuntu-22.04:6.0-complete"
+            grpc-base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
   
@@ -236,6 +247,7 @@ jobs:
       runs-on: ${{ matrix.runs-on }}
       aio: ${{ matrix.aio }}
       base-image: ${{ matrix.base-image }}
+      grpc-base-image: ${{ matrix.grpc-base-image }}
       makeflags: ${{ matrix.makeflags }}
       latest-image: ${{ matrix.latest-image }}
       latest-image-aio: ${{ matrix.latest-image-aio }}
@@ -258,7 +270,7 @@ jobs:
             aio: "-aio-cpu"
             latest-image: 'latest-cpu'
             latest-image-aio: 'latest-aio-cpu'
-            makeflags: "--jobs=5 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -269,7 +281,7 @@ jobs:
             image-type: 'core'
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
-            makeflags: "--jobs=5 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -280,7 +292,7 @@ jobs:
             image-type: 'core'
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
-            makeflags: "--jobs=5 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -291,7 +303,7 @@ jobs:
             image-type: 'core'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
-            makeflags: "--jobs=5 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "1"
@@ -302,4 +314,4 @@ jobs:
             image-type: 'core'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
-            makeflags: "--jobs=5 --output-sync=target"
+            makeflags: "--jobs=4 --output-sync=target"
