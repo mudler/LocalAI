@@ -6,14 +6,22 @@ parameters:
 template:
   chat_message: |
     <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}
-    {{- if .FunctionCall }}<tool_call>{{end}}
-    {{- if eq .RoleName "tool" }}<tool_result>{{end }}
-    {{- if .Content}}
-    {{.Content}}
+    {{- if .FunctionCall }}
+    <tool_call>
+    {{- else if eq .RoleName "tool" }}
+    <tool_response>
     {{- end }}
-    {{- if .FunctionCall}}{{toJson .FunctionCall}}{{end }}
-    {{- if .FunctionCall }}</tool_call>{{end }}
-    {{- if eq .RoleName "tool" }}</tool_result>{{end }}
+    {{- if .Content}}
+    {{.Content }}
+    {{- end }}
+    {{- if .FunctionCall}}
+    {{toJson .FunctionCall}}
+    {{- end }}
+    {{- if .FunctionCall }}
+    </tool_call>
+    {{- else if eq .RoleName "tool" }}
+    </tool_response>
+    {{- end }}
     <|im_end|>
   # https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF#prompt-format-for-function-calling
   function: |
