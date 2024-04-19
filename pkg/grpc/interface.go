@@ -15,7 +15,7 @@ type LLM interface {
 	Load(*pb.ModelOptions) error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
-	AudioTranscription(*pb.TranscriptRequest) (schema.Result, error)
+	AudioTranscription(*pb.TranscriptRequest) (schema.TranscriptionResult, error)
 	TTS(*pb.TTSRequest) error
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
 	Status() (pb.StatusResponse, error)
