@@ -1,0 +1,48 @@
+name: llama3-8b-instruct
+mmap: true
+parameters:
+  model: huggingface://second-state/Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
+
+template:
+  chat_message: |
+    <|start_header_id|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}<|end_header_id|>
+
+    {{ if .FunctionCall -}}
+    Function call:
+    {{ else if eq .RoleName "tool" -}}
+    Function response:
+    {{ end -}}
+    {{ if .Content -}}
+    {{.Content -}}
+    {{ else if .FunctionCall -}}
+    {{ toJson .FunctionCall -}}
+    {{ end -}}
+    <|eot_id|>
+  function: |
+    <|start_header_id|>system<|end_header_id|>
+
+    You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
+    <tools>
+    {{range .Functions}}
+    {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+    {{end}}
+    </tools>
+    Use the following pydantic model json schema for each tool call you will make:
+    {'title': 'FunctionCall', 'type': 'object', 'properties': {'arguments': {'title': 'Arguments', 'type': 'object'}, 'name': {'title': 'Name', 'type': 'string'}}, 'required': ['arguments', 'name']}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+    Function call:
+  chat: |
+    <|begin_of_text|>{{.Input }}
+    <|start_header_id|>assistant<|end_header_id|>
+  completion: |
+    {{.Input}}
+context_size: 8192
+f16: true
+stopwords:
+- <|im_end|>
+- <dummy32000>
+- "<|eot_id|>"
+usage: |
+      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+          "model": "llama3-8b-instruct",
+          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
+      }'
