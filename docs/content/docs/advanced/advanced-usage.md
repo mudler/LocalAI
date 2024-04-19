@@ -402,6 +402,7 @@ In the help text below, BASEPATH is the location that local-ai is being executed
 | --upload-path | /tmp/localai/upload | Path to store uploads from files api | $LOCALAI_UPLOAD_PATH |
 | --config-path | /tmp/localai/config | | $LOCALAI_CONFIG_PATH |
 | --localai-config-dir | BASEPATH/configuration | Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json) | $LOCALAI_CONFIG_DIR |
+| --localai-config-dir-poll-interval |  | Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to a time duration to poll the LocalAI Config Dir (example: 1m) | $LOCALAI_CONFIG_DIR_POLL_INTERVAL |
 | --models-config-file | STRING | YAML file containing a list of model backend configs | $LOCALAI_MODELS_CONFIG_FILE |
 
 #### Models Flags
