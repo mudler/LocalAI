@@ -92,10 +92,13 @@ var testMatch map[string]map[string]interface{} = map[string]map[string]interfac
 
 var _ = Describe("Templates", func() {
 	Context("chat message", func() {
-		modelLoader := NewModelLoader("")
+		var modelLoader *ModelLoader
+		BeforeEach(func() {
+			modelLoader = NewModelLoader("")
+		})
 		for key := range testMatch {
 			foo := testMatch[key]
-			It("renders correctly "+key, func() {
+			It("renders correctly `"+key+"`", func() {
 				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(model.ChatMessageTemplateData))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(templated).To(Equal(foo["expected"]), templated)
