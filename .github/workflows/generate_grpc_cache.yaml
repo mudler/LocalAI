@@ -4,7 +4,7 @@ on:
 - workflow_dispatch
 
 concurrency:
-  group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  group: grpc-cache-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 
 jobs:
