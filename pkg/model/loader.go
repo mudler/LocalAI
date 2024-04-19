@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/templates"
 
-	functions "github.com/go-skynet/LocalAI/pkg/functions"
+	"github.com/go-skynet/LocalAI/pkg/functions"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 
