@@ -74,7 +74,7 @@ func (c *configFileHandler) Watch() error {
 			for {
 				<-ticker.C
 				for file, handler := range c.handlers {
-					log.Debug().Str("file", file).Msg("processing config file")
+					log.Debug().Str("file", file).Msg("polling config file")
 					c.callHandler(file, handler)
 				}
 			}
