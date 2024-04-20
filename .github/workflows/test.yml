@@ -60,7 +60,7 @@ jobs:
         with: 
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: false
@@ -70,17 +70,27 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
+          sudo apt-get install build-essential curl ffmpeg
           curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
              sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
+             gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
              sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
              sudo apt-get update && \
              sudo apt-get install -y conda
-          sudo apt-get install -y ca-certificates cmake curl patch
+          sudo apt-get install -y ca-certificates cmake patch python3-pip unzip
           sudo apt-get install -y libopencv-dev
-          
+
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+          # The python3-grpc-tools package in 22.04 is too old
+          pip install --user grpcio-tools
+
           sudo rm -rfv /usr/bin/conda || true
           PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers
 
@@ -89,10 +99,10 @@ jobs:
           GO_TAGS="tts" make -C sources/go-piper piper.o && \
           sudo cp -rfv sources/go-piper/piper-phonemize/pi/lib/. /usr/lib/ && \
           # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
-          GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+          PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
       - name: Cache grpc
         id: cache-grpc
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: grpc
           key: ${{ runner.os }}-grpc-${{ env.GRPC_VERSION }}
@@ -108,11 +118,13 @@ jobs:
           cd grpc && cd cmake/build && sudo make --jobs 5 install
       - name: Test
         run: |
-          GO_TAGS="stablediffusion tts" make --jobs 5 --output-sync=target test
+          PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 5
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
 
   tests-aio-container:
     runs-on: ubuntu-latest
@@ -163,8 +175,10 @@ jobs:
             make run-e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 5
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
 
   tests-apple:
     runs-on: macOS-14
@@ -177,7 +191,7 @@ jobs:
         with: 
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: false
@@ -186,7 +200,8 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc
+          pip install --user grpcio-tools
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include
@@ -196,5 +211,7 @@ jobs:
           BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make --jobs 4 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 5
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true

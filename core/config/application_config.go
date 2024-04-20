@@ -17,11 +17,13 @@ type ApplicationConfig struct {
 	UploadLimitMB, Threads, ContextSize int
 	DisableWelcomePage                  bool
 	F16                                 bool
-	Debug, DisableMessage               bool
+	Debug                               bool
 	ImageDir                            string
 	AudioDir                            string
 	UploadDir                           string
 	ConfigsDir                          string
+	DynamicConfigsDir                   string
+	DynamicConfigsDirPollInterval       time.Duration
 	CORS                                bool
 	PreloadJSONModels                   string
 	PreloadModelsFromPath               string
@@ -55,12 +57,11 @@ type AppOption func(*ApplicationConfig)
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
-		Context:        context.Background(),
-		UploadLimitMB:  15,
-		Threads:        1,
-		ContextSize:    512,
-		Debug:          true,
-		DisableMessage: true,
+		Context:       context.Background(),
+		UploadLimitMB: 15,
+		Threads:       1,
+		ContextSize:   512,
+		Debug:         true,
 	}
 	for _, oo := range o {
 		oo(opt)
@@ -234,12 +235,6 @@ func WithDebug(debug bool) AppOption {
 	}
 }
 
-func WithDisableMessage(disableMessage bool) AppOption {
-	return func(o *ApplicationConfig) {
-		o.DisableMessage = disableMessage
-	}
-}
-
 func WithAudioDir(audioDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.AudioDir = audioDir
@@ -261,6 +256,18 @@ func WithUploadDir(uploadDir string) AppOption {
 func WithConfigsDir(configsDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ConfigsDir = configsDir
+	}
+}
+
+func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DynamicConfigsDir = dynamicConfigsDir
+	}
+}
+
+func WithDynamicConfigDirPollInterval(interval time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DynamicConfigsDirPollInterval = interval
 	}
 }
 

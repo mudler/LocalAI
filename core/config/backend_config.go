@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
+	"github.com/go-skynet/LocalAI/pkg/functions"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
@@ -39,7 +40,7 @@ type BackendConfig struct {
 	InputToken                                 [][]int  `yaml:"-"`
 	functionCallString, functionCallNameString string   `yaml:"-"`
 
-	FunctionsConfig Functions `yaml:"function"`
+	FunctionsConfig functions.FunctionsConfig `yaml:"function"`
 
 	FeatureFlag FeatureFlag `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 	// LLM configs (GPT4ALL, Llama.cpp, ...)
@@ -139,6 +140,7 @@ type LLMConfig struct {
 	EnforceEager         bool    `yaml:"enforce_eager"`          // vLLM
 	SwapSpace            int     `yaml:"swap_space"`             // vLLM
 	MaxModelLen          int     `yaml:"max_model_len"`          // vLLM
+	TensorParallelSize   int     `yaml:"tensor_parallel_size"`          // vLLM
 	MMProj               string  `yaml:"mmproj"`
 
 	RopeScaling string `yaml:"rope_scaling"`
@@ -157,19 +159,13 @@ type AutoGPTQ struct {
 	UseFastTokenizer bool   `yaml:"use_fast_tokenizer"`
 }
 
-type Functions struct {
-	DisableNoAction         bool   `yaml:"disable_no_action"`
-	NoActionFunctionName    string `yaml:"no_action_function_name"`
-	NoActionDescriptionName string `yaml:"no_action_description_name"`
-	ParallelCalls           bool   `yaml:"parallel_calls"`
-}
-
 type TemplateConfig struct {
-	Chat        string `yaml:"chat"`
-	ChatMessage string `yaml:"chat_message"`
-	Completion  string `yaml:"completion"`
-	Edit        string `yaml:"edit"`
-	Functions   string `yaml:"function"`
+	Chat                 string `yaml:"chat"`
+	ChatMessage          string `yaml:"chat_message"`
+	Completion           string `yaml:"completion"`
+	Edit                 string `yaml:"edit"`
+	Functions            string `yaml:"function"`
+	UseTokenizerTemplate bool   `yaml:"use_tokenizer_template"`
 }
 
 func (c *BackendConfig) SetFunctionCallString(s string) {
@@ -209,15 +205,15 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	defaultTopP := 0.95
 	defaultTopK := 40
 	defaultTemp := 0.9
-	defaultMaxTokens := 2048
 	defaultMirostat := 2
 	defaultMirostatTAU := 5.0
 	defaultMirostatETA := 0.1
 	defaultTypicalP := 1.0
 	defaultTFZ := 1.0
+	defaultInfinity := -1
 
 	// Try to offload all GPU layers (if GPU is found)
-	defaultNGPULayers := 99999999
+	defaultHigh := 99999999
 
 	trueV := true
 	falseV := false
@@ -258,7 +254,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 
 	if cfg.Maxtokens == nil {
-		cfg.Maxtokens = &defaultMaxTokens
+		cfg.Maxtokens = &defaultInfinity
 	}
 
 	if cfg.Mirostat == nil {
@@ -273,7 +269,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.MirostatTAU = &defaultMirostatTAU
 	}
 	if cfg.NGPULayers == nil {
-		cfg.NGPULayers = &defaultNGPULayers
+		cfg.NGPULayers = &defaultHigh
 	}
 
 	if cfg.LowVRAM == nil {

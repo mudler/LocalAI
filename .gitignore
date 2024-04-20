@@ -39,3 +39,8 @@ backend-assets/*
 !backend-assets/.keep
 prepare
 /ggml-metal.metal
+
+# Protobuf generated files
+*.pb.go
+*pb2.py
+*pb2_grpc.py

@@ -1,0 +1,15 @@
+name: "bert-embeddings"
+license: "Apache 2.0"
+urls:
+- https://huggingface.co/skeskinen/ggml
+description: |
+    Bert model that can be used for embeddings
+config_file: |
+    parameters:
+      model: bert-MiniLM-L6-v2q4_0.bin
+    backend: bert-embeddings
+    embeddings: true
+files:
+- filename: "bert-MiniLM-L6-v2q4_0.bin"
+  sha256: "a5a174d8772c8a569faf9f3136c441f2c3855b5bf35ed32274294219533feaad"
+  uri: "https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin"

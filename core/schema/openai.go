@@ -3,7 +3,7 @@ package schema
 import (
 	"context"
 
-	"github.com/go-skynet/LocalAI/pkg/grammar"
+	functions "github.com/go-skynet/LocalAI/pkg/functions"
 )
 
 // APIError provides error information returned by the OpenAI API.
@@ -108,7 +108,7 @@ type ChatCompletionResponseFormat struct {
 type OpenAIRequest struct {
 	PredictionOptions
 
-	Context context.Context  `json:"-"`
+	Context context.Context    `json:"-"`
 	Cancel  context.CancelFunc `json:"-"`
 
 	// whisper
@@ -130,11 +130,11 @@ type OpenAIRequest struct {
 	Messages []Message `json:"messages" yaml:"messages"`
 
 	// A list of available functions to call
-	Functions    []grammar.Function `json:"functions" yaml:"functions"`
-	FunctionCall interface{}        `json:"function_call" yaml:"function_call"` // might be a string or an object
+	Functions    functions.Functions `json:"functions" yaml:"functions"`
+	FunctionCall interface{}         `json:"function_call" yaml:"function_call"` // might be a string or an object
 
-	Tools       []grammar.Tool `json:"tools,omitempty" yaml:"tools"`
-	ToolsChoice interface{}    `json:"tool_choice,omitempty" yaml:"tool_choice"`
+	Tools       []functions.Tool `json:"tools,omitempty" yaml:"tools"`
+	ToolsChoice interface{}      `json:"tool_choice,omitempty" yaml:"tool_choice"`
 
 	Stream bool `json:"stream"`
 
@@ -145,7 +145,7 @@ type OpenAIRequest struct {
 	// A grammar to constrain the LLM output
 	Grammar string `json:"grammar" yaml:"grammar"`
 
-	JSONFunctionGrammarObject *grammar.JSONFunctionStructure `json:"grammar_json_functions" yaml:"grammar_json_functions"`
+	JSONFunctionGrammarObject *functions.JSONFunctionStructure `json:"grammar_json_functions" yaml:"grammar_json_functions"`
 
 	Backend string `json:"backend" yaml:"backend"`
 

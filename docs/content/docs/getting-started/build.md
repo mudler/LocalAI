@@ -36,14 +36,28 @@ To install the dependencies follow the instructions below:
 Install `xcode` from the App Store
 
 ```bash
-brew install abseil cmake go grpc protobuf wget
+brew install abseil cmake go grpc protobuf protoc-gen-go protoc-gen-go-grpc python wget
+```
+
+After installing the above dependencies, you need to install grpcio-tools from PyPI. You could do this via a pip --user install or a virtualenv.
+
+```bash
+pip install --user grpcio-tools
 ```
 
 {{% /tab %}}
 {{% tab tabName="Debian" %}}
 
 ```bash
-apt install golang protobuf-compiler-grpc libgrpc-dev make cmake
+apt install cmake golang libgrpc-dev make protobuf-compiler-grpc python3-grpc-tools
+```
+
+After you have golang installed and working, you can install the required binaries for compiling the golang protobuf components via the following commands
+
+```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
 ```
 
 {{% /tab %}}

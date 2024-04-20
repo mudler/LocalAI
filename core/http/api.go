@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/gofiber/swagger" // swagger handler
 
 	"github.com/go-skynet/LocalAI/core/http/endpoints/elevenlabs"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
@@ -19,10 +18,13 @@ import (
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/model"
 
+	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/swagger" // swagger handler
+
+	"github.com/rs/zerolog/log"
 )
 
 func readAuthHeader(c *fiber.Ctx) string {
@@ -59,9 +61,11 @@ func readAuthHeader(c *fiber.Ctx) string {
 func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
-		Views:                 renderEngine(),
-		BodyLimit:             appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
-		DisableStartupMessage: appConfig.DisableMessage,
+		Views:     renderEngine(),
+		BodyLimit: appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
+		// We disable the Fiber startup message as it does not conform to structured logging.
+		// We register a startup log line with connection information in the OnListen hook to keep things user friendly though
+		DisableStartupMessage: true,
 		// Override default error handler
 		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
 			// Status code defaults to 500
@@ -82,11 +86,20 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		},
 	})
 
-	if appConfig.Debug {
-		app.Use(logger.New(logger.Config{
-			Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
-		}))
-	}
+	app.Hooks().OnListen(func(listenData fiber.ListenData) error {
+		scheme := "http"
+		if listenData.TLS {
+			scheme = "https"
+		}
+		log.Info().Str("endpoint", scheme+"://"+listenData.Host+":"+listenData.Port).Msg("LocalAI API is listening! Please connect to the endpoint for API documentation.")
+		return nil
+	})
+
+	// Have Fiber use zerolog like the rest of the application rather than it's built-in logger
+	logger := log.Logger
+	app.Use(fiberzerolog.New(fiberzerolog.Config{
+		Logger: &logger,
+	}))
 
 	// Default middleware config
 

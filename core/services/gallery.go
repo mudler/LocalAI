@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
+	"github.com/go-skynet/LocalAI/pkg/startup"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"gopkg.in/yaml.v2"
 )
@@ -90,6 +91,9 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 					} else {
 						err = gallery.InstallModelFromGalleryByName(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
 					}
+				} else if op.ConfigURL != "" {
+					startup.PreloadModelsConfigurations(op.ConfigURL, g.modelPath, op.ConfigURL)
+					err = cl.Preload(g.modelPath)
 				} else {
 					err = prepareModel(g.modelPath, op.Req, cl, progressCallback)
 				}
@@ -129,6 +133,7 @@ func processRequests(modelPath, s string, cm *config.BackendConfigLoader, galler
 		utils.ResetDownloadTimers()
 		if r.ID == "" {
 			err = prepareModel(modelPath, r.GalleryModel, cm, utils.DisplayDownloadFunction)
+
 		} else {
 			if strings.Contains(r.ID, "@") {
 				err = gallery.InstallModelFromGallery(

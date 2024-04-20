@@ -1,0 +1,35 @@
+name: LocalAI-bot auto-merge
+on:
+- pull_request_target
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: read
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor == 'localai-bot' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Approve a PR if not already approved
+        run: |
+          gh pr checkout "$PR_URL"
+            if [ "$(gh pr status --json reviewDecision -q .currentBranch.reviewDecision)" != "APPROVED" ];
+          then
+            gh pr review --approve "$PR_URL"
+          else
+            echo "PR already approved.";
+          fi
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Enable auto-merge for LocalAIBot PRs
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

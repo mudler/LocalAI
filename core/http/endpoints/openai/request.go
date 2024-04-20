@@ -12,7 +12,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/config"
 	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/pkg/grammar"
+	"github.com/go-skynet/LocalAI/pkg/functions"
 	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -145,7 +145,7 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 	}
 
 	if input.ToolsChoice != nil {
-		var toolChoice grammar.Tool
+		var toolChoice functions.Tool
 
 		switch content := input.ToolsChoice.(type) {
 		case string:
