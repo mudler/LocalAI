@@ -23,6 +23,7 @@ type ApplicationConfig struct {
 	UploadDir                           string
 	ConfigsDir                          string
 	DynamicConfigsDir                   string
+	DynamicConfigsDirPollInterval       time.Duration
 	CORS                                bool
 	PreloadJSONModels                   string
 	PreloadModelsFromPath               string
@@ -268,6 +269,12 @@ func WithConfigsDir(configsDir string) AppOption {
 func WithDynamicConfigDir(dynamicConfigsDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DynamicConfigsDir = dynamicConfigsDir
+	}
+}
+
+func WithDynamicConfigDirPollInterval(interval time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DynamicConfigsDirPollInterval = interval
 	}
 }
 
