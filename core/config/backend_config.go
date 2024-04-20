@@ -140,6 +140,7 @@ type LLMConfig struct {
 	EnforceEager         bool    `yaml:"enforce_eager"`          // vLLM
 	SwapSpace            int     `yaml:"swap_space"`             // vLLM
 	MaxModelLen          int     `yaml:"max_model_len"`          // vLLM
+	TensorParallelSize   int     `yaml:"tensor_parallel_size"`          // vLLM
 	MMProj               string  `yaml:"mmproj"`
 
 	RopeScaling string `yaml:"rope_scaling"`
