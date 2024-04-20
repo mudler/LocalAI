@@ -8,6 +8,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/http"
 	"github.com/go-skynet/LocalAI/core/startup"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -60,7 +61,7 @@ func (r *RunCMD) Run(ctx *Context) error {
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
 		config.WithModelPath(r.ModelsPath),
 		config.WithContextSize(r.ContextSize),
-		config.WithDebug(*ctx.LogLevel == "debug"),
+		config.WithDebug(zerolog.GlobalLevel() <= zerolog.DebugLevel),
 		config.WithImageDir(r.ImagePath),
 		config.WithAudioDir(r.AudioPath),
 		config.WithUploadDir(r.UploadPath),
@@ -70,7 +71,6 @@ func (r *RunCMD) Run(ctx *Context) error {
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
 		config.WithModelLibraryURL(r.RemoteLibrary),
-		config.WithDisableMessage(false),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithThreads(r.Threads),
@@ -131,7 +131,6 @@ func (r *RunCMD) Run(ctx *Context) error {
 	}
 
 	cl, ml, options, err := startup.Startup(opts...)
-
 	if err != nil {
 		return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 	}

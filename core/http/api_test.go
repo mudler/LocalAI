@@ -211,7 +211,6 @@ var _ = Describe("API test", func() {
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
-		config.WithDisableMessage(true),
 	}
 
 	Context("API with ephemeral models", func() {
