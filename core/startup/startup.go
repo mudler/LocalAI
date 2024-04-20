@@ -10,17 +10,11 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	pkgStartup "github.com/go-skynet/LocalAI/pkg/startup"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, error) {
 	options := config.NewApplicationConfig(opts...)
-
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	if options.Debug {
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	}
 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
