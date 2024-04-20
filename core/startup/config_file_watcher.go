@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-skynet/LocalAI/core/config"
@@ -64,6 +65,20 @@ func (c *configFileHandler) Watch() error {
 	c.watcher = configWatcher
 	if err != nil {
 		log.Fatal().Err(err).Str("configdir", c.configDir).Msg("wnable to create a watcher for configuration directory")
+	}
+
+	if c.appConfig.DynamicConfigsDirPollInterval > 0 {
+		log.Debug().Msg("Poll interval set, falling back to polling for configuration changes")
+		ticker := time.NewTicker(c.appConfig.DynamicConfigsDirPollInterval)
+		go func() {
+			for {
+				<-ticker.C
+				for file, handler := range c.handlers {
+					log.Debug().Str("file", file).Msg("polling config file")
+					c.callHandler(file, handler)
+				}
+			}
+		}()
 	}
 
 	// Start listening for events.
