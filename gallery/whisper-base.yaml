@@ -1,0 +1,18 @@
+name: "whisper-base"
+license: "MIT"
+urls:
+- https://github.com/ggerganov/whisper.cpp
+- https://huggingface.co/ggerganov/whisper.cpp
+
+description: |
+    Port of OpenAI's Whisper model in C/C++ 
+    
+config_file: |
+  backend: whisper
+  parameters:
+    model: ggml-whisper-base.bin
+
+files:
+- filename: "ggml-whisper-base.bin"
+  sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"
+  uri: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"

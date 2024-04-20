@@ -95,6 +95,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             engine_args.trust_remote_code = request.TrustRemoteCode
         if request.EnforceEager:
             engine_args.enforce_eager = request.EnforceEager
+        if request.TensorParallelSize:
+            engine_args.tensor_parallel_size = request.TensorParallelSize
         if request.SwapSpace != 0:
             engine_args.swap_space = request.SwapSpace
         if request.MaxModelLen != 0:
