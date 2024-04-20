@@ -16,6 +16,7 @@ import (
 // @Param request body schema.TTSRequest true "query params"
 // @Success 200 {string} binary	 "Response"
 // @Router /v1/audio/speech [post]
+// @Router /tts [post]
 func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
