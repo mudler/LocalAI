@@ -1,0 +1,42 @@
+name: "tinydream"
+license: "BSD-3"
+urls:
+  - https://github.com/symisc/tiny-dream
+  - https://github.com/symisc/tiny-dream/blob/main/LICENSE
+
+description: |
+  An embedded, Header Only, Stable Diffusion C++ implementation
+config_file: |
+  name: tinydream
+  backend: tinydream
+  parameters:
+    model: tinydream_assets
+
+files:
+  - filename: "tinydream_assets/AutoencoderKL-fp16.bin"
+    sha256: "f02e71f80e70252734724bbfaed5c4ddd3a8ed7e61bb2175ff5f53099f0e35dd"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/AutoencoderKL-fp16.bin"
+  - filename: "tinydream_assets/AutoencoderKL-fp16.param"
+    sha256: "0254a056dce61b0c27dc9ec1b78b53bcf55315c540f55f051eb841aa992701ba"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/AutoencoderKL-fp16.param"
+  - filename: "tinydream_assets/FrozenCLIPEmbedder-fp16.bin"
+    sha256: "1c9a12f4e1dd1b295a388045f7f28a2352a4d70c3dc96a542189a3dd7051fdd6"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/FrozenCLIPEmbedder-fp16.bin"
+  - filename: "tinydream_assets/FrozenCLIPEmbedder-fp16.param"
+    sha256: "471afbe678dd1fd3fe764ef9c6eccaccb0a7d7e601f27b462aa926b20eb368c9"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/FrozenCLIPEmbedder-fp16.param"
+  - filename: "tinydream_assets/RealESRGAN_x4plus_anime.bin"
+    sha256: "fe01c269cfd10cdef8e018ab66ebe750cf79c7af4d1f9c16c737e1295229bacc"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/RealESRGAN_x4plus_anime.bin"
+  - filename: "tinydream_assets/RealESRGAN_x4plus_anime.param"
+    sha256: "2b8fb6e0ae4d2d85704ca08c119a2f5ea40add4f2ecd512eb7f4cd44b6127ed4"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/RealESRGAN_x4plus_anime.param"
+  - filename: "tinydream_assets/UNetModel-fp16.bin"
+    sha256: "d618918d011bfc1f644c0f2a33bf84931bd53b28a98492b0a8ed6f3a818852c3"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/UNetModel-fp16.bin"
+  - filename: "tinydream_assets/UNetModel-fp16.param"
+    sha256: "696f6975de49f4325b53ce32aff81861a6d6c07cd9ce3f0aae2cc405350af38d"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/UNetModel-fp16.param"
+  - filename: "tinydream_assets/vocab.txt"
+    sha256: "e30e57b6f1e47616982ef898d8922be24e535b4fa3d0110477b3a6f02ebbae7d"
+    uri: "https://github.com/M0Rf30/tiny-dream-bins/releases/download/1.0/vocab.txt"
