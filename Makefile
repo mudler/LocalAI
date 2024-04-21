@@ -714,4 +714,4 @@ docker-image-intel-xpu:
 
 .PHONY: swagger
 swagger:
-	swag init -g core/http/api.go --output swagger
+	swag init -g core/http/app.go --output swagger
