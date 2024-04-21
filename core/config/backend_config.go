@@ -210,7 +210,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	defaultMirostatETA := 0.1
 	defaultTypicalP := 1.0
 	defaultTFZ := 1.0
-	defaultInfinity := -1
+	defaultZero := 0
 
 	// Try to offload all GPU layers (if GPU is found)
 	defaultHigh := 99999999
@@ -254,7 +254,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 
 	if cfg.Maxtokens == nil {
-		cfg.Maxtokens = &defaultInfinity
+		cfg.Maxtokens = &defaultZero
 	}
 
 	if cfg.Mirostat == nil {
