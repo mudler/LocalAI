@@ -123,6 +123,7 @@ jobs:
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.18
         with:
+          detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
 
@@ -177,6 +178,7 @@ jobs:
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.18
         with:
+          detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
 
@@ -213,5 +215,6 @@ jobs:
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.18
         with:
+          detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
