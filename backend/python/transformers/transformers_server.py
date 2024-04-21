@@ -148,7 +148,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 else:
                     device_map="CPU"
                 self.model = OVModelForCausalLM.from_pretrained(model_name, 
-                                                                compile=True, 
+                                                                compile=True,
+                                                                ov_config={"PERFORMANCE_HINT": "LATENCY"}, 
                                                                 device=device_map)
                 self.OV = True
             else:
@@ -212,12 +213,25 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         set_seed(request.Seed)
         if request.TopP == 0:
             request.TopP = 0.9
+        
+        if request.TopK == 0:
+            request.TopK = 40
 
         max_tokens = 200
         if request.Tokens > 0:
             max_tokens = request.Tokens
 
-        inputs = self.tokenizer(request.Prompt, return_tensors="pt")
+        prompt = request.Prompt
+        if not request.Prompt and request.UseTokenizerTemplate and request.Messages:    
+            prompt = self.tokenizer.apply_chat_template(request.Messages, tokenize=False, add_generation_prompt=True)
+
+        eos_token_id = self.tokenizer.eos_token_id
+        if request.StopPrompts:
+            eos_token_id = []
+            for word in request.StopPrompts:
+                eos_token_id.append(self.tokenizer.convert_tokens_to_ids(word))
+
+        inputs = self.tokenizer(prompt, return_tensors="pt")
         if self.CUDA:
             inputs = inputs.to("cuda")
         if XPU and self.OV == False:
@@ -235,7 +249,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         top_k=request.TopK, 
                         do_sample=True,
                         attention_mask=inputs["attention_mask"],
-                        eos_token_id=self.tokenizer.eos_token_id,
+                        eos_token_id=eos_token_id,
                         pad_token_id=self.tokenizer.eos_token_id,
                         streamer=streamer)
             thread=Thread(target=self.model.generate, kwargs=config)
@@ -264,7 +278,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         top_k=request.TopK, 
                         do_sample=True,
                         attention_mask=inputs["attention_mask"],
-                        eos_token_id=self.tokenizer.eos_token_id,
+                        eos_token_id=eos_token_id,
                         pad_token_id=self.tokenizer.eos_token_id)
             generated_text = self.tokenizer.batch_decode(outputs[:, inputs["input_ids"].shape[1]:], skip_special_tokens=True)[0]
 
