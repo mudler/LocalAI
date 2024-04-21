@@ -50,6 +50,7 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- llama3: https://github.com/mudler/LocalAI/discussions/2076
 - Parler-TTS: https://github.com/mudler/LocalAI/pull/2027
 - Landing page: https://github.com/mudler/LocalAI/pull/1922
 - Openvino support: https://github.com/mudler/LocalAI/pull/1892
