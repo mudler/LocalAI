@@ -257,6 +257,10 @@ parameters:
 # swap_space: 2
 # Uncomment to specify the maximum length of a sequence (including prompt and output)
 # max_model_len: 32768
+# Uncomment and specify the number of Tensor divisions.
+# Allows you to partition and run large models. Performance gains are limited.
+# https://github.com/vllm-project/vllm/issues/1435
+# tensor_parallel_size: 2
 ```
 
 The backend will automatically download the required files in order to run the model.
