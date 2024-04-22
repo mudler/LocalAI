@@ -3,7 +3,7 @@ ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 
 # extras or core
-FROM ${BASE_IMAGE} as requirements-core
+FROM ${BASE_IMAGE} AS requirements-core
 
 USER root
 
@@ -24,7 +24,7 @@ RUN apt-get update && \
     apt-get install -y ca-certificates curl python3-pip unzip && apt-get clean
 
 # Install Go
-RUN curl -L -s https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz | tar -C /usr/local -xz
+RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH $PATH:/usr/local/go/bin
 
 # Install grpc compilers
@@ -80,7 +80,7 @@ RUN test -n "$TARGETARCH" \
 ###################################
 ###################################
 
-FROM requirements-core as requirements-extras
+FROM requirements-core AS requirements-extras
 
 RUN apt install -y gpg && \
     curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
@@ -105,7 +105,7 @@ RUN if [ ! -e /usr/bin/python ]; then \
 ###################################
 ###################################
 
-FROM ${GRPC_BASE_IMAGE} as grpc
+FROM ${GRPC_BASE_IMAGE} AS grpc
 
 ARG MAKEFLAGS
 ARG GRPC_VERSION=v1.58.0
@@ -121,16 +121,15 @@ RUN apt-get update && \
 
 RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc
 
-RUN cd grpc && \
-    mkdir -p cmake/build && \
-    cd cmake/build && \
-    cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF ../.. && \
+WORKDIR /build/grpc/cmake/build
+
+RUN cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF ../.. && \
     make
 
 ###################################
 ###################################
 
-FROM requirements-${IMAGE_TYPE} as builder
+FROM requirements-${IMAGE_TYPE} AS builder
 
 ARG GO_TAGS="stablediffusion tts"
 ARG GRPC_BACKENDS
@@ -168,9 +167,11 @@ RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
 COPY --from=grpc /build/grpc ./grpc/
 
-RUN cd /build/grpc/cmake/build && make install
+WORKDIR /build/grpc/cmake/build
+RUN make install
 
 # Rebuild with defaults backends
+WORKDIR /build
 RUN make build
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
@@ -288,7 +289,7 @@ RUN mkdir -p /build/models
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
-  CMD curl -f $HEALTHCHECK_ENDPOINT || exit 1
+  CMD curl -f ${HEALTHCHECK_ENDPOINT} || exit 1
   
 VOLUME /build/models
 EXPOSE 8080
