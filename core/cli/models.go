@@ -25,7 +25,7 @@ type ModelsInstall struct {
 }
 
 type ModelsCMD struct {
-	List    ModelsList    `cmd:"" help:"List the models avaiable in your galleries" default:"withargs"`
+	List    ModelsList    `cmd:"" help:"List the models available in your galleries" default:"withargs"`
 	Install ModelsInstall `cmd:"" help:"Install a model from the gallery"`
 }
 
