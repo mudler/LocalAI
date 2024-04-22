@@ -21,9 +21,10 @@ func RegisterUIRoutes(app *fiber.App,
 	galleryService *services.GalleryService,
 	auth func(*fiber.Ctx) error) {
 
-	models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 	// Show the Models page
 	app.Get("/browse", auth, func(c *fiber.Ctx) error {
+		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
+
 		summary := fiber.Map{
 			"Title":  "LocalAI API - Models",
 			"Models": template.HTML(elements.ListModels(models)),
@@ -43,6 +44,8 @@ func RegisterUIRoutes(app *fiber.App,
 		if err := c.BodyParser(&form); err != nil {
 			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 		}
+
+		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
 		filteredModels := []*gallery.GalleryModel{}
 		for _, m := range models {
