@@ -6,3 +6,6 @@ examples/chatbot-ui/models
 examples/rwkv/models
 examples/**/models
 Dockerfile*
+
+# SonarQube
+.scannerwork
