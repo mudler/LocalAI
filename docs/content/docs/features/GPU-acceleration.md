@@ -204,18 +204,20 @@ The rebuild process will take some time to complete when deploying these contain
 
 #### Example (k8s) (Advanced Deployment/WIP)
 
-For k8s deployments there is an additional step required before deployment, this is the deployment of the [ROCm/k8s-device-plugin](https://github.com/ROCm/k8s-device-plugin).
+For k8s deployments there is an additional step required before deployment, this is the deployment of the [ROCm/k8s-device-plugin](https://artifacthub.io/packages/helm/amd-gpu-helm/amd-gpu).
 For any k8s environment the documentation provided by AMD from the ROCm project should be successful. It is recommended that if you use rke2 or OpenShift that you deploy the SUSE or RedHat provided version of this resource to ensure compatability.
 After this has been completed the [helm chart from go-skynet](https://github.com/go-skynet/helm-charts) can be configured and deployed mostly un-edited.
 
 The following are details of the changes that should be made to ensure proper function.
 While these details may be configurable in the `values.yaml` development of this Helm chart is ongoing and is subject to change.
 
+The following details indicate the final state of the localai deployment relevant to GPU function.
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: localai-local-ai
+  name: {DEPNM}-local-ai
 ...
 spec:
   ...
@@ -225,7 +227,10 @@ spec:
       containers:
         - env:
             - name: HIP_VISIBLE_DEVICES
-              value: '0' # This variable
+              value: '0'
+              # This variable indicates the devices availible to container (0:device1 1:device2 2:device3) etc.
+              # For multiple devices (say device 1 and 3) the value would be '0,2'
+              # Please take note of this when an iGPU is present in host system.
           ...
           resources:
             limits:
