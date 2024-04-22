@@ -204,7 +204,7 @@ The rebuild process will take some time to complete when deploying these contain
 
 #### Example (k8s) (Advanced Deployment/WIP)
 
-For k8s deployments there is an additional step required before deployment, this is the deployment of the (ROCm/k8s-device-plugin)[https://github.com/ROCm/k8s-device-plugin].
+For k8s deployments there is an additional step required before deployment, this is the deployment of the [ROCm/k8s-device-plugin](https://github.com/ROCm/k8s-device-plugin).
 For any k8s environment the documentation provided by AMD from the ROCm project should be successful. It is recommended that if you use rke2 or OpenShift that you deploy the SUSE or RedHat provided version of this resource to ensure compatability.
 After this has been completed the helm chart from go-skynet can be configured and deployed mostly un-edited.
 
