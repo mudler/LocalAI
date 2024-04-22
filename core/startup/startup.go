@@ -153,7 +153,7 @@ func createApplication(appConfig *config.ApplicationConfig) *core.Application {
 
 	app.LocalAIMetricsService, err = services.NewLocalAIMetricsService()
 	if err != nil {
-		log.Warn().Msg("Unable to initialize LocalAIMetricsService - non-fatal, optional service")
+		log.Error().Err(err).Msg("encountered an error initializing metrics service, startup will continue but metrics will not be tracked.")
 	}
 
 	return app

@@ -16,21 +16,21 @@ import (
 )
 
 type BackendMonitorService struct {
-	configLoader *config.BackendConfigLoader
-	modelLoader  *model.ModelLoader
-	options      *config.ApplicationConfig // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
+	backendConfigLoader *config.BackendConfigLoader
+	modelLoader         *model.ModelLoader
+	options             *config.ApplicationConfig // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
 
 func NewBackendMonitorService(modelLoader *model.ModelLoader, configLoader *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *BackendMonitorService {
 	return &BackendMonitorService{
-		modelLoader:  modelLoader,
-		configLoader: configLoader,
-		options:      appConfig,
+		modelLoader:         modelLoader,
+		backendConfigLoader: configLoader,
+		options:             appConfig,
 	}
 }
 
 func (bms BackendMonitorService) getModelLoaderIDFromModelName(modelName string) (string, error) {
-	config, exists := bms.configLoader.GetBackendConfig(modelName)
+	config, exists := bms.backendConfigLoader.GetBackendConfig(modelName)
 	var backendId string
 	if exists {
 		backendId = config.Model
@@ -47,7 +47,7 @@ func (bms BackendMonitorService) getModelLoaderIDFromModelName(modelName string)
 }
 
 func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
-	config, exists := bms.configLoader.GetBackendConfig(model)
+	config, exists := bms.backendConfigLoader.GetBackendConfig(model)
 	var backend string
 	if exists {
 		backend = config.Model
