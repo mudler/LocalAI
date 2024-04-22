@@ -14,13 +14,12 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	cl *config.BackendConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
+	galleryService *services.GalleryService,
 	auth func(*fiber.Ctx) error) {
 
 	app.Get("/swagger/*", swagger.HandlerDefault) // default
 
 	// LocalAI API endpoints
-	galleryService := services.NewGalleryService(appConfig.ModelPath)
-	galleryService.Start(appConfig.Context, cl)
 
 	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
 	app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
