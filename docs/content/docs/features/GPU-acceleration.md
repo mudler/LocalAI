@@ -156,25 +156,91 @@ The devices in the following list have been tested with `hipblas` images running
 | vall-e-x | no | none |
 | vllm | no | none |
 
-### Setup
+You can help by expanding this list.
+
+### System Prep
 
 1. Check your GPU LLVM target is compatible with the version of ROCm. This can be found in the [LLVM Docs](https://llvm.org/docs/AMDGPUUsage.html).
 2. Check which ROCm version is compatible with your LLVM target and your chosen OS (pay special attention to supported kernel versions). See the following for compatability for ([ROCm 6.0.0](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-6.0.0/reference/system-requirements.html)) or ([ROCm 6.0.2](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html))
 3. Install you chosen version of the `dkms` and `rocm` (it is recommended that the native package manager be used for this process for any OS as version changes are executed more easily via this method if updates are required). Take care to restart after installing `amdgpu-dkms` and before installing `rocm`, for details regarding this see the installation documentation for your chosen OS ([6.0.2](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/native-install/index.html) or [6.0.0](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-6.0.0/how-to/native-install/index.html))
+4. Deploy. Yes it's that easy. The configura
 
+#### Setup Example (Docker/containerd)
 
-#### Example (Docker/containerd)
+The following are examples of the ROCm specific configuration elements required.
 
+```yaml
+# docker-compose.yaml
+    # For full functionality select a non-'core' image, version locking the image is recommended for debug purposes
+    image: quay.io/go-skynet/local-ai:master-aio-gpu-hipblas
+    environment:
+      - DEBUG=true
+      # If your gpu is not already included in the current list of default targets the following build details are required
+      - REBUILD=true
+      - BUILD_TYPE=hipblas
+      - GPU_TARGETS=gfx906 # Example for Radeon VII
+    devices:
+      # AMD GPU only require the following devices be passed through to the container for offloading to occur
+      - /dev/dri
+      - /dev/kfd
+```
 
+The same can also be executed as a `run` for your container runtime
 
-#### Example (k8s)
+```
+docker run \
+ -e DEBUG=true \
+ -e REBUILD=true \
+ -e BUILD_TYPE=hipblas \
+ -e GPU_TARGETS=gfx906 \
+ --device /dev/dri \
+ --device /dev/kfd \
+ quay.io/go-skynet/local-ai:master-aio-gpu-hipblas
+```
 
+Please ensure to add all other required environment variables, port forwardings, etc to your `compose` file or `run` command.
+
+The rebuild process will take some time to complete when deploying these containers and it is recommended that you `pull` the image prior to deployment as depending on the version these images may be ~20GB in size.
+
+#### Example (k8s) (Advanced Deployment/WIP)
+
+For k8s deployments there is an additional step required before deployment, this is the deployment of the (ROCm/k8s-device-plugin)[https://github.com/ROCm/k8s-device-plugin].
+For any k8s environment the documentation provided by AMD from the ROCm project should be successful. It is recommended that if you use rke2 or OpenShift that you deploy the SUSE or RedHat provided version of this resource to ensure compatability.
+After this has been completed the helm chart from go-skynet can be configured and deployed mostly un-edited.
+
+The following are details of the changes that should be made to ensure proper function.
+While these details may be configurable in the `values.yaml` development of this Helm chart is ongoing and is subject to change.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localai-local-ai
+...
+spec:
+  ...
+  template:
+    ...
+    spec:
+      containers:
+        - env:
+            - name: HIP_VISIBLE_DEVICES
+              value: '0' # This variable
+          ...
+          resources:
+            limits:
+              amd.com/gpu: '1'
+            requests:
+              amd.com/gpu: '1'
+```
+
+This configuration has been tested on a 'custom' cluster managed by SUSE Rancher that was deployed on top of Ubuntu 22.04.4, certification of other configuration is ongoing compatability is not gauranteed.
 
 ### Notes
 
-When installing the ROCM kernel driver on your system ensure that you are installing a newer version that that which is currently implemented in LocalAI (6.0.0 at time of writing).
-
-AMD documentation indicates that this 
+- When installing the ROCM kernel driver on your system ensure that you are installing an equal or newer version that that which is currently implemented in LocalAI (6.0.0 at time of writing).
+- AMD documentation indicates that this will ensure functionality however your milage may vary depending on the GPU and distro you are using.
+- If you encounter an Error 413 on attempting to upload an audio file or image for whisper or llava/bakllava on a k8s deployment, note that the ingress for your deployment may require the annontation `nginx.ingress.kubernetes.io/proxy-body-size: "25m"` to allow larger uploads. This may be included in future versions of the helm chart. 
 
 ## Intel acceleration (sycl)
 
