@@ -85,5 +85,10 @@ func ModelTTS(backend, text, modelFile, voice string, loader *model.ModelLoader,
 		Dst:   filePath,
 	})
 
+	// return RPC error if any
+	if !res.Success {
+		return "", nil, fmt.Errorf(res.Message)
+	}
+
 	return filePath, res, err
 }
