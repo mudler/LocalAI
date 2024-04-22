@@ -46,6 +46,8 @@ Coqui works without any configuration, to test it, you can run the following cur
         }'
 ```
 
+You can use the env variable COQUI_LANGUAGE to set the language used by the coqui backend.
+
 ### Bark
 
 [Bark](https://github.com/suno-ai/bark) allows to generate audio from text prompts.
