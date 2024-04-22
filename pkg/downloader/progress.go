@@ -20,6 +20,10 @@ func (pw *progressWriter) Write(p []byte) (n int, err error) {
 		percentage := float64(pw.written) / float64(pw.total) * 100
 		if pw.totalFiles > 1 {
 			// This is a multi-file download
+			// so we need to adjust the percentage
+			// to reflect the progress of the whole download
+			// This is the file pw.fileNo of pw.totalFiles files. We assume that
+			// the files before successfully downloaded.
 			percentage = percentage / float64(pw.totalFiles)
 			if pw.fileNo > 1 {
 				percentage += float64(pw.fileNo-1) * 100 / float64(pw.totalFiles)

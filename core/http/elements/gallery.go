@@ -23,6 +23,21 @@ func DoneProgress(uid string) string {
 	).Render()
 }
 
+func ErrorProgress(err string) string {
+	return elem.Div(
+		attrs.Props{},
+		elem.H3(
+			attrs.Props{
+				"role":      "status",
+				"id":        "pblabel",
+				"tabindex":  "-1",
+				"autofocus": "",
+			},
+			elem.Text("Error"+err),
+		),
+	).Render()
+}
+
 func ProgressBar(progress string) string {
 	return elem.Div(attrs.Props{
 		"class":           "progress",

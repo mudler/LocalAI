@@ -59,22 +59,25 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// https://htmx.org/examples/progress-bar/
 	app.Post("/browse/install/model/:id", auth, func(c *fiber.Ctx) error {
-		galleryID := c.Params("id")
+		galleryID := strings.Clone(c.Params("id")) // strings.Clone is required!
 
-		uuid, err := uuid.NewUUID()
+		id, err := uuid.NewUUID()
 		if err != nil {
 			return err
 		}
 
+		uid := id.String()
+
+		op := gallery.GalleryOp{
+			Id:          uid,
+			GalleryName: galleryID,
+			Galleries:   appConfig.Galleries,
+		}
 		go func() {
-			galleryService.C <- gallery.GalleryOp{
-				Id:          uuid.String(),
-				GalleryName: galleryID,
-				Galleries:   appConfig.Galleries,
-			}
+			galleryService.C <- op
 		}()
 
-		return c.SendString(elements.StartProgressBar(uuid.String(), "0"))
+		return c.SendString(elements.StartProgressBar(uid, "0"))
 	})
 
 	// https://htmx.org/examples/progress-bar/
@@ -87,9 +90,12 @@ func RegisterUIRoutes(app *fiber.App,
 			return c.SendString(elements.ProgressBar("0"))
 		}
 
-		if status.Processed || status.Progress == 100 {
+		if status.Progress == 100 {
 			c.Set("HX-Trigger", "done")
 			return c.SendString(elements.ProgressBar("100"))
+		}
+		if status.Error != nil {
+			return c.SendString(elements.ErrorProgress(status.Error.Error()))
 		}
 
 		return c.SendString(elements.ProgressBar(fmt.Sprint(status.Progress)))
