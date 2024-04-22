@@ -13,11 +13,7 @@ func RegisterPagesRoutes(app *fiber.App,
 	appConfig *config.ApplicationConfig,
 	auth func(*fiber.Ctx) error) {
 
-	models, _ := ml.ListModels()
-	backendConfigs := cl.GetAllBackendConfigs()
-
 	if !appConfig.DisableWelcomePage {
-		app.Get("/", auth, localai.WelcomeEndpoint(appConfig, models, backendConfigs))
+		app.Get("/", auth, localai.WelcomeEndpoint(appConfig, cl, ml))
 	}
-
 }
