@@ -114,6 +114,8 @@ message PredictOptions {
 // The response message containing the result
 message Reply {
   bytes message = 1;
+  int32 tokens = 2;
+  int32 prompt_tokens = 3;
 }
 
 message ModelOptions {
@@ -175,6 +177,7 @@ message ModelOptions {
   bool   EnforceEager = 52;
   int32  SwapSpace = 53;
   int32  MaxModelLen = 54;
+  int32  TensorParallelSize = 55;
 
   string MMProj = 41;
 

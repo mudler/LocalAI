@@ -6,6 +6,10 @@ on:
     inputs:
       base-image:
         description: 'Base image'
+        required: true
+        type: string
+      grpc-base-image:
+        description: 'GRPC Base image, must be a compatible image with base-image'
         required: false
         default: ''
         type: string
@@ -57,7 +61,7 @@ on:
       makeflags:
         description: 'Make Flags'
         required: false
-        default: '--jobs=3 --output-sync=target'
+        default: '--jobs=4 --output-sync=target'
         type: string
       aio:
         description: 'AIO Image Name'
@@ -201,15 +205,16 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           builder: ${{ steps.buildx.outputs.name }}
+          # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
+          # This means that even the MAKEFLAGS have to be an EXACT match.
+          # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
           build-args: |
-            IMAGE_TYPE=${{ inputs.image-type }}
-            BASE_IMAGE=${{ inputs.base-image }}
-            MAKEFLAGS=${{ inputs.makeflags }}
+            GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
+            MAKEFLAGS=--jobs=4 --output-sync=target
             GRPC_VERSION=v1.58.0
           context: .
           file: ./Dockerfile
           cache-from: type=gha
-          cache-to: type=gha,ignore-error=true
           target: grpc
           platforms: ${{ inputs.platforms }}
           push: false

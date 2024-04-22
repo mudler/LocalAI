@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=4bd0f93e4ab4fe6682e7d0241c1bdec1397e954a
+CPPLLAMA_VERSION?=b8109bc0139f15a5b321909f47510b89dca47ffc
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=8f253ef3af1c62c04316ba4afa7145fc4d701a8c
+WHISPER_CPP_VERSION?=b0c3cbf2e851cf232e432b590dcc514a689ec028
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
@@ -179,20 +179,20 @@ endif
 all: help
 
 ## BERT embeddings
-sources/go-bert:
-	git clone --recurse-submodules https://github.com/go-skynet/go-bert.cpp sources/go-bert
-	cd sources/go-bert && git checkout -b build $(BERT_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-bert.cpp:
+	git clone --recurse-submodules https://github.com/go-skynet/go-bert.cpp sources/go-bert.cpp
+	cd sources/go-bert.cpp && git checkout -b build $(BERT_VERSION) && git submodule update --init --recursive --depth 1
 
-sources/go-bert/libgobert.a: sources/go-bert
-	$(MAKE) -C sources/go-bert libgobert.a
+sources/go-bert.cpp/libgobert.a: sources/go-bert.cpp
+	$(MAKE) -C sources/go-bert.cpp libgobert.a
 
-## go-llama-ggml
-sources/go-llama-ggml:
-	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp sources/go-llama-ggml
-	cd sources/go-llama-ggml && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
+## go-llama.cpp
+sources/go-llama.cpp:
+	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp sources/go-llama.cpp
+	cd sources/go-llama.cpp && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
 
-sources/go-llama-ggml/libbinding.a: sources/go-llama-ggml
-	$(MAKE) -C sources/go-llama-ggml BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
+sources/go-llama.cpp/libbinding.a: sources/go-llama.cpp
+	$(MAKE) -C sources/go-llama.cpp BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
 
 ## go-piper
 sources/go-piper:
@@ -211,12 +211,12 @@ sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
 
 ## RWKV
-sources/go-rwkv:
-	git clone --recurse-submodules $(RWKV_REPO) sources/go-rwkv
-	cd sources/go-rwkv && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
+sources/go-rwkv.cpp:
+	git clone --recurse-submodules $(RWKV_REPO) sources/go-rwkv.cpp
+	cd sources/go-rwkv.cpp && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
 
-sources/go-rwkv/librwkv.a: sources/go-rwkv
-	cd sources/go-rwkv && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
+sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
+	cd sources/go-rwkv.cpp && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
 
 ## stable diffusion
 sources/go-stable-diffusion:
@@ -236,23 +236,24 @@ sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
 
 ## whisper
 sources/whisper.cpp:
-	git clone https://github.com/ggerganov/whisper.cpp.git sources/whisper.cpp
+	git clone https://github.com/ggerganov/whisper.cpp sources/whisper.cpp
 	cd sources/whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
 
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && make libwhisper.a
 
-get-sources: sources/go-llama-ggml sources/gpt4all sources/go-piper sources/go-rwkv sources/whisper.cpp sources/go-bert sources/go-stable-diffusion sources/go-tiny-dream
+get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream
 
 replace:
-	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(CURDIR)/sources/go-rwkv
+	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(CURDIR)/sources/go-rwkv.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(CURDIR)/sources/go-bert
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(CURDIR)/sources/go-bert.cpp
 	$(GOCMD) mod edit -replace github.com/M0Rf30/go-tiny-dream=$(CURDIR)/sources/go-tiny-dream
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(CURDIR)/sources/go-piper
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/nomic-ai/gpt4all/gpt4all-bindings/golang=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang
+	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama.cpp
 
 dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/donomii/go-rwkv.cpp
@@ -271,12 +272,12 @@ prepare-sources: get-sources replace
 ## GENERIC
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
-	$(MAKE) -C sources/go-llama-ggml clean
+	$(MAKE) -C sources/go-llama.cpp clean
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ clean
-	$(MAKE) -C sources/go-rwkv clean
+	$(MAKE) -C sources/go-rwkv.cpp clean
 	$(MAKE) -C sources/whisper.cpp clean
 	$(MAKE) -C sources/go-stable-diffusion clean
-	$(MAKE) -C sources/go-bert clean
+	$(MAKE) -C sources/go-bert.cpp clean
 	$(MAKE) -C sources/go-piper clean
 	$(MAKE) -C sources/go-tiny-dream clean
 	$(MAKE) build
@@ -300,9 +301,6 @@ clean-tests:
 	rm -rf test-models
 	rm -rf test-dir
 	rm -rf core/http/backend-assets
-
-halt-backends:		## Used to clean up stray backends sometimes left running when debugging manually
-	ps | grep 'backend-assets/grpc/' | awk '{print $$1}' | xargs -I {} kill -9 {}
 
 ## Build:
 build: prepare backend-assets grpcs ## Build the project
@@ -368,13 +366,13 @@ run-e2e-image:
 
 run-e2e-aio:
 	@echo 'Running e2e AIO tests'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts 5 -v -r ./tests/e2e-aio
 
 test-e2e:
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
 	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390/v1 \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts 5 -v -r ./tests/e2e
 
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
@@ -382,15 +380,15 @@ teardown-e2e:
 
 test-gpt4all: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="gpt4all" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="gpt4all" --flake-attempts 5 -v -r $(TEST_PATHS)
 
 test-llama: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="llama" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="llama" --flake-attempts 5 -v -r $(TEST_PATHS)
 
 test-llama-gguf: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="llama-gguf" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="llama-gguf" --flake-attempts 5 -v -r $(TEST_PATHS)
 
 test-tts: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
@@ -601,8 +599,8 @@ backend-assets/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/golang/
 backend-assets/grpc: protogen-go replace
 	mkdir -p backend-assets/grpc
 
-backend-assets/grpc/bert-embeddings: sources/go-bert sources/go-bert/libgobert.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-bert LIBRARY_PATH=$(CURDIR)/sources/go-bert \
+backend-assets/grpc/bert-embeddings: sources/go-bert.cpp sources/go-bert.cpp/libgobert.a backend-assets/grpc
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-bert.cpp LIBRARY_PATH=$(CURDIR)/sources/go-bert.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bert-embeddings ./backend/go/llm/bert/
 
 backend-assets/grpc/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a backend-assets/gpt4all backend-assets/grpc
@@ -644,20 +642,16 @@ ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
 
-backend-assets/grpc/llama-ggml: sources/go-llama-ggml sources/go-llama-ggml/libbinding.a backend-assets/grpc
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama-ggml
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama-ggml LIBRARY_PATH=$(CURDIR)/sources/go-llama-ggml \
+backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
-#	EXPERIMENTAL:
-ifeq ($(BUILD_TYPE),metal)
-	cp $(CURDIR)/sources/go-llama-ggml/llama.cpp/ggml-metal.metal backend-assets/grpc/
-endif
+
 backend-assets/grpc/piper: sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
 	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-piper \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
 
-backend-assets/grpc/rwkv: sources/go-rwkv sources/go-rwkv/librwkv.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-rwkv LIBRARY_PATH=$(CURDIR)/sources/go-rwkv \
+backend-assets/grpc/rwkv: sources/go-rwkv.cpp sources/go-rwkv.cpp/librwkv.a backend-assets/grpc
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-rwkv.cpp LIBRARY_PATH=$(CURDIR)/sources/go-rwkv.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/rwkv ./backend/go/llm/rwkv
 
 backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stable-diffusion/libstablediffusion.a backend-assets/grpc
@@ -720,4 +714,4 @@ docker-image-intel-xpu:
 
 .PHONY: swagger
 swagger:
-	swag init -g core/http/api.go --output swagger
+	swag init -g core/http/app.go --output swagger

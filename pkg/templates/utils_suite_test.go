@@ -1,4 +1,4 @@
-package grammar
+package templates_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestGrammar(t *testing.T) {
+func TestTemplates(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Grammar test suite")
+	RunSpecs(t, "Templates test suite")
 }

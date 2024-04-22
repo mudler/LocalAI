@@ -1,4 +1,4 @@
-package grammar
+package functions
 
 import (
 	"encoding/json"

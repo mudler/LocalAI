@@ -72,6 +72,7 @@ Version: ${version}
 		kong.Vars{
 			"basepath":         kong.ExpandPath("."),
 			"remoteLibraryURL": "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/model_library.yaml",
+			"galleries":        `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml"}]`,
 			"version":          internal.PrintableVersion(),
 		},
 	)
@@ -91,17 +92,20 @@ Version: ${version}
 
 	switch *cli.CLI.LogLevel {
 	case "error":
-		log.Info().Msg("Setting logging to error")
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+		log.Info().Msg("Setting logging to error")
 	case "warn":
-		log.Info().Msg("Setting logging to warn")
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+		log.Info().Msg("Setting logging to warn")
 	case "info":
-		log.Info().Msg("Setting logging to info")
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		log.Info().Msg("Setting logging to info")
 	case "debug":
-		log.Info().Msg("Setting logging to debug")
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		log.Debug().Msg("Setting logging to debug")
+	case "trace":
+		zerolog.SetGlobalLevel(zerolog.TraceLevel)
+		log.Trace().Msg("Setting logging to trace")
 	}
 
 	// Populate the application with the embedded backend assets

@@ -1,5 +1,6 @@
 ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
+ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 
 # extras or core
 FROM ${BASE_IMAGE} as requirements-core
@@ -104,7 +105,7 @@ RUN if [ ! -e /usr/bin/python ]; then \
 ###################################
 ###################################
 
-FROM ${BASE_IMAGE} as grpc
+FROM ${GRPC_BASE_IMAGE} as grpc
 
 ARG MAKEFLAGS
 ARG GRPC_VERSION=v1.58.0
