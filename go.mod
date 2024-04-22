@@ -1,6 +1,8 @@
 module github.com/go-skynet/LocalAI
 
-go 1.21
+go 1.21.1
+
+toolchain go1.22.2
 
 require (
 	github.com/M0Rf30/go-tiny-dream v0.0.0-20231128165230-772a9c0d9aaf
@@ -71,6 +73,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/chasefleming/elem-go v0.25.0 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.8.1 // indirect

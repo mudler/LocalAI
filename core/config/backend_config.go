@@ -512,7 +512,7 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 	for i, config := range cl.configs {
 
 		// Download files and verify their SHA
-		for _, file := range config.DownloadFiles {
+		for i, file := range config.DownloadFiles {
 			log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
 
 			if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
@@ -521,7 +521,7 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 			// Create file path
 			filePath := filepath.Join(modelPath, file.Filename)
 
-			if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, status); err != nil {
+			if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, i, len(config.DownloadFiles), status); err != nil {
 				return err
 			}
 		}
@@ -535,7 +535,7 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", status)
+				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", 0, 0, status)
 				if err != nil {
 					return err
 				}

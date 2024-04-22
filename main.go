@@ -72,7 +72,7 @@ Version: ${version}
 		kong.Vars{
 			"basepath":         kong.ExpandPath("."),
 			"remoteLibraryURL": "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/model_library.yaml",
-			"galleries":        `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml"}]`,
+			"galleries":        `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml@master"}]`,
 			"version":          internal.PrintableVersion(),
 		},
 	)

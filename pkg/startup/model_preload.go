@@ -54,7 +54,7 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
 				modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
-				err := downloader.DownloadFile(url, modelDefinitionFilePath, "", func(fileName, current, total string, percent float64) {
+				err := downloader.DownloadFile(url, modelDefinitionFilePath, "", 0, 0, func(fileName, current, total string, percent float64) {
 					utils.DisplayDownloadFunction(fileName, current, total, percent)
 				})
 				if err != nil {

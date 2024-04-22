@@ -102,7 +102,7 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 	}
 
 	// Download files and verify their SHA
-	for _, file := range config.Files {
+	for i, file := range config.Files {
 		log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
 
 		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
@@ -111,7 +111,7 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		// Create file path
 		filePath := filepath.Join(basePath, file.Filename)
 
-		if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, downloadStatus); err != nil {
+		if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
 			return err
 		}
 	}
