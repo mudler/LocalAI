@@ -86,6 +86,18 @@ func StartProgressBar(uid, progress string) string {
 	).Render()
 }
 
+func cardSpan(text, icon string) elem.Node {
+	return elem.Span(
+		attrs.Props{
+			"class": "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2",
+		},
+		elem.I(attrs.Props{
+			"class": icon + " pr-2",
+		}),
+		elem.Text(text),
+	)
+}
+
 func ListModels(models []*gallery.GalleryModel) string {
 	modelsElements := []elem.Node{}
 	span := func(s string) elem.Node {
@@ -99,10 +111,17 @@ func ListModels(models []*gallery.GalleryModel) string {
 	installButton := func(m *gallery.GalleryModel) elem.Node {
 		return elem.Button(
 			attrs.Props{
-				"class": "float-right inline-block rounded bg-primary px-6 pb-2 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+				"data-twe-ripple-init":  "",
+				"data-twe-ripple-color": "light",
+				"class":                 "float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
 				// post the Model ID as param
 				"hx-post": "/browse/install/model/" + fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name),
 			},
+			elem.I(
+				attrs.Props{
+					"class": "fa-solid fa-download pr-2",
+				},
+			),
 			elem.Text("Install"),
 		)
 	}
@@ -111,7 +130,7 @@ func ListModels(models []*gallery.GalleryModel) string {
 
 		return elem.Div(
 			attrs.Props{
-				"class": "p-6",
+				"class": "p-6 text-surface dark:text-white",
 			},
 			elem.H5(
 				attrs.Props{
@@ -129,42 +148,93 @@ func ListModels(models []*gallery.GalleryModel) string {
 	}
 
 	actionDiv := func(m *gallery.GalleryModel) elem.Node {
+		nodes := []elem.Node{
+			cardSpan("Repository: "+m.Gallery.Name, "fa-brands fa-git-alt"),
+		}
+
+		if m.License != "" {
+			nodes = append(nodes,
+				cardSpan("License: "+m.License, "fas fa-book"),
+			)
+		}
+
+		for _, tag := range m.Tags {
+			nodes = append(nodes,
+				cardSpan(tag, "fas fa-tag"),
+			)
+		}
+
+		for i, url := range m.URLs {
+			nodes = append(nodes,
+				elem.A(
+					attrs.Props{
+						"class":  "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2",
+						"href":   url,
+						"target": "_blank",
+					},
+					elem.I(attrs.Props{
+						"class": "fas fa-link pr-2",
+					}),
+					elem.Text("Link #"+fmt.Sprintf("%d", i+1)),
+				))
+		}
+
 		return elem.Div(
 			attrs.Props{
 				"class": "px-6 pt-4 pb-2",
 			},
-			elem.Span(
+			elem.P(
 				attrs.Props{
-					"class": "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2",
+					"class": "mb-4 text-base",
 				},
-				elem.Text("Repository: "+m.Gallery.Name),
+				nodes...,
 			),
 			elem.If(m.Installed, span("Installed"), installButton(m)),
 		)
 	}
 
 	for _, m := range models {
+
+		elems := []elem.Node{}
+
+		if m.Icon != "" {
+			elems = append(elems,
+
+				elem.Div(attrs.Props{
+					"class": "flex justify-center items-center",
+				},
+					elem.A(attrs.Props{
+						"href": "#!",
+						//		"class": "justify-center items-center",
+					},
+						elem.Img(attrs.Props{
+							//	"class": "rounded-t-lg object-fit object-center h-96",
+							"class": "rounded-t-lg max-h-48 max-w-96 object-cover",
+							"src":   m.Icon,
+						}),
+					),
+				))
+		}
+
+		elems = append(elems, descriptionDiv(m), actionDiv(m))
 		modelsElements = append(modelsElements,
 			elem.Div(
 				attrs.Props{
-					"class": "me-4 mb-2 block rounded-lg bg-white shadow-secondary-1  dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface p-2",
+					"class": " me-4 mb-2 block rounded-lg bg-white shadow-secondary-1  dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2",
 				},
 				elem.Div(
 					attrs.Props{
-						"class": "p-6",
+						//	"class": "p-6",
 					},
-					descriptionDiv(m),
-					actionDiv(m),
-				//	elem.If(m.Installed, span("Installed"), installButton(m)),
-
-				//	elem.If(m.Installed, span("Installed"), span("Not Installed")),
+					elems...,
 				),
 			),
 		)
 	}
 
 	wrapper := elem.Div(attrs.Props{
-		"class": "dark grid grid-cols-1 grid-rows-1 md:grid-cols-2 ",
+		"class": "dark grid grid-cols-1 grid-rows-1 md:grid-cols-3 block rounded-lg shadow-secondary-1 dark:bg-surface-dark",
+		//"class": "block rounded-lg bg-white shadow-secondary-1 dark:bg-surface-dark",
 	}, modelsElements...)
 
 	return wrapper.Render()

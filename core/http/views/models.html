@@ -7,20 +7,14 @@
    
     {{template "views/partials/navbar" .}}
     <div class="container mx-auto px-4 flex-grow">
-        <div class="header text-center py-12">
-            <h1 class="text-5xl font-bold text-gray-100">Welcome to <i>your</i> LocalAI instance!</h1>
-            <div class="mt-6">
-                <!-- Logo can be uncommented and updated with a valid URL -->
-            </div>
-            <p class="mt-4 text-lg">The FOSS alternative to OpenAI, Claude, ...</p>
-            <a href="https://localai.io" target="_blank" class="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded-lg shadow transition duration-300 ease-in-out hover:bg-blue-700 hover:shadow-lg">
-                <i class="fas fa-book-reader pr-2"></i>Documentation
-            </a>
-        </div>
 
         <div class="models mt-12">
-            <h2 class="text-center text-3xl font-semibold text-gray-100">Available models from repositories</h2>
-
+            <h2 class="text-center text-3xl font-semibold text-gray-100">
+                🖼️ Available models from <i>{{ len .Repositories }}</i> repositories     <a href="https://localai.io/models/" target="_blank" >
+                    <i class="fas fa-circle-info pr-2"></i>
+                </a></h2> 
+            
+        
             <span class="htmx-indicator loader"></span>
             <input class="form-control appearance-none block w-full px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search" 
                 name="search" placeholder="Begin Typing To Search models..." 
