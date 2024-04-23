@@ -1,19 +1,4 @@
 name: "phi-2-orange"
-license: mit
-icon: "https://huggingface.co/rhysjones/phi-2-orange/resolve/main/phi-2-orange.jpg"
-description: |
-  A two-step finetune of Phi-2, with a bit of zest.
-
-  There is an updated model at rhysjones/phi-2-orange-v2 which has higher evals, if you wish to test.
-urls:
-- https://huggingface.co/rhysjones/phi-2-orange
-- https://huggingface.co/TheBloke/phi-2-orange-GGUF
-
-tags:
-- llm
-- gguf
-- gpu
-- cpu
 
 config_file: |
   mmap: true

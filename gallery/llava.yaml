@@ -1,18 +1,5 @@
 name: "llava"
-license: apache-2.0
 
-description: |
-  LLaVA represents a novel end-to-end trained large multimodal model that combines a vision encoder and Vicuna for general-purpose visual and language understanding, achieving impressive chat capabilities mimicking spirits of the multimodal GPT-4 and setting a new state-of-the-art accuracy on Science QA. 
-
-urls:
-- https://llava-vl.github.io/
-
-tags:
-- llm
-- multimodal
-- gguf
-- gpu
-- cpu
 
 config_file: |
   backend: llama-cpp

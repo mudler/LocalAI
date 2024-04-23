@@ -1,11 +1,5 @@
 name: "whisper-base"
-license: "MIT"
-urls:
-- https://github.com/ggerganov/whisper.cpp
-- https://huggingface.co/ggerganov/whisper.cpp
 
-description: |
-    Port of OpenAI's Whisper model in C/C++ 
     
 config_file: |
   backend: whisper

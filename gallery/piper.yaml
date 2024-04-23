@@ -1,15 +1,2 @@
 config_file: |
   backend: piper
-icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
-license: mit
-
-urls:
-  - https://github.com/rhasspy/piper
-
-description: |
-  A fast, local neural text to speech system that sounds great and is optimized for the Raspberry Pi 4. Piper is used in a variety of [projects](https://github.com/rhasspy/piper#people-using-piper).
-
-tags:
-- tts
-- text-to-speech
-- cpu
