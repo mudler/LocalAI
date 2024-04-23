@@ -8,6 +8,10 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 )
 
+const (
+	NoImage = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
+)
+
 func DoneProgress(uid string) string {
 	return elem.Div(
 		attrs.Props{},
@@ -197,24 +201,26 @@ func ListModels(models []*gallery.GalleryModel) string {
 
 		elems := []elem.Node{}
 
-		if m.Icon != "" {
-			elems = append(elems,
-
-				elem.Div(attrs.Props{
-					"class": "flex justify-center items-center",
-				},
-					elem.A(attrs.Props{
-						"href": "#!",
-						//		"class": "justify-center items-center",
-					},
-						elem.Img(attrs.Props{
-							//	"class": "rounded-t-lg object-fit object-center h-96",
-							"class": "rounded-t-lg max-h-48 max-w-96 object-cover mt-3",
-							"src":   m.Icon,
-						}),
-					),
-				))
+		if m.Icon == "" {
+			m.Icon = NoImage
 		}
+
+		elems = append(elems,
+
+			elem.Div(attrs.Props{
+				"class": "flex justify-center items-center",
+			},
+				elem.A(attrs.Props{
+					"href": "#!",
+					//		"class": "justify-center items-center",
+				},
+					elem.Img(attrs.Props{
+						//	"class": "rounded-t-lg object-fit object-center h-96",
+						"class": "rounded-t-lg max-h-48 max-w-96 object-cover mt-3",
+						"src":   m.Icon,
+					}),
+				),
+			))
 
 		elems = append(elems, descriptionDiv(m), actionDiv(m))
 		modelsElements = append(modelsElements,
