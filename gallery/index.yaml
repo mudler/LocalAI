@@ -235,7 +235,7 @@
     sha256: "40adc3b227bc36764de148fdda4df5df385adc06650d58d4dbe726ee0214eeff"
     uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q6_K.gguf"
 - <<: *hermes-2-pro-mistral
-  name: "hermes-2-pro-mistral"
+  name: "hermes-2-pro-mistral:Q8_0"
   overrides:
     parameters:
       model: Hermes-2-Pro-Mistral-7B.Q8_0.gguf
@@ -290,7 +290,7 @@
 ### START Image generation
 - &dreamshaper
   name: dreamshaper
-  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/ggO2sBDJ8Bhc6w-zwTx5j.png
+  icon: https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/dd9b038c-bd15-43ab-86ab-66e145ad7ff2/width=450/26072158-132340247-8k%20portrait%20of%20beautiful%20cyborg%20with%20brown%20hair,%20intricate,%20elegant,%20highly%20detailed,%20majestic,%20digital%20photography,%20art%20by%20artg_ed.jpeg
   license: other
 
   description: |
