@@ -1,11 +1,5 @@
 name: "tinydream"
-license: "BSD-3"
-urls:
-  - https://github.com/symisc/tiny-dream
-  - https://github.com/symisc/tiny-dream/blob/main/LICENSE
 
-description: |
-  An embedded, Header Only, Stable Diffusion C++ implementation
 config_file: |
   name: tinydream
   backend: tinydream

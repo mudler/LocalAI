@@ -4,6 +4,28 @@
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   name: "llama3-8b-instruct"
+  license: llama3
+
+  description: |
+      Meta developed and released the Meta Llama 3 family of large language models (LLMs), a collection of pretrained and instruction tuned generative text models in 8 and 70B sizes. The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks. Further, in developing these models, we took great care to optimize helpfulness and safety.
+
+      Model developers Meta
+
+      Variations Llama 3 comes in two sizes — 8B and 70B parameters — in pre-trained and instruction tuned variants.
+
+      Input Models input text only.
+
+      Output Models generate text and code only.
+
+      Model Architecture Llama 3 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
+  urls:
+  - https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
+
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
   overrides:
     parameters:
       model: Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
@@ -15,6 +37,20 @@
 ### START LLaVa
 - &llava
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
+  license: apache-2.0
+
+  description: |
+    LLaVA represents a novel end-to-end trained large multimodal model that combines a vision encoder and Vicuna for general-purpose visual and language understanding, achieving impressive chat capabilities mimicking spirits of the multimodal GPT-4 and setting a new state-of-the-art accuracy on Science QA. 
+
+  urls:
+  - https://llava-vl.github.io/
+
+  tags:
+  - llm
+  - multimodal
+  - gguf
+  - gpu
+  - cpu
   name: "llava-1.6-vicuna"
   overrides:
     mmproj: mmproj-vicuna7b-f16.gguf
@@ -52,8 +88,36 @@
     sha256: 09c230de47f6f843e4841656f7895cac52c6e7ec7392acb5e8527de8b775c45a
     uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-mmproj-Q8_0.gguf
 ### START Phi-2
-- &phi-2
+- &phi-2-chat
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
+  license: mit
+
+  description: |
+    Phi-2 fine-tuned by the OpenHermes 2.5 dataset optimised for multi-turn conversation and character impersonation.
+
+    The dataset has been pre-processed by doing the following:
+
+    - remove all refusals
+    - remove any mention of AI assistant
+    - split any multi-turn dialog generated in the dataset into multi-turn conversations records
+    - added nfsw generated conversations from the Teatime dataset
+
+    Developed by: l3utterfly
+    Funded by: Layla Network
+    Model type: Phi
+    Language(s) (NLP): English
+    License: MIT
+    Finetuned from model: Phi-2
+
+  urls:
+  - https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml
+  - https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml-gguf
+
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
   name: "phi-2-chat:Q8_0"
   overrides:
     parameters:
@@ -62,7 +126,7 @@
   - filename: "phi-2-layla-v1-chatml-Q8_0.gguf"
     sha256: "0cf542a127c2c835066a78028009b7eddbaf773cc2a26e1cb157ce5e09c1a2e0"
     uri: "huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q8_0.gguf"
-- <<: *phi-2
+- <<: *phi-2-chat
   name: "phi-2-chat"
   overrides:
     parameters:
@@ -71,7 +135,22 @@
   - filename: "phi-2-layla-v1-chatml-Q4_K.gguf"
     sha256: "b071e5624b60b8911f77261398802c4b4079c6c689e38e2ce75173ed62bc8a48"
     uri: "huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q4_K.gguf"
-- <<: *phi-2
+- <<: *phi-2-chat
+  license: mit
+  icon: "https://huggingface.co/rhysjones/phi-2-orange/resolve/main/phi-2-orange.jpg"
+  description: |
+    A two-step finetune of Phi-2, with a bit of zest.
+
+    There is an updated model at rhysjones/phi-2-orange-v2 which has higher evals, if you wish to test.
+  urls:
+  - https://huggingface.co/rhysjones/phi-2-orange
+  - https://huggingface.co/TheBloke/phi-2-orange-GGUF
+
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
   name: "phi-2-orange"
   overrides:
     parameters:
@@ -84,6 +163,19 @@
 - &phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
   name: "phi-3-mini-4k-instruct"
+  license: mit
+
+  description: |
+    The Phi-3-Mini-4K-Instruct is a 3.8B parameters, lightweight, state-of-the-art open model trained with the Phi-3 datasets that includes both synthetic data and the filtered publicly available websites data with a focus on high-quality and reasoning dense properties. The model belongs to the Phi-3 family with the Mini version in two variants 4K and 128K which is the context length (in tokens) it can support. The model has underwent a post-training process that incorporates both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. When assessed against benchmarks testing common sense, language understanding, math, code, long context and logical reasoning, Phi-3 Mini-4K-Instruct showcased a robust and state-of-the-art performance among models with less than 13 billion parameters.
+
+  urls:
+  - https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
+
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
   overrides:
     parameters:
       model: Phi-3-mini-4k-instruct-q4.gguf
@@ -104,6 +196,28 @@
 - &hermes-2-pro-mistral
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
   name: "hermes-2-pro-mistral"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/ggO2sBDJ8Bhc6w-zwTx5j.png
+  license: apache-2.0
+
+  description: |
+    Hermes 2 Pro is an upgraded, retrained version of Nous Hermes 2, consisting of an updated and cleaned version of the OpenHermes 2.5 Dataset, as well as a newly introduced Function Calling and JSON Mode dataset developed in-house.
+
+    This new version of Hermes maintains its excellent general task and conversation capabilities - but also excels at Function Calling, JSON Structured Outputs, and has improved on several other metrics as well, scoring a 90% on our function calling evaluation built in partnership with Fireworks.AI, and an 81% on our structured JSON Output evaluation.
+
+    Hermes Pro takes advantage of a special system prompt and multi-turn function calling structure with a new chatml role in order to make function calling reliable and easy to parse. Learn more about prompting below.
+
+    This work was a collaboration between Nous Research, @interstellarninja, and Fireworks.AI
+
+    Learn more about the function calling on our github repo here: https://github.com/NousResearch/Hermes-Function-Calling/tree/main
+
+  urls:
+  - https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF
+
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
   overrides:
     parameters:
       model: Hermes-2-Pro-Mistral-7B.Q4_0.gguf
@@ -135,6 +249,20 @@
 - &codellama
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   name: "codellama-7b"
+  license: llama2
+
+  description: |
+    Code Llama is a collection of pretrained and fine-tuned generative text models ranging in scale from 7 billion to 34 billion parameters. This model is designed for general code synthesis and understanding.
+
+  urls:
+  - https://huggingface.co/TheBloke/CodeLlama-7B-GGUF
+  - https://huggingface.co/meta-llama/CodeLlama-7b-hf
+
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
   overrides:
     parameters:
       model: codellama-7b.Q4_0.gguf
@@ -145,6 +273,14 @@
 
 ### START Embeddings
 - &sentencentransformers
+  description: |
+      This framework provides an easy method to compute dense vector representations for sentences, paragraphs, and images. The models are based on transformer networks like BERT / RoBERTa / XLM-RoBERTa etc. and achieve state-of-the-art performance in various tasks. Text is embedded in vector space such that similar text are closer and can efficiently be found using cosine similarity.
+  urls:
+  - https://github.com/UKPLab/sentence-transformers
+  tags:
+  - gpu
+  - cpu
+  - embeddings
   name: "all-MiniLM-L6-v2"
   url: "github:mudler/LocalAI/gallery/sentencetransformers.yaml@master"
   overrides:
@@ -152,8 +288,22 @@
       model: all-MiniLM-L6-v2
 
 ### START Image generation
-- &diffusers
+- &dreamshaper
   name: dreamshaper
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/ggO2sBDJ8Bhc6w-zwTx5j.png
+  license: other
+
+  description: |
+    A text-to-image model that uses Stable Diffusion 1.5 to generate images from text prompts. This model is DreamShaper model by Lykon.
+
+  urls:
+  - https://civitai.com/models/4384/dreamshaper
+
+  tags:
+  - text-to-image
+  - stablediffusion
+  - sd-1.5
+  - gpu
   url: "github:mudler/LocalAI/gallery/dreamshaper.yaml@master"
   overrides:
     parameters:
@@ -166,32 +316,71 @@
 ## Whisper
 - url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
   name: "whisper-1"
+  license: "MIT"
+  urls:
+  - https://github.com/ggerganov/whisper.cpp
+  - https://huggingface.co/ggerganov/whisper.cpp
+
+  description: |
+      Port of OpenAI's Whisper model in C/C++
   
 ## Bert embeddings
 - url: "github:mudler/LocalAI/gallery/bert-embeddings.yaml@master"
   name: "bert-embeddings"
-  
-- url: "github:mudler/LocalAI/gallery/bert-embeddings.yaml@master"
-  name: "text-embedding-ada-002"
-  
+  license: "Apache 2.0"
+  urls:
+  - https://huggingface.co/skeskinen/ggml
+  tags:
+  - embeddings
+  description: |
+      Bert model that can be used for embeddings
+
 ## Stable Diffusion
 - url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
-  name: stablediffusion
+  license: "BSD-3"
+  urls:
+  - https://github.com/EdVince/Stable-Diffusion-NCNN
+  - https://github.com/EdVince/Stable-Diffusion-NCNN/blob/main/LICENSE
+
+  description: |
+      Stable Diffusion in NCNN with c++, supported txt2img and img2img 
+  name: stablediffusion-cpp
   
 ## Tiny Dream
 - url: github:mudler/LocalAI/gallery/tinydream.yaml@master
   name: tinydream
-  
+  license: "BSD-3"
+  urls:
+    - https://github.com/symisc/tiny-dream
+    - https://github.com/symisc/tiny-dream/blob/main/LICENSE
+
+  description: |
+    An embedded, Header Only, Stable Diffusion C++ implementation
 ## Piper TTS
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- &piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  license: mit
+
+  urls:
+    - https://github.com/rhasspy/piper
+
+  description: |
+    A fast, local neural text to speech system that sounds great and is optimized for the Raspberry Pi 4. Piper is used in a variety of [projects](https://github.com/rhasspy/piper#people-using-piper).
+
+  tags:
+  - tts
+  - text-to-speech
+  - cpu
+
   override:
     parameters:
       model: en-us-kathleen-low.onnx
   files:
     - filename: voice-en-us-kathleen-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
   name: voice-ca-upc_ona-x-low
   override:
     parameters:
@@ -199,7 +388,8 @@
   files:
     - filename: voice-ca-upc_ona-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ca-upc_ona-x-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ca-upc_pau-x-low
   override:
     parameters:
@@ -207,7 +397,8 @@
   files:
     - filename: voice-ca-upc_pau-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ca-upc_pau-x-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-da-nst_talesyntese-medium
   override:
     parameters:
@@ -215,7 +406,8 @@
   files:
     - filename: voice-da-nst_talesyntese-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-da-nst_talesyntese-medium.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-eva_k-x-low
   override:
     parameters:
@@ -223,7 +415,8 @@
   files:
     - filename: voice-de-eva_k-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-eva_k-x-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-karlsson-low
   override:
     parameters:
@@ -231,7 +424,8 @@
   files:
     - filename: voice-de-karlsson-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-karlsson-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-kerstin-low
   override:
     parameters:
@@ -239,7 +433,8 @@
   files:
     - filename: voice-de-kerstin-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-kerstin-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-pavoque-low
   override:
     parameters:
@@ -247,7 +442,8 @@
   files:
     - filename: voice-de-pavoque-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-pavoque-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-ramona-low
   override:
     parameters:
@@ -255,7 +451,8 @@
   files:
     - filename: voice-de-ramona-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-ramona-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-thorsten-low
   
   override:
@@ -264,7 +461,8 @@
   files:
     - filename: voice-de-thorsten-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-thorsten-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-el-gr-rapunzelina-low
   
   override:
@@ -273,7 +471,8 @@
   files:
     - filename: voice-el-gr-rapunzelina-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-el-gr-rapunzelina-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-alan-low
   
   override:
@@ -282,7 +481,8 @@
   files:
     - filename: voice-en-gb-alan-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-gb-alan-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-southern_english_female-low
   
   override:
@@ -291,7 +491,8 @@
   files:
     - filename: voice-en-gb-southern_english_female-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-gb-southern_english_female-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-amy-low
   
   override:
@@ -300,7 +501,8 @@
   files:
     - filename: voice-en-us-amy-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-amy-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-danny-low
   
   override:
@@ -309,7 +511,8 @@
   files:
     - filename: voice-en-us-danny-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-danny-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
   
   override:
@@ -318,7 +521,8 @@
   files:
     - filename: voice-en-us-kathleen-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-low
   
   override:
@@ -327,7 +531,8 @@
   files:
     - filename: voice-en-us-lessac-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-low.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-medium
   
   override:
@@ -336,7 +541,8 @@
   files:
     - filename: voice-en-us-lessac-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-medium.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-libritts-high
   
   override:
@@ -345,7 +551,8 @@
   files:
     - filename: voice-en-us-libritts-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-libritts-high.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-high
   
   override:
@@ -354,7 +561,8 @@
   files:
     - filename: voice-en-us-ryan-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-high.tar.gz
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-low
   
   override:
@@ -364,7 +572,8 @@
     - filename: voice-en-us-ryan-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-medium
   
   override:
@@ -374,7 +583,8 @@
     - filename: voice-en-us-ryan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us_lessac
   override:
     parameters:
@@ -383,7 +593,8 @@
     - filename: voice-en-us_lessac.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us_lessac.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-carlfm-x-low
   override:
     parameters:
@@ -392,7 +603,8 @@
     - filename: voice-es-carlfm-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-carlfm-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_10246-low
   
   override:
@@ -402,7 +614,8 @@
     - filename: voice-es-mls_10246-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-mls_10246-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_9972-low
   
   override:
@@ -412,7 +625,8 @@
     - filename: voice-es-mls_9972-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-mls_9972-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fi-harri-low
   
   override:
@@ -422,7 +636,8 @@
     - filename: voice-fi-harri-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fi-harri-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-gilles-low
   
   override:
@@ -432,7 +647,8 @@
     - filename: voice-fr-gilles-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-gilles-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-mls_1840-low
   
   override:
@@ -442,7 +658,8 @@
     - filename: voice-fr-mls_1840-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-mls_1840-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-low
   
   override:
@@ -452,7 +669,8 @@
     - filename: voice-fr-siwis-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-siwis-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-medium
   
   override:
@@ -462,7 +680,8 @@
     - filename: voice-fr-siwis-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-siwis-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-bui-medium
   
   override:
@@ -472,7 +691,8 @@
     - filename: voice-is-bui-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-bui-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-salka-medium
   
   override:
@@ -482,7 +702,8 @@
     - filename: voice-is-salka-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-salka-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-steinn-medium
   
   override:
@@ -492,7 +713,8 @@
     - filename: voice-is-steinn-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-steinn-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-ugla-medium
   
   override:
@@ -502,7 +724,8 @@
     - filename: voice-is-ugla-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-ugla-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-it-riccardo_fasol-x-low
   
   override:
@@ -512,7 +735,8 @@
     - filename: voice-it-riccardo_fasol-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-it-riccardo_fasol-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-iseke-x-low
   
   override:
@@ -522,7 +746,8 @@
     - filename: voice-kk-iseke-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-iseke-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-issai-high
   
   override:
@@ -532,7 +757,8 @@
     - filename: voice-kk-issai-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-issai-high.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-raya-x-low
   
   override:
@@ -542,7 +768,8 @@
     - filename: voice-kk-raya-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-raya-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-medium
   
   override:
@@ -552,7 +779,8 @@
     - filename: voice-ne-google-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ne-google-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-x-low
   
   override:
@@ -562,7 +790,8 @@
     - filename: voice-ne-google-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ne-google-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_5809-low
   
   override:
@@ -572,7 +801,8 @@
     - filename: voice-nl-mls_5809-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-mls_5809-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_7432-low
   
   override:
@@ -582,7 +812,8 @@
     - filename: voice-nl-mls_7432-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-mls_7432-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-nathalie-x-low
   
   override:
@@ -592,7 +823,8 @@
     - filename: voice-nl-nathalie-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-nathalie-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-medium
   
   override:
@@ -602,7 +834,8 @@
     - filename: voice-nl-rdh-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-rdh-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-x-low
   
   override:
@@ -612,7 +845,8 @@
     - filename: voice-nl-rdh-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-rdh-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-no-talesyntese-medium
   
   override:
@@ -622,7 +856,8 @@
     - filename: voice-no-talesyntese-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-no-talesyntese-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pl-mls_6892-low
   
   override:
@@ -632,7 +867,8 @@
     - filename: voice-pl-mls_6892-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-pl-mls_6892-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pt-br-edresson-low
   
   override:
@@ -642,7 +878,8 @@
     - filename: voice-pt-br-edresson-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-pt-br-edresson-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ru-irinia-medium
   
   override:
@@ -652,7 +889,8 @@
     - filename: voice-ru-irinia-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ru-irinia-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-sv-se-nst-medium
   
   override:
@@ -662,7 +900,8 @@
     - filename: voice-sv-se-nst-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-sv-se-nst-medium.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-uk-lada-x-low
   
   override:
@@ -672,7 +911,8 @@
     - filename: voice-uk-lada-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-uk-lada-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-25hours-single-low
   
   override:
@@ -682,7 +922,8 @@
     - filename: voice-vi-25hours-single-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-vi-25hours-single-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-vivos-x-low
   
   override:
@@ -692,7 +933,8 @@
     - filename: voice-vi-vivos-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-vi-vivos-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh-cn-huayan-x-low
   
   override:
@@ -702,7 +944,8 @@
     - filename: voice-zh-cn-huayan-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh-cn-huayan-x-low.tar.gz
 
-- url: github:mudler/LocalAI/gallery/piper.yaml@master
+- <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh_CN-huayan-medium
   
   override:

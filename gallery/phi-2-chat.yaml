@@ -1,39 +1,8 @@
 name: "phi-2-chatml"
-license: mit
 
-description: |
-  Phi-2 fine-tuned by the OpenHermes 2.5 dataset optimised for multi-turn conversation and character impersonation.
-
-  The dataset has been pre-processed by doing the following:
-
-  - remove all refusals
-  - remove any mention of AI assistant
-  - split any multi-turn dialog generated in the dataset into multi-turn conversations records
-  - added nfsw generated conversations from the Teatime dataset
-
-  Developed by: l3utterfly
-  Funded by: Layla Network
-  Model type: Phi
-  Language(s) (NLP): English
-  License: MIT
-  Finetuned from model: Phi-2
-
-
-urls:
-- https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml
-- https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml-gguf
-
-tags:
-- llm
-- gguf
-- gpu
-- cpu
 
 config_file: |
   mmap: true
-  # parameters:
-  #   model: huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q8_0.gguf
-
   template:
     chat_message: |
       <|im_start|>{{ .RoleName }}

@@ -1,11 +1,5 @@
 name: "stablediffusion-cpp"
-license: "BSD-3"
-urls:
-- https://github.com/EdVince/Stable-Diffusion-NCNN
-- https://github.com/EdVince/Stable-Diffusion-NCNN/blob/main/LICENSE
 
-description: |
-     Stable Diffusion in NCNN with c++, supported txt2img and img2img 
 config_file: |
   name: stablediffusion-cpp
   backend: stablediffusion
