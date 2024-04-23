@@ -3,12 +3,16 @@ package localai
 import (
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/internal"
+	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 )
 
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
-	models []string, backendConfigs []config.BackendConfig) func(*fiber.Ctx) error {
+	cl *config.BackendConfigLoader, ml *model.ModelLoader) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		models, _ := ml.ListModels()
+		backendConfigs := cl.GetAllBackendConfigs()
+
 		summary := fiber.Map{
 			"Title":             "LocalAI API - " + internal.PrintableVersion(),
 			"Version":           internal.PrintableVersion(),
