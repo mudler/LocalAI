@@ -26,8 +26,9 @@ func RegisterUIRoutes(app *fiber.App,
 		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
 		summary := fiber.Map{
-			"Title":  "LocalAI API - Models",
-			"Models": template.HTML(elements.ListModels(models)),
+			"Title":        "LocalAI - Models",
+			"Models":       template.HTML(elements.ListModels(models)),
+			"Repositories": appConfig.Galleries,
 			//	"ApplicationConfig": appConfig,
 		}
 
@@ -49,7 +50,10 @@ func RegisterUIRoutes(app *fiber.App,
 
 		filteredModels := []*gallery.GalleryModel{}
 		for _, m := range models {
-			if strings.Contains(m.Name, form.Search) {
+			if strings.Contains(m.Name, form.Search) ||
+				strings.Contains(m.Description, form.Search) ||
+				strings.Contains(m.Gallery.Name, form.Search) ||
+				strings.Contains(strings.Join(m.Tags, ","), form.Search) {
 				filteredModels = append(filteredModels, m)
 			}
 		}
