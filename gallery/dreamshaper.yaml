@@ -1,0 +1,26 @@
+name: "dreamshaper"
+icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/ggO2sBDJ8Bhc6w-zwTx5j.png
+license: other
+
+description: |
+  A text-to-image model that uses Stable Diffusion 1.5 to generate images from text prompts. This model is DreamShaper model by Lykon.
+
+urls:
+- https://civitai.com/models/4384/dreamshaper
+
+tags:
+- text-to-image
+- stablediffusion
+- sd-1.5
+- gpu
+
+config_file: |
+  backend: diffusers
+  step: 25
+  f16: true
+
+  diffusers:
+    pipeline_type: StableDiffusionPipeline
+    cuda: true
+    enable_parameters: "negative_prompt,num_inference_steps"
+    scheduler_type: "k_dpmpp_2m"
