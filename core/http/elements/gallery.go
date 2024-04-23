@@ -209,7 +209,7 @@ func ListModels(models []*gallery.GalleryModel) string {
 					},
 						elem.Img(attrs.Props{
 							//	"class": "rounded-t-lg object-fit object-center h-96",
-							"class": "rounded-t-lg max-h-48 max-w-96 object-cover",
+							"class": "rounded-t-lg max-h-48 max-w-96 object-cover mt-3",
 							"src":   m.Icon,
 						}),
 					),
