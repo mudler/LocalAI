@@ -1,0 +1,21 @@
+name: "codellama"
+license: llama2
+
+description: |
+  Code Llama is a collection of pretrained and fine-tuned generative text models ranging in scale from 7 billion to 34 billion parameters. This model is designed for general code synthesis and understanding.
+
+urls:
+- https://huggingface.co/TheBloke/CodeLlama-7B-GGUF
+- https://huggingface.co/meta-llama/CodeLlama-7b-hf
+
+tags:
+- llm
+- gguf
+- gpu
+- cpu
+
+config_file: |
+  backend: llama-cpp
+  context_size: 4096
+  f16: true
+  mmap: true
