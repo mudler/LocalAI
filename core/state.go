@@ -28,7 +28,7 @@ type Application struct {
 	// LocalAI System Services
 	BackendMonitorService *services.BackendMonitorService
 	GalleryService        *services.GalleryService
-	// ListModelsService     *services.ListModelsService
+	ListModelsService     *services.ListModelsService
 	LocalAIMetricsService *services.LocalAIMetricsService
 	// OpenAIService         *services.OpenAIService
 }

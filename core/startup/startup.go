@@ -148,7 +148,7 @@ func createApplication(appConfig *config.ApplicationConfig) *core.Application {
 
 	app.BackendMonitorService = services.NewBackendMonitorService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
 	app.GalleryService = services.NewGalleryService(app.ApplicationConfig.ModelPath)
-	// app.ListModelsService = services.NewListModelsService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
+	app.ListModelsService = services.NewListModelsService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
 	// app.OpenAIService = services.NewOpenAIService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig, app.LLMBackendService)
 
 	app.LocalAIMetricsService, err = services.NewLocalAIMetricsService()

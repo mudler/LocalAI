@@ -4,6 +4,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 )
@@ -81,6 +82,7 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	}
 
 	// models
-	app.Get("/v1/models", auth, openai.ListModelsEndpoint(cl, ml))
-	app.Get("/models", auth, openai.ListModelsEndpoint(cl, ml))
+	tmpLMS := services.NewListModelsService(ml, cl, appConfig) // TODO: once createApplication() is fully in use, reference the central instance.
+	app.Get("/v1/models", auth, openai.ListModelsEndpoint(tmpLMS))
+	app.Get("/models", auth, openai.ListModelsEndpoint(tmpLMS))
 }
