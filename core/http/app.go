@@ -186,10 +186,14 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
 	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
+	galleryService := services.NewGalleryService(appConfig.ModelPath)
+	galleryService.Start(appConfig.Context, cl)
+
 	routes.RegisterElevenLabsRoutes(app, cl, ml, appConfig, auth)
-	routes.RegisterLocalAIRoutes(app, cl, ml, appConfig, auth)
+	routes.RegisterLocalAIRoutes(app, cl, ml, appConfig, galleryService, auth)
 	routes.RegisterOpenAIRoutes(app, cl, ml, appConfig, auth)
 	routes.RegisterPagesRoutes(app, cl, ml, appConfig, auth)
+	routes.RegisterUIRoutes(app, cl, ml, appConfig, galleryService, auth)
 
 	// Define a custom 404 handler
 	// Note: keep this at the bottom!

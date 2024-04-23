@@ -1,11 +1,12 @@
 package gallery
 
 type GalleryOp struct {
-	Req         GalleryModel
 	Id          string
-	Galleries   []Gallery
 	GalleryName string
 	ConfigURL   string
+
+	Req       GalleryModel
+	Galleries []Gallery
 }
 
 type GalleryOpStatus struct {
