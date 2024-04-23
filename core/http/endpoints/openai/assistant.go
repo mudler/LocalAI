@@ -455,21 +455,19 @@ func DeleteAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.Model
 		for i, assistant := range Assistants {
 			if assistant.ID == assistantID {
 				for j, fileId := range assistant.FileIDs {
-					if fileId == fileId {
-						Assistants[i].FileIDs = append(Assistants[i].FileIDs[:j], Assistants[i].FileIDs[j+1:]...)
+					Assistants[i].FileIDs = append(Assistants[i].FileIDs[:j], Assistants[i].FileIDs[j+1:]...)
 
-						// Check if the file exists in the assistantFiles slice
-						for i, assistantFile := range AssistantFiles {
-							if assistantFile.ID == fileId {
-								// Remove the file from the assistantFiles slice
-								AssistantFiles = append(AssistantFiles[:i], AssistantFiles[i+1:]...)
-								utils.SaveConfig(appConfig.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
-								return c.Status(fiber.StatusOK).JSON(DeleteAssistantFileResponse{
-									ID:      fileId,
-									Object:  "assistant.file.deleted",
-									Deleted: true,
-								})
-							}
+					// Check if the file exists in the assistantFiles slice
+					for i, assistantFile := range AssistantFiles {
+						if assistantFile.ID == fileId {
+							// Remove the file from the assistantFiles slice
+							AssistantFiles = append(AssistantFiles[:i], AssistantFiles[i+1:]...)
+							utils.SaveConfig(appConfig.ConfigsDir, AssistantsFileConfigFile, AssistantFiles)
+							return c.Status(fiber.StatusOK).JSON(DeleteAssistantFileResponse{
+								ID:      fileId,
+								Object:  "assistant.file.deleted",
+								Deleted: true,
+							})
 						}
 					}
 				}
