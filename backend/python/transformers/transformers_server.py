@@ -149,6 +149,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     device_map="CPU"
                 self.model = OVModelForCausalLM.from_pretrained(model_name, 
                                                                 compile=True,
+                                                                trust_remote_code=request.TrustRemoteCode,
                                                                 ov_config={"PERFORMANCE_HINT": "LATENCY"}, 
                                                                 device=device_map)
                 self.OV = True
