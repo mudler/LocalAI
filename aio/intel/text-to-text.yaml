@@ -22,8 +22,7 @@ template:
     </tool_call>
     {{- else if eq .RoleName "tool" }}
     </tool_response>
-    {{- end }}
-    <|im_end|>
+    {{- end }}<|im_end|>
   # https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF#prompt-format-for-function-calling
   function: |
     <|im_start|>system
@@ -38,8 +37,7 @@ template:
     For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:
     <tool_call>
     {'arguments': <args-dict>, 'name': <function-name>}
-    </tool_call>
-    <|im_end|>
+    </tool_call><|im_end|>
     {{.Input -}}
     <|im_start|>assistant
     <tool_call>

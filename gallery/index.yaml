@@ -1,5 +1,35 @@
-## LLM
 
+### START parler-tts
+- &parler-tts
+  url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
+  name: parler-tts-mini-v0.1
+  parameters:
+    model: parler-tts/parler_tts_mini_v0.1
+  license: apache-2.0
+  description: |
+    Parler-TTS is a lightweight text-to-speech (TTS) model that can generate high-quality, natural sounding speech in the style of a given speaker (gender, pitch, speaking style, etc). It is a reproduction of work from the paper Natural language guidance of high-fidelity text-to-speech with synthetic annotations by Dan Lyth and Simon King, from Stability AI and Edinburgh University respectively.
+  urls:
+  - https://github.com/huggingface/parler-tts
+  tags:
+  - tts
+  - gpu
+  - cpu
+  - text-to-speech
+  - python
+### START rerankers
+- &rerankers
+  url: "github:mudler/LocalAI/gallery/rerankers.yaml@master"
+  name: cross-encoder
+  parameters:
+    model: cross-encoder
+  license: apache-2.0
+  description: |
+    A cross-encoder model that can be used for reranking
+  tags:
+  - reranker
+  - gpu
+  - python
+## LLMs
 ### START LLAMA3
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
@@ -20,20 +50,177 @@
       Model Architecture Llama 3 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
   urls:
   - https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
-
+  - https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF
   tags:
   - llm
   - gguf
   - gpu
   - cpu
+  - llama3
   overrides:
     parameters:
       model: Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
   files:
-  - filename: vicuna-7b-q5_k.gguf
-    sha256:	cce3ba85525027d0fff520cad053d5a6f32c293382a40b3d55a650282c267787
-    uri: huggingface://second-state/Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
+  - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
+    sha256:	19ded996fe6c60254dc7544d782276eff41046ed42aa5f2d0005dc457e5c0895
+    uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q4_0.gguf
+- <<: *llama3
+  name: "llama3-8b-instruct:Q6_K"
+  overrides:
+    parameters:
+      model: Meta-Llama-3-8B-Instruct.Q6_K.gguf
+  files:
+  - filename: Meta-Llama-3-8B-Instruct.Q6_K.gguf
+    sha256: b7bad45618e2a76cc1e89a0fbb93a2cac9bf410e27a619c8024ed6db53aa9b4a
+    uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
+- <<: *llama3
+  name: "llama3-70b-instruct"
+  overrides:
+    parameters:
+      model: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+  files:
+  - filename: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+    sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
+    uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+- <<: *llama3
+  name: "llama-3-unholy-8b"
+  urls:
+  - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/JmdBlOHlBHVmX1IbZzWSv.png
+  description: |
+    Use at your own risk, I'm not responsible for any usage of this model, don't try to do anything this model tell you to do.
 
+    Basic uncensoring, this model is epoch 3 out of 4 (but it seem enough at 3).
+
+    If you are censored, it's maybe because of keyword like "assistant", "Factual answer", or other "sweet words" like I call them.
+  overrides:
+    parameters:
+      model: Llama-3-Unholy-8B.q4_k_m.gguf
+  files:
+  - filename: Llama-3-Unholy-8B.q4_k_m.gguf
+    sha256: 17b7f716bce1b34d4aa99ee730a19a834f8c77ddb36090dde5a1eda963f93602
+    uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q4_k_m.gguf
+- <<: *llama3
+  name: "llama-3-unholy-8b:Q8_0"
+  urls:
+  - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/JmdBlOHlBHVmX1IbZzWSv.png
+  description: |
+    Use at your own risk, I'm not responsible for any usage of this model, don't try to do anything this model tell you to do.
+
+    Basic uncensoring, this model is epoch 3 out of 4 (but it seem enough at 3).
+
+    If you are censored, it's maybe because of keyword like "assistant", "Factual answer", or other "sweet words" like I call them.
+  overrides:
+    parameters:
+      model: Llama-3-Unholy-8B.q8_0.gguf
+  files:
+  - filename: Llama-3-Unholy-8B.q8_0.gguf
+    sha256: 8d4137018acdcd57df4beccc84d9ad3f7f08cac50588f76370afc16c85752702
+    uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q8_0.gguf
+- <<: *llama3
+  name: "therapyllama-8b-v1"
+  urls:
+  - https://huggingface.co/victunes/TherapyLlama-8B-v1-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f07d05279d2d8f725bf0c3/A-ckcZ9H0Ee1n_ls2FM41.png
+  description: |
+    Trained on Llama 3 8B using a modified version of jerryjalapeno/nart-100k-synthetic.
+
+    It is a Llama 3 version of https://huggingface.co/victunes/TherapyBeagle-11B-v2
+
+    TherapyLlama is hopefully aligned to be helpful, healthy, and comforting. 
+    Usage:
+        Do not hold back on Buddy.
+        Open up to Buddy.
+        Pour your heart out to Buddy.
+        Engage with Buddy.
+        Remember that Buddy is just an AI.
+    Notes:
+
+        Tested with the Llama 3 Format
+        You might be assigned a random name if you don't give yourself one.
+        Chat format was pretty stale?
+
+    Disclaimer
+
+    TherapyLlama is NOT a real therapist. It is a friendly AI that mimics empathy and psychotherapy. It is an illusion without the slightest clue who you are as a person. As much as it can help you with self-discovery, A LLAMA IS NOT A SUBSTITUTE to a real professional.
+  overrides:
+    parameters:
+      model: TherapyLlama-8B-v1-Q4_K_M.gguf
+  files:
+  - filename: TherapyLlama-8B-v1-Q4_K_M.gguf
+    sha256: 3d5a16d458e074a7bc7e706a493d8e95e8a7b2cb16934c851aece0af9d1da14a
+    uri: huggingface://victunes/TherapyLlama-8B-v1-GGUF/TherapyLlama-8B-v1-Q4_K_M.gguf
+- <<: *llama3
+  name: "aura-uncensored-l3-8b-iq-imatrix"
+  urls:
+  - https://huggingface.co/Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/oiYHWIEHqmgUkY0GsVdDx.png
+  description: |
+    This is another better atempt at a less censored Llama-3 with hopefully more stable formatting. 
+  overrides:
+    parameters:
+      model: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
+  files:
+  - filename: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
+    sha256: 265ded6a4f439bec160f394e3083a4a20e32ebb9d1d2d85196aaab23dab87fb2
+    uri: huggingface://Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix/Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
+- &dolphin
+  name: "dolphin-2.9-llama3-8b"
+  url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
+  urls:
+  - https://huggingface.co/cognitivecomputations/dolphin-2.9-llama3-8b-gguf
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
+  - llama3
+  license: llama3
+  description: |
+    Dolphin-2.9 has a variety of instruction, conversational, and coding skills. It also has initial agentic abilities and supports function calling.
+    Dolphin is uncensored.  
+    Curated and trained by Eric Hartford, Lucas Atkins, and Fernando Fernandes, and Cognitive Computations
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63111b2d88942700629f5771/ldkN1J0WIDQwU4vutGYiD.png
+  overrides:
+    parameters:
+      model: dolphin-2.9-llama3-8b-q4_K_M.gguf
+  files:
+  - filename: dolphin-2.9-llama3-8b-q4_K_M.gguf
+    sha256: be988199ce28458e97205b11ae9d9cf4e3d8e18ff4c784e75bfc12f54407f1a1
+    uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q4_K_M.gguf
+- <<: *dolphin
+  name: "dolphin-2.9-llama3-8b:Q6_K"
+  overrides:
+    parameters:
+      model: dolphin-2.9-llama3-8b-q6_K.gguf
+  files:
+  - filename: dolphin-2.9-llama3-8b-q6_K.gguf
+    sha256: 8aac72a0bd72c075ba7be1aa29945e47b07d39cd16be9a80933935f51b57fb32
+    uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q6_K.gguf
+## LLama2 and derivatives
+
+### Start noromaid
+- &noromaid
+  url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
+  name: "noromaid-13b-0.4-DPO"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/VKX2Z2yjZX5J8kXzgeCYO.png
+  license: cc-by-nc-4.0
+  urls:
+  - https://huggingface.co/NeverSleep/Noromaid-13B-0.4-DPO-GGUF
+  tags:
+  - llm
+  - llama2
+  - gguf
+  - gpu
+  - cpu
+  overrides:
+    parameters:
+      model: Noromaid-13B-0.4-DPO.q4_k_m.gguf
+  files:
+  - filename: Noromaid-13B-0.4-DPO.q4_k_m.gguf
+    sha256:	cb28e878d034fae3d0b43326c5fc1cfb4ab583b17c56e41d6ce023caec03c1c1
+    uri: huggingface://NeverSleep/Noromaid-13B-0.4-DPO-GGUF/Noromaid-13B-0.4-DPO.q4_k_m.gguf
 ### START LLaVa
 - &llava
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
@@ -50,6 +237,7 @@
   - multimodal
   - gguf
   - gpu
+  - llama2
   - cpu
   name: "llava-1.6-vicuna"
   overrides:
@@ -117,6 +305,7 @@
   - llm
   - gguf
   - gpu
+  - llama2
   - cpu
   name: "phi-2-chat:Q8_0"
   overrides:
@@ -149,6 +338,7 @@
   tags:
   - llm
   - gguf
+  - llama2
   - gpu
   - cpu
   name: "phi-2-orange"
@@ -175,6 +365,7 @@
   - llm
   - gguf
   - gpu
+  - llama2
   - cpu
   overrides:
     parameters:
@@ -217,6 +408,7 @@
   - llm
   - gguf
   - gpu
+  - llama2
   - cpu
   overrides:
     parameters:
@@ -262,6 +454,7 @@
   - llm
   - gguf
   - gpu
+  - llama2
   - cpu
   overrides:
     parameters:
@@ -281,6 +474,7 @@
   - gpu
   - cpu
   - embeddings
+  - python
   name: "all-MiniLM-L6-v2"
   url: "github:mudler/LocalAI/gallery/sentencetransformers.yaml@master"
   overrides:
@@ -302,6 +496,7 @@
   tags:
   - text-to-image
   - stablediffusion
+  - python
   - sd-1.5
   - gpu
   url: "github:mudler/LocalAI/gallery/dreamshaper.yaml@master"

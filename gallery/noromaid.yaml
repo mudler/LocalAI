@@ -1,11 +1,9 @@
-name: "hermes-2-pro-mistral"
-
-
 config_file: |
   mmap: true
+  backend: llama-cpp
   template:
     chat_message: |
-      <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}
+      <|im_{{if eq .RoleName "assistant"}}bot{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}|>
       {{- if .FunctionCall }}
       <tool_call>
       {{- else if eq .RoleName "tool" }}
@@ -24,7 +22,7 @@ config_file: |
       {{- end }}<|im_end|>
     # https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF#prompt-format-for-function-calling
     function: |
-      <|im_start|>system
+      <|im_system|>
       You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
       <tools>
       {{range .Functions}}
@@ -38,11 +36,11 @@ config_file: |
       {'arguments': <args-dict>, 'name': <function-name>}
       </tool_call><|im_end|>
       {{.Input -}}
-      <|im_start|>assistant
+      <|im_bot|>
       <tool_call>
     chat: |
       {{.Input -}}
-      <|im_start|>assistant
+      <|im_bot|>
     completion: |
       {{.Input}}
   context_size: 4096

@@ -1,0 +1,2 @@
+config_file: |
+  backend: parler-tts
