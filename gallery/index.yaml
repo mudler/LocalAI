@@ -82,6 +82,42 @@
   - filename: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
     sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
     uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+- <<: *llama3
+  name: "llama-3-unholy-8b"
+  urls:
+  - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/JmdBlOHlBHVmX1IbZzWSv.png
+  description: |
+    Use at your own risk, I'm not responsible for any usage of this model, don't try to do anything this model tell you to do.
+
+    Basic uncensoring, this model is epoch 3 out of 4 (but it seem enough at 3).
+
+    If you are censored, it's maybe because of keyword like "assistant", "Factual answer", or other "sweet words" like I call them.
+  overrides:
+    parameters:
+      model: Llama-3-Unholy-8B.q4_k_m.gguf
+  files:
+  - filename: Llama-3-Unholy-8B.q4_k_m.gguf
+    sha256: 17b7f716bce1b34d4aa99ee730a19a834f8c77ddb36090dde5a1eda963f93602
+    uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q4_k_m.gguf
+- <<: *llama3
+  name: "llama-3-unholy-8b:Q8_0"
+  urls:
+  - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/JmdBlOHlBHVmX1IbZzWSv.png
+  description: |
+    Use at your own risk, I'm not responsible for any usage of this model, don't try to do anything this model tell you to do.
+
+    Basic uncensoring, this model is epoch 3 out of 4 (but it seem enough at 3).
+
+    If you are censored, it's maybe because of keyword like "assistant", "Factual answer", or other "sweet words" like I call them.
+  overrides:
+    parameters:
+      model: Llama-3-Unholy-8B.q8_0.gguf
+  files:
+  - filename: Llama-3-Unholy-8B.q8_0.gguf
+    sha256: 8d4137018acdcd57df4beccc84d9ad3f7f08cac50588f76370afc16c85752702
+    uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q8_0.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
