@@ -108,4 +108,6 @@ dependencies:
       - transformers>=4.38.2  # Updated Version
       - transformers_stream_generator==0.0.5
       - xformers==0.0.23.post1
+      - rerankers[transformers]
+      - pydantic
 prefix: /opt/conda/envs/transformers

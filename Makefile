@@ -437,10 +437,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen petals-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen petals-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean petals-protogen-clean sentencetransformers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean petals-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean
 
 .PHONY: autogptq-protogen
 autogptq-protogen:
@@ -506,6 +506,14 @@ petals-protogen:
 petals-protogen-clean:
 	$(MAKE) -C backend/python/petals protogen-clean
 
+.PHONY: rerankers-protogen
+rerankers-protogen:
+	$(MAKE) -C backend/python/rerankers protogen
+
+.PHONY: rerankers-protogen-clean
+rerankers-protogen-clean:
+	$(MAKE) -C backend/python/rerankers protogen-clean
+
 .PHONY: sentencetransformers-protogen
 sentencetransformers-protogen:
 	$(MAKE) -C backend/python/sentencetransformers protogen
@@ -564,6 +572,7 @@ prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/mamba
 	$(MAKE) -C backend/python/sentencetransformers
+	$(MAKE) -C backend/python/rerankers
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/transformers-musicgen
 	$(MAKE) -C backend/python/parler-tts

@@ -23,6 +23,30 @@ service Backend {
   rpc StoresDelete(StoresDeleteOptions) returns (Result) {}
   rpc StoresGet(StoresGetOptions) returns (StoresGetResult) {}
   rpc StoresFind(StoresFindOptions) returns (StoresFindResult) {}
+
+  rpc Rerank(RerankRequest) returns (RerankResult) {}
+}
+
+message RerankRequest {
+  string query = 1;
+  repeated string documents = 2;
+  int32 top_n = 3;
+}
+
+message RerankResult {
+  Usage usage = 1;
+  repeated DocumentResult results = 2;
+}
+
+message Usage {
+  int32 total_tokens = 1;
+  int32 prompt_tokens = 2;
+}
+
+message DocumentResult {
+  int32 index = 1;
+  string text = 2;
+  float relevance_score = 3;
 }
 
 message StoresKey {
