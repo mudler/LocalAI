@@ -15,6 +15,7 @@ The list below is a list of software that integrates with LocalAI.
 - [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)
 - [Logseq GPT3 OpenAI plugin](https://github.com/briansunter/logseq-plugin-gpt3-openai) allows to set a base URL, and works with LocalAI.
 - https://plugins.jetbrains.com/plugin/21056-codegpt allows for custom OpenAI compatible endpoints since 2.4.0
+- [Wave Terminal](https://docs.waveterm.dev/features/supportedLLMs/localai) has native support for LocalAI!
 - https://github.com/longy2k/obsidian-bmo-chatbot
 - https://github.com/FlowiseAI/Flowise
 - https://github.com/k8sgpt-ai/k8sgpt
