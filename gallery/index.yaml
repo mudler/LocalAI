@@ -118,6 +118,53 @@
   - filename: Llama-3-Unholy-8B.q8_0.gguf
     sha256: 8d4137018acdcd57df4beccc84d9ad3f7f08cac50588f76370afc16c85752702
     uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q8_0.gguf
+- <<: *llama3
+  name: "therapyllama-8b-v1"
+  urls:
+  - https://huggingface.co/victunes/TherapyLlama-8B-v1-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f07d05279d2d8f725bf0c3/A-ckcZ9H0Ee1n_ls2FM41.png
+  description: |
+    Trained on Llama 3 8B using a modified version of jerryjalapeno/nart-100k-synthetic.
+
+    It is a Llama 3 version of https://huggingface.co/victunes/TherapyBeagle-11B-v2
+
+    TherapyLlama is hopefully aligned to be helpful, healthy, and comforting. 
+    Usage:
+        Do not hold back on Buddy.
+        Open up to Buddy.
+        Pour your heart out to Buddy.
+        Engage with Buddy.
+        Remember that Buddy is just an AI.
+    Notes:
+
+        Tested with the Llama 3 Format
+        You might be assigned a random name if you don't give yourself one.
+        Chat format was pretty stale?
+
+    Disclaimer
+
+    TherapyLlama is NOT a real therapist. It is a friendly AI that mimics empathy and psychotherapy. It is an illusion without the slightest clue who you are as a person. As much as it can help you with self-discovery, A LLAMA IS NOT A SUBSTITUTE to a real professional.
+  overrides:
+    parameters:
+      model: TherapyLlama-8B-v1-Q4_K_M.gguf
+  files:
+  - filename: TherapyLlama-8B-v1-Q4_K_M.gguf
+    sha256: 3d5a16d458e074a7bc7e706a493d8e95e8a7b2cb16934c851aece0af9d1da14a
+    uri: huggingface://victunes/TherapyLlama-8B-v1-GGUF/TherapyLlama-8B-v1-Q4_K_M.gguf
+- <<: *llama3
+  name: "aura-uncensored-l3-8b-iq-imatrix"
+  urls:
+  - https://huggingface.co/Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/oiYHWIEHqmgUkY0GsVdDx.png
+  description: |
+    This is another better atempt at a less censored Llama-3 with hopefully more stable formatting. 
+  overrides:
+    parameters:
+      model: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
+  files:
+  - filename: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
+    sha256: 265ded6a4f439bec160f394e3083a4a20e32ebb9d1d2d85196aaab23dab87fb2
+    uri: huggingface://Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix/Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
