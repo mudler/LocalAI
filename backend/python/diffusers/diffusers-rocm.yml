@@ -61,4 +61,5 @@ dependencies:
       - urllib3==2.0.6
       - zipp==3.17.0
       - torch
+      - opencv-python
 prefix: /opt/conda/envs/diffusers
