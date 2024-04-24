@@ -101,6 +101,10 @@ func (e *embedBackend) StoresFind(ctx context.Context, in *pb.StoresFindOptions,
 	return e.s.StoresFind(ctx, in)
 }
 
+func (e *embedBackend) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...grpc.CallOption) (*pb.RerankResult, error) {
+	return e.s.Rerank(ctx, in)
+}
+
 type embedBackendServerStream struct {
 	ctx context.Context
 	fn  func(s []byte)
