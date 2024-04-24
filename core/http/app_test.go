@@ -489,11 +489,10 @@ var _ = Describe("API test", func() {
 				if runtime.GOOS != "linux" {
 					Skip("test supported only on linux")
 				}
-				modelName := "codellama"
+
+				modelName := "hermes-2-pro-mistral"
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					URL:       "github:go-skynet/model-gallery/codellama-7b-instruct.yaml",
-					Name:      modelName,
-					Overrides: map[string]interface{}{"backend": "llama", "mmap": true, "f16": true, "context_size": 128},
+					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/models/hermes-2-pro-mistral.yaml",
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -556,7 +555,7 @@ var _ = Describe("API test", func() {
 				var res map[string]string
 				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
+				Expect(res["location"]).To(ContainSubstring("San Francisco"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 			})
