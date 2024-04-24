@@ -71,4 +71,5 @@ dependencies:
       - typing-extensions==4.8.0
       - urllib3==2.0.6
       - zipp==3.17.0
+      - opencv-python
 prefix: /opt/conda/envs/diffusers
