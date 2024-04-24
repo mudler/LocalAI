@@ -1,4 +1,4 @@
-## LLM
+
 ### START parler-tts
 - &parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
@@ -29,6 +29,7 @@
   - reranker
   - gpu
   - python
+## LLMs
 ### START LLAMA3
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
@@ -63,6 +64,28 @@
     sha256:	cce3ba85525027d0fff520cad053d5a6f32c293382a40b3d55a650282c267787
     uri: huggingface://second-state/Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
 
+## LLama2 and derivatives
+
+### Start noromaid
+- &noromaid
+  url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
+  name: "noromaid-13b-0.4-DPO"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/VKX2Z2yjZX5J8kXzgeCYO.png
+  license: cc-by-nc-4.0
+  urls:
+  - https://huggingface.co/NeverSleep/Noromaid-13B-0.4-DPO-GGUF
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
+  overrides:
+    parameters:
+      model: Noromaid-13B-0.4-DPO.q4_k_m.gguf
+  files:
+  - filename: Noromaid-13B-0.4-DPO.q4_k_m.gguf
+    sha256:	cb28e878d034fae3d0b43326c5fc1cfb4ab583b17c56e41d6ce023caec03c1c1
+    uri: huggingface://NeverSleep/Noromaid-13B-0.4-DPO-GGUF/Noromaid-13B-0.4-DPO.q4_k_m.gguf
 ### START LLaVa
 - &llava
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
