@@ -50,13 +50,13 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- Reranker API: https://github.com/mudler/LocalAI/pull/2121
+- Gallery WebUI: https://github.com/mudler/LocalAI/pull/2104
 - llama3: https://github.com/mudler/LocalAI/discussions/2076
 - Parler-TTS: https://github.com/mudler/LocalAI/pull/2027
-- Landing page: https://github.com/mudler/LocalAI/pull/1922
 - Openvino support: https://github.com/mudler/LocalAI/pull/1892
 - Vector store: https://github.com/mudler/LocalAI/pull/1795
 - All-in-one container image: https://github.com/mudler/LocalAI/issues/1855
-- Parallel function calling: https://github.com/mudler/LocalAI/pull/1726 / Tools API support: https://github.com/mudler/LocalAI/pull/1715
 
 Hot topics (looking for contributors):
 - Backends v2: https://github.com/mudler/LocalAI/issues/1126
