@@ -3,9 +3,6 @@ name: "hermes-2-pro-mistral"
 
 config_file: |
   mmap: true
-  parameters:
-    model: Hermes-2-Pro-Mistral-7B.Q6_K.gguf
-
   template:
     chat_message: |
       <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}

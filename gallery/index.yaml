@@ -50,20 +50,71 @@
       Model Architecture Llama 3 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
   urls:
   - https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
-
+  - https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF
   tags:
   - llm
   - gguf
   - gpu
   - cpu
+  - llama3
   overrides:
     parameters:
       model: Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
   files:
-  - filename: vicuna-7b-q5_k.gguf
-    sha256:	cce3ba85525027d0fff520cad053d5a6f32c293382a40b3d55a650282c267787
-    uri: huggingface://second-state/Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
-
+  - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
+    sha256:	19ded996fe6c60254dc7544d782276eff41046ed42aa5f2d0005dc457e5c0895
+    uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q4_0.gguf
+- <<: *llama3
+  name: "llama3-8b-instruct:Q6_K"
+  overrides:
+    parameters:
+      model: Meta-Llama-3-8B-Instruct.Q6_K.gguf
+  files:
+  - filename: Meta-Llama-3-8B-Instruct.Q6_K.gguf
+    sha256: b7bad45618e2a76cc1e89a0fbb93a2cac9bf410e27a619c8024ed6db53aa9b4a
+    uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
+- <<: *llama3
+  name: "llama3-70b-instruct"
+  overrides:
+    parameters:
+      model: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+  files:
+  - filename: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+    sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
+    uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+- &dolphin
+  name: "dolphin-2.9-llama3-8b"
+  url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
+  urls:
+  - https://huggingface.co/cognitivecomputations/dolphin-2.9-llama3-8b-gguf
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
+  - llama3
+  license: llama3
+  description: |
+    Dolphin-2.9 has a variety of instruction, conversational, and coding skills. It also has initial agentic abilities and supports function calling.
+    Dolphin is uncensored.  
+    Curated and trained by Eric Hartford, Lucas Atkins, and Fernando Fernandes, and Cognitive Computations
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63111b2d88942700629f5771/ldkN1J0WIDQwU4vutGYiD.png
+  overrides:
+    parameters:
+      model: dolphin-2.9-llama3-8b-q4_K_M.gguf
+  files:
+  - filename: dolphin-2.9-llama3-8b-q4_K_M.gguf
+    sha256: be988199ce28458e97205b11ae9d9cf4e3d8e18ff4c784e75bfc12f54407f1a1
+    uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q4_K_M.gguf
+- <<: *dolphin
+  name: "dolphin-2.9-llama3-8b:Q6_K"
+  overrides:
+    parameters:
+      model: dolphin-2.9-llama3-8b-q6_K.gguf
+  files:
+  - filename: dolphin-2.9-llama3-8b-q6_K.gguf
+    sha256: 8aac72a0bd72c075ba7be1aa29945e47b07d39cd16be9a80933935f51b57fb32
+    uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q6_K.gguf
 ## LLama2 and derivatives
 
 ### Start noromaid
@@ -76,6 +127,7 @@
   - https://huggingface.co/NeverSleep/Noromaid-13B-0.4-DPO-GGUF
   tags:
   - llm
+  - llama2
   - gguf
   - gpu
   - cpu
@@ -102,6 +154,7 @@
   - multimodal
   - gguf
   - gpu
+  - llama2
   - cpu
   name: "llava-1.6-vicuna"
   overrides:
@@ -169,6 +222,7 @@
   - llm
   - gguf
   - gpu
+  - llama2
   - cpu
   name: "phi-2-chat:Q8_0"
   overrides:
@@ -201,6 +255,7 @@
   tags:
   - llm
   - gguf
+  - llama2
   - gpu
   - cpu
   name: "phi-2-orange"
@@ -227,6 +282,7 @@
   - llm
   - gguf
   - gpu
+  - llama2
   - cpu
   overrides:
     parameters:
@@ -269,6 +325,7 @@
   - llm
   - gguf
   - gpu
+  - llama2
   - cpu
   overrides:
     parameters:
@@ -314,6 +371,7 @@
   - llm
   - gguf
   - gpu
+  - llama2
   - cpu
   overrides:
     parameters:
