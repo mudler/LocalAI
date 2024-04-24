@@ -1,5 +1,34 @@
 ## LLM
-
+### START parler-tts
+- &parler-tts
+  url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
+  name: parler-tts-mini-v0.1
+  parameters:
+    model: parler-tts/parler_tts_mini_v0.1
+  license: apache-2.0
+  description: |
+    Parler-TTS is a lightweight text-to-speech (TTS) model that can generate high-quality, natural sounding speech in the style of a given speaker (gender, pitch, speaking style, etc). It is a reproduction of work from the paper Natural language guidance of high-fidelity text-to-speech with synthetic annotations by Dan Lyth and Simon King, from Stability AI and Edinburgh University respectively.
+  urls:
+  - https://github.com/huggingface/parler-tts
+  tags:
+  - tts
+  - gpu
+  - cpu
+  - text-to-speech
+  - python
+### START rerankers
+- &rerankers
+  url: "github:mudler/LocalAI/gallery/rerankers.yaml@master"
+  name: cross-encoder
+  parameters:
+    model: cross-encoder
+  license: apache-2.0
+  description: |
+    A cross-encoder model that can be used for reranking
+  tags:
+  - reranker
+  - gpu
+  - python
 ### START LLAMA3
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
@@ -281,6 +310,7 @@
   - gpu
   - cpu
   - embeddings
+  - python
   name: "all-MiniLM-L6-v2"
   url: "github:mudler/LocalAI/gallery/sentencetransformers.yaml@master"
   overrides:
@@ -302,6 +332,7 @@
   tags:
   - text-to-image
   - stablediffusion
+  - python
   - sd-1.5
   - gpu
   url: "github:mudler/LocalAI/gallery/dreamshaper.yaml@master"
