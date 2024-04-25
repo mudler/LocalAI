@@ -102,7 +102,7 @@
 - <<: *llama3
   name: "llama-3-13b-instruct-v0.1"
   urls:
-  - https://huggingface.co/MaziyarPanahi/Llama-3-13B-Instruct-v0.1-GGUF
+    - https://huggingface.co/MaziyarPanahi/Llama-3-13B-Instruct-v0.1-GGUF
   icon: https://huggingface.co/MaziyarPanahi/Llama-3-13B-Instruct-v0.1/resolve/main/llama-3-merges.webp
   description: |
     This model is a self-merge of meta-llama/Meta-Llama-3-8B-Instruct model.
@@ -110,9 +110,9 @@
     parameters:
       model: Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
   files:
-  - filename: Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
-    sha256:	071a28043c271d259b5ffa883d19a9e0b33269b55148c4abaf5f95da4d084266
-    uri: huggingface://MaziyarPanahi/Llama-3-13B-Instruct-v0.1-GGUF/Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
+    - filename: Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
+      sha256: 071a28043c271d259b5ffa883d19a9e0b33269b55148c4abaf5f95da4d084266
+      uri: huggingface://MaziyarPanahi/Llama-3-13B-Instruct-v0.1-GGUF/Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
 - <<: *llama3
   name: "llama-3-smaug-8b"
   urls:
@@ -124,9 +124,9 @@
     parameters:
       model: Llama-3-Smaug-8B.Q4_K_M.gguf
   files:
-  - filename: Llama-3-Smaug-8B.Q4_K_M.gguf
-    sha256: b17c4c1144768ead9e8a96439165baf49e98c53d458b4da8827f137fbabf38c1
-    uri: huggingface://MaziyarPanahi/Llama-3-Smaug-8B-GGUF/Llama-3-Smaug-8B.Q4_K_M.gguf
+    - filename: Llama-3-Smaug-8B.Q4_K_M.gguf
+      sha256: b17c4c1144768ead9e8a96439165baf49e98c53d458b4da8827f137fbabf38c1
+      uri: huggingface://MaziyarPanahi/Llama-3-Smaug-8B-GGUF/Llama-3-Smaug-8B.Q4_K_M.gguf
 - <<: *llama3
   name: "llama-3-8b-openhermes-dpo"
   urls:
@@ -138,9 +138,9 @@
     parameters:
       model: Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
   files:
-  - filename: Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
-    sha256: 1147e5881cb1d67796916e6cab7dab0ae0f532a4c1e626c9e92861e5f67752ca
-    uri: huggingface://mradermacher/Llama3-8B-OpenHermes-DPO-GGUF/Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
+    - filename: Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
+      sha256: 1147e5881cb1d67796916e6cab7dab0ae0f532a4c1e626c9e92861e5f67752ca
+      uri: huggingface://mradermacher/Llama3-8B-OpenHermes-DPO-GGUF/Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
 - <<: *llama3
   name: "llama-3-unholy-8b"
   urls:
@@ -156,9 +156,9 @@
     parameters:
       model: Llama-3-Unholy-8B.q4_k_m.gguf
   files:
-  - filename: Llama-3-Unholy-8B.q4_k_m.gguf
-    sha256: 17b7f716bce1b34d4aa99ee730a19a834f8c77ddb36090dde5a1eda963f93602
-    uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q4_k_m.gguf
+    - filename: Llama-3-Unholy-8B.q4_k_m.gguf
+      sha256: 17b7f716bce1b34d4aa99ee730a19a834f8c77ddb36090dde5a1eda963f93602
+      uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q4_k_m.gguf
 - <<: *llama3
   name: "lexi-llama-3-8b-uncensored"
   urls:
@@ -174,9 +174,9 @@
     parameters:
       model: lexi-llama-3-8b-uncensored.Q6_K.gguf
   files:
-  - filename: lexi-llama-3-8b-uncensored.Q6_K.gguf
-    sha256: 5805f3856cc18a769fae0b7c5659fe6778574691c370c910dad6eeec62c62436
-    uri: huggingface://NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF/lexi-llama-3-8b-uncensored.Q6_K.gguf
+    - filename: lexi-llama-3-8b-uncensored.Q6_K.gguf
+      sha256: 5805f3856cc18a769fae0b7c5659fe6778574691c370c910dad6eeec62c62436
+      uri: huggingface://NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF/lexi-llama-3-8b-uncensored.Q6_K.gguf
 - <<: *llama3
   name: "chaos-rp_l3_b-iq-imatrix"
   urls:
@@ -192,9 +192,9 @@
     parameters:
       model: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
   files:
-  - filename: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
-    sha256: 4273c5a8f23d49bf6294e620a5aa1fcd78d491ea0b90d0ec63ad708eedb83893
-    uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
+    - filename: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
+      sha256: 4273c5a8f23d49bf6294e620a5aa1fcd78d491ea0b90d0ec63ad708eedb83893
+      uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
 - <<: *llama3
   name: "llama-3-unholy-8b:Q8_0"
   urls:
@@ -210,9 +210,9 @@
     parameters:
       model: Llama-3-Unholy-8B.q8_0.gguf
   files:
-  - filename: Llama-3-Unholy-8B.q8_0.gguf
-    sha256: 8d4137018acdcd57df4beccc84d9ad3f7f08cac50588f76370afc16c85752702
-    uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q8_0.gguf
+    - filename: Llama-3-Unholy-8B.q8_0.gguf
+      sha256: 8d4137018acdcd57df4beccc84d9ad3f7f08cac50588f76370afc16c85752702
+      uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q8_0.gguf
 - <<: *llama3
   name: "therapyllama-8b-v1"
   urls:
@@ -243,9 +243,9 @@
     parameters:
       model: TherapyLlama-8B-v1-Q4_K_M.gguf
   files:
-  - filename: TherapyLlama-8B-v1-Q4_K_M.gguf
-    sha256: 3d5a16d458e074a7bc7e706a493d8e95e8a7b2cb16934c851aece0af9d1da14a
-    uri: huggingface://victunes/TherapyLlama-8B-v1-GGUF/TherapyLlama-8B-v1-Q4_K_M.gguf
+    - filename: TherapyLlama-8B-v1-Q4_K_M.gguf
+      sha256: 3d5a16d458e074a7bc7e706a493d8e95e8a7b2cb16934c851aece0af9d1da14a
+      uri: huggingface://victunes/TherapyLlama-8B-v1-GGUF/TherapyLlama-8B-v1-Q4_K_M.gguf
 - <<: *llama3
   name: "aura-uncensored-l3-8b-iq-imatrix"
   urls:
@@ -257,9 +257,9 @@
     parameters:
       model: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
   files:
-  - filename: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
-    sha256: 265ded6a4f439bec160f394e3083a4a20e32ebb9d1d2d85196aaab23dab87fb2
-    uri: huggingface://Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix/Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
+    - filename: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
+      sha256: 265ded6a4f439bec160f394e3083a4a20e32ebb9d1d2d85196aaab23dab87fb2
+      uri: huggingface://Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix/Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
@@ -281,18 +281,18 @@
     parameters:
       model: dolphin-2.9-llama3-8b-q4_K_M.gguf
   files:
-  - filename: dolphin-2.9-llama3-8b-q4_K_M.gguf
-    sha256: be988199ce28458e97205b11ae9d9cf4e3d8e18ff4c784e75bfc12f54407f1a1
-    uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q4_K_M.gguf
+    - filename: dolphin-2.9-llama3-8b-q4_K_M.gguf
+      sha256: be988199ce28458e97205b11ae9d9cf4e3d8e18ff4c784e75bfc12f54407f1a1
+      uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q4_K_M.gguf
 - <<: *dolphin
   name: "dolphin-2.9-llama3-8b:Q6_K"
   overrides:
     parameters:
       model: dolphin-2.9-llama3-8b-q6_K.gguf
   files:
-  - filename: dolphin-2.9-llama3-8b-q6_K.gguf
-    sha256: 8aac72a0bd72c075ba7be1aa29945e47b07d39cd16be9a80933935f51b57fb32
-    uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q6_K.gguf
+    - filename: dolphin-2.9-llama3-8b-q6_K.gguf
+      sha256: 8aac72a0bd72c075ba7be1aa29945e47b07d39cd16be9a80933935f51b57fb32
+      uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q6_K.gguf
 ## LLama2 and derivatives
 ### Start Fimbulvetr
 - &vicuna-chat
@@ -315,9 +315,9 @@
     parameters:
       model: Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
   files:
-  - filename: Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
-    sha256:	3597dacfb0ab717d565d8a4d6067f10dcb0e26cc7f21c832af1a10a87882a8fd
-    uri: huggingface://Sao10K/Fimbulvetr-11B-v2-GGUF/Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
+    - filename: Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
+      sha256: 3597dacfb0ab717d565d8a4d6067f10dcb0e26cc7f21c832af1a10a87882a8fd
+      uri: huggingface://Sao10K/Fimbulvetr-11B-v2-GGUF/Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
 ### Start noromaid
 - &noromaid
   url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
@@ -337,7 +337,7 @@
       model: Noromaid-13B-0.4-DPO.q4_k_m.gguf
   files:
   - filename: Noromaid-13B-0.4-DPO.q4_k_m.gguf
-    sha256:	cb28e878d034fae3d0b43326c5fc1cfb4ab583b17c56e41d6ce023caec03c1c1
+    sha256: cb28e878d034fae3d0b43326c5fc1cfb4ab583b17c56e41d6ce023caec03c1c1
     uri: huggingface://NeverSleep/Noromaid-13B-0.4-DPO-GGUF/Noromaid-13B-0.4-DPO.q4_k_m.gguf
 ### START LLaVa
 - &llava
@@ -363,10 +363,10 @@
     parameters:
       model: vicuna-7b-q5_k.gguf
   files:
-  - filename: vicuna-7b-q5_k.gguf
-    uri: https://huggingface.co/cmp-nct/llava-1.6-gguf/resolve/main/vicuna-7b-q5_k.gguf
-  - filename: mmproj-vicuna7b-f16.gguf
-    uri: https://huggingface.co/cmp-nct/llava-1.6-gguf/resolve/main/mmproj-vicuna7b-f16.gguf
+    - filename: vicuna-7b-q5_k.gguf
+      uri: https://huggingface.co/cmp-nct/llava-1.6-gguf/resolve/main/vicuna-7b-q5_k.gguf
+    - filename: mmproj-vicuna7b-f16.gguf
+      uri: https://huggingface.co/cmp-nct/llava-1.6-gguf/resolve/main/mmproj-vicuna7b-f16.gguf
 - <<: *llava
   name: "llava-1.6-mistral"
   overrides:
@@ -374,12 +374,12 @@
     parameters:
       model: llava-v1.6-mistral-7b.gguf
   files:
-  - filename: llava-v1.6-mistral-7b.gguf
-    sha256: 31826170ffa2e8080bbcd74cac718f906484fd5a59895550ef94c1baa4997595
-    uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/llava-v1.6-mistral-7b.Q6_K.gguf
-  - filename: llava-v1.6-7b-mmproj-f16.gguf
-    sha256: 00205ee8a0d7a381900cd031e43105f86aa0d8c07bf329851e85c71a26632d16
-    uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/mmproj-model-f16.gguf
+    - filename: llava-v1.6-mistral-7b.gguf
+      sha256: 31826170ffa2e8080bbcd74cac718f906484fd5a59895550ef94c1baa4997595
+      uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/llava-v1.6-mistral-7b.Q6_K.gguf
+    - filename: llava-v1.6-7b-mmproj-f16.gguf
+      sha256: 00205ee8a0d7a381900cd031e43105f86aa0d8c07bf329851e85c71a26632d16
+      uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/mmproj-model-f16.gguf
 - <<: *llava
   name: "llava-1.5"
   overrides:
@@ -387,12 +387,12 @@
     parameters:
       model: llava-v1.5-7b-Q4_K.gguf
   files:
-  - filename: llava-v1.5-7b-Q4_K.gguf
-    sha256: 	c91ebf0a628ceb25e374df23ad966cc1bf1514b33fecf4f0073f9619dec5b3f9
-    uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-Q4_K.gguf
-  - filename: llava-v1.5-7b-mmproj-Q8_0.gguf
-    sha256: 09c230de47f6f843e4841656f7895cac52c6e7ec7392acb5e8527de8b775c45a
-    uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-mmproj-Q8_0.gguf
+    - filename: llava-v1.5-7b-Q4_K.gguf
+      sha256: c91ebf0a628ceb25e374df23ad966cc1bf1514b33fecf4f0073f9619dec5b3f9
+      uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-Q4_K.gguf
+    - filename: llava-v1.5-7b-mmproj-Q8_0.gguf
+      sha256: 09c230de47f6f843e4841656f7895cac52c6e7ec7392acb5e8527de8b775c45a
+      uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-mmproj-Q8_0.gguf
 ### START Phi-2
 - &phi-2-chat
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
