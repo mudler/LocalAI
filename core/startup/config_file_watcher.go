@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -50,6 +51,7 @@ func (c *configFileHandler) Register(filename string, handler fileHandler, runNo
 }
 
 func (c *configFileHandler) callHandler(filename string, handler fileHandler) {
+	log.Trace().Str("filename", filename).Msg("reading file for dynamic config update")
 	fileContent, err := os.ReadFile(filename)
 	if err != nil && !os.IsNotExist(err) {
 		log.Error().Err(err).Str("filename", filename).Msg("could not read file")
@@ -75,7 +77,7 @@ func (c *configFileHandler) Watch() error {
 				<-ticker.C
 				for file, handler := range c.handlers {
 					log.Debug().Str("file", file).Msg("polling config file")
-					c.callHandler(file, handler)
+					c.callHandler(filepath.Join(c.appConfig.DynamicConfigsDir, file), handler)
 				}
 			}
 		}()
@@ -122,7 +124,8 @@ func (c *configFileHandler) Stop() {
 
 func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {
 	handler := func(fileContent []byte, appConfig *config.ApplicationConfig) error {
-		log.Debug().Msg("processing api_keys.json")
+		log.Debug().Msg("processing api keys runtime update")
+		log.Trace().Int("numKeys", len(startupAppConfig.ApiKeys)).Msg("api keys provided at startup")
 
 		if len(fileContent) > 0 {
 			// Parse JSON content from the file
@@ -132,11 +135,14 @@ func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {
 				return err
 			}
 
+			log.Trace().Int("numKeys", len(fileKeys)).Msg("discovered API keys from api keys dynamic config dile")
+
 			appConfig.ApiKeys = append(startupAppConfig.ApiKeys, fileKeys...)
 		} else {
+			log.Trace().Msg("no API keys discovered from dynamic config file")
 			appConfig.ApiKeys = startupAppConfig.ApiKeys
 		}
-		log.Debug().Msg("api keys loaded from api_keys.json")
+		log.Trace().Int("numKeys", len(appConfig.ApiKeys)).Msg("total api keys after processing")
 		return nil
 	}
 
