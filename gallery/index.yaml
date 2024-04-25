@@ -83,6 +83,65 @@
     sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
     uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
 - <<: *llama3
+  name: "llama-3-sauerkrautlm-8b-instruct"
+  urls:
+  - https://huggingface.co/bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF
+  icon: https://vago-solutions.ai/wp-content/uploads/2024/04/Llama3-Pic.png
+  description: |
+    SauerkrautLM-llama-3-8B-Instruct
+
+    Model Type: Llama-3-SauerkrautLM-8b-Instruct is a finetuned Model based on meta-llama/Meta-Llama-3-8B-Instruct
+    Language(s): German, English
+  overrides:
+    parameters:
+      model: Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
+  files:
+  - filename: Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
+    sha256:	5833d99d5596cade0d02e61cddaa6dac49170864ee56d0b602933c6f9fbae314
+    uri: huggingface://bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF/Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
+- <<: *llama3
+  name: "llama-3-13b-instruct-v0.1"
+  urls:
+  - https://huggingface.co/MaziyarPanahi/Llama-3-13B-Instruct-v0.1-GGUF
+  icon: https://huggingface.co/MaziyarPanahi/Llama-3-13B-Instruct-v0.1/resolve/main/llama-3-merges.webp
+  description: |
+    This model is a self-merge of meta-llama/Meta-Llama-3-8B-Instruct model.
+  overrides:
+    parameters:
+      model: Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
+  files:
+  - filename: Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
+    sha256:	071a28043c271d259b5ffa883d19a9e0b33269b55148c4abaf5f95da4d084266
+    uri: huggingface://MaziyarPanahi/Llama-3-13B-Instruct-v0.1-GGUF/Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
+- <<: *llama3
+  name: "llama-3-smaug-8b"
+  urls:
+  - https://huggingface.co/MaziyarPanahi/Llama-3-Smaug-8B-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64c14f95cac5f9ba52bbcd7f/OrcJyTaUtD2HxJOPPwNva.png
+  description: |
+    This model was built using the Smaug recipe for improving performance on real world multi-turn conversations applied to meta-llama/Meta-Llama-3-8B.
+  overrides:
+    parameters:
+      model: Llama-3-Smaug-8B.Q4_K_M.gguf
+  files:
+  - filename: Llama-3-Smaug-8B.Q4_K_M.gguf
+    sha256: b17c4c1144768ead9e8a96439165baf49e98c53d458b4da8827f137fbabf38c1
+    uri: huggingface://MaziyarPanahi/Llama-3-Smaug-8B-GGUF/Llama-3-Smaug-8B.Q4_K_M.gguf
+- <<: *llama3
+  name: "llama-3-8b-openhermes-dpo"
+  urls:
+  - https://huggingface.co/mradermacher/Llama3-8B-OpenHermes-DPO-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64fc6d81d75293f417fee1d1/QF2OsDu9DJKP4QYPBu4aK.png
+  description: |
+    Llama3-8B-OpenHermes-DPO is DPO-Finetuned model of Llama3-8B, on the OpenHermes-2.5 preference dataset using QLoRA.
+  overrides:
+    parameters:
+      model: Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
+  files:
+  - filename: Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
+    sha256: 1147e5881cb1d67796916e6cab7dab0ae0f532a4c1e626c9e92861e5f67752ca
+    uri: huggingface://mradermacher/Llama3-8B-OpenHermes-DPO-GGUF/Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
+- <<: *llama3
   name: "llama-3-unholy-8b"
   urls:
   - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
@@ -100,6 +159,42 @@
   - filename: Llama-3-Unholy-8B.q4_k_m.gguf
     sha256: 17b7f716bce1b34d4aa99ee730a19a834f8c77ddb36090dde5a1eda963f93602
     uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q4_k_m.gguf
+- <<: *llama3
+  name: "lexi-llama-3-8b-uncensored"
+  urls:
+  - https://huggingface.co/NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/644ad182f434a6a63b18eee6/H6axm5mlmiOWnbIFvx_em.png
+  description: |
+    Lexi is uncensored, which makes the model compliant. You are advised to implement your own alignment layer before exposing the model as a service. It will be highly compliant with any requests, even unethical ones.
+
+    You are responsible for any content you create using this model. Please use it responsibly.
+
+    Lexi is licensed according to Meta's Llama license. I grant permission for any use, including commercial, that falls within accordance with Meta's Llama-3 license.
+  overrides:
+    parameters:
+      model: lexi-llama-3-8b-uncensored.Q6_K.gguf
+  files:
+  - filename: lexi-llama-3-8b-uncensored.Q6_K.gguf
+    sha256: 5805f3856cc18a769fae0b7c5659fe6778574691c370c910dad6eeec62c62436
+    uri: huggingface://NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF/lexi-llama-3-8b-uncensored.Q6_K.gguf
+- <<: *llama3
+  name: "chaos-rp_l3_b-iq-imatrix"
+  urls:
+  - https://huggingface.co/Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/u5p9kdbXT2QQA3iMU0vF1.png
+  description: |
+      A chaotic force beckons for you, will you heed her call?
+
+      Built upon an intelligent foundation and tuned for roleplaying, this model will fulfill your wildest fantasies with the bare minimum of effort.
+
+      Enjoy!
+  overrides:
+    parameters:
+      model: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
+  files:
+  - filename: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
+    sha256: 4273c5a8f23d49bf6294e620a5aa1fcd78d491ea0b90d0ec63ad708eedb83893
+    uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
 - <<: *llama3
   name: "llama-3-unholy-8b:Q8_0"
   urls:
@@ -199,7 +294,30 @@
     sha256: 8aac72a0bd72c075ba7be1aa29945e47b07d39cd16be9a80933935f51b57fb32
     uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q6_K.gguf
 ## LLama2 and derivatives
+### Start Fimbulvetr
+- &vicuna-chat
+  url: "github:mudler/LocalAI/gallery/vicuna-chat.yaml@master"
+  name: "fimbulvetr-11b-v2"
+  icon: https://huggingface.co/Sao10K/Fimbulvetr-11B-v2/resolve/main/cute1.jpg
+  license: llama2
 
+  description: |
+       Cute girl to catch your attention.
+  urls:
+  - https://huggingface.co/Sao10K/Fimbulvetr-11B-v2-GGUF
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
+  - llama3
+  overrides:
+    parameters:
+      model: Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
+  files:
+  - filename: Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
+    sha256:	3597dacfb0ab717d565d8a4d6067f10dcb0e26cc7f21c832af1a10a87882a8fd
+    uri: huggingface://Sao10K/Fimbulvetr-11B-v2-GGUF/Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
 ### Start noromaid
 - &noromaid
   url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
@@ -436,7 +554,26 @@
     sha256: "b6d95d7ec9a395b7568cc94b0447fd4f90b6f69d6e44794b1fbb84e3f732baca"
     uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
 ### END Hermes-2-Pro-Mistral
-
+### START Cerbero
+- url: "github:mudler/LocalAI/gallery/cerbero.yaml@master"
+  icon: https://huggingface.co/galatolo/cerbero-7b/resolve/main/README.md.d/cerbero.png
+  description: |
+    cerbero-7b is specifically crafted to fill the void in Italy's AI landscape.
+  urls:
+  - https://huggingface.co/galatolo/cerbero-7b
+  tags:
+  - llm
+  - gguf
+  - gpu
+  - cpu
+  - mistral
+  overrides:
+    parameters:
+      model: galatolo-Q4_K.gguf
+  files:
+  - filename: "galatolo-Q4_K.gguf"
+    sha256: "ca0cfd5a9ad40dc16416aa3a277015d0299b62c0803b67f5709580042202c172"
+    uri: "huggingface://galatolo/cerbero-7b-gguf/ggml-model-Q4_K.gguf"
 ### START Codellama
 - &codellama
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
