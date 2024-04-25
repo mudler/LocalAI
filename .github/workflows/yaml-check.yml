@@ -1,22 +1,18 @@
-name: json-yaml-validate 
+name: 'Yamllint GitHub Actions'
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
+  - pull_request
 jobs:
-  json-yaml-validate:
+  yamllint:
+    name: 'Yamllint'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: json-yaml-validate
-        id: json-yaml-validate
-        uses: GrantBirki/json-yaml-validate@v2.7.1
+      - name: 'Checkout'
+        uses: actions/checkout@master
+      - name: 'Yamllint'
+        uses: karancode/yamllint-github-action@master
         with:
-          base_dir: ./gallery
+          yamllint_file_or_dir: 'gallery'
+          yamllint_strict: false
+          yamllint_comment: true
+        env:
+          GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
