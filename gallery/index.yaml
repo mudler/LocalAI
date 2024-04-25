@@ -116,7 +116,7 @@
 - <<: *llama3
   name: "llama-3-smaug-8b"
   urls:
-  - https://huggingface.co/MaziyarPanahi/Llama-3-Smaug-8B-GGUF
+    - https://huggingface.co/MaziyarPanahi/Llama-3-Smaug-8B-GGUF
   icon: https://cdn-uploads.huggingface.co/production/uploads/64c14f95cac5f9ba52bbcd7f/OrcJyTaUtD2HxJOPPwNva.png
   description: |
     This model was built using the Smaug recipe for improving performance on real world multi-turn conversations applied to meta-llama/Meta-Llama-3-8B.
@@ -130,7 +130,7 @@
 - <<: *llama3
   name: "llama-3-8b-openhermes-dpo"
   urls:
-  - https://huggingface.co/mradermacher/Llama3-8B-OpenHermes-DPO-GGUF
+    - https://huggingface.co/mradermacher/Llama3-8B-OpenHermes-DPO-GGUF
   icon: https://cdn-uploads.huggingface.co/production/uploads/64fc6d81d75293f417fee1d1/QF2OsDu9DJKP4QYPBu4aK.png
   description: |
     Llama3-8B-OpenHermes-DPO is DPO-Finetuned model of Llama3-8B, on the OpenHermes-2.5 preference dataset using QLoRA.
@@ -144,7 +144,7 @@
 - <<: *llama3
   name: "llama-3-unholy-8b"
   urls:
-  - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
+    - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
   icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/JmdBlOHlBHVmX1IbZzWSv.png
   description: |
     Use at your own risk, I'm not responsible for any usage of this model, don't try to do anything this model tell you to do.
@@ -162,7 +162,7 @@
 - <<: *llama3
   name: "lexi-llama-3-8b-uncensored"
   urls:
-  - https://huggingface.co/NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF
+    - https://huggingface.co/NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF
   icon: https://cdn-uploads.huggingface.co/production/uploads/644ad182f434a6a63b18eee6/H6axm5mlmiOWnbIFvx_em.png
   description: |
     Lexi is uncensored, which makes the model compliant. You are advised to implement your own alignment layer before exposing the model as a service. It will be highly compliant with any requests, even unethical ones.
@@ -180,7 +180,7 @@
 - <<: *llama3
   name: "chaos-rp_l3_b-iq-imatrix"
   urls:
-  - https://huggingface.co/Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix
+    - https://huggingface.co/Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix
   icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/u5p9kdbXT2QQA3iMU0vF1.png
   description: |
       A chaotic force beckons for you, will you heed her call?
@@ -198,7 +198,7 @@
 - <<: *llama3
   name: "llama-3-unholy-8b:Q8_0"
   urls:
-  - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
+    - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
   icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/JmdBlOHlBHVmX1IbZzWSv.png
   description: |
     Use at your own risk, I'm not responsible for any usage of this model, don't try to do anything this model tell you to do.
@@ -216,7 +216,7 @@
 - <<: *llama3
   name: "therapyllama-8b-v1"
   urls:
-  - https://huggingface.co/victunes/TherapyLlama-8B-v1-GGUF
+    - https://huggingface.co/victunes/TherapyLlama-8B-v1-GGUF
   icon: https://cdn-uploads.huggingface.co/production/uploads/65f07d05279d2d8f725bf0c3/A-ckcZ9H0Ee1n_ls2FM41.png
   description: |
     Trained on Llama 3 8B using a modified version of jerryjalapeno/nart-100k-synthetic.
@@ -249,7 +249,7 @@
 - <<: *llama3
   name: "aura-uncensored-l3-8b-iq-imatrix"
   urls:
-  - https://huggingface.co/Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix
+    - https://huggingface.co/Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix
   icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/oiYHWIEHqmgUkY0GsVdDx.png
   description: |
     This is another better atempt at a less censored Llama-3 with hopefully more stable formatting.
@@ -264,7 +264,7 @@
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
   urls:
-  - https://huggingface.co/cognitivecomputations/dolphin-2.9-llama3-8b-gguf
+    - https://huggingface.co/cognitivecomputations/dolphin-2.9-llama3-8b-gguf
   tags:
   - llm
   - gguf
@@ -304,7 +304,7 @@
   description: |
        Cute girl to catch your attention.
   urls:
-  - https://huggingface.co/Sao10K/Fimbulvetr-11B-v2-GGUF
+    - https://huggingface.co/Sao10K/Fimbulvetr-11B-v2-GGUF
   tags:
   - llm
   - gguf
@@ -325,7 +325,7 @@
   icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/VKX2Z2yjZX5J8kXzgeCYO.png
   license: cc-by-nc-4.0
   urls:
-  - https://huggingface.co/NeverSleep/Noromaid-13B-0.4-DPO-GGUF
+    - https://huggingface.co/NeverSleep/Noromaid-13B-0.4-DPO-GGUF
   tags:
   - llm
   - llama2
@@ -348,7 +348,7 @@
     LLaVA represents a novel end-to-end trained large multimodal model that combines a vision encoder and Vicuna for general-purpose visual and language understanding, achieving impressive chat capabilities mimicking spirits of the multimodal GPT-4 and setting a new state-of-the-art accuracy on Science QA.
 
   urls:
-  - https://llava-vl.github.io/
+    - https://llava-vl.github.io/
 
   tags:
   - llm
@@ -416,7 +416,7 @@
     Finetuned from model: Phi-2
 
   urls:
-  - https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml
+    - https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml
   - https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml-gguf
 
   tags:
@@ -450,8 +450,8 @@
 
     There is an updated model at rhysjones/phi-2-orange-v2 which has higher evals, if you wish to test.
   urls:
-  - https://huggingface.co/rhysjones/phi-2-orange
-  - https://huggingface.co/TheBloke/phi-2-orange-GGUF
+    - https://huggingface.co/rhysjones/phi-2-orange
+    - https://huggingface.co/TheBloke/phi-2-orange-GGUF
 
   tags:
   - llm
@@ -477,7 +477,7 @@
     The Phi-3-Mini-4K-Instruct is a 3.8B parameters, lightweight, state-of-the-art open model trained with the Phi-3 datasets that includes both synthetic data and the filtered publicly available websites data with a focus on high-quality and reasoning dense properties. The model belongs to the Phi-3 family with the Mini version in two variants 4K and 128K which is the context length (in tokens) it can support. The model has underwent a post-training process that incorporates both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. When assessed against benchmarks testing common sense, language understanding, math, code, long context and logical reasoning, Phi-3 Mini-4K-Instruct showcased a robust and state-of-the-art performance among models with less than 13 billion parameters.
 
   urls:
-  - https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
+    - https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
 
   tags:
   - llm
@@ -520,7 +520,7 @@
     Learn more about the function calling on our github repo here: https://github.com/NousResearch/Hermes-Function-Calling/tree/main
 
   urls:
-  - https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF
+    - https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF
 
   tags:
   - llm
@@ -560,7 +560,7 @@
   description: |
     cerbero-7b is specifically crafted to fill the void in Italy's AI landscape.
   urls:
-  - https://huggingface.co/galatolo/cerbero-7b
+    - https://huggingface.co/galatolo/cerbero-7b
   tags:
   - llm
   - gguf
@@ -584,8 +584,8 @@
     Code Llama is a collection of pretrained and fine-tuned generative text models ranging in scale from 7 billion to 34 billion parameters. This model is designed for general code synthesis and understanding.
 
   urls:
-  - https://huggingface.co/TheBloke/CodeLlama-7B-GGUF
-  - https://huggingface.co/meta-llama/CodeLlama-7b-hf
+    - https://huggingface.co/TheBloke/CodeLlama-7B-GGUF
+    - https://huggingface.co/meta-llama/CodeLlama-7b-hf
 
   tags:
   - llm
@@ -606,7 +606,7 @@
   description: |
       This framework provides an easy method to compute dense vector representations for sentences, paragraphs, and images. The models are based on transformer networks like BERT / RoBERTa / XLM-RoBERTa etc. and achieve state-of-the-art performance in various tasks. Text is embedded in vector space such that similar text are closer and can efficiently be found using cosine similarity.
   urls:
-  - https://github.com/UKPLab/sentence-transformers
+    - https://github.com/UKPLab/sentence-transformers
   tags:
   - gpu
   - cpu
@@ -628,7 +628,7 @@
     A text-to-image model that uses Stable Diffusion 1.5 to generate images from text prompts. This model is DreamShaper model by Lykon.
 
   urls:
-  - https://civitai.com/models/4384/dreamshaper
+    - https://civitai.com/models/4384/dreamshaper
 
   tags:
   - text-to-image
@@ -650,7 +650,7 @@
   name: "whisper-1"
   license: "MIT"
   urls:
-  - https://github.com/ggerganov/whisper.cpp
+    - https://github.com/ggerganov/whisper.cpp
   - https://huggingface.co/ggerganov/whisper.cpp
 
   description: |
@@ -661,7 +661,7 @@
   name: "bert-embeddings"
   license: "Apache 2.0"
   urls:
-  - https://huggingface.co/skeskinen/ggml
+    - https://huggingface.co/skeskinen/ggml
   tags:
   - embeddings
   description: |
@@ -671,8 +671,8 @@
 - url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
   license: "BSD-3"
   urls:
-  - https://github.com/EdVince/Stable-Diffusion-NCNN
-  - https://github.com/EdVince/Stable-Diffusion-NCNN/blob/main/LICENSE
+    - https://github.com/EdVince/Stable-Diffusion-NCNN
+    - https://github.com/EdVince/Stable-Diffusion-NCNN/blob/main/LICENSE
 
   description: |
       Stable Diffusion in NCNN with c++, supported txt2img and img2img
