@@ -18,3 +18,5 @@ jobs:
       - name: json-yaml-validate
         id: json-yaml-validate
         uses: GrantBirki/json-yaml-validate@v2.7.1
+        with:
+          base_dir: ./gallery
