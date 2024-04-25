@@ -16,4 +16,3 @@ config_file: |
   f16: true
   stopwords:
   - <|im_end|>
-
