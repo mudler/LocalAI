@@ -251,7 +251,7 @@ func newMultipartFile(filePath, tag, purpose string) (*strings.Reader, *multipar
 
 // Helper to create test files
 func createTestFile(t *testing.T, name string, sizeMB int, option *config.ApplicationConfig) *os.File {
-	err := os.MkdirAll(option.UploadDir, 0755)
+	err := os.MkdirAll(option.UploadDir, 0750)
 	if err != nil {
 
 		t.Fatalf("Error MKDIR: %v", err)

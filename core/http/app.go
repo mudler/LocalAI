@@ -175,11 +175,11 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	}
 
 	// Make sure directories exists
-	os.MkdirAll(appConfig.ImageDir, 0755)
-	os.MkdirAll(appConfig.AudioDir, 0755)
-	os.MkdirAll(appConfig.UploadDir, 0755)
-	os.MkdirAll(appConfig.ConfigsDir, 0755)
-	os.MkdirAll(appConfig.ModelPath, 0755)
+	os.MkdirAll(appConfig.ImageDir, 0750)
+	os.MkdirAll(appConfig.AudioDir, 0750)
+	os.MkdirAll(appConfig.UploadDir, 0750)
+	os.MkdirAll(appConfig.ConfigsDir, 0750)
+	os.MkdirAll(appConfig.ModelPath, 0750)
 
 	// Load config jsons
 	utils.LoadConfig(appConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)

@@ -15,7 +15,7 @@ func SaveConfig(filePath, fileName string, obj any) {
 	}
 
 	absolutePath := filepath.Join(filePath, fileName)
-	err = os.WriteFile(absolutePath, file, 0644)
+	err = os.WriteFile(absolutePath, file, 0600)
 	if err != nil {
 		log.Error().Err(err).Str("filepath", absolutePath).Msg("failed to save configuration file")
 	}

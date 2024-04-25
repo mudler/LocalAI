@@ -109,7 +109,7 @@ func gRPCPredictOpts(c config.BackendConfig, modelPath string) *pb.PredictOption
 	promptCachePath := ""
 	if c.PromptCachePath != "" {
 		p := filepath.Join(modelPath, c.PromptCachePath)
-		os.MkdirAll(filepath.Dir(p), 0755)
+		os.MkdirAll(filepath.Dir(p), 0750)
 		promptCachePath = p
 	}
 

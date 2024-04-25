@@ -222,7 +222,7 @@ var _ = Describe("API test", func() {
 
 			modelDir = filepath.Join(tmpdir, "models")
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
-			err = os.Mkdir(backendAssetsDir, 0755)
+			err = os.Mkdir(backendAssetsDir, 0750)
 			Expect(err).ToNot(HaveOccurred())
 
 			c, cancel = context.WithCancel(context.Background())
@@ -241,7 +241,7 @@ var _ = Describe("API test", func() {
 			}
 			out, err := yaml.Marshal(g)
 			Expect(err).ToNot(HaveOccurred())
-			err = os.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0644)
+			err = os.WriteFile(filepath.Join(tmpdir, "gallery_simple.yaml"), out, 0600)
 			Expect(err).ToNot(HaveOccurred())
 
 			galleries := []gallery.Gallery{
@@ -595,7 +595,7 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			modelDir = filepath.Join(tmpdir, "models")
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
-			err = os.Mkdir(backendAssetsDir, 0755)
+			err = os.Mkdir(backendAssetsDir, 0750)
 			Expect(err).ToNot(HaveOccurred())
 
 			c, cancel = context.WithCancel(context.Background())

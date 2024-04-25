@@ -21,9 +21,9 @@ var _ = Describe("TemplateCache", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Writing example template files
-		err = os.WriteFile(filepath.Join(tempDir, "example.tmpl"), []byte("Hello, {{.Name}}!"), 0644)
+		err = os.WriteFile(filepath.Join(tempDir, "example.tmpl"), []byte("Hello, {{.Name}}!"), 0600)
 		Expect(err).NotTo(HaveOccurred())
-		err = os.WriteFile(filepath.Join(tempDir, "empty.tmpl"), []byte(""), 0644)
+		err = os.WriteFile(filepath.Join(tempDir, "empty.tmpl"), []byte(""), 0600)
 		Expect(err).NotTo(HaveOccurred())
 
 		templateCache = templates.NewTemplateCache(tempDir)
