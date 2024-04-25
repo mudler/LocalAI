@@ -61,9 +61,9 @@
     parameters:
       model: Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
   files:
-  - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
-    sha256: 19ded996fe6c60254dc7544d782276eff41046ed42aa5f2d0005dc457e5c0895
-    uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q4_0.gguf
+    - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
+      sha256: 19ded996fe6c60254dc7544d782276eff41046ed42aa5f2d0005dc457e5c0895
+      uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q4_0.gguf
 - <<: *llama3
   name: "llama3-8b-instruct:Q6_K"
   overrides:
