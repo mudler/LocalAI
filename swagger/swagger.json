@@ -227,7 +227,7 @@
         }
     },
     "definitions": {
-        "grammar.Argument": {
+        "functions.Argument": {
             "type": "object",
             "properties": {
                 "properties": {
@@ -239,7 +239,7 @@
                 }
             }
         },
-        "grammar.Function": {
+        "functions.Function": {
             "type": "object",
             "properties": {
                 "description": {
@@ -254,7 +254,7 @@
                 }
             }
         },
-        "grammar.FunctionName": {
+        "functions.FunctionName": {
             "type": "object",
             "properties": {
                 "const": {
@@ -262,18 +262,18 @@
                 }
             }
         },
-        "grammar.Item": {
+        "functions.Item": {
             "type": "object",
             "properties": {
                 "properties": {
-                    "$ref": "#/definitions/grammar.Properties"
+                    "$ref": "#/definitions/functions.Properties"
                 },
                 "type": {
                     "type": "string"
                 }
             }
         },
-        "grammar.JSONFunctionStructure": {
+        "functions.JSONFunctionStructure": {
             "type": "object",
             "properties": {
                 "$defs": {
@@ -283,33 +283,33 @@
                 "anyOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/grammar.Item"
+                        "$ref": "#/definitions/functions.Item"
                     }
                 },
                 "oneOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/grammar.Item"
+                        "$ref": "#/definitions/functions.Item"
                     }
                 }
             }
         },
-        "grammar.Properties": {
+        "functions.Properties": {
             "type": "object",
             "properties": {
                 "arguments": {
-                    "$ref": "#/definitions/grammar.Argument"
+                    "$ref": "#/definitions/functions.Argument"
                 },
                 "function": {
-                    "$ref": "#/definitions/grammar.FunctionName"
+                    "$ref": "#/definitions/functions.FunctionName"
                 }
             }
         },
-        "grammar.Tool": {
+        "functions.Tool": {
             "type": "object",
             "properties": {
                 "function": {
-                    "$ref": "#/definitions/grammar.Function"
+                    "$ref": "#/definitions/functions.Function"
                 },
                 "type": {
                     "type": "string"
@@ -557,7 +557,7 @@
                     "description": "A list of available functions to call",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/grammar.Function"
+                        "$ref": "#/definitions/functions.Function"
                     }
                 },
                 "grammar": {
@@ -565,7 +565,7 @@
                     "type": "string"
                 },
                 "grammar_json_functions": {
-                    "$ref": "#/definitions/grammar.JSONFunctionStructure"
+                    "$ref": "#/definitions/functions.JSONFunctionStructure"
                 },
                 "ignore_eos": {
                     "type": "boolean"
@@ -665,7 +665,7 @@
                 "tools": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/grammar.Tool"
+                        "$ref": "#/definitions/functions.Tool"
                     }
                 },
                 "top_k": {
