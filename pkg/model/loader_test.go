@@ -24,8 +24,7 @@ const chatML = `<|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq
 </tool_call>
 {{- else if eq .RoleName "tool" }}
 </tool_response>
-{{- end }}
-<|im_end|>`
+{{- end }}<|im_end|>`
 
 const llama3 = `<|start_header_id|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}<|end_header_id|>
 
@@ -107,7 +106,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
 	"user": {
 		"template": chatML,
-		"expected": "<|im_start|>user\nA long time ago in a galaxy far, far away...\n<|im_end|>",
+		"expected": "<|im_start|>user\nA long time ago in a galaxy far, far away...<|im_end|>",
 		"data": model.ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "user",
@@ -122,7 +121,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 	"assistant": {
 		"template": chatML,
-		"expected": "<|im_start|>assistant\nA long time ago in a galaxy far, far away...\n<|im_end|>",
+		"expected": "<|im_start|>assistant\nA long time ago in a galaxy far, far away...<|im_end|>",
 		"data": model.ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "assistant",
@@ -137,7 +136,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 	"function_call": {
 		"template": chatML,
-		"expected": "<|im_start|>assistant\n<tool_call>\n{\"function\":\"test\"}\n</tool_call>\n<|im_end|>",
+		"expected": "<|im_start|>assistant\n<tool_call>\n{\"function\":\"test\"}\n</tool_call><|im_end|>",
 		"data": model.ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "assistant",
@@ -152,7 +151,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 	"function_response": {
 		"template": chatML,
-		"expected": "<|im_start|>tool\n<tool_response>\nResponse from tool\n</tool_response>\n<|im_end|>",
+		"expected": "<|im_start|>tool\n<tool_response>\nResponse from tool\n</tool_response><|im_end|>",
 		"data": model.ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "tool",
