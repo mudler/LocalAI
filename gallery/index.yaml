@@ -70,22 +70,22 @@
     parameters:
       model: Meta-Llama-3-8B-Instruct.Q6_K.gguf
   files:
-  - filename: Meta-Llama-3-8B-Instruct.Q6_K.gguf
-    sha256: b7bad45618e2a76cc1e89a0fbb93a2cac9bf410e27a619c8024ed6db53aa9b4a
-    uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
+    - filename: Meta-Llama-3-8B-Instruct.Q6_K.gguf
+      sha256: b7bad45618e2a76cc1e89a0fbb93a2cac9bf410e27a619c8024ed6db53aa9b4a
+      uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
 - <<: *llama3
   name: "llama3-70b-instruct"
   overrides:
     parameters:
       model: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
   files:
-  - filename: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
-    sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
-    uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+    - filename: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
+      sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
 - <<: *llama3
   name: "llama-3-sauerkrautlm-8b-instruct"
   urls:
-  - https://huggingface.co/bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF
+    - https://huggingface.co/bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF
   icon: https://vago-solutions.ai/wp-content/uploads/2024/04/Llama3-Pic.png
   description: |
     SauerkrautLM-llama-3-8B-Instruct
@@ -96,9 +96,9 @@
     parameters:
       model: Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
   files:
-  - filename: Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
-    sha256:	5833d99d5596cade0d02e61cddaa6dac49170864ee56d0b602933c6f9fbae314
-    uri: huggingface://bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF/Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
+    - filename: Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
+      sha256: 5833d99d5596cade0d02e61cddaa6dac49170864ee56d0b602933c6f9fbae314
+      uri: huggingface://bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF/Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
 - <<: *llama3
   name: "llama-3-13b-instruct-v0.1"
   urls:
