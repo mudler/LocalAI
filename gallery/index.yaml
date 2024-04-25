@@ -9,13 +9,13 @@
   description: |
     Parler-TTS is a lightweight text-to-speech (TTS) model that can generate high-quality, natural sounding speech in the style of a given speaker (gender, pitch, speaking style, etc). It is a reproduction of work from the paper Natural language guidance of high-fidelity text-to-speech with synthetic annotations by Dan Lyth and Simon King, from Stability AI and Edinburgh University respectively.
   urls:
-  - https://github.com/huggingface/parler-tts
+    - https://github.com/huggingface/parler-tts
   tags:
-  - tts
-  - gpu
-  - cpu
-  - text-to-speech
-  - python
+    - tts
+    - gpu
+    - cpu
+    - text-to-speech
+    - python
 ### START rerankers
 - &rerankers
   url: "github:mudler/LocalAI/gallery/rerankers.yaml@master"
@@ -26,9 +26,9 @@
   description: |
     A cross-encoder model that can be used for reranking
   tags:
-  - reranker
-  - gpu
-  - python
+    - reranker
+    - gpu
+    - python
 ## LLMs
 ### START LLAMA3
 - &llama3
@@ -49,20 +49,20 @@
 
       Model Architecture Llama 3 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
   urls:
-  - https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
-  - https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF
+    - https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
+    - https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF
   tags:
-  - llm
-  - gguf
-  - gpu
-  - cpu
-  - llama3
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
   overrides:
     parameters:
       model: Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
   files:
   - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
-    sha256:	19ded996fe6c60254dc7544d782276eff41046ed42aa5f2d0005dc457e5c0895
+    sha256: 19ded996fe6c60254dc7544d782276eff41046ed42aa5f2d0005dc457e5c0895
     uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q4_0.gguf
 - <<: *llama3
   name: "llama3-8b-instruct:Q6_K"
@@ -252,7 +252,7 @@
   - https://huggingface.co/Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix
   icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/oiYHWIEHqmgUkY0GsVdDx.png
   description: |
-    This is another better atempt at a less censored Llama-3 with hopefully more stable formatting. 
+    This is another better atempt at a less censored Llama-3 with hopefully more stable formatting.
   overrides:
     parameters:
       model: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
@@ -274,7 +274,7 @@
   license: llama3
   description: |
     Dolphin-2.9 has a variety of instruction, conversational, and coding skills. It also has initial agentic abilities and supports function calling.
-    Dolphin is uncensored.  
+    Dolphin is uncensored.
     Curated and trained by Eric Hartford, Lucas Atkins, and Fernando Fernandes, and Cognitive Computations
   icon: https://cdn-uploads.huggingface.co/production/uploads/63111b2d88942700629f5771/ldkN1J0WIDQwU4vutGYiD.png
   overrides:
@@ -345,7 +345,7 @@
   license: apache-2.0
 
   description: |
-    LLaVA represents a novel end-to-end trained large multimodal model that combines a vision encoder and Vicuna for general-purpose visual and language understanding, achieving impressive chat capabilities mimicking spirits of the multimodal GPT-4 and setting a new state-of-the-art accuracy on Science QA. 
+    LLaVA represents a novel end-to-end trained large multimodal model that combines a vision encoder and Vicuna for general-purpose visual and language understanding, achieving impressive chat capabilities mimicking spirits of the multimodal GPT-4 and setting a new state-of-the-art accuracy on Science QA.
 
   urls:
   - https://llava-vl.github.io/
@@ -655,7 +655,7 @@
 
   description: |
       Port of OpenAI's Whisper model in C/C++
-  
+
 ## Bert embeddings
 - url: "github:mudler/LocalAI/gallery/bert-embeddings.yaml@master"
   name: "bert-embeddings"
@@ -675,9 +675,9 @@
   - https://github.com/EdVince/Stable-Diffusion-NCNN/blob/main/LICENSE
 
   description: |
-      Stable Diffusion in NCNN with c++, supported txt2img and img2img 
+      Stable Diffusion in NCNN with c++, supported txt2img and img2img
   name: stablediffusion-cpp
-  
+
 ## Tiny Dream
 - url: github:mudler/LocalAI/gallery/tinydream.yaml@master
   name: tinydream
@@ -786,7 +786,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-thorsten-low
-  
+
   override:
     parameters:
       model: de-thorsten-low.onnx
@@ -796,7 +796,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-el-gr-rapunzelina-low
-  
+
   override:
     parameters:
       model: el-gr-rapunzelina-low.onnx
@@ -806,7 +806,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-alan-low
-  
+
   override:
     parameters:
       model: en-gb-alan-low.onnx
@@ -816,7 +816,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-southern_english_female-low
-  
+
   override:
     parameters:
       model: en-gb-southern_english
@@ -826,7 +826,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-amy-low
-  
+
   override:
     parameters:
       model: en-us-amy-low.onnx
@@ -836,7 +836,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-danny-low
-  
+
   override:
     parameters:
       model: en-us-danny-low.onnx
@@ -846,7 +846,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
-  
+
   override:
     parameters:
       model: en-us-kathleen-low.onnx
@@ -856,7 +856,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-low
-  
+
   override:
     parameters:
       model: en-us-lessac-low.onnx
@@ -866,7 +866,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-medium
-  
+
   override:
     parameters:
       model: en-us-lessac-medium.onnx
@@ -876,7 +876,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-libritts-high
-  
+
   override:
     parameters:
       model: en-us-libritts-high.onnx
@@ -886,7 +886,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-high
-  
+
   override:
     parameters:
       model: en-us-ryan-high.onnx
@@ -896,7 +896,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-low
-  
+
   override:
     parameters:
       model: en-us-ryan-low.onnx
@@ -907,7 +907,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-medium
-  
+
   override:
     parameters:
       model: en-us-ryan-medium.onnx
@@ -938,7 +938,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_10246-low
-  
+
   override:
     parameters:
       model: es-mls_10246-low.onnx
@@ -949,7 +949,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_9972-low
-  
+
   override:
     parameters:
       model: es-mls_9972-low.onnx
@@ -960,7 +960,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fi-harri-low
-  
+
   override:
     parameters:
       model: fi-harri-low.onnx
@@ -971,7 +971,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-gilles-low
-  
+
   override:
     parameters:
       model: fr-gilles-low.onnx
@@ -982,7 +982,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-mls_1840-low
-  
+
   override:
     parameters:
       model: fr-mls_1840-low.onnx
@@ -993,7 +993,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-low
-  
+
   override:
     parameters:
       model: fr-siwis-low.onnx
@@ -1004,7 +1004,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-medium
-  
+
   override:
     parameters:
       model: fr-siwis-medium.onnx
@@ -1015,7 +1015,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-bui-medium
-  
+
   override:
     parameters:
       model: is-bui-medium.onnx
@@ -1026,7 +1026,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-salka-medium
-  
+
   override:
     parameters:
       model: is-salka-medium.onnx
@@ -1037,7 +1037,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-steinn-medium
-  
+
   override:
     parameters:
       model: is-steinn-medium.onnx
@@ -1048,7 +1048,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-ugla-medium
-  
+
   override:
     parameters:
       model: is-ugla-medium.onnx
@@ -1059,7 +1059,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-it-riccardo_fasol-x-low
-  
+
   override:
     parameters:
       model: it-riccardo_fasol-x-low.onnx
@@ -1070,7 +1070,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-iseke-x-low
-  
+
   override:
     parameters:
       model: kk-iseke-x-low.onnx
@@ -1081,7 +1081,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-issai-high
-  
+
   override:
     parameters:
       model: kk-issai-high.onnx
@@ -1092,7 +1092,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-raya-x-low
-  
+
   override:
     parameters:
       model: kk-raya-x-low.onnx
@@ -1103,7 +1103,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-medium
-  
+
   override:
     parameters:
       model: ne-google-medium.onnx
@@ -1114,7 +1114,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-x-low
-  
+
   override:
     parameters:
       model: ne-google-x-low.onnx
@@ -1125,7 +1125,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_5809-low
-  
+
   override:
     parameters:
       model: nl-mls_5809-low.onnx
@@ -1136,7 +1136,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_7432-low
-  
+
   override:
     parameters:
       model: nl-mls_7432-low.onnx
@@ -1147,7 +1147,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-nathalie-x-low
-  
+
   override:
     parameters:
       model: nl-nathalie-x-low.onnx
@@ -1158,7 +1158,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-medium
-  
+
   override:
     parameters:
       model: nl-rdh-medium.onnx
@@ -1169,7 +1169,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-x-low
-  
+
   override:
     parameters:
       model: nl-rdh-x-low.onnx
@@ -1180,7 +1180,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-no-talesyntese-medium
-  
+
   override:
     parameters:
       model: no-talesyntese-medium.onnx
@@ -1191,7 +1191,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pl-mls_6892-low
-  
+
   override:
     parameters:
       model: pl-mls_6892-low.onnx
@@ -1202,7 +1202,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pt-br-edresson-low
-  
+
   override:
     parameters:
       model: pt-br-edresson-low.onnx
@@ -1213,7 +1213,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ru-irinia-medium
-  
+
   override:
     parameters:
       model: ru-irinia-medium.onnx
@@ -1224,7 +1224,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-sv-se-nst-medium
-  
+
   override:
     parameters:
       model: sv-se-nst-medium.onnx
@@ -1235,7 +1235,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-uk-lada-x-low
-  
+
   override:
     parameters:
       model: uk-lada-x-low.onnx
@@ -1246,7 +1246,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-25hours-single-low
-  
+
   override:
     parameters:
       model: vi-25hours-single-low.onnx
@@ -1257,7 +1257,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-vivos-x-low
-  
+
   override:
     parameters:
       model: vi-vivos-x-low.onnx
@@ -1268,7 +1268,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh-cn-huayan-x-low
-  
+
   override:
     parameters:
       model: zh-cn-huayan-x-low.onnx
@@ -1279,7 +1279,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh_CN-huayan-medium
-  
+
   override:
     parameters:
       model: zh_CN-huayan-medium.onnx
