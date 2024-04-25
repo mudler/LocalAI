@@ -1,5 +1,5 @@
+---
 name: "hermes-2-pro-mistral"
-
 
 config_file: |
   mmap: true
@@ -52,4 +52,3 @@ config_file: |
   - <dummy32000>
   - "\n</tool_call>"
   - "\n\n\n"
-

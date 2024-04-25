@@ -1,4 +1,4 @@
-
+---
 ### START parler-tts
 - &parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
