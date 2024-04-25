@@ -184,7 +184,7 @@ func DownloadFile(url string, filePath, sha string, fileN, total int, downloadSt
 	}
 
 	// Create parent directory
-	err = os.MkdirAll(filepath.Dir(filePath), 0755)
+	err = os.MkdirAll(filepath.Dir(filePath), 0750)
 	if err != nil {
 		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
 	}
