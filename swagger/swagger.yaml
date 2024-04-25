@@ -1,6 +1,6 @@
 basePath: /
 definitions:
-  grammar.Argument:
+  functions.Argument:
     properties:
       properties:
         additionalProperties: true
@@ -8,7 +8,7 @@ definitions:
       type:
         type: string
     type: object
-  grammar.Function:
+  functions.Function:
     properties:
       description:
         type: string
@@ -18,43 +18,43 @@ definitions:
         additionalProperties: true
         type: object
     type: object
-  grammar.FunctionName:
+  functions.FunctionName:
     properties:
       const:
         type: string
     type: object
-  grammar.Item:
+  functions.Item:
     properties:
       properties:
-        $ref: '#/definitions/grammar.Properties'
+        $ref: '#/definitions/functions.Properties'
       type:
         type: string
     type: object
-  grammar.JSONFunctionStructure:
+  functions.JSONFunctionStructure:
     properties:
       $defs:
         additionalProperties: true
         type: object
       anyOf:
         items:
-          $ref: '#/definitions/grammar.Item'
+          $ref: '#/definitions/functions.Item'
         type: array
       oneOf:
         items:
-          $ref: '#/definitions/grammar.Item'
+          $ref: '#/definitions/functions.Item'
         type: array
     type: object
-  grammar.Properties:
+  functions.Properties:
     properties:
       arguments:
-        $ref: '#/definitions/grammar.Argument'
+        $ref: '#/definitions/functions.Argument'
       function:
-        $ref: '#/definitions/grammar.FunctionName'
+        $ref: '#/definitions/functions.FunctionName'
     type: object
-  grammar.Tool:
+  functions.Tool:
     properties:
       function:
-        $ref: '#/definitions/grammar.Function'
+        $ref: '#/definitions/functions.Function'
       type:
         type: string
     type: object
@@ -221,13 +221,13 @@ definitions:
       functions:
         description: A list of available functions to call
         items:
-          $ref: '#/definitions/grammar.Function'
+          $ref: '#/definitions/functions.Function'
         type: array
       grammar:
         description: A grammar to constrain the LLM output
         type: string
       grammar_json_functions:
-        $ref: '#/definitions/grammar.JSONFunctionStructure'
+        $ref: '#/definitions/functions.JSONFunctionStructure'
       ignore_eos:
         type: boolean
       input: {}
@@ -297,7 +297,7 @@ definitions:
       tool_choice: {}
       tools:
         items:
-          $ref: '#/definitions/grammar.Tool'
+          $ref: '#/definitions/functions.Tool'
         type: array
       top_k:
         type: integer

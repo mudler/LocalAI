@@ -1,0 +1,31 @@
+name: Update swagger
+on:
+  schedule:
+    - cron: 0 20 * * *
+  workflow_dispatch:
+jobs:
+  swagger:
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+      - name: Bump swagger 🔧
+        run: |
+          make swagger
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: 'feat(swagger): update swagger'
+          title: 'feat(swagger): update swagger'
+          branch: "update/swagger"
+          body:  Update swagger
+          signoff: true
+
