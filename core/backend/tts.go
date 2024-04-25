@@ -53,7 +53,7 @@ func ModelTTS(backend, text, modelFile, voice string, loader *model.ModelLoader,
 		return "", nil, fmt.Errorf("could not load piper model")
 	}
 
-	if err := os.MkdirAll(appConfig.AudioDir, 0755); err != nil {
+	if err := os.MkdirAll(appConfig.AudioDir, 0750); err != nil {
 		return "", nil, fmt.Errorf("failed creating audio directory: %s", err)
 	}
 

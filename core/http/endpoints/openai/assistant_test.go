@@ -3,10 +3,6 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/pkg/model"
-	"github.com/gofiber/fiber/v2"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +12,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 var configsDir string = "/tmp/localai/configs"
@@ -49,8 +50,8 @@ func TestAssistantEndpoints(t *testing.T) {
 	}
 
 	_ = os.RemoveAll(appConfig.ConfigsDir)
-	_ = os.MkdirAll(appConfig.ConfigsDir, 0755)
-	_ = os.MkdirAll(modelPath, 0755)
+	_ = os.MkdirAll(appConfig.ConfigsDir, 0750)
+	_ = os.MkdirAll(modelPath, 0750)
 	os.Create(filepath.Join(modelPath, "ggml-gpt4all-j"))
 
 	app := fiber.New(fiber.Config{

@@ -10,7 +10,7 @@ import (
 
 func ExtractFiles(content embed.FS, extractDir string) error {
 	// Create the target directory if it doesn't exist
-	err := os.MkdirAll(extractDir, 0755)
+	err := os.MkdirAll(extractDir, 0750)
 	if err != nil {
 		return fmt.Errorf("failed to create directory: %v", err)
 	}
@@ -25,7 +25,7 @@ func ExtractFiles(content embed.FS, extractDir string) error {
 		targetFile := filepath.Join(extractDir, path)
 		if d.IsDir() {
 			// Create the directory in the target directory
-			err := os.MkdirAll(targetFile, 0755)
+			err := os.MkdirAll(targetFile, 0750)
 			if err != nil {
 				return fmt.Errorf("failed to create directory: %v", err)
 			}
@@ -39,7 +39,7 @@ func ExtractFiles(content embed.FS, extractDir string) error {
 		}
 
 		// Create the file in the target directory
-		err = os.WriteFile(targetFile, fileData, 0644)
+		err = os.WriteFile(targetFile, fileData, 0600)
 		if err != nil {
 			return fmt.Errorf("failed to write file: %v", err)
 		}

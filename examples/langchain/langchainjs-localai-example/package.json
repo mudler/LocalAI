@@ -1,6 +1,6 @@
 {
   "name": "langchainjs-localai-example",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Trivial Example of using langchain + the OpenAI API + LocalAI together",
   "main": "index.mjs",
   "scripts": {
@@ -15,7 +15,11 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "langchain": "^0.0.67",
-    "typeorm": "^0.3.15"
+    "@langchain/community": "^0.0.52",
+    "@langchain/openai": "^0.0.28",
+    "langchain": "^0.1.36"
+  },
+  "overrides": {
+    "@langchain/core": "0.1.5"
   }
 }

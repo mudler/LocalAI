@@ -65,7 +65,7 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 
 func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string) error {
 	// Make sure the process is executable
-	if err := os.Chmod(grpcProcess, 0755); err != nil {
+	if err := os.Chmod(grpcProcess, 0700); err != nil {
 		return err
 	}
 

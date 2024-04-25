@@ -83,6 +83,24 @@
       sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
       uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
 - <<: *llama3
+  name: "llama3-70b-instruct:IQ1_M"
+  overrides:
+    parameters:
+      model: Meta-Llama-3-70B-Instruct.IQ1_M.gguf
+  files:
+    - filename: Meta-Llama-3-70B-Instruct.IQ1_M.gguf
+      sha256: cdbe8ac2126a70fa0af3fac7a4fe04f1c76330c50eba8383567587b48b328098
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.IQ1_M.gguf
+- <<: *llama3
+  name: "llama3-70b-instruct:IQ1_S"
+  overrides:
+    parameters:
+      model: Meta-Llama-3-70B-Instruct.IQ1_S.gguf
+  files:
+    - filename: Meta-Llama-3-70B-Instruct.IQ1_S.gguf
+      sha256: 3797a69f1bdf53fabf9f3a3a8c89730b504dd3209406288515c9944c14093048
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.IQ1_S.gguf
+- <<: *llama3
   name: "llama-3-sauerkrautlm-8b-instruct"
   urls:
     - https://huggingface.co/bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF
