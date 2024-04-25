@@ -1,5 +1,5 @@
+---
 name: "dreamshaper"
-
 
 config_file: |
   backend: diffusers
