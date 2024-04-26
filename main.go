@@ -43,7 +43,11 @@ func main() {
 	for _, envFile := range envFiles {
 		if _, err := os.Stat(envFile); err == nil {
 			log.Info().Str("envFile", envFile).Msg("loading environment variables from file")
-			godotenv.Load(envFile)
+			err = godotenv.Load(envFile)
+			if err != nil {
+				log.Error().Err(err).Str("envFile", envFile).Msg("failed to load environment variables from file")
+				continue
+			}
 		}
 	}
 

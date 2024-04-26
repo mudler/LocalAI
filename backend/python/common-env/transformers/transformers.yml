@@ -60,9 +60,10 @@ dependencies:
       - networkx
       - numpy==1.26.0
       - onnx==1.15.0
-      - openvino==2024.0.0
-      - openvino-telemetry==2023.2.1
-      - optimum[openvino]==1.17.1
+      - openvino==2024.1.0
+      - openvino-telemetry==2024.1.0
+      - optimum[openvino]==1.19.1
+      - optimum-intel==1.16.1
       - packaging==23.2
       - pandas
       - peft==0.5.0

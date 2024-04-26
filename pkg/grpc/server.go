@@ -131,10 +131,10 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 		done <- true
 	}()
 
-	s.llm.PredictStream(in, resultChan)
+	err := s.llm.PredictStream(in, resultChan)
 	<-done
 
-	return nil
+	return err
 }
 
 func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
