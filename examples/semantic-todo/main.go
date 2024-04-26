@@ -239,7 +239,10 @@ func (app *App) updateUI() {
 					task := Task{Description: inputField.GetText()}
 					app.tasks = append(app.tasks, task)
 					app.state = StateRoot
-					postTasksToExternalService([]Task{task})
+					err := postTasksToExternalService([]Task{task})
+					if err != nil {
+						panic(err)
+					}
 				}
 				app.updateUI()
 			})
