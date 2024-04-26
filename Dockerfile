@@ -263,6 +263,7 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        build-essential \
         cmake \
         git && \
     apt-get clean && \
