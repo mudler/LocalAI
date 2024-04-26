@@ -7,7 +7,8 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/config"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/rs/zerolog/log"
 )
 
 func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
@@ -109,8 +110,12 @@ func gRPCPredictOpts(c config.BackendConfig, modelPath string) *pb.PredictOption
 	promptCachePath := ""
 	if c.PromptCachePath != "" {
 		p := filepath.Join(modelPath, c.PromptCachePath)
-		os.MkdirAll(filepath.Dir(p), 0750)
-		promptCachePath = p
+		err := os.MkdirAll(filepath.Dir(p), 0750)
+		if err == nil {
+			promptCachePath = p
+		} else {
+			log.Error().Err(err).Str("promptCachePath", promptCachePath).Msg("error creating prompt cache folder")
+		}
 	}
 
 	return &pb.PredictOptions{

@@ -3,10 +3,12 @@ package assets
 import (
 	"embed"
 	"io/fs"
+
+	"github.com/rs/zerolog/log"
 )
 
 func ListFiles(content embed.FS) (files []string) {
-	fs.WalkDir(content, ".", func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(content, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -18,5 +20,8 @@ func ListFiles(content embed.FS) (files []string) {
 		files = append(files, path)
 		return nil
 	})
+	if err != nil {
+		log.Error().Err(err).Msg("error walking the embedded filesystem")
+	}
 	return
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/gofiber/fiber/v2"
 	fiberhtml "github.com/gofiber/template/html/v2"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/russross/blackfriday"
 )
 
@@ -39,5 +40,5 @@ func renderEngine() *fiberhtml.Engine {
 
 func markDowner(args ...interface{}) template.HTML {
 	s := blackfriday.MarkdownCommon([]byte(fmt.Sprintf("%s", args...)))
-	return template.HTML(s)
+	return template.HTML(bluemonday.UGCPolicy().Sanitize(string(s)))
 }

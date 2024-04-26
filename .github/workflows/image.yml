@@ -148,7 +148,7 @@ jobs:
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f16-ffmpeg'
             ffmpeg: 'true'
@@ -161,7 +161,7 @@ jobs:
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f32-ffmpeg'
             ffmpeg: 'true'
@@ -175,7 +175,7 @@ jobs:
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f16-core'
             ffmpeg: 'false'
@@ -185,7 +185,7 @@ jobs:
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f32-core'
             ffmpeg: 'false'
@@ -195,7 +195,7 @@ jobs:
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f16-ffmpeg-core'
             ffmpeg: 'true'
@@ -205,7 +205,7 @@ jobs:
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f32-ffmpeg-core'
             ffmpeg: 'true'
