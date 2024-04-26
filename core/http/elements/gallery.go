@@ -6,6 +6,7 @@ import (
 	"github.com/chasefleming/elem-go"
 	"github.com/chasefleming/elem-go/attrs"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
+	"github.com/go-skynet/LocalAI/pkg/xsync"
 )
 
 const (
@@ -102,7 +103,7 @@ func cardSpan(text, icon string) elem.Node {
 	)
 }
 
-func ListModels(models []*gallery.GalleryModel, installing map[string]string) string {
+func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[string, string]) string {
 	//StartProgressBar(uid, "0")
 	modelsElements := []elem.Node{}
 	span := func(s string) elem.Node {
@@ -155,10 +156,8 @@ func ListModels(models []*gallery.GalleryModel, installing map[string]string) st
 
 	actionDiv := func(m *gallery.GalleryModel) elem.Node {
 		galleryID := fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
-		currentlyInstalling := false
-		if _, ok := installing[galleryID]; ok {
-			currentlyInstalling = true
-		}
+		currentlyInstalling := installing.Exists(galleryID)
+
 		nodes := []elem.Node{
 			cardSpan("Repository: "+m.Gallery.Name, "fa-brands fa-git-alt"),
 		}
@@ -203,7 +202,7 @@ func ListModels(models []*gallery.GalleryModel, installing map[string]string) st
 			elem.If(
 				currentlyInstalling,
 				elem.Node( // If currently installing, show progress bar
-					elem.Raw(StartProgressBar(installing[galleryID], "0")),
+					elem.Raw(StartProgressBar(installing.Get(galleryID), "0")),
 				), // Otherwise, show install button (if not installed) or display "Installed"
 				elem.If(m.Installed,
 					span("Installed"),
