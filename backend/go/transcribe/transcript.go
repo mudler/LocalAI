@@ -11,8 +11,8 @@ import (
 	"github.com/go-skynet/LocalAI/core/schema"
 )
 
-func runCommand(command []string) (string, error) {
-	cmd := exec.Command(command[0], command[1:]...)
+func ffmpegCommand(args []string) (string, error) {
+	cmd := exec.Command("ffmpeg", args...) // Constrain this to ffmpeg to permit security scanner to see that the command is safe.
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	return string(out), err
@@ -21,8 +21,8 @@ func runCommand(command []string) (string, error) {
 // AudioToWav converts audio to wav for transcribe.
 // TODO: use https://github.com/mccoyst/ogg?
 func audioToWav(src, dst string) error {
-    command := []string{"ffmpeg", "-i", src, "-format", "s16le", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", dst}
-	out, err := runCommand(command)
+	commandArgs := []string{"-i", src, "-format", "s16le", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", dst}
+	out, err := ffmpegCommand(commandArgs)
 	if err != nil {
 		return fmt.Errorf("error: %w out: %s", err, out)
 	}
