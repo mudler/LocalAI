@@ -68,7 +68,7 @@ jobs:
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: 'sycl-f16-ffmpeg'
             ffmpeg: 'true'
@@ -110,7 +110,7 @@ jobs:
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            base-image: "intel/oneapi-basekit:2024.0.1-devel-ubuntu22.04"
+            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: 'sycl-f16-ffmpeg-core'
             ffmpeg: 'true'

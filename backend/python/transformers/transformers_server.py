@@ -150,7 +150,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.model = OVModelForCausalLM.from_pretrained(model_name, 
                                                                 compile=True,
                                                                 trust_remote_code=request.TrustRemoteCode,
-                                                                ov_config={"PERFORMANCE_HINT": "LATENCY"}, 
+                                                                ov_config={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT"}, 
                                                                 device=device_map)
                 self.OV = True
             else:
