@@ -100,7 +100,10 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	go func() {
 		<-options.Context.Done()
 		log.Debug().Msgf("Context canceled, shutting down")
-		ml.StopAllGRPC()
+		err := ml.StopAllGRPC()
+		if err != nil {
+			log.Error().Err(err).Msg("error while stopping all grpc backends")
+		}
 	}()
 
 	if options.WatchDog {

@@ -2,6 +2,8 @@ package functions
 
 import (
 	"encoding/json"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Function struct {
@@ -30,8 +32,14 @@ func (f Functions) ToJSONStructure() JSONFunctionStructure {
 		prop := map[string]interface{}{}
 		defsD := map[string]interface{}{}
 
-		json.Unmarshal(dat, &prop)
-		json.Unmarshal(dat2, &defsD)
+		err := json.Unmarshal(dat, &prop)
+		if err != nil {
+			log.Error().Err(err).Msg("error unmarshalling dat")
+		}
+		err = json.Unmarshal(dat2, &defsD)
+		if err != nil {
+			log.Error().Err(err).Msg("error unmarshalling dat2")
+		}
 		if js.Defs == nil {
 			js.Defs = defsD
 		}
