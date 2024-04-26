@@ -122,7 +122,10 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	// Watch the configuration directory
 	// If the directory does not exist, we don't watch it
 	configHandler := newConfigFileHandler(options)
-	configHandler.Watch()
+	err = configHandler.Watch()
+	if err != nil {
+		log.Error().Err(err).Msg("error establishing configuration directory watcher")
+	}
 
 	log.Info().Msg("core/startup process completed!")
 	return cl, ml, options, nil
