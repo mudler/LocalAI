@@ -21,7 +21,6 @@ type configFileHandler struct {
 
 	watcher *fsnotify.Watcher
 
-	configDir string
 	appConfig *config.ApplicationConfig
 }
 
@@ -30,7 +29,6 @@ type configFileHandler struct {
 func newConfigFileHandler(appConfig *config.ApplicationConfig) configFileHandler {
 	c := configFileHandler{
 		handlers:  make(map[string]fileHandler),
-		configDir: appConfig.DynamicConfigsDir,
 		appConfig: appConfig,
 	}
 	c.Register("api_keys.json", readApiKeysJson(*appConfig), true)
@@ -45,16 +43,17 @@ func (c *configFileHandler) Register(filename string, handler fileHandler, runNo
 	}
 	c.handlers[filename] = handler
 	if runNow {
-		c.callHandler(path.Join(c.appConfig.DynamicConfigsDir, filename), handler)
+		c.callHandler(filename, handler)
 	}
 	return nil
 }
 
 func (c *configFileHandler) callHandler(filename string, handler fileHandler) {
-	log.Trace().Str("filename", filename).Msg("reading file for dynamic config update")
-	fileContent, err := os.ReadFile(filename)
+	rootedFilePath := filepath.Join(c.appConfig.DynamicConfigsDir, filepath.Clean(filename))
+	log.Trace().Str("filename", rootedFilePath).Msg("reading file for dynamic config update")
+	fileContent, err := os.ReadFile(rootedFilePath)
 	if err != nil && !os.IsNotExist(err) {
-		log.Error().Err(err).Str("filename", filename).Msg("could not read file")
+		log.Error().Err(err).Str("filename", rootedFilePath).Msg("could not read file")
 	}
 
 	if err = handler(fileContent, c.appConfig); err != nil {
@@ -66,7 +65,7 @@ func (c *configFileHandler) Watch() error {
 	configWatcher, err := fsnotify.NewWatcher()
 	c.watcher = configWatcher
 	if err != nil {
-		log.Fatal().Err(err).Str("configdir", c.configDir).Msg("wnable to create a watcher for configuration directory")
+		log.Fatal().Err(err).Str("configdir", c.appConfig.DynamicConfigsDir).Msg("wnable to create a watcher for configuration directory")
 	}
 
 	if c.appConfig.DynamicConfigsDirPollInterval > 0 {
@@ -77,7 +76,7 @@ func (c *configFileHandler) Watch() error {
 				<-ticker.C
 				for file, handler := range c.handlers {
 					log.Debug().Str("file", file).Msg("polling config file")
-					c.callHandler(filepath.Join(c.appConfig.DynamicConfigsDir, file), handler)
+					c.callHandler(file, handler)
 				}
 			}
 		}()
@@ -97,7 +96,7 @@ func (c *configFileHandler) Watch() error {
 						continue
 					}
 
-					c.callHandler(event.Name, handler)
+					c.callHandler(filepath.Base(event.Name), handler)
 				}
 			case err, ok := <-c.watcher.Errors:
 				log.Error().Err(err).Msg("config watcher error received")
