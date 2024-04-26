@@ -21,13 +21,15 @@ func RegisterUIRoutes(app *fiber.App,
 	galleryService *services.GalleryService,
 	auth func(*fiber.Ctx) error) {
 
+	var installingModels = map[string]string{}
+
 	// Show the Models page
 	app.Get("/browse", auth, func(c *fiber.Ctx) error {
 		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Models",
-			"Models":       template.HTML(elements.ListModels(models)),
+			"Models":       template.HTML(elements.ListModels(models, installingModels)),
 			"Repositories": appConfig.Galleries,
 			//	"ApplicationConfig": appConfig,
 		}
@@ -58,7 +60,7 @@ func RegisterUIRoutes(app *fiber.App,
 			}
 		}
 
-		return c.SendString(elements.ListModels(filteredModels))
+		return c.SendString(elements.ListModels(filteredModels, installingModels))
 	})
 
 	// https://htmx.org/examples/progress-bar/
@@ -71,6 +73,8 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		uid := id.String()
+
+		installingModels[galleryID] = uid
 
 		op := gallery.GalleryOp{
 			Id:          uid,
@@ -106,6 +110,13 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/browse/job/:uid", auth, func(c *fiber.Ctx) error {
+		for k, v := range installingModels {
+			if v == c.Params("uid") {
+				delete(installingModels, k)
+				break
+			}
+		}
+
 		return c.SendString(elements.DoneProgress(c.Params("uid")))
 	})
 }
