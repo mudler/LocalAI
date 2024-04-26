@@ -238,7 +238,13 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.MMap == nil {
 		// MMap is enabled by default
-		cfg.MMap = &trueV
+
+		// Only exception is for Intel GPUs
+		if os.Getenv("XPU") != "" {
+			cfg.MMap = &falseV
+		} else {
+			cfg.MMap = &trueV
+		}
 	}
 
 	if cfg.MMlock == nil {
