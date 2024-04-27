@@ -8,6 +8,11 @@ kind/documentation:
   - changed-files:
     - any-glob-to-any-file: '*.md'
 
+area/ai-model:
+- any:
+  - changed-files:
+    - any-glob-to-any-file: 'gallery/*'
+
 examples:
 - any:
   - changed-files:
