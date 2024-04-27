@@ -6,6 +6,7 @@ import (
 	"github.com/chasefleming/elem-go"
 	"github.com/chasefleming/elem-go/attrs"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
+	"github.com/go-skynet/LocalAI/pkg/xsync"
 )
 
 const (
@@ -102,7 +103,8 @@ func cardSpan(text, icon string) elem.Node {
 	)
 }
 
-func ListModels(models []*gallery.GalleryModel) string {
+func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[string, string]) string {
+	//StartProgressBar(uid, "0")
 	modelsElements := []elem.Node{}
 	span := func(s string) elem.Node {
 		return elem.Span(
@@ -118,6 +120,7 @@ func ListModels(models []*gallery.GalleryModel) string {
 				"data-twe-ripple-init":  "",
 				"data-twe-ripple-color": "light",
 				"class":                 "float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+				"hx-swap":               "outerHTML",
 				// post the Model ID as param
 				"hx-post": "/browse/install/model/" + fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name),
 			},
@@ -152,6 +155,9 @@ func ListModels(models []*gallery.GalleryModel) string {
 	}
 
 	actionDiv := func(m *gallery.GalleryModel) elem.Node {
+		galleryID := fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
+		currentlyInstalling := installing.Exists(galleryID)
+
 		nodes := []elem.Node{
 			cardSpan("Repository: "+m.Gallery.Name, "fa-brands fa-git-alt"),
 		}
@@ -193,7 +199,16 @@ func ListModels(models []*gallery.GalleryModel) string {
 				},
 				nodes...,
 			),
-			elem.If(m.Installed, span("Installed"), installButton(m)),
+			elem.If(
+				currentlyInstalling,
+				elem.Node( // If currently installing, show progress bar
+					elem.Raw(StartProgressBar(installing.Get(galleryID), "0")),
+				), // Otherwise, show install button (if not installed) or display "Installed"
+				elem.If(m.Installed,
+					span("Installed"),
+					installButton(m),
+				),
+			),
 		)
 	}
 

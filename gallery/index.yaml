@@ -31,6 +31,29 @@
     - python
 ## LLMs
 ### START LLAMA3
+- name: "einstein-v6.1-llama3-8b"
+  url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6468ce47e134d050a58aa89c/5s12oq859qLfDkkTNam_C.png
+  urls:
+    - https://huggingface.co/Weyaxi/Einstein-v6.1-Llama3-8B
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
+  license: llama3
+  description: |
+    This model is a full fine-tuned version of meta-llama/Meta-Llama-3-8B on diverse datasets.
+
+    This model is finetuned using 8xRTX3090 + 1xRTXA6000 using axolotl.
+  overrides:
+    parameters:
+      model: Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
+  files:
+    - filename: Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
+      sha256: 3ef96fd6e32658774b3c8fbc24088787dfa911288e272b186f448c886400d30d
+      uri: huggingface://bartowski/Einstein-v6.1-Llama3-8B-GGUF/Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   name: "llama3-8b-instruct"
@@ -213,6 +236,50 @@
     - filename: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
       sha256: 4273c5a8f23d49bf6294e620a5aa1fcd78d491ea0b90d0ec63ad708eedb83893
       uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
+- <<: *llama3
+  name: "sovl_llama3_8b-gguf-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/N_1D87adbMuMlSIQ5rI3_.png
+  description: |
+    I'm not gonna tell you this is the best model anyone has ever made. I'm not going to tell you that you will love chatting with SOVL.
+
+    What I am gonna say is thank you for taking the time out of your day. Without users like you, my work would be meaningless.
+  overrides:
+    parameters:
+      model: SOVL_Llama3_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: SOVL_Llama3_8B-Q4_K_M-imat.gguf
+      sha256: ee61890dd26d52985a3c44279d519ca8592448ddeb46387cf22868548703d686
+      uri: huggingface://Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix/SOVL_Llama3_8B-Q4_K_M-imat.gguf
+- <<: *llama3
+  name: "average_normie_l3_v1_8b-gguf-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/dvNIj1rSTjBvgs3XJfqXK.png
+  description: |
+    A model by an average normie for the average normie.
+
+    This model is a stock merge of the following models:
+
+    https://huggingface.co/cgato/L3-TheSpice-8b-v0.1.3
+
+    https://huggingface.co/Sao10K/L3-Solana-8B-v1
+
+    https://huggingface.co/ResplendentAI/Kei_Llama3_8B
+
+    The final merge then had the following LoRA applied over it:
+
+    https://huggingface.co/ResplendentAI/Theory_of_Mind_Llama3
+
+    This should be an intelligent and adept roleplaying model.
+  overrides:
+    parameters:
+      model: Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
+      sha256: 9e98cd2672f716a0872912fdc4877969efd14d6f682f28e156f8591591c00d9c
+      uri: huggingface://Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix/Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
 - <<: *llama3
   name: "llama-3-unholy-8b:Q8_0"
   urls:
