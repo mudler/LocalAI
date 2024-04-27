@@ -10,6 +10,8 @@ import (
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/xsync"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -21,13 +23,16 @@ func RegisterUIRoutes(app *fiber.App,
 	galleryService *services.GalleryService,
 	auth func(*fiber.Ctx) error) {
 
-	// Show the Models page
+	// keeps the state of models that are being installed from the UI
+	var installingModels = xsync.NewSyncedMap[string, string]()
+
+	// Show the Models page (all models)
 	app.Get("/browse", auth, func(c *fiber.Ctx) error {
 		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Models",
-			"Models":       template.HTML(elements.ListModels(models)),
+			"Models":       template.HTML(elements.ListModels(models, installingModels)),
 			"Repositories": appConfig.Galleries,
 			//	"ApplicationConfig": appConfig,
 		}
@@ -36,7 +41,7 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.Render("views/models", summary)
 	})
 
-	// HTMX: return the model details
+	// Show the models, filtered from the user input
 	// https://htmx.org/examples/active-search/
 	app.Post("/browse/search/models", auth, func(c *fiber.Ctx) error {
 		form := struct {
@@ -58,12 +63,13 @@ func RegisterUIRoutes(app *fiber.App,
 			}
 		}
 
-		return c.SendString(elements.ListModels(filteredModels))
+		return c.SendString(elements.ListModels(filteredModels, installingModels))
 	})
 
+	// This route is used when the "Install" button is pressed, we submit here a new job to the gallery service
 	// https://htmx.org/examples/progress-bar/
 	app.Post("/browse/install/model/:id", auth, func(c *fiber.Ctx) error {
-		galleryID := strings.Clone(c.Params("id")) // strings.Clone is required!
+		galleryID := strings.Clone(c.Params("id")) // note: strings.Clone is required for multiple requests!
 
 		id, err := uuid.NewUUID()
 		if err != nil {
@@ -71,6 +77,8 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		uid := id.String()
+
+		installingModels.Set(galleryID, uid)
 
 		op := gallery.GalleryOp{
 			Id:          uid,
@@ -84,6 +92,8 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.SendString(elements.StartProgressBar(uid, "0"))
 	})
 
+	// Display the job current progress status
+	// If the job is done, we trigger the /browse/job/:uid route
 	// https://htmx.org/examples/progress-bar/
 	app.Get("/browse/job/progress/:uid", auth, func(c *fiber.Ctx) error {
 		jobUID := c.Params("uid")
@@ -95,7 +105,7 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		if status.Progress == 100 {
-			c.Set("HX-Trigger", "done")
+			c.Set("HX-Trigger", "done") // this triggers /browse/job/:uid (which is when the job is done)
 			return c.SendString(elements.ProgressBar("100"))
 		}
 		if status.Error != nil {
@@ -105,7 +115,15 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.SendString(elements.ProgressBar(fmt.Sprint(status.Progress)))
 	})
 
+	// this route is hit when the job is done, and we display the
+	// final state (for now just displays "Installation completed")
 	app.Get("/browse/job/:uid", auth, func(c *fiber.Ctx) error {
+		for _, k := range installingModels.Keys() {
+			if installingModels.Get(k) == c.Params("uid") {
+				installingModels.Delete(k)
+			}
+		}
+
 		return c.SendString(elements.DoneProgress(c.Params("uid")))
 	})
 }
