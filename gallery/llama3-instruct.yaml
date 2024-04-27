@@ -41,3 +41,4 @@ config_file: |
   - <|im_end|>
   - <dummy32000>
   - "<|eot_id|>"
+  - <|end_of_text|>
