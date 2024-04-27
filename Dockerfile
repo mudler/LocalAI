@@ -131,10 +131,11 @@ RUN if [ ! -e /usr/bin/python ]; then \
 
 FROM ${GRPC_BASE_IMAGE} AS grpc
 
-ARG MAKEFLAGS
+# This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
+ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG GRPC_VERSION=v1.58.0
 
-ENV MAKEFLAGS=${MAKEFLAGS}
+ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 
 WORKDIR /build
 

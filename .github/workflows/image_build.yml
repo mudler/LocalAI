@@ -210,7 +210,7 @@ jobs:
           # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
           build-args: |
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
-            MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
             GRPC_VERSION=v1.58.0
           context: .
           file: ./Dockerfile
@@ -237,8 +237,9 @@ jobs:
             IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
             GRPC_VERSION=v1.58.0
-            MAKEFLAGS=--jobs=4 --output-sync=target
+            MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha
