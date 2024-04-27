@@ -219,6 +219,23 @@
       sha256: 5805f3856cc18a769fae0b7c5659fe6778574691c370c910dad6eeec62c62436
       uri: huggingface://NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF/lexi-llama-3-8b-uncensored.Q6_K.gguf
 - <<: *llama3
+  name: "llama-3-lewdplay-8b-evo"
+  urls:
+    - https://huggingface.co/Undi95/Llama-3-LewdPlay-8B-evo-GGUF
+  description: |
+      This is a merge of pre-trained language models created using mergekit.
+
+      The new EVOLVE merge method was used (on MMLU specifically), see below for more information!
+
+      Unholy was used for uncensoring, Roleplay Llama 3 for the DPO train he got on top, and LewdPlay for the... lewd side.
+  overrides:
+    parameters:
+      model: Llama-3-LewdPlay-8B-evo.q8_0.gguf
+  files:
+    - filename: Llama-3-LewdPlay-8B-evo.q8_0.gguf
+      sha256: 1498152d598ff441f73ec6af9d3535875302e7251042d87feb7e71a3618966e8
+      uri: huggingface://Undi95/Llama-3-LewdPlay-8B-evo-GGUF/Llama-3-LewdPlay-8B-evo.q8_0.gguf
+- <<: *llama3
   name: "chaos-rp_l3_b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix
