@@ -237,6 +237,22 @@
       sha256: 4273c5a8f23d49bf6294e620a5aa1fcd78d491ea0b90d0ec63ad708eedb83893
       uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
 - <<: *llama3
+  name: "sovl_llama3_8b-gguf-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/N_1D87adbMuMlSIQ5rI3_.png
+  description: |
+    I'm not gonna tell you this is the best model anyone has ever made. I'm not going to tell you that you will love chatting with SOVL.
+
+    What I am gonna say is thank you for taking the time out of your day. Without users like you, my work would be meaningless.
+  overrides:
+    parameters:
+      model: SOVL_Llama3_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: SOVL_Llama3_8B-Q4_K_M-imat.gguf
+      sha256: ee61890dd26d52985a3c44279d519ca8592448ddeb46387cf22868548703d686
+      uri: huggingface://Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix/SOVL_Llama3_8B-Q4_K_M-imat.gguf
+- <<: *llama3
   name: "llama-3-unholy-8b:Q8_0"
   urls:
     - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
