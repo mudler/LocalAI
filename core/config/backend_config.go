@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/functions"
 )
