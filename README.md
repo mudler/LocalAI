@@ -59,6 +59,8 @@
 - All-in-one container image: https://github.com/mudler/LocalAI/issues/1855
 
 Hot topics (looking for contributors):
+
+- WebUI improvements: https://github.com/mudler/LocalAI/issues/2156
 - Backends v2: https://github.com/mudler/LocalAI/issues/1126
 - Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
 - Assistant API: https://github.com/mudler/LocalAI/issues/1273
