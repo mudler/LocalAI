@@ -210,7 +210,7 @@ jobs:
           # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
           build-args: |
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
-            MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
             GRPC_VERSION=v1.58.0
           context: .
           file: ./Dockerfile
@@ -225,6 +225,10 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           builder: ${{ steps.buildx.outputs.name }}
+          # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
+          # This means that even the MAKEFLAGS have to be an EXACT match.
+          # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
+          # This is why some build args like GRPC_VERSION and MAKEFLAGS are hardcoded
           build-args: |
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
@@ -232,6 +236,9 @@ jobs:
             FFMPEG=${{ inputs.ffmpeg }}
             IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
+            GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_VERSION=v1.58.0
             MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile

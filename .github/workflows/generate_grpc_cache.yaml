@@ -1,7 +1,10 @@
 name: 'generate and publish GRPC docker caches'
 
 on:
-- workflow_dispatch
+  workflow_dispatch:
+  push:
+    branches:
+      - master
 
 concurrency:
   group: grpc-cache-${{ github.head_ref || github.ref }}-${{ github.repository }}
@@ -80,11 +83,12 @@ jobs:
           # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
           build-args: |
             GRPC_BASE_IMAGE=${{ matrix.grpc-base-image }}
-            MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
             GRPC_VERSION=v1.58.0
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
+          cache-from: type=gha
           target: grpc
           platforms: ${{ matrix.platforms }}
           push: false
