@@ -638,6 +638,20 @@
     - filename: "Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
       sha256: "b6d95d7ec9a395b7568cc94b0447fd4f90b6f69d6e44794b1fbb84e3f732baca"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
+- <<: *hermes-2-pro-mistral
+  name: "biomistral-7b"
+  description: |
+      BioMistral: A Collection of Open-Source Pretrained Large Language Models for Medical Domains
+  urls:
+    - https://huggingface.co/MaziyarPanahi/BioMistral-7B-GGUF
+  icon: https://huggingface.co/BioMistral/BioMistral-7B/resolve/main/wordart_blue_m_rectangle.png?download=true
+  overrides:
+    parameters:
+      model: BioMistral-7B.Q4_K_M.gguf
+  files:
+    - filename: "BioMistral-7B.Q4_K_M.gguf"
+      sha256: "3a73107045dfe7e3f113b392b0a67e3e6ca9fa9dae2abe301424ce5abd1721a6"
+      uri: "huggingface://MaziyarPanahi/BioMistral-7B-GGUF/BioMistral-7B.Q4_K_M.gguf"
 ### END Hermes-2-Pro-Mistral
 ### START Cerbero
 - url: "github:mudler/LocalAI/gallery/cerbero.yaml@master"
