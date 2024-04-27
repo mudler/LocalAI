@@ -31,6 +31,29 @@
     - python
 ## LLMs
 ### START LLAMA3
+- name: "einstein-v6.1-llama3-8b"
+  url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6468ce47e134d050a58aa89c/5s12oq859qLfDkkTNam_C.png
+  urls:
+    - https://huggingface.co/Weyaxi/Einstein-v6.1-Llama3-8B
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
+  license: llama3
+  description: |
+    This model is a full fine-tuned version of meta-llama/Meta-Llama-3-8B on diverse datasets.
+
+    This model is finetuned using 8xRTX3090 + 1xRTXA6000 using axolotl.
+  overrides:
+    parameters:
+      model: Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
+  files:
+    - filename: Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
+      sha256: 3ef96fd6e32658774b3c8fbc24088787dfa911288e272b186f448c886400d30d
+      uri: huggingface://bartowski/Einstein-v6.1-Llama3-8B-GGUF/Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   name: "llama3-8b-instruct"
