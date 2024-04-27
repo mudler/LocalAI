@@ -1,7 +1,10 @@
 name: 'generate and publish GRPC docker caches'
 
 on:
-- workflow_dispatch
+  workflow_dispatch:
+  push:
+    branches:
+      - master
 
 concurrency:
   group: grpc-cache-${{ github.head_ref || github.ref }}-${{ github.repository }}
@@ -85,6 +88,7 @@ jobs:
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
+          cache-from: type=gha
           target: grpc
           platforms: ${{ matrix.platforms }}
           push: false
