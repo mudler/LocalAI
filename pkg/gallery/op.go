@@ -4,12 +4,14 @@ type GalleryOp struct {
 	Id          string
 	GalleryName string
 	ConfigURL   string
+	Delete      bool
 
 	Req       GalleryModel
 	Galleries []Gallery
 }
 
 type GalleryOpStatus struct {
+	Deletion           bool    `json:"deletion"` // Deletion is true if the operation is a deletion
 	FileName           string  `json:"file_name"`
 	Error              error   `json:"error"`
 	Processed          bool    `json:"processed"`

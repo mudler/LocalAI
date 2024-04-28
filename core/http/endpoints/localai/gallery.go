@@ -74,6 +74,27 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 	}
 }
 
+func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		modelName := c.Params("name")
+
+		mgs.galleryApplier.C <- gallery.GalleryOp{
+			Delete:      true,
+			GalleryName: modelName,
+		}
+
+		uuid, err := uuid.NewUUID()
+		if err != nil {
+			return err
+		}
+
+		return c.JSON(struct {
+			ID        string `json:"uuid"`
+			StatusURL string `json:"status"`
+		}{ID: uuid.String(), StatusURL: c.BaseURL() + "/models/jobs/" + uuid.String()})
+	}
+}
+
 func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		log.Debug().Msgf("Listing models from galleries: %+v", mgs.galleries)

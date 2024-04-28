@@ -234,16 +234,13 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 			}
 		}
 
-		modelURL := config.PredictionOptions.Model
-		modelURL = downloader.ConvertURL(modelURL)
-
-		if downloader.LooksLikeURL(modelURL) {
-			// md5 of model name
-			md5Name := utils.MD5(modelURL)
-
+		// If the model is an URL, expand it, and download the file
+		if config.IsModelURL() {
+			modelFileName := config.ModelFileName()
+			modelURL := downloader.ConvertURL(config.Model)
 			// check if file exists
-			if _, err := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(err, os.ErrNotExist) {
-				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, md5Name), "", 0, 0, status)
+			if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
+				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, modelFileName), "", 0, 0, status)
 				if err != nil {
 					return err
 				}
@@ -251,9 +248,27 @@ func (cl *BackendConfigLoader) Preload(modelPath string) error {
 
 			cc := cl.configs[i]
 			c := &cc
-			c.PredictionOptions.Model = md5Name
+			c.PredictionOptions.Model = modelFileName
 			cl.configs[i] = *c
 		}
+
+		if config.IsMMProjURL() {
+			modelFileName := config.MMProjFileName()
+			modelURL := downloader.ConvertURL(config.MMProj)
+			// check if file exists
+			if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
+				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, modelFileName), "", 0, 0, status)
+				if err != nil {
+					return err
+				}
+			}
+
+			cc := cl.configs[i]
+			c := &cc
+			c.MMProj = modelFileName
+			cl.configs[i] = *c
+		}
+
 		if cl.configs[i].Name != "" {
 			glamText(fmt.Sprintf("**Model name**: _%s_", cl.configs[i].Name))
 		}
@@ -288,7 +303,8 @@ func (cm *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...C
 	}
 	for _, file := range files {
 		// Skip templates, YAML and .keep files
-		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") {
+		if !strings.Contains(file.Name(), ".yaml") && !strings.Contains(file.Name(), ".yml") ||
+			strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
 		c, err := ReadBackendConfig(filepath.Join(path, file.Name()), opts...)

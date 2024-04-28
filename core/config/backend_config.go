@@ -4,7 +4,9 @@ import (
 	"os"
 
 	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/functions"
+	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
 const (
@@ -169,6 +171,36 @@ func (c *BackendConfig) ShouldUseFunctions() bool {
 
 func (c *BackendConfig) ShouldCallSpecificFunction() bool {
 	return len(c.functionCallNameString) > 0
+}
+
+// MMProjFileName returns the filename of the MMProj file
+// If the MMProj is a URL, it will return the MD5 of the URL which is the filename
+func (c *BackendConfig) MMProjFileName() string {
+	modelURL := downloader.ConvertURL(c.MMProj)
+	if downloader.LooksLikeURL(modelURL) {
+		return utils.MD5(modelURL)
+	}
+
+	return c.MMProj
+}
+
+func (c *BackendConfig) IsMMProjURL() bool {
+	return downloader.LooksLikeURL(downloader.ConvertURL(c.MMProj))
+}
+
+func (c *BackendConfig) IsModelURL() bool {
+	return downloader.LooksLikeURL(downloader.ConvertURL(c.Model))
+}
+
+// ModelFileName returns the filename of the model
+// If the model is a URL, it will return the MD5 of the URL which is the filename
+func (c *BackendConfig) ModelFileName() string {
+	modelURL := downloader.ConvertURL(c.Model)
+	if downloader.LooksLikeURL(modelURL) {
+		return utils.MD5(modelURL)
+	}
+
+	return c.Model
 }
 
 func (c *BackendConfig) FunctionToCall() string {

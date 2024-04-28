@@ -178,5 +178,20 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		log.Debug().Msgf("Written config file %s", configFilePath)
 	}
 
-	return nil
+	// Save the model gallery file for further reference
+	modelFile := filepath.Join(basePath, galleryFileName(name))
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Msgf("Written gallery file %s", modelFile)
+
+	return os.WriteFile(modelFile, data, 0600)
+
+	//return nil
+}
+
+func galleryFileName(name string) string {
+	return "._gallery_" + name + ".yaml"
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -84,18 +85,47 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 				}
 
 				var err error
-				// if the request contains a gallery name, we apply the gallery from the gallery list
-				if op.GalleryName != "" {
-					if strings.Contains(op.GalleryName, "@") {
-						err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
-					} else {
-						err = gallery.InstallModelFromGalleryByName(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
+
+				// delete a model
+				if op.Delete {
+					modelConfig := &config.BackendConfig{}
+					// Galleryname is the name of the model in this case
+					dat, err := os.ReadFile(filepath.Join(g.modelPath, op.GalleryName+".yaml"))
+					if err != nil {
+						updateError(err)
+						continue
 					}
-				} else if op.ConfigURL != "" {
-					startup.PreloadModelsConfigurations(op.ConfigURL, g.modelPath, op.ConfigURL)
-					err = cl.Preload(g.modelPath)
+					err = yaml.Unmarshal(dat, modelConfig)
+					if err != nil {
+						updateError(err)
+						continue
+					}
+
+					files := []string{}
+					// Remove the model from the config
+					if modelConfig.Model != "" {
+						files = append(files, modelConfig.ModelFileName())
+					}
+
+					if modelConfig.MMProj != "" {
+						files = append(files, modelConfig.MMProjFileName())
+					}
+
+					err = gallery.DeleteModelFromSystem(g.modelPath, op.GalleryName, files)
 				} else {
-					err = prepareModel(g.modelPath, op.Req, cl, progressCallback)
+					// if the request contains a gallery name, we apply the gallery from the gallery list
+					if op.GalleryName != "" {
+						if strings.Contains(op.GalleryName, "@") {
+							err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
+						} else {
+							err = gallery.InstallModelFromGalleryByName(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
+						}
+					} else if op.ConfigURL != "" {
+						startup.PreloadModelsConfigurations(op.ConfigURL, g.modelPath, op.ConfigURL)
+						err = cl.Preload(g.modelPath)
+					} else {
+						err = prepareModel(g.modelPath, op.Req, cl, progressCallback)
+					}
 				}
 
 				if err != nil {
@@ -116,7 +146,12 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 					continue
 				}
 
-				g.UpdateStatus(op.Id, &gallery.GalleryOpStatus{Processed: true, Message: "completed", Progress: 100})
+				g.UpdateStatus(op.Id,
+					&gallery.GalleryOpStatus{
+						Deletion:  op.Delete,
+						Processed: true,
+						Message:   "completed",
+						Progress:  100})
 			}
 		}
 	}()
