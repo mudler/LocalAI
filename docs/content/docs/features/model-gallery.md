@@ -7,15 +7,10 @@ weight = 18
 url = '/models'
 +++
 
-<h1 align="center">
-  <br>
-  <img height="300" src="https://github.com/go-skynet/model-gallery/assets/2420543/7a6a8183-6d0a-4dc4-8e1d-f2672fab354e"> <br>
-<br>
-</h1>
+The model gallery is a curated collection of models configurations for [LocalAI](https://github.com/go-skynet/LocalAI) that enables one-click install of models directly from the LocalAI Web interface.
 
-The model gallery is a (experimental!) collection of models configurations for [LocalAI](https://github.com/go-skynet/LocalAI).
+LocalAI to ease out installations of models provide a way to preload models on start and downloading and installing them in runtime. You can install models manually by copying them over the `models` directory, or use the API or the Web interface to configure, download and verify the model assets for you. 
 
-LocalAI to ease out installations of models provide a way to preload models on start and downloading and installing them in runtime. You can install models manually by copying them over the `models` directory, or use the API to configure, download and verify the model assets for you. As the UI is still a work in progress, you will find here the documentation about the API Endpoints.
 
 {{% alert note %}}
 The models in this gallery are not directly maintained by LocalAI. If you find a model that is not working, please open an issue on the model gallery repository.
@@ -25,58 +20,55 @@ The models in this gallery are not directly maintained by LocalAI. If you find a
 GPT and text generation models might have a license which is not permissive for commercial use or might be questionable or without any license at all. Please check the model license before using it. The official gallery contains only open licensed models.
 {{% /alert %}}
 
+![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
+
 ## Useful Links and resources
 
 - [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
 
+## How it works
 
-## Model repositories
+Navigate the WebUI interface in the "Models" section from the navbar at the top. Here you can find a list of models that can be installed, and you can install them by clicking the "Install" button.
+
+## Add other galleries
+
+You can add other galleries by setting the `GALLERIES` environment variable. The `GALLERIES` environment variable is a list of JSON objects, where each object has a `name` and a `url` field. The `name` field is the name of the gallery, and the `url` field is the URL of the gallery's index file, for example:
+
+```json
+GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
+```
+
+The models in the gallery will be automatically indexed and available for installation.
+
+## API Reference
+
+### Model repositories
 
 You can install a model in runtime, while the API is running and it is started already, or before starting the API by preloading the models.
 
 To install a model in runtime you will need to use the `/models/apply` LocalAI API endpoint.
 
-To enable the `model-gallery` repository you need to start `local-ai` with the `GALLERIES` environment variable:
+By default LocalAI is configured with the `localai` repository.
+
+To use additional repositories you need to start `local-ai` with the `GALLERIES` environment variable:
 
 ```
 GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 ```
 
-For example, to enable the `model-gallery` repository, start `local-ai` with:
+For example, to enable the default `localai` repository, you can start `local-ai` with:
 
 ```
-GALLERIES=[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}]
+GALLERIES=[{"name":"localai", "url":"github:mudler/localai/gallery/index.yaml"}]
 ```
 
-where `github:go-skynet/model-gallery/index.yaml` will be expanded automatically to `https://raw.githubusercontent.com/go-skynet/model-gallery/main/index.yaml`.
+where `github:mudler/localai/gallery/index.yaml` will be expanded automatically to `https://raw.githubusercontent.com/mudler/LocalAI/main/index.yaml`.
+
+Note: the url are expanded automatically for `github` and `huggingface`, however `https://` and `http://` prefix works as well.
 
 {{% alert note %}}
 
-As this feature is experimental, you need to run `local-ai` with a list of `GALLERIES`. Currently there are two galleries:
-
-- An official one, containing only definitions and models with a clear LICENSE to avoid any dmca infringment. As I'm not sure what's the best action to do in this case, I'm not going to include any model that is not clearly licensed in this repository which is offically linked to LocalAI.
-- A "community" one that contains an index of `huggingface` models that are compatible with the `ggml` format and lives in the `localai-huggingface-zoo` repository.
-
-To enable the two repositories, start `LocalAI` with the `GALLERIES` environment variable:
-
-```bash
-GALLERIES=[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]
-```
-
-If running with `docker-compose`, simply edit the `.env` file and uncomment the `GALLERIES` variable, and add the one you want to use.
-
-{{% /alert %}}
-
-{{% alert note %}}
-You might not find all the models in this gallery. Automated CI updates the gallery automatically. You can find however most of the models on huggingface (https://huggingface.co/), generally it should be available `~24h` after upload.
-
-By under any circumstances LocalAI and any developer is not responsible for the models in this gallery, as CI is just indexing them and providing a convenient way to install with an automatic configuration with a consistent API. Don't install models from authors you don't trust, and, check the appropriate license for your use case. Models are automatically indexed and hosted on huggingface (https://huggingface.co/). For any issue with the models, please open an issue on the model gallery repository if it's a LocalAI misconfiguration, otherwise refer to the huggingface repository. If you think a model should not be listed, please reach to us and we will remove it from the gallery.
-{{% /alert %}}
-
-{{% alert note %}}
-
-There is no documentation yet on how to build a gallery or a repository - but you can find an example in the [model-gallery](https://github.com/go-skynet/model-gallery) repository.
-
+If you want to build your own gallery, there is no documentation yet. However you can find the source of the default gallery in the [LocalAI repository](https://github.com/mudler/LocalAI/tree/master/gallery).
 {{% /alert %}}
 
 
@@ -110,34 +102,16 @@ To install a model from the gallery repository, you can pass the model name in t
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "id": "model-gallery@bert-embeddings"
+     "id": "localai@bert-embeddings"
    }'  
 ```
 
 where:
-- `model-gallery` is the repository. It is optional and can be omitted. If the repository is omitted LocalAI will search the model by name in all the repositories. In the case the same model name is present in both galleries the first match wins.
+- `localai` is the repository. It is optional and can be omitted. If the repository is omitted LocalAI will search the model by name in all the repositories. In the case the same model name is present in both galleries the first match wins.
 - `bert-embeddings` is the model name in the gallery
-  (read its [config here](https://github.com/go-skynet/model-gallery/blob/main/bert-embeddings.yaml)).
+  (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
 
-{{% alert note %}}
-If the `huggingface` model gallery is enabled (it's enabled by default),
-and the model has an entry in the model gallery's associated YAML config
-(for `huggingface`, see [`model-gallery/huggingface.yaml`](https://github.com/go-skynet/model-gallery/blob/main/huggingface.yaml)),
-you can install models by specifying directly the model's `id`.
-For example, to install wizardlm superhot:
-
-```bash
-LOCALAI=http://localhost:8080
-curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "id": "huggingface@TheBloke/WizardLM-13B-V1-0-Uncensored-SuperHOT-8K-GGML/wizardlm-13b-v1.0-superhot-8k.ggmlv3.q4_K_M.bin"
-   }'  
-```
-
-Note that the `id` can be used similarly when pre-loading models at start.
-{{% /alert %}}
-
-
-## How to install a model (without a gallery)
+### How to install a model not part of a gallery
 
 If you don't want to set any gallery repository, you can still install models by loading a model configuration file.
 
@@ -201,13 +175,13 @@ Note: `url` or `id` must be specified. `url` is used to a url to a model gallery
 For example:
 
 ```bash
-PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/stablediffusion.yaml"}]
+PRELOAD_MODELS=[{"url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"}]
 ```
 
 or as arg:
 
 ```bash
-local-ai --preload-models '[{"url": "github:go-skynet/model-gallery/stablediffusion.yaml"}]'
+local-ai --preload-models '[{"url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"}]'
 ```
 
 or in a YAML file:
@@ -218,14 +192,14 @@ local-ai --preload-models-config "/path/to/yaml"
 
 YAML:
 ```yaml
-- url: github:go-skynet/model-gallery/stablediffusion.yaml
+- url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
 ```
 
 </details>
 
 {{% alert note %}}
 
-You can find already some open licensed models in the [model gallery](https://github.com/go-skynet/model-gallery).
+You can find already some open licensed models in the [LocalAI gallery](https://github.com/mudler/LocalAI/tree/master/gallery).
 
 If you don't find the model in the gallery you can try to use the "base" model and provide an URL to LocalAI:
 
@@ -233,7 +207,7 @@ If you don't find the model in the gallery you can try to use the "base" model a
 
 ```
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "url": "github:go-skynet/model-gallery/base.yaml",
+     "url": "github:mudler/LocalAI/gallery/base.yaml@master",
      "name": "model-name",
      "files": [
         {
@@ -249,7 +223,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 {{% /alert %}}
 
-## Installing a model with a different name
+### Override a model name
 
 To install a model with a different name, specify a `name` parameter in the request body.
 
@@ -266,11 +240,11 @@ For example, to install a model as `gpt-3.5-turbo`:
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-      "url": "github:go-skynet/model-gallery/gpt4all-j.yaml",
+      "url": "github:mudler/LocalAI/gallery/gpt4all-j.yaml",
       "name": "gpt-3.5-turbo"
    }'  
 ```
-## Additional Files
+### Additional Files
 
 <details>
 
@@ -293,7 +267,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 </details>
 
-## Overriding configuration files
+### Overriding configuration files
 
 <details>
 
@@ -324,7 +298,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 ```bash
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "url": "github:go-skynet/model-gallery/bert-embeddings.yaml",
+     "url": "github:mudler/LocalAI/gallery/bert-embeddings.yaml",
      "name": "text-embedding-ada-002"
    }'  
 ```
@@ -348,10 +322,10 @@ URL: https://github.com/EdVince/Stable-Diffusion-NCNN
 {{< tabs >}}
 {{% tab name="Prepare the model in runtime" %}}
 
-While the API is running, you can install the model by using the `/models/apply` endpoint and point it to the `stablediffusion` model in the [models-gallery](https://github.com/go-skynet/model-gallery#image-generation-stable-diffusion):
+While the API is running, you can install the model by using the `/models/apply` endpoint and point it to the `stablediffusion` model in the [models-gallery](https://github.com/mudler/LocalAI/tree/master/gallery#image-generation-stable-diffusion):
 ```bash
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{         
-     "url": "github:go-skynet/model-gallery/stablediffusion.yaml"
+     "url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"
    }'
 ```
 
@@ -361,13 +335,13 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 You can set the `PRELOAD_MODELS` environment variable:
 
 ```bash
-PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/stablediffusion.yaml"}]
+PRELOAD_MODELS=[{"url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"}]
 ```
 
 or as arg:
 
 ```bash
-local-ai --preload-models '[{"url": "github:go-skynet/model-gallery/stablediffusion.yaml"}]'
+local-ai --preload-models '[{"url": "github:mudler/LocalAI/gallery/stablediffusion.yaml@master"}]'
 ```
 
 or in a YAML file:
@@ -378,7 +352,7 @@ local-ai --preload-models-config "/path/to/yaml"
 
 YAML:
 ```yaml
-- url: github:go-skynet/model-gallery/stablediffusion.yaml
+- url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
 ```
 
 {{% /tab %}}
@@ -403,7 +377,7 @@ URL: https://github.com/ggerganov/whisper.cpp
 
 ```bash
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{         
-     "url": "github:go-skynet/model-gallery/whisper-base.yaml",
+     "url": "github:mudler/LocalAI/gallery/whisper-base.yaml@master",
      "name": "whisper-1"
    }'
 ```
@@ -414,13 +388,13 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 You can set the `PRELOAD_MODELS` environment variable:
 
 ```bash
-PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/whisper-base.yaml", "name": "whisper-1"}]
+PRELOAD_MODELS=[{"url": "github:mudler/LocalAI/gallery/whisper-base.yaml@master", "name": "whisper-1"}]
 ```
 
 or as arg:
 
 ```bash
-local-ai --preload-models '[{"url": "github:go-skynet/model-gallery/whisper-base.yaml", "name": "whisper-1"}]'
+local-ai --preload-models '[{"url": "github:mudler/LocalAI/gallery/whisper-base.yaml@master", "name": "whisper-1"}]'
 ```
 
 or in a YAML file:
@@ -431,36 +405,12 @@ local-ai --preload-models-config "/path/to/yaml"
 
 YAML:
 ```yaml
-- url: github:go-skynet/model-gallery/whisper-base.yaml
+- url: github:mudler/LocalAI/gallery/whisper-base.yaml@master
   name: whisper-1
 ```
 
 {{% /tab %}}
 {{< /tabs >}}
-
-### GPTs
-
-<details>
-
-```bash
-LOCALAI=http://localhost:8080
-curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "url": "github:go-skynet/model-gallery/gpt4all-j.yaml",
-     "name": "gpt4all-j"
-   }'  
-```
-
-To test it:
-
-```
-curl $LOCALAI/v1/chat/completions -H "Content-Type: application/json" -d '{
-     "model": "gpt4all-j", 
-     "messages": [{"role": "user", "content": "How are you?"}],
-     "temperature": 0.1 
-   }'
-```
-
-</details>
 
 ### Note
 
@@ -495,7 +445,7 @@ Returns an `uuid` and an `url` to follow up the state of the process:
 { "uuid":"251475c9-f666-11ed-95e0-9a8a4480ac58", "status":"http://localhost:8080/models/jobs/251475c9-f666-11ed-95e0-9a8a4480ac58"}
 ```
 
-To see a collection example of curated models definition files, see the [model-gallery](https://github.com/go-skynet/model-gallery).
+To see a collection example of curated models definition files, see the [LocalAI repository](https://github.com/mudler/LocalAI/tree/master/gallery).
 
 #### Get model job state `/models/jobs/<uid>`
 

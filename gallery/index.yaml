@@ -219,6 +219,23 @@
       sha256: 5805f3856cc18a769fae0b7c5659fe6778574691c370c910dad6eeec62c62436
       uri: huggingface://NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF/lexi-llama-3-8b-uncensored.Q6_K.gguf
 - <<: *llama3
+  name: "llama-3-lewdplay-8b-evo"
+  urls:
+    - https://huggingface.co/Undi95/Llama-3-LewdPlay-8B-evo-GGUF
+  description: |
+      This is a merge of pre-trained language models created using mergekit.
+
+      The new EVOLVE merge method was used (on MMLU specifically), see below for more information!
+
+      Unholy was used for uncensoring, Roleplay Llama 3 for the DPO train he got on top, and LewdPlay for the... lewd side.
+  overrides:
+    parameters:
+      model: Llama-3-LewdPlay-8B-evo.q8_0.gguf
+  files:
+    - filename: Llama-3-LewdPlay-8B-evo.q8_0.gguf
+      sha256: 1498152d598ff441f73ec6af9d3535875302e7251042d87feb7e71a3618966e8
+      uri: huggingface://Undi95/Llama-3-LewdPlay-8B-evo-GGUF/Llama-3-LewdPlay-8B-evo.q8_0.gguf
+- <<: *llama3
   name: "chaos-rp_l3_b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix
@@ -252,6 +269,23 @@
     - filename: SOVL_Llama3_8B-Q4_K_M-imat.gguf
       sha256: ee61890dd26d52985a3c44279d519ca8592448ddeb46387cf22868548703d686
       uri: huggingface://Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix/SOVL_Llama3_8B-Q4_K_M-imat.gguf
+- <<: *llama3
+  name: "l3-solana-8b-v1-gguf"
+  url: "github:mudler/LocalAI/gallery/solana.yaml@master"
+  license: cc-by-nc-4.0
+  urls:
+    - https://huggingface.co/Sao10K/L3-Solana-8B-v1-GGUF
+  description: |
+    A Full Fine-Tune of meta-llama/Meta-Llama-3-8B done with 2x A100 80GB on ~75M Tokens worth of Instruct, and Multi-Turn complex conversations, of up to 8192 tokens long sequence lengths.
+
+    Trained as a generalist instruct model that should be able to handle certain unsavoury topics. It could roleplay too, as a side bonus.
+  overrides:
+    parameters:
+      model: L3-Solana-8B-v1.q5_K_M.gguf
+  files:
+    - filename: L3-Solana-8B-v1.q5_K_M.gguf
+      sha256: 9b8cd2c3beaab5e4f82efd10e7d44f099ad40a4e0ee286ca9fce02c8eec26d2f
+      uri: huggingface://Sao10K/L3-Solana-8B-v1-GGUF/L3-Solana-8B-v1.q5_K_M.gguf
 - <<: *llama3
   name: "average_normie_l3_v1_8b-gguf-iq-imatrix"
   urls:
@@ -478,6 +512,32 @@
     - filename: llava-v1.5-7b-mmproj-Q8_0.gguf
       sha256: 09c230de47f6f843e4841656f7895cac52c6e7ec7392acb5e8527de8b775c45a
       uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-mmproj-Q8_0.gguf
+- <<: *llama3
+  name: "poppy_porpoise-v0.7-l3-8b-iq-imatrix"
+  description: |
+      "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+      Update: Vision/multimodal capabilities again!
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/v6AZmbk-Cb52KskTQTwzW.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llava_1.5_Llama3_mmproj.gguf
+    parameters:
+      model: Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
+      sha256: 04badadd6c88cd9c706efef8f5cd337057c805e43dd440a5936f87720c37eb33
+      uri: huggingface://Lewdiculous/Poppy_Porpoise-v0.7-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
+    - filename: Llava_1.5_Llama3_mmproj.gguf
+      sha256: d2a9ca943975f6c49c4d55886e873f676a897cff796e92410ace6c20f4efd03b
+      uri: huggingface://ChaoticNeutrals/Llava_1.5_Llama3_mmproj/mmproj-model-f16.gguf
 ### START Phi-2
 - &phi-2-chat
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
@@ -638,6 +698,20 @@
     - filename: "Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
       sha256: "b6d95d7ec9a395b7568cc94b0447fd4f90b6f69d6e44794b1fbb84e3f732baca"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
+- <<: *hermes-2-pro-mistral
+  name: "biomistral-7b"
+  description: |
+      BioMistral: A Collection of Open-Source Pretrained Large Language Models for Medical Domains
+  urls:
+    - https://huggingface.co/MaziyarPanahi/BioMistral-7B-GGUF
+  icon: https://huggingface.co/BioMistral/BioMistral-7B/resolve/main/wordart_blue_m_rectangle.png?download=true
+  overrides:
+    parameters:
+      model: BioMistral-7B.Q4_K_M.gguf
+  files:
+    - filename: "BioMistral-7B.Q4_K_M.gguf"
+      sha256: "3a73107045dfe7e3f113b392b0a67e3e6ca9fa9dae2abe301424ce5abd1721a6"
+      uri: "huggingface://MaziyarPanahi/BioMistral-7B-GGUF/BioMistral-7B.Q4_K_M.gguf"
 ### END Hermes-2-Pro-Mistral
 ### START Cerbero
 - url: "github:mudler/LocalAI/gallery/cerbero.yaml@master"
