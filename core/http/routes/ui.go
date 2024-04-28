@@ -66,6 +66,12 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.SendString(elements.ListModels(filteredModels, installingModels))
 	})
 
+	/*
+
+		Install routes
+
+	*/
+
 	// This route is used when the "Install" button is pressed, we submit here a new job to the gallery service
 	// https://htmx.org/examples/progress-bar/
 	app.Post("/browse/install/model/:id", auth, func(c *fiber.Ctx) error {
@@ -89,7 +95,33 @@ func RegisterUIRoutes(app *fiber.App,
 			galleryService.C <- op
 		}()
 
-		return c.SendString(elements.StartProgressBar(uid, "0"))
+		return c.SendString(elements.StartProgressBar(uid, "0", "Installation"))
+	})
+
+	// This route is used when the "Install" button is pressed, we submit here a new job to the gallery service
+	// https://htmx.org/examples/progress-bar/
+	app.Post("/browse/delete/model/:id", auth, func(c *fiber.Ctx) error {
+		galleryID := strings.Clone(c.Params("id")) // note: strings.Clone is required for multiple requests!
+
+		id, err := uuid.NewUUID()
+		if err != nil {
+			return err
+		}
+
+		uid := id.String()
+
+		installingModels.Set(galleryID, uid)
+
+		op := gallery.GalleryOp{
+			Id:          uid,
+			Delete:      true,
+			GalleryName: galleryID,
+		}
+		go func() {
+			galleryService.C <- op
+		}()
+
+		return c.SendString(elements.StartProgressBar(uid, "0", "Deletion"))
 	})
 
 	// Display the job current progress status
@@ -118,12 +150,20 @@ func RegisterUIRoutes(app *fiber.App,
 	// this route is hit when the job is done, and we display the
 	// final state (for now just displays "Installation completed")
 	app.Get("/browse/job/:uid", auth, func(c *fiber.Ctx) error {
+
+		status := galleryService.GetStatus(c.Params("uid"))
+
 		for _, k := range installingModels.Keys() {
 			if installingModels.Get(k) == c.Params("uid") {
 				installingModels.Delete(k)
 			}
 		}
 
-		return c.SendString(elements.DoneProgress(c.Params("uid")))
+		displayText := "Installation completed"
+		if status.Deletion {
+			displayText = "Deletion completed"
+		}
+
+		return c.SendString(elements.DoneProgress(c.Params("uid"), displayText))
 	})
 }

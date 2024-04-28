@@ -146,7 +146,12 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 					continue
 				}
 
-				g.UpdateStatus(op.Id, &gallery.GalleryOpStatus{Processed: true, Message: "completed", Progress: 100})
+				g.UpdateStatus(op.Id,
+					&gallery.GalleryOpStatus{
+						Deletion:  op.Delete,
+						Processed: true,
+						Message:   "completed",
+						Progress:  100})
 			}
 		}
 	}()

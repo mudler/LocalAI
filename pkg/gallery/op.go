@@ -11,6 +11,7 @@ type GalleryOp struct {
 }
 
 type GalleryOpStatus struct {
+	Deletion           bool    `json:"deletion"` // Deletion is true if the operation is a deletion
 	FileName           string  `json:"file_name"`
 	Error              error   `json:"error"`
 	Processed          bool    `json:"processed"`

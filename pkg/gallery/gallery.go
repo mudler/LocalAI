@@ -201,11 +201,13 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 	}
 
 	// Remove additional files
-	for _, f := range galleryconfig.Files {
-		fullPath := filepath.Join(basePath, f.Filename)
-		log.Debug().Msgf("Removing file %s", fullPath)
-		if err := os.Remove(fullPath); err != nil {
-			return fmt.Errorf("failed to remove file %s: %w", f.Filename, err)
+	if galleryconfig != nil {
+		for _, f := range galleryconfig.Files {
+			fullPath := filepath.Join(basePath, f.Filename)
+			log.Debug().Msgf("Removing file %s", fullPath)
+			if err := os.Remove(fullPath); err != nil {
+				return fmt.Errorf("failed to remove file %s: %w", f.Filename, err)
+			}
 		}
 	}
 
