@@ -1,6 +1,7 @@
 package gallery
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -193,6 +194,7 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 
 	galleryFile := filepath.Join(basePath, galleryFileName(name))
 
+	var err error
 	// Delete all the files associated to the model
 	// read the model config
 	galleryconfig, err := ReadConfigFile(galleryFile)
@@ -205,8 +207,8 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(basePath, f.Filename)
 			log.Debug().Msgf("Removing file %s", fullPath)
-			if err := os.Remove(fullPath); err != nil {
-				return fmt.Errorf("failed to remove file %s: %w", f.Filename, err)
+			if e := os.Remove(fullPath); e != nil {
+				err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f.Filename, e))
 			}
 		}
 	}
@@ -214,11 +216,17 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 	for _, f := range additionalFiles {
 		fullPath := filepath.Join(filepath.Join(basePath, f))
 		log.Debug().Msgf("Removing additional file %s", fullPath)
-		if err := os.Remove(fullPath); err != nil {
-			return fmt.Errorf("failed to remove file %s: %w", f, err)
+		if e := os.Remove(fullPath); e != nil {
+			err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f, e))
 		}
 	}
 
+	log.Debug().Msgf("Removing model config file %s", configFile)
+
 	// Delete the model config file
-	return os.RemoveAll(configFile)
+	if e := os.Remove(configFile); e != nil {
+		err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", configFile, e))
+	}
+
+	return err
 }

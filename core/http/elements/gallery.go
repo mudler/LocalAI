@@ -106,20 +106,20 @@ func cardSpan(text, icon string) elem.Node {
 func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[string, string]) string {
 	//StartProgressBar(uid, "0")
 	modelsElements := []elem.Node{}
-	span := func(s string) elem.Node {
-		return elem.Span(
-			attrs.Props{
-				"class": "float-right inline-block bg-green-500 text-white py-1 px-3 rounded-full text-xs",
-			},
-			elem.Text(s),
-		)
-	}
+	// span := func(s string) elem.Node {
+	// 	return elem.Span(
+	// 		attrs.Props{
+	// 			"class": "float-right inline-block bg-green-500 text-white py-1 px-3 rounded-full text-xs",
+	// 		},
+	// 		elem.Text(s),
+	// 	)
+	// }
 	deleteButton := func(m *gallery.GalleryModel) elem.Node {
 		return elem.Button(
 			attrs.Props{
 				"data-twe-ripple-init":  "",
 				"data-twe-ripple-color": "light",
-				"class":                 "float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+				"class":                 "float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2 focus:bg-red-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-red-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
 				"hx-swap":               "outerHTML",
 				// post the Model ID as param
 				"hx-post": "/browse/delete/model/" + m.Name,
@@ -224,10 +224,11 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 					elem.Raw(StartProgressBar(installing.Get(galleryID), "0", "Installing")),
 				), // Otherwise, show install button (if not installed) or display "Installed"
 				elem.If(m.Installed,
-					elem.Node(elem.Div(
-						attrs.Props{},
-						span("Installed"), deleteButton(m),
-					)),
+					//elem.Node(elem.Div(
+					//		attrs.Props{},
+					//	span("Installed"), deleteButton(m),
+					//	)),
+					deleteButton(m),
 					installButton(m),
 				),
 			),
