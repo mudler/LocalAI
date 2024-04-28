@@ -60,7 +60,7 @@ As this feature is experimental, you need to run `local-ai` with a list of `GALL
 To enable the two repositories, start `LocalAI` with the `GALLERIES` environment variable:
 
 ```bash
-GALLERIES=[{"name":"gallery", "url":"github:mudler/localai/gallery/index.yaml"}, "url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]
+GALLERIES=[{"name":"gallery", "url":"github:mudler/localai/gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]
 ```
 
 If running with `docker-compose`, simply edit the `.env` file and uncomment the `GALLERIES` variable, and add the one you want to use.
