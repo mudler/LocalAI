@@ -1,13 +1,14 @@
-
 +++
 disableToc = false
-title = "Available Container images"
-weight = 25
+title = "Run with container images"
+weight = 6
+url = '/basics/container/'
+ico = "rocket_launch"
 +++
 
 LocalAI provides a variety of images to support different environments. These images are available on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags) and [Docker Hub](https://hub.docker.com/r/localai/localai).
 
-> _For All-in-One image with a pre-configured set of models and backends, see the [AIO Images]({{%relref "docs/reference/aio-images" %}})._
+All-in-One images comes with a pre-configured set of models and backends, standard images instead do not have any model pre-configured and installed.
 
 For GPU Acceleration support for Nvidia video graphic cards, use the Nvidia/CUDA images, if you don't have a GPU, use the CPU images. If you have AMD or Mac Silicon, see the [build section]({{%relref "docs/getting-started/build" %}}).
 
@@ -21,6 +22,62 @@ For GPU Acceleration support for Nvidia video graphic cards, use the Nvidia/CUDA
 - If using old and outdated CPUs and no GPUs you might need to set `REBUILD` to `true` as environment variable along with options to disable the flags which your CPU does not support, however note that inference will perform poorly and slow. See also [flagset compatibility]({{%relref "docs/getting-started/build#cpu-flagset-compatibility" %}}).
 
 {{% /alert %}}
+
+## All-in-one images
+
+All-In-One images are images that come pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and requires no configuration. Models configuration can be found [here](https://github.com/mudler/LocalAI/tree/master/aio) separated by size.
+
+In the AIO images there are models configured with the names of OpenAI models, however, they are really backed by Open Source models. You can find the table below
+
+| Category | Model name | Real model (CPU) | Real model (GPU) |
+| ---- | ---- | ---- | ---- |
+| Text Generation | `gpt-4` | `phi-2` | `hermes-2-pro-mistral` |
+| Multimodal Vision | `gpt-4-vision-preview` | `bakllava` | `llava-1.6-mistral` |
+| Image Generation | `stablediffusion` | `stablediffusion` | `dreamshaper-8` |
+| Speech to Text | `whisper-1` | `whisper` with `whisper-base` model | <= same |
+| Text to Speech | `tts-1` | `en-us-amy-low.onnx` from `rhasspy/piper` | <= same |
+| Embeddings | `text-embedding-ada-002` | `all-MiniLM-L6-v2` in Q4 | `all-MiniLM-L6-v2` |
+
+### Usage
+
+Select the image (CPU or GPU) and start the container with Docker:
+
+```bash
+# CPU example
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
+```
+
+LocalAI will automatically download all the required models, and the API will be available at [localhost:8080](http://localhost:8080/v1/models).
+
+### Available images
+
+| Description | Quay | Docker Hub                                   |
+| --- | --- |-----------------------------------------------|
+| Latest images for CPU | `quay.io/go-skynet/local-ai:latest-aio-cpu` | `localai/localai:latest-aio-cpu`                      |
+| Versioned image (e.g. for CPU) | `quay.io/go-skynet/local-ai:{{< version >}}-aio-cpu` | `localai/localai:{{< version >}}-aio-cpu`             |
+| Latest images for Nvidia GPU (CUDA11) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-11` | `localai/localai:latest-aio-gpu-nvidia-cuda-11`                      |
+| Latest images for Nvidia GPU (CUDA12) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-12` | `localai/localai:latest-aio-gpu-nvidia-cuda-12`                      |
+| Latest images for AMD GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-hipblas` | `localai/localai:latest-aio-gpu-hipblas`                      |
+| Latest images for Intel GPU (sycl f16) | `quay.io/go-skynet/local-ai:latest-aio-gpu-intel-f16` | `localai/localai:latest-aio-gpu-intel-f16`                      |
+| Latest images for Intel GPU (sycl f32) | `quay.io/go-skynet/local-ai:latest-aio-gpu-intel-f32` | `localai/localai:latest-aio-gpu-intel-f32`                      |
+
+### Available environment variables
+
+The AIO Images are inheriting the same environment variables as the base images and the environment of LocalAI (that you can inspect by calling `--help`). However, it supports additional environment variables available only from the container image
+
+| Variable | Default | Description |
+| ---------------------| ------- | ----------- |
+| `PROFILE` | Auto-detected | The size of the model to use. Available: `cpu`, `gpu-8g` |
+| `MODELS` | Auto-detected | A list of models YAML Configuration file URI/URL (see also [running models]({{%relref "docs/getting-started/run-other-models" %}})) |
+
+
+## Standard container images
+
+Standard container images do not have pre-installed models. 
+
+Images are available with and without python dependencies. Note that images with python dependencies are bigger (in order of 17GB). 
+
+Images with `core` in the tag are smaller and do not contain any python dependencies. 
 
 {{< tabs tabTotal="6" >}}
 {{% tab tabName="Vanilla / CPU Images" %}}
@@ -100,4 +157,3 @@ For GPU Acceleration support for Nvidia video graphic cards, use the Nvidia/CUDA
 ## See Also
 
 - [GPU acceleration]({{%relref "docs/features/gpu-acceleration" %}})
-- [AIO Images]({{%relref "docs/reference/aio-images" %}})

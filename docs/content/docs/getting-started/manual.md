@@ -131,22 +131,7 @@ Note: If you are on Windows, please make sure the project is on the Linux Filesy
 
 {{% tab tabName="Kubernetes" %}}
 
-For installing LocalAI in Kubernetes, you can use the following helm chart:
-
-```bash
-# Install the helm repository
-helm repo add go-skynet https://go-skynet.github.io/helm-charts/
-# Update the repositories
-helm repo update
-# Get the values
-helm show values go-skynet/local-ai > values.yaml
-
-# Edit the values value if needed
-# vim values.yaml ...
-
-# Install the helm chart
-helm install local-ai go-skynet/local-ai -f values.yaml
-```
+See the [Kubernetes section]({{%relref "docs/getting-started/kubernetes" %}}).
 
 {{% /tab %}}
 {{% tab tabName="From binary" %}}

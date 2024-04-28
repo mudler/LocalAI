@@ -30,7 +30,7 @@ Before you begin, ensure you have a container engine installed if you are not us
 
 > _Do you have already a model file? Skip to [Run models manually]({{%relref "docs/getting-started/manual" %}}) or [Run other models]({{%relref "docs/getting-started/run-other-models" %}}) to use an already-configured model_.
 
-LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. If you don't need models pre-configured, you can use the standard [images]({{%relref "docs/reference/container-images" %}}).
+LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. If you don't need models pre-configured, you can use the standard [images]({{%relref "docs/getting-started/container-images" %}}).
 
 These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and requires no configuration.
 
@@ -91,7 +91,7 @@ services:
     #           capabilities: [gpu]
 ```
 
-For a list of all the container-images available, see [Container images]({{%relref "docs/reference/container-images" %}}). To learn more about All-in-one images instead, see [All-in-one Images]({{%relref "docs/reference/aio-images" %}}).
+For a list of all the container-images available, see [Container images]({{%relref "docs/getting-started/container-images" %}}). To learn more about All-in-one images instead, see [All-in-one Images]({{%relref "docs/getting-started/container-images" %}}).
 
 {{% alert icon="💡" %}}
 
@@ -114,9 +114,36 @@ docker run -p 8080:8080 --name local-ai -ti -v localai-models:/build/models loca
 
 {{% /alert %}}
 
+## From binary
+
+LocalAI is available as a standalone binary as well. Binaries are compiled for Linux and MacOS and automatically uploaded in the Github releases. Windows is known to work with WSL.
+
+You can check out the releases in https://github.com/mudler/LocalAI/releases.
+
+{{< tabs tabTotal="2" >}}
+{{% tab tabName="Linux" %}}
+| CPU flagset | Link | 
+| --- | --- |
+| avx2 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx2-Linux-x86_64) |
+| avx512 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx512-Linux-x86_64) |
+| avx | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx-Linux-x86_64) |
+{{% /tab %}}
+{{% tab tabName="MacOS" %}}
+| CPU flagset | Link | 
+| --- | --- |
+| avx2 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx2-Darwin-arm64) |
+| avx512 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx512-Darwin-arm64) |
+| avx | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx-Darwin-arm64) |
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
 ## Try it out
 
-LocalAI does not ship a webui by default, however you can use 3rd party projects to interact with it (see also [Integrations]({{%relref "docs/integrations" %}}) ). However, you can test out the API endpoints using `curl`, you can find few examples below.
+Connect to LocalAI, by default the WebUI should be accessible from http://localhost:8080 . You can also use 3rd party projects to interact with LocalAI as you would use OpenAI (see also [Integrations]({{%relref "docs/integrations" %}}) ). 
+
+You can also test out the API endpoints using `curl`, examples below.
 
 ### Text Generation
 
@@ -300,6 +327,6 @@ Explore further resources and community contributions:
 - [Build LocalAI and the container image]({{%relref "docs/getting-started/build" %}})
 - [Run models manually]({{%relref "docs/getting-started/manual" %}})
 - [Run other models]({{%relref "docs/getting-started/run-other-models" %}})
-- [Container images]({{%relref "docs/reference/container-images" %}})
-- [All-in-one Images]({{%relref "docs/reference/aio-images" %}})
+- [Container images]({{%relref "docs/getting-started/container-images" %}})
+- [All-in-one Images]({{%relref "docs/getting-started/container-images" %}})
 - [Examples](https://github.com/mudler/LocalAI/tree/master/examples#examples)
