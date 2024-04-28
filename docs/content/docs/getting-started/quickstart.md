@@ -30,7 +30,7 @@ Before you begin, ensure you have a container engine installed if you are not us
 
 > _Do you have already a model file? Skip to [Run models manually]({{%relref "docs/getting-started/manual" %}}) or [Run other models]({{%relref "docs/getting-started/run-other-models" %}}) to use an already-configured model_.
 
-LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. 
+LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. If you don't need models pre-configured, you can use the standard [images]({{%relref "docs/reference/container-images" %}}).
 
 These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and requires no configuration.
 
