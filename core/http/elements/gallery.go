@@ -13,7 +13,7 @@ const (
 	NoImage = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
 )
 
-func DoneProgress(uid string) string {
+func DoneProgress(uid, text string) string {
 	return elem.Div(
 		attrs.Props{},
 		elem.H3(
@@ -23,7 +23,7 @@ func DoneProgress(uid string) string {
 				"tabindex":  "-1",
 				"autofocus": "",
 			},
-			elem.Text("Installation completed"),
+			elem.Text(text),
 		),
 	).Render()
 }
@@ -60,7 +60,7 @@ func ProgressBar(progress string) string {
 	).Render()
 }
 
-func StartProgressBar(uid, progress string) string {
+func StartProgressBar(uid, progress, text string) string {
 	if progress == "" {
 		progress = "0"
 	}
@@ -77,7 +77,7 @@ func StartProgressBar(uid, progress string) string {
 				"tabindex":  "-1",
 				"autofocus": "",
 			},
-			elem.Text("Installing"),
+			elem.Text(text),
 			// This is a simple example of how to use the HTMLX library to create a progress bar that updates every 600ms.
 			elem.Div(attrs.Props{
 				"hx-get":     "/browse/job/progress/" + uid,
@@ -106,14 +106,33 @@ func cardSpan(text, icon string) elem.Node {
 func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[string, string]) string {
 	//StartProgressBar(uid, "0")
 	modelsElements := []elem.Node{}
-	span := func(s string) elem.Node {
-		return elem.Span(
+	// span := func(s string) elem.Node {
+	// 	return elem.Span(
+	// 		attrs.Props{
+	// 			"class": "float-right inline-block bg-green-500 text-white py-1 px-3 rounded-full text-xs",
+	// 		},
+	// 		elem.Text(s),
+	// 	)
+	// }
+	deleteButton := func(m *gallery.GalleryModel) elem.Node {
+		return elem.Button(
 			attrs.Props{
-				"class": "float-right inline-block bg-green-500 text-white py-1 px-3 rounded-full text-xs",
+				"data-twe-ripple-init":  "",
+				"data-twe-ripple-color": "light",
+				"class":                 "float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2 focus:bg-red-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-red-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+				"hx-swap":               "outerHTML",
+				// post the Model ID as param
+				"hx-post": "/browse/delete/model/" + m.Name,
 			},
-			elem.Text(s),
+			elem.I(
+				attrs.Props{
+					"class": "fa-solid fa-cancel pr-2",
+				},
+			),
+			elem.Text("Delete"),
 		)
 	}
+
 	installButton := func(m *gallery.GalleryModel) elem.Node {
 		return elem.Button(
 			attrs.Props{
@@ -202,10 +221,14 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 			elem.If(
 				currentlyInstalling,
 				elem.Node( // If currently installing, show progress bar
-					elem.Raw(StartProgressBar(installing.Get(galleryID), "0")),
+					elem.Raw(StartProgressBar(installing.Get(galleryID), "0", "Installing")),
 				), // Otherwise, show install button (if not installed) or display "Installed"
 				elem.If(m.Installed,
-					span("Installed"),
+					//elem.Node(elem.Div(
+					//		attrs.Props{},
+					//	span("Installed"), deleteButton(m),
+					//	)),
+					deleteButton(m),
 					installButton(m),
 				),
 			),
