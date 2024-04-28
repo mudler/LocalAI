@@ -4,6 +4,7 @@ type GalleryOp struct {
 	Id          string
 	GalleryName string
 	ConfigURL   string
+	Delete      bool
 
 	Req       GalleryModel
 	Galleries []Gallery

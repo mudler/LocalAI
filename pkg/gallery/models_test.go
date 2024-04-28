@@ -1,6 +1,7 @@
 package gallery_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -11,6 +12,7 @@ import (
 )
 
 var _ = Describe("Model test", func() {
+
 	Context("Downloading", func() {
 		It("applies model correctly", func() {
 			tempdir, err := os.MkdirTemp("", "test")
@@ -80,6 +82,19 @@ var _ = Describe("Model test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models)).To(Equal(1))
 			Expect(models[0].Installed).To(BeTrue())
+
+			// delete
+			err = DeleteModelFromSystem(tempdir, "bert", []string{})
+			Expect(err).ToNot(HaveOccurred())
+
+			models, err = AvailableGalleryModels(galleries, tempdir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(models)).To(Equal(1))
+			Expect(models[0].Installed).To(BeFalse())
+
+			_, err = os.Stat(filepath.Join(tempdir, "bert.yaml"))
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 		})
 
 		It("renames model correctly", func() {

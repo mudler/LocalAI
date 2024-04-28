@@ -184,3 +184,39 @@ func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error)
 	}
 	return models, nil
 }
+
+func DeleteModelFromSystem(basePath string, name string, additionalFiles []string) error {
+	// os.PathSeparator is not allowed in model names. Replace them with "__" to avoid conflicts with file paths.
+	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
+
+	configFile := filepath.Join(basePath, fmt.Sprintf("%s.yaml", name))
+
+	galleryFile := filepath.Join(basePath, galleryFileName(name))
+
+	// Delete all the files associated to the model
+	// read the model config
+	galleryconfig, err := ReadConfigFile(galleryFile)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to read gallery file %s", configFile)
+	}
+
+	// Remove additional files
+	for _, f := range galleryconfig.Files {
+		fullPath := filepath.Join(basePath, f.Filename)
+		log.Debug().Msgf("Removing file %s", fullPath)
+		if err := os.Remove(fullPath); err != nil {
+			return fmt.Errorf("failed to remove file %s: %w", f.Filename, err)
+		}
+	}
+
+	for _, f := range additionalFiles {
+		fullPath := filepath.Join(filepath.Join(basePath, f))
+		log.Debug().Msgf("Removing additional file %s", fullPath)
+		if err := os.Remove(fullPath); err != nil {
+			return fmt.Errorf("failed to remove file %s: %w", f, err)
+		}
+	}
+
+	// Delete the model config file
+	return os.RemoveAll(configFile)
+}
