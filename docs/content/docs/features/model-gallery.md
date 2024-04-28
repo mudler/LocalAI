@@ -42,13 +42,13 @@ To enable the `model-gallery` repository you need to start `local-ai` with the `
 GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 ```
 
-For example, to enable the `model-gallery` repository, start `local-ai` with:
-
+For example, to enable the `local-ai` repository, start `local-ai` with:
 ```
-GALLERIES=[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}]
+GALLERIES=[{"name":"gallery", "url":"github:mudler/localai/gallery/index.yaml"}]
 ```
-
-where `github:go-skynet/model-gallery/index.yaml` will be expanded automatically to `https://raw.githubusercontent.com/go-skynet/model-gallery/main/index.yaml`.
+The string must be in this format `github:${org}/{repo}/{GALLERY_NAME}/${targetFile}`
+<br />where url is `github:mudler/localai/gallery/index.yaml` and name is localai
+<br />will format the values into a valid github url `https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/index.yaml`
 
 {{% alert note %}}
 
@@ -60,7 +60,7 @@ As this feature is experimental, you need to run `local-ai` with a list of `GALL
 To enable the two repositories, start `LocalAI` with the `GALLERIES` environment variable:
 
 ```bash
-GALLERIES=[{"name":"model-gallery", "url":"github:go-skynet/model-gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]
+GALLERIES=[{"name":"gallery", "url":"github:mudler/localai/gallery/index.yaml"}, {"url": "github:go-skynet/model-gallery/huggingface.yaml","name":"huggingface"}]
 ```
 
 If running with `docker-compose`, simply edit the `.env` file and uncomment the `GALLERIES` variable, and add the one you want to use.
