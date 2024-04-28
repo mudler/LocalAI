@@ -228,14 +228,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Inspect image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker pull localai/localai:${{ steps.meta.outputs.version }}
-          docker image inspect localai/localai:${{ steps.meta.outputs.version }}
-          docker pull quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
-          docker image inspect quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
-
       - name: Build and push AIO image
         if: inputs.aio != ''
         uses: docker/build-push-action@v5
