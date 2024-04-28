@@ -201,26 +201,6 @@ jobs:
           username: ${{ secrets.quayUsername }}
           password: ${{ secrets.quayPassword }}
 
-      - name: Cache GRPC
-        uses: docker/build-push-action@v5
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
-          # This means that even the MAKEFLAGS have to be an EXACT match.
-          # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
-          build-args: |
-            GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
-            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
-            GRPC_VERSION=v1.58.0
-          context: .
-          file: ./Dockerfile
-          cache-from: type=gha
-          target: grpc
-          platforms: ${{ inputs.platforms }}
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -247,14 +227,6 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Inspect image
-        if: github.event_name != 'pull_request'
-        run: |
-          docker pull localai/localai:${{ steps.meta.outputs.version }}
-          docker image inspect localai/localai:${{ steps.meta.outputs.version }}
-          docker pull quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
-          docker image inspect quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
 
       - name: Build and push AIO image
         if: inputs.aio != ''
