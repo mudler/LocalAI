@@ -2,7 +2,7 @@
 disableToc = false
 title = "Integrations"
 weight = 19
-icon = "rocket_launch"
+icon = "sync"
 
 +++
 
