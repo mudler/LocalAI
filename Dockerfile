@@ -148,16 +148,16 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc
-
-WORKDIR /build/grpc/cmake/build
-
 # We install GRPC to a different prefix here so that we can copy in only the build artifacts later
 # saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
 # and running make install in the target container
-RUN cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
+RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    mkdir -p /build/grpc/cmake/build && \
+    cd /build/grpc/cmake/build && \
+    cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
     make && \
-    make install
+    make install && \
+    rm -rf /build
 
 ###################################
 ###################################
