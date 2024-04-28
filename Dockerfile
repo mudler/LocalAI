@@ -21,21 +21,21 @@ ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface
 ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates curl python3-pip unzip && apt-get clean
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        python3-pip \
+        unzip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
-ENV PATH $PATH:/usr/local/go/bin
+ENV PATH $PATH:/root/go/bin:/usr/local/go/bin
 
 # Install grpc compilers
-ENV PATH $PATH:/root/go/bin
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-# Install protobuf (the version in 22.04 is too old)
-RUN curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
-    unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
-    rm protoc.zip
 
 # Install grpcio-tools (the version in 22.04 is too old)
 RUN pip install --user grpcio-tools
@@ -49,12 +49,21 @@ RUN echo "Target Variant: $TARGETVARIANT"
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
-    apt-get install -y software-properties-common && \
-    curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
-    dpkg -i cuda-keyring_1.1-1_all.deb && \
-    rm -f cuda-keyring_1.1-1_all.deb && \
-    apt-get update && \
-    apt-get install -y cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}  && apt-get clean \
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+            software-properties-common && \
+        curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+        dpkg -i cuda-keyring_1.1-1_all.deb && \
+        rm -f cuda-keyring_1.1-1_all.deb && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
     ; fi
 
 # Cuda
@@ -64,10 +73,12 @@ ENV PATH /usr/local/cuda/bin:${PATH}
 ENV PATH /opt/rocm/bin:${PATH}
 
 # OpenBLAS requirements and stable diffusion
-RUN apt-get install -y \
-    libopenblas-dev \
-    libopencv-dev \ 
-    && apt-get clean
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libopenblas-dev \
+        libopencv-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set up OpenCV
 RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
@@ -82,24 +93,37 @@ RUN test -n "$TARGETARCH" \
 
 FROM requirements-core AS requirements-extras
 
-RUN apt install -y gpg && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gpg && \
     curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
     install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
     gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list && \
     apt-get update && \
-    apt-get install -y conda && apt-get clean
+    apt-get install -y --no-install-recommends \
+        conda && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN apt-get install -y python3-pip && apt-get clean
-RUN pip install --upgrade pip
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3-pip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --upgrade pip
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN apt-get install -y espeak-ng espeak && apt-get clean
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        espeak-ng \
+        espeak && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN if [ ! -e /usr/bin/python ]; then \
-	  ln -s /usr/bin/python3 /usr/bin/python \
+	    ln -s /usr/bin/python3 /usr/bin/python \
     ; fi
 
 ###################################
@@ -107,15 +131,20 @@ RUN if [ ! -e /usr/bin/python ]; then \
 
 FROM ${GRPC_BASE_IMAGE} AS grpc
 
-ARG MAKEFLAGS
+# This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
+ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG GRPC_VERSION=v1.58.0
 
-ENV MAKEFLAGS=${MAKEFLAGS}
+ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 
 WORKDIR /build
 
 RUN apt-get update && \
-    apt-get install -y build-essential cmake git  && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        build-essential \
+        cmake \
+        git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -123,8 +152,12 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 
 WORKDIR /build/grpc/cmake/build
 
-RUN cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF ../.. && \
-    make
+# We install GRPC to a different prefix here so that we can copy in only the build artifacts later
+# saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
+# and running make install in the target container
+RUN cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
+    make && \
+    make install
 
 ###################################
 ###################################
@@ -149,7 +182,10 @@ COPY .git .
 RUN echo "GO_TAGS: $GO_TAGS"
 
 RUN apt-get update && \
-    apt-get install -y build-essential cmake git  && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -157,26 +193,33 @@ RUN make prepare
 
 # If we are building with clblas support, we need the libraries for the builds
 RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
-    apt-get update && \
-    apt-get install -y libclblast-dev && \
-    apt-get clean \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libclblast-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
     ; fi
+
+# We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
+# but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
+# here so that we can generate the grpc code for the stablediffusion build
+RUN curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+    unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+    rm protoc.zip
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
-COPY --from=grpc /build/grpc ./grpc/
-
-WORKDIR /build/grpc/cmake/build
-RUN make install
+# Install the pre-built GRPC
+COPY --from=grpc /opt/grpc /usr/local
 
 # Rebuild with defaults backends
 WORKDIR /build
 RUN make build
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
-    mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
-    touch /build/sources/go-piper/piper-phonemize/pi/lib/keep \
+        mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
+        touch /build/sources/go-piper/piper-phonemize/pi/lib/keep \
     ; fi
 
 ###################################
@@ -203,18 +246,27 @@ ENV PIP_CACHE_PURGE=true
 
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
-    apt-get install -y ffmpeg && apt-get clean \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            ffmpeg && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
     ; fi
 
 # Add OpenCL
 RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
-    apt-get update && \
-    apt-get install -y libclblast1 && \
-    apt-get clean \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libclblast1 && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
     ; fi
 
 RUN apt-get update && \
-    apt-get install -y cmake git  && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -227,9 +279,9 @@ WORKDIR /build
 COPY . .
 
 COPY --from=builder /build/sources ./sources/
-COPY --from=grpc /build/grpc ./grpc/
+COPY --from=grpc /opt/grpc /usr/local
 
-RUN make prepare-sources && cd /build/grpc/cmake/build && make install && rm -rf /build/grpc
+RUN make prepare-sources
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
