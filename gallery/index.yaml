@@ -253,6 +253,23 @@
       sha256: ee61890dd26d52985a3c44279d519ca8592448ddeb46387cf22868548703d686
       uri: huggingface://Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix/SOVL_Llama3_8B-Q4_K_M-imat.gguf
 - <<: *llama3
+  name: "l3-solana-8b-v1-gguf"
+  url: "github:mudler/LocalAI/gallery/solana.yaml@master"
+  license: cc-by-nc-4.0
+  urls:
+    - https://huggingface.co/Sao10K/L3-Solana-8B-v1-GGUF
+  description: |
+    A Full Fine-Tune of meta-llama/Meta-Llama-3-8B done with 2x A100 80GB on ~75M Tokens worth of Instruct, and Multi-Turn complex conversations, of up to 8192 tokens long sequence lengths.
+
+    Trained as a generalist instruct model that should be able to handle certain unsavoury topics. It could roleplay too, as a side bonus.
+  overrides:
+    parameters:
+      model: L3-Solana-8B-v1.q5_K_M.gguf
+  files:
+    - filename: L3-Solana-8B-v1.q5_K_M.gguf
+      sha256: 9b8cd2c3beaab5e4f82efd10e7d44f099ad40a4e0ee286ca9fce02c8eec26d2f
+      uri: huggingface://Sao10K/L3-Solana-8B-v1-GGUF/L3-Solana-8B-v1.q5_K_M.gguf
+- <<: *llama3
   name: "average_normie_l3_v1_8b-gguf-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix
