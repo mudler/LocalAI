@@ -179,9 +179,6 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 2. After the installation of Xcode, if you receive a xcrun error `'xcrun: error: unable to find utility "metal", not a developer tool or in PATH'`. You might have installed the Xcode command line tools before installing Xcode, the former one is pointing to an incomplete SDK. 
 
 ```
-# install the command line tools
-xcode-select --install
-
 # it should print /Library/Developer/CommandLineTools
 xcode-select --print-path
 
