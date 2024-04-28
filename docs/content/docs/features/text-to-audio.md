@@ -163,3 +163,7 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "input":"Hello!"
    }' | aplay
 ```
+
+## Parler-tts
+
+`parler-tts`. It is possible to install and configure the model directly from the gallery. https://github.com/huggingface/parler-tts

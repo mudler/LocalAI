@@ -99,8 +99,9 @@ Note that this started just as a fun weekend project by [mudler](https://github.
 - 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
-- 🆕 [Vision API](https://localai.io/features/gpt-vision/)
+- 🥽 [Vision API](https://localai.io/features/gpt-vision/)
 - 💾 [Stores](https://localai.io/stores)
+- 🆕 [Reranker](https://localai.io/features/reranker/)
 
 ## Contribute and help
 
