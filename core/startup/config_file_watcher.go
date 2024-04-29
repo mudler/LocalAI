@@ -31,8 +31,14 @@ func newConfigFileHandler(appConfig *config.ApplicationConfig) configFileHandler
 		handlers:  make(map[string]fileHandler),
 		appConfig: appConfig,
 	}
-	c.Register("api_keys.json", readApiKeysJson(*appConfig), true)
-	c.Register("external_backends.json", readExternalBackendsJson(*appConfig), true)
+	err := c.Register("api_keys.json", readApiKeysJson(*appConfig), true)
+	if err != nil {
+		log.Error().Err(err).Str("file", "api_keys.json").Msg("unable to register config file handler")
+	}
+	err = c.Register("external_backends.json", readExternalBackendsJson(*appConfig), true)
+	if err != nil {
+		log.Error().Err(err).Str("file", "external_backends.json").Msg("unable to register config file handler")
+	}
 	return c
 }
 
@@ -118,8 +124,8 @@ func (c *configFileHandler) Watch() error {
 }
 
 // TODO: When we institute graceful shutdown, this should be called
-func (c *configFileHandler) Stop() {
-	c.watcher.Close()
+func (c *configFileHandler) Stop() error {
+	return c.watcher.Close()
 }
 
 func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {

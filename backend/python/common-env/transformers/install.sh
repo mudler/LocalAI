@@ -26,7 +26,7 @@ if [ -d "/opt/intel" ]; then
     # Intel GPU: If the directory exists, we assume we are using the intel image
     # (no conda env)
     # https://github.com/intel/intel-extension-for-pytorch/issues/538
-    pip install intel-extension-for-transformers datasets sentencepiece tiktoken neural_speed optimum[openvino]
+    pip install torch==2.1.0.post0 torchvision==0.16.0.post0 torchaudio==2.1.0.post0 intel-extension-for-pytorch==2.1.20+xpu oneccl_bind_pt==2.1.200+xpu intel-extension-for-transformers datasets sentencepiece tiktoken neural_speed optimum[openvino] --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 fi
 
 # If we didn't skip conda, activate the environment

@@ -64,7 +64,11 @@ func (mi *ModelsInstall) Run(ctx *Context) error {
 		progressbar.OptionClearOnFinish(),
 	)
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
-		progressBar.Set(int(percentage * 10))
+		v := int(percentage * 10)
+		err := progressBar.Set(v)
+		if err != nil {
+			log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
+		}
 	}
 	err := gallery.InstallModelFromGallery(galleries, modelName, mi.ModelsPath, gallery.GalleryModel{}, progressCallback)
 	if err != nil {

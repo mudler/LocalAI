@@ -70,7 +70,10 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		// If no specific model path is set for transformers/HF, set it to the model path
 		for _, env := range []string{"HF_HOME", "TRANSFORMERS_CACHE", "HUGGINGFACE_HUB_CACHE"} {
 			if os.Getenv(env) == "" {
-				os.Setenv(env, ml.ModelPath)
+				err := os.Setenv(env, ml.ModelPath)
+				if err != nil {
+					log.Error().Err(err).Str("name", env).Str("modelPath", ml.ModelPath).Msg("unable to set environment variable to modelPath")
+				}
 			}
 		}
 
@@ -184,8 +187,13 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 	if o.singleActiveBackend {
 		ml.mu.Lock()
 		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
-		ml.StopAllExcept(o.model)
+		err := ml.StopAllExcept(o.model)
 		ml.mu.Unlock()
+		if err != nil {
+			log.Error().Err(err).Str("keptModel", o.model).Msg("error while shutting down all backends except for the keptModel")
+			return nil, err
+		}
+
 	}
 
 	var backendToConsume string
@@ -224,7 +232,10 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 	// If we can have only one backend active, kill all the others (except external backends)
 	if o.singleActiveBackend {
 		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
-		ml.StopAllExcept(o.model)
+		err := ml.StopAllExcept(o.model)
+		if err != nil {
+			log.Error().Err(err).Str("keptModel", o.model).Msg("error while shutting down all backends except for the keptModel - greedyloader continuing")
+		}
 	}
 	ml.mu.Unlock()
 

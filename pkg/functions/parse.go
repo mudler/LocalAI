@@ -59,7 +59,10 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	if multipleResults {
 		ss := []map[string]interface{}{}
 		s := utils.EscapeNewLines(llmresult)
-		json.Unmarshal([]byte(s), &ss)
+		err := json.Unmarshal([]byte(s), &ss)
+		if err != nil {
+			log.Error().Err(err).Str("escapedLLMResult", s).Msg("multiple results: unable to unmarshal llm result")
+		}
 		log.Debug().Msgf("Function return: %s %+v", s, ss)
 
 		for _, s := range ss {
@@ -83,7 +86,10 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		ss := map[string]interface{}{}
 		// This prevent newlines to break JSON parsing for clients
 		s := utils.EscapeNewLines(llmresult)
-		json.Unmarshal([]byte(s), &ss)
+		err := json.Unmarshal([]byte(s), &ss)
+		if err != nil {
+			log.Error().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result")
+		}
 		log.Debug().Msgf("Function return: %s %+v", s, ss)
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"

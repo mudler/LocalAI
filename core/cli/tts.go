@@ -10,6 +10,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/rs/zerolog/log"
 )
 
 type TTSCMD struct {
@@ -40,7 +41,12 @@ func (t *TTSCMD) Run(ctx *Context) error {
 	}
 	ml := model.NewModelLoader(opts.ModelPath)
 
-	defer ml.StopAllGRPC()
+	defer func() {
+		err := ml.StopAllGRPC()
+		if err != nil {
+			log.Error().Err(err).Msg("unable to stop all grpc processes")
+		}
+	}()
 
 	options := config.BackendConfig{}
 	options.SetDefaults()

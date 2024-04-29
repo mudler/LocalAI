@@ -8,6 +8,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/rs/zerolog/log"
 )
 
 type TranscriptCMD struct {
@@ -41,7 +42,12 @@ func (t *TranscriptCMD) Run(ctx *Context) error {
 
 	c.Threads = &t.Threads
 
-	defer ml.StopAllGRPC()
+	defer func() {
+		err := ml.StopAllGRPC()
+		if err != nil {
+			log.Error().Err(err).Msg("unable to stop all grpc processes")
+		}
+	}()
 
 	tr, err := backend.ModelTranscription(t.Filename, t.Language, ml, c, opts)
 	if err != nil {
