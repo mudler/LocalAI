@@ -15,22 +15,22 @@ import (
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
 
-type BackendMonitor struct {
-	configLoader *config.BackendConfigLoader
-	modelLoader  *model.ModelLoader
-	options      *config.ApplicationConfig // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
+type BackendMonitorService struct {
+	backendConfigLoader *config.BackendConfigLoader
+	modelLoader         *model.ModelLoader
+	options             *config.ApplicationConfig // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
 
-func NewBackendMonitor(configLoader *config.BackendConfigLoader, modelLoader *model.ModelLoader, appConfig *config.ApplicationConfig) BackendMonitor {
-	return BackendMonitor{
-		configLoader: configLoader,
-		modelLoader:  modelLoader,
-		options:      appConfig,
+func NewBackendMonitorService(modelLoader *model.ModelLoader, configLoader *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *BackendMonitorService {
+	return &BackendMonitorService{
+		modelLoader:         modelLoader,
+		backendConfigLoader: configLoader,
+		options:             appConfig,
 	}
 }
 
-func (bm BackendMonitor) getModelLoaderIDFromModelName(modelName string) (string, error) {
-	config, exists := bm.configLoader.GetBackendConfig(modelName)
+func (bms BackendMonitorService) getModelLoaderIDFromModelName(modelName string) (string, error) {
+	config, exists := bms.backendConfigLoader.GetBackendConfig(modelName)
 	var backendId string
 	if exists {
 		backendId = config.Model
@@ -46,8 +46,8 @@ func (bm BackendMonitor) getModelLoaderIDFromModelName(modelName string) (string
 	return backendId, nil
 }
 
-func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
-	config, exists := bm.configLoader.GetBackendConfig(model)
+func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
+	config, exists := bms.backendConfigLoader.GetBackendConfig(model)
 	var backend string
 	if exists {
 		backend = config.Model
@@ -60,7 +60,7 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.Backe
 		backend = fmt.Sprintf("%s.bin", backend)
 	}
 
-	pid, err := bm.modelLoader.GetGRPCPID(backend)
+	pid, err := bms.modelLoader.GetGRPCPID(backend)
 
 	if err != nil {
 		log.Error().Err(err).Str("model", model).Msg("failed to find GRPC pid")
@@ -101,12 +101,12 @@ func (bm *BackendMonitor) SampleLocalBackendProcess(model string) (*schema.Backe
 	}, nil
 }
 
-func (bm BackendMonitor) CheckAndSample(modelName string) (*proto.StatusResponse, error) {
-	backendId, err := bm.getModelLoaderIDFromModelName(modelName)
+func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.StatusResponse, error) {
+	backendId, err := bms.getModelLoaderIDFromModelName(modelName)
 	if err != nil {
 		return nil, err
 	}
-	modelAddr := bm.modelLoader.CheckIsLoaded(backendId)
+	modelAddr := bms.modelLoader.CheckIsLoaded(backendId)
 	if modelAddr == "" {
 		return nil, fmt.Errorf("backend %s is not currently loaded", backendId)
 	}
@@ -114,7 +114,7 @@ func (bm BackendMonitor) CheckAndSample(modelName string) (*proto.StatusResponse
 	status, rpcErr := modelAddr.GRPC(false, nil).Status(context.TODO())
 	if rpcErr != nil {
 		log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", backendId, rpcErr.Error())
-		val, slbErr := bm.SampleLocalBackendProcess(backendId)
+		val, slbErr := bms.SampleLocalBackendProcess(backendId)
 		if slbErr != nil {
 			return nil, fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", backendId, rpcErr.Error(), slbErr.Error())
 		}
@@ -131,10 +131,10 @@ func (bm BackendMonitor) CheckAndSample(modelName string) (*proto.StatusResponse
 	return status, nil
 }
 
-func (bm BackendMonitor) ShutdownModel(modelName string) error {
-	backendId, err := bm.getModelLoaderIDFromModelName(modelName)
+func (bms BackendMonitorService) ShutdownModel(modelName string) error {
+	backendId, err := bms.getModelLoaderIDFromModelName(modelName)
 	if err != nil {
 		return err
 	}
-	return bm.modelLoader.ShutdownModel(backendId)
+	return bms.modelLoader.ShutdownModel(backendId)
 }

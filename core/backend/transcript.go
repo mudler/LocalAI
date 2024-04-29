@@ -11,7 +11,7 @@ import (
 	model "github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ModelTranscription(audio, language string, ml *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (*schema.Result, error) {
+func ModelTranscription(audio, language string, ml *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
 
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithBackendString(model.WhisperBackend),

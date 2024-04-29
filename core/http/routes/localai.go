@@ -52,9 +52,9 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	app.Get("/metrics", auth, localai.LocalAIMetricsEndpoint())
 
 	// Experimental Backend Statistics Module
-	backendMonitor := services.NewBackendMonitor(cl, ml, appConfig) // Split out for now
-	app.Get("/backend/monitor", auth, localai.BackendMonitorEndpoint(backendMonitor))
-	app.Post("/backend/shutdown", auth, localai.BackendShutdownEndpoint(backendMonitor))
+	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
+	app.Get("/backend/monitor", auth, localai.BackendMonitorEndpoint(backendMonitorService))
+	app.Post("/backend/shutdown", auth, localai.BackendShutdownEndpoint(backendMonitorService))
 
 	app.Get("/version", auth, func(c *fiber.Ctx) error {
 		return c.JSON(struct {

@@ -1,9 +1,7 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -124,20 +122,6 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 			return c.Next()
 		}
 
-		// Check for api_keys.json file
-		fileContent, err := os.ReadFile("api_keys.json")
-		if err == nil {
-			// Parse JSON content from the file
-			var fileKeys []string
-			err := json.Unmarshal(fileContent, &fileKeys)
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Error parsing api_keys.json"})
-			}
-
-			// Add file keys to options.ApiKeys
-			appConfig.ApiKeys = append(appConfig.ApiKeys, fileKeys...)
-		}
-
 		if len(appConfig.ApiKeys) == 0 {
 			return c.Next()
 		}
@@ -173,13 +157,6 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 		app.Use(c)
 	}
-
-	// Make sure directories exists
-	os.MkdirAll(appConfig.ImageDir, 0750)
-	os.MkdirAll(appConfig.AudioDir, 0750)
-	os.MkdirAll(appConfig.UploadDir, 0750)
-	os.MkdirAll(appConfig.ConfigsDir, 0750)
-	os.MkdirAll(appConfig.ModelPath, 0750)
 
 	// Load config jsons
 	utils.LoadConfig(appConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)

@@ -29,8 +29,8 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Transcript(model whisper.Model, audiopath, language string, threads uint) (schema.Result, error) {
-	res := schema.Result{}
+func Transcript(model whisper.Model, audiopath, language string, threads uint) (schema.TranscriptionResult, error) {
+	res := schema.TranscriptionResult{}
 
 	dir, err := os.MkdirTemp("", "whisper")
 	if err != nil {
