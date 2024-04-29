@@ -240,7 +240,7 @@ sources/whisper.cpp:
 	cd sources/whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
 
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
-	cd sources/whisper.cpp && make libwhisper.a
+	cd sources/whisper.cpp && $(MAKE) libwhisper.a
 
 get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream
 
