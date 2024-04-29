@@ -63,8 +63,9 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 		})
 
 		AfterEach(func() {
-			sl.StopAllGRPC()
-			err := os.RemoveAll(tmpdir)
+			err := sl.StopAllGRPC()
+			Expect(err).ToNot(HaveOccurred())
+			err = os.RemoveAll(tmpdir)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
