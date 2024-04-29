@@ -499,3 +499,27 @@ When using the `-core` container image it is possible to prepare the python back
 ```bash
 docker run --env EXTRA_BACKENDS="backend/python/diffusers" quay.io/go-skynet/local-ai:master-ffmpeg-core
 ```
+
+### Concurrent requests
+
+LocalAI supports parallel requests for the backends that supports it. For instance, vLLM and llama.cpp supports parallel requests, and thus LocalAI allows to run multiple requests in parallel. 
+
+In order to enable parallel requests, you have to pass `--parallel-requests` or set the `PARALLEL_REQUEST` to true as environment variable.
+
+A list of the environment variable that tweaks parallelism is the following:
+
+```
+### Python backends GRPC max workers
+### Default number of workers for GRPC Python backends.
+### This actually controls wether a backend can process multiple requests or not.
+# PYTHON_GRPC_MAX_WORKERS=1
+
+### Define the number of parallel LLAMA.cpp workers (Defaults to 1)
+# LLAMACPP_PARALLEL=1
+
+### Enable to run parallel requests
+# LOCALAI_PARALLEL_REQUESTS=true
+```
+
+Note that, for llama.cpp you need to set accordingly `LLAMACPP_PARALLEL` to the number of parallel processes your GPU/CPU can handle. For python-based backends (like vLLM) you can set `PYTHON_GRPC_MAX_WORKERS` to the number of parallel requests.
+
