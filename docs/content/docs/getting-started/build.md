@@ -173,11 +173,11 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
    }'
 ```
 
-#### Troublshooting mac
+#### Troubleshooting mac
 
-If you encounter errors regarding a missing utility metal, install `Xcode` from the App Store.
+- If you encounter errors regarding a missing utility metal, install `Xcode` from the App Store.
 
-After the installation of Xcode, if you receive a xcrun error `'xcrun: error: unable to find utility "metal", not a developer tool or in PATH'`. You might have installed the Xcode command line tools before installing Xcode, the former one is pointing to an incomplete SDK.
+- After the installation of Xcode, if you receive a xcrun error `'xcrun: error: unable to find utility "metal", not a developer tool or in PATH'`. You might have installed the Xcode command line tools before installing Xcode, the former one is pointing to an incomplete SDK.
 
 ```
 # print /Library/Developer/CommandLineTools, if command line tools were installed in advance
@@ -187,9 +187,9 @@ xcode-select --print-path
 sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 ```
 
-If completions are slow, ensure that `gpu-layers` in your model yaml matches the number of layers from the model in use (or simply use a high number such as 256).
+- If completions are slow, ensure that `gpu-layers` in your model yaml matches the number of layers from the model in use (or simply use a high number such as 256).
 
-If you a get a compile error: `error: only virtual member functions can be marked 'final'`, reinstall all the necessary brew packages, clean the build, and try again.
+- If you a get a compile error: `error: only virtual member functions can be marked 'final'`, reinstall all the necessary brew packages, clean the build, and try again.
 
 ```
 # reinstall build dependencies
