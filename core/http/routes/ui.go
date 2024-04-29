@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/http/elements"
+	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -22,6 +23,8 @@ func RegisterUIRoutes(app *fiber.App,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService,
 	auth func(*fiber.Ctx) error) {
+
+	app.Get("/", auth, localai.WelcomeEndpoint(appConfig, cl, ml))
 
 	// keeps the state of models that are being installed from the UI
 	var installingModels = xsync.NewSyncedMap[string, string]()
@@ -165,5 +168,36 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		return c.SendString(elements.DoneProgress(c.Params("uid"), displayText))
+	})
+
+	// Show the Chat page
+	app.Get("/chat/:model", auth, func(c *fiber.Ctx) error {
+		backendConfigs := cl.GetAllBackendConfigs()
+
+		summary := fiber.Map{
+			"Title":        "LocalAI - Chat with " + c.Params("model"),
+			"ModelsConfig": backendConfigs,
+			"Model":        c.Params("model"),
+		}
+
+		// Render index
+		return c.Render("views/chat", summary)
+	})
+	app.Get("/chat/", auth, func(c *fiber.Ctx) error {
+
+		backendConfigs := cl.GetAllBackendConfigs()
+
+		if len(backendConfigs) == 0 {
+			return c.SendString("No models available")
+		}
+
+		summary := fiber.Map{
+			"Title":        "LocalAI - Chat with " + backendConfigs[0].Name,
+			"ModelsConfig": backendConfigs,
+			"Model":        backendConfigs[0].Name,
+		}
+
+		// Render index
+		return c.Render("views/chat", summary)
 	})
 }

@@ -42,7 +42,7 @@ type RunCMD struct {
 	CORSAllowOrigins string   `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
 	UploadLimit      int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
 	APIKeys          []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
-	DisableWelcome   bool     `env:"LOCALAI_DISABLE_WELCOME,DISABLE_WELCOME" default:"false" help:"Disable welcome pages" group:"api"`
+	DisableWebUI     bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disable webui" group:"api"`
 
 	ParallelRequests     bool     `env:"LOCALAI_PARALLEL_REQUESTS,PARALLEL_REQUESTS" help:"Enable backends to handle multiple requests in parallel if they support it (e.g.: llama.cpp or vllm)" group:"backends"`
 	SingleActiveBackend  bool     `env:"LOCALAI_SINGLE_ACTIVE_BACKEND,SINGLE_ACTIVE_BACKEND" help:"Allow only one backend to be run at a time" group:"backends"`
@@ -84,8 +84,8 @@ func (r *RunCMD) Run(ctx *Context) error {
 	idleWatchDog := r.EnableWatchdogIdle
 	busyWatchDog := r.EnableWatchdogBusy
 
-	if r.DisableWelcome {
-		opts = append(opts, config.DisableWelcomePage)
+	if r.DisableWebUI {
+		opts = append(opts, config.DisableWebUI)
 	}
 
 	if idleWatchDog || busyWatchDog {
