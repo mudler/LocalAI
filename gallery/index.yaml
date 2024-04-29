@@ -759,7 +759,51 @@
     - filename: "codellama-7b.Q4_0.gguf"
       sha256: "33052f6dd41436db2f83bd48017b6fff8ce0184e15a8a227368b4230f1da97b5"
       uri: "huggingface://TheBloke/CodeLlama-7B-GGUF/codellama-7b.Q4_0.gguf"
-
+### START OpenVINO
+- &openvino
+  url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
+  name: "openvino-llama-3-8b-instruct-ov-int8"
+  license: llama3
+  urls:
+    - https://huggingface.co/fakezeta/llama-3-8b-instruct-ov-int8
+  overrides:
+    parameters:
+      model: fakezeta/llama-3-8b-instruct-ov-int8
+    stopwords:
+      - "<|eot_id|>"
+      - "<|end_of_text|>"
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - llama3
+    - cpu
+- <<: *openvino
+  name: "openvino-phi3"
+  urls:
+    - https://huggingface.co/fakezeta/Phi-3-mini-128k-instruct-ov-int8
+  overrides:
+    context_size: 131072
+    parameters:
+      model: fakezeta/Phi-3-mini-128k-instruct-ov-int8
+    stopwords:
+      - <|end|>
+- <<: *openvino
+  name: "openvino-starling-lm-7b-beta-openvino-int8"
+  urls:
+    - https://huggingface.co/fakezeta/Starling-LM-7B-beta-openvino-int8
+  overrides:
+    context_size: 8192
+    parameters:
+      model: fakezeta/Starling-LM-7B-beta-openvino-int8
+- <<: *openvino
+  name: "openvino-wizardlm2"
+  urls:
+    - https://huggingface.co/fakezeta/Not-WizardLM-2-7B-ov-int8
+  overrides:
+    context_size: 8192
+    parameters:
+      model: fakezeta/Not-WizardLM-2-7B-ov-int8
 ### START Embeddings
 - &sentencentransformers
   description: |
