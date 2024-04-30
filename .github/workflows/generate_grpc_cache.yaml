@@ -84,7 +84,7 @@ jobs:
           build-args: |
             GRPC_BASE_IMAGE=${{ matrix.grpc-base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
-            GRPC_VERSION=v1.58.0
+            GRPC_VERSION=v1.63.0
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true
