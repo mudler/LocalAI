@@ -68,6 +68,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             # if model is multilangual add language from request or env as fallback
             lang = request.language or COQUI_LANGUAGE
+            if lang == "":
+                lang = None
             if self.tts.is_multi_lingual and lang is None:
                return backend_pb2.Result(success=False, message=f"Model is multi-lingual, but no language was provided")
 
