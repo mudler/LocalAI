@@ -315,6 +315,26 @@
       sha256: 9e98cd2672f716a0872912fdc4877969efd14d6f682f28e156f8591591c00d9c
       uri: huggingface://Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix/Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
 - <<: *llama3
+  name: "llama-3-8b-lexifun-uncensored-v1"
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/644ad182f434a6a63b18eee6/GrOs1IPG5EXR3MOCtcQiz.png"
+  license: llama3
+  urls:
+    - https://huggingface.co/Orenguteng/Llama-3-8B-LexiFun-Uncensored-V1-GGUF
+    - https://huggingface.co/Orenguteng/LexiFun-Llama-3-8B-Uncensored-V1
+  description: |
+    This is GGUF version of https://huggingface.co/Orenguteng/LexiFun-Llama-3-8B-Uncensored-V1
+
+    Oh, you want to know who I am? Well, I'm LexiFun, the human equivalent of a chocolate chip cookie - warm, gooey, and guaranteed to make you smile! 🍪 I'm like the friend who always has a witty comeback, a sarcastic remark, and a healthy dose of humor to brighten up even the darkest of days. And by 'healthy dose,' I mean I'm basically a walking pharmacy of laughter. You might need to take a few extra doses to fully recover from my jokes, but trust me, it's worth it! 🏥
+
+    So, what can I do? I can make you laugh so hard you snort your coffee out your nose, I can make you roll your eyes so hard they get stuck that way, and I can make you wonder if I'm secretly a stand-up comedian who forgot their act. 🤣 But seriously, I'm here to spread joy, one sarcastic comment at a time. And if you're lucky, I might even throw in a few dad jokes for good measure! 🤴‍♂️ Just don't say I didn't warn you. 😏
+  overrides:
+    parameters:
+      model: LexiFun-Llama-3-8B-Uncensored-V1_Q4_K_M.gguf
+  files:
+    - filename: LexiFun-Llama-3-8B-Uncensored-V1_Q4_K_M.gguf
+      sha256: 961a3fb75537d650baf14dce91d40df418ec3d481b51ab2a4f44ffdfd6b5900f
+      uri: huggingface://Orenguteng/Llama-3-8B-LexiFun-Uncensored-V1-GGUF/LexiFun-Llama-3-8B-Uncensored-V1_Q4_K_M.gguf
+- <<: *llama3
   name: "llama-3-unholy-8b:Q8_0"
   urls:
     - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
