@@ -2,19 +2,15 @@ ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 
-# extras or core
+# The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
 FROM ${BASE_IMAGE} AS requirements-core
 
 USER root
 
 ARG GO_VERSION=1.21.7
-ARG BUILD_TYPE
-ARG CUDA_MAJOR_VERSION=11
-ARG CUDA_MINOR_VERSION=7
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-ENV BUILD_TYPE=${BUILD_TYPE}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
 
@@ -22,12 +18,17 @@ ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        build-essential \
         ca-certificates \
+        cmake \
         curl \
+        git \
         python3-pip \
+        python-is-python3 \
         unzip && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --upgrade pip
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
@@ -46,25 +47,6 @@ RUN update-ca-certificates
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"
-
-# CuBLAS requirements
-RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
-        apt-get update && \
-        apt-get install -y  --no-install-recommends \
-            software-properties-common && \
-        curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
-        dpkg -i cuda-keyring_1.1-1_all.deb && \
-        rm -f cuda-keyring_1.1-1_all.deb && \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
 
 # Cuda
 ENV PATH /usr/local/cuda/bin:${PATH}
@@ -91,6 +73,7 @@ RUN test -n "$TARGETARCH" \
 ###################################
 ###################################
 
+# The requirements-extras target is for any builds with IMAGE_TYPE=extras. It should not be placed in this target unless every IMAGE_TYPE=extras build will use it
 FROM requirements-core AS requirements-extras
 
 RUN apt-get update && \
@@ -107,12 +90,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3-pip && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    pip install --upgrade pip
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get update && \
@@ -122,13 +99,52 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN if [ ! -e /usr/bin/python ]; then \
-	    ln -s /usr/bin/python3 /usr/bin/python \
+###################################
+###################################
+
+# The requirements-drivers target is for BUILD_TYPE specific items.  If you need to install something specific to CUDA, or specific to ROCM, it goes here.
+# This target will be built on top of requirements-core or requirements-extras as retermined by the IMAGE_TYPE build-arg
+FROM requirements-${IMAGE_TYPE} AS requirements-drivers
+
+ARG BUILD_TYPE
+ARG CUDA_MAJOR_VERSION=11
+ARG CUDA_MINOR_VERSION=7
+
+ENV BUILD_TYPE=${BUILD_TYPE}
+
+# CuBLAS requirements
+RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+            software-properties-common && \
+        curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+        dpkg -i cuda-keyring_1.1-1_all.deb && \
+        rm -f cuda-keyring_1.1-1_all.deb && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
+# If we are building with clblas support, we need the libraries for the builds
+RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libclblast-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
     ; fi
 
 ###################################
 ###################################
 
+# The grpc target does one thing, it builds and installs GRPC.  This is in it's own layer so that it can be effectively cached by CI.
+# You probably don't need to change anything here, and if you do, make sure that CI is adjusted so that the cache continues to work.
 FROM ${GRPC_BASE_IMAGE} AS grpc
 
 # This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
@@ -162,7 +178,9 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 ###################################
 ###################################
 
-FROM requirements-${IMAGE_TYPE} AS builder
+# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
+# Adjustments to the build process should likely be made here.
+FROM requirements-drivers AS builder
 
 ARG GO_TAGS="stablediffusion tts"
 ARG GRPC_BACKENDS
@@ -181,24 +199,7 @@ COPY . .
 COPY .git .
 RUN echo "GO_TAGS: $GO_TAGS"
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        cmake \
-        git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 RUN make prepare
-
-# If we are building with clblas support, we need the libraries for the builds
-RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            libclblast-dev && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
 
 # We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
 # but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
@@ -225,7 +226,9 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 ###################################
 ###################################
 
-FROM requirements-${IMAGE_TYPE}
+# This is the final target. The result of this target will be the image uploaded to the registry.
+# If you cannot find a more suitable place for an addition, this layer is a suitable place for it.
+FROM requirements-drivers
 
 ARG FFMPEG
 ARG BUILD_TYPE
@@ -252,23 +255,6 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* \
     ; fi
-
-# Add OpenCL
-RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            libclblast1 && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        cmake \
-        git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
