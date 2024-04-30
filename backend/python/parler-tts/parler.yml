@@ -27,7 +27,7 @@ dependencies:
   - pip:
       - accelerate>=0.11.0
       - numpy==1.26.0
-      - grpcio==1.59.0
+      - grpcio==1.63.0
       - torch==2.1.0
       - transformers>=4.34.0
       - descript-audio-codec

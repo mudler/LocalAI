@@ -42,7 +42,7 @@ dependencies:
       - future==0.18.3
       - gradio==3.47.1
       - gradio-client==0.6.0
-      - grpcio==1.59.0
+      - grpcio==1.63.0
       - h11==0.14.0
       - httpcore==0.18.0
       - httpx==0.25.0

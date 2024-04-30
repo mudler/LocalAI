@@ -10,7 +10,7 @@ on:
       - '*'
 
 env:
-  GRPC_VERSION: v1.58.0
+  GRPC_VERSION: v1.63.0
 
 concurrency:
   group: ci-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
@@ -203,7 +203,7 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include

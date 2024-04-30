@@ -31,8 +31,8 @@ if [ -d "/opt/intel" ]; then
                 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
     
     pip install google-api-python-client \
-                grpcio \
-                grpcio-tools \
+                grpcio==1.63.0 \
+                grpcio-tools==1.63.0 \
                 diffusers==0.24.0 \
                 transformers>=4.25.1 \
                 accelerate \

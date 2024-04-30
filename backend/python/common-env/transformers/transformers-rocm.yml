@@ -48,7 +48,7 @@ dependencies:
       - frozenlist==1.4.0
       - fsspec==2023.6.0
       - funcy==2.0
-      - grpcio==1.59.0
+      - grpcio==1.63.0
       - huggingface-hub
       - idna==3.4
       - jinja2==3.1.2

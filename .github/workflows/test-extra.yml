@@ -34,7 +34,7 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -64,7 +64,7 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -95,7 +95,7 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -125,7 +125,7 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -155,7 +155,7 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -185,7 +185,7 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
           
           sudo rm -rfv /usr/bin/conda || true
 
@@ -217,7 +217,7 @@ jobs:
   #            sudo apt-get install -y conda
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools
+  #         pip install --user grpcio-tools==1.63.0
           
   #         sudo rm -rfv /usr/bin/conda || true
 
@@ -289,7 +289,7 @@ jobs:
   #            sudo apt-get install -y conda
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools
+  #         pip install --user grpcio-tools==1.63.0
           
   #         sudo rm -rfv /usr/bin/conda || true
 
@@ -322,7 +322,7 @@ jobs:
   #            sudo apt-get install -y conda
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools
+  #         pip install --user grpcio-tools==1.63.0
   #         sudo rm -rfv /usr/bin/conda || true
   #     - name: Test vllm
   #       run: |
@@ -349,7 +349,7 @@ jobs:
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
           sudo rm -rfv /usr/bin/conda || true
       - name: Test vall-e-x
         run: |
@@ -376,7 +376,7 @@ jobs:
              sudo apt-get update && \
              sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng python3-pip
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.63.0
           sudo rm -rfv /usr/bin/conda || true
 
       - name: Test coqui

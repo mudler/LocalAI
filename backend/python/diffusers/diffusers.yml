@@ -32,7 +32,7 @@ dependencies:
       - diffusers==0.24.0
       - filelock==3.12.4
       - fsspec==2023.9.2
-      - grpcio==1.59.0
+      - grpcio==1.63.0
       - huggingface-hub>=0.19.4
       - idna==3.4
       - importlib-metadata==6.8.0

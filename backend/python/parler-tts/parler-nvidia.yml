@@ -26,7 +26,7 @@ dependencies:
   - zlib=1.2.13=h5eee18b_0
   - pip:
       - accelerate>=0.11.0
-      - grpcio==1.59.0
+      - grpcio==1.63.0
       - numpy==1.26.0
       - nvidia-cublas-cu12==12.1.3.1
       - nvidia-cuda-cupti-cu12==12.1.105
