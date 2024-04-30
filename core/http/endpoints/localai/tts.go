@@ -12,11 +12,13 @@ import (
 )
 
 // TTSEndpoint is the OpenAI Speech API endpoint https://platform.openai.com/docs/api-reference/audio/createSpeech
-// @Summary Generates audio from the input text.
-// @Param request body schema.TTSRequest true "query params"
-// @Success 200 {string} binary	 "Response"
-// @Router /v1/audio/speech [post]
-// @Router /tts [post]
+//	@Summary	Generates audio from the input text.
+//  @Accept json
+//  @Produce audio/x-wav
+//	@Param		request	body		schema.TTSRequest	true	"query params"
+//	@Success	200		{string}	binary				"generated audio/wav file"
+//	@Router		/v1/audio/speech [post]
+//	@Router		/tts [post]
 func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
@@ -52,7 +54,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			cfg.Backend = input.Backend
 		}
 
-		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, input.Voice, ml, appConfig, *cfg)
+		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, input.Voice, input.Language, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}

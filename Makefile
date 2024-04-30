@@ -428,7 +428,7 @@ protogen-clean: protogen-go-clean protogen-python-clean
 .PHONY: protogen-go
 protogen-go:
 	mkdir -p pkg/grpc/proto
-	protoc -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
 .PHONY: protogen-go-clean
