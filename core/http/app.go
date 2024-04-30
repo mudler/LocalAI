@@ -4,23 +4,22 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 
+	"github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 	"github.com/go-skynet/LocalAI/core/http/routes"
 
-	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
-	// swagger handler
 	"github.com/rs/zerolog/log"
 )
 
@@ -55,11 +54,11 @@ func readAuthHeader(c *fiber.Ctx) string {
 // @in header
 // @name Authorization
 
-func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
+func App(application *core.Application) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
 		Views:     renderEngine(),
-		BodyLimit: appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
+		BodyLimit: application.ApplicationConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
 		// We disable the Fiber startup message as it does not conform to structured logging.
 		// We register a startup log line with connection information in the OnListen hook to keep things user friendly though
 		DisableStartupMessage: true,
@@ -100,7 +99,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Default middleware config
 
-	if !appConfig.Debug {
+	if !application.ApplicationConfig.Debug {
 		app.Use(recover.New())
 	}
 
@@ -118,11 +117,11 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
-		if len(appConfig.ApiKeys) == 0 {
+		if len(application.ApplicationConfig.ApiKeys) == 0 {
 			return c.Next()
 		}
 
-		if len(appConfig.ApiKeys) == 0 {
+		if len(application.ApplicationConfig.ApiKeys) == 0 {
 			return c.Next()
 		}
 
@@ -138,7 +137,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		}
 
 		apiKey := authHeaderParts[1]
-		for _, key := range appConfig.ApiKeys {
+		for _, key := range application.ApplicationConfig.ApiKeys {
 			if apiKey == key {
 				return c.Next()
 			}
@@ -147,31 +146,34 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
 	}
 
-	if appConfig.CORS {
+	if application.ApplicationConfig.CORS {
 		var c func(ctx *fiber.Ctx) error
-		if appConfig.CORSAllowOrigins == "" {
+		if application.ApplicationConfig.CORSAllowOrigins == "" {
 			c = cors.New()
 		} else {
-			c = cors.New(cors.Config{AllowOrigins: appConfig.CORSAllowOrigins})
+			c = cors.New(cors.Config{AllowOrigins: application.ApplicationConfig.CORSAllowOrigins})
 		}
 
 		app.Use(c)
 	}
 
 	// Load config jsons
-	utils.LoadConfig(appConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
-	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
-	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
+	utils.LoadConfig(application.ApplicationConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
+	utils.LoadConfig(application.ApplicationConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
+	utils.LoadConfig(application.ApplicationConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
-	galleryService := services.NewGalleryService(appConfig.ModelPath)
-	galleryService.Start(appConfig.Context, cl)
+	// Create the Fiber Content Extractor that the endpoints will use instead of the full modelLoader
+	fce := ctx.NewFiberContentExtractor(application.ModelLoader, application.ApplicationConfig)
 
-	routes.RegisterElevenLabsRoutes(app, cl, ml, appConfig, auth)
-	routes.RegisterLocalAIRoutes(app, cl, ml, appConfig, galleryService, auth)
-	routes.RegisterOpenAIRoutes(app, cl, ml, appConfig, auth)
-	routes.RegisterPagesRoutes(app, cl, ml, appConfig, auth)
-	routes.RegisterUIRoutes(app, cl, ml, appConfig, galleryService, auth)
-	routes.RegisterJINARoutes(app, cl, ml, appConfig, auth)
+	// Register all routes - TODO: enhance for partial registration?
+	// For the "large" register function, it seems to make sense to pass application directly and allow them to sort out their dependencies.
+	// However, for particularly simple routes, passing dependencies directly may be more clean? Try both and experiment!
+	routes.RegisterElevenLabsRoutes(app, application.TextToSpeechBackendService, fce, auth)
+	routes.RegisterLocalAIRoutes(app, application, fce, auth)
+	routes.RegisterOpenAIRoutes(app, application, fce, auth)
+	routes.RegisterPagesRoutes(app, application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig, auth)
+	routes.RegisterUIRoutes(app, application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig, application.GalleryService, auth)
+	routes.RegisterJINARoutes(app, application.RerankBackendService, fce, auth)
 
 	// Define a custom 404 handler
 	// Note: keep this at the bottom!

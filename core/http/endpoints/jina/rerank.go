@@ -1,18 +1,17 @@
 package jina
 
 import (
-	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
+	"fmt"
 
-	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
+	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	"github.com/go-skynet/LocalAI/pkg/model"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
-func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func JINARerankEndpoint(rbs *backend.RerankBackendService, fce *ctx.FiberContentExtractor) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		req := new(schema.JINARerankRequest)
 		if err := c.BodyParser(req); err != nil {
@@ -21,64 +20,34 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			})
 		}
 
-		input := new(schema.TTSRequest)
+		input := new(schema.RerankRequest)
 
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
 			return err
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, false)
+		modelFile, err := fce.ModelFromContext(c, input.Model, false)
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		}
 
-		cfg, err := cl.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath,
-			config.LoadOptionDebug(appConfig.Debug),
-			config.LoadOptionThreads(appConfig.Threads),
-			config.LoadOptionContextSize(appConfig.ContextSize),
-			config.LoadOptionF16(appConfig.F16),
-		)
+		log.Debug().Msgf("jina rerank request for model: %s", modelFile)
 
+		jr := rbs.Rerank(input)
+
+		response, err := jr.Wait()
 		if err != nil {
-			modelFile = input.Model
-			log.Warn().Msgf("Model not found in context: %s", input.Model)
-		} else {
-			modelFile = cfg.Model
+			log.Error().Err(err).Msg("error during jina rerank")
+			return err
 		}
-		log.Debug().Msgf("Request for model: %s", modelFile)
-
-		if input.Backend != "" {
-			cfg.Backend = input.Backend
-		}
-
-		request := &proto.RerankRequest{
-			Query:     req.Query,
-			TopN:      int32(req.TopN),
-			Documents: req.Documents,
-		}
-
-		results, err := backend.Rerank(cfg.Backend, modelFile, request, ml, appConfig, *cfg)
-		if err != nil {
+		if response == nil {
+			err := fmt.Errorf("recieved a nil response from Rerank backend")
+			log.Error().Err(err).Msg("jina rerank nil result")
 			return err
 		}
 
-		response := &schema.JINARerankResponse{
-			Model: req.Model,
-		}
-
-		for _, r := range results.Results {
-			response.Results = append(response.Results, schema.JINADocumentResult{
-				Index:          int(r.Index),
-				Document:       schema.JINAText{Text: r.Text},
-				RelevanceScore: float64(r.RelevanceScore),
-			})
-		}
-
-		response.Usage.TotalTokens = int(results.Usage.TotalTokens)
-		response.Usage.PromptTokens = int(results.Usage.PromptTokens)
-
-		return c.Status(fiber.StatusOK).JSON(response)
+		return c.Status(fiber.StatusOK).JSON(*response)
 	}
 }

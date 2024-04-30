@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
@@ -48,20 +49,32 @@ func (t *TTSCMD) Run(ctx *Context) error {
 		}
 	}()
 
-	options := config.BackendConfig{}
-	options.SetDefaults()
+	request := &schema.TTSRequest{
+		Backend: t.Backend,
+		Input:   text,
+		Model:   t.Model,
+		Voice:   t.Voice,
+	}
 
-	filePath, _, err := backend.ModelTTS(t.Backend, text, t.Model, t.Voice, ml, opts, options)
+	ttsbs := backend.NewTextToSpeechBackendService(ml, config.NewBackendConfigLoader(), opts)
+
+	jr := ttsbs.TextToAudioFile(request)
+	filePathPtr, err := jr.Wait()
 	if err != nil {
 		return err
 	}
+	if filePathPtr == nil {
+		err := fmt.Errorf("recieved a nil filepath from TextToAudioFile")
+		log.Error().Err(err).Msg("tts cli error")
+		return err
+	}
 	if outputFile != "" {
-		if err := os.Rename(filePath, outputFile); err != nil {
+		if err := os.Rename(*filePathPtr, outputFile); err != nil {
 			return err
 		}
 		fmt.Printf("Generate file %s\n", outputFile)
 	} else {
-		fmt.Printf("Generate file %s\n", filePath)
+		fmt.Printf("Generate file %s\n", *filePathPtr)
 	}
 	return nil
 }
