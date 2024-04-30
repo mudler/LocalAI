@@ -153,6 +153,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                 ov_config={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT"}, 
                                                                 device=device_map)
                 self.OV = True
+            elif request.Type == "OVModelForFeatureExtraction":
+                from optimum.intel.openvino import OVModelForFeatureExtraction
+                from openvino.runtime import Core
+
+                if "GPU" in Core().available_devices:
+                    device_map="GPU"
+                else:
+                    device_map="CPU"
+                self.model = OVModelForFeatureExtraction.from_pretrained(model_name, 
+                                                                compile=True,
+                                                                trust_remote_code=request.TrustRemoteCode,
+                                                                ov_config={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT"}, 
+                                                                export=True,
+                                                                device=device_map)
+                self.OV = True
             else:
                 self.model = AutoModel.from_pretrained(model_name, 
                                                        trust_remote_code=request.TrustRemoteCode,  
