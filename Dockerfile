@@ -140,6 +140,15 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
         rm -rf /var/lib/apt/lists/* \
     ; fi
 
+RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            hipblas-dev \
+            rocblas-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
 ###################################
 ###################################
 
