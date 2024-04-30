@@ -128,6 +128,13 @@
   urls:
     - https://huggingface.co/bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF
   icon: https://vago-solutions.ai/wp-content/uploads/2024/04/Llama3-Pic.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
+    - german
   description: |
     SauerkrautLM-llama-3-8B-Instruct
 
@@ -665,7 +672,7 @@
     - filename: "Phi-3-mini-4k-instruct-fp16.gguf"
       sha256: "ad9f8ff11cd096115adc8ff50befa22fc3da2718672ddd2ab30faccd70488605"
       uri: "huggingface://microsoft/Phi-3-mini-4k-instruct-gguf/Phi-3-mini-4k-instruct-fp16.gguf"
-### START Hermes-2-Pro-Mistral
+### START Hermes
 - &hermes-2-pro-mistral
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
   name: "hermes-2-pro-mistral"
@@ -731,7 +738,29 @@
     - filename: "BioMistral-7B.Q4_K_M.gguf"
       sha256: "3a73107045dfe7e3f113b392b0a67e3e6ca9fa9dae2abe301424ce5abd1721a6"
       uri: "huggingface://MaziyarPanahi/BioMistral-7B-GGUF/BioMistral-7B.Q4_K_M.gguf"
-### END Hermes-2-Pro-Mistral
+- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "guillaumetell-7b"
+  license: apache-2
+  description: |
+    Guillaume Tell est un Large Language Model (LLM) français basé sur Mistral Open-Hermes 2.5 optimisé pour le RAG (Retrieval Augmented Generation) avec traçabilité des sources et explicabilité.
+  urls:
+    - https://huggingface.co/MaziyarPanahi/guillaumetell-7b-GGUF
+    - https://huggingface.co/AgentPublic/guillaumetell-7b
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - openhermes
+    - french
+  overrides:
+    context_size: 4096
+    parameters:
+      model: guillaumetell-7b.Q4_K_M.gguf
+  files:
+    - filename: guillaumetell-7b.Q4_K_M.gguf
+      sha256: bf08db5281619335f3ee87e229c8533b04262790063b061bb8f275c3e4de7061
+      uri: huggingface://MaziyarPanahi/guillaumetell-7b-GGUF/guillaumetell-7b.Q4_K_M.gguf
 ### START Cerbero
 - url: "github:mudler/LocalAI/gallery/cerbero.yaml@master"
   icon: https://huggingface.co/galatolo/cerbero-7b/resolve/main/README.md.d/cerbero.png
@@ -745,6 +774,7 @@
     - gpu
     - cpu
     - mistral
+    - italian
   overrides:
     parameters:
       model: galatolo-Q4_K.gguf
