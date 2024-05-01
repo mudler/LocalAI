@@ -43,6 +43,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 		)
 
 		if err != nil {
+			log.Err(err)
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		} else {
@@ -54,7 +55,15 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			cfg.Backend = input.Backend
 		}
 
-		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, input.Voice, input.Language, ml, appConfig, *cfg)
+		if input.Language != "" {
+			cfg.Language = input.Language
+		}
+
+		if input.Voice != "" {
+			cfg.Voice = input.Voice
+		}
+
+		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, cfg.Voice, cfg.Language, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
