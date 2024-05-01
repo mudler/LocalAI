@@ -95,7 +95,7 @@ func startDockerImage() {
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"8080/tcp": []docker.PortBinding{{HostPort: apiPort}},
 		},
-		Env:    []string{"MODELS_PATH=/models", "DEBUG=true", "THREADS=" + fmt.Sprint(proc)},
+		Env:    []string{"MODELS_PATH=/models", "DEBUG=true", "THREADS=" + fmt.Sprint(proc), "EXTERNAL_BACKENDS=rerankers:/build/backend/python/rerankers/run.sh"},
 		Mounts: []string{md + ":/models"},
 	}
 

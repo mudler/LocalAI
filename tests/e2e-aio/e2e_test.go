@@ -237,6 +237,7 @@ var _ = Describe("E2E test", func() {
 				resp, err := http.Post(rerankerEndpoint, "application/json", bytes.NewReader(serialized))
 				Expect(err).To(BeNil())
 				Expect(resp).ToNot(BeNil())
+				Expect(resp.StatusCode).To(Equal(200))
 
 				body, err := io.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
