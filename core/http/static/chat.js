@@ -5,6 +5,7 @@ https://github.com/david-haerer/chatapi
 MIT License
 
 Copyright (c) 2023 David Härer
+Copyright (c) 2024 Ettore Di Giacinto
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -31,40 +32,22 @@ function submitKey(event) {
     document.getElementById("apiKey").blur();
   }
   
-  function submitPrompt(event) {
-    event.preventDefault();
-  
-    const input = document.getElementById("input").value;
-    Alpine.store("chat").add("user", input);
-    document.getElementById("input").value = "";
-    const key = localStorage.getItem("key");
-  
-    if (input.startsWith("!img")) {
-      promptDallE(key, input.slice(4));
-    } else {
-      promptGPT(key, input);
-    }
+function submitPrompt(event) {
+  event.preventDefault();
+
+  const input = document.getElementById("input").value;
+  Alpine.store("chat").add("user", input);
+  document.getElementById("input").value = "";
+  const key = localStorage.getItem("key");
+
+  if (input.startsWith("!img")) {
+    promptDallE(key, input.slice(4));
+  } else {
+    promptGPT(key, input);
   }
-  
-  async function promptDallE(key, input) {
-    const response = await fetch("/v1/images/generations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: input,
-        n: 1,
-        size: "1792x1024",
-      }),
-    });
-    const json = await response.json();
-    const url = json.data[0].url;
-    Alpine.store("chat").add("assistant", `![${input}](${url})`);
-  }
-  
+}
+
+
   async function promptGPT(key, input) {
     const model = document.getElementById("chat-model").value;
     // Set class "loader" to the element with "loader" id
@@ -145,7 +128,7 @@ function submitKey(event) {
   document.getElementById("key").addEventListener("submit", submitKey);
   document.getElementById("prompt").addEventListener("submit", submitPrompt);
   document.getElementById("input").focus();
-  
+
   const storeKey = localStorage.getItem("key");
   if (storeKey) {
     document.getElementById("apiKey").value = storeKey;

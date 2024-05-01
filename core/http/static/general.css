@@ -61,3 +61,13 @@ body {
 .assistant {
     background-color: #28a745;
 }
+
+.message {
+    display: flex;
+    align-items: center;
+}
+
+.user, .assistant {
+    flex-grow: 1;
+    margin: 0.5rem;
+}

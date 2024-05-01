@@ -9,6 +9,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/http/elements"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/services"
+	"github.com/go-skynet/LocalAI/internal"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/xsync"
@@ -35,6 +36,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Models",
+			"Version":      internal.PrintableVersion(),
 			"Models":       template.HTML(elements.ListModels(models, installingModels)),
 			"Repositories": appConfig.Galleries,
 			//	"ApplicationConfig": appConfig,
@@ -178,6 +180,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"Title":        "LocalAI - Chat with " + c.Params("model"),
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
+			"Version":      internal.PrintableVersion(),
 		}
 
 		// Render index
@@ -195,9 +198,43 @@ func RegisterUIRoutes(app *fiber.App,
 			"Title":        "LocalAI - Chat with " + backendConfigs[0].Name,
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].Name,
+			"Version":      internal.PrintableVersion(),
 		}
 
 		// Render index
 		return c.Render("views/chat", summary)
+	})
+
+	app.Get("/text2image/:model", auth, func(c *fiber.Ctx) error {
+		backendConfigs := cl.GetAllBackendConfigs()
+
+		summary := fiber.Map{
+			"Title":        "LocalAI - Generate images with " + c.Params("model"),
+			"ModelsConfig": backendConfigs,
+			"Model":        c.Params("model"),
+			"Version":      internal.PrintableVersion(),
+		}
+
+		// Render index
+		return c.Render("views/text2image", summary)
+	})
+
+	app.Get("/text2image/", auth, func(c *fiber.Ctx) error {
+
+		backendConfigs := cl.GetAllBackendConfigs()
+
+		if len(backendConfigs) == 0 {
+			return c.SendString("No models available")
+		}
+
+		summary := fiber.Map{
+			"Title":        "LocalAI - Generate images with " + backendConfigs[0].Name,
+			"ModelsConfig": backendConfigs,
+			"Model":        backendConfigs[0].Name,
+			"Version":      internal.PrintableVersion(),
+		}
+
+		// Render index
+		return c.Render("views/text2image", summary)
 	})
 }
