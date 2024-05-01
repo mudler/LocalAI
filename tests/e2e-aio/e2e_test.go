@@ -245,7 +245,7 @@ var _ = Describe("E2E test", func() {
 				deserializedResponse := schema.JINARerankResponse{}
 				err = json.Unmarshal(body, &deserializedResponse)
 				Expect(err).To(BeNil())
-				Expect(deserializedResponse).ToNot(Equal(schema.JINARerankResponse{})) // TODO check the options here may be more idiomatic way
+				Expect(deserializedResponse).To(BeZero())
 				Expect(deserializedResponse.Model).To(Equal(modelName))
 				Expect(len(deserializedResponse.Results)).To(BeNumerically(">", 0))
 			})
