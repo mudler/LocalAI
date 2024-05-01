@@ -24,6 +24,15 @@ const (
 	RAND_SEED = -1
 )
 
+type TTSConfig struct {
+
+	// Voice wav path or id
+	Voice string `yaml:"voice"`
+
+	// Vall-e-x
+	VallE    VallE  `yaml:"vall-e"`
+}
+
 type BackendConfig struct {
 	schema.PredictionOptions `yaml:"parameters"`
 	Name                     string `yaml:"name"`
@@ -56,8 +65,8 @@ type BackendConfig struct {
 	// GRPC Options
 	GRPC GRPC `yaml:"grpc"`
 
-	// Vall-e-x
-	VallE VallE `yaml:"vall-e"`
+	// TTS specifics
+	TTSConfig `yaml:"tts"`
 
 	// CUDA
 	// Explicitly enable CUDA or not (some backends might need it)
@@ -373,6 +382,7 @@ func (cl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath 
 			if err := cl.LoadBackendConfig(
 				modelConfig, opts...,
 			); err != nil {
+				log.Error().Msgf("failed loading model config (%s) %s", modelConfig, err.Error())
 				return nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
 			}
 			cfgExisting, exists = cl.GetBackendConfig(modelName)
