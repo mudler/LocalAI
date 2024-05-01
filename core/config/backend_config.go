@@ -455,6 +455,7 @@ func (cl *BackendConfigLoader) LoadBackendConfig(file string, opts ...ConfigLoad
 	defer cl.Unlock()
 	c, err := ReadBackendConfig(file, opts...)
 	if err != nil {
+		log.Error().Msgf("backend config reading error: %s", err.Error())
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
 
