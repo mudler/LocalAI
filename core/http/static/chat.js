@@ -40,11 +40,7 @@ function submitPrompt(event) {
   document.getElementById("input").value = "";
   const key = localStorage.getItem("key");
 
-  if (input.startsWith("!img")) {
-    promptDallE(key, input.slice(4));
-  } else {
-    promptGPT(key, input);
-  }
+  promptGPT(key, input);
 }
 
 
