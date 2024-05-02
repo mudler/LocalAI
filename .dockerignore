@@ -9,3 +9,6 @@ Dockerfile*
 
 # SonarQube
 .scannerwork
+
+# backend virtual environments
+**/venv

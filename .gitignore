@@ -47,3 +47,6 @@ prepare
 
 # SonarQube
 .scannerwork
+
+# backend virtual environments
+**/venv
