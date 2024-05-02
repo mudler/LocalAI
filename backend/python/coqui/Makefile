@@ -1,6 +1,6 @@
 .PHONY: coqui
 coqui: protogen
-	$(MAKE) -C ../common-env/transformers
+	bash install.sh
 
 .PHONY: run
 run: protogen

@@ -574,20 +574,20 @@ vllm-protogen-clean:
 # Note: it is duplicated in the Dockerfile
 prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/autogptq
-	$(MAKE) -C backend/python/bark
-	$(MAKE) -C backend/python/coqui
-	$(MAKE) -C backend/python/diffusers
-	$(MAKE) -C backend/python/vllm
-	$(MAKE) -C backend/python/mamba
-	$(MAKE) -C backend/python/sentencetransformers
-	$(MAKE) -C backend/python/rerankers
-	$(MAKE) -C backend/python/transformers
-	$(MAKE) -C backend/python/transformers-musicgen
-	$(MAKE) -C backend/python/parler-tts
-	$(MAKE) -C backend/python/vall-e-x
-	$(MAKE) -C backend/python/exllama
-	$(MAKE) -C backend/python/petals
-	$(MAKE) -C backend/python/exllama2
+#	$(MAKE) -C backend/python/bark
+#	$(MAKE) -C backend/python/coqui
+#	$(MAKE) -C backend/python/diffusers
+#	$(MAKE) -C backend/python/vllm
+#	$(MAKE) -C backend/python/mamba
+#	$(MAKE) -C backend/python/sentencetransformers
+#	$(MAKE) -C backend/python/rerankers
+#	$(MAKE) -C backend/python/transformers
+#	$(MAKE) -C backend/python/transformers-musicgen
+#	$(MAKE) -C backend/python/parler-tts
+#	$(MAKE) -C backend/python/vall-e-x
+#	$(MAKE) -C backend/python/exllama
+#	$(MAKE) -C backend/python/petals
+#	$(MAKE) -C backend/python/exllama2
 
 prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/transformers
