@@ -787,6 +787,58 @@
     - filename: "Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
       sha256: "b6d95d7ec9a395b7568cc94b0447fd4f90b6f69d6e44794b1fbb84e3f732baca"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
+### LLAMA3 version
+- <<: *hermes-2-pro-mistral
+  name: "hermes-2-pro-llama-3-8b"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF
+  overrides:
+    parameters:
+      model: Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf
+  files:
+    - filename: "Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf"
+      sha256: "afe41ab251d1fd9870dd9631f60c22b22c215166308b35d7e15faa3260fa4bd7"
+      uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf"
+- <<: *hermes-2-pro-mistral
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  name: "hermes-2-pro-llama-3-8b:Q5_K_M"
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF
+  overrides:
+    parameters:
+      model: Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf
+  files:
+    - filename: "Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf"
+      sha256: "2be39d775b2a64aa5bbdc1f96fa1703ec54b5fa8982c1732b7ae9d2b57c6bb43"
+      uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf"
+- <<: *hermes-2-pro-mistral
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  name: "hermes-2-pro-llama-3-8b:Q8_0"
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF
+  overrides:
+    parameters:
+      model: Hermes-2-Pro-Llama-3-8B-Q8_0.gguf
+  files:
+    - filename: "Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
+      sha256: "0a8f471d6940dee972e579eebdb4d536174bda82b73463cd8ac7752a7b1973a3"
+      uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
 - <<: *hermes-2-pro-mistral
   name: "biomistral-7b"
   description: |
