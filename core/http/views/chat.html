@@ -44,7 +44,9 @@ SOFTWARE.
 
       <div class="flex items-center justify-between">
 
-      <h1 class="text-lg font-semibold">Chat with {{.Model}}</h1>
+      <h1 class="text-lg font-semibold"> <i class="fa-solid fa-comments"></i> Chat with {{.Model}} <a href="https://localai.io/features/text-generation/" target="_blank" >
+        <i class="fas fa-circle-info pr-2"></i>
+      </a></h1>
       <div x-show="component === 'menu'" id="menu">
         <button
           @click="$store.chat.clear()"

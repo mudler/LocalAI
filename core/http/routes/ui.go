@@ -237,4 +237,37 @@ func RegisterUIRoutes(app *fiber.App,
 		// Render index
 		return c.Render("views/text2image", summary)
 	})
+
+	app.Get("/tts/:model", auth, func(c *fiber.Ctx) error {
+		backendConfigs := cl.GetAllBackendConfigs()
+
+		summary := fiber.Map{
+			"Title":        "LocalAI - Generate images with " + c.Params("model"),
+			"ModelsConfig": backendConfigs,
+			"Model":        c.Params("model"),
+			"Version":      internal.PrintableVersion(),
+		}
+
+		// Render index
+		return c.Render("views/tts", summary)
+	})
+
+	app.Get("/tts/", auth, func(c *fiber.Ctx) error {
+
+		backendConfigs := cl.GetAllBackendConfigs()
+
+		if len(backendConfigs) == 0 {
+			return c.SendString("No models available")
+		}
+
+		summary := fiber.Map{
+			"Title":        "LocalAI - Generate audio with " + backendConfigs[0].Name,
+			"ModelsConfig": backendConfigs,
+			"Model":        backendConfigs[0].Name,
+			"Version":      internal.PrintableVersion(),
+		}
+
+		// Render index
+		return c.Render("views/tts", summary)
+	})
 }
