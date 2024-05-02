@@ -2,7 +2,7 @@ name: gpt-4
 mmap: false
 f16: false
 parameters:
-  model: huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q6_K.gguf
+  model: huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf
 
 template:
   chat_message: |
