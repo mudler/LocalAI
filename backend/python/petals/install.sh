@@ -1,5 +1,23 @@
 #!/bin/bash
+set -ex
 
-export PATH=$PATH:/opt/conda/bin
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-conda env create --name petals --file $1
+python -m venv ${MY_DIR}/venv
+source ${MY_DIR}/venv/bin/activate
+
+uv pip install --requirement ${MY_DIR}/requirements.txt
+
+if [ -f "requirements-${BUILD_TYPE}.txt" ]; then
+    uv pip install --requirement ${MY_DIR}/requirements-${BUILD_TYPE}.txt
+fi
+
+if [ -d "/opt/intel" ]; then
+    # Intel GPU: If the directory exists, we assume we are using the Intel image
+    # https://github.com/intel/intel-extension-for-pytorch/issues/538
+    uv pip install --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ --requirement ${MY_DIR}/requirements-intel.txt
+fi
+
+if [ "$PIP_CACHE_PURGE" = true ] ; then
+    pip cache purge
+fi
