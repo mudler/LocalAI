@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
-	"github.com/hashicorp/go-multierror"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 )
@@ -39,16 +39,22 @@ const (
 	LocalStoreBackend = "local-store"
 )
 
-var AutoLoadBackends []string = []string{
-	LLamaCPP,
-	LlamaGGML,
-	Gpt4All,
-	BertEmbeddingsBackend,
-	RwkvBackend,
-	WhisperBackend,
-	StableDiffusionBackend,
-	TinyDreamBackend,
-	PiperBackend,
+func backendPath(assetDir, backend string) string {
+	return filepath.Join(assetDir, "backend-assets", "grpc", backend)
+}
+
+func bakends(assetDir string) ([]string, error) {
+	entry, err := os.ReadDir(backendPath(assetDir, ""))
+	if err != nil {
+		return nil, err
+	}
+	var backends []string
+	for _, e := range entry {
+		if !e.IsDir() {
+			backends = append(backends, e.Name())
+		}
+	}
+	return backends, nil
 }
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
@@ -99,7 +105,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				client = ModelAddress(uri)
 			}
 		} else {
-			grpcProcess := filepath.Join(o.assetDir, "backend-assets", "grpc", backend)
+			grpcProcess := backendPath(o.assetDir, backend)
 			// Check if the file exists
 			if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
 				return "", fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
@@ -243,7 +249,12 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 
 	// autoload also external backends
 	allBackendsToAutoLoad := []string{}
-	allBackendsToAutoLoad = append(allBackendsToAutoLoad, AutoLoadBackends...)
+	autoLoadBackends, err := bakends(o.assetDir)
+	if err != nil {
+		return nil, err
+	}
+	log.Debug().Msgf("Loading from the following backends (in order): %+v", autoLoadBackends)
+	allBackendsToAutoLoad = append(allBackendsToAutoLoad, autoLoadBackends...)
 	for _, b := range o.externalBackends {
 		allBackendsToAutoLoad = append(allBackendsToAutoLoad, b)
 	}
@@ -271,10 +282,10 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 			log.Info().Msgf("[%s] Loads OK", b)
 			return model, nil
 		} else if modelerr != nil {
-			err = multierror.Append(err, modelerr)
+			err = errors.Join(err, modelerr)
 			log.Info().Msgf("[%s] Fails: %s", b, modelerr.Error())
 		} else if model == nil {
-			err = multierror.Append(err, fmt.Errorf("backend returned no usable model"))
+			err = errors.Join(err, fmt.Errorf("backend returned no usable model"))
 			log.Info().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
 		}
 	}

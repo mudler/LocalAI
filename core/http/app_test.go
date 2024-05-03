@@ -787,11 +787,11 @@ var _ = Describe("API test", func() {
 		})
 
 		It("returns errors", func() {
-			backends := len(model.AutoLoadBackends) + 1 // +1 for huggingface
 			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: testPrompt})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("error, status code: 500, message: could not load model - all backends returned error: %d errors occurred:", backends)))
+			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: could not load model - all backends returned error:"))
 		})
+
 		It("transcribes audio", func() {
 			if runtime.GOOS != "linux" {
 				Skip("test supported only on linux")
