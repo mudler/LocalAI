@@ -155,6 +155,7 @@ endif
 ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface
 ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-noavx
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
@@ -311,7 +312,7 @@ build: prepare backend-assets grpcs ## Build the project
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 build-minimal:
-	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS=backend-assets/grpc/llama-cpp GO_TAGS=none $(MAKE) build
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp backend-assets/grpc/llama-cpp-noavx" GO_TAGS=none $(MAKE) build
 
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
@@ -644,12 +645,21 @@ else
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
 endif
 
-backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/grpc-server
+backend-assets/grpc/llama-cpp: backend-assets/grpc
+	$(info ${GREEN}I llama-cpp build info:standard${RESET})
+	$(MAKE) -C backend/cpp/llama purge
+	$(MAKE) backend/cpp/llama/grpc-server
 	cp -rfv backend/cpp/llama/grpc-server backend-assets/grpc/llama-cpp
 # TODO: every binary should have its own folder instead, so can have different metal implementations
 ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
+
+backend-assets/grpc/llama-cpp-noavx: backend-assets/grpc
+	$(info ${GREEN}I llama-cpp build info:noavx${RESET})
+	$(MAKE) -C backend/cpp/llama purge
+	CMAKE_ARGS="-DLLAMA_AVX2=OFF" $(MAKE) backend/cpp/llama/grpc-server
+	cp -rfv backend/cpp/llama/grpc-server backend-assets/grpc/llama-cpp-noavx
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
