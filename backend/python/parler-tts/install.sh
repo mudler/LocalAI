@@ -13,7 +13,8 @@ fi
 
 # https://github.com/descriptinc/audiotools/issues/101
 # incompatible protobuf versions.
-curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o $MY_DIR/venv/lib/python3.11/site-packages/google/protobuf/internal/builder.py
+PYDIR=$(ls $MY_DIR/venv/lib)
+curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o $MY_DIR/venv/lib/$PYDIR/site-packages/google/protobuf/internal/builder.py
 
 if [ -d "/opt/intel" ]; then
     # Intel GPU: If the directory exists, we assume we are using the Intel image
