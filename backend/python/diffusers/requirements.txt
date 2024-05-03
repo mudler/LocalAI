@@ -7,3 +7,4 @@ pillow
 protobuf
 torch
 transformers
+certifi
