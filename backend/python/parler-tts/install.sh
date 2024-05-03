@@ -18,7 +18,9 @@ curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/g
 if [ -d "/opt/intel" ]; then
     # Intel GPU: If the directory exists, we assume we are using the Intel image
     # https://github.com/intel/intel-extension-for-pytorch/issues/538
-    uv pip install --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ --requirement ${MY_DIR}/requirements-intel.txt
+    if [ -f "requirements-intel.txt" ]; then
+        uv pip install --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ --requirement ${MY_DIR}/requirements-intel.txt
+    fi
 fi
 
 if [ "$PIP_CACHE_PURGE" = true ] ; then
