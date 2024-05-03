@@ -146,7 +146,10 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
             hipblas-dev \
             rocblas-dev && \
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
+        rm -rf /var/lib/apt/lists/* && \
+        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
+        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
+        ldconfig \
     ; fi
 
 ###################################
