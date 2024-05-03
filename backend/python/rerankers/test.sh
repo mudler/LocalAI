@@ -1,11 +1,10 @@
 #!/bin/bash
+
 ##
-## A bash script wrapper that runs the reranker server with conda
+## A bash script wrapper that runs the tests
 
-# Activate conda environment
-source activate transformers
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source $MY_DIR/venv/bin/activate
 
-python -m unittest $DIR/test_reranker.py
+python -m unittest $MY_DIR/test_reranker.py
