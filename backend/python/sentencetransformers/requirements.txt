@@ -1,3 +1,4 @@
+accelerate
 sentence-transformers==2.5.1
 grpcio==1.63.0
 protobuf

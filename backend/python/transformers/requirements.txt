@@ -1,3 +1,4 @@
+accelerate
 transformers>=4.38.2
 grpcio==1.63.0
 protobuf

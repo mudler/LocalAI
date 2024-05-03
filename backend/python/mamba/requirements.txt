@@ -1,3 +1,4 @@
+accelerate
 causal-conv1d==1.2.0.post2
 mamba-ssm==1.2.0.post1
 grpcio==1.63.0
