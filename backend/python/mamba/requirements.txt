@@ -1,0 +1,4 @@
+causal-conv1d==1.2.0.post2
+mamba-ssm==1.2.0.post1
+grpcio==1.63.0
+torch==2.1.2
