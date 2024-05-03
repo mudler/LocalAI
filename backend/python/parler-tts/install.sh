@@ -1,39 +1,26 @@
 #!/bin/bash
 set -ex
 
-SKIP_CONDA=${SKIP_CONDA:-0}
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-# Check if environment exist
-conda_env_exists(){
-    ! conda list --name "${@}" >/dev/null 2>/dev/null
-}
+python -m venv ${MY_DIR}/venv
+source ${MY_DIR}/venv/bin/activate
 
-if [ $SKIP_CONDA -eq 1 ]; then
-    echo "Skipping conda environment installation"
-else
-    export PATH=$PATH:/opt/conda/bin
-    if conda_env_exists "parler" ; then
-        echo "Creating virtual environment..."
-        conda env create --name parler --file $1
-        echo "Virtual environment created."
-    else 
-        echo "Virtual environment already exists."
-    fi
+uv pip install --requirement ${MY_DIR}/requirements.txt
+if [ -f "requirements-${BUILD_TYPE}.txt" ]; then
+    uv pip install --requirement ${MY_DIR}/requirements-${BUILD_TYPE}.txt
 fi
 
-if [ $SKIP_CONDA -ne 1 ]; then
-    # Activate conda environment
-    source activate parler
-    # https://github.com/descriptinc/audiotools/issues/101
-    # incompatible protobuf versions.
-    curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o $CONDA_PREFIX/lib/python3.11/site-packages/google/protobuf/internal/builder.py
+# https://github.com/descriptinc/audiotools/issues/101
+# incompatible protobuf versions.
+curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o $MY_DIR/venv/lib/python3.11/site-packages/google/protobuf/internal/builder.py
+
+if [ -d "/opt/intel" ]; then
+    # Intel GPU: If the directory exists, we assume we are using the Intel image
+    # https://github.com/intel/intel-extension-for-pytorch/issues/538
+    uv pip install --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ --requirement ${MY_DIR}/requirements-intel.txt
 fi
 
 if [ "$PIP_CACHE_PURGE" = true ] ; then
-    if [ $SKIP_CONDA -ne 1 ]; then
-        # Activate conda environment
-        source activate parler
-    fi
-
     pip cache purge
 fi
