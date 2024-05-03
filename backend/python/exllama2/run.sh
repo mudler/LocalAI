@@ -1,16 +1,10 @@
 #!/bin/bash
 
 ##
-## A bash script wrapper that runs the exllama server with conda
+## A bash script wrapper that runs the exllama2 server
 
-export PATH=$PATH:/opt/conda/bin
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-# Activate conda environment
-source activate transformers
+source $MY_DIR/venv/bin/activate
 
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-cd $DIR
-
-python $DIR/exllama2_backend.py $@
+python $MY_DIR/source/exllama2_backend.py $@
