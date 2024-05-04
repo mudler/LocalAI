@@ -664,6 +664,17 @@ backend-assets/grpc/llama-cpp-noavx: backend-assets/grpc
 	$(MAKE) VARIANT="llama-noavx" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-noavx/grpc-server backend-assets/grpc/llama-cpp-noavx
 
+backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc
+	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
+	cp -rf backend/cpp/llama backend/cpp/llama-fallback
+	$(MAKE) -C backend/cpp/llama-fallback purge
+	CMAKE_ARGS+=-DLLAMA_F16C=OFF
+	CMAKE_ARGS+=-DLLAMA_AVX512=OFF
+	CMAKE_ARGS+=-DLLAMA_AVX2=OFF
+	CMAKE_ARGS+=-DLLAMA_FMA=OFF
+	$(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
+
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
