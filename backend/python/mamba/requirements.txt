@@ -4,3 +4,4 @@ mamba-ssm==1.2.0.post1
 grpcio==1.63.0
 torch==2.1.2
 certifi
+transformers==4.38.2

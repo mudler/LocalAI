@@ -25,7 +25,6 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tears down the gRPC service by terminating the server
         """
-        print("stopping service")
         self.service.terminate()
         self.service.wait()
 
@@ -54,8 +53,6 @@ class TestBackendServicer(unittest.TestCase):
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
                 response = stub.LoadModel(backend_pb2.ModelOptions(Model="parler-tts/parler_tts_mini_v0.1"))
-                print("response:")
-                print(response)
                 self.assertTrue(response.success)
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:

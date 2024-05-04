@@ -284,21 +284,34 @@ SHELL ["/bin/bash", "-c"]
 # We try to strike a balance between individual layer size (as that affects total push time) and total image size
 # Splitting the backends into more groups with fewer items results in a larger image, but a smaller size for the largest layer
 # Splitting the backends into fewer groups with more items results in a smaller image, but a larger size for the largest layer
-RUN if [[ ( "${EXTRA_BACKENDS}" =~ "autogptq" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/autogptq \
+
+RUN if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/coqui \
     ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "bark" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/bark \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "parler-tts" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/parler-tts \
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "diffusers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/diffusers \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "transformers-musicgen" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/transformers-musicgen \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "exllama1" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/exllama \
     ; fi
 
-RUN if [[ ( "${EXTRA_BACKENDS}" =~ "mamba" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/mamba \
+RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vall-e-x" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/vall-e-x \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "petals" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/petals \
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "sentencetransformers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/sentencetransformers \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "exllama2" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/exllama2 \
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "transformers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/transformers \
@@ -307,31 +320,17 @@ RUN if [[ ( "${EXTRA_BACKENDS}" =~ "mamba" || -z "${EXTRA_BACKENDS}" ) && "$IMAG
 RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vllm" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/vllm \
     ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "autogptq" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/autogptq \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "bark" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/bark \
+    ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "rerankers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/rerankers \
     ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "vall-e-x" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/vall-e-x \
-    ; fi
-
-RUN if [[ ( "${EXTRA_BACKENDS}" =~ "exllama1" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/exllama \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "exllama2" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/exllama2 \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/coqui \
-    ; fi
-
-RUN if [[ ( "${EXTRA_BACKENDS}" =~ "transformers-musicgen" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/transformers-musicgen \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "parler-tts" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/parler-tts \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "petals" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/petals \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "mamba" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/mamba \
     ; fi
 
 # Make sure the models directory exists

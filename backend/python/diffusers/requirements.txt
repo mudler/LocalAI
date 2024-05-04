@@ -6,5 +6,5 @@ opencv-python
 pillow
 protobuf
 torch
-transformers
+transformers==4.38.2
 certifi
