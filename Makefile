@@ -630,7 +630,7 @@ ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
 				 -Dutf8_range_DIR=${INSTALLED_LIB_CMAKE}/utf8_range \
 				 -DgRPC_DIR=${INSTALLED_LIB_CMAKE}/grpc \
 				 -DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=${INSTALLED_PACKAGES}/include
-backend/cpp/llama/grpc-server:
+build-llama-cpp-grpc-server:
 # Conditionally build grpc for the llama backend to use if needed
 ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	$(MAKE) -C backend/cpp/grpc build
@@ -639,27 +639,29 @@ ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	PATH="${INSTALLED_PACKAGES}/bin:${PATH}" \
 	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" \
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) \
-	$(MAKE) -C backend/cpp/llama grpc-server
+	$(MAKE) -C backend/cpp/${VARIANT} grpc-server
 else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama grpc-server
+	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
 endif
 
 backend-assets/grpc/llama-cpp: backend-assets/grpc
 	$(info ${GREEN}I llama-cpp build info:standard${RESET})
-	$(MAKE) -C backend/cpp/llama purge
-	$(MAKE) backend/cpp/llama/grpc-server
-	cp -rfv backend/cpp/llama/grpc-server backend-assets/grpc/llama-cpp
+	cp -rf backend/cpp/llama backend/cpp/llama-default
+	$(MAKE) -C backend/cpp/llama-default purge
+	$(MAKE) VARIANT="llama-default" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-default/grpc-server backend-assets/grpc/llama-cpp
 # TODO: every binary should have its own folder instead, so can have different metal implementations
 ifeq ($(BUILD_TYPE),metal)
-	cp backend/cpp/llama/llama.cpp/build/bin/default.metallib backend-assets/grpc/
+	cp backend/cpp/llama-default/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
 
 backend-assets/grpc/llama-cpp-noavx: backend-assets/grpc
 	$(info ${GREEN}I llama-cpp build info:noavx${RESET})
-	$(MAKE) -C backend/cpp/llama purge
-	CMAKE_ARGS="-DLLAMA_AVX2=OFF" $(MAKE) backend/cpp/llama/grpc-server
-	cp -rfv backend/cpp/llama/grpc-server backend-assets/grpc/llama-cpp-noavx
+	cp -rf backend/cpp/llama backend/cpp/llama-noavx
+	$(MAKE) -C backend/cpp/llama-noavx purge
+	CMAKE_ARGS="-DLLAMA_AVX2=OFF" $(MAKE) VARIANT="llama-noavx" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-noavx/grpc-server backend-assets/grpc/llama-cpp-noavx
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
