@@ -547,6 +547,37 @@
     - filename: WizardLM-2-7B.Q4_K_M.gguf
       sha256: 613212417701a26fd43f565c5c424a2284d65b1fddb872b53a99ef8add796f64
       uri: huggingface://MaziyarPanahi/WizardLM-2-7B-GGUF/WizardLM-2-7B.Q4_K_M.gguf
+### moondream2
+- url: "github:mudler/LocalAI/gallery/moondream.yaml@master"
+  license: apache-2.0
+
+  description: |
+    a tiny vision language model that kicks ass and runs anywhere
+
+  urls:
+    - https://huggingface.co/vikhyatk/moondream2
+    - https://huggingface.co/moondream/moondream2-gguf
+    - https://github.com/vikhyat/moondream
+
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - moondream
+    - gpu
+    - cpu
+  name: "moondream2"
+  overrides:
+    mmproj: moondream2-mmproj-f16.gguf
+    parameters:
+      model: moondream2-text-model-f16.gguf
+  files:
+    - filename: moondream2-text-model-f16.gguf
+      sha256: 4e17e9107fb8781629b3c8ce177de57ffeae90fe14adcf7b99f0eef025889696
+      uri: huggingface://moondream/moondream2-gguf/moondream2-text-model-f16.gguf
+    - filename: moondream2-mmproj-f16.gguf
+      sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
+      uri: huggingface://moondream/moondream2-gguf/moondream2-mmproj-f16.gguf
 ### START LLaVa
 - &llava
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
