@@ -44,13 +44,20 @@ func backendPath(assetDir, backend string) string {
 	return filepath.Join(assetDir, "backend-assets", "grpc", backend)
 }
 
-func bakends(assetDir string) ([]string, error) {
+func backendsInAssetDir(assetDir string) ([]string, error) {
+	excludeBackends := []string{"local-store"}
 	entry, err := os.ReadDir(backendPath(assetDir, ""))
 	if err != nil {
 		return nil, err
 	}
 	var backends []string
+ENTRY:
 	for _, e := range entry {
+		for _, exclude := range excludeBackends {
+			if e.Name() == exclude {
+				continue ENTRY
+			}
+		}
 		if !e.IsDir() {
 			backends = append(backends, e.Name())
 		}
@@ -250,7 +257,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 
 	// autoload also external backends
 	allBackendsToAutoLoad := []string{}
-	autoLoadBackends, err := bakends(o.assetDir)
+	autoLoadBackends, err := backendsInAssetDir(o.assetDir)
 	if err != nil {
 		return nil, err
 	}
