@@ -15,9 +15,10 @@ import (
 )
 
 var Aliases map[string]string = map[string]string{
-	"go-llama":       LLamaCPP,
-	"llama":          LLamaCPP,
-	"embedded-store": LocalStoreBackend,
+	"go-llama":              LLamaCPP,
+	"llama":                 LLamaCPP,
+	"embedded-store":        LocalStoreBackend,
+	"langchain-huggingface": LCHuggingFaceBackend,
 }
 
 const (
@@ -34,7 +35,7 @@ const (
 	StableDiffusionBackend = "stablediffusion"
 	TinyDreamBackend       = "tinydream"
 	PiperBackend           = "piper"
-	LCHuggingFaceBackend   = "langchain-huggingface"
+	LCHuggingFaceBackend   = "huggingface"
 
 	LocalStoreBackend = "local-store"
 )

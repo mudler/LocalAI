@@ -152,7 +152,7 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 	OPTIONAL_GRPC+=backend-assets/grpc/piper
 endif
 
-ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface
+ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
 ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-noavx
@@ -619,8 +619,8 @@ backend-assets/grpc/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/go
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gpt4all ./backend/go/llm/gpt4all/
 
-backend-assets/grpc/langchain-huggingface: backend-assets/grpc
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/langchain-huggingface ./backend/go/llm/langchain/
+backend-assets/grpc/huggingface: backend-assets/grpc
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/huggingface ./backend/go/llm/langchain/
 
 backend/cpp/llama/llama.cpp:
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama llama.cpp
