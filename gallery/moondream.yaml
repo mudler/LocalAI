@@ -15,7 +15,4 @@ config_file: |
     template:
       completion: |
         Complete the following sentence: {{.Input}}
-      chat: |-
-          {{.Input}}
-
-          Answer: 
+      chat: "{{.Input}}\nAnswer: "
