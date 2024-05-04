@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,8 +23,11 @@ var Aliases map[string]string = map[string]string{
 }
 
 const (
-	LlamaGGML           = "llama-ggml"
-	LLamaCPP            = "llama-cpp"
+	LlamaGGML = "llama-ggml"
+	LLamaCPP  = "llama-cpp"
+
+	LLamaCPPFallback = "llama-cpp-fallback"
+
 	Gpt4AllLlamaBackend = "gpt4all-llama"
 	Gpt4AllMptBackend   = "gpt4all-mpt"
 	Gpt4AllJBackend     = "gpt4all-j"
@@ -62,6 +66,45 @@ ENTRY:
 			backends = append(backends, e.Name())
 		}
 	}
+
+	// order backends from the asset directory.
+	// as we scan for backends, we want to keep some order which backends are tried of.
+	// for example, llama.cpp should be tried first, and we want to keep the huggingface backend at the last.
+
+	// sets a priority list
+	// First has more priority
+	priorityList := []string{
+		// First llama.cpp and llama-ggml
+		LLamaCPP, LLamaCPPFallback, LlamaGGML, Gpt4All,
+	}
+	toTheEnd := []string{
+		// last has to be huggingface
+		LCHuggingFaceBackend,
+		// then bert embeddings
+		BertEmbeddingsBackend,
+	}
+	slices.Reverse(priorityList)
+	slices.Reverse(toTheEnd)
+
+	// order certain backends first
+	for _, b := range priorityList {
+		for i, be := range backends {
+			if be == b {
+				backends = append([]string{be}, append(backends[:i], backends[i+1:]...)...)
+				break
+			}
+		}
+	}
+	// make sure that some others are pushed at the end
+	for _, b := range toTheEnd {
+		for i, be := range backends {
+			if be == b {
+				backends = append(append(backends[:i], backends[i+1:]...), be)
+				break
+			}
+		}
+	}
+
 	return backends, nil
 }
 
