@@ -4,6 +4,7 @@ package main
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-skynet/LocalAI/pkg/grpc/base"
 	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
@@ -18,9 +19,14 @@ type LLM struct {
 }
 
 func (llm *LLM) Load(opts *pb.ModelOptions) error {
-	llm.langchain, _ = langchain.NewHuggingFace(opts.Model)
+	var err error
+	hfToken := os.Getenv("HUGGINGFACEHUB_API_TOKEN")
+	if hfToken == "" {
+		return fmt.Errorf("no huggingface token provided")
+	}
+	llm.langchain, err = langchain.NewHuggingFace(opts.Model, hfToken)
 	llm.model = opts.Model
-	return nil
+	return err
 }
 
 func (llm *LLM) Predict(opts *pb.PredictOptions) (string, error) {

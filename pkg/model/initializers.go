@@ -2,27 +2,32 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
-	"github.com/hashicorp/go-multierror"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 )
 
 var Aliases map[string]string = map[string]string{
-	"go-llama":       LLamaCPP,
-	"llama":          LLamaCPP,
-	"embedded-store": LocalStoreBackend,
+	"go-llama":              LLamaCPP,
+	"llama":                 LLamaCPP,
+	"embedded-store":        LocalStoreBackend,
+	"langchain-huggingface": LCHuggingFaceBackend,
 }
 
 const (
-	LlamaGGML           = "llama-ggml"
-	LLamaCPP            = "llama-cpp"
+	LlamaGGML = "llama-ggml"
+	LLamaCPP  = "llama-cpp"
+
+	LLamaCPPFallback = "llama-cpp-fallback"
+
 	Gpt4AllLlamaBackend = "gpt4all-llama"
 	Gpt4AllMptBackend   = "gpt4all-mpt"
 	Gpt4AllJBackend     = "gpt4all-j"
@@ -34,21 +39,73 @@ const (
 	StableDiffusionBackend = "stablediffusion"
 	TinyDreamBackend       = "tinydream"
 	PiperBackend           = "piper"
-	LCHuggingFaceBackend   = "langchain-huggingface"
+	LCHuggingFaceBackend   = "huggingface"
 
 	LocalStoreBackend = "local-store"
 )
 
-var AutoLoadBackends []string = []string{
-	LLamaCPP,
-	LlamaGGML,
-	Gpt4All,
-	BertEmbeddingsBackend,
-	RwkvBackend,
-	WhisperBackend,
-	StableDiffusionBackend,
-	TinyDreamBackend,
-	PiperBackend,
+func backendPath(assetDir, backend string) string {
+	return filepath.Join(assetDir, "backend-assets", "grpc", backend)
+}
+
+func backendsInAssetDir(assetDir string) ([]string, error) {
+	excludeBackends := []string{"local-store"}
+	entry, err := os.ReadDir(backendPath(assetDir, ""))
+	if err != nil {
+		return nil, err
+	}
+	var backends []string
+ENTRY:
+	for _, e := range entry {
+		for _, exclude := range excludeBackends {
+			if e.Name() == exclude {
+				continue ENTRY
+			}
+		}
+		if !e.IsDir() {
+			backends = append(backends, e.Name())
+		}
+	}
+
+	// order backends from the asset directory.
+	// as we scan for backends, we want to keep some order which backends are tried of.
+	// for example, llama.cpp should be tried first, and we want to keep the huggingface backend at the last.
+
+	// sets a priority list
+	// First has more priority
+	priorityList := []string{
+		// First llama.cpp and llama-ggml
+		LLamaCPP, LLamaCPPFallback, LlamaGGML, Gpt4All,
+	}
+	toTheEnd := []string{
+		// last has to be huggingface
+		LCHuggingFaceBackend,
+		// then bert embeddings
+		BertEmbeddingsBackend,
+	}
+	slices.Reverse(priorityList)
+	slices.Reverse(toTheEnd)
+
+	// order certain backends first
+	for _, b := range priorityList {
+		for i, be := range backends {
+			if be == b {
+				backends = append([]string{be}, append(backends[:i], backends[i+1:]...)...)
+				break
+			}
+		}
+	}
+	// make sure that some others are pushed at the end
+	for _, b := range toTheEnd {
+		for i, be := range backends {
+			if be == b {
+				backends = append(append(backends[:i], backends[i+1:]...), be)
+				break
+			}
+		}
+	}
+
+	return backends, nil
 }
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
@@ -99,7 +156,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				client = ModelAddress(uri)
 			}
 		} else {
-			grpcProcess := filepath.Join(o.assetDir, "backend-assets", "grpc", backend)
+			grpcProcess := backendPath(o.assetDir, backend)
 			// Check if the file exists
 			if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
 				return "", fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
@@ -243,7 +300,12 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 
 	// autoload also external backends
 	allBackendsToAutoLoad := []string{}
-	allBackendsToAutoLoad = append(allBackendsToAutoLoad, AutoLoadBackends...)
+	autoLoadBackends, err := backendsInAssetDir(o.assetDir)
+	if err != nil {
+		return nil, err
+	}
+	log.Debug().Msgf("Loading from the following backends (in order): %+v", autoLoadBackends)
+	allBackendsToAutoLoad = append(allBackendsToAutoLoad, autoLoadBackends...)
 	for _, b := range o.externalBackends {
 		allBackendsToAutoLoad = append(allBackendsToAutoLoad, b)
 	}
@@ -271,10 +333,10 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 			log.Info().Msgf("[%s] Loads OK", b)
 			return model, nil
 		} else if modelerr != nil {
-			err = multierror.Append(err, modelerr)
+			err = errors.Join(err, modelerr)
 			log.Info().Msgf("[%s] Fails: %s", b, modelerr.Error())
 		} else if model == nil {
-			err = multierror.Append(err, fmt.Errorf("backend returned no usable model"))
+			err = errors.Join(err, fmt.Errorf("backend returned no usable model"))
 			log.Info().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
 		}
 	}

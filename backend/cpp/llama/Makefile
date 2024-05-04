@@ -43,31 +43,23 @@ llama.cpp:
 
 llama.cpp/examples/grpc-server: llama.cpp
 	mkdir -p llama.cpp/examples/grpc-server
-	cp -r $(abspath ./)/CMakeLists.txt llama.cpp/examples/grpc-server/
-	cp -r $(abspath ./)/grpc-server.cpp llama.cpp/examples/grpc-server/
-	cp -rfv $(abspath ./)/json.hpp llama.cpp/examples/grpc-server/
-	cp -rfv $(abspath ./)/utils.hpp llama.cpp/examples/grpc-server/
-	echo "add_subdirectory(grpc-server)" >> llama.cpp/examples/CMakeLists.txt
-## XXX: In some versions of CMake clip wasn't being built before llama.
-## This is an hack for now, but it should be fixed in the future.
-	cp -rfv llama.cpp/examples/llava/clip.h llama.cpp/examples/grpc-server/clip.h
-	cp -rfv llama.cpp/examples/llava/llava.cpp llama.cpp/examples/grpc-server/llava.cpp
-	echo '#include "llama.h"' > llama.cpp/examples/grpc-server/llava.h
-	cat llama.cpp/examples/llava/llava.h >> llama.cpp/examples/grpc-server/llava.h
-	cp -rfv llama.cpp/examples/llava/clip.cpp llama.cpp/examples/grpc-server/clip.cpp
+	bash prepare.sh
 
 rebuild:
-	cp -rfv $(abspath ./)/CMakeLists.txt llama.cpp/examples/grpc-server/
-	cp -rfv $(abspath ./)/grpc-server.cpp llama.cpp/examples/grpc-server/
-	cp -rfv $(abspath ./)/json.hpp llama.cpp/examples/grpc-server/
+	bash prepare.sh
 	rm -rf grpc-server
 	$(MAKE) grpc-server
 
-clean:
-	rm -rf llama.cpp
+purge:
+	rm -rf llama.cpp/build
+	rm -rf llama.cpp/examples/grpc-server
 	rm -rf grpc-server
 
+clean: purge
+	rm -rf llama.cpp
+
 grpc-server: llama.cpp llama.cpp/examples/grpc-server
+	@echo "Building grpc-server with $(BUILD_TYPE) build type and $(CMAKE_ARGS)"
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	bash -c "source $(ONEAPI_VARS); \
 	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release"	
