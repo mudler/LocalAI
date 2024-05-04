@@ -156,6 +156,7 @@ ALL_GRPC_BACKENDS=backend-assets/grpc/langchain-huggingface
 ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-noavx
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
@@ -294,6 +295,7 @@ clean: ## Remove build related file
 	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/cpp/llama clean
+	rm -rf backend/cpp/llama-* || true
 	$(MAKE) dropreplace
 	$(MAKE) protogen-clean
 	rmdir pkg/grpc/proto || true
@@ -312,7 +314,7 @@ build: prepare backend-assets grpcs ## Build the project
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 build-minimal:
-	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp backend-assets/grpc/llama-cpp-noavx" GO_TAGS=none $(MAKE) build
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp" GO_TAGS=none $(MAKE) build
 
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
@@ -657,22 +659,17 @@ ifeq ($(BUILD_TYPE),metal)
 endif
 
 backend-assets/grpc/llama-cpp-noavx: backend-assets/grpc
-	$(info ${GREEN}I llama-cpp build info:noavx${RESET})
 	cp -rf backend/cpp/llama backend/cpp/llama-noavx
 	$(MAKE) -C backend/cpp/llama-noavx purge
-	CMAKE_ARGS+=-DLLAMA_AVX2=OFF
-	$(MAKE) VARIANT="llama-noavx" build-llama-cpp-grpc-server
+	$(info ${GREEN}I llama-cpp build info:noavx${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF" $(MAKE) VARIANT="llama-noavx" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-noavx/grpc-server backend-assets/grpc/llama-cpp-noavx
 
 backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc
-	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
 	cp -rf backend/cpp/llama backend/cpp/llama-fallback
 	$(MAKE) -C backend/cpp/llama-fallback purge
-	CMAKE_ARGS+=-DLLAMA_F16C=OFF
-	CMAKE_ARGS+=-DLLAMA_AVX512=OFF
-	CMAKE_ARGS+=-DLLAMA_AVX2=OFF
-	CMAKE_ARGS+=-DLLAMA_FMA=OFF
-	$(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
+	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
