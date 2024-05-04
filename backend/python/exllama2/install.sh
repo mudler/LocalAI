@@ -11,7 +11,7 @@ fi
 
 MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-python -m venv ${MY_DIR}/venv
+uv venv ${MY_DIR}/venv
 source ${MY_DIR}/venv/bin/activate
 
 uv pip install --requirement ${MY_DIR}/requirements.txt
@@ -23,7 +23,7 @@ fi
 git clone https://github.com/turboderp/exllamav2 source
 pushd source && git checkout -b build ${EXLLAMA2_VERSION} && popd
 
-uv pip install --requirement source/requirements.txt
+uv pip install --requirement ${MY_DIR}/source/requirements.txt
 
 cp -rfv ./*py $MY_DIR/source/  
 

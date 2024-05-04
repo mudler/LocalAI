@@ -6,7 +6,7 @@ set -ex
 export VALL_E_X_VERSION=3faaf8ccadb154d63b38070caf518ce9309ea0f4
 MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-python -m venv ${MY_DIR}/venv
+uv venv ${MY_DIR}/venv
 source ${MY_DIR}/venv/bin/activate
 
 uv pip install --requirement ${MY_DIR}/requirements.txt
@@ -26,7 +26,7 @@ fi
 git clone https://github.com/Plachtaa/VALL-E-X.git $MY_DIR/source
 pushd $MY_DIR/source && git checkout -b build $VALL_E_X_VERSION && popd
 
-uv pip install --requirement source/requirements.txt
+uv pip install --requirement ${MY_DIR}/source/requirements.txt
 
 cp -rfv ./*py $MY_DIR/source/  
 

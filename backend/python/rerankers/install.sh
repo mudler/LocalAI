@@ -3,7 +3,7 @@ set -ex
 
 MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-python -m venv ${MY_DIR}/venv
+uv venv ${MY_DIR}/venv
 source ${MY_DIR}/venv/bin/activate
 
 uv pip install --requirement ${MY_DIR}/requirements.txt

@@ -10,7 +10,7 @@ fi
 
 MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-python -m venv ${MY_DIR}/venv
+uv venv ${MY_DIR}/venv
 source ${MY_DIR}/venv/bin/activate
 
 # mabma does not specify it's build dependencies per PEP517, so we need to disable build isolation
