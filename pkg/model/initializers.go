@@ -48,8 +48,11 @@ func backendPath(assetDir, backend string) string {
 	return filepath.Join(assetDir, "backend-assets", "grpc", backend)
 }
 
+// backendsInAssetDir returns the list of backends in the asset directory
+// that should be loaded
 func backendsInAssetDir(assetDir string) ([]string, error) {
-	excludeBackends := []string{"local-store"}
+	// Exclude backends from automatic loading
+	excludeBackends := []string{LocalStoreBackend}
 	entry, err := os.ReadDir(backendPath(assetDir, ""))
 	if err != nil {
 		return nil, err
@@ -70,7 +73,6 @@ ENTRY:
 	// order backends from the asset directory.
 	// as we scan for backends, we want to keep some order which backends are tried of.
 	// for example, llama.cpp should be tried first, and we want to keep the huggingface backend at the last.
-
 	// sets a priority list
 	// First has more priority
 	priorityList := []string{

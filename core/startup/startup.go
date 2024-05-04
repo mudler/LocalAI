@@ -11,6 +11,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/assets"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	pkgStartup "github.com/go-skynet/LocalAI/pkg/startup"
+	"github.com/go-skynet/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,12 +20,23 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
+	caps, err := xsysinfo.CPUCapabilities()
+	if err == nil {
+		log.Debug().Msgf("CPU capabilities: %v", caps)
+	}
+	gpus, err := xsysinfo.GPUs()
+	if err == nil {
+		log.Debug().Msgf("GPU count: %d", len(gpus))
+		for _, gpu := range gpus {
+			log.Debug().Msgf("GPU: %s", gpu.String())
+		}
+	}
 
 	// Make sure directories exists
 	if options.ModelPath == "" {
 		return nil, nil, nil, fmt.Errorf("options.ModelPath cannot be empty")
 	}
-	err := os.MkdirAll(options.ModelPath, 0750)
+	err = os.MkdirAll(options.ModelPath, 0750)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
