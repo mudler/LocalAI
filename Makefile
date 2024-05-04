@@ -660,7 +660,8 @@ backend-assets/grpc/llama-cpp-noavx: backend-assets/grpc
 	$(info ${GREEN}I llama-cpp build info:noavx${RESET})
 	cp -rf backend/cpp/llama backend/cpp/llama-noavx
 	$(MAKE) -C backend/cpp/llama-noavx purge
-	CMAKE_ARGS="-DLLAMA_AVX2=OFF" $(MAKE) VARIANT="llama-noavx" build-llama-cpp-grpc-server
+	CMAKE_ARGS+=-DLLAMA_AVX2=OFF
+	$(MAKE) VARIANT="llama-noavx" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-noavx/grpc-server backend-assets/grpc/llama-cpp-noavx
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
