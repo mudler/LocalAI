@@ -547,6 +547,35 @@
     - filename: WizardLM-2-7B.Q4_K_M.gguf
       sha256: 613212417701a26fd43f565c5c424a2284d65b1fddb872b53a99ef8add796f64
       uri: huggingface://MaziyarPanahi/WizardLM-2-7B-GGUF/WizardLM-2-7B.Q4_K_M.gguf
+### moondream2
+- url: "github:mudler/LocalAI/gallery/moondream.yaml@master"
+  license: apache-2.0
+  description: |
+    a tiny vision language model that kicks ass and runs anywhere
+  icon: https://github.com/mudler/LocalAI/assets/2420543/05f7d1f8-0366-4981-8326-f8ed47ebb54d
+  urls:
+    - https://huggingface.co/vikhyatk/moondream2
+    - https://huggingface.co/moondream/moondream2-gguf
+    - https://github.com/vikhyat/moondream
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - moondream
+    - gpu
+    - cpu
+  name: "moondream2"
+  overrides:
+    mmproj: moondream2-mmproj-f16.gguf
+    parameters:
+      model: moondream2-text-model-f16.gguf
+  files:
+    - filename: moondream2-text-model-f16.gguf
+      sha256: 4e17e9107fb8781629b3c8ce177de57ffeae90fe14adcf7b99f0eef025889696
+      uri: huggingface://moondream/moondream2-gguf/moondream2-text-model-f16.gguf
+    - filename: moondream2-mmproj-f16.gguf
+      sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
+      uri: huggingface://moondream/moondream2-gguf/moondream2-mmproj-f16.gguf
 ### START LLaVa
 - &llava
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
@@ -1073,7 +1102,7 @@
     - text-to-speech
     - cpu
 
-  override:
+  overrides:
     parameters:
       model: en-us-kathleen-low.onnx
   files:
@@ -1081,7 +1110,7 @@
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
 - <<: *piper
   name: voice-ca-upc_ona-x-low
-  override:
+  overrides:
     parameters:
       model: ca-upc_ona-x-low.onnx
   files:
@@ -1090,7 +1119,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ca-upc_pau-x-low
-  override:
+  overrides:
     parameters:
       model: ca-upc_pau-x-low.onnx
   files:
@@ -1099,7 +1128,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-da-nst_talesyntese-medium
-  override:
+  overrides:
     parameters:
       model: da-nst_talesyntese-medium.onnx
   files:
@@ -1108,7 +1137,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-eva_k-x-low
-  override:
+  overrides:
     parameters:
       model: de-eva_k-x-low.onnx
   files:
@@ -1117,7 +1146,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-karlsson-low
-  override:
+  overrides:
     parameters:
       model: de-karlsson-low.onnx
   files:
@@ -1126,7 +1155,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-kerstin-low
-  override:
+  overrides:
     parameters:
       model: de-kerstin-low.onnx
   files:
@@ -1135,7 +1164,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-pavoque-low
-  override:
+  overrides:
     parameters:
       model: de-pavoque-low.onnx
   files:
@@ -1144,7 +1173,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-ramona-low
-  override:
+  overrides:
     parameters:
       model: de-ramona-low.onnx
   files:
@@ -1154,7 +1183,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-thorsten-low
 
-  override:
+  overrides:
     parameters:
       model: de-thorsten-low.onnx
   files:
@@ -1164,7 +1193,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-el-gr-rapunzelina-low
 
-  override:
+  overrides:
     parameters:
       model: el-gr-rapunzelina-low.onnx
   files:
@@ -1174,7 +1203,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-alan-low
 
-  override:
+  overrides:
     parameters:
       model: en-gb-alan-low.onnx
   files:
@@ -1184,7 +1213,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-southern_english_female-low
 
-  override:
+  overrides:
     parameters:
       model: en-gb-southern_english
   files:
@@ -1194,7 +1223,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-amy-low
 
-  override:
+  overrides:
     parameters:
       model: en-us-amy-low.onnx
   files:
@@ -1204,7 +1233,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-danny-low
 
-  override:
+  overrides:
     parameters:
       model: en-us-danny-low.onnx
   files:
@@ -1214,7 +1243,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
 
-  override:
+  overrides:
     parameters:
       model: en-us-kathleen-low.onnx
   files:
@@ -1224,7 +1253,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-low
 
-  override:
+  overrides:
     parameters:
       model: en-us-lessac-low.onnx
   files:
@@ -1234,7 +1263,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-medium
 
-  override:
+  overrides:
     parameters:
       model: en-us-lessac-medium.onnx
   files:
@@ -1244,7 +1273,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-libritts-high
 
-  override:
+  overrides:
     parameters:
       model: en-us-libritts-high.onnx
   files:
@@ -1254,7 +1283,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-high
 
-  override:
+  overrides:
     parameters:
       model: en-us-ryan-high.onnx
   files:
@@ -1264,7 +1293,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-low
 
-  override:
+  overrides:
     parameters:
       model: en-us-ryan-low.onnx
   files:
@@ -1275,7 +1304,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-medium
 
-  override:
+  overrides:
     parameters:
       model: en-us-ryan-medium.onnx
   files:
@@ -1285,7 +1314,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us_lessac
-  override:
+  overrides:
     parameters:
       model: en-us-lessac.onnx
   files:
@@ -1295,7 +1324,7 @@
 - <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-carlfm-x-low
-  override:
+  overrides:
     parameters:
       model: es-carlfm-x-low.onnx
   files:
@@ -1306,7 +1335,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_10246-low
 
-  override:
+  overrides:
     parameters:
       model: es-mls_10246-low.onnx
   files:
@@ -1317,7 +1346,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_9972-low
 
-  override:
+  overrides:
     parameters:
       model: es-mls_9972-low.onnx
   files:
@@ -1328,7 +1357,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fi-harri-low
 
-  override:
+  overrides:
     parameters:
       model: fi-harri-low.onnx
   files:
@@ -1339,7 +1368,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-gilles-low
 
-  override:
+  overrides:
     parameters:
       model: fr-gilles-low.onnx
   files:
@@ -1350,7 +1379,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-mls_1840-low
 
-  override:
+  overrides:
     parameters:
       model: fr-mls_1840-low.onnx
   files:
@@ -1361,7 +1390,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-low
 
-  override:
+  overrides:
     parameters:
       model: fr-siwis-low.onnx
   files:
@@ -1372,7 +1401,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-medium
 
-  override:
+  overrides:
     parameters:
       model: fr-siwis-medium.onnx
   files:
@@ -1383,7 +1412,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-bui-medium
 
-  override:
+  overrides:
     parameters:
       model: is-bui-medium.onnx
   files:
@@ -1394,7 +1423,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-salka-medium
 
-  override:
+  overrides:
     parameters:
       model: is-salka-medium.onnx
   files:
@@ -1405,7 +1434,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-steinn-medium
 
-  override:
+  overrides:
     parameters:
       model: is-steinn-medium.onnx
   files:
@@ -1416,7 +1445,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-ugla-medium
 
-  override:
+  overrides:
     parameters:
       model: is-ugla-medium.onnx
   files:
@@ -1427,7 +1456,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-it-riccardo_fasol-x-low
 
-  override:
+  overrides:
     parameters:
       model: it-riccardo_fasol-x-low.onnx
   files:
@@ -1438,7 +1467,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-iseke-x-low
 
-  override:
+  overrides:
     parameters:
       model: kk-iseke-x-low.onnx
   files:
@@ -1449,7 +1478,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-issai-high
 
-  override:
+  overrides:
     parameters:
       model: kk-issai-high.onnx
   files:
@@ -1460,7 +1489,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-raya-x-low
 
-  override:
+  overrides:
     parameters:
       model: kk-raya-x-low.onnx
   files:
@@ -1471,7 +1500,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-medium
 
-  override:
+  overrides:
     parameters:
       model: ne-google-medium.onnx
   files:
@@ -1482,7 +1511,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-x-low
 
-  override:
+  overrides:
     parameters:
       model: ne-google-x-low.onnx
   files:
@@ -1493,7 +1522,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_5809-low
 
-  override:
+  overrides:
     parameters:
       model: nl-mls_5809-low.onnx
   files:
@@ -1504,7 +1533,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_7432-low
 
-  override:
+  overrides:
     parameters:
       model: nl-mls_7432-low.onnx
   files:
@@ -1515,7 +1544,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-nathalie-x-low
 
-  override:
+  overrides:
     parameters:
       model: nl-nathalie-x-low.onnx
   files:
@@ -1526,7 +1555,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-medium
 
-  override:
+  overrides:
     parameters:
       model: nl-rdh-medium.onnx
   files:
@@ -1537,7 +1566,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-x-low
 
-  override:
+  overrides:
     parameters:
       model: nl-rdh-x-low.onnx
   files:
@@ -1548,7 +1577,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-no-talesyntese-medium
 
-  override:
+  overrides:
     parameters:
       model: no-talesyntese-medium.onnx
   files:
@@ -1559,7 +1588,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pl-mls_6892-low
 
-  override:
+  overrides:
     parameters:
       model: pl-mls_6892-low.onnx
   files:
@@ -1570,7 +1599,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pt-br-edresson-low
 
-  override:
+  overrides:
     parameters:
       model: pt-br-edresson-low.onnx
   files:
@@ -1581,7 +1610,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ru-irinia-medium
 
-  override:
+  overrides:
     parameters:
       model: ru-irinia-medium.onnx
   files:
@@ -1592,7 +1621,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-sv-se-nst-medium
 
-  override:
+  overrides:
     parameters:
       model: sv-se-nst-medium.onnx
   files:
@@ -1603,7 +1632,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-uk-lada-x-low
 
-  override:
+  overrides:
     parameters:
       model: uk-lada-x-low.onnx
   files:
@@ -1614,7 +1643,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-25hours-single-low
 
-  override:
+  overrides:
     parameters:
       model: vi-25hours-single-low.onnx
   files:
@@ -1625,7 +1654,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-vivos-x-low
 
-  override:
+  overrides:
     parameters:
       model: vi-vivos-x-low.onnx
   files:
@@ -1636,7 +1665,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh-cn-huayan-x-low
 
-  override:
+  overrides:
     parameters:
       model: zh-cn-huayan-x-low.onnx
   files:
@@ -1647,7 +1676,7 @@
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh_CN-huayan-medium
 
-  override:
+  overrides:
     parameters:
       model: zh_CN-huayan-medium.onnx
   files:
