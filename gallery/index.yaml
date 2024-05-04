@@ -656,6 +656,31 @@
     - filename: Llava_1.5_Llama3_mmproj.gguf
       sha256: d2a9ca943975f6c49c4d55886e873f676a897cff796e92410ace6c20f4efd03b
       uri: huggingface://ChaoticNeutrals/Llava_1.5_Llama3_mmproj/mmproj-model-f16.gguf
+- <<: *llama3
+  name: "llava-llama-3-8b-v1_1"
+  description: |
+      llava-llama-3-8b-v1_1 is a LLaVA model fine-tuned from meta-llama/Meta-Llama-3-8B-Instruct and CLIP-ViT-Large-patch14-336 with ShareGPT4V-PT and InternVL-SFT by XTuner.
+  urls:
+    - https://huggingface.co/xtuner/llava-llama-3-8b-v1_1-gguf
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava
+  overrides:
+    mmproj: llava-llama-3-8b-v1_1-mmproj-f16.gguf
+    parameters:
+      model: llava-llama-3-8b-v1_1-int4.gguf
+  files:
+    - filename: llava-llama-3-8b-v1_1-int4.gguf
+      sha256: b6e1d703db0da8227fdb7127d8716bbc5049c9bf17ca2bb345be9470d217f3fc
+      uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-int4.gguf
+    - filename: llava-llama-3-8b-v1_1-mmproj-f16.gguf
+      sha256: eb569aba7d65cf3da1d0369610eb6869f4a53ee369992a804d5810a80e9fa035
+      uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
 ### START Phi-2
 - &phi-2-chat
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
