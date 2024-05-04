@@ -803,7 +803,7 @@
       model: Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf
   files:
     - filename: "Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf"
-      sha256: "afe41ab251d1fd9870dd9631f60c22b22c215166308b35d7e15faa3260fa4bd7"
+      sha256: "10c52a4820137a35947927be741bb411a9200329367ce2590cc6757cd98e746c"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf"
 - <<: *hermes-2-pro-mistral
   tags:
@@ -820,7 +820,7 @@
       model: Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf
   files:
     - filename: "Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf"
-      sha256: "2be39d775b2a64aa5bbdc1f96fa1703ec54b5fa8982c1732b7ae9d2b57c6bb43"
+      sha256: "107f3f55e26b8cc144eadd83e5f8a60cfd61839c56088fa3ae2d5679abf45f29"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf"
 - <<: *hermes-2-pro-mistral
   tags:
@@ -837,7 +837,7 @@
       model: Hermes-2-Pro-Llama-3-8B-Q8_0.gguf
   files:
     - filename: "Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
-      sha256: "0a8f471d6940dee972e579eebdb4d536174bda82b73463cd8ac7752a7b1973a3"
+      sha256: "d138388cfda04d185a68eaf2396cf7a5cfa87d038a20896817a9b7cf1806f532"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
 - <<: *hermes-2-pro-mistral
   name: "biomistral-7b"
