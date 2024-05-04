@@ -550,15 +550,13 @@
 ### moondream2
 - url: "github:mudler/LocalAI/gallery/moondream.yaml@master"
   license: apache-2.0
-
   description: |
     a tiny vision language model that kicks ass and runs anywhere
-
+  icon: https://github.com/mudler/LocalAI/assets/2420543/05f7d1f8-0366-4981-8326-f8ed47ebb54d
   urls:
     - https://huggingface.co/vikhyatk/moondream2
     - https://huggingface.co/moondream/moondream2-gguf
     - https://github.com/vikhyat/moondream
-
   tags:
     - llm
     - multimodal
