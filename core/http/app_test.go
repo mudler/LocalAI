@@ -718,7 +718,12 @@ var _ = Describe("API test", func() {
 			Expect(imgResp).ToNot(BeNil())
 			Expect(imgResp.StatusCode).To(Equal(200))
 			Expect(imgResp.ContentLength).To(BeNumerically(">", 0))
-
+			imgData := make([]byte, 512)
+			count, err := io.ReadFull(imgResp.Body, imgData)
+			Expect(err).To(Or(BeNil(), MatchError(io.EOF)))
+			Expect(count).To(BeNumerically(">", 0))
+			Expect(count).To(BeNumerically("<=", 512))
+			Expect(http.DetectContentType(imgData)).To(Equal("image/png"))
 		})
 	})
 
