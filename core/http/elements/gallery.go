@@ -99,7 +99,18 @@ func cardSpan(text, icon string) elem.Node {
 		elem.I(attrs.Props{
 			"class": icon + " pr-2",
 		}),
-		elem.Text(text),
+		elem.A(
+			attrs.Props{
+				"href":      "#!",
+				"hx-post":   "/browse/search/models",
+				"hx-target": "#search-results",
+				// TODO: this doesn't work
+				"hx-vals":      `{ "search": "` + text + `" }`,
+				"hx-indicator": ".htmx-indicator",
+			},
+			elem.Text(text),
+		),
+		//elem.Text(text),
 	)
 }
 
