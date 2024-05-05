@@ -7,4 +7,3 @@ config_file: |
   type: OVModelForCausalLM
   template:
     use_tokenizer_template: true
-
