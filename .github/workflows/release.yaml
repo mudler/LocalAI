@@ -19,12 +19,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - build: 'avx2'
+          - build: ''
             defines: ''
-          - build: 'avx'
-            defines: '-DLLAMA_AVX2=OFF'
-          - build: 'avx512'
-            defines: '-DLLAMA_AVX512=ON'
           - build: 'cuda12'
             defines: ''
           - build: 'cuda11'
@@ -74,7 +70,6 @@ jobs:
       - name: Build
         id: build
         env:
-          CMAKE_ARGS: "${{ matrix.defines }}"
           BUILD_ID: "${{ matrix.build }}"
         run: |
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
@@ -124,63 +119,7 @@ jobs:
           name: stablediffusion
           path: release/
 
-  build-macOS:
-    strategy:
-      matrix:
-        include:
-          - build: 'avx2'
-            defines: ''
-          - build: 'avx'
-            defines: '-DLLAMA_AVX2=OFF'
-          - build: 'avx512'
-            defines: '-DLLAMA_AVX512=ON'
-    runs-on: macOS-latest
-    steps:
-      - name: Clone
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.21.x'
-          cache: false
-      - name: Dependencies
-        run: |
-          brew install protobuf grpc
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-      - name: Build
-        id: build
-        env:
-          CMAKE_ARGS: "${{ matrix.defines }}"
-          BUILD_ID: "${{ matrix.build }}"
-        run: |
-          export C_INCLUDE_PATH=/usr/local/include
-          export CPLUS_INCLUDE_PATH=/usr/local/include
-          export PATH=$PATH:$GOPATH/bin
-          make dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: LocalAI-MacOS-${{ matrix.build }}
-          path: release/
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            release/*
-
-
   build-macOS-arm64:
-    strategy:
-      matrix:
-        include:
-          - build: 'avx2'
-            defines: ''
-          - build: 'avx'
-            defines: '-DLLAMA_AVX2=OFF'
-          - build: 'avx512'
-            defines: '-DLLAMA_AVX512=ON'
     runs-on: macos-14
     steps:
       - name: Clone
@@ -198,9 +137,6 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - name: Build
         id: build
-        env:
-          CMAKE_ARGS: "${{ matrix.defines }}"
-          BUILD_ID: "${{ matrix.build }}"
         run: |
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
@@ -208,7 +144,7 @@ jobs:
           make dist
       - uses: actions/upload-artifact@v4
         with:
-          name: LocalAI-MacOS-arm64-${{ matrix.build }}
+          name: LocalAI-MacOS-arm64
           path: release/
       - name: Release
         uses: softprops/action-gh-release@v2
