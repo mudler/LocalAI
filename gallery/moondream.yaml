@@ -10,9 +10,10 @@ config_file: |
       system: "\nSystem: "
       assistant: "\nAnswer: "
     stopwords:
-    - Question:
+    - "Question:"
+    - "<|endoftext|>"
     f16: true
     template:
       completion: |
         Complete the following sentence: {{.Input}}
-      chat: "{{.Input}}\nAnswer: "
+      chat: "{{.Input}}\nAnswer:\n"
