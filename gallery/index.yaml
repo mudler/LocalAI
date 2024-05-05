@@ -98,6 +98,7 @@
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
 - <<: *llama3
   name: "llama-3-8b-instruct-coder"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/0O4cIuv3wNbY68-FP7tak.jpeg
   urls:
     - https://huggingface.co/bartowski/Llama-3-8B-Instruct-Coder-GGUF
     - https://huggingface.co/rombodawg/Llama-3-8B-Instruct-Coder
