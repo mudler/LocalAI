@@ -14,6 +14,10 @@
                     <i class="fas fa-circle-info pr-2"></i>
                 </a></h2> 
             
+            Filter by type:
+            <button  hx-post="/browse/search/models" class="text-blue-500" hx-target="#search-results" 
+            hx-vals='{"search": "tts"}'
+            hx-indicator=".htmx-indicator" >TTS</button> 
         
             <span class="htmx-indicator loader"></span>
             <input class="form-control appearance-none block w-full px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search" 
