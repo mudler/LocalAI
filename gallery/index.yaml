@@ -646,7 +646,9 @@
       sha256: 09c230de47f6f843e4841656f7895cac52c6e7ec7392acb5e8527de8b775c45a
       uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-mmproj-Q8_0.gguf
 - <<: *llama3
-  name: "poppy_porpoise-v0.7-l3-8b-iq-imatrix"
+  name: "poppy_porpoise-v0.72-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix
   description: |
       "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
 
@@ -661,16 +663,16 @@
     - cpu
     - llava-1.5
   overrides:
-    mmproj: Llava_1.5_Llama3_mmproj.gguf
+    mmproj: Llava_1.5_Llama3_mmproj_updated.gguf
     parameters:
-      model: Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
+      model: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
   files:
-    - filename: Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
-      sha256: 04badadd6c88cd9c706efef8f5cd337057c805e43dd440a5936f87720c37eb33
-      uri: huggingface://Lewdiculous/Poppy_Porpoise-v0.7-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
-    - filename: Llava_1.5_Llama3_mmproj.gguf
-      sha256: d2a9ca943975f6c49c4d55886e873f676a897cff796e92410ace6c20f4efd03b
-      uri: huggingface://ChaoticNeutrals/Llava_1.5_Llama3_mmproj/mmproj-model-f16.gguf
+    - filename: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
+      sha256: 53743717f929f73aa4355229de114d9b81814cb2e83c6cc1c6517844da20bfd5
+      uri: huggingface://Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
+    - filename: Llava_1.5_Llama3_mmproj_updated.gguf
+      sha256: 4f2bb77ca60f2c932d1c6647d334f5d2cd71966c19e850081030c9883ef1906c
+      uri: huggingface://ChaoticNeutrals/LLaVA-Llama-3-8B-mmproj-Updated/llava-v1.5-8B-Updated-Stop-Token/mmproj-model-f16.gguf
 - <<: *llama3
   name: "llava-llama-3-8b-v1_1"
   description: |
