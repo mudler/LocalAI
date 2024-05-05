@@ -138,6 +138,7 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 		go func() {
 			galleryService.C <- op
+			cl.RemoveBackendConfig(galleryID)
 		}()
 
 		return c.SendString(elements.StartProgressBar(uid, "0", "Deletion"))
