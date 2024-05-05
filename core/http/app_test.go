@@ -708,8 +708,12 @@ var _ = Describe("API test", func() {
 			// The response should contain an URL
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 			dat, err := io.ReadAll(resp.Body)
-			imgUrl := string(dat)
-			Expect(err).ToNot(HaveOccurred(), imgUrl)
+			Expect(err).ToNot(HaveOccurred(), "error reading /image/generations response")
+
+			imgUrlResp := &schema.OpenAIResponse{}
+			err = json.Unmarshal(dat, imgUrlResp)
+			Expect(imgUrlResp.Data).ToNot(Or(BeNil(), BeZero()))
+			imgUrl := imgUrlResp.Data[0].URL
 			Expect(imgUrl).To(ContainSubstring("http://127.0.0.1:9090/"), imgUrl)
 			Expect(imgUrl).To(ContainSubstring(".png"), imgUrl)
 
