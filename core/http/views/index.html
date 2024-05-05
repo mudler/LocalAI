@@ -20,6 +20,10 @@
         </div>
 
         <div class="models mt-12">
+            {{ if eq (len .ModelsConfig) 0 }}
+            <h2 class="text-center text-3xl font-semibold text-gray-100">Ouch! seems you don't have any models installed! <i class="ml-2 fa-solid fa-battery-empty animate-ping"></i> </h2>
+            <p class="text-center mt-4 text-xl">..install something from the <i class="fa-solid fa-hand-point-right"></i><a class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded" href="/browse">🖼️ Gallery</a> or check the <a href="https://localai.io/basics/getting_started/" class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded"> <i class="fa-solid fa-book"></i> Getting started documentation </a></p>
+            {{ else }}
             <h2 class="text-center text-3xl font-semibold text-gray-100">Installed models</h2>
             <p class="text-center mt-4 text-xl">We have {{len .ModelsConfig}} pre-loaded models available.</p>
             <ul class="mt-8 space-y-4">
@@ -42,6 +46,7 @@
                 </li>
                 {{ end }}
             </ul>
+            {{ end }}
         </div>
     </div>
 
