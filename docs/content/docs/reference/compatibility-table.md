@@ -45,10 +45,11 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [tinydream](https://github.com/symisc/tiny-dream#tiny-dreaman-embedded-header-only-stable-diffusion-inference-c-librarypixlabiotiny-dream)         | stablediffusion               | no                       | Image                 | no                                | no                   | N/A |
 | `coqui` | Coqui    | no                       | Audio generation and Voice cloning    | no                               | no                   | CPU/CUDA |
 | `petals` | Various GPTs and quantization formats | yes                      | GPT             | no | no                  | CPU/CUDA |
-| `transformers` | Various GPTs and quantization formats | yes                      | GPT, embeddings            | yes | no                  | CPU/CUDA |
+| `transformers` | Various GPTs and quantization formats | yes                      | GPT, embeddings            | yes | yes****                  | CPU/CUDA/XPU |
 
 Note: any backend name listed above can be used in the `backend` field of the model configuration file (See [the advanced section]({{%relref "docs/advanced" %}})).
 
 - \* 7b ONLY
 - ** doesn't seem to be accurate
 - *** 7b and 40b with the `ggccv` format, for instance: https://huggingface.co/TheBloke/WizardLM-Uncensored-Falcon-40B-GGML
+- **** Only for CUDA and OpenVINO CPU/XPU acceleration.
