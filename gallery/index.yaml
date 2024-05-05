@@ -97,6 +97,21 @@
       sha256: b7bad45618e2a76cc1e89a0fbb93a2cac9bf410e27a619c8024ed6db53aa9b4a
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
 - <<: *llama3
+  name: "llama-3-8b-instruct-coder"
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-8B-Instruct-Coder-GGUF
+    - https://huggingface.co/rombodawg/Llama-3-8B-Instruct-Coder
+  description: |
+    Original model: https://huggingface.co/rombodawg/Llama-3-8B-Instruct-Coder
+    All quants made using imatrix option with dataset provided by Kalomaze here
+  overrides:
+    parameters:
+      model: Llama-3-8B-Instruct-Coder-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-8B-Instruct-Coder-Q4_K_M.gguf
+      sha256: 639ab8e3aeb7aa82cff6d8e6ef062d1c3e5a6d13e6d76e956af49f63f0e704f8
+      uri: huggingface://bartowski/Llama-3-8B-Instruct-Coder-GGUF/Llama-3-8B-Instruct-Coder-Q4_K_M.gguf
+- <<: *llama3
   name: "llama3-70b-instruct"
   overrides:
     parameters:
