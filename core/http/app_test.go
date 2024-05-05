@@ -708,9 +708,16 @@ var _ = Describe("API test", func() {
 			// The response should contain an URL
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 			dat, err := io.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred(), string(dat))
-			Expect(string(dat)).To(ContainSubstring("http://127.0.0.1:9090/"), string(dat))
-			Expect(string(dat)).To(ContainSubstring(".png"), string(dat))
+			imgUrl := string(dat)
+			Expect(err).ToNot(HaveOccurred(), imgUrl)
+			Expect(imgUrl).To(ContainSubstring("http://127.0.0.1:9090/"), imgUrl)
+			Expect(imgUrl).To(ContainSubstring(".png"), imgUrl)
+
+			imgResp, err := http.Get(imgUrl)
+			Expect(err).To(BeNil())
+			Expect(imgResp).ToNot(BeNil())
+			Expect(imgResp.StatusCode).To(Equal(200))
+			Expect(imgResp.ContentLength).To(BeNumerically(">", 0))
 
 		})
 	})
