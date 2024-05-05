@@ -672,7 +672,7 @@
       uri: huggingface://Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
     - filename: Llava_1.5_Llama3_mmproj_updated.gguf
       sha256: 4f2bb77ca60f2c932d1c6647d334f5d2cd71966c19e850081030c9883ef1906c
-      uri: huggingface://ChaoticNeutrals/LLaVA-Llama-3-8B-mmproj-Updated/llava-v1.5-8B-Updated-Stop-Token/mmproj-model-f16.gguf
+      uri: https://huggingface.co/ChaoticNeutrals/LLaVA-Llama-3-8B-mmproj-Updated/resolve/main/llava-v1.5-8B-Updated-Stop-Token/mmproj-model-f16.gguf
 - <<: *llama3
   name: "llava-llama-3-8b-v1_1"
   description: |
