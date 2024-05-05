@@ -3,6 +3,7 @@ package routes
 import (
 	"fmt"
 	"html/template"
+	"sort"
 	"strings"
 
 	"github.com/go-skynet/LocalAI/core/config"
@@ -34,11 +35,24 @@ func RegisterUIRoutes(app *fiber.App,
 	app.Get("/browse", auth, func(c *fiber.Ctx) error {
 		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
+		// Get all available tags
+		allTags := map[string]struct{}{}
+		tags := []string{}
+		for _, m := range models {
+			for _, t := range m.Tags {
+				allTags[t] = struct{}{}
+			}
+		}
+		for t := range allTags {
+			tags = append(tags, t)
+		}
+		sort.Strings(tags)
 		summary := fiber.Map{
 			"Title":        "LocalAI - Models",
 			"Version":      internal.PrintableVersion(),
 			"Models":       template.HTML(elements.ListModels(models, installingModels)),
 			"Repositories": appConfig.Galleries,
+			"AllTags":      tags,
 			//	"ApplicationConfig": appConfig,
 		}
 
