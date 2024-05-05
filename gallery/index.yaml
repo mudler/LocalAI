@@ -423,6 +423,25 @@
       sha256: 265ded6a4f439bec160f394e3083a4a20e32ebb9d1d2d85196aaab23dab87fb2
       uri: huggingface://Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix/Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
 - <<: *llama3
+  name: "llama-3-lumimaid-8b-v0.1"
+  urls:
+    - https://huggingface.co/NeverSleep/Llama-3-Lumimaid-8B-v0.1-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/d3QMaxy3peFTpSlWdWF-k.png
+  license: cc-by-nc-4.0
+  description: |
+      This model uses the Llama3 prompting format
+
+      Llama3 trained on our RP datasets, we tried to have a balance between the ERP and the RP, not too horny, but just enough.
+
+      We also added some non-RP dataset, making the model less dumb overall. It should look like a 40%/60% ratio for Non-RP/RP+ERP data.
+  overrides:
+    parameters:
+      model: Llama-3-Lumimaid-8B-v0.1.q4_k_m.gguf
+  files:
+    - filename: Llama-3-Lumimaid-8B-v0.1.q4_k_m.gguf
+      sha256: 23ac0289da0e096d5c00f6614dfd12c94dceecb02c313233516dec9225babbda
+      uri: huggingface://NeverSleep/Llama-3-Lumimaid-8B-v0.1-GGUF/Llama-3-Lumimaid-8B-v0.1.q4_k_m.gguf
+- <<: *llama3
   name: "suzume-llama-3-8B-multilingual"
   urls:
     - https://huggingface.co/lightblue/suzume-llama-3-8B-multilingual-gguf
