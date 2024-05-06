@@ -188,7 +188,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	app.Use(favicon.New(favicon.Config{
 		URL:        "/favicon.ico",
 		FileSystem: httpFS,
-		File:       "/favicon.ico",
+		File:       "favicon.ico",
 	}))
 
 	app.Use("/static", filesystem.New(filesystem.Config{
