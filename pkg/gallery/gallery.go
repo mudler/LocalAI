@@ -237,5 +237,8 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 		err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", configFile, e))
 	}
 
+	// Delete gallery config file
+	os.Remove(galleryFile)
+
 	return err
 }
