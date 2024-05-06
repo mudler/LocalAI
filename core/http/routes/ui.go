@@ -161,7 +161,7 @@ func RegisterUIRoutes(app *fiber.App,
 			return c.SendString(elements.ProgressBar("100"))
 		}
 		if status.Error != nil {
-			return c.SendString(elements.ErrorProgress(status.Error.Error()))
+			return c.SendString(elements.ErrorProgress(status.Error.Error(), status.GalleryModelName))
 		}
 
 		return c.SendString(elements.ProgressBar(fmt.Sprint(status.Progress)))
@@ -173,18 +173,22 @@ func RegisterUIRoutes(app *fiber.App,
 
 		status := galleryService.GetStatus(c.Params("uid"))
 
+		galleryID := ""
 		for _, k := range installingModels.Keys() {
 			if installingModels.Get(k) == c.Params("uid") {
+				galleryID = k
 				installingModels.Delete(k)
 			}
 		}
 
+		showDelete := true
 		displayText := "Installation completed"
 		if status.Deletion {
+			showDelete = false
 			displayText = "Deletion completed"
 		}
 
-		return c.SendString(elements.DoneProgress(c.Params("uid"), displayText))
+		return c.SendString(elements.DoneProgress(galleryID, displayText, showDelete))
 	})
 
 	// Show the Chat page
