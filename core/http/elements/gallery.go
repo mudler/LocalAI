@@ -189,6 +189,24 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 		)
 	}
 
+	reinstallButton := func(m *gallery.GalleryModel) elem.Node {
+		return elem.Button(
+			attrs.Props{
+				"data-twe-ripple-init":  "",
+				"data-twe-ripple-color": "light",
+				"class":                 "float-right inline-block rounded bg-primary ml-2 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+				"hx-swap":               "outerHTML",
+				// post the Model ID as param
+				"hx-post": "/browse/install/model/" + fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name),
+			},
+			elem.I(
+				attrs.Props{
+					"class": "fa-solid fa-arrow-rotate-right pr-2",
+				},
+			),
+			elem.Text("Reinstall"),
+		)
+	}
 	installButton := func(m *gallery.GalleryModel) elem.Node {
 		return elem.Button(
 			attrs.Props{
@@ -281,11 +299,10 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 					elem.Raw(StartProgressBar(installing.Get(galleryID), "0", "Installing")),
 				), // Otherwise, show install button (if not installed) or display "Installed"
 				elem.If(m.Installed,
-					//elem.Node(elem.Div(
-					//		attrs.Props{},
-					//	span("Installed"), deleteButton(m),
-					//	)),
-					deleteButton(m),
+					elem.Node(elem.Div(
+						attrs.Props{},
+						reinstallButton(m), deleteButton(m),
+					)),
 					installButton(m),
 				),
 			),
