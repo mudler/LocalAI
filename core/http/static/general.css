@@ -79,7 +79,7 @@ body {
 }
 
 .remote-code::after {
-    content: "\0026A0 Trust Remote Code Required ! \0026A0"
+    content: "\0026A0 Trust Remote Code Required \0026A0"
 }
 
 ul {
