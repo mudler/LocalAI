@@ -206,7 +206,8 @@ func RegisterUIRoutes(app *fiber.App,
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		if len(backendConfigs) == 0 {
-			return c.SendString("No models available")
+			// If no model is available redirect to the index which suggests how to install models
+			return c.Redirect("/")
 		}
 
 		summary := fiber.Map{
@@ -239,7 +240,8 @@ func RegisterUIRoutes(app *fiber.App,
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		if len(backendConfigs) == 0 {
-			return c.SendString("No models available")
+			// If no model is available redirect to the index which suggests how to install models
+			return c.Redirect("/")
 		}
 
 		summary := fiber.Map{
@@ -272,7 +274,8 @@ func RegisterUIRoutes(app *fiber.App,
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		if len(backendConfigs) == 0 {
-			return c.SendString("No models available")
+			// If no model is available redirect to the index which suggests how to install models
+			return c.Redirect("/")
 		}
 
 		summary := fiber.Map{
