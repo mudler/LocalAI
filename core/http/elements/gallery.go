@@ -253,6 +253,11 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 			divProperties["class"] = divProperties["class"] + " remote-code"
 		}
 
+		icon := m.Icon
+		if icon == "" {
+			icon = "https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd"
+		}
+
 		elems = append(elems,
 
 			elem.Div(divProperties,
@@ -263,7 +268,7 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 					elem.Img(attrs.Props{
 						//	"class": "rounded-t-lg object-fit object-center h-96",
 						"class": "rounded-t-lg max-h-48 max-w-96 object-cover mt-3",
-						"src":   m.Icon,
+						"src":   icon,
 					}),
 				),
 			))
