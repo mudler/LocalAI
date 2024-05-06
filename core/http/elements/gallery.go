@@ -38,7 +38,7 @@ func ErrorProgress(err string) string {
 				"tabindex":  "-1",
 				"autofocus": "",
 			},
-			elem.Text("Error"+err),
+			elem.Text("Error "+err),
 		),
 	).Render()
 }

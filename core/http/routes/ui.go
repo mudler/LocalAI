@@ -106,9 +106,9 @@ func RegisterUIRoutes(app *fiber.App,
 		installingModels.Set(galleryID, uid)
 
 		op := gallery.GalleryOp{
-			Id:          uid,
-			GalleryName: galleryID,
-			Galleries:   appConfig.Galleries,
+			Id:               uid,
+			GalleryModelName: galleryID,
+			Galleries:        appConfig.Galleries,
 		}
 		go func() {
 			galleryService.C <- op
@@ -132,9 +132,9 @@ func RegisterUIRoutes(app *fiber.App,
 		installingModels.Set(galleryID, uid)
 
 		op := gallery.GalleryOp{
-			Id:          uid,
-			Delete:      true,
-			GalleryName: galleryID,
+			Id:               uid,
+			Delete:           true,
+			GalleryModelName: galleryID,
 		}
 		go func() {
 			galleryService.C <- op
