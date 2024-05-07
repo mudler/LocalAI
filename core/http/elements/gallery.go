@@ -2,6 +2,7 @@ package elements
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/chasefleming/elem-go"
 	"github.com/chasefleming/elem-go/attrs"
@@ -13,7 +14,12 @@ const (
 	NoImage = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
 )
 
-func DoneProgress(uid, text string) string {
+func DoneProgress(galleryID, text string, showDelete bool) string {
+	// Split by @ and grab the name
+	if strings.Contains(galleryID, "@") {
+		galleryID = strings.Split(galleryID, "@")[1]
+	}
+
 	return elem.Div(
 		attrs.Props{},
 		elem.H3(
@@ -25,10 +31,11 @@ func DoneProgress(uid, text string) string {
 			},
 			elem.Text(text),
 		),
+		elem.If(showDelete, deleteButton(galleryID), reInstallButton(galleryID)),
 	).Render()
 }
 
-func ErrorProgress(err string) string {
+func ErrorProgress(err, galleryName string) string {
 	return elem.Div(
 		attrs.Props{},
 		elem.H3(
@@ -38,8 +45,9 @@ func ErrorProgress(err string) string {
 				"tabindex":  "-1",
 				"autofocus": "",
 			},
-			elem.Text("Error"+err),
+			elem.Text("Error "+err),
 		),
+		installButton(galleryName),
 	).Render()
 }
 
@@ -67,7 +75,7 @@ func StartProgressBar(uid, progress, text string) string {
 	return elem.Div(attrs.Props{
 		"hx-trigger": "done",
 		"hx-get":     "/browse/job/" + uid,
-		"hx-swap":    "outerHTML",
+		"hx-swap":    "innerHTML",
 		"hx-target":  "this",
 	},
 		elem.H3(
@@ -99,7 +107,119 @@ func cardSpan(text, icon string) elem.Node {
 		elem.I(attrs.Props{
 			"class": icon + " pr-2",
 		}),
+
 		elem.Text(text),
+
+		//elem.Text(text),
+	)
+}
+
+func searchableElement(text, icon string) elem.Node {
+	return elem.Form(
+		attrs.Props{},
+		elem.Input(
+			attrs.Props{
+				"type":  "hidden",
+				"name":  "search",
+				"value": text,
+			},
+		),
+		elem.Span(
+			attrs.Props{
+				"class": "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2",
+			},
+
+			elem.A(
+				attrs.Props{
+					//	"name":      "search",
+					//	"value":     text,
+					//"class":     "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2",
+					"href":      "#!",
+					"hx-post":   "/browse/search/models",
+					"hx-target": "#search-results",
+					// TODO: this doesn't work
+					//	"hx-vals":      `{ \"search\": \"` + text + `\" }`,
+					"hx-indicator": ".htmx-indicator",
+				},
+				elem.I(attrs.Props{
+					"class": icon + " pr-2",
+				}),
+				elem.Text(text),
+			),
+		),
+
+		//elem.Text(text),
+	)
+}
+
+func link(text, url string) elem.Node {
+	return elem.A(
+		attrs.Props{
+			"class":  "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2",
+			"href":   url,
+			"target": "_blank",
+		},
+		elem.I(attrs.Props{
+			"class": "fas fa-link pr-2",
+		}),
+		elem.Text(text),
+	)
+}
+func installButton(galleryName string) elem.Node {
+	return elem.Button(
+		attrs.Props{
+			"data-twe-ripple-init":  "",
+			"data-twe-ripple-color": "light",
+			"class":                 "float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+			"hx-swap":               "outerHTML",
+			// post the Model ID as param
+			"hx-post": "/browse/install/model/" + galleryName,
+		},
+		elem.I(
+			attrs.Props{
+				"class": "fa-solid fa-download pr-2",
+			},
+		),
+		elem.Text("Install"),
+	)
+}
+
+func reInstallButton(galleryName string) elem.Node {
+	return elem.Button(
+		attrs.Props{
+			"data-twe-ripple-init":  "",
+			"data-twe-ripple-color": "light",
+			"class":                 "float-right inline-block rounded bg-primary ml-2 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+			"hx-swap":               "outerHTML",
+			// post the Model ID as param
+			"hx-post": "/browse/install/model/" + galleryName,
+		},
+		elem.I(
+			attrs.Props{
+				"class": "fa-solid fa-arrow-rotate-right pr-2",
+			},
+		),
+		elem.Text("Reinstall"),
+	)
+}
+
+func deleteButton(modelName string) elem.Node {
+	return elem.Button(
+		attrs.Props{
+			"data-twe-ripple-init":  "",
+			"data-twe-ripple-color": "light",
+			"hx-confirm":            "Are you sure you wish to delete the model?",
+			"class":                 "float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2 focus:bg-red-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-red-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+			"hx-swap":               "outerHTML",
+			// post the Model ID as param
+			"hx-post": "/browse/delete/model/" + modelName,
+		},
+		elem.I(
+			attrs.Props{
+				"class": "fa-solid fa-cancel pr-2",
+			},
+		),
+		elem.Text("Delete"),
 	)
 }
 
@@ -114,43 +234,6 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 	// 		elem.Text(s),
 	// 	)
 	// }
-	deleteButton := func(m *gallery.GalleryModel) elem.Node {
-		return elem.Button(
-			attrs.Props{
-				"data-twe-ripple-init":  "",
-				"data-twe-ripple-color": "light",
-				"class":                 "float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2 focus:bg-red-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-red-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
-				"hx-swap":               "outerHTML",
-				// post the Model ID as param
-				"hx-post": "/browse/delete/model/" + m.Name,
-			},
-			elem.I(
-				attrs.Props{
-					"class": "fa-solid fa-cancel pr-2",
-				},
-			),
-			elem.Text("Delete"),
-		)
-	}
-
-	installButton := func(m *gallery.GalleryModel) elem.Node {
-		return elem.Button(
-			attrs.Props{
-				"data-twe-ripple-init":  "",
-				"data-twe-ripple-color": "light",
-				"class":                 "float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
-				"hx-swap":               "outerHTML",
-				// post the Model ID as param
-				"hx-post": "/browse/install/model/" + fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name),
-			},
-			elem.I(
-				attrs.Props{
-					"class": "fa-solid fa-download pr-2",
-				},
-			),
-			elem.Text("Install"),
-		)
-	}
 
 	descriptionDiv := func(m *gallery.GalleryModel) elem.Node {
 
@@ -187,25 +270,26 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 			)
 		}
 
+		tagsNodes := []elem.Node{}
 		for _, tag := range m.Tags {
-			nodes = append(nodes,
-				cardSpan(tag, "fas fa-tag"),
+			tagsNodes = append(tagsNodes,
+				searchableElement(tag, "fas fa-tag"),
 			)
 		}
 
+		nodes = append(nodes,
+			elem.Div(
+				attrs.Props{
+					"class": "flex flex-row flex-wrap content-center",
+				},
+				tagsNodes...,
+			),
+		)
+
 		for i, url := range m.URLs {
 			nodes = append(nodes,
-				elem.A(
-					attrs.Props{
-						"class":  "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2",
-						"href":   url,
-						"target": "_blank",
-					},
-					elem.I(attrs.Props{
-						"class": "fas fa-link pr-2",
-					}),
-					elem.Text("Link #"+fmt.Sprintf("%d", i+1)),
-				))
+				link("Link #"+fmt.Sprintf("%d", i+1), url),
+			)
 		}
 
 		return elem.Div(
@@ -224,12 +308,12 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 					elem.Raw(StartProgressBar(installing.Get(galleryID), "0", "Installing")),
 				), // Otherwise, show install button (if not installed) or display "Installed"
 				elem.If(m.Installed,
-					//elem.Node(elem.Div(
-					//		attrs.Props{},
-					//	span("Installed"), deleteButton(m),
-					//	)),
-					deleteButton(m),
-					installButton(m),
+					elem.Node(elem.Div(
+						attrs.Props{},
+						reInstallButton(m.ID()),
+						deleteButton(m.Name),
+					)),
+					installButton(m.ID()),
 				),
 			),
 		)
