@@ -19,7 +19,7 @@ var _ = Describe("utils/base64 tests", func() {
 		input := "data:image/png;base64,BAR"
 		b64, err := GetImageURLAsBase64(input)
 		Expect(err).To(BeNil())
-		Expect(b64).To(Equal("FOO"))
+		Expect(b64).To(Equal("BAR"))
 	})
 	It("GetImageURLAsBase64 returns an error for bogus data", func() {
 		input := "FOO"
