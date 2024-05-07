@@ -126,16 +126,16 @@ func (r *RunCMD) Run(ctx *Context) error {
 	}
 
 	if r.PreloadBackendOnly {
-		_, _, _, err := startup.Startup(opts...)
+		_, err := startup.Startup(opts...)
 		return err
 	}
 
-	cl, ml, options, err := startup.Startup(opts...)
+	app, err := startup.Startup(opts...)
 	if err != nil {
 		return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 	}
 
-	appHTTP, err := http.App(cl, ml, options)
+	appHTTP, err := http.App(app)
 	if err != nil {
 		log.Error().Err(err).Msg("error during HTTP App construction")
 		return err

@@ -4,7 +4,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
 
-	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
+	"github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -28,7 +28,9 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			return err
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, false)
+		tempFCE := ctx.NewFiberContentExtractor(ml, appConfig)
+
+		modelFile, err := tempFCE.ModelFromContext(c, input.Model, false)
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)

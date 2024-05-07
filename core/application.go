@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/model"
@@ -17,13 +18,15 @@ type Application struct {
 	// Core Low-Level Services
 	BackendConfigLoader *config.BackendConfigLoader
 	ModelLoader         *model.ModelLoader
+	StoresLoader        *model.ModelLoader
 
 	// Backend Services
-	// EmbeddingsBackendService      *backend.EmbeddingsBackendService
+	EmbeddingsBackendService *backend.EmbeddingsBackendService
 	// ImageGenerationBackendService *backend.ImageGenerationBackendService
 	// LLMBackendService             *backend.LLMBackendService
 	// TranscriptionBackendService *backend.TranscriptionBackendService
-	// TextToSpeechBackendService  *backend.TextToSpeechBackendService
+	TextToSpeechBackendService *backend.TextToSpeechBackendService
+	// RerankBackendService       *backend.RerankBackendService
 
 	// LocalAI System Services
 	BackendMonitorService *services.BackendMonitorService
@@ -31,6 +34,7 @@ type Application struct {
 	ListModelsService     *services.ListModelsService
 	LocalAIMetricsService *services.LocalAIMetricsService
 	// OpenAIService         *services.OpenAIService
+
 }
 
 // TODO [NEXT PR?]: Break up ApplicationConfig.

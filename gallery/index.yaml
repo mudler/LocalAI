@@ -335,7 +335,7 @@
       model: Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
   files:
     - filename: Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
-      sha256: 9e98cd2672f716a0872912fdc4877969efd14d6f682f28e156f8591591c00d9c
+      sha256: 159eb62f2c8ae8fee10d9ed8386ce592327ca062807194a88e10b7cbb47ef986
       uri: huggingface://Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix/Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
 - <<: *llama3
   name: "openbiollm-llama3-8b"
@@ -1056,11 +1056,19 @@
   urls:
     - https://huggingface.co/fakezeta/Phi-3-mini-128k-instruct-ov-int8
   overrides:
+    trust_remote_code: true
     context_size: 131072
     parameters:
       model: fakezeta/Phi-3-mini-128k-instruct-ov-int8
     stopwords:
       - <|end|>
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - phi3
+    - cpu
+    - Remote Code Enabled
 - <<: *openvino
   name: "openvino-starling-lm-7b-beta-openvino-int8"
   urls:
@@ -1069,6 +1077,12 @@
     context_size: 8192
     parameters:
       model: fakezeta/Starling-LM-7B-beta-openvino-int8
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - mistral
+    - cpu
 - <<: *openvino
   name: "openvino-wizardlm2"
   urls:
@@ -1077,6 +1091,50 @@
     context_size: 8192
     parameters:
       model: fakezeta/Not-WizardLM-2-7B-ov-int8
+- <<: *openvino
+  name: "openvino-hermes2pro-llama3"
+  urls:
+    - https://huggingface.co/fakezeta/Hermes-2-Pro-Llama-3-8B-ov-int8
+  overrides:
+    context_size: 8192
+    parameters:
+      model: fakezeta/Hermes-2-Pro-Llama-3-8B-ov-int8
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - llama3
+    - cpu
+- <<: *openvino
+  name: "openvino-multilingual-e5-base"
+  urls:
+    - https://huggingface.co/intfloat/multilingual-e5-base
+  overrides:
+    embeddings: true
+    type: OVModelForFeatureExtraction
+    parameters:
+      model: intfloat/multilingual-e5-base
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - embedding
+    - cpu
+- <<: *openvino
+  name: "openvino-all-MiniLM-L6-v2"
+  urls:
+    - https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+  overrides:
+    embeddings: true
+    type: OVModelForFeatureExtraction
+    parameters:
+      model: sentence-transformers/all-MiniLM-L6-v2
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - embedding
+    - cpu
 ### START Embeddings
 - &sentencentransformers
   description: |

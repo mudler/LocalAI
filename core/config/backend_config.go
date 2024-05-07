@@ -1,6 +1,8 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/go-skynet/LocalAI/core/schema"
@@ -330,5 +332,205 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if debug {
 		cfg.Debug = &trueV
+	}
+}
+
+func (config *BackendConfig) UpdateFromOpenAIRequest(input *schema.OpenAIRequest) {
+	if input.Echo {
+		config.Echo = input.Echo
+	}
+	if input.TopK != nil {
+		config.TopK = input.TopK
+	}
+	if input.TopP != nil {
+		config.TopP = input.TopP
+	}
+
+	if input.Backend != "" {
+		config.Backend = input.Backend
+	}
+
+	if input.ClipSkip != 0 {
+		config.Diffusers.ClipSkip = input.ClipSkip
+	}
+
+	if input.ModelBaseName != "" {
+		config.AutoGPTQ.ModelBaseName = input.ModelBaseName
+	}
+
+	if input.NegativePromptScale != 0 {
+		config.NegativePromptScale = input.NegativePromptScale
+	}
+
+	if input.UseFastTokenizer {
+		config.UseFastTokenizer = input.UseFastTokenizer
+	}
+
+	if input.NegativePrompt != "" {
+		config.NegativePrompt = input.NegativePrompt
+	}
+
+	if input.RopeFreqBase != 0 {
+		config.RopeFreqBase = input.RopeFreqBase
+	}
+
+	if input.RopeFreqScale != 0 {
+		config.RopeFreqScale = input.RopeFreqScale
+	}
+
+	if input.Grammar != "" {
+		config.Grammar = input.Grammar
+	}
+
+	if input.Temperature != nil {
+		config.Temperature = input.Temperature
+	}
+
+	if input.Maxtokens != nil {
+		config.Maxtokens = input.Maxtokens
+	}
+
+	switch stop := input.Stop.(type) {
+	case string:
+		if stop != "" {
+			config.StopWords = append(config.StopWords, stop)
+		}
+	case []interface{}:
+		for _, pp := range stop {
+			if s, ok := pp.(string); ok {
+				config.StopWords = append(config.StopWords, s)
+			}
+		}
+	}
+
+	if len(input.Tools) > 0 {
+		for _, tool := range input.Tools {
+			input.Functions = append(input.Functions, tool.Function)
+		}
+	}
+
+	if input.ToolsChoice != nil {
+		var toolChoice functions.Tool
+
+		switch content := input.ToolsChoice.(type) {
+		case string:
+			_ = json.Unmarshal([]byte(content), &toolChoice)
+		case map[string]interface{}:
+			dat, _ := json.Marshal(content)
+			_ = json.Unmarshal(dat, &toolChoice)
+		}
+		input.FunctionCall = map[string]interface{}{
+			"name": toolChoice.Function.Name,
+		}
+	}
+
+	// Decode each request's message content
+	index := 0
+	for i, m := range input.Messages {
+		switch content := m.Content.(type) {
+		case string:
+			input.Messages[i].StringContent = content
+		case []interface{}:
+			dat, _ := json.Marshal(content)
+			c := []schema.Content{}
+			json.Unmarshal(dat, &c)
+			for _, pp := range c {
+				if pp.Type == "text" {
+					input.Messages[i].StringContent = pp.Text
+				} else if pp.Type == "image_url" {
+					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
+					base64, err := utils.GetImageURLAsBase64(pp.ImageURL.URL)
+					if err == nil {
+						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
+						// set a placeholder for each image
+						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
+						index++
+					} else {
+						fmt.Print("Failed encoding image", err)
+					}
+				}
+			}
+		}
+	}
+
+	if input.RepeatPenalty != 0 {
+		config.RepeatPenalty = input.RepeatPenalty
+	}
+
+	if input.FrequencyPenalty != 0 {
+		config.FrequencyPenalty = input.FrequencyPenalty
+	}
+
+	if input.PresencePenalty != 0 {
+		config.PresencePenalty = input.PresencePenalty
+	}
+
+	if input.Keep != 0 {
+		config.Keep = input.Keep
+	}
+
+	if input.Batch != 0 {
+		config.Batch = input.Batch
+	}
+
+	if input.IgnoreEOS {
+		config.IgnoreEOS = input.IgnoreEOS
+	}
+
+	if input.Seed != nil {
+		config.Seed = input.Seed
+	}
+
+	if input.TypicalP != nil {
+		config.TypicalP = input.TypicalP
+	}
+
+	switch inputs := input.Input.(type) {
+	case string:
+		if inputs != "" {
+			config.InputStrings = append(config.InputStrings, inputs)
+		}
+	case []interface{}:
+		for _, pp := range inputs {
+			switch i := pp.(type) {
+			case string:
+				config.InputStrings = append(config.InputStrings, i)
+			case []interface{}:
+				tokens := []int{}
+				for _, ii := range i {
+					tokens = append(tokens, int(ii.(float64)))
+				}
+				config.InputToken = append(config.InputToken, tokens)
+			}
+		}
+	}
+
+	// Can be either a string or an object
+	switch fnc := input.FunctionCall.(type) {
+	case string:
+		if fnc != "" {
+			config.SetFunctionCallString(fnc)
+		}
+	case map[string]interface{}:
+		var name string
+		n, exists := fnc["name"]
+		if exists {
+			nn, e := n.(string)
+			if e {
+				name = nn
+			}
+		}
+		config.SetFunctionCallNameString(name)
+	}
+
+	switch p := input.Prompt.(type) {
+	case string:
+		config.PromptStrings = append(config.PromptStrings, p)
+	case []interface{}:
+		for _, pp := range p {
+			if s, ok := pp.(string); ok {
+				config.PromptStrings = append(config.PromptStrings, s)
+			}
+		}
 	}
 }

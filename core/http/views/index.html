@@ -16,16 +16,31 @@
             <p class="mt-4 text-lg">The FOSS alternative to OpenAI, Claude, ...</p>
             <a href="https://localai.io" target="_blank" class="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded-lg shadow transition duration-300 ease-in-out hover:bg-blue-700 hover:shadow-lg">
                 <i class="fas fa-book-reader pr-2"></i>Documentation
-            </a>
+            </a>    
         </div>
 
         <div class="models mt-12">
+            {{ if eq (len .ModelsConfig) 0 }}
+            <h2 class="text-center text-3xl font-semibold text-gray-100"> <i class="text-yellow-200 ml-2 fa-solid fa-triangle-exclamation animate-pulse"></i> Ouch! seems you don't have any models installed!</h2>
+            <p class="text-center mt-4 text-xl">..install something from the <a class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded" href="/browse">🖼️ Gallery</a> or check the <a href="https://localai.io/basics/getting_started/" class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded"> <i class="fa-solid fa-book"></i> Getting started documentation </a></p>
+            {{ else }}
             <h2 class="text-center text-3xl font-semibold text-gray-100">Installed models</h2>
             <p class="text-center mt-4 text-xl">We have {{len .ModelsConfig}} pre-loaded models available.</p>
             <ul class="mt-8 space-y-4">
+                {{$galleryConfig:=.GalleryConfig}}
                 {{ range .ModelsConfig }}
+                {{ $cfg:= index $galleryConfig .Name}}
                 <li class="bg-gray-800 border border-gray-700 p-4 rounded-lg">
                     <div class="flex justify-between items-center">
+            
+                        <img {{ if $cfg.Icon }}
+                            src="{{$cfg.Icon}}"
+                            {{ else }}
+                            src="https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
+                            {{ end }}
+                            class="rounded-t-lg max-h-24 max-w-24 object-cover mt-3"
+                            >
+                     
                         <p class="font-bold text-white flex items-center"><i class="fas fa-brain pr-2"></i>{{.Name}}</p>
                         {{ if .Backend }}
                         <!-- Badge for Backend -->
@@ -37,11 +52,16 @@
                             auto
                         </span>
                         {{ end }}
+
+                        <button 
+                            class="float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2 focus:bg-red-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-red-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong" 
+                            data-twe-ripple-color="light" data-twe-ripple-init="" hx-confirm="Are you sure you wish to delete the model?" hx-post="/browse/delete/model/{{.Name}}" hx-swap="outerHTML"><i class="fa-solid fa-cancel pr-2"></i>Delete</button>
                     </div>
                     <!-- Additional details can go here -->
                 </li>
                 {{ end }}
             </ul>
+            {{ end }}
         </div>
     </div>
 

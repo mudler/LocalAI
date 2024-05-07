@@ -150,11 +150,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     devices = Core().available_devices
                     if "GPU" in " ".join(devices):
                         device_map="AUTO:GPU"
-
+                # While working on a fine tuned model, inference may give an inaccuracy and performance drop on GPU if winograd convolutions are selected. 
+                # https://docs.openvino.ai/2024/openvino-workflow/running-inference/inference-devices-and-modes/gpu-device.html
+                if "CPU" or "NPU" in device_map:
+                    if "-CPU" or "-NPU" not in device_map:
+                        ovconfig={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT"}
+                else:
+                    ovconfig={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT","GPU_DISABLE_WINOGRAD_CONVOLUTION": "YES"}
                 self.model = OVModelForCausalLM.from_pretrained(model_name, 
                                                                 compile=True,
                                                                 trust_remote_code=request.TrustRemoteCode,
-                                                                ov_config={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT","GPU_DISABLE_WINOGRAD_CONVOLUTION": "YES"}, 
+                                                                ov_config=ovconfig,
                                                                 device=device_map)
                 self.OV = True
             elif request.Type == "OVModelForFeatureExtraction":
@@ -168,11 +174,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     devices = Core().available_devices
                     if "GPU" in " ".join(devices):
                         device_map="AUTO:GPU"
-
+                # While working on a fine tuned model, inference may give an inaccuracy and performance drop on GPU if winograd convolutions are selected. 
+                # https://docs.openvino.ai/2024/openvino-workflow/running-inference/inference-devices-and-modes/gpu-device.html
+                if "CPU" or "NPU" in device_map:
+                    if "-CPU" or "-NPU" not in device_map:
+                        ovconfig={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT"}
+                else:
+                    ovconfig={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT","GPU_DISABLE_WINOGRAD_CONVOLUTION": "YES"}
                 self.model = OVModelForFeatureExtraction.from_pretrained(model_name, 
                                                                 compile=True,
                                                                 trust_remote_code=request.TrustRemoteCode,
-                                                                ov_config={"PERFORMANCE_HINT": "CUMULATIVE_THROUGHPUT", "GPU_DISABLE_WINOGRAD_CONVOLUTION": "YES"}, 
+                                                                ov_config=ovconfig, 
                                                                 export=True,
                                                                 device=device_map)
                 self.OV = True
@@ -234,8 +246,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # Pool to get sentence embeddings; i.e. generate one 1024 vector for the entire sentence
         sentence_embeddings = mean_pooling(model_output, encoded_input['attention_mask'])
-        print("Calculated embeddings for: " + request.Embeddings, file=sys.stderr)
-        print("Embeddings:", sentence_embeddings, file=sys.stderr)
+#        print("Calculated embeddings for: " + request.Embeddings, file=sys.stderr)
+#        print("Embeddings:", sentence_embeddings, file=sys.stderr)
         return backend_pb2.EmbeddingResult(embeddings=sentence_embeddings[0])
 
     async def _predict(self, request, context, streaming=False): 

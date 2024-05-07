@@ -20,7 +20,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
-	"github.com/go-skynet/LocalAI/pkg/model"
+
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -205,9 +205,6 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
-	var bcl *config.BackendConfigLoader
-	var ml *model.ModelLoader
-	var applicationConfig *config.ApplicationConfig
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -251,7 +248,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGalleries(galleries),
@@ -260,7 +257,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -607,7 +604,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithAudioDir(tmpdir),
@@ -618,7 +615,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -708,10 +705,26 @@ var _ = Describe("API test", func() {
 			// The response should contain an URL
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 			dat, err := io.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred(), string(dat))
-			Expect(string(dat)).To(ContainSubstring("http://127.0.0.1:9090/"), string(dat))
-			Expect(string(dat)).To(ContainSubstring(".png"), string(dat))
+			Expect(err).ToNot(HaveOccurred(), "error reading /image/generations response")
 
+			imgUrlResp := &schema.OpenAIResponse{}
+			err = json.Unmarshal(dat, imgUrlResp)
+			Expect(imgUrlResp.Data).ToNot(Or(BeNil(), BeZero()))
+			imgUrl := imgUrlResp.Data[0].URL
+			Expect(imgUrl).To(ContainSubstring("http://127.0.0.1:9090/"), imgUrl)
+			Expect(imgUrl).To(ContainSubstring(".png"), imgUrl)
+
+			imgResp, err := http.Get(imgUrl)
+			Expect(err).To(BeNil())
+			Expect(imgResp).ToNot(BeNil())
+			Expect(imgResp.StatusCode).To(Equal(200))
+			Expect(imgResp.ContentLength).To(BeNumerically(">", 0))
+			imgData := make([]byte, 512)
+			count, err := io.ReadFull(imgResp.Body, imgData)
+			Expect(err).To(Or(BeNil(), MatchError(io.EOF)))
+			Expect(count).To(BeNumerically(">", 0))
+			Expect(count).To(BeNumerically("<=", 512))
+			Expect(http.DetectContentType(imgData)).To(Equal("image/png"))
 		})
 	})
 
@@ -722,14 +735,14 @@ var _ = Describe("API test", func() {
 
 			var err error
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := startup.Startup(
 				append(commonOpts,
 					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -1008,14 +1021,14 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")

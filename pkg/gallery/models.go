@@ -40,8 +40,10 @@ prompt_templates:
 */
 // Config is the model configuration which contains all the model details
 // This configuration is read from the gallery endpoint and is used to download and install the model
+// It is the internal structure, separated from the request
 type Config struct {
 	Description     string           `yaml:"description"`
+	Icon            string           `yaml:"icon"`
 	License         string           `yaml:"license"`
 	URLs            []string         `yaml:"urls"`
 	Name            string           `yaml:"name"`
