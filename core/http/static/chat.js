@@ -39,11 +39,13 @@ function submitSystemPrompt(event) {
   document.getElementById("systemPrompt").blur();
 }
   
+var image = "";
+
 function submitPrompt(event) {
   event.preventDefault();
 
   const input = document.getElementById("input").value;
-  Alpine.store("chat").add("user", input);
+  Alpine.store("chat").add("user", input, image);
   document.getElementById("input").value = "";
   const key = localStorage.getItem("key");
   const systemPrompt = localStorage.getItem("system_prompt");
@@ -51,7 +53,6 @@ function submitPrompt(event) {
   promptGPT(systemPrompt, key, input);
 }
 
-var image = "";
 function readInputImage() {
   
   if (!this.files || !this.files[0]) return;
@@ -85,32 +86,61 @@ function readInputImage() {
       });
     }
 
-    if (image) {
-      // take the last element content's and add the image
-      last_message = messages[messages.length - 1]
-      // The content field now becomes an array
-      last_message.content = [
-        {
-          "type": "text",
-          "text": last_message.content
-        }
-       ]
-      last_message.content.push(
-        {
-          "type": "image_url",
-          "image_url": {
-            "url": image,
+    // loop all messages, and check if there are images. If there are, we need to change the content field
+    messages.forEach((message) => {
+      if (message.image) {
+        // The content field now becomes an array
+        message.content = [
+          {
+            "type": "text",
+            "text": message.content
           }
-        }
-      );
-      // and we replace it in the messages array
-      messages[messages.length - 1] = last_message
+        ]
+        message.content.push(
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": message.image,
+            }
+          }
+        );
 
-      // reset the form and the image
-      image = "";
-      document.getElementById("input_image").value = null;
-      document.getElementById("fileName").innerHTML = "";
-    }
+        // remove the image field
+        delete message.image;
+      }
+    });
+
+       // reset the form and the image
+       image = "";
+       document.getElementById("input_image").value = null;
+       document.getElementById("fileName").innerHTML = "";
+
+    // if (image) {
+    //   // take the last element content's and add the image
+    //   last_message = messages[messages.length - 1]
+    //   // The content field now becomes an array
+    //   last_message.content = [
+    //     {
+    //       "type": "text",
+    //       "text": last_message.content
+    //     }
+    //    ]
+    //   last_message.content.push(
+    //     {
+    //       "type": "image_url",
+    //       "image_url": {
+    //         "url": image,
+    //       }
+    //     }
+    //   );
+    //   // and we replace it in the messages array
+    //   messages[messages.length - 1] = last_message
+
+    //   // reset the form and the image
+    //   image = "";
+    //   document.getElementById("input_image").value = null;
+    //   document.getElementById("fileName").innerHTML = "";
+    // }
 
     // Source: https://stackoverflow.com/a/75751803/11386095
     const response = await fetch("/v1/chat/completions", {

@@ -128,6 +128,9 @@ SOFTWARE.
             <template x-if="message.role === 'assistant'">
               <div class="p-2 flex-1 rounded" :class="message.role" x-html="message.html"></div>
             </template>
+            <template x-if="message.image">
+              <img :src="message.image" alt="Image" class="rounded-lg mt-2 h-36 w-36">
+            </template>
           </div>
         </div>
       </template>
@@ -167,7 +170,7 @@ SOFTWARE.
           clear() {
             this.history.length = 0;
           },
-          add(role, content) {
+          add(role, content, image) {
             const N = this.history.length - 1;
             if (this.history.length && this.history[N].role === role) {
               this.history[N].content += content;
@@ -188,6 +191,7 @@ SOFTWARE.
                 role: role,
                 content: content,
                 html: c,
+                image: image,
               });
             }
 
@@ -212,6 +216,7 @@ SOFTWARE.
               return {
                 role: message.role,
                 content: message.content,
+                image: message.image,
               };
             });
           },
