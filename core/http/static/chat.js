@@ -217,14 +217,18 @@ function readInputImage() {
   document.getElementById("input").focus();
   document.getElementById("input_image").addEventListener("change", readInputImage);
 
-  const storeKey = localStorage.getItem("key");
+  storeKey = localStorage.getItem("key");
   if (storeKey) {
     document.getElementById("apiKey").value = storeKey;
+  } else {
+    document.getElementById("apiKey").value = null;
   }
 
-  const storesystemPrompt = localStorage.getItem("system_prompt");
+  storesystemPrompt = localStorage.getItem("system_prompt");
   if (storesystemPrompt) {
     document.getElementById("systemPrompt").value = storesystemPrompt;
+  } else {
+    document.getElementById("systemPrompt").value = null;
   }
   
   marked.setOptions({
