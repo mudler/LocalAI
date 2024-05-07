@@ -10,8 +10,6 @@
     <div class="container mx-auto px-4 flex-grow">
         <div class="header text-center py-12">
             <h1 class="text-5xl font-bold text-gray-100">Welcome to <i>your</i> LocalAI instance!</h1>
-            <div class="mt-6">
-            </div>
             <p class="mt-4 text-lg">The FOSS alternative to OpenAI, Claude, ...</p>
             <a href="https://localai.io" target="_blank" class="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded-lg shadow transition duration-300 ease-in-out hover:bg-blue-700 hover:shadow-lg">
                 <i class="fas fa-book-reader pr-2"></i>Documentation
@@ -19,11 +17,35 @@
         </div>
 
         <div class="models mt-4">
+
+            <!-- Show in progress operations-->
+            {{ if .ProcessingModels }}
+            <h3 
+                class="mt-4 mb-4 text-center text-3xl font-semibold text-gray-100">Operations in progress</h2>          
+            {{end}}
+            {{$taskType:=.TaskTypes}}
+            {{ range $key,$value:=.ProcessingModels }} 
+                {{ $op := index $taskType $key}}
+                {{$parts := split "@" $key}}
+                 <div class="flex items-center justify-between bg-slate-600 p-2 mb-2 rounded-md">
+                    <div class="flex items center">
+                        <span class="text-gray-300"><a href="/browse?term={{$parts._1}}"
+                            class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
+                            >{{$parts._1}}</a> (from the '{{$parts._0}}' repository)</span>
+                    </div>
+                    <div hx-get="/browse/job/{{$value}}" hx-swap="innerHTML" hx-target="this" hx-trigger="done">
+                        <h3 role="status" id="pblabel" >{{$op}}
+                            <div hx-get="/browse/job/progress/{{$value}}" hx-trigger="every 600ms" hx-target="this"
+                            hx-swap=  "innerHTML"  ></div></h3>
+                    </div>     
+                </div>    
+            {{ end }}
+            <!-- END Show in progress operations-->
+    
             {{ if eq (len .ModelsConfig) 0 }}
             <h2 class="text-center text-3xl font-semibold text-gray-100"> <i class="text-yellow-200 ml-2 fa-solid fa-triangle-exclamation animate-pulse"></i> Ouch! seems you don't have any models installed!</h2>
             <p class="text-center mt-4 text-xl">..install something from the <a class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded" href="/browse">🖼️ Gallery</a> or check the <a href="https://localai.io/basics/getting_started/" class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded"> <i class="fa-solid fa-book"></i> Getting started documentation </a></p>
             {{ else }}
-        
             <h2 class="text-center text-3xl font-semibold text-gray-100">Installed models</h2>
             <p class="text-center mt-4 text-xl">We have {{len .ModelsConfig}} pre-loaded models available.</p>
             <table class="table-auto mt-4 w-full text-left text-gray-200">
@@ -79,6 +101,9 @@
                 </tbody>
             </table>
             {{ end }}
+
+
+
         </div>
     </div>
 

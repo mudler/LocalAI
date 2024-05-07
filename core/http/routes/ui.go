@@ -26,10 +26,30 @@ func RegisterUIRoutes(app *fiber.App,
 	galleryService *services.GalleryService,
 	auth func(*fiber.Ctx) error) {
 
-	app.Get("/", auth, localai.WelcomeEndpoint(appConfig, cl, ml))
-
 	// keeps the state of models that are being installed from the UI
-	var installingModels = xsync.NewSyncedMap[string, string]()
+	var processingModels = xsync.NewSyncedMap[string, string]()
+
+	// modelStatus returns the current status of the models being processed (installation or deletion)
+	// it is called asynchonously from the UI
+	modelStatus := func() (map[string]string, map[string]string) {
+		processingModelsData := processingModels.Map()
+
+		taskTypes := map[string]string{}
+
+		for k, v := range processingModelsData {
+			status := galleryService.GetStatus(v)
+			taskTypes[k] = "Installation"
+			if status != nil && status.Deletion {
+				taskTypes[k] = "Deletion"
+			} else if status == nil {
+				taskTypes[k] = "Waiting"
+			}
+		}
+
+		return processingModelsData, taskTypes
+	}
+
+	app.Get("/", auth, localai.WelcomeEndpoint(appConfig, cl, ml, modelStatus))
 
 	// Show the Models page (all models)
 	app.Get("/browse", auth, func(c *fiber.Ctx) error {
@@ -54,12 +74,17 @@ func RegisterUIRoutes(app *fiber.App,
 			models = gallery.GalleryModels(models).Search(term)
 		}
 
+		// Get model statuses
+		processingModelsData, taskTypes := modelStatus()
+
 		summary := fiber.Map{
-			"Title":        "LocalAI - Models",
-			"Version":      internal.PrintableVersion(),
-			"Models":       template.HTML(elements.ListModels(models, installingModels)),
-			"Repositories": appConfig.Galleries,
-			"AllTags":      tags,
+			"Title":            "LocalAI - Models",
+			"Version":          internal.PrintableVersion(),
+			"Models":           template.HTML(elements.ListModels(models, processingModels, galleryService)),
+			"Repositories":     appConfig.Galleries,
+			"AllTags":          tags,
+			"ProcessingModels": processingModelsData,
+			"TaskTypes":        taskTypes,
 			//	"ApplicationConfig": appConfig,
 		}
 
@@ -79,7 +104,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
-		return c.SendString(elements.ListModels(gallery.GalleryModels(models).Search(form.Search), installingModels))
+		return c.SendString(elements.ListModels(gallery.GalleryModels(models).Search(form.Search), processingModels, galleryService))
 	})
 
 	/*
@@ -100,7 +125,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		uid := id.String()
 
-		installingModels.Set(galleryID, uid)
+		processingModels.Set(galleryID, uid)
 
 		op := gallery.GalleryOp{
 			Id:               uid,
@@ -126,7 +151,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		uid := id.String()
 
-		installingModels.Set(galleryID, uid)
+		processingModels.Set(galleryID, uid)
 
 		op := gallery.GalleryOp{
 			Id:               uid,
@@ -171,10 +196,10 @@ func RegisterUIRoutes(app *fiber.App,
 		status := galleryService.GetStatus(c.Params("uid"))
 
 		galleryID := ""
-		for _, k := range installingModels.Keys() {
-			if installingModels.Get(k) == c.Params("uid") {
+		for _, k := range processingModels.Keys() {
+			if processingModels.Get(k) == c.Params("uid") {
 				galleryID = k
-				installingModels.Delete(k)
+				processingModels.Delete(k)
 			}
 		}
 
