@@ -33,6 +33,8 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// Show the Models page (all models)
 	app.Get("/browse", auth, func(c *fiber.Ctx) error {
+		term := c.Query("term")
+
 		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
 		// Get all available tags
@@ -47,6 +49,11 @@ func RegisterUIRoutes(app *fiber.App,
 			tags = append(tags, t)
 		}
 		sort.Strings(tags)
+
+		if term != "" {
+			models = gallery.GalleryModels(models).Search(term)
+		}
+
 		summary := fiber.Map{
 			"Title":        "LocalAI - Models",
 			"Version":      internal.PrintableVersion(),
@@ -72,17 +79,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
-		filteredModels := []*gallery.GalleryModel{}
-		for _, m := range models {
-			if strings.Contains(m.Name, form.Search) ||
-				strings.Contains(m.Description, form.Search) ||
-				strings.Contains(m.Gallery.Name, form.Search) ||
-				strings.Contains(strings.Join(m.Tags, ","), form.Search) {
-				filteredModels = append(filteredModels, m)
-			}
-		}
-
-		return c.SendString(elements.ListModels(filteredModels, installingModels))
+		return c.SendString(elements.ListModels(gallery.GalleryModels(models).Search(form.Search), installingModels))
 	})
 
 	/*

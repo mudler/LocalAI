@@ -26,11 +26,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
+
 function submitKey(event) {
     event.preventDefault();
     localStorage.setItem("key", document.getElementById("apiKey").value);
     document.getElementById("apiKey").blur();
-  }
+}
+
+function submitSystemPrompt(event) {
+  event.preventDefault();
+  localStorage.setItem("system_prompt", document.getElementById("systemPrompt").value);
+  document.getElementById("systemPrompt").blur();
+}
   
 function submitPrompt(event) {
   event.preventDefault();
@@ -39,12 +46,13 @@ function submitPrompt(event) {
   Alpine.store("chat").add("user", input);
   document.getElementById("input").value = "";
   const key = localStorage.getItem("key");
+  const systemPrompt = localStorage.getItem("system_prompt");
 
-  promptGPT(key, input);
+  promptGPT(systemPrompt, key, input);
 }
 
 
-  async function promptGPT(key, input) {
+  async function promptGPT(systemPrompt, key, input) {
     const model = document.getElementById("chat-model").value;
     // Set class "loader" to the element with "loader" id
     //document.getElementById("loader").classList.add("loader");
@@ -52,6 +60,16 @@ function submitPrompt(event) {
     document.getElementById("loader").style.display = "block";
     document.getElementById("input").disabled = true;
     document.getElementById('messages').scrollIntoView(false)
+
+    messages = Alpine.store("chat").messages();
+
+    // if systemPrompt isn't empty, push it at the start of messages
+    if (systemPrompt) {
+      messages.unshift({
+        role: "system",
+        content: systemPrompt
+      });
+    }
 
     // Source: https://stackoverflow.com/a/75751803/11386095
     const response = await fetch("/v1/chat/completions", {
@@ -62,7 +80,7 @@ function submitPrompt(event) {
       },
       body: JSON.stringify({
         model: model,
-        messages: Alpine.store("chat").messages(),
+        messages: messages,
         stream: true,
       }),
     });
@@ -122,12 +140,19 @@ function submitPrompt(event) {
   }
   
   document.getElementById("key").addEventListener("submit", submitKey);
+  document.getElementById("system_prompt").addEventListener("submit", submitSystemPrompt);
+
   document.getElementById("prompt").addEventListener("submit", submitPrompt);
   document.getElementById("input").focus();
 
   const storeKey = localStorage.getItem("key");
   if (storeKey) {
     document.getElementById("apiKey").value = storeKey;
+  }
+
+  const storesystemPrompt = localStorage.getItem("system_prompt");
+  if (storesystemPrompt) {
+    document.getElementById("systemPrompt").value = storesystemPrompt;
   }
   
   marked.setOptions({
