@@ -259,6 +259,22 @@
       sha256: 1498152d598ff441f73ec6af9d3535875302e7251042d87feb7e71a3618966e8
       uri: huggingface://Undi95/Llama-3-LewdPlay-8B-evo-GGUF/Llama-3-LewdPlay-8B-evo.q8_0.gguf
 - <<: *llama3
+  name: "llama-3-soliloquy-8b-v2-iq-imatrix"
+  license: cc-by-nc-4.0
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/u98dnnRVCwMh6YYGFIyff.png
+  urls:
+    - https://huggingface.co/Lewdiculous/Llama-3-Soliloquy-8B-v2-GGUF-IQ-Imatrix
+  description: |
+    Soliloquy-L3 is a highly capable roleplaying model designed for immersive, dynamic experiences. Trained on over 250 million tokens of roleplaying data, Soliloquy-L3 has a vast knowledge base, rich literary expression, and support for up to 24k context length. It outperforms existing ~13B models, delivering enhanced roleplaying capabilities.
+  overrides:
+    context_size: 8192
+    parameters:
+      model: Llama-3-Soliloquy-8B-v2-Q4_K_M-imat.gguf
+  files:
+    - filename: Llama-3-Soliloquy-8B-v2-Q4_K_M-imat.gguf
+      sha256: 3e4e066e57875c36fc3e1c1b0dba506defa5b6ed3e3e80e1f77c08773ba14dc8
+      uri: huggingface://Lewdiculous/Llama-3-Soliloquy-8B-v2-GGUF-IQ-Imatrix/Llama-3-Soliloquy-8B-v2-Q4_K_M-imat.gguf
+- <<: *llama3
   name: "chaos-rp_l3_b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix
