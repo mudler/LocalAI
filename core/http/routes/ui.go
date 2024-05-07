@@ -3,6 +3,7 @@ package routes
 import (
 	"fmt"
 	"html/template"
+	"sort"
 	"strings"
 
 	"github.com/go-skynet/LocalAI/core/config"
@@ -34,11 +35,24 @@ func RegisterUIRoutes(app *fiber.App,
 	app.Get("/browse", auth, func(c *fiber.Ctx) error {
 		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
+		// Get all available tags
+		allTags := map[string]struct{}{}
+		tags := []string{}
+		for _, m := range models {
+			for _, t := range m.Tags {
+				allTags[t] = struct{}{}
+			}
+		}
+		for t := range allTags {
+			tags = append(tags, t)
+		}
+		sort.Strings(tags)
 		summary := fiber.Map{
 			"Title":        "LocalAI - Models",
 			"Version":      internal.PrintableVersion(),
 			"Models":       template.HTML(elements.ListModels(models, installingModels)),
 			"Repositories": appConfig.Galleries,
+			"AllTags":      tags,
 			//	"ApplicationConfig": appConfig,
 		}
 
@@ -92,9 +106,9 @@ func RegisterUIRoutes(app *fiber.App,
 		installingModels.Set(galleryID, uid)
 
 		op := gallery.GalleryOp{
-			Id:          uid,
-			GalleryName: galleryID,
-			Galleries:   appConfig.Galleries,
+			Id:               uid,
+			GalleryModelName: galleryID,
+			Galleries:        appConfig.Galleries,
 		}
 		go func() {
 			galleryService.C <- op
@@ -118,12 +132,13 @@ func RegisterUIRoutes(app *fiber.App,
 		installingModels.Set(galleryID, uid)
 
 		op := gallery.GalleryOp{
-			Id:          uid,
-			Delete:      true,
-			GalleryName: galleryID,
+			Id:               uid,
+			Delete:           true,
+			GalleryModelName: galleryID,
 		}
 		go func() {
 			galleryService.C <- op
+			cl.RemoveBackendConfig(galleryID)
 		}()
 
 		return c.SendString(elements.StartProgressBar(uid, "0", "Deletion"))
@@ -146,7 +161,7 @@ func RegisterUIRoutes(app *fiber.App,
 			return c.SendString(elements.ProgressBar("100"))
 		}
 		if status.Error != nil {
-			return c.SendString(elements.ErrorProgress(status.Error.Error()))
+			return c.SendString(elements.ErrorProgress(status.Error.Error(), status.GalleryModelName))
 		}
 
 		return c.SendString(elements.ProgressBar(fmt.Sprint(status.Progress)))
@@ -158,18 +173,22 @@ func RegisterUIRoutes(app *fiber.App,
 
 		status := galleryService.GetStatus(c.Params("uid"))
 
+		galleryID := ""
 		for _, k := range installingModels.Keys() {
 			if installingModels.Get(k) == c.Params("uid") {
+				galleryID = k
 				installingModels.Delete(k)
 			}
 		}
 
+		showDelete := true
 		displayText := "Installation completed"
 		if status.Deletion {
+			showDelete = false
 			displayText = "Deletion completed"
 		}
 
-		return c.SendString(elements.DoneProgress(c.Params("uid"), displayText))
+		return c.SendString(elements.DoneProgress(galleryID, displayText, showDelete))
 	})
 
 	// Show the Chat page
@@ -191,7 +210,8 @@ func RegisterUIRoutes(app *fiber.App,
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		if len(backendConfigs) == 0 {
-			return c.SendString("No models available")
+			// If no model is available redirect to the index which suggests how to install models
+			return c.Redirect("/")
 		}
 
 		summary := fiber.Map{
@@ -224,7 +244,8 @@ func RegisterUIRoutes(app *fiber.App,
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		if len(backendConfigs) == 0 {
-			return c.SendString("No models available")
+			// If no model is available redirect to the index which suggests how to install models
+			return c.Redirect("/")
 		}
 
 		summary := fiber.Map{
@@ -257,7 +278,8 @@ func RegisterUIRoutes(app *fiber.App,
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		if len(backendConfigs) == 0 {
-			return c.SendString("No models available")
+			// If no model is available redirect to the index which suggests how to install models
+			return c.Redirect("/")
 		}
 
 		summary := fiber.Map{

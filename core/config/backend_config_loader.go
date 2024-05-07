@@ -182,6 +182,12 @@ func (cl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
 	return res
 }
 
+func (cl *BackendConfigLoader) RemoveBackendConfig(m string) {
+	cl.Lock()
+	defer cl.Unlock()
+	delete(cl.configs, m)
+}
+
 func (cl *BackendConfigLoader) ListBackendConfigs() []string {
 	cl.Lock()
 	defer cl.Unlock()
