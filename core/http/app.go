@@ -194,14 +194,6 @@ func App(application *core.Application) (*fiber.App, error) {
 		File:       "static/favicon.ico",
 	}))
 
-	httpFS := http.FS(embedDirStatic)
-
-	app.Use(favicon.New(favicon.Config{
-		URL:        "/favicon.ico",
-		FileSystem: httpFS,
-		File:       "static/favicon.ico",
-	}))
-
 	app.Use("/static", filesystem.New(filesystem.Config{
 		Root:       httpFS,
 		PathPrefix: "static",
