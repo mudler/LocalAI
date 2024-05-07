@@ -331,12 +331,6 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 			"class": "flex justify-center items-center",
 		}
 
-		_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
-		if trustRemoteCodeExists {
-			// should this be checking for trust_remote_code: false? I don't think we ever use that value.
-			divProperties["class"] = divProperties["class"] + " remote-code"
-		}
-
 		elems = append(elems,
 
 			elem.Div(divProperties,
@@ -351,6 +345,19 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 					}),
 				),
 			))
+
+		_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
+		if trustRemoteCodeExists {
+			elems = append(elems, elem.Div(
+				attrs.Props{
+					"class": "flex justify-center items-center bg-red-500 text-white p-2 rounded-lg mt-2",
+				},
+				elem.I(attrs.Props{
+					"class": "fa-solid fa-circle-exclamation pr-2",
+				}),
+				elem.Text("Attention: Trust Remote Code is required for this model"),
+			))
+		}
 
 		elems = append(elems, descriptionDiv(m), actionDiv(m))
 		modelsElements = append(modelsElements,
