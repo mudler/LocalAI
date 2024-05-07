@@ -9,6 +9,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/functions"
 	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -446,7 +447,7 @@ func (config *BackendConfig) UpdateFromOpenAIRequest(input *schema.OpenAIRequest
 						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
 						index++
 					} else {
-						fmt.Print("Failed encoding image", err)
+						log.Error().Err(err).Msg("Failed encoding image")
 					}
 				}
 			}
