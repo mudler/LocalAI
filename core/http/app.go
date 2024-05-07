@@ -20,6 +20,7 @@ import (
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
@@ -182,8 +183,16 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	}
 	routes.RegisterJINARoutes(app, cl, ml, appConfig, auth)
 
+	httpFS := http.FS(embedDirStatic)
+
+	app.Use(favicon.New(favicon.Config{
+		URL:        "/favicon.ico",
+		FileSystem: httpFS,
+		File:       "static/favicon.ico",
+	}))
+
 	app.Use("/static", filesystem.New(filesystem.Config{
-		Root:       http.FS(embedDirStatic),
+		Root:       httpFS,
 		PathPrefix: "static",
 		Browse:     true,
 	}))
