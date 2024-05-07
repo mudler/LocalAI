@@ -15,6 +15,12 @@ func NewSyncedMap[K comparable, V any]() *SyncedMap[K, V] {
 	}
 }
 
+func (m *SyncedMap[K, V]) Map() map[K]V {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.m
+}
+
 func (m *SyncedMap[K, V]) Get(key K) V {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

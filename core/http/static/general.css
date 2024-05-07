@@ -72,16 +72,6 @@ body {
     margin: 0.5rem;
 }
 
-.remote-code { /* Attempt to make this stand out */
-    outline-style: solid;
-    outline-color: red;
-    outline-width: 0.33rem;
-}
-
-.remote-code::after {
-    content: "\0026A0 Trust Remote Code Required \0026A0"
-}
-
 ul {
     list-style-type: disc; /* Adds bullet points */
     padding-left: 1.25rem; /* Indents the list from the left margin */

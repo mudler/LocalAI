@@ -62,17 +62,34 @@ SOFTWARE.
         <button @click="component = 'key'" title="Update API key"
         class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
         >Set API Key🔑</button>
+        <button @click="component = 'system_prompt'" title="System Prompt"
+        class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
+        >Set system prompt</button>
       </div>
       <form x-show="component === 'key'" id="key">
         <input
           type="password"
           id="apiKey"
           name="apiKey"
+          class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
           placeholder="OpenAI API Key"
           x-model.lazy="key"
         />
         <button @click="component = 'menu'" type="submit" title="Save API key">
-          🔒
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+      <form x-show="component === 'system_prompt'" id="system_prompt">
+        <textarea
+          type="text"
+          id="systemPrompt"
+          name="systemPrompt"
+          class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+          placeholder="System prompt"
+          x-model.lazy="system_prompt"
+        ></textarea>
+        <button @click="component = 'menu'" type="submit" title="Save Prompt">
+          <i class="fa-solid fa-arrow-right"></i>
         </button>
       </form>
 
@@ -111,15 +128,19 @@ SOFTWARE.
             <template x-if="message.role === 'assistant'">
               <div class="p-2 flex-1 rounded" :class="message.role" x-html="message.html"></div>
             </template>
+            <template x-if="message.image">
+              <img :src="message.image" alt="Image" class="rounded-lg mt-2 h-36 w-36">
+            </template>
           </div>
         </div>
       </template>
       </div>
     </div>
 
-    <div class="p-4 border-t border-gray-700" x-data="{ inputValue: '', shiftPressed: false }">
+    <div class="p-4 border-t border-gray-700" x-data="{ inputValue: '', shiftPressed: false, fileName: ''  }">
       <div id="loader" class="my-2 loader" style="display: none;"></div>
       <input id="chat-model" type="hidden" value="{{.Model}}">
+      <input id="input_image" type="file" style="display: none;" @change="fileName = $event.target.files[0].name">
       <form id="prompt" action="/chat/{{.Model}}" method="get" @submit.prevent="submitPrompt">
           <div class="relative w-full">
               <textarea
@@ -134,7 +155,10 @@ SOFTWARE.
                   @keydown.enter="if (!shiftPressed) { submitPrompt($event); }"
                   style="padding-right: 4rem;"
               ></textarea>
-              <button type=submit><i class="fa-solid fa-circle-up text-gray-300 absolute right-2 top-3 text-lg p-2 ml-2"></i></button>
+              <span x-text="fileName" id="fileName" class="absolute right-16 top-5 text-gray-300 text-sm mr-2"></span>
+              <button type="button" onclick="document.getElementById('input_image').click()" class="fa-solid fa-paperclip text-gray-300 ml-2 absolute right-10 top-3 text-lg p-2">
+              </button>
+              <button type=submit><i class="fa-solid fa-circle-up text-gray-300 absolute right-2 top-3 text-lg p-2"></i></button>
           </div>
       </form>
   </div>
@@ -146,7 +170,7 @@ SOFTWARE.
           clear() {
             this.history.length = 0;
           },
-          add(role, content) {
+          add(role, content, image) {
             const N = this.history.length - 1;
             if (this.history.length && this.history[N].role === role) {
               this.history[N].content += content;
@@ -167,6 +191,7 @@ SOFTWARE.
                 role: role,
                 content: content,
                 html: c,
+                image: image,
               });
             }
 
@@ -191,6 +216,7 @@ SOFTWARE.
               return {
                 role: message.role,
                 content: message.content,
+                image: message.image,
               };
             });
           },

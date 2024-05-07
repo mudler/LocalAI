@@ -9,7 +9,7 @@ import (
 )
 
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
-	cl *config.BackendConfigLoader, ml *model.ModelLoader) func(*fiber.Ctx) error {
+	cl *config.BackendConfigLoader, ml *model.ModelLoader, modelStatus func() (map[string]string, map[string]string)) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		models, _ := ml.ListModels()
 		backendConfigs := cl.GetAllBackendConfigs()
@@ -24,6 +24,9 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			galleryConfigs[m.Name] = cfg
 		}
 
+		// Get model statuses to display in the UI the operation in progress
+		processingModels, taskTypes := modelStatus()
+
 		summary := fiber.Map{
 			"Title":             "LocalAI API - " + internal.PrintableVersion(),
 			"Version":           internal.PrintableVersion(),
@@ -31,6 +34,8 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			"ModelsConfig":      backendConfigs,
 			"GalleryConfig":     galleryConfigs,
 			"ApplicationConfig": appConfig,
+			"ProcessingModels":  processingModels,
+			"TaskTypes":         taskTypes,
 		}
 
 		if string(c.Context().Request.Header.ContentType()) == "application/json" || len(c.Accepts("html")) == 0 {

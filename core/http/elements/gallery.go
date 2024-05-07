@@ -6,6 +6,7 @@ import (
 
 	"github.com/chasefleming/elem-go"
 	"github.com/chasefleming/elem-go/attrs"
+	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/xsync"
 )
@@ -72,12 +73,13 @@ func StartProgressBar(uid, progress, text string) string {
 	if progress == "" {
 		progress = "0"
 	}
-	return elem.Div(attrs.Props{
-		"hx-trigger": "done",
-		"hx-get":     "/browse/job/" + uid,
-		"hx-swap":    "innerHTML",
-		"hx-target":  "this",
-	},
+	return elem.Div(
+		attrs.Props{
+			"hx-trigger": "done",
+			"hx-get":     "/browse/job/" + uid,
+			"hx-swap":    "innerHTML",
+			"hx-target":  "this",
+		},
 		elem.H3(
 			attrs.Props{
 				"role":      "status",
@@ -223,7 +225,7 @@ func deleteButton(modelName string) elem.Node {
 	)
 }
 
-func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[string, string]) string {
+func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[string, string], galleryService *services.GalleryService) string {
 	//StartProgressBar(uid, "0")
 	modelsElements := []elem.Node{}
 	// span := func(s string) elem.Node {
@@ -258,7 +260,15 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 
 	actionDiv := func(m *gallery.GalleryModel) elem.Node {
 		galleryID := fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
-		currentlyInstalling := installing.Exists(galleryID)
+		currentlyProcessing := processing.Exists(galleryID)
+		isDeletionOp := false
+		if currentlyProcessing {
+			status := galleryService.GetStatus(galleryID)
+			if status != nil && status.Deletion {
+				isDeletionOp = true
+			}
+			// if status == nil : "Waiting"
+		}
 
 		nodes := []elem.Node{
 			cardSpan("Repository: "+m.Gallery.Name, "fa-brands fa-git-alt"),
@@ -292,6 +302,11 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 			)
 		}
 
+		progressMessage := "Installation"
+		if isDeletionOp {
+			progressMessage = "Deletion"
+		}
+
 		return elem.Div(
 			attrs.Props{
 				"class": "px-6 pt-4 pb-2",
@@ -303,9 +318,9 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 				nodes...,
 			),
 			elem.If(
-				currentlyInstalling,
+				currentlyProcessing,
 				elem.Node( // If currently installing, show progress bar
-					elem.Raw(StartProgressBar(installing.Get(galleryID), "0", "Installing")),
+					elem.Raw(StartProgressBar(processing.Get(galleryID), "0", progressMessage)),
 				), // Otherwise, show install button (if not installed) or display "Installed"
 				elem.If(m.Installed,
 					elem.Node(elem.Div(
@@ -331,12 +346,6 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 			"class": "flex justify-center items-center",
 		}
 
-		_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
-		if trustRemoteCodeExists {
-			// should this be checking for trust_remote_code: false? I don't think we ever use that value.
-			divProperties["class"] = divProperties["class"] + " remote-code"
-		}
-
 		elems = append(elems,
 
 			elem.Div(divProperties,
@@ -351,6 +360,19 @@ func ListModels(models []*gallery.GalleryModel, installing *xsync.SyncedMap[stri
 					}),
 				),
 			))
+
+		_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
+		if trustRemoteCodeExists {
+			elems = append(elems, elem.Div(
+				attrs.Props{
+					"class": "flex justify-center items-center bg-red-500 text-white p-2 rounded-lg mt-2",
+				},
+				elem.I(attrs.Props{
+					"class": "fa-solid fa-circle-exclamation pr-2",
+				}),
+				elem.Text("Attention: Trust Remote Code is required for this model"),
+			))
+		}
 
 		elems = append(elems, descriptionDiv(m), actionDiv(m))
 		modelsElements = append(modelsElements,
