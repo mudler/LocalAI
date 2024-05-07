@@ -144,7 +144,7 @@ Install `xcode` from the Apps Store (needed for metalkit)
 
 ```
 # install build dependencies
-brew install abseil cmake go grpc protobuf wget
+brew install abseil cmake go grpc protobuf wget protoc-gen-go protoc-gen-go-grpc
 
 # clone the repo
 git clone https://github.com/go-skynet/LocalAI.git
