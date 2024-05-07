@@ -51,6 +51,20 @@ function submitPrompt(event) {
   promptGPT(systemPrompt, key, input);
 }
 
+var image = "";
+function readInputImage() {
+  
+  if (!this.files || !this.files[0]) return;
+    
+  const FR = new FileReader();
+    
+  FR.addEventListener("load", function(evt) {
+    image = evt.target.result;
+  }); 
+    
+  FR.readAsDataURL(this.files[0]);
+}
+
 
   async function promptGPT(systemPrompt, key, input) {
     const model = document.getElementById("chat-model").value;
@@ -69,6 +83,33 @@ function submitPrompt(event) {
         role: "system",
         content: systemPrompt
       });
+    }
+
+    if (image) {
+      // take the last element content's and add the image
+      last_message = messages[messages.length - 1]
+      // The content field now becomes an array
+      last_message.content = [
+        {
+          "type": "text",
+          "text": last_message.content
+        }
+       ]
+      last_message.content.push(
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": image,
+          }
+        }
+      );
+      // and we replace it in the messages array
+      messages[messages.length - 1] = last_message
+
+      // reset the form and the image
+      image = "";
+      document.getElementById("input_image").value = null;
+      document.getElementById("fileName").innerHTML = "";
     }
 
     // Source: https://stackoverflow.com/a/75751803/11386095
@@ -144,6 +185,7 @@ function submitPrompt(event) {
 
   document.getElementById("prompt").addEventListener("submit", submitPrompt);
   document.getElementById("input").focus();
+  document.getElementById("input_image").addEventListener("change", readInputImage);
 
   const storeKey = localStorage.getItem("key");
   if (storeKey) {

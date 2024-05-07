@@ -63,7 +63,7 @@ func getBase64Image(s string) (string, error) {
 		return encoded, nil
 	}
 
-	// if the string instead is prefixed with "data:image/jpeg;base64,", drop it
+	// if the string instead is prefixed with "data:image/...;base64,", drop it
 	dropPrefix := []string{"data:image/jpeg;base64,", "data:image/png;base64,"}
 	for _, prefix := range dropPrefix {
 		if strings.HasPrefix(s, prefix) {
