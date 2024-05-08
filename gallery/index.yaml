@@ -368,7 +368,7 @@
     parameters:
       model: openbiollm-llama3-8b.Q4_K_M.gguf
   files:
-    - filename: openbiollm-llama3-8b.Q4_K_M.gguff
+    - filename: openbiollm-llama3-8b.Q4_K_M.gguf
       sha256: 806fa724139b6a2527e33a79c25a13316188b319d4eed33e20914d7c5955d349
       uri: huggingface://aaditya/OpenBioLLM-Llama3-8B-GGUF/openbiollm-llama3-8b.Q4_K_M.gguf
 - <<: *llama3
