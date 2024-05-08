@@ -18,29 +18,7 @@
 
         <div class="models mt-4">
 
-            <!-- Show in progress operations-->
-            {{ if .ProcessingModels }}
-            <h3 
-                class="mt-4 mb-4 text-center text-3xl font-semibold text-gray-100">Operations in progress</h2>          
-            {{end}}
-            {{$taskType:=.TaskTypes}}
-            {{ range $key,$value:=.ProcessingModels }} 
-                {{ $op := index $taskType $key}}
-                {{$parts := split "@" $key}}
-                 <div class="flex items-center justify-between bg-slate-600 p-2 mb-2 rounded-md">
-                    <div class="flex items center">
-                        <span class="text-gray-300"><a href="/browse?term={{$parts._1}}"
-                            class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                            >{{$parts._1}}</a> (from the '{{$parts._0}}' repository)</span>
-                    </div>
-                    <div hx-get="/browse/job/{{$value}}" hx-swap="innerHTML" hx-target="this" hx-trigger="done">
-                        <h3 role="status" id="pblabel" >{{$op}}
-                            <div hx-get="/browse/job/progress/{{$value}}" hx-trigger="every 600ms" hx-target="this"
-                            hx-swap=  "innerHTML"  ></div></h3>
-                    </div>     
-                </div>    
-            {{ end }}
-            <!-- END Show in progress operations-->
+            {{template "views/partials/inprogress" .}}
     
             {{ if eq (len .ModelsConfig) 0 }}
             <h2 class="text-center text-3xl font-semibold text-gray-100"> <i class="text-yellow-200 ml-2 fa-solid fa-triangle-exclamation animate-pulse"></i> Ouch! seems you don't have any models installed!</h2>
@@ -92,7 +70,7 @@
                         {{ end }}
                     </td>
 
-                    <td class="px-4 py-3">
+                    <td class="px-4 py-3"> 
                         <button 
                             class="float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2 focus:bg-red-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-red-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong" 
                             data-twe-ripple-color="light" data-twe-ripple-init="" hx-confirm="Are you sure you wish to delete the model?" hx-post="/browse/delete/model/{{.Name}}" hx-swap="outerHTML"><i class="fa-solid fa-cancel pr-2"></i>Delete</button>
