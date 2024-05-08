@@ -11,9 +11,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install huggingface_hub
-          # yq
-          VERSION=v4.43.1 BINARY=yq_linux_amd64 wget https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz -O - |\
-          tar xz && sudo mv ${BINARY} /usr/bin/yq
+      - name: 'Setup yq'
+        uses: dcarbone/install-yq-action@v1.1.1
+        with:
+          version: 'v4.43.1'
+          download-compressed: true
+          force: true
       - name: Checksum checker 🔧
         run: |
           bash .github/checksum_checker.sh gallery/index.yaml
