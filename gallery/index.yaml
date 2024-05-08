@@ -1036,6 +1036,23 @@
     - filename: guillaumetell-7b.Q4_K_M.gguf
       sha256: bf08db5281619335f3ee87e229c8533b04262790063b061bb8f275c3e4de7061
       uri: huggingface://MaziyarPanahi/guillaumetell-7b-GGUF/guillaumetell-7b.Q4_K_M.gguf
+- <<: *hermes-2-pro-mistral
+  name: "kunocchini-7b-128k-test-imatrix"
+  description: |
+      The following models were included in the merge:
+
+          SanjiWatsuki/Kunoichi-DPO-v2-7B
+          Epiculous/Fett-uccine-Long-Noodle-7B-120k-Contex
+  urls:
+    - https://huggingface.co/Lewdiculous/Kunocchini-7b-128k-test-GGUF-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/9obNSalcJqCilQwr_4ssM.jpeg
+  overrides:
+    parameters:
+      model: v2_Kunocchini-7b-128k-test-Q4_K_M-imatrix.gguf
+  files:
+    - filename: "v2_Kunocchini-7b-128k-test-Q4_K_M-imatrix.gguf"
+      sha256: "5ccec35392f56f66952f8eb2ded2d8aa9a6bb511e9518899d8096326e328edef"
+      uri: "huggingface://Lewdiculous/Kunocchini-7b-128k-test-GGUF-Imatrix/v2_Kunocchini-7b-128k-test-Q4_K_M-imatrix.gguf"
 ### START Cerbero
 - url: "github:mudler/LocalAI/gallery/cerbero.yaml@master"
   icon: https://huggingface.co/galatolo/cerbero-7b/resolve/main/README.md.d/cerbero.png
