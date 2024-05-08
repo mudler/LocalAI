@@ -113,7 +113,8 @@ SOFTWARE.
 
     <div class="chat-messages p-4" id="chat" x-data="{history: $store.chat.history}">
       <p id="usage" x-show="history.length === 0">
-        Start chatting with the AI by typing a prompt in the input field below.
+        Start chatting with the AI by typing a prompt in the input field below and pressing Enter.
+        For models that support images, you can upload an image by clicking the paperclip <i class="fa-solid fa-paperclip"></i> icon.
       </p>
       <div id="messages">
       <template x-for="message in history">

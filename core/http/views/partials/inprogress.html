@@ -1,0 +1,32 @@
+ <!-- Show in progress operations-->
+ {{ if .ProcessingModels }}
+ <h2 
+     class="mt-4 mb-4 text-center text-3xl font-semibold text-gray-100">Operations in progress</h2>          
+ {{end}}
+ {{$taskType:=.TaskTypes}}
+ 
+ {{ range $key,$value:=.ProcessingModels }} 
+     {{ $op := index $taskType $key}}
+     {{$parts := split "@" $key}}
+     {{$modelName:=$parts._1}}
+     {{$repository:=$parts._0}}
+     {{ if not (contains "@" $key)}} 
+     {{$repository = ""}}
+     {{$modelName = $key}}
+     {{ end }}
+
+      <div class="flex items-center justify-between bg-slate-600 p-2 mb-2 rounded-md">
+         <div class="flex items center">
+             <span class="text-gray-300"><a href="/browse?term={{$parts._1}}"
+                 class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
+                 >{{$modelName}}</a> {{if $repository}} (from the '{{$repository}}' repository) {{end}}</span>
+         </div>
+         <div hx-get="/browse/job/{{$value}}" hx-swap="outerHTML" hx-target="this" hx-trigger="done">
+             <h3 role="status" id="pblabel" >{{$op}}
+                 <div hx-get="/browse/job/progress/{{$value}}" hx-trigger="every 600ms" 
+                 hx-target="this"
+                 hx-swap="innerHTML"  ></div></h3>
+         </div>     
+     </div>                   
+ {{ end }}
+ <!-- END Show in progress operations-->

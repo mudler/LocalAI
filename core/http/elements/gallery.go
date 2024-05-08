@@ -12,17 +12,20 @@ import (
 )
 
 const (
-	NoImage = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
+	noImage = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
 )
 
 func DoneProgress(galleryID, text string, showDelete bool) string {
+	var modelName = galleryID
 	// Split by @ and grab the name
 	if strings.Contains(galleryID, "@") {
-		galleryID = strings.Split(galleryID, "@")[1]
+		modelName = strings.Split(galleryID, "@")[1]
 	}
 
 	return elem.Div(
-		attrs.Props{},
+		attrs.Props{
+			"id": "action-div-" + dropBadChars(galleryID),
+		},
 		elem.H3(
 			attrs.Props{
 				"role":      "status",
@@ -32,7 +35,7 @@ func DoneProgress(galleryID, text string, showDelete bool) string {
 			},
 			elem.Text(text),
 		),
-		elem.If(showDelete, deleteButton(galleryID), reInstallButton(galleryID)),
+		elem.If(showDelete, deleteButton(galleryID, modelName), reInstallButton(galleryID)),
 	).Render()
 }
 
@@ -77,7 +80,7 @@ func StartProgressBar(uid, progress, text string) string {
 		attrs.Props{
 			"hx-trigger": "done",
 			"hx-get":     "/browse/job/" + uid,
-			"hx-swap":    "innerHTML",
+			"hx-swap":    "outerHTML",
 			"hx-target":  "this",
 		},
 		elem.H3(
@@ -88,7 +91,6 @@ func StartProgressBar(uid, progress, text string) string {
 				"autofocus": "",
 			},
 			elem.Text(text),
-			// This is a simple example of how to use the HTMLX library to create a progress bar that updates every 600ms.
 			elem.Div(attrs.Props{
 				"hx-get":     "/browse/job/progress/" + uid,
 				"hx-trigger": "every 600ms",
@@ -192,6 +194,7 @@ func reInstallButton(galleryName string) elem.Node {
 			"data-twe-ripple-init":  "",
 			"data-twe-ripple-color": "light",
 			"class":                 "float-right inline-block rounded bg-primary ml-2 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+			"hx-target":             "#action-div-" + dropBadChars(galleryName),
 			"hx-swap":               "outerHTML",
 			// post the Model ID as param
 			"hx-post": "/browse/install/model/" + galleryName,
@@ -205,16 +208,17 @@ func reInstallButton(galleryName string) elem.Node {
 	)
 }
 
-func deleteButton(modelName string) elem.Node {
+func deleteButton(galleryID, modelName string) elem.Node {
 	return elem.Button(
 		attrs.Props{
 			"data-twe-ripple-init":  "",
 			"data-twe-ripple-color": "light",
 			"hx-confirm":            "Are you sure you wish to delete the model?",
 			"class":                 "float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2 focus:bg-red-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-red-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+			"hx-target":             "#action-div-" + dropBadChars(galleryID),
 			"hx-swap":               "outerHTML",
 			// post the Model ID as param
-			"hx-post": "/browse/delete/model/" + modelName,
+			"hx-post": "/browse/delete/model/" + galleryID,
 		},
 		elem.I(
 			attrs.Props{
@@ -225,20 +229,14 @@ func deleteButton(modelName string) elem.Node {
 	)
 }
 
+// Javascript/HTMX doesn't like weird IDs
+func dropBadChars(s string) string {
+	return strings.ReplaceAll(s, "@", "__")
+}
+
 func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[string, string], galleryService *services.GalleryService) string {
-	//StartProgressBar(uid, "0")
 	modelsElements := []elem.Node{}
-	// span := func(s string) elem.Node {
-	// 	return elem.Span(
-	// 		attrs.Props{
-	// 			"class": "float-right inline-block bg-green-500 text-white py-1 px-3 rounded-full text-xs",
-	// 		},
-	// 		elem.Text(s),
-	// 	)
-	// }
-
 	descriptionDiv := func(m *gallery.GalleryModel) elem.Node {
-
 		return elem.Div(
 			attrs.Props{
 				"class": "p-6 text-surface dark:text-white",
@@ -261,13 +259,16 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 	actionDiv := func(m *gallery.GalleryModel) elem.Node {
 		galleryID := fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
 		currentlyProcessing := processing.Exists(galleryID)
+		jobID := ""
 		isDeletionOp := false
 		if currentlyProcessing {
 			status := galleryService.GetStatus(galleryID)
 			if status != nil && status.Deletion {
 				isDeletionOp = true
 			}
-			// if status == nil : "Waiting"
+			jobID = processing.Get(galleryID)
+			// TODO:
+			// case not handled, if status == nil : "Waiting"
 		}
 
 		nodes := []elem.Node{
@@ -317,29 +318,33 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 				},
 				nodes...,
 			),
-			elem.If(
-				currentlyProcessing,
-				elem.Node( // If currently installing, show progress bar
-					elem.Raw(StartProgressBar(processing.Get(galleryID), "0", progressMessage)),
-				), // Otherwise, show install button (if not installed) or display "Installed"
-				elem.If(m.Installed,
-					elem.Node(elem.Div(
-						attrs.Props{},
-						reInstallButton(m.ID()),
-						deleteButton(m.Name),
-					)),
-					installButton(m.ID()),
+			elem.Div(
+				attrs.Props{
+					"id": "action-div-" + dropBadChars(galleryID),
+				},
+				elem.If(
+					currentlyProcessing,
+					elem.Node( // If currently installing, show progress bar
+						elem.Raw(StartProgressBar(jobID, "0", progressMessage)),
+					), // Otherwise, show install button (if not installed) or display "Installed"
+					elem.If(m.Installed,
+						elem.Node(elem.Div(
+							attrs.Props{},
+							reInstallButton(m.ID()),
+							deleteButton(m.ID(), m.Name),
+						)),
+						installButton(m.ID()),
+					),
 				),
 			),
 		)
 	}
 
 	for _, m := range models {
-
 		elems := []elem.Node{}
 
 		if m.Icon == "" {
-			m.Icon = NoImage
+			m.Icon = noImage
 		}
 
 		divProperties := attrs.Props{
@@ -347,7 +352,6 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 		}
 
 		elems = append(elems,
-
 			elem.Div(divProperties,
 				elem.A(attrs.Props{
 					"href": "#!",
@@ -359,8 +363,11 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 						"src":   m.Icon,
 					}),
 				),
-			))
+			),
+		)
 
+		// Special/corner case: if a model sets Trust Remote Code as required, show a warning
+		// TODO: handle this more generically later
 		_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
 		if trustRemoteCodeExists {
 			elems = append(elems, elem.Div(
@@ -392,7 +399,6 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 
 	wrapper := elem.Div(attrs.Props{
 		"class": "dark grid grid-cols-1 grid-rows-1 md:grid-cols-3 block rounded-lg shadow-secondary-1 dark:bg-surface-dark",
-		//"class": "block rounded-lg bg-white shadow-secondary-1 dark:bg-surface-dark",
 	}, modelsElements...)
 
 	return wrapper.Render()
