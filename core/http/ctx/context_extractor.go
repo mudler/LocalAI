@@ -29,7 +29,7 @@ func NewFiberContentExtractor(ml *model.ModelLoader, appConfig *config.Applicati
 }
 
 // ModelFromContext returns the model from the context
-// If no model is specified, it will take the first available
+// If no model is specified, it will take the first available unless a default is specified by the caller.
 // Takes a model string as input which should be the one received from the user request.
 // It returns the model name resolved from the context and an error if any.
 func (fce *FiberContentExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput string, defaultModel string, firstAvailable bool) (string, error) {
