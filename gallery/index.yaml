@@ -52,7 +52,7 @@
       model: Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
   files:
     - filename: Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
-      sha256: 3ef96fd6e32658774b3c8fbc24088787dfa911288e272b186f448c886400d30d
+      sha256: 447587bd8f60d9050232148d34fdb2d88b15b2413fd7f8e095a4606ec60b45bf
       uri: huggingface://bartowski/Einstein-v6.1-Llama3-8B-GGUF/Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
