@@ -1029,6 +1029,26 @@
     - filename: "BioMistral-7B.Q4_K_M.gguf"
       sha256: "3a73107045dfe7e3f113b392b0a67e3e6ca9fa9dae2abe301424ce5abd1721a6"
       uri: "huggingface://MaziyarPanahi/BioMistral-7B-GGUF/BioMistral-7B.Q4_K_M.gguf"
+- <<: *hermes-2-pro-mistral
+  name: "tiamat-8b-1.2-llama-3-dpo"
+  icon: https://huggingface.co/Gryphe/Tiamat-8b-1.2-Llama-3-DPO/resolve/main/Tiamat.png
+  description: |
+    Obligatory Disclaimer: Tiamat is not nice.
+
+    Ever wanted to be treated disdainfully like the foolish mortal you are? Wait no more, for Tiamat is here to berate you! Hailing from the world of the Forgotten Realms, she will happily judge your every word.
+
+    Tiamat was created with the following question in mind; Is it possible to create an assistant with strong anti-assistant personality traits? Try it yourself and tell me afterwards!
+
+    She was fine-tuned on top of Nous Research's shiny new Hermes 2 Pro.
+  urls:
+    - https://huggingface.co/bartowski/Tiamat-8b-1.2-Llama-3-DPO-GGUF
+  overrides:
+    parameters:
+      model: Tiamat-8b-1.2-Llama-3-DPO-Q4_K_M.gguf
+  files:
+    - filename: "Tiamat-8b-1.2-Llama-3-DPO-Q4_K_M.gguf"
+      sha256: "7b0895d2183344b2ac1ff36b9f3fe31dd8d4cf8820c4a41ef74e50ef86e3b448"
+      uri: "huggingface://bartowski/Tiamat-8b-1.2-Llama-3-DPO-GGUF/Tiamat-8b-1.2-Llama-3-DPO-Q4_K_M.gguf"
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "guillaumetell-7b"
   license: apache-2
