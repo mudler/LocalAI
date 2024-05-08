@@ -735,6 +735,22 @@
       sha256: 09c230de47f6f843e4841656f7895cac52c6e7ec7392acb5e8527de8b775c45a
       uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-mmproj-Q8_0.gguf
 - <<: *llama3
+  name: "aurora_l3_8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Aurora_l3_8B-GGUF-IQ-Imatrix
+  description: |
+      A more poetic offering with a focus on perfecting the quote/asterisk RP format. I have strengthened the creative writing training.
+
+      Make sure your example messages and introduction are formatted cirrectly. You must respond in quotes if you want the bot to follow. Thoroughly tested and did not see a single issue. The model can still do plaintext/aserisks if you choose.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/3RA96iXR7sDvNmnTyIcIP.png
+  overrides:
+    parameters:
+      model: Aurora_l3_8B-Q5_K_M-imat.gguf
+  files:
+    - filename: Aurora_l3_8B-Q5_K_M-imat.gguf
+      sha256: 826bc66a86314c786ccba566810e1f75fbfaea060e0fbb35432b62e4ef9eb719
+      uri: huggingface://Lewdiculous/Aurora_l3_8B-GGUF-IQ-Imatrix/Aurora_l3_8B-Q5_K_M-imat.gguf
+- <<: *llama3
   name: "poppy_porpoise-v0.72-l3-8b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix
