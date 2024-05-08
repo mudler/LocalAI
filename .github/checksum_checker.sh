@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 # This scripts needs yq and huggingface_hub to be installed
 # to install hugingface_hub run pip install huggingface_hub
 
