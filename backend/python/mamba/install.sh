@@ -1,6 +1,11 @@
 #!/bin/bash
 set -ex
 
+if [ "$BUILD_TYPE" != "cublas" ]; then
+    echo "[mamba] Attention!!! nvcc is required - skipping installation"
+    exit 0
+fi
+
 BUILD_ISOLATION_FLAG=""
 
 MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
