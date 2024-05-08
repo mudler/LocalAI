@@ -32,7 +32,7 @@ func NewFiberContentExtractor(ml *model.ModelLoader, appConfig *config.Applicati
 // If no model is specified, it will take the first available
 // Takes a model string as input which should be the one received from the user request.
 // It returns the model name resolved from the context and an error if any.
-func (fce *FiberContentExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput string, firstModel bool) (string, error) {
+func (fce *FiberContentExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput string, defaultModel string, firstAvailable bool) (string, error) {
 	if ctx.Params("model") != "" {
 		modelInput = ctx.Params("model")
 	}
@@ -42,14 +42,24 @@ func (fce *FiberContentExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput st
 	bearerExists := bearer != "" && fce.ml.ExistsInModelPath(bearer)
 
 	// If no model was specified, take the first available
-	if modelInput == "" && !bearerExists && firstModel {
-		models, _ := fce.ml.ListModels()
-		if len(models) > 0 {
-			modelInput = models[0]
-			log.Debug().Msgf("No model specified, using: %s", modelInput)
+	if modelInput == "" && !bearerExists {
+		if defaultModel != "" {
+			log.Debug().Str("defaultModel", defaultModel).Msg("no modelInput provided, bearer not found, using default")
+			modelInput = defaultModel
 		} else {
-			log.Debug().Msgf("No model specified, returning error")
-			return "", fmt.Errorf("no model specified")
+			if firstAvailable {
+				models, _ := fce.ml.ListModels()
+				if len(models) > 0 {
+					modelInput = models[0]
+					log.Debug().Str("foundModel", modelInput).Msg("No model specified as default, using first available")
+				} else {
+					log.Debug().Msg("No models specified, none available, returning error")
+					return "", fmt.Errorf("no model found")
+				}
+			} else {
+				log.Debug().Msg("No models specified, search not requested, returning error")
+				return "", fmt.Errorf("no model found")
+			}
 		}
 	}
 
@@ -61,7 +71,7 @@ func (fce *FiberContentExtractor) ModelFromContext(ctx *fiber.Ctx, modelInput st
 	return modelInput, nil
 }
 
-func (fce *FiberContentExtractor) OpenAIRequestFromContext(ctx *fiber.Ctx, firstModel bool) (*schema.OpenAIRequest, error) {
+func (fce *FiberContentExtractor) OpenAIRequestFromContext(ctx *fiber.Ctx, defaultModel string, firstAvailable bool) (*schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
 
 	// Get input data from the request body
@@ -73,8 +83,12 @@ func (fce *FiberContentExtractor) OpenAIRequestFromContext(ctx *fiber.Ctx, first
 	input.Context = context
 	input.Cancel = cancel
 
-	modelName, err := fce.ModelFromContext(ctx, input.Model, firstModel)
+	modelName, err := fce.ModelFromContext(ctx, input.Model, defaultModel, firstAvailable)
 	input.Model = modelName
 
 	return input, err
+}
+
+func (fce *FiberContentExtractor) OpenAIRequestFromContextDefaults(ctx *fiber.Ctx) (*schema.OpenAIRequest, error) {
+	return fce.OpenAIRequestFromContext(ctx, "", false)
 }

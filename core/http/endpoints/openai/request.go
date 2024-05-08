@@ -32,7 +32,7 @@ func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *config.ApplicationConfi
 	// TEMPORARY STUB DURING DEVELOPMENT
 	fce := ctx.NewFiberContentExtractor(ml, o)
 
-	modelFile, err := fce.ModelFromContext(c, input.Model, firstModel)
+	modelFile, err := fce.ModelFromContext(c, input.Model, "", firstModel)
 
 	return modelFile, input, err
 }

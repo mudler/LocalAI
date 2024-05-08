@@ -17,7 +17,7 @@ import (
 // @Router /v1/embeddings [post]
 func EmbeddingsEndpoint(ebs *backend.EmbeddingsBackendService, fce *ctx.FiberContentExtractor) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		request, err := fce.OpenAIRequestFromContext(c, true)
+		request, err := fce.OpenAIRequestFromContext(c, "", true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request: %w", err)
 		}

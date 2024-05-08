@@ -30,7 +30,8 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 		tempFCE := ctx.NewFiberContentExtractor(ml, appConfig)
 
-		modelFile, err := tempFCE.ModelFromContext(c, input.Model, false)
+		// TODO: Check if cross-encoder could/should be defaulted here.
+		modelFile, err := tempFCE.ModelFromContext(c, input.Model, "", false)
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)

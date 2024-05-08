@@ -28,7 +28,7 @@ func TTSEndpoint(ttsbs *backend.TextToSpeechBackendService, fce *ctx.FiberConten
 			return err
 		}
 
-		modelFile, err := fce.ModelFromContext(c, input.ModelID, false)
+		modelFile, err := fce.ModelFromContext(c, input.ModelID, "", false)
 		if err != nil {
 			modelFile = input.ModelID
 			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
