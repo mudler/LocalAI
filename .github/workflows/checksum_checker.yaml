@@ -11,7 +11,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pip
+          sudo apt-get install -y pip wget
           sudo pip install --upgrade pip 
           pip install huggingface_hub
       - name: 'Setup yq'
