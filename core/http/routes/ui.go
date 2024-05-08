@@ -14,6 +14,7 @@ import (
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/go-skynet/LocalAI/pkg/xsync"
+	"github.com/rs/zerolog/log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -117,6 +118,7 @@ func RegisterUIRoutes(app *fiber.App,
 	// https://htmx.org/examples/progress-bar/
 	app.Post("/browse/install/model/:id", auth, func(c *fiber.Ctx) error {
 		galleryID := strings.Clone(c.Params("id")) // note: strings.Clone is required for multiple requests!
+		log.Debug().Msgf("UI job submitted to install  : %+v\n", galleryID)
 
 		id, err := uuid.NewUUID()
 		if err != nil {
@@ -143,6 +145,14 @@ func RegisterUIRoutes(app *fiber.App,
 	// https://htmx.org/examples/progress-bar/
 	app.Post("/browse/delete/model/:id", auth, func(c *fiber.Ctx) error {
 		galleryID := strings.Clone(c.Params("id")) // note: strings.Clone is required for multiple requests!
+		log.Debug().Msgf("UI job submitted to delete  : %+v\n", galleryID)
+		var galleryName = galleryID
+		if strings.Contains(galleryID, "@") {
+			// if the galleryID contains a @ it means that it's a model from a gallery
+			// but we want to delete it from the local models which does not need
+			// a repository ID
+			galleryName = strings.Split(galleryID, "@")[1]
+		}
 
 		id, err := uuid.NewUUID()
 		if err != nil {
@@ -151,16 +161,20 @@ func RegisterUIRoutes(app *fiber.App,
 
 		uid := id.String()
 
+		// Track the deletion job by galleryID and galleryName
+		// The GalleryID contains information about the repository,
+		// while the GalleryName is ONLY the name of the model
+		processingModels.Set(galleryName, uid)
 		processingModels.Set(galleryID, uid)
 
 		op := gallery.GalleryOp{
 			Id:               uid,
 			Delete:           true,
-			GalleryModelName: galleryID,
+			GalleryModelName: galleryName,
 		}
 		go func() {
 			galleryService.C <- op
-			cl.RemoveBackendConfig(galleryID)
+			cl.RemoveBackendConfig(galleryName)
 		}()
 
 		return c.SendString(elements.StartProgressBar(uid, "0", "Deletion"))
@@ -170,7 +184,7 @@ func RegisterUIRoutes(app *fiber.App,
 	// If the job is done, we trigger the /browse/job/:uid route
 	// https://htmx.org/examples/progress-bar/
 	app.Get("/browse/job/progress/:uid", auth, func(c *fiber.Ctx) error {
-		jobUID := c.Params("uid")
+		jobUID := strings.Clone(c.Params("uid")) // note: strings.Clone is required for multiple requests!
 
 		status := galleryService.GetStatus(jobUID)
 		if status == nil {
@@ -192,17 +206,22 @@ func RegisterUIRoutes(app *fiber.App,
 	// this route is hit when the job is done, and we display the
 	// final state (for now just displays "Installation completed")
 	app.Get("/browse/job/:uid", auth, func(c *fiber.Ctx) error {
+		jobUID := strings.Clone(c.Params("uid")) // note: strings.Clone is required for multiple requests!
 
-		status := galleryService.GetStatus(c.Params("uid"))
+		status := galleryService.GetStatus(jobUID)
 
 		galleryID := ""
 		for _, k := range processingModels.Keys() {
-			if processingModels.Get(k) == c.Params("uid") {
+			if processingModels.Get(k) == jobUID {
 				galleryID = k
 				processingModels.Delete(k)
 			}
 		}
+		if galleryID == "" {
+			log.Debug().Msgf("no processing model found for job : %+v\n", jobUID)
+		}
 
+		log.Debug().Msgf("JOB finished  : %+v\n", status)
 		showDelete := true
 		displayText := "Installation completed"
 		if status.Deletion {
