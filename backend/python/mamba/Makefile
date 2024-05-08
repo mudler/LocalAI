@@ -1,6 +1,6 @@
 .PHONY: mamba
 mamba: protogen
-	bash install.sh
+	bash install.sh 
 
 .PHONY: run
 run: protogen

@@ -1,5 +1,5 @@
 grpcio==1.63.0
 protobuf
 torch
-transformers==4.38.2
+transformers
 certifi

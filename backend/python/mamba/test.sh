@@ -1,10 +1,16 @@
 #!/bin/bash
-
 ##
-## A bash script wrapper that sets up and runs the tests
+## A bash script wrapper that runs python unittests
 
 MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
 source $MY_DIR/venv/bin/activate
 
-python -m unittest $MY_DIR/test_backend_mamba.py
+if [ -f "${MY_DIR}/test.py" ]; then
+    pushd ${MY_DIR}
+    python -m unittest test.py
+    popd
+else
+    echo "ERROR: No tests defined for backend!"
+    exit 1
+fi

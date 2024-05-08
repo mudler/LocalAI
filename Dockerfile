@@ -84,6 +84,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         espeak-ng \
         espeak \
+        python3-dev \
         python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
