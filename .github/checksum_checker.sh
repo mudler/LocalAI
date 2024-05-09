@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 # This scripts needs yq and huggingface_hub to be installed
 # to install hugingface_hub run pip install huggingface_hub
 
@@ -29,18 +28,15 @@ file_name = '$file_name'
 # Function to parse the URI and determine download method
 def parse_uri(uri):
     if uri.startswith('huggingface://'):
-        # Remove the protocol and extract repo id and filename
         repo_id = uri.split('://')[1]
-        return 'huggingface', repo_id.rsplit('/', 1)[0]
+        return 'huggingface', repo_id.rsplit('/', 1)[0], file_name
     elif 'huggingface.co' in uri:
-        # For full URLs to Hugging Face, extract repo and filename before '/resolve/'
         parts = uri.split('/resolve/')
         if len(parts) > 1:
             repo_path = parts[0].split('https://huggingface.co/')[-1]
-            repo_id, file_part = repo_path.rsplit('/', 1)
-            return 'huggingface', (repo_id, file_part)
-    return 'direct', uri
-
+            filename = uri.split('/')[-1]
+            return 'huggingface', repo_path, filename
+    return 'direct', uri, file_name
 
 def calculate_sha256(file_path):
     sha256_hash = hashlib.sha256()
@@ -49,18 +45,24 @@ def calculate_sha256(file_path):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
-download_type, repo_id_or_url = parse_uri(uri)
+download_type, repo_id_or_url, filename = parse_uri(uri)
 
 # Decide download method based on URI type
 if download_type == 'huggingface':
-    file_path = hf_hub_download(repo_id=repo_id_or_url, filename=file_name, use_auth_token=False)
+    try:
+        file_path = hf_hub_download(repo_id=repo_id_or_url, filename=filename)
+    except Exception as e:
+        print(f'Error from Hugging Face Hub: {str(e)}', file=sys.stderr)
+        sys.exit(2)
 else:
-    # Direct download for non-Hugging Face URLs
     response = requests.get(repo_id_or_url)
     if response.status_code == 200:
-        with open(file_name, 'wb') as f:
+        with open(filename, 'wb') as f:
             f.write(response.content)
-        file_path = file_name
+        file_path = filename
+    elif response.status_code == 404:
+        print(f'File not found: {response.status_code}', file=sys.stderr)
+        sys.exit(2)
     else:
         print(f'Error downloading file: {response.status_code}', file=sys.stderr)
         sys.exit(1)
@@ -70,11 +72,24 @@ print(calculate_sha256(file_path))
 os.remove(file_path)
 ")
 
+    if [[ "$new_checksum" == "" ]]; then
+        echo "Error calculating checksum for $file_name. Skipping..."
+        return
+    fi
+    
+    echo "Checksum for $file_name: $new_checksum"
+
     # Compare and update the YAML file if checksums do not match
-    if [[ "$old_checksum" != "$new_checksum" ]]; then
+    result=$?
+    if [[ $result -eq 2 ]]; then
+        echo "File not found, deleting entry for $file_name..."
+        # yq eval -i "del(.[$idx].files[] | select(.filename == \"$file_name\"))" "$input_yaml"
+    elif [[ "$old_checksum" != "$new_checksum" ]]; then
         echo "Checksum mismatch for $file_name. Updating..."
         yq eval -i "del(.[$idx].files[] | select(.filename == \"$file_name\").sha256)" "$input_yaml"
         yq eval -i "(.[$idx].files[] | select(.filename == \"$file_name\")).sha256 = \"$new_checksum\"" "$input_yaml"
+    elif [[ $result -ne 0 ]]; then
+        echo "Error downloading file $file_name. Skipping..."
     else
         echo "Checksum match for $file_name. No update needed."
     fi
