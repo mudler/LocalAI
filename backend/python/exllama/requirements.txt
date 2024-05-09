@@ -3,3 +3,4 @@ protobuf
 torch
 transformers
 certifi
+setuptools
