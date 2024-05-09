@@ -22,21 +22,20 @@ import sys
 import os
 
 uri = '$uri'
-file_name = '$file_name'
+file_name = uri.split('/')[-1]
 
 # Function to parse the URI and determine download method
 # Function to parse the URI and determine download method
 def parse_uri(uri):
     if uri.startswith('huggingface://'):
         repo_id = uri.split('://')[1]
-        return 'huggingface', repo_id.rsplit('/', 1)[0], file_name
+        return 'huggingface', repo_id.rsplit('/', 1)[0]
     elif 'huggingface.co' in uri:
         parts = uri.split('/resolve/')
         if len(parts) > 1:
             repo_path = parts[0].split('https://huggingface.co/')[-1]
-            filename = uri.split('/')[-1]
-            return 'huggingface', repo_path, filename
-    return 'direct', uri, file_name
+            return 'huggingface', repo_path
+    return 'direct', uri
 
 def calculate_sha256(file_path):
     sha256_hash = hashlib.sha256()
@@ -45,21 +44,21 @@ def calculate_sha256(file_path):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
-download_type, repo_id_or_url, filename = parse_uri(uri)
+download_type, repo_id_or_url = parse_uri(uri)
 
 # Decide download method based on URI type
 if download_type == 'huggingface':
     try:
-        file_path = hf_hub_download(repo_id=repo_id_or_url, filename=filename)
+        file_path = hf_hub_download(repo_id=repo_id_or_url, filename=file_name)
     except Exception as e:
         print(f'Error from Hugging Face Hub: {str(e)}', file=sys.stderr)
         sys.exit(2)
 else:
     response = requests.get(repo_id_or_url)
     if response.status_code == 200:
-        with open(filename, 'wb') as f:
+        with open(file_name, 'wb') as f:
             f.write(response.content)
-        file_path = filename
+        file_path = file_name
     elif response.status_code == 404:
         print(f'File not found: {response.status_code}', file=sys.stderr)
         sys.exit(2)
@@ -76,7 +75,7 @@ os.remove(file_path)
         echo "Error calculating checksum for $file_name. Skipping..."
         return
     fi
-    
+
     echo "Checksum for $file_name: $new_checksum"
 
     # Compare and update the YAML file if checksums do not match
