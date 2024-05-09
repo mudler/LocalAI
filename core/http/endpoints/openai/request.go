@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *config.ApplicationConfig, firstModel bool) (string, *schema.OpenAIRequest, error) {
+func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *config.ApplicationConfig, defaultModel string, firstModel bool) (string, *schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
 
 	// Get input data from the request body
@@ -32,7 +32,7 @@ func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *config.ApplicationConfi
 	// TEMPORARY STUB DURING DEVELOPMENT
 	fce := ctx.NewFiberContentExtractor(ml, o)
 
-	modelFile, err := fce.ModelFromContext(c, input.Model, "", firstModel)
+	modelFile, err := fce.ModelFromContext(c, input.Model, defaultModel, firstModel)
 
 	return modelFile, input, err
 }
