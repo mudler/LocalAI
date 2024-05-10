@@ -1,15 +1,10 @@
 #!/bin/bash
 
 ##
-## A bash script wrapper that runs the ttsvalle server with conda
-export PATH=$PATH:/opt/conda/bin
+## A bash script wrapper that runs the GRPC backend
 
-# Activate conda environment
-source activate transformers
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source $MY_DIR/venv/bin/activate
 
-cd $DIR
-
-python $DIR/ttsvalle.py $@
+pushd $MY_DIR/source && python ttsvalle.py $@

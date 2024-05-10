@@ -1,0 +1,3 @@
+intel-extension-for-pytorch
+torchaudio
+torchvision

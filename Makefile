@@ -38,7 +38,7 @@ CGO_LDFLAGS?=
 CGO_LDFLAGS_WHISPER?=
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
-BUILD_ID?=git
+BUILD_ID?=
 
 TEST_DIR=/tmp/test
 

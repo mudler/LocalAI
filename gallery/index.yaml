@@ -1153,6 +1153,18 @@
     - cpu
     - Remote Code Enabled
 - !!merge <<: *openvino
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62f7a16192950415b637e201/HMD6WEoqqrAV8Ng_fAcnN.png
+  name: "openvino-llama3-aloe"
+  urls:
+    - https://huggingface.co/fakezeta/Llama3-Aloe-8B-Alpha-ov-int8
+  overrides:
+    context_size: 8192
+    parameters:
+      model: fakezeta/Llama3-Aloe-8B-Alpha-ov-int8
+    stopwords:
+      - "<|eot_id|>"
+      - "<|end_of_text|>"
+- !!merge <<: *openvino
   name: "openvino-starling-lm-7b-beta-openvino-int8"
   urls:
     - https://huggingface.co/fakezeta/Starling-LM-7B-beta-openvino-int8

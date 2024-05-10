@@ -1,0 +1,7 @@
+accelerate
+vllm
+grpcio==1.63.0
+protobuf
+certifi
+transformers
+setuptools

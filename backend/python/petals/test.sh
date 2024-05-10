@@ -1,20 +1,16 @@
 #!/bin/bash
 ##
-## A bash script wrapper that runs the transformers server with conda
+## A bash script wrapper that runs python unittests
 
-# Activate conda environment
-CONDA_ENV=petals
-# Activate conda environment
-# if source is available use it, or use conda
-#
-if [ -f /opt/conda/bin/activate ]; then
-    source activate $CONDA_ENV
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
+
+source $MY_DIR/venv/bin/activate
+
+if [ -f "${MY_DIR}/test.py" ]; then
+    pushd ${MY_DIR}
+    python -m unittest test.py
+    popd
 else
-    eval "$(conda shell.bash hook)"
-    conda activate $CONDA_ENV
+    echo "ERROR: No tests defined for backend!"
+    exit 1
 fi
-
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-python -m unittest $DIR/test_petals.py

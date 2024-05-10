@@ -76,26 +76,16 @@ RUN test -n "$TARGETARCH" \
 # The requirements-extras target is for any builds with IMAGE_TYPE=extras. It should not be placed in this target unless every IMAGE_TYPE=extras build will use it
 FROM requirements-core AS requirements-extras
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gpg && \
-    curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-    install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-    gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        conda && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         espeak-ng \
-        espeak && \
+        espeak \
+        python3-dev \
+        python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -246,6 +236,7 @@ ARG FFMPEG
 ARG BUILD_TYPE
 ARG TARGETARCH
 ARG IMAGE_TYPE=extras
+ARG EXTRA_BACKENDS
 ARG MAKEFLAGS
 
 ENV BUILD_TYPE=${BUILD_TYPE}
@@ -257,7 +248,6 @@ ARG CUDA_MAJOR_VERSION=11
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
-ENV PIP_CACHE_PURGE=true
 
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
@@ -290,51 +280,58 @@ COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 # do not let stablediffusion rebuild (requires an older version of absl)
 COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
-## Duplicated from Makefile to avoid having a big layer that's hard to push
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/autogptq \
+# Change the shell to bash so we can use [[ tests below
+SHELL ["/bin/bash", "-c"]
+# We try to strike a balance between individual layer size (as that affects total push time) and total image size
+# Splitting the backends into more groups with fewer items results in a larger image, but a smaller size for the largest layer
+# Splitting the backends into fewer groups with more items results in a smaller image, but a larger size for the largest layer
+
+RUN if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/coqui \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "parler-tts" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/parler-tts \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "diffusers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/diffusers \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "transformers-musicgen" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/transformers-musicgen \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "exllama1" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/exllama \
     ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/bark \
+
+RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vall-e-x" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/vall-e-x \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "petals" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/petals \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "sentencetransformers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/sentencetransformers \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "exllama2" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/exllama2 \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "transformers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/transformers \
     ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/diffusers \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/vllm \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/mamba \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/sentencetransformers \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/rerankers \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/transformers \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/vall-e-x \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/exllama \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/exllama2 \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/petals \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/transformers-musicgen \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/parler-tts \
-    ; fi
-RUN if [ "${IMAGE_TYPE}" = "extras" ]; then \
-    make -C backend/python/coqui \
+
+RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vllm" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/vllm \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "autogptq" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/autogptq \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "bark" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/bark \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "rerankers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/rerankers \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "mamba" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/mamba \
     ; fi
 
 # Make sure the models directory exists
