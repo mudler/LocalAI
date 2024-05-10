@@ -1,0 +1,6 @@
+accelerate
+sentence-transformers==2.5.1
+transformers
+grpcio==1.63.0
+protobuf
+certifi

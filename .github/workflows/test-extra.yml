@@ -25,22 +25,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
           pip install --user grpcio-tools==1.63.0
           
-          sudo rm -rfv /usr/bin/conda || true
-
       - name: Test transformers
         run: |
-           export PATH=$PATH:/opt/conda/bin
            make --jobs=5 --output-sync=target -C backend/python/transformers
            make --jobs=5 --output-sync=target -C backend/python/transformers test
 
@@ -55,22 +47,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
           pip install --user grpcio-tools==1.63.0
           
-          sudo rm -rfv /usr/bin/conda || true
-
       - name: Test sentencetransformers
         run: |
-           export PATH=$PATH:/opt/conda/bin
            make --jobs=5 --output-sync=target -C backend/python/sentencetransformers
            make --jobs=5 --output-sync=target -C backend/python/sentencetransformers test
 
@@ -86,22 +70,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
           pip install --user grpcio-tools==1.63.0
-          
-          sudo rm -rfv /usr/bin/conda || true
 
       - name: Test rerankers
         run: |
-           export PATH=$PATH:/opt/conda/bin
            make --jobs=5 --output-sync=target -C backend/python/rerankers
            make --jobs=5 --output-sync=target -C backend/python/rerankers test
 
@@ -115,25 +91,16 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
+          sudo apt-get install -y build-essential ffmpeg
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           pip install --user grpcio-tools==1.63.0
-          
-          sudo rm -rfv /usr/bin/conda || true
-
       - name: Test diffusers
         run: |
-           export PATH=$PATH:/opt/conda/bin
-           make --jobs=5 --output-sync=target -C backend/python/diffusers
-           make --jobs=5 --output-sync=target -C backend/python/diffusers test
+          make --jobs=5 --output-sync=target -C backend/python/diffusers
+          make --jobs=5 --output-sync=target -C backend/python/diffusers test
 
   tests-parler-tts:
     runs-on: ubuntu-latest
@@ -146,22 +113,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
           pip install --user grpcio-tools==1.63.0
-          
-          sudo rm -rfv /usr/bin/conda || true
 
       - name: Test parler-tts
         run: |
-           export PATH=$PATH:/opt/conda/bin
            make --jobs=5 --output-sync=target -C backend/python/parler-tts
            make --jobs=5 --output-sync=target -C backend/python/parler-tts test
 
@@ -176,22 +135,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
           pip install --user grpcio-tools==1.63.0
-          
-          sudo rm -rfv /usr/bin/conda || true
 
       - name: Test transformers-musicgen
         run: |
-           export PATH=$PATH:/opt/conda/bin
            make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen
            make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen test
 
@@ -208,22 +159,14 @@ jobs:
   #       run: |
   #         sudo apt-get update
   #         sudo apt-get install build-essential ffmpeg
-  #         curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-  #            sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-  #             gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-  #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-  #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-  #            sudo apt-get update && \
-  #            sudo apt-get install -y conda
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
   #         pip install --user grpcio-tools==1.63.0
-          
-  #         sudo rm -rfv /usr/bin/conda || true
 
   #     - name: Test petals
   #       run: |
-  #          export PATH=$PATH:/opt/conda/bin
   #          make --jobs=5 --output-sync=target -C backend/python/petals
   #          make --jobs=5 --output-sync=target -C backend/python/petals test
 
@@ -280,22 +223,14 @@ jobs:
   #       run: |
   #         sudo apt-get update
   #         sudo apt-get install build-essential ffmpeg
-  #         curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-  #            sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-  #             gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-  #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-  #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-  #            sudo apt-get update && \
-  #            sudo apt-get install -y conda
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
   #         pip install --user grpcio-tools==1.63.0
-          
-  #         sudo rm -rfv /usr/bin/conda || true
 
   #     - name: Test bark
   #       run: |
-  #          export PATH=$PATH:/opt/conda/bin
   #          make --jobs=5 --output-sync=target -C backend/python/bark
   #          make --jobs=5 --output-sync=target -C backend/python/bark test
 
@@ -313,20 +248,13 @@ jobs:
   #       run: |
   #         sudo apt-get update
   #         sudo apt-get install build-essential ffmpeg
-  #         curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-  #            sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-  #             gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-  #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-  #            sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-  #            sudo apt-get update && \
-  #            sudo apt-get install -y conda
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
   #         pip install --user grpcio-tools==1.63.0
-  #         sudo rm -rfv /usr/bin/conda || true
   #     - name: Test vllm
   #       run: |
-  #          export PATH=$PATH:/opt/conda/bin
   #          make --jobs=5 --output-sync=target -C backend/python/vllm
   #          make --jobs=5 --output-sync=target -C backend/python/vllm test
   tests-vallex:
@@ -340,20 +268,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
           pip install --user grpcio-tools==1.63.0
-          sudo rm -rfv /usr/bin/conda || true
       - name: Test vall-e-x
         run: |
-           export PATH=$PATH:/opt/conda/bin
            make --jobs=5 --output-sync=target -C backend/python/vall-e-x
            make --jobs=5 --output-sync=target -C backend/python/vall-e-x test
 
@@ -368,19 +289,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
           sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           pip install --user grpcio-tools==1.63.0
-          sudo rm -rfv /usr/bin/conda || true
-
       - name: Test coqui
         run: |
-           export PATH=$PATH:/opt/conda/bin
-           make --jobs=5 --output-sync=target -C backend/python/coqui
-           make --jobs=5 --output-sync=target -C backend/python/coqui test
+          make --jobs=5 --output-sync=target -C backend/python/coqui
+          make --jobs=5 --output-sync=target -C backend/python/coqui test

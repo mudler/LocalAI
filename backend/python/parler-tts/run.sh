@@ -1,16 +1,10 @@
 #!/bin/bash
 
 ##
-## A bash script wrapper that runs the parler-tts server with conda
+## A bash script wrapper that runs the GRPC backend
 
-echo "Launching gRPC server for parler-tts"
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-export PATH=$PATH:/opt/conda/bin
+source $MY_DIR/venv/bin/activate
 
-# Activate conda environment
-source activate parler
-
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-python $DIR/parler_tts_server.py $@
+python $MY_DIR/parler_tts_server.py $@

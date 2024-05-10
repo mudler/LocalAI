@@ -1,14 +1,16 @@
 #!/bin/bash
-
 ##
-## A bash script wrapper that runs the diffusers server with conda
+## A bash script wrapper that runs python unittests
 
-export PATH=$PATH:/opt/conda/bin
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-# Activate conda environment
-source activate diffusers
+source $MY_DIR/venv/bin/activate
 
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-python -m unittest $DIR/test.py
+if [ -f "${MY_DIR}/test.py" ]; then
+    pushd ${MY_DIR}
+    python -m unittest test.py
+    popd
+else
+    echo "ERROR: No tests defined for backend!"
+    exit 1
+fi

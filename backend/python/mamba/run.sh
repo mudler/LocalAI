@@ -1,14 +1,10 @@
 #!/bin/bash
 
 ##
-## A bash script wrapper that runs the diffusers server with conda
+## A bash script wrapper that runs the GRPC server
 
-export PATH=$PATH:/opt/conda/bin
+MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-# Activate conda environment
-source activate transformers
+source $MY_DIR/venv/bin/activate
 
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-python $DIR/backend_mamba.py $@
+python $MY_DIR/backend_mamba.py $@

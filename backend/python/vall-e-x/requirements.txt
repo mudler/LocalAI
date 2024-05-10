@@ -1,0 +1,4 @@
+accelerate
+grpcio==1.63.0
+protobuf
+certifi

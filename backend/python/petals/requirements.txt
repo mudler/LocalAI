@@ -1,0 +1,3 @@
+git+https://github.com/bigscience-workshop/petals
+certifi
+transformers
