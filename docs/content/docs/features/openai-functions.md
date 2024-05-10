@@ -86,8 +86,8 @@ The functions calls maps automatically to grammars which are currently supported
 
 ```yaml
 function:
-  no_grammar: true
-  response_regex: "..."
+ no_grammar: true
+ response_regex: "..."
 ```
 
 The response regex have to be a regex with named parameters to allow to scan the function name and the arguments. For instance, consider:
