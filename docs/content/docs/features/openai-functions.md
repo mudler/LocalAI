@@ -80,6 +80,28 @@ When running the python script, be sure to:
 
 ## Advanced
 
+### Use functions without grammars
+
+The functions calls maps automatically to grammars which are currently supported only by llama.cpp, however, it is possible to turn off the use of grammars, and extract tool arguments from the LLM responses, by specifying in the YAML file `no_grammar` and a regex to map the response from the LLM:
+
+```yaml
+function:
+  no_grammar: true
+  response_regex: "..."
+```
+
+The response regex have to be a regex with named parameters to allow to scan the function name and the arguments. For instance, consider:
+
+```
+(?P<function>\w+)\s*\((?P<arguments>.*)\)
+```
+
+will catch
+
+```
+function_name({ "foo": "bar"})
+```
+
 ### Parallel tools calls
 
 This feature is experimental and has to be configured in the YAML of the model by enabling `function.parallel_calls`:
