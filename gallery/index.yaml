@@ -96,6 +96,19 @@
       sha256: b7bad45618e2a76cc1e89a0fbb93a2cac9bf410e27a619c8024ed6db53aa9b4a
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
 - !!merge <<: *llama3
+  name: "llama-3-8b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/failspy/Llama-3-8B-Instruct-abliterated-GGUF
+  description: |
+    This is meta-llama/Llama-3-8B-Instruct with orthogonalized bfloat16 safetensor weights, generated with the methodology that was described in the preview paper/blog post: 'Refusal in LLMs is mediated by a single direction' which I encourage you to read to understand more.
+  overrides:
+    parameters:
+      model: Llama-3-8B-Instruct-abliterated-q4_k.gguf
+  files:
+    - filename: Llama-3-8B-Instruct-abliterated-q4_k.gguf
+      sha256: a6365f813de1977ae22dbdd271deee59f91f89b384eefd3ac1a391f391d8078a
+      uri: huggingface://failspy/Llama-3-8B-Instruct-abliterated-GGUF/Llama-3-8B-Instruct-abliterated-q4_k.gguf
+- !!merge <<: *llama3
   name: "llama-3-8b-instruct-coder"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/0O4cIuv3wNbY68-FP7tak.jpeg
   urls:
