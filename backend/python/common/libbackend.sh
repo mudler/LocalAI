@@ -158,6 +158,16 @@ function startBackend() {
     fi
 }
 
+# runUnittests discovers and runs python unittests
+#
+# You can specify a specific test file to use by setting TEST_FILE before calling runUnittests.
+# example:
+#
+# source ../common/libbackend.sh
+# TEST_FILE="${MY_DIR}/source/test.py"
+# runUnittests $@
+#
+# be default a file named test.py in the backends directory will be used
 function runUnittests() {
     ensureVenv
 
