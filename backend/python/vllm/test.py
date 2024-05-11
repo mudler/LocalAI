@@ -20,7 +20,7 @@ class TestBackendServicer(unittest.TestCase):
     This class contains methods to test the startup and shutdown of the gRPC service.
     """
     def setUp(self):
-        self.service = subprocess.Popen(["python", "backend_vllm.py", "--addr", "localhost:50051"])
+        self.service = subprocess.Popen(["python", "backend.py", "--addr", "localhost:50051"])
         time.sleep(10)
 
     def tearDown(self) -> None:
