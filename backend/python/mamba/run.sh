@@ -1,10 +1,6 @@
 #!/bin/bash
+LIMIT_TARGETS="cublas"
 
-##
-## A bash script wrapper that runs the GRPC server
+source $(dirname $0)/../common/libbackend.sh
 
-MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
-
-source $MY_DIR/venv/bin/activate
-
-python $MY_DIR/backend_mamba.py $@
+startBackend $@

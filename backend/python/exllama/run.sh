@@ -1,10 +1,7 @@
 #!/bin/bash
+LIMIT_TARGETS="cublas"
+BACKEND_FILE="${MY_DIR}/source/backend.py"
 
-##
-## A bash script wrapper that runs the exllama server with uv
+source $(dirname $0)/../common/libbackend.sh
 
-MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
-
-source $MY_DIR/venv/bin/activate
-
-python $MY_DIR/source/exllama.py $@
+startBackend $@

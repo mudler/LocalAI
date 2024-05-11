@@ -30,4 +30,4 @@ backend_pb2_grpc.py backend_pb2.py:
 
 .PHONY: clean
 clean: protogen-clean
-	rm -rf source venv
+	rm -rf source venv __pycache__

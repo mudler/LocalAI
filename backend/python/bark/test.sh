@@ -1,16 +1,6 @@
 #!/bin/bash
-##
-## A bash script wrapper that runs python unittests
+set -e
 
-MY_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
+source $(dirname $0)/../common/libbackend.sh
 
-source $MY_DIR/venv/bin/activate
-
-if [ -f "${MY_DIR}/test.py" ]; then
-    pushd ${MY_DIR}
-    python -m unittest test.py
-    popd
-else
-    echo "ERROR: No tests defined for backend!"
-    exit 1
-fi
+runUnittests
