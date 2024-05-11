@@ -35,13 +35,21 @@ var _ = Describe("LocalAI grammar functions", func() {
 				},
 			}
 
-			js := functions.ToJSONStructure()
+			js := functions.ToJSONFunctionStructure()
 			Expect(len(js.OneOf)).To(Equal(2))
 			Expect(js.OneOf[0].Properties.Function.Const).To(Equal("create_event"))
 			Expect(js.OneOf[0].Properties.Arguments.Properties["event_name"].(map[string]interface{})["type"]).To(Equal("string"))
 			Expect(js.OneOf[0].Properties.Arguments.Properties["event_date"].(map[string]interface{})["type"]).To(Equal("string"))
 			Expect(js.OneOf[1].Properties.Function.Const).To(Equal("search"))
 			Expect(js.OneOf[1].Properties.Arguments.Properties["query"].(map[string]interface{})["type"]).To(Equal("string"))
+
+			jsN := functions.ToJSONNameStructure()
+			Expect(len(jsN.OneOf)).To(Equal(2))
+			Expect(jsN.OneOf[0].Properties.Function.Const).To(Equal("create_event"))
+			Expect(jsN.OneOf[0].Properties.Arguments.Properties["event_name"].(map[string]interface{})["type"]).To(Equal("string"))
+			Expect(jsN.OneOf[0].Properties.Arguments.Properties["event_date"].(map[string]interface{})["type"]).To(Equal("string"))
+			Expect(jsN.OneOf[1].Properties.Function.Const).To(Equal("search"))
+			Expect(jsN.OneOf[1].Properties.Arguments.Properties["query"].(map[string]interface{})["type"]).To(Equal("string"))
 		})
 	})
 	Context("Select()", func() {
