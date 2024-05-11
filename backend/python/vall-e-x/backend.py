@@ -11,9 +11,9 @@ import backend_pb2_grpc
 
 import grpc
 
-from utils.generation import SAMPLE_RATE, generate_audio, preload_models
+from source.utils.generation import SAMPLE_RATE, generate_audio, preload_models
 from scipy.io.wavfile import write as write_wav
-from utils.prompt_making import make_prompt
+from source.utils.prompt_making import make_prompt
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
