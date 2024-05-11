@@ -1,5 +1,7 @@
-.PHONY: template
-template: protogen
+.DEFAULT_GOAL := install
+
+.PHONY: install
+install: protogen
 	bash install.sh
 
 .PHONY: protogen

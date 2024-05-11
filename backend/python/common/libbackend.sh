@@ -158,11 +158,6 @@ function startBackend() {
     fi
 }
 
-function limitTarget() {
-    target=$1
-    echo $target
-}
-
 function runUnittests() {
     ensureVenv
     if [ -f "${MY_DIR}/test.py" ]; then
