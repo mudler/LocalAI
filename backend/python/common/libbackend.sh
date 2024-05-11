@@ -160,7 +160,14 @@ function startBackend() {
 
 function runUnittests() {
     ensureVenv
-    if [ -f "${MY_DIR}/test.py" ]; then
+
+    if [ ! -z ${TEST_FILE} ]; then
+        testDir=$(dirname `realpath ${TEST_FILE}`)
+        testFile=$(basename ${TEST_FILE})
+        pushd ${testDir}
+        python -m unittest ${testFile}
+        popd
+    elif [ -f "${MY_DIR}/test.py" ]; then
         pushd ${MY_DIR}
         python -m unittest test.py
         popd
