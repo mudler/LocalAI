@@ -216,10 +216,18 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			}
 
 			// Update input grammar
-			jsStruct := funcs.ToJSONStructure()
-			config.Grammar = jsStruct.Grammar("", config.FunctionsConfig.ParallelCalls)
+			// Handle if we should return "name" instead of "functions"
+			if config.FunctionsConfig.FunctionName {
+				jsStruct := funcs.ToJSONNameStructure()
+				config.Grammar = jsStruct.Grammar("", config.FunctionsConfig.ParallelCalls)
+			} else {
+				jsStruct := funcs.ToJSONFunctionStructure()
+				config.Grammar = jsStruct.Grammar("", config.FunctionsConfig.ParallelCalls)
+			}
 		case input.JSONFunctionGrammarObject != nil:
 			config.Grammar = input.JSONFunctionGrammarObject.Grammar("", config.FunctionsConfig.ParallelCalls)
+		case input.JSONFunctionGrammarObjectName != nil:
+			config.Grammar = input.JSONFunctionGrammarObjectName.Grammar("", config.FunctionsConfig.ParallelCalls)
 		default:
 			// Force picking one of the functions by the request
 			if config.FunctionToCall() != "" {

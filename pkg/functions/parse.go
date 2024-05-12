@@ -15,6 +15,11 @@ type FunctionsConfig struct {
 	ParallelCalls           bool   `yaml:"parallel_calls"`
 	NoGrammar               bool   `yaml:"no_grammar"`
 	ResponseRegex           string `yaml:"response_regex"`
+
+	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
+	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
+	// This might be useful for certain models trained with the function name as the first token.
+	FunctionName bool `yaml:"return_name_in_function_response"`
 }
 
 type FuncCallResults struct {
@@ -25,6 +30,11 @@ type FuncCallResults struct {
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 	multipleResults := functionConfig.ParallelCalls
 	useGrammars := !functionConfig.NoGrammar
+
+	functionNameKey := "function"
+	if functionConfig.FunctionName {
+		functionNameKey = "name"
+	}
 
 	results := []FuncCallResults{}
 
@@ -46,12 +56,12 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 
 		// TODO: open point about multiple results and/or mixed with chat messages
 		// This is not handled as for now, we only expect one function call per response
-		functionName := result["function"]
+		functionName := result[functionNameKey]
 		if functionName == "" {
 			return results
 		}
 
-		return append(results, FuncCallResults{Name: result["function"], Arguments: result["arguments"]})
+		return append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
 	}
 
 	// with grammars
@@ -66,7 +76,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		log.Debug().Msgf("Function return: %s %+v", s, ss)
 
 		for _, s := range ss {
-			func_name, ok := s["function"]
+			func_name, ok := s[functionNameKey]
 			if !ok {
 				continue
 			}
@@ -93,7 +103,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		log.Debug().Msgf("Function return: %s %+v", s, ss)
 
 		// The grammar defines the function name as "function", while OpenAI returns "name"
-		func_name, ok := ss["function"]
+		func_name, ok := ss[functionNameKey]
 		if !ok {
 			return results
 		}

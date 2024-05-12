@@ -271,8 +271,13 @@ type FunctionName struct {
 	Const string `json:"const"`
 }
 
-type Properties struct {
+type FunctionProperties struct {
 	Function  FunctionName `json:"function"`
+	Arguments Argument     `json:"arguments"`
+}
+
+type NameProperties struct {
+	Function  FunctionName `json:"name"`
 	Arguments Argument     `json:"arguments"`
 }
 
@@ -281,18 +286,34 @@ type Argument struct {
 	Properties map[string]interface{} `json:"properties"`
 }
 
-type Item struct {
-	Type       string     `json:"type"`
-	Properties Properties `json:"properties"`
+type ItemName struct {
+	Type       string         `json:"type"`
+	Properties NameProperties `json:"properties"`
 }
 
-type JSONFunctionStructure struct {
-	OneOf []Item                 `json:"oneOf,omitempty"`
-	AnyOf []Item                 `json:"anyOf,omitempty"`
+type ItemFunction struct {
+	Type       string             `json:"type"`
+	Properties FunctionProperties `json:"properties"`
+}
+
+type JSONFunctionStructureName struct {
+	OneOf []ItemName             `json:"oneOf,omitempty"`
+	AnyOf []ItemName             `json:"anyOf,omitempty"`
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructure) Grammar(propOrder string, maybeArray bool) string {
+func (j JSONFunctionStructureName) Grammar(propOrder string, maybeArray bool) string {
+	dat, _ := json.Marshal(j)
+	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray)
+}
+
+type JSONFunctionStructureFunction struct {
+	OneOf []ItemFunction         `json:"oneOf,omitempty"`
+	AnyOf []ItemFunction         `json:"anyOf,omitempty"`
+	Defs  map[string]interface{} `json:"$defs,omitempty"`
+}
+
+func (j JSONFunctionStructureFunction) Grammar(propOrder string, maybeArray bool) string {
 	dat, _ := json.Marshal(j)
 	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray)
 }
