@@ -152,6 +152,21 @@
       sha256: 3797a69f1bdf53fabf9f3a3a8c89730b504dd3209406288515c9944c14093048
       uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.IQ1_S.gguf
 - !!merge <<: *llama3
+  name: "l3-chaoticsoliloquy-v1.5-4x8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f5e51289c121cb864ba464/m5urYkrpE5amrwHyaVwFM.png
+  description: |
+      Experimental RP-oriented MoE, the idea was to get a model that would be equal to or better than the Mixtral 8x7B and it's finetunes in RP/ERP tasks. Im not sure but it should be better than the first version
+  urls:
+    - https://huggingface.co/xxx777xxxASD/L3-ChaoticSoliloquy-v1.5-4x8B
+    - https://huggingface.co/mradermacher/L3-ChaoticSoliloquy-v1.5-4x8B-GGUF/
+  overrides:
+    parameters:
+      model: L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+  files:
+    - filename: L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+      sha256: f6edb2a9674ce5add5104c0a8bb3278f748d39b509c483d76cf00b066eb56fbf
+      uri: huggingface://mradermacher/L3-ChaoticSoliloquy-v1.5-4x8B-GGUF/L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama-3-sauerkrautlm-8b-instruct"
   urls:
     - https://huggingface.co/bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF
