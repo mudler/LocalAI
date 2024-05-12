@@ -305,6 +305,24 @@
       uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
       sha256: 5774595ad560e4d258dac17723509bdefe746c4dacd4e679a0de00346f14d2f3
 - !!merge <<: *llama3
+  name: "jsl-medllama-3-8b-v2.0"
+  license: cc-by-nc-nd-4.0
+  icon: https://repository-images.githubusercontent.com/104670986/2e728700-ace4-11ea-9cfc-f3e060b25ddf
+  description: |
+    This model is developed by John Snow Labs.
+
+    This model is available under a CC-BY-NC-ND license and must also conform to this Acceptable Use Policy. If you need to license this model for commercial use, please contact us at info@johnsnowlabs.com.
+  urls:
+    - https://huggingface.co/bartowski/JSL-MedLlama-3-8B-v2.0-GGUF
+    - https://huggingface.co/johnsnowlabs/JSL-MedLlama-3-8B-v2.0
+  overrides:
+    parameters:
+      model: JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+  files:
+    - filename: JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+      sha256: 81783128ccd438c849913416c6e68cb35b2c77d6943cba8217d6d9bcc91b3632
+      uri: huggingface://bartowski/JSL-MedLlama-3-8B-v2.0-GGUF/JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "sovl_llama3_8b-gguf-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix
