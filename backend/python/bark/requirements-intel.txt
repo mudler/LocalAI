@@ -1,5 +1,5 @@
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 intel-extension-for-pytorch
 torch
-torchvision
+torchaudio
 optimum[openvino]
