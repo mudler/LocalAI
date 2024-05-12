@@ -85,6 +85,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"Repositories":     appConfig.Galleries,
 			"AllTags":          tags,
 			"ProcessingModels": processingModelsData,
+			"AvailableModels":  len(models),
 			"TaskTypes":        taskTypes,
 			//	"ApplicationConfig": appConfig,
 		}
