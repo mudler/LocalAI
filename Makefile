@@ -157,6 +157,7 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-cuda
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
@@ -676,6 +677,13 @@ backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc
 ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama-fallback/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
+
+backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc
+    cp -rf backend/cpp/llama backend/cpp/llama-cuda
+    $(MAKE) -C backend/cpp/llama-cuda purge
+    $(info ${GREEN}I llama-cpp build info:cuda${RESET})
+    CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=on -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off -DLLAMA_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
+    cp -rfv backend/cpp/llama-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
