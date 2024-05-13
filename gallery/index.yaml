@@ -371,6 +371,27 @@
       sha256: 9b8cd2c3beaab5e4f82efd10e7d44f099ad40a4e0ee286ca9fce02c8eec26d2f
       uri: huggingface://Sao10K/L3-Solana-8B-v1-GGUF/L3-Solana-8B-v1.q5_K_M.gguf
 - !!merge <<: *llama3
+  name: "aura-llama-abliterated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/AwLNDVB-GIY7k0wnVV_TX.png
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/TheSkullery/Aura-Llama-Abliterated
+    - https://huggingface.co/mudler/Aura-Llama-Abliterated-Q4_K_M-GGUF
+  description: |
+    Aura-llama is using the methodology presented by SOLAR for scaling LLMs called depth up-scaling (DUS), which encompasses architectural modifications with continued pretraining. Using the solar paper as a base, I integrated Llama-3 weights into the upscaled layers, and In the future plan to continue training the model.
+
+    Aura-llama is a merge of the following models to create a base model to work from:
+
+        meta-llama/Meta-Llama-3-8B-Instruct
+        meta-llama/Meta-Llama-3-8B-Instruct
+  overrides:
+    parameters:
+      model: aura-llama-abliterated.Q4_K_M.gguf
+  files:
+    - filename: aura-llama-abliterated.Q4_K_M.gguf
+      sha256: ad4a16b90f1ffb5b49185b3fd00ed7adb1cda69c4fad0a1d987bd344ce601dcd
+      uri: huggingface://mudler/Aura-Llama-Abliterated-Q4_K_M-GGUF/aura-llama-abliterated.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "average_normie_l3_v1_8b-gguf-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix
