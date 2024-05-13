@@ -204,7 +204,9 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 						if strings.Contains(gpu.String(), "nvidia") {
 							log.Info().Msgf("[%s] attempting to load with CUDA variant", backend)
 							grpcProcess = backendPath(o.assetDir, LLamaCPPCUDA)
-							foundCUDA = true
+							if _, err := os.Stat(grpcProcess); err == nil {
+								foundCUDA = true
+							}
 						}
 					}
 				}
