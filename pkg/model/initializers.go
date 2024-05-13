@@ -30,6 +30,8 @@ const (
 	LlamaGGML = "llama-ggml"
 
 	LLamaCPP         = "llama-cpp"
+
+	LLamaCPPCUDA12   = "llama-cpp-cuda12"
 	LLamaCPPAVX2     = "llama-cpp-avx2"
 	LLamaCPPAVX      = "llama-cpp-avx"
 	LLamaCPPFallback = "llama-cpp-fallback"
