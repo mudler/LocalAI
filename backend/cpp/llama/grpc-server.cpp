@@ -2254,6 +2254,9 @@ static void params_parse(const backend::ModelOptions* request,
     }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();
+    params.flash_attn = request->flashattention();
+    params.no_kv_offload = request->nokvoffload();
+
     params.embedding = request->embeddings();
 
     if (request->ropescaling() == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
