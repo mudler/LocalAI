@@ -132,6 +132,9 @@ type LLMConfig struct {
 	TensorParallelSize   int     `yaml:"tensor_parallel_size"`   // vLLM
 	MMProj               string  `yaml:"mmproj"`
 
+	FlashAttention bool `yaml:"flash_attention"`
+	NoKVOffloading bool `yaml:"no_kv_offloading"`
+
 	RopeScaling string `yaml:"rope_scaling"`
 	ModelType   string `yaml:"type"`
 
