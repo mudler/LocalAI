@@ -78,7 +78,7 @@ ENTRY:
 		}
 		if !e.IsDir() {
 			//backends = append(backends, e.Name())
-			if !strings.Contains(e.Name(), LLamaCPP) {
+			if !strings.Contains(e.Name(), LLamaCPP) || strings.Contains(e.Name(), LLamaCPPFallback) {
 				backends[e.Name()] = []string{}
 			}
 		}
@@ -109,7 +109,7 @@ ENTRY:
 	// First has more priority
 	priorityList := []string{
 		// First llama.cpp and llama-ggml
-		LLamaCPP, LlamaGGML, Gpt4All,
+		LLamaCPP, LlamaGGML, Gpt4All, LLamaCPPFallback,
 	}
 
 	toTheEnd := []string{
