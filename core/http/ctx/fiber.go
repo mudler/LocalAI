@@ -38,6 +38,17 @@ func ModelFromContext(ctx *fiber.Ctx, loader *model.ModelLoader, modelInput stri
 	if bearerExists {
 		log.Debug().Msgf("Using model from bearer token: %s", bearer)
 		modelInput = bearer
+		//Takes precedence, then return inmediatly
+		return modelInput,nil
 	}
+
+	//if a model is specified in modelInput, and there is no bearertoken,but it doesn´t exists in the model path, return QUICKLY. https://github.com/mudler/LocalAI/issues/1076
+	modelExists := modelInput != "" && loader.ExistsInModelPath(modelInput)
+	if !modelExists{
+		log.Debug().Msgf("The specified model does not exist in the model PATH, returning error")
+			return "", fmt.Errorf("no model specified")
+	}
+
+	//A model is specified, or the first available model is picked
 	return modelInput, nil
 }
