@@ -46,7 +46,7 @@ func ModelFromContext(ctx *fiber.Ctx, loader *model.ModelLoader, modelInput stri
 	modelExists := modelInput != "" && loader.ExistsInModelPath(modelInput)
 	if !modelExists{
 		log.Debug().Msgf("The specified model does not exist in the model PATH, returning error")
-			return "", fmt.Errorf("no model specified")
+			return "", fmt.Errorf("invalid model filename")
 	}
 
 	//A model is specified, or the first available model is picked
