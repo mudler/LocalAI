@@ -57,7 +57,7 @@ jobs:
           df -h
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
@@ -87,6 +87,12 @@ jobs:
           unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
           rm protoc.zip
 
+          curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update
+          sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
+          export CUDACXX=/usr/local/cuda/bin/nvcc
+
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
@@ -102,6 +108,8 @@ jobs:
           sudo cp -rfv sources/go-piper/piper-phonemize/pi/lib/. /usr/lib/ && \
           # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
           PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+        env:
+          CUDA_VERSION: 12-3
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -166,7 +174,7 @@ jobs:
           df -h
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Build images
         run: |
@@ -192,7 +200,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
