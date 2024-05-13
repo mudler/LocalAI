@@ -677,13 +677,6 @@ ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama-default/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
 
-backend-assets/grpc/llama-cpp-cuda12: backend-assets/grpc
-	cp -rf backend/cpp/llama backend/cpp/llama-cuda12
-	$(MAKE) -C backend/cpp/llama-cuda12 purge
-	$(info ${GREEN}I llama-cpp build info:cuda12${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_CUDA=ON" $(MAKE) VARIANT="llama-cuda12" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cuda12/grpc-server backend-assets/grpc/llama-cpp-cuda12
-
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
