@@ -41,24 +41,33 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	// if no grammar is used, we have to extract function and arguments from the result
 	if !useGrammars {
 		// the response is a string that we have to parse
-
-		// We use named regexes here to extract the function name and arguments
-		// obviously, this expects the LLM to be stable and return correctly formatted JSON
-		// TODO: optimize this and pre-compile it
-		var respRegex = regexp.MustCompile(functionConfig.ResponseRegex)
-		match := respRegex.FindStringSubmatch(llmresult)
 		result := make(map[string]string)
-		for i, name := range respRegex.SubexpNames() {
-			if i != 0 && name != "" && len(match) > i {
-				result[name] = match[i]
-			}
-		}
 
-		// TODO: open point about multiple results and/or mixed with chat messages
-		// This is not handled as for now, we only expect one function call per response
-		functionName := result[functionNameKey]
-		if functionName == "" {
-			return results
+		if functionConfig.ResponseRegex != "" {
+			// We use named regexes here to extract the function name and arguments
+			// obviously, this expects the LLM to be stable and return correctly formatted JSON
+			// TODO: optimize this and pre-compile it
+			var respRegex = regexp.MustCompile(functionConfig.ResponseRegex)
+			match := respRegex.FindStringSubmatch(llmresult)
+			for i, name := range respRegex.SubexpNames() {
+				if i != 0 && name != "" && len(match) > i {
+					result[name] = match[i]
+				}
+			}
+
+			// TODO: open point about multiple results and/or mixed with chat messages
+			// This is not handled as for now, we only expect one function call per response
+			functionName := result[functionNameKey]
+			if functionName == "" {
+				return results
+			}
+		} else {
+			// We expect the result to be a JSON object with a function name and arguments
+			err := json.Unmarshal([]byte(llmresult), &result)
+			if err != nil {
+				log.Error().Err(err).Str("llmresult", llmresult).Msg("unable to unmarshal llm result")
+				return results
+			}
 		}
 
 		return append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
