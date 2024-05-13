@@ -212,6 +212,9 @@ message ModelOptions {
   float YarnBetaSlow = 47;
 
   string Type = 49;
+
+  bool FlashAttention = 56;
+  bool NoKVOffload = 57;
 }
 
 message Result {
