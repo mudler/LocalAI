@@ -323,7 +323,11 @@ dist:
 	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-avx2
 	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-avx
 	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-fallback
+ifeq ($(OS),Darwin)
+	$(info ${GREEN}I Skip CUDA build on MacOS${RESET})
+else
 	$(MAKE) backend-assets/grpc/llama-cpp-cuda
+endif
 	$(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
