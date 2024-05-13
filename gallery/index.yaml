@@ -573,6 +573,29 @@
       sha256: 1199440aa13c55f5f2cad1cb215535306f21e52a81de23f80a9e3586c8ac1c50
       uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "llama-3-lumimaid-v2-8b-v0.1-oas-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/JUxfdTot7v7LTdIGYyzYM.png
+  license: cc-by-nc-4.0
+  description: |
+    This model uses the Llama3 prompting format.
+
+    Llama3 trained on our RP datasets, we tried to have a balance between the ERP and the RP, not too horny, but just enough.
+
+    We also added some non-RP dataset, making the model less dumb overall. It should look like a 40%/60% ratio for Non-RP/RP+ERP data.
+
+    "This model received the Orthogonal Activation Steering treatment, meaning it will rarely refuse any request."
+
+    This is v2!
+  overrides:
+    parameters:
+      model: v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+  files:
+    - filename: v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+      sha256: b00b4cc2ea4e06db592e5f581171758387106626bcbf445c03a1cb7b424be881
+      uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "suzume-llama-3-8B-multilingual"
   urls:
     - https://huggingface.co/lightblue/suzume-llama-3-8B-multilingual-gguf
