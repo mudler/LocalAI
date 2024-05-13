@@ -36,7 +36,6 @@ jobs:
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
-          export CUDACXX=/usr/local/cuda/bin/nvcc
         env:
           CUDA_VERSION: 12-3
       - name: Cache grpc
@@ -61,6 +60,7 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           export PATH=$PATH:$GOPATH/bin
+          export PATH=/usr/local/cuda/bin:$PATH
           make dist
       - uses: actions/upload-artifact@v4
         with:
