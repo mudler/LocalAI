@@ -269,18 +269,40 @@ const docTemplate = `{
                 }
             }
         },
-        "functions.Item": {
+        "functions.FunctionProperties": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "$ref": "#/definitions/functions.Argument"
+                },
+                "function": {
+                    "$ref": "#/definitions/functions.FunctionName"
+                }
+            }
+        },
+        "functions.ItemFunction": {
             "type": "object",
             "properties": {
                 "properties": {
-                    "$ref": "#/definitions/functions.Properties"
+                    "$ref": "#/definitions/functions.FunctionProperties"
                 },
                 "type": {
                     "type": "string"
                 }
             }
         },
-        "functions.JSONFunctionStructure": {
+        "functions.ItemName": {
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "$ref": "#/definitions/functions.NameProperties"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "functions.JSONFunctionStructureFunction": {
             "type": "object",
             "properties": {
                 "$defs": {
@@ -290,24 +312,45 @@ const docTemplate = `{
                 "anyOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/functions.Item"
+                        "$ref": "#/definitions/functions.ItemFunction"
                     }
                 },
                 "oneOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/functions.Item"
+                        "$ref": "#/definitions/functions.ItemFunction"
                     }
                 }
             }
         },
-        "functions.Properties": {
+        "functions.JSONFunctionStructureName": {
+            "type": "object",
+            "properties": {
+                "$defs": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "anyOf": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/functions.ItemName"
+                    }
+                },
+                "oneOf": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/functions.ItemName"
+                    }
+                }
+            }
+        },
+        "functions.NameProperties": {
             "type": "object",
             "properties": {
                 "arguments": {
                     "$ref": "#/definitions/functions.Argument"
                 },
-                "function": {
+                "name": {
                     "$ref": "#/definitions/functions.FunctionName"
                 }
             }
@@ -572,7 +615,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "grammar_json_functions": {
-                    "$ref": "#/definitions/functions.JSONFunctionStructure"
+                    "$ref": "#/definitions/functions.JSONFunctionStructureFunction"
+                },
+                "grammar_json_name": {
+                    "$ref": "#/definitions/functions.JSONFunctionStructureName"
                 },
                 "ignore_eos": {
                     "type": "boolean"

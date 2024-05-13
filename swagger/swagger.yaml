@@ -23,32 +23,60 @@ definitions:
       const:
         type: string
     type: object
-  functions.Item:
+  functions.FunctionProperties:
+    properties:
+      arguments:
+        $ref: '#/definitions/functions.Argument'
+      function:
+        $ref: '#/definitions/functions.FunctionName'
+    type: object
+  functions.ItemFunction:
     properties:
       properties:
-        $ref: '#/definitions/functions.Properties'
+        $ref: '#/definitions/functions.FunctionProperties'
       type:
         type: string
     type: object
-  functions.JSONFunctionStructure:
+  functions.ItemName:
+    properties:
+      properties:
+        $ref: '#/definitions/functions.NameProperties'
+      type:
+        type: string
+    type: object
+  functions.JSONFunctionStructureFunction:
     properties:
       $defs:
         additionalProperties: true
         type: object
       anyOf:
         items:
-          $ref: '#/definitions/functions.Item'
+          $ref: '#/definitions/functions.ItemFunction'
         type: array
       oneOf:
         items:
-          $ref: '#/definitions/functions.Item'
+          $ref: '#/definitions/functions.ItemFunction'
         type: array
     type: object
-  functions.Properties:
+  functions.JSONFunctionStructureName:
+    properties:
+      $defs:
+        additionalProperties: true
+        type: object
+      anyOf:
+        items:
+          $ref: '#/definitions/functions.ItemName'
+        type: array
+      oneOf:
+        items:
+          $ref: '#/definitions/functions.ItemName'
+        type: array
+    type: object
+  functions.NameProperties:
     properties:
       arguments:
         $ref: '#/definitions/functions.Argument'
-      function:
+      name:
         $ref: '#/definitions/functions.FunctionName'
     type: object
   functions.Tool:
@@ -227,7 +255,9 @@ definitions:
         description: A grammar to constrain the LLM output
         type: string
       grammar_json_functions:
-        $ref: '#/definitions/functions.JSONFunctionStructure'
+        $ref: '#/definitions/functions.JSONFunctionStructureFunction'
+      grammar_json_name:
+        $ref: '#/definitions/functions.JSONFunctionStructureName'
       ignore_eos:
         type: boolean
       input: {}
