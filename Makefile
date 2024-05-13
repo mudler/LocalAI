@@ -157,7 +157,6 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-cuda
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
@@ -320,7 +319,12 @@ build-minimal:
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
 
-dist: build
+dist:
+	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-avx2
+	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-avx
+	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-fallback
+	$(MAKE) backend-assets/grpc/llama-cpp-cuda
+	$(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
