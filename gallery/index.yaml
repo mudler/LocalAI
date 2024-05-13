@@ -371,6 +371,27 @@
       sha256: 9b8cd2c3beaab5e4f82efd10e7d44f099ad40a4e0ee286ca9fce02c8eec26d2f
       uri: huggingface://Sao10K/L3-Solana-8B-v1-GGUF/L3-Solana-8B-v1.q5_K_M.gguf
 - !!merge <<: *llama3
+  name: "aura-llama-abliterated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/AwLNDVB-GIY7k0wnVV_TX.png
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/TheSkullery/Aura-Llama-Abliterated
+    - https://huggingface.co/mudler/Aura-Llama-Abliterated-Q4_K_M-GGUF
+  description: |
+    Aura-llama is using the methodology presented by SOLAR for scaling LLMs called depth up-scaling (DUS), which encompasses architectural modifications with continued pretraining. Using the solar paper as a base, I integrated Llama-3 weights into the upscaled layers, and In the future plan to continue training the model.
+
+    Aura-llama is a merge of the following models to create a base model to work from:
+
+        meta-llama/Meta-Llama-3-8B-Instruct
+        meta-llama/Meta-Llama-3-8B-Instruct
+  overrides:
+    parameters:
+      model: aura-llama-abliterated.Q4_K_M.gguf
+  files:
+    - filename: aura-llama-abliterated.Q4_K_M.gguf
+      sha256: ad4a16b90f1ffb5b49185b3fd00ed7adb1cda69c4fad0a1d987bd344ce601dcd
+      uri: huggingface://mudler/Aura-Llama-Abliterated-Q4_K_M-GGUF/aura-llama-abliterated.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "average_normie_l3_v1_8b-gguf-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix
@@ -465,6 +486,24 @@
       uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q8_0.gguf
       sha256: 419dd76f61afe586076323c17c3a1c983e591472717f1ea178167ede4dc864df
 - !!merge <<: *llama3
+  name: "orthocopter_8b-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Orthocopter_8B-GGUF-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/cxM5EaC6ilXnSo_10stA8.png
+  description: |
+    This model is thanks to the hard work of lucyknada with the Edgerunners. Her work produced the following model, which I used as the base:
+
+    https://huggingface.co/Edgerunners/meta-llama-3-8b-instruct-hf-ortho-baukit-10fail-1000total
+
+    I then applied two handwritten datasets over top of this and the results are pretty nice, with no refusals and plenty of personality.
+  overrides:
+    parameters:
+      model: Orthocopter_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Orthocopter_8B-Q4_K_M-imat.gguf
+      uri: huggingface://Lewdiculous/Orthocopter_8B-GGUF-Imatrix/Orthocopter_8B-Q4_K_M-imat.gguf
+      sha256: ce93366c9eb20329530b19b9d6841a973d458bcdcfa8a521e9f9d0660cc94578
+- !!merge <<: *llama3
   name: "therapyllama-8b-v1"
   urls:
     - https://huggingface.co/victunes/TherapyLlama-8B-v1-GGUF
@@ -551,6 +590,29 @@
     - filename: Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
       sha256: 1199440aa13c55f5f2cad1cb215535306f21e52a81de23f80a9e3586c8ac1c50
       uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama-3-lumimaid-v2-8b-v0.1-oas-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/JUxfdTot7v7LTdIGYyzYM.png
+  license: cc-by-nc-4.0
+  description: |
+    This model uses the Llama3 prompting format.
+
+    Llama3 trained on our RP datasets, we tried to have a balance between the ERP and the RP, not too horny, but just enough.
+
+    We also added some non-RP dataset, making the model less dumb overall. It should look like a 40%/60% ratio for Non-RP/RP+ERP data.
+
+    "This model received the Orthogonal Activation Steering treatment, meaning it will rarely refuse any request."
+
+    This is v2!
+  overrides:
+    parameters:
+      model: v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+  files:
+    - filename: v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+      sha256: b00b4cc2ea4e06db592e5f581171758387106626bcbf445c03a1cb7b424be881
+      uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
   name: "suzume-llama-3-8B-multilingual"
   urls:
@@ -831,6 +893,33 @@
     - filename: Llava_1.5_Llama3_mmproj_updated.gguf
       sha256: 4f2bb77ca60f2c932d1c6647d334f5d2cd71966c19e850081030c9883ef1906c
       uri: https://huggingface.co/ChaoticNeutrals/LLaVA-Llama-3-8B-mmproj-Updated/resolve/main/llava-v1.5-8B-Updated-Stop-Token/mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "bunny-llama-3-8b-v"
+  urls:
+    - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
+  description: |
+      Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
+
+      We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
+  icon: https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf/resolve/main/icon.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  overrides:
+    mmproj: Bunny-Llama-3-8B-Q4_K_M-mmproj.gguf
+    parameters:
+      model: Bunny-Llama-3-8B-Q4_K_M.gguf
+  files:
+    - filename: Bunny-Llama-3-8B-Q4_K_M-mmproj.gguf
+      sha256: 96d033387a91e56cf97fa5d60e02c0128ce07c8fa83aaaefb74ec40541615ea5
+      uri: huggingace://BAAI/Bunny-Llama-3-8B-V-gguf/mmproj-model-f16.gguf
+    - filename: Bunny-Llama-3-8B-Q4_K_M.gguf
+      sha256: 88f0a61f947dbf129943328be7262ae82e3a582a0c75e53544b07f70355a7c30
+      uri: huggingace://BAAI/Bunny-Llama-3-8B-V-gguf/ggml-model-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llava-llama-3-8b-v1_1"
   description: |
