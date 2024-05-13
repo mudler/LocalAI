@@ -8,7 +8,7 @@ $ go get .
 $ go run .
 ```
 
-A seperate LocaAI instance is required of course. For e.g.
+A separate LocaAI instance is required of course. For e.g.
 
 ```bash
 $ docker run -e DEBUG=true --rm -it -p 8080:8080 <LocalAI-image> bert-cpp

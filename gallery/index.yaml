@@ -152,6 +152,21 @@
       sha256: 3797a69f1bdf53fabf9f3a3a8c89730b504dd3209406288515c9944c14093048
       uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.IQ1_S.gguf
 - !!merge <<: *llama3
+  name: "l3-chaoticsoliloquy-v1.5-4x8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f5e51289c121cb864ba464/m5urYkrpE5amrwHyaVwFM.png
+  description: |
+      Experimental RP-oriented MoE, the idea was to get a model that would be equal to or better than the Mixtral 8x7B and it's finetunes in RP/ERP tasks. Im not sure but it should be better than the first version
+  urls:
+    - https://huggingface.co/xxx777xxxASD/L3-ChaoticSoliloquy-v1.5-4x8B
+    - https://huggingface.co/mradermacher/L3-ChaoticSoliloquy-v1.5-4x8B-GGUF/
+  overrides:
+    parameters:
+      model: L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+  files:
+    - filename: L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+      sha256: f6edb2a9674ce5add5104c0a8bb3278f748d39b509c483d76cf00b066eb56fbf
+      uri: huggingface://mradermacher/L3-ChaoticSoliloquy-v1.5-4x8B-GGUF/L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama-3-sauerkrautlm-8b-instruct"
   urls:
     - https://huggingface.co/bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF
@@ -305,6 +320,24 @@
       uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
       sha256: 5774595ad560e4d258dac17723509bdefe746c4dacd4e679a0de00346f14d2f3
 - !!merge <<: *llama3
+  name: "jsl-medllama-3-8b-v2.0"
+  license: cc-by-nc-nd-4.0
+  icon: https://repository-images.githubusercontent.com/104670986/2e728700-ace4-11ea-9cfc-f3e060b25ddf
+  description: |
+    This model is developed by John Snow Labs.
+
+    This model is available under a CC-BY-NC-ND license and must also conform to this Acceptable Use Policy. If you need to license this model for commercial use, please contact us at info@johnsnowlabs.com.
+  urls:
+    - https://huggingface.co/bartowski/JSL-MedLlama-3-8B-v2.0-GGUF
+    - https://huggingface.co/johnsnowlabs/JSL-MedLlama-3-8B-v2.0
+  overrides:
+    parameters:
+      model: JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+  files:
+    - filename: JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+      sha256: 81783128ccd438c849913416c6e68cb35b2c77d6943cba8217d6d9bcc91b3632
+      uri: huggingface://bartowski/JSL-MedLlama-3-8B-v2.0-GGUF/JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "sovl_llama3_8b-gguf-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix
@@ -383,6 +416,21 @@
     - filename: openbiollm-llama3-8b.Q4_K_M.gguf
       sha256: 806fa724139b6a2527e33a79c25a13316188b319d4eed33e20914d7c5955d349
       uri: huggingface://aaditya/OpenBioLLM-Llama3-8B-GGUF/openbiollm-llama3-8b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-refueled"
+  urls:
+    - https://huggingface.co/LoneStriker/Llama-3-Refueled-GGUF
+  license: cc-by-nc-4.0
+  icon: https://assets-global.website-files.com/6423879a8f63c1bb18d74bfa/648818d56d04c3bdf36d71ab_Refuel_rev8-01_ts-p-1600.png
+  description: |
+      RefuelLLM-2-small, aka Llama-3-Refueled, is a Llama3-8B base model instruction tuned on a corpus of 2750+ datasets, spanning tasks such as classification, reading comprehension, structured attribute extraction and entity resolution. We're excited to open-source the model for the community to build on top of.
+  overrides:
+    parameters:
+      model: Llama-3-Refueled-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Refueled-Q4_K_M.gguf
+      sha256: 4d37d296193e4156cae1e116c1417178f1c35575ee5710489c466637a6358626
+      uri: huggingface://LoneStriker/Llama-3-Refueled-GGUF/Llama-3-Refueled-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llama-3-8b-lexifun-uncensored-v1"
   icon: "https://cdn-uploads.huggingface.co/production/uploads/644ad182f434a6a63b18eee6/GrOs1IPG5EXR3MOCtcQiz.png"
