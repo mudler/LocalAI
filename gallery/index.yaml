@@ -486,6 +486,24 @@
       uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q8_0.gguf
       sha256: 419dd76f61afe586076323c17c3a1c983e591472717f1ea178167ede4dc864df
 - !!merge <<: *llama3
+  name: "orthocopter_8b-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Orthocopter_8B-GGUF-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/cxM5EaC6ilXnSo_10stA8.png
+  description: |
+    This model is thanks to the hard work of lucyknada with the Edgerunners. Her work produced the following model, which I used as the base:
+
+    https://huggingface.co/Edgerunners/meta-llama-3-8b-instruct-hf-ortho-baukit-10fail-1000total
+
+    I then applied two handwritten datasets over top of this and the results are pretty nice, with no refusals and plenty of personality.
+  overrides:
+    parameters:
+      model: Orthocopter_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Orthocopter_8B-Q4_K_M-imat.gguf
+      uri: huggingface://Lewdiculous/Orthocopter_8B-GGUF-Imatrix/Orthocopter_8B-Q4_K_M-imat.gguf
+      sha256: ce93366c9eb20329530b19b9d6841a973d458bcdcfa8a521e9f9d0660cc94578
+- !!merge <<: *llama3
   name: "therapyllama-8b-v1"
   urls:
     - https://huggingface.co/victunes/TherapyLlama-8B-v1-GGUF
