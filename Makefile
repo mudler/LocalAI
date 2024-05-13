@@ -70,7 +70,7 @@ UNAME_S := $(shell uname -s)
 endif
 
 ifeq ($(OS),Darwin)
-	
+
 	ifeq ($(OSX_SIGNING_IDENTITY),)
 		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
 	endif
@@ -154,8 +154,8 @@ endif
 
 ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
 ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-noavx
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
@@ -652,30 +652,30 @@ else
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
 endif
 
-backend-assets/grpc/llama-cpp: backend-assets/grpc
-	$(info ${GREEN}I llama-cpp build info:standard${RESET})
-	cp -rf backend/cpp/llama backend/cpp/llama-default
-	$(MAKE) -C backend/cpp/llama-default purge
-	$(MAKE) VARIANT="llama-default" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-default/grpc-server backend-assets/grpc/llama-cpp
-# TODO: every binary should have its own folder instead, so can have different metal implementations
-ifeq ($(BUILD_TYPE),metal)
-	cp backend/cpp/llama-default/llama.cpp/build/bin/default.metallib backend-assets/grpc/
-endif
+backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-avx2
+	$(MAKE) -C backend/cpp/llama-avx2 purge
+	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=on -DLLAMA_AVX2=on -DLLAMA_AVX512=off -DLLAMA_FMA=on -DLLAMA_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-avx2/grpc-server backend-assets/grpc/llama-cpp-avx2
 
-backend-assets/grpc/llama-cpp-noavx: backend-assets/grpc
-	cp -rf backend/cpp/llama backend/cpp/llama-noavx
-	$(MAKE) -C backend/cpp/llama-noavx purge
-	$(info ${GREEN}I llama-cpp build info:noavx${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF" $(MAKE) VARIANT="llama-noavx" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-noavx/grpc-server backend-assets/grpc/llama-cpp-noavx
+backend-assets/grpc/llama-cpp-avx: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-avx
+	$(MAKE) -C backend/cpp/llama-avx purge
+	$(info ${GREEN}I llama-cpp build info:avx${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=on -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" $(MAKE) VARIANT="llama-avx" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-avx/grpc-server backend-assets/grpc/llama-cpp-avx
 
 backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-fallback
 	$(MAKE) -C backend/cpp/llama-fallback purge
 	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=off -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
+# TODO: every binary should have its own folder instead, so can have different metal implementations
+ifeq ($(BUILD_TYPE),metal)
+	cp backend/cpp/llama-fallback/llama.cpp/build/bin/default.metallib backend-assets/grpc/
+endif
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
@@ -719,7 +719,7 @@ docker:
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		-t $(DOCKER_IMAGE) .
-	
+
 docker-aio:
 	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
 	docker build \
