@@ -51,8 +51,6 @@ const (
 	LCHuggingFaceBackend   = "huggingface"
 
 	LocalStoreBackend = "local-store"
-
-	NVIDIAVendorID = "10de"
 )
 
 func backendPath(assetDir, backend string) string {
@@ -77,7 +75,6 @@ ENTRY:
 			}
 		}
 		if !e.IsDir() {
-			//backends = append(backends, e.Name())
 			if !strings.Contains(e.Name(), LLamaCPP) || strings.Contains(e.Name(), LLamaCPPFallback) {
 				backends[e.Name()] = []string{}
 			}
