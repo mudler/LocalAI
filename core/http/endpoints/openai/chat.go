@@ -349,7 +349,12 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				mess = append(mess, content)
 			}
 
-			predInput = strings.Join(mess, "\n")
+			joinCharacter := "\n"
+			if config.TemplateConfig.JoinChatMessagesByCharacter != nil {
+				joinCharacter = *config.TemplateConfig.JoinChatMessagesByCharacter
+			}
+
+			predInput = strings.Join(mess, joinCharacter)
 			log.Debug().Msgf("Prompt (before templating): %s", predInput)
 
 			templateFile := ""
