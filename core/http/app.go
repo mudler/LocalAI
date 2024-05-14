@@ -156,7 +156,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		if apiKey != "" {
 			for key, endpoints := range appConfig.ApiKeys {
 				if apiKey == key {
-					log.Debug().Str("key", key).Str("fmtPath", fmtPath).Msg("found a matching api key, checking permissions for fmtPath")
+					log.Trace().Str("key", key).Str("fmtPath", fmtPath).Msg("found a matching api key, checking permissions for fmtPath")
 					if slices.Contains(endpoints, "*") || slices.Contains(endpoints, fmtPath) {
 						return c.Next()
 					}
@@ -166,7 +166,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 		// Check if this is a default-allow endpoint
 		if defaultCaseExists && slices.Contains(appConfig.ApiKeys["_"], fmtPath) {
-			log.Debug().Str("fmtPath", fmtPath).Msg("matching authorization key not found, but fmtPath is on the default allow list")
+			log.Trace().Str("fmtPath", fmtPath).Msg("matching authorization key not found, but fmtPath is on the default allow list")
 			return c.Next()
 		}
 
