@@ -111,19 +111,27 @@ const array = `arr  ::=
     (",\n"  realvalue)*
   )? "]"`
 
-func (sc *JSONSchemaConverter) finalizeGrammar(maybeArray bool) string {
+func (sc *JSONSchemaConverter) finalizeGrammar(maybeArray, maybeString bool) string {
 	var lines []string
 	// write down the computed rules.
 	// if maybeArray is true, we need to add the array rule and slightly tweak the root rule
 	for name, rule := range sc.rules {
-		if maybeArray && name == "root" {
+		if (maybeArray || maybeString) && name == "root" {
 			name = "realvalue"
 		}
 		lines = append(lines, fmt.Sprintf("%s ::= %s", name, rule))
 	}
 
-	if maybeArray {
+	if maybeArray && !maybeString {
 		lines = append(lines, fmt.Sprintf("%s ::= %s", "root", "arr | realvalue"))
+		lines = append(lines, array)
+	}
+	if maybeArray && maybeString {
+		lines = append(lines, fmt.Sprintf("%s ::= %s", "root", "arr | realvalue | string"))
+		lines = append(lines, array)
+	}
+	if maybeString && !maybeArray {
+		lines = append(lines, fmt.Sprintf("%s ::= %s", "root", "realvalue | string"))
 		lines = append(lines, array)
 	}
 
@@ -251,15 +259,15 @@ func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[strin
 
 	return def
 }
-func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, maybeArray bool) string {
+func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, maybeArray, maybeString bool) string {
 	sc.visit(schema, "", schema)
-	return sc.finalizeGrammar(maybeArray)
+	return sc.finalizeGrammar(maybeArray, maybeString)
 }
 
-func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, maybeArray bool) string {
+func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, maybeArray, maybeString bool) string {
 	var schema map[string]interface{}
 	_ = json.Unmarshal(b, &schema)
-	return sc.Grammar(schema, maybeArray)
+	return sc.Grammar(schema, maybeArray, maybeString)
 }
 
 func jsonString(v interface{}) string {
@@ -302,9 +310,9 @@ type JSONFunctionStructureName struct {
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructureName) Grammar(propOrder string, maybeArray bool) string {
+func (j JSONFunctionStructureName) Grammar(propOrder string, maybeArray, maybeString bool) string {
 	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray)
+	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray, maybeString)
 }
 
 type JSONFunctionStructureFunction struct {
@@ -313,7 +321,7 @@ type JSONFunctionStructureFunction struct {
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructureFunction) Grammar(propOrder string, maybeArray bool) string {
+func (j JSONFunctionStructureFunction) Grammar(propOrder string, maybeArray, maybeString bool) string {
 	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray)
+	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray, maybeString)
 }

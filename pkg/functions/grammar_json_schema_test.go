@@ -141,7 +141,7 @@ root-1-name ::= "\"search\""`
 var _ = Describe("JSON schema grammar tests", func() {
 	Context("JSON", func() {
 		It("generates a valid grammar from JSON schema", func() {
-			grammar := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput1), false)
+			grammar := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput1), false, false)
 			results := strings.Split(inputResult1, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -151,7 +151,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))))
 		})
 		It("generates a valid grammar from JSON schema", func() {
-			grammar := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput2), false)
+			grammar := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput2), false, false)
 			results := strings.Split(inputResult3, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -196,7 +196,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 					},
 				}}
 
-			grammar := structuredGrammar.Grammar("", false)
+			grammar := structuredGrammar.Grammar("", false, false)
 			results := strings.Split(inputResult1, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -241,7 +241,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 					},
 				}}
 
-			grammar := structuredGrammar.Grammar("", true)
+			grammar := structuredGrammar.Grammar("", true, false)
 			results := strings.Split(inputResult2, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -286,7 +286,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 					},
 				}}
 
-			grammar := structuredGrammar.Grammar("", true)
+			grammar := structuredGrammar.Grammar("", true, false)
 			results := strings.Split(inputResult4, "\n")
 			for _, r := range results {
 				if r != "" {

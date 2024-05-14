@@ -14,8 +14,11 @@ type FunctionsConfig struct {
 	NoActionFunctionName    string `yaml:"no_action_function_name"`
 	NoActionDescriptionName string `yaml:"no_action_description_name"`
 	ParallelCalls           bool   `yaml:"parallel_calls"`
-	NoGrammar               bool   `yaml:"no_grammar"`
-	ResponseRegex           string `yaml:"response_regex"`
+
+	// GrammarMessage enables the LLM to return strings and not only JSON objects
+	GrammarMessage bool   `yaml:"grammar_message"`
+	NoGrammar      bool   `yaml:"no_grammar"`
+	ResponseRegex  string `yaml:"response_regex"`
 
 	JSONRegexMatch string `yaml:"json_regex_match"`
 
