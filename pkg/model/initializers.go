@@ -11,6 +11,7 @@ import (
 	"time"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
+	"github.com/go-skynet/LocalAI/pkg/xsysinfo"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sys/cpu"
@@ -29,10 +30,12 @@ const (
 	LlamaGGML = "llama-ggml"
 
 	LLamaCPP         = "llama-cpp"
+
 	LLamaCPPCUDA12   = "llama-cpp-cuda12"
 	LLamaCPPAVX2     = "llama-cpp-avx2"
 	LLamaCPPAVX      = "llama-cpp-avx"
 	LLamaCPPFallback = "llama-cpp-fallback"
+	LLamaCPPCUDA     = "llama-cpp-cuda"
 
 	Gpt4AllLlamaBackend = "gpt4all-llama"
 	Gpt4AllMptBackend   = "gpt4all-mpt"
@@ -72,8 +75,7 @@ ENTRY:
 			}
 		}
 		if !e.IsDir() {
-			//backends = append(backends, e.Name())
-			if !strings.Contains(e.Name(), LLamaCPP) {
+			if !strings.Contains(e.Name(), LLamaCPP) || strings.Contains(e.Name(), LLamaCPPFallback) {
 				backends[e.Name()] = []string{}
 			}
 		}
@@ -104,7 +106,7 @@ ENTRY:
 	// First has more priority
 	priorityList := []string{
 		// First llama.cpp and llama-ggml
-		LLamaCPP, LlamaGGML, Gpt4All,
+		LLamaCPP, LlamaGGML, Gpt4All, LLamaCPPFallback,
 	}
 
 	toTheEnd := []string{
@@ -190,17 +192,33 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		} else {
 			grpcProcess := backendPath(o.assetDir, backend)
 
+			foundCUDA := false
 			// for llama-cpp, check CPU capabilities and load the appropriate variant
 			if backend == LLamaCPP {
-				if cpu.X86.HasAVX2 {
-					log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
-					grpcProcess = backendPath(o.assetDir, LLamaCPPAVX2)
-				} else if cpu.X86.HasAVX {
-					log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
-					grpcProcess = backendPath(o.assetDir, LLamaCPPAVX)
-				} else {
-					log.Info().Msgf("[%s] attempting to load with fallback variant", backend)
-					grpcProcess = backendPath(o.assetDir, LLamaCPPFallback)
+				gpus, err := xsysinfo.GPUs()
+				if err == nil {
+					for _, gpu := range gpus {
+						if strings.Contains(gpu.String(), "nvidia") {
+							log.Info().Msgf("[%s] attempting to load with CUDA variant", backend)
+							grpcProcess = backendPath(o.assetDir, LLamaCPPCUDA)
+							if _, err := os.Stat(grpcProcess); err == nil {
+								foundCUDA = true
+							}
+						}
+					}
+				}
+
+				if !foundCUDA {
+					if cpu.X86.HasAVX2 {
+						log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
+						grpcProcess = backendPath(o.assetDir, LLamaCPPAVX2)
+					} else if cpu.X86.HasAVX {
+						log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
+						grpcProcess = backendPath(o.assetDir, LLamaCPPAVX)
+					} else {
+						log.Info().Msgf("[%s] attempting to load with fallback variant", backend)
+						grpcProcess = backendPath(o.assetDir, LLamaCPPFallback)
+					}
 				}
 			}
 
