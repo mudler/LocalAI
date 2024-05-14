@@ -691,6 +691,13 @@ backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc
 	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=on -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off -DLLAMA_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
 
+backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-grpc
+	$(MAKE) -C backend/cpp/llama-grpc purge
+	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_RPC=ON -DLLAMA_AVX=off -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-grpc/grpc-server backend-assets/grpc/llama-cpp-grpc
+
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
@@ -764,10 +771,3 @@ docker-image-intel-xpu:
 .PHONY: swagger
 swagger:
 	swag init -g core/http/app.go --output swagger
-
-backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc
-	cp -rf backend/cpp/llama backend/cpp/llama-grpc
-	$(MAKE) -C backend/cpp/llama-grpc purge
-	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_RPC=ON -DLLAMA_AVX=off -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-grpc/grpc-server backend-assets/grpc/llama-cpp-grpc
