@@ -93,6 +93,8 @@ type Diffusers struct {
 	ControlNet       string  `yaml:"control_net"`
 }
 
+// LLMConfig is a struct that holds the configuration that are
+// generic for most of the LLM backends.
 type LLMConfig struct {
 	SystemPrompt    string   `yaml:"system_prompt"`
 	TensorSplit     string   `yaml:"tensor_split"`
@@ -144,6 +146,7 @@ type LLMConfig struct {
 	YarnBetaSlow   float32 `yaml:"yarn_beta_slow"`
 }
 
+// AutoGPTQ is a struct that holds the configuration specific to the AutoGPTQ backend
 type AutoGPTQ struct {
 	ModelBaseName    string `yaml:"model_base_name"`
 	Device           string `yaml:"device"`
@@ -151,13 +154,31 @@ type AutoGPTQ struct {
 	UseFastTokenizer bool   `yaml:"use_fast_tokenizer"`
 }
 
+// TemplateConfig is a struct that holds the configuration of the templating system
 type TemplateConfig struct {
-	Chat                 string `yaml:"chat"`
-	ChatMessage          string `yaml:"chat_message"`
-	Completion           string `yaml:"completion"`
-	Edit                 string `yaml:"edit"`
-	Functions            string `yaml:"function"`
-	UseTokenizerTemplate bool   `yaml:"use_tokenizer_template"`
+	// Chat is the template used in the chat completion endpoint
+	Chat string `yaml:"chat"`
+
+	// ChatMessage is the template used for chat messages
+	ChatMessage string `yaml:"chat_message"`
+
+	// Completion is the template used for completion requests
+	Completion string `yaml:"completion"`
+
+	// Edit is the template used for edit completion requests
+	Edit string `yaml:"edit"`
+
+	// Functions is the template used when tools are present in the client requests
+	Functions string `yaml:"function"`
+
+	// UseTokenizerTemplate is a flag that indicates if the tokenizer template should be used.
+	// Note: this is mostly consumed for backends such as vllm and transformers
+	// that can use the tokenizers specified in the JSON config files of the models
+	UseTokenizerTemplate bool `yaml:"use_tokenizer_template"`
+
+	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
+	// It defaults to \n
+	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
 }
 
 func (c *BackendConfig) SetFunctionCallString(s string) {
