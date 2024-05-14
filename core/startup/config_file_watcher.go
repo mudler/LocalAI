@@ -152,6 +152,7 @@ func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {
 					log.Error().Err(err).Msg("unable to parse api_keys.json as any known format")
 					return err
 				}
+				log.Warn().Msg("unable to parse api_keys.json in modern format, defaulting all api keys to [\"ui\", \"user\"]")
 				for _, k := range oldFileFormat {
 					fileKeys[k] = []string{"ui", "user"}
 				}
