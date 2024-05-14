@@ -12,9 +12,9 @@ import (
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
 	"github.com/go-skynet/LocalAI/pkg/xsysinfo"
+	"github.com/klauspost/cpuid/v2"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/sys/cpu"
 
 	"github.com/elliotchance/orderedmap/v2"
 )
@@ -26,12 +26,13 @@ var Aliases map[string]string = map[string]string{
 	"langchain-huggingface": LCHuggingFaceBackend,
 }
 
+var autoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
+
 const (
 	LlamaGGML = "llama-ggml"
 
 	LLamaCPP = "llama-cpp"
 
-	LLamaCPPCUDA12   = "llama-cpp-cuda12"
 	LLamaCPPAVX2     = "llama-cpp-avx2"
 	LLamaCPPAVX      = "llama-cpp-avx"
 	LLamaCPPFallback = "llama-cpp-fallback"
@@ -90,8 +91,9 @@ ENTRY:
 
 	// if we are autoDetecting, we want to show the llama.cpp variants as a single backend
 	if autoDetect {
-		// if we find the llama.cpp variants, show them of as a single backend (llama-cpp)
-		foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC := false, false, false, false
+		// if we find the llama.cpp variants, show them of as a single backend (llama-cpp) as later we are going to pick that up
+		// when starting the service
+		foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC, foundLCPPCuda := false, false, false, false, false
 		if _, ok := backends[LLamaCPP]; !ok {
 			for _, e := range entry {
 				if strings.Contains(e.Name(), LLamaCPPAVX2) && !foundLCPPAVX2 {
@@ -109,6 +111,10 @@ ENTRY:
 				if strings.Contains(e.Name(), LLamaCPPGRPC) && !foundLCPPGRPC {
 					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPGRPC)
 					foundLCPPGRPC = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPCUDA) && !foundLCPPCuda {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPCUDA)
+					foundLCPPCuda = true
 				}
 			}
 		}
@@ -172,6 +178,7 @@ func selectGRPCProcess(backend, assetDir string) string {
 
 	// Note: This environment variable is read by the LocalAI's llama.cpp grpc-server
 	if os.Getenv("LLAMACPP_GRPC_SERVERS") != "" {
+		log.Info().Msgf("[%s] attempting to load with GRPC variant", LLamaCPPGRPC)
 		return backendPath(assetDir, LLamaCPPGRPC)
 	}
 
@@ -179,11 +186,13 @@ func selectGRPCProcess(backend, assetDir string) string {
 	if err == nil {
 		for _, gpu := range gpus {
 			if strings.Contains(gpu.String(), "nvidia") {
-				log.Info().Msgf("[%s] attempting to load with CUDA variant", backend)
 				p := backendPath(assetDir, LLamaCPPCUDA)
 				if _, err := os.Stat(p); err == nil {
+					log.Info().Msgf("[%s] attempting to load with CUDA variant", backend)
 					grpcProcess = p
 					foundCUDA = true
+				} else {
+					log.Info().Msgf("GPU device found but no CUDA backend present")
 				}
 			}
 		}
@@ -193,10 +202,10 @@ func selectGRPCProcess(backend, assetDir string) string {
 		return grpcProcess
 	}
 
-	if cpu.X86.HasAVX2 {
+	if xsysinfo.HasCPUCaps(cpuid.AVX2) {
 		log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
 		grpcProcess = backendPath(assetDir, LLamaCPPAVX2)
-	} else if cpu.X86.HasAVX {
+	} else if xsysinfo.HasCPUCaps(cpuid.AVX) {
 		log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
 		grpcProcess = backendPath(assetDir, LLamaCPPAVX)
 	} else {
@@ -206,8 +215,6 @@ func selectGRPCProcess(backend, assetDir string) string {
 
 	return grpcProcess
 }
-
-var autoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
 // It also loads the model
