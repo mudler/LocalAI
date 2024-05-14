@@ -8,6 +8,10 @@ import (
 	"path/filepath"
 )
 
+func ResolvePath(dir string, paths ...string) string {
+	return filepath.Join(append([]string{dir, "backend-assets"}, paths...)...)
+}
+
 func ExtractFiles(content embed.FS, extractDir string) error {
 	// Create the target directory if it doesn't exist
 	err := os.MkdirAll(extractDir, 0750)
@@ -39,7 +43,7 @@ func ExtractFiles(content embed.FS, extractDir string) error {
 		}
 
 		// Create the file in the target directory
-		err = os.WriteFile(targetFile, fileData, 0600)
+		err = os.WriteFile(targetFile, fileData, 0700)
 		if err != nil {
 			return fmt.Errorf("failed to write file: %v", err)
 		}

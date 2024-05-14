@@ -13,8 +13,9 @@ type Context struct {
 var CLI struct {
 	Context `embed:""`
 
-	Run        RunCMD        `cmd:"" help:"Run LocalAI, this the default command if no other command is specified. Run 'local-ai run --help' for more information" default:"withargs"`
-	Models     ModelsCMD     `cmd:"" help:"Manage LocalAI models and definitions"`
-	TTS        TTSCMD        `cmd:"" help:"Convert text to speech"`
-	Transcript TranscriptCMD `cmd:"" help:"Convert audio to text"`
+	Run            RunCMD            `cmd:"" help:"Run LocalAI, this the default command if no other command is specified. Run 'local-ai run --help' for more information" default:"withargs"`
+	Models         ModelsCMD         `cmd:"" help:"Manage LocalAI models and definitions"`
+	TTS            TTSCMD            `cmd:"" help:"Convert text to speech"`
+	Transcript     TranscriptCMD     `cmd:"" help:"Convert audio to text"`
+	LLAMACPPWorker LLAMACPPWorkerCMD `cmd:"" help:"Run workers to distribute workload (llama.cpp-only)"`
 }
