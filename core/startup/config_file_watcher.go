@@ -145,7 +145,16 @@ func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {
 			var fileKeys map[string][]string
 			err := json.Unmarshal(fileContent, &fileKeys)
 			if err != nil {
-				return err
+				// Try to deserialize the old, flat list format
+				var oldFileFormat []string
+				err := json.Unmarshal(fileContent, &oldFileFormat)
+				if err != nil {
+					log.Error().Err(err).Msg("unable to parse api_keys.json as any known format")
+					return err
+				}
+				for _, k := range oldFileFormat {
+					fileKeys[k] = []string{"ui", "user"}
+				}
 			}
 
 			appConfig.ApiKeys = startupAppConfig.ApiKeys
