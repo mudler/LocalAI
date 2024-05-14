@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -31,7 +32,12 @@ func newConfigFileHandler(appConfig *config.ApplicationConfig) configFileHandler
 		handlers:  make(map[string]fileHandler),
 		appConfig: appConfig,
 	}
-	err := c.Register("api_keys.json", readApiKeysJson(*appConfig), true)
+
+	err := c.Register("roles.json", readRolesJson(*appConfig), true)
+	if err != nil {
+		log.Error().Err(err).Str("file", "roles.json").Msg("unable to register config file handler")
+	}
+	err = c.Register("api_keys.json", readApiKeysJson(*appConfig), true)
 	if err != nil {
 		log.Error().Err(err).Str("file", "api_keys.json").Msg("unable to register config file handler")
 	}
@@ -39,6 +45,7 @@ func newConfigFileHandler(appConfig *config.ApplicationConfig) configFileHandler
 	if err != nil {
 		log.Error().Err(err).Str("file", "external_backends.json").Msg("unable to register config file handler")
 	}
+
 	return c
 }
 
@@ -135,20 +142,87 @@ func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {
 
 		if len(fileContent) > 0 {
 			// Parse JSON content from the file
-			var fileKeys []string
+			var fileKeys map[string][]string
 			err := json.Unmarshal(fileContent, &fileKeys)
 			if err != nil {
 				return err
 			}
 
-			log.Trace().Int("numKeys", len(fileKeys)).Msg("discovered API keys from api keys dynamic config dile")
+			appConfig.ApiKeys = startupAppConfig.ApiKeys
+			if appConfig.ApiKeys == nil {
+				appConfig.ApiKeys = map[string][]string{}
+			}
 
-			appConfig.ApiKeys = append(startupAppConfig.ApiKeys, fileKeys...)
+			log.Trace().Int("numKeys", len(fileKeys)).Msg("discovered API keys from api keys dynamic config dile")
+			for key, rawFileEndpoints := range fileKeys {
+				appConfig.ApiKeys[key] = append(startupAppConfig.ApiKeys[key], rawFileEndpoints...)
+			}
 		} else {
 			log.Trace().Msg("no API keys discovered from dynamic config file")
 			appConfig.ApiKeys = startupAppConfig.ApiKeys
 		}
+
+		// next, clean and process the ApiKeys for roles, duplicates, and *
+		// This is registered to run at startup, so will evaluate roles passed in as startupAppConfig
+		// quick version for now, this can be improved later
+		for key, endpoints := range appConfig.ApiKeys {
+			// Check if the starting point is enough to know the final answer
+			if slices.Contains(endpoints, "*") {
+				appConfig.ApiKeys[key] = []string{"*"}
+				continue
+			}
+
+			for { // We loop around here a second time if we make a change -- this ensures we unroll nested roles
+				isClean := true
+				for role, roleEndpoints := range appConfig.Roles {
+					index := slices.Index(appConfig.ApiKeys[key], role)
+					if index != -1 {
+						appConfig.ApiKeys[key] = slices.Replace(appConfig.ApiKeys[key], index, index+1, roleEndpoints...)
+						isClean = false
+					}
+				}
+				if isClean {
+					break
+				}
+			}
+			// Check if we have a "*"" yet
+			if slices.Contains(appConfig.ApiKeys[key], "*") {
+				appConfig.ApiKeys[key] = []string{"*"}
+				continue
+			}
+			// At this point, Sort+Compact is a simple way to deduplicate the endpoint list, no matter how the roles overlap
+			slices.Sort(appConfig.ApiKeys[key])
+			appConfig.ApiKeys[key] = slices.Compact(appConfig.ApiKeys[key])
+		}
+
 		log.Trace().Int("numKeys", len(appConfig.ApiKeys)).Msg("total api keys after processing")
+		return nil
+	}
+
+	return handler
+}
+
+func readRolesJson(startupAppConfig config.ApplicationConfig) fileHandler {
+	handler := func(fileContent []byte, appConfig *config.ApplicationConfig) error {
+		log.Debug().Msg("processing roles runtime update")
+		log.Trace().Int("numRoles", len(startupAppConfig.Roles)).Msg("roles provided at startup")
+
+		if len(fileContent) > 0 {
+			// Parse JSON content from the file
+			var fileRoles map[string][]string // Roles is a simple "shortcut" mapping a name to a list of endpoints
+			err := json.Unmarshal(fileContent, &fileRoles)
+			if err != nil {
+				return err
+			}
+
+			log.Trace().Int("numRoles", len(fileRoles)).Msg("discovered roles from roles dynamic config dile")
+
+			appConfig.Roles = fileRoles
+		} else {
+			log.Trace().Msg("no roles discovered from dynamic config file")
+			appConfig.Roles = startupAppConfig.Roles
+		}
+		log.Trace().Int("numRoles", len(appConfig.Roles)).Msg("total roles after processing")
 		return nil
 	}
 

@@ -3,7 +3,9 @@ package http
 import (
 	"embed"
 	"errors"
+	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
@@ -127,33 +129,48 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
 	auth := func(c *fiber.Ctx) error {
-		if len(appConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
 
 		if len(appConfig.ApiKeys) == 0 {
 			return c.Next()
 		}
+
+		defaultCaseExists := len(appConfig.ApiKeys["_"]) > 0
+		fmtPath := fmt.Sprintf("%s|%s", c.Route().Method, strings.Replace(c.Route().Path, "/v1", "", -1))
 
 		authHeader := readAuthHeader(c)
-		if authHeader == "" {
+		if !defaultCaseExists && authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
 		}
 
 		// If it's a bearer token
 		authHeaderParts := strings.Split(authHeader, " ")
 		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
-		}
-
-		apiKey := authHeaderParts[1]
-		for _, key := range appConfig.ApiKeys {
-			if apiKey == key {
-				return c.Next()
+			if !defaultCaseExists {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
+			} else {
+				authHeaderParts = []string{"", ""}
 			}
 		}
 
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+		apiKey := authHeaderParts[1]
+		if apiKey != "" {
+			for key, endpoints := range appConfig.ApiKeys {
+				if apiKey == key {
+					log.Debug().Str("key", key).Str("fmtPath", fmtPath).Msg("found a matching api key, checking permissions for fmtPath")
+					if slices.Contains(endpoints, "*") || slices.Contains(endpoints, fmtPath) {
+						return c.Next()
+					}
+				}
+			}
+		}
+
+		// Check if this is a default-allow endpoint
+		if defaultCaseExists && slices.Contains(appConfig.ApiKeys["_"], fmtPath) {
+			log.Debug().Str("fmtPath", fmtPath).Msg("matching authorization key not found, but fmtPath is on the default allow list")
+			return c.Next()
+		}
+
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key", "fmtPath": fmtPath, "apiKey": apiKey})
 	}
 
 	if appConfig.CORS {

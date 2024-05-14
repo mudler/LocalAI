@@ -1,0 +1,12 @@
+{
+    "admin": ["*"],
+    "llm-user": ["POST|/chat/completions", "POST|/edits", "POST|/completions", "POST|/embeddings", "POST|/rerank", "GET|/models"],
+    "audio-user": ["POST|/audio/transcriptions", "POST|/audio/speech", "POST|/tts", "POST|/text-to-speech"],
+    "image-user": ["POST|/images/generations"],
+    "ui": ["GET|/", "GET|/browse",  "GET|/browse/", "POST|/browse/search/models", 
+        "GET|/browse/job/progress", "GET|/browse/job", 
+        "GET|/chat", "GET|/chat/", "GET|/chat/:model", 
+        "GET|/text2image", "GET|/text2image/", "GET|/text2image/:model", 
+        "GET|/tts", "GET|/tts/", "GET|/tts/:model"],
+    "user": ["ui", "llm-user", "audio-user", "image-user"]
+}

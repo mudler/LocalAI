@@ -28,7 +28,8 @@ type ApplicationConfig struct {
 	PreloadJSONModels                   string
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
-	ApiKeys                             []string
+	ApiKeys                             map[string][]string // ApiKeys maps the key itself to a list of endpoints [or roles] that the key should be permitted to access
+	Roles                               map[string][]string // Roles is a simple "shortcut" mapping a name to a list of endpoints
 
 	ModelLibraryURL string
 
@@ -271,7 +272,7 @@ func WithDynamicConfigDirPollInterval(interval time.Duration) AppOption {
 	}
 }
 
-func WithApiKeys(apiKeys []string) AppOption {
+func WithApiKeys(apiKeys map[string][]string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ApiKeys = apiKeys
 	}
