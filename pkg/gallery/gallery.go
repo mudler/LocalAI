@@ -196,6 +196,9 @@ func GetLocalModelConfiguration(basePath string, name string) (*Config, error) {
 }
 
 func DeleteModelFromSystem(basePath string, name string, additionalFiles []string) error {
+	// quickly sanitize
+	basePath = filepath.Clean(basePath)
+	name = filepath.Clean(name)
 	// os.PathSeparator is not allowed in model names. Replace them with "__" to avoid conflicts with file paths.
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
@@ -214,7 +217,7 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 	// Remove additional files
 	if galleryconfig != nil {
 		for _, f := range galleryconfig.Files {
-			fullPath := filepath.Join(basePath, f.Filename)
+			fullPath := filepath.Join(basePath, filepath.Clean(f.Filename))
 			log.Debug().Msgf("Removing file %s", fullPath)
 			if e := os.Remove(fullPath); e != nil {
 				err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f.Filename, e))
@@ -223,7 +226,7 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 	}
 
 	for _, f := range additionalFiles {
-		fullPath := filepath.Join(filepath.Join(basePath, f))
+		fullPath := filepath.Join(filepath.Join(basePath, filepath.Clean(f)))
 		log.Debug().Msgf("Removing additional file %s", fullPath)
 		if e := os.Remove(fullPath); e != nil {
 			err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f, e))
