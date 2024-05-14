@@ -50,6 +50,7 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
 - Chat, TTS, and Image generation in the WebUI: https://github.com/mudler/LocalAI/pull/2222
 - Reranker API: https://github.com/mudler/LocalAI/pull/2121
 - Gallery WebUI: https://github.com/mudler/LocalAI/pull/2104
