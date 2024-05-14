@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=dc685be46622a8fabfd57cfa804237c8f15679b8
+CPPLLAMA_VERSION?=4f0263633b40e94e8b69fd6e7e4395cfedfd5c12
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -314,7 +314,7 @@ build: prepare backend-assets grpcs ## Build the project
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 build-minimal:
-	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp" GO_TAGS=none $(MAKE) build
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp-avx2" GO_TAGS=none $(MAKE) build
 
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
@@ -764,3 +764,10 @@ docker-image-intel-xpu:
 .PHONY: swagger
 swagger:
 	swag init -g core/http/app.go --output swagger
+
+backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-grpc
+	$(MAKE) -C backend/cpp/llama-grpc purge
+	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_RPC=ON -DLLAMA_AVX=off -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-grpc/grpc-server backend-assets/grpc/llama-cpp-grpc
