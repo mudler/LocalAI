@@ -158,6 +158,7 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
