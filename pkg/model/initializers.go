@@ -60,7 +60,7 @@ func backendPath(assetDir, backend string) string {
 
 // backendsInAssetDir returns the list of backends in the asset directory
 // that should be loaded
-func backendsInAssetDir(assetDir string) (*orderedmap.OrderedMap[string, any], error) {
+func backendsInAssetDir(assetDir string) ([]string, error) {
 	// Exclude backends from automatic loading
 	excludeBackends := []string{LocalStoreBackend}
 	entry, err := os.ReadDir(backendPath(assetDir, ""))
@@ -75,32 +75,41 @@ ENTRY:
 				continue ENTRY
 			}
 		}
-		if !e.IsDir() {
-			if !strings.Contains(e.Name(), LLamaCPP) || strings.Contains(e.Name(), LLamaCPPFallback) {
-				backends[e.Name()] = []string{}
-			}
+		if e.IsDir() {
+			continue
 		}
+
+		// Skip the llama.cpp variants if we are autoDetecting
+		// But we always load the fallback variant if it exists
+		if strings.Contains(e.Name(), LLamaCPP) && !strings.Contains(e.Name(), LLamaCPPFallback) && autoDetect {
+			continue
+		}
+
+		backends[e.Name()] = []string{}
 	}
 
-	// if we find the llama.cpp variants, show them of as a single backend (llama-cpp)
-	foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC := false, false, false, false
-	if _, ok := backends[LLamaCPP]; !ok {
-		for _, e := range entry {
-			if strings.Contains(e.Name(), LLamaCPPAVX2) && !foundLCPPAVX2 {
-				backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPAVX2)
-				foundLCPPAVX2 = true
-			}
-			if strings.Contains(e.Name(), LLamaCPPAVX) && !foundLCPPAVX {
-				backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPAVX)
-				foundLCPPAVX = true
-			}
-			if strings.Contains(e.Name(), LLamaCPPFallback) && !foundLCPPFallback {
-				backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPFallback)
-				foundLCPPFallback = true
-			}
-			if strings.Contains(e.Name(), LLamaCPPGRPC) && !foundLCPPGRPC {
-				backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPGRPC)
-				foundLCPPGRPC = true
+	// if we are autoDetecting, we want to show the llama.cpp variants as a single backend
+	if autoDetect {
+		// if we find the llama.cpp variants, show them of as a single backend (llama-cpp)
+		foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC := false, false, false, false
+		if _, ok := backends[LLamaCPP]; !ok {
+			for _, e := range entry {
+				if strings.Contains(e.Name(), LLamaCPPAVX2) && !foundLCPPAVX2 {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPAVX2)
+					foundLCPPAVX2 = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPAVX) && !foundLCPPAVX {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPAVX)
+					foundLCPPAVX = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPFallback) && !foundLCPPFallback {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPFallback)
+					foundLCPPFallback = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPGRPC) && !foundLCPPGRPC {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPGRPC)
+					foundLCPPGRPC = true
+				}
 			}
 		}
 	}
@@ -148,7 +157,7 @@ ENTRY:
 		}
 	}
 
-	return orderedBackends, nil
+	return orderedBackends.Keys(), nil
 }
 
 // selectGRPCProcess selects the GRPC process to start based on system capabilities
@@ -171,29 +180,34 @@ func selectGRPCProcess(backend, assetDir string) string {
 		for _, gpu := range gpus {
 			if strings.Contains(gpu.String(), "nvidia") {
 				log.Info().Msgf("[%s] attempting to load with CUDA variant", backend)
-				grpcProcess = backendPath(assetDir, LLamaCPPCUDA)
-				if _, err := os.Stat(grpcProcess); err == nil {
+				p := backendPath(assetDir, LLamaCPPCUDA)
+				if _, err := os.Stat(p); err == nil {
+					grpcProcess = p
 					foundCUDA = true
 				}
 			}
 		}
 	}
 
-	if !foundCUDA {
-		if cpu.X86.HasAVX2 {
-			log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
-			grpcProcess = backendPath(assetDir, LLamaCPPAVX2)
-		} else if cpu.X86.HasAVX {
-			log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
-			grpcProcess = backendPath(assetDir, LLamaCPPAVX)
-		} else {
-			log.Info().Msgf("[%s] attempting to load with fallback variant", backend)
-			grpcProcess = backendPath(assetDir, LLamaCPPFallback)
-		}
+	if foundCUDA {
+		return grpcProcess
+	}
+
+	if cpu.X86.HasAVX2 {
+		log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
+		grpcProcess = backendPath(assetDir, LLamaCPPAVX2)
+	} else if cpu.X86.HasAVX {
+		log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
+		grpcProcess = backendPath(assetDir, LLamaCPPAVX)
+	} else {
+		log.Info().Msgf("[%s] attempting to load with fallback variant", backend)
+		grpcProcess = backendPath(assetDir, LLamaCPPFallback)
 	}
 
 	return grpcProcess
 }
+
+var autoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
 // It also loads the model
@@ -245,7 +259,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		} else {
 			grpcProcess := backendPath(o.assetDir, backend)
 
-			if os.Getenv("DISABLE_AUTODETECT") != "true" {
+			if autoDetect {
 				// autoDetect GRPC process to start based on system capabilities
 				if selectedProcess := selectGRPCProcess(backend, o.assetDir); selectedProcess != "" {
 					grpcProcess = selectedProcess
@@ -393,28 +407,24 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 
 	var err error
 
-	// autoload also external backends
-	allBackendsToAutoLoad := orderedmap.NewOrderedMap[string, any]()
+	// get backends embedded in the binary
 	autoLoadBackends, err := backendsInAssetDir(o.assetDir)
 	if err != nil {
 		return nil, err
 	}
+
+	// append externalBackends supplied by the user via the CLI
+	for _, b := range o.externalBackends {
+		autoLoadBackends = append(autoLoadBackends, b)
+	}
+
 	log.Debug().Msgf("Loading from the following backends (in order): %+v", autoLoadBackends)
 
-	for _, k := range autoLoadBackends.Keys() {
-		v, _ := autoLoadBackends.Get(k)
-		allBackendsToAutoLoad.Set(k, v)
-	}
-
-	for _, b := range o.externalBackends {
-		allBackendsToAutoLoad.Set(b, []string{})
-	}
-
 	if o.model != "" {
-		log.Info().Msgf("Trying to load the model '%s' with the backend '%s'", o.model, allBackendsToAutoLoad.Keys())
+		log.Info().Msgf("Trying to load the model '%s' with the backend '%s'", o.model, autoLoadBackends)
 	}
 
-	for _, key := range allBackendsToAutoLoad.Keys() {
+	for _, key := range autoLoadBackends {
 		log.Info().Msgf("[%s] Attempting to load", key)
 		options := []Option{
 			WithBackendString(key),
