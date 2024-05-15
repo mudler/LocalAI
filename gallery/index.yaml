@@ -81,7 +81,7 @@
     - llama3
   overrides:
     parameters:
-      model: Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
+      model: Meta-Llama-3-8B-Instruct.Q4_0.gguf
   files:
     - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
       sha256: 19ded996fe6c60254dc7544d782276eff41046ed42aa5f2d0005dc457e5c0895
