@@ -29,7 +29,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg protobuf-compiler
+          sudo apt-get install build-essential ffmpeg protobuf-compiler ccache
       - name: Install CUDA Dependencies
         run: |
           curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
@@ -86,7 +86,7 @@ jobs:
           cache: false
       - name: Dependencies
         run: |
-          sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler
+          sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler ccache
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - name: Build stablediffusion
