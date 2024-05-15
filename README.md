@@ -54,7 +54,6 @@
 - Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
 - Chat, TTS, and Image generation in the WebUI: https://github.com/mudler/LocalAI/pull/2222
 - Reranker API: https://github.com/mudler/LocalAI/pull/2121
-- WebUI: https://github.com/mudler/LocalAI/pull/2104
 
 Hot topics (looking for contributors):
 
