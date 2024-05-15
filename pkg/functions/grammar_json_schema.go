@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
 const (
@@ -48,6 +50,10 @@ var (
 			[^"\\] |
 			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 		  )* "\"" space`,
+		"freestring": `(
+			[^"\\] |
+			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+		  )* space`,
 		"null": `"null" space`,
 	}
 
@@ -111,21 +117,53 @@ const array = `arr  ::=
     (",\n"  realvalue)*
   )? "]"`
 
-func (sc *JSONSchemaConverter) finalizeGrammar(maybeArray bool) string {
+func (sc *JSONSchemaConverter) finalizeGrammar(suffix string, maybeArray, maybeString bool) string {
 	var lines []string
+
+	swapRoot := maybeArray || maybeString || suffix != ""
+
 	// write down the computed rules.
 	// if maybeArray is true, we need to add the array rule and slightly tweak the root rule
 	for name, rule := range sc.rules {
-		if maybeArray && name == "root" {
+		if swapRoot && name == "root" {
 			name = "realvalue"
 		}
 		lines = append(lines, fmt.Sprintf("%s ::= %s", name, rule))
 	}
 
-	if maybeArray {
-		lines = append(lines, fmt.Sprintf("%s ::= %s", "root", "arr | realvalue"))
-		lines = append(lines, array)
+	if !swapRoot {
+		return strings.Join(lines, "\n")
 	}
+
+	newRoot := "realvalue"
+	if maybeArray {
+		newRoot = "arr | realvalue"
+	}
+
+	if suffix != "" {
+		// quote newlines in suffix
+		suffix = utils.EscapeNewLines(suffix)
+
+		if maybeArray && maybeString {
+			newRoot = "(" + newRoot + ")"
+		}
+
+		if maybeString {
+			//newRoot = "( (\"" + suffix + "\" " + newRoot + ") | freestring ) "
+			newRoot = "( \"" + suffix + "\" " + newRoot + " | freestring ) "
+		} else {
+			newRoot = "\"" + suffix + "\" " + "" + newRoot + ""
+		}
+	} else if maybeString {
+		if maybeArray {
+			//	newRoot = "(" + newRoot + ")"
+		}
+
+		newRoot = "freestring | " + newRoot
+	}
+
+	lines = append(lines, fmt.Sprintf("%s ::= %s", "root", newRoot))
+	lines = append(lines, array)
 
 	return strings.Join(lines, "\n")
 }
@@ -251,15 +289,16 @@ func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[strin
 
 	return def
 }
-func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, maybeArray bool) string {
+func (sc *JSONSchemaConverter) Grammar(suffix string, schema map[string]interface{}, maybeArray, maybeString bool) string {
+	sc.addRule("freestring", PRIMITIVE_RULES["freestring"])
 	sc.visit(schema, "", schema)
-	return sc.finalizeGrammar(maybeArray)
+	return sc.finalizeGrammar(suffix, maybeArray, maybeString)
 }
 
-func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, maybeArray bool) string {
+func (sc *JSONSchemaConverter) GrammarFromBytes(suffix string, b []byte, maybeArray, maybeString bool) string {
 	var schema map[string]interface{}
 	_ = json.Unmarshal(b, &schema)
-	return sc.Grammar(schema, maybeArray)
+	return sc.Grammar(suffix, schema, maybeArray, maybeString)
 }
 
 func jsonString(v interface{}) string {
@@ -302,9 +341,9 @@ type JSONFunctionStructureName struct {
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructureName) Grammar(propOrder string, maybeArray bool) string {
+func (j JSONFunctionStructureName) Grammar(suffix string, propOrder string, maybeArray, maybeString bool) string {
 	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray)
+	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(suffix, dat, maybeArray, maybeString)
 }
 
 type JSONFunctionStructureFunction struct {
@@ -313,7 +352,7 @@ type JSONFunctionStructureFunction struct {
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructureFunction) Grammar(propOrder string, maybeArray bool) string {
+func (j JSONFunctionStructureFunction) Grammar(suffix string, propOrder string, maybeArray, maybeString bool) string {
 	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray)
+	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(suffix, dat, maybeArray, maybeString)
 }
