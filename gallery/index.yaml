@@ -1095,6 +1095,27 @@
     - filename: "Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
       sha256: "b6d95d7ec9a395b7568cc94b0447fd4f90b6f69d6e44794b1fbb84e3f732baca"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
+- !!merge <<: *hermes-2-pro-mistral
+  name: "hermes-2-theta-llama-3-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/HQnQmNM1L3KXGhp0wUzHH.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  description: |
+    Hermes-2 Θ (Theta) is the first experimental merged model released by Nous Research, in collaboration with Charles Goddard at Arcee, the team behind MergeKit.
+    Hermes-2 Θ is a merged and then further RLHF'ed version our excellent Hermes 2 Pro model and Meta's Llama-3 Instruct model to form a new model, Hermes-2 Θ, combining the best of both worlds of each model.
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-2-Theta-Llama-3-8B-GGUF
+  overrides:
+    parameters:
+      model: Hermes-2-Pro-Llama-3-Instruct-Merged-DPO-Q4_K_M.gguf
+  files:
+    - filename: "Hermes-2-Pro-Llama-3-Instruct-Merged-DPO-Q4_K_M.gguf"
+      sha256: "762b9371a296ab2628592b9462dc676b27d881a3402816492801641a437669b3"
+      uri: "huggingface://NousResearch/Hermes-2-Theta-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-Instruct-Merged-DPO-Q4_K_M.gguf"
 ### LLAMA3 version
 - !!merge <<: *hermes-2-pro-mistral
   name: "hermes-2-pro-llama-3-8b"
