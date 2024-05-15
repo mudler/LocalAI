@@ -50,15 +50,11 @@
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
 - Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
 - Chat, TTS, and Image generation in the WebUI: https://github.com/mudler/LocalAI/pull/2222
 - Reranker API: https://github.com/mudler/LocalAI/pull/2121
-- Gallery WebUI: https://github.com/mudler/LocalAI/pull/2104
-- llama3: https://github.com/mudler/LocalAI/discussions/2076
-- Parler-TTS: https://github.com/mudler/LocalAI/pull/2027
-- Openvino support: https://github.com/mudler/LocalAI/pull/1892
-- Vector store: https://github.com/mudler/LocalAI/pull/1795
-- All-in-one container image: https://github.com/mudler/LocalAI/issues/1855
+- WebUI: https://github.com/mudler/LocalAI/pull/2104
 
 Hot topics (looking for contributors):
 
