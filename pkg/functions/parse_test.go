@@ -82,4 +82,65 @@ var _ = Describe("LocalAI function parse tests", func() {
 			Expect(results[1].Arguments).To(Equal(`{"x":10,"y":7}`))
 		})
 	})
+
+	Context("without grammars and without regex", func() {
+		It("should parse the function name and arguments correctly with the name key", func() {
+			input := `{"name": "add", "arguments": {"x": 5, "y": 3}}`
+			functionConfig.ParallelCalls = false
+			functionConfig.NoGrammar = true
+			functionConfig.ResponseRegex = ""
+			functionConfig.FunctionName = true
+
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("add"))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
+		})
+
+		It("should parse the function name and arguments correctly with the function key", func() {
+			input := `{"function": "add", "arguments": {"x": 5, "y": 3}}`
+			functionConfig.ParallelCalls = false
+			functionConfig.NoGrammar = true
+			functionConfig.ResponseRegex = ""
+			functionConfig.FunctionName = false
+
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("add"))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
+		})
+
+		It("Should parse the result by matching the JSONRegexMatch", func() {
+			input := `
+<tool_call>
+{"function": "add", "arguments": {"x": 5, "y": 3}}
+</tool_call>`
+			functionConfig.ParallelCalls = false
+			functionConfig.NoGrammar = true
+			functionConfig.JSONRegexMatch = `(?s)<tool_call>(.*?)</tool_call>`
+			functionConfig.ResponseRegex = ""
+			functionConfig.FunctionName = false
+
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("add"))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
+		})
+
+		It("Should parse the result by matching the JSONRegexMatch", func() {
+			input := `
+{"function": "add", "arguments": {"x": 5, "y": 3}}
+</tool_call>`
+			functionConfig.ParallelCalls = false
+			functionConfig.NoGrammar = true
+			functionConfig.JSONRegexMatch = `(?s)(.*?)</tool_call>`
+			functionConfig.ResponseRegex = ""
+			functionConfig.FunctionName = false
+
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("add"))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
+		})
+	})
 })

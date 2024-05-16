@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=dc685be46622a8fabfd57cfa804237c8f15679b8
+CPPLLAMA_VERSION?=e1b40ac3b94824d761b5e26ea1bc5692706029d9
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=73d13ad19a8c9c4da4f405088a85169b1a171e66
+WHISPER_CPP_VERSION?=08981d1bacbe494ff1c943af6c577c669a2d9f4d
 
 # bert.cpp version
 BERT_VERSION?=6abe312cded14042f6b7c3cd8edf082713334a4d
@@ -158,6 +158,8 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
+ALL_GRPC_BACKENDS+=backend-assets/util/llama-cpp-rpc-server
 ALL_GRPC_BACKENDS+=backend-assets/grpc/gpt4all
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
@@ -314,12 +316,19 @@ build: prepare backend-assets grpcs ## Build the project
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 build-minimal:
-	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp" GO_TAGS=none $(MAKE) build
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp-avx2" GO_TAGS=none $(MAKE) build
 
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
 
-dist: build
+dist:
+	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-avx2
+ifeq ($(OS),Darwin)
+	$(info ${GREEN}I Skip CUDA build on MacOS${RESET})
+else
+	$(MAKE) backend-assets/grpc/llama-cpp-cuda
+endif
+	$(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
@@ -676,6 +685,24 @@ backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc
 ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama-fallback/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
+
+backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-cuda
+	$(MAKE) -C backend/cpp/llama-cuda purge
+	$(info ${GREEN}I llama-cpp build info:cuda${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=on -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off -DLLAMA_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
+
+backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-grpc
+	$(MAKE) -C backend/cpp/llama-grpc purge
+	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_RPC=ON -DLLAMA_AVX=off -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-grpc/grpc-server backend-assets/grpc/llama-cpp-grpc
+
+backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
+	mkdir -p backend-assets/util/
+	cp -rf backend/cpp/llama-grpc/llama.cpp/build/bin/rpc-server backend-assets/util/llama-cpp-rpc-server
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \

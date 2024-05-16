@@ -19,6 +19,7 @@ ARG GO_TAGS="stablediffusion tinydream tts"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
+        ccache \
         ca-certificates \
         cmake \
         curl \

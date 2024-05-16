@@ -1,6 +1,6 @@
 name: Build and Release
 
-on: 
+on:
 - push
 - pull_request
 
@@ -16,15 +16,6 @@ concurrency:
 
 jobs:
   build-linux:
-    strategy:
-      matrix:
-        include:
-          - build: ''
-            defines: ''
-          - build: 'cuda12'
-            defines: ''
-          - build: 'cuda11'
-            defines: ''
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -38,19 +29,15 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg protobuf-compiler
+          sudo apt-get install build-essential ffmpeg protobuf-compiler ccache
       - name: Install CUDA Dependencies
-        if: ${{ matrix.build == 'cuda12' || matrix.build == 'cuda11' }}
         run: |
-          if [ "${{ matrix.build }}" == "cuda12" ]; then
-            export CUDA_VERSION=12-3
-          else
-            export CUDA_VERSION=11-7
-          fi
           curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
+        env:
+          CUDA_VERSION: 12-3
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -69,22 +56,15 @@ jobs:
           cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
       - name: Build
         id: build
-        env:
-          BUILD_ID: "${{ matrix.build }}"
         run: |
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           export PATH=$PATH:$GOPATH/bin
-          if [ "${{ matrix.build }}" == "cuda12" ] || [ "${{ matrix.build }}" == "cuda11" ]; then
-            export BUILD_TYPE=cublas
-            export PATH=/usr/local/cuda/bin:$PATH
-            make dist
-          else
-            STATIC=true make dist
-          fi
+          export PATH=/usr/local/cuda/bin:$PATH
+          make dist
       - uses: actions/upload-artifact@v4
         with:
-          name: LocalAI-linux-${{ matrix.build }}
+          name: LocalAI-linux
           path: release/
       - name: Release
         uses: softprops/action-gh-release@v2
@@ -106,7 +86,7 @@ jobs:
           cache: false
       - name: Dependencies
         run: |
-          sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler
+          sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler ccache
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - name: Build stablediffusion

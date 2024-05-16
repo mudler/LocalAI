@@ -2217,6 +2217,12 @@ static void params_parse(const backend::ModelOptions* request,
     } else {
         params.n_parallel = 1;
     }
+
+    const char *llama_grpc_servers = std::getenv("LLAMACPP_GRPC_SERVERS");
+    if (llama_grpc_servers != NULL) {
+        params.rpc_servers = std::string(llama_grpc_servers);
+    }
+    
     // TODO: Add yarn
 
     if (!request->tensorsplit().empty()) {
