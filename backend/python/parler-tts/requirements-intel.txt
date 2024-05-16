@@ -3,3 +3,4 @@ intel-extension-for-pytorch
 torch
 torchaudio
 optimum[openvino]
+setuptools
