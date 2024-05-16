@@ -614,6 +614,35 @@
       sha256: b00b4cc2ea4e06db592e5f581171758387106626bcbf445c03a1cb7b424be881
       uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "llama-3-sqlcoder-8b"
+  urls:
+    - https://huggingface.co/defog/llama-3-sqlcoder-8b
+    - https://huggingface.co/upendrab/llama-3-sqlcoder-8b-Q4_K_M-GGUF
+  license: cc-by-sa-4.0
+  description: |
+    A capable language model for text to SQL generation for Postgres, Redshift and Snowflake that is on-par with the most capable generalist frontier models.
+  overrides:
+    parameters:
+      model: llama-3-sqlcoder-8b.Q4_K_M.gguf
+  files:
+    - filename: llama-3-sqlcoder-8b.Q4_K_M.gguf
+      sha256: b22fc704bf1405846886d9619f3eb93c40587cd58d9bda53789a17997257e023
+      uri: huggingface://upendrab/llama-3-sqlcoder-8b-Q4_K_M-GGUF/llama-3-sqlcoder-8b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "sfr-iterative-dpo-llama-3-8b-r"
+  urls:
+    - https://huggingface.co/bartowski/SFR-Iterative-DPO-LLaMA-3-8B-R-GGUF
+  license: cc-by-nc-nd-4.0
+  description: |
+    A capable language model for text to SQL generation for Postgres, Redshift and Snowflake that is on-par with the most capable generalist frontier models.
+  overrides:
+    parameters:
+      model: SFR-Iterative-DPO-LLaMA-3-8B-R-Q4_K_M.gguf
+  files:
+    - filename: SFR-Iterative-DPO-LLaMA-3-8B-R-Q4_K_M.gguf
+      sha256: 480703ff85af337e1db2a9d9a678a3ac8ca0802e366b14d9c59b81d3fc689da8
+      uri: huggingface://bartowski/SFR-Iterative-DPO-LLaMA-3-8B-R-GGUF/SFR-Iterative-DPO-LLaMA-3-8B-R-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "suzume-llama-3-8B-multilingual"
   urls:
     - https://huggingface.co/lightblue/suzume-llama-3-8B-multilingual-gguf
@@ -695,6 +724,40 @@
     - filename: Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
       sha256: 694c55b5215d03e59626cd4292076eaf31610ef27ba04737166766baa75d889f
       uri: huggingface://MaziyarPanahi/Llama-3-8B-Instruct-DPO-v0.3-32k-GGUF/Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
+- &yi-chat
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: "https://raw.githubusercontent.com/01-ai/Yi/main/assets/img/Yi_logo_icon_light.svg"
+  name: "yi-1.5-9b-chat"
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/01-ai/Yi-1.5-6B-Chat
+    - https://huggingface.co/MaziyarPanahi/Yi-1.5-9B-Chat-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - yi
+  overrides:
+    context_size: 4096
+    parameters:
+      model: Yi-1.5-9B-Chat.Q4_K_M.gguf
+  files:
+    - filename: Yi-1.5-9B-Chat.Q4_K_M.gguf
+      sha256: bae824bdb0f3a333714bafffcbb64cf5cba7259902cd2f20a0fec6efbc6c1e5a
+      uri: huggingface://MaziyarPanahi/Yi-1.5-9B-Chat-GGUF/Yi-1.5-9B-Chat.Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  name: "yi-1.5-6b-chat"
+  urls:
+    - https://huggingface.co/01-ai/Yi-1.5-6B-Chat
+    - https://huggingface.co/MaziyarPanahi/Yi-1.5-6B-Chat-GGUF
+  overrides:
+    parameters:
+      model: Yi-1.5-6B-Chat.Q4_K_M.gguf
+  files:
+    - filename: Yi-1.5-6B-Chat.Q4_K_M.gguf
+      sha256: 7a0f853dbd8d38bad71ada1933fd067f45f928b2cd978aba1dfd7d5dec2953db
+      uri: huggingface://MaziyarPanahi/Yi-1.5-6B-Chat-GGUF/Yi-1.5-6B-Chat.Q4_K_M.gguf
 - &vicuna-chat
   ## LLama2 and derivatives
   ### Start Fimbulvetr
