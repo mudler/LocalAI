@@ -2,3 +2,4 @@
 intel-extension-for-pytorch
 torch
 optimum[openvino]
+setuptools
