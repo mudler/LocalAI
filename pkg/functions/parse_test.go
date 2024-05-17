@@ -11,18 +11,12 @@ var _ = Describe("LocalAI function parse tests", func() {
 
 	BeforeEach(func() {
 		// Default configuration setup
-		functionConfig = FunctionsConfig{
-			ParallelCalls: false,
-			NoGrammar:     false,
-			ResponseRegex: `(?P<function>\w+)\s*\((?P<arguments>.*)\)`,
-		}
+		functionConfig = FunctionsConfig{}
 	})
 
 	Context("when using grammars and single result expected", func() {
 		It("should parse the function name and arguments correctly", func() {
 			input := `{"function": "add", "arguments": {"x": 5, "y": 3}}`
-			functionConfig.ParallelCalls = false
-			functionConfig.NoGrammar = false
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -34,7 +28,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 	Context("when not using grammars and regex is needed", func() {
 		It("should extract function name and arguments from the regex", func() {
 			input := `add({"x":5,"y":3})`
-			functionConfig.NoGrammar = true
+			functionConfig.ResponseRegex = `(?P<function>\w+)\s*\((?P<arguments>.*)\)`
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -46,33 +40,19 @@ var _ = Describe("LocalAI function parse tests", func() {
 	Context("when having invalid input", func() {
 		It("returns no results when there is no input", func() {
 			input := ""
-			functionConfig.NoGrammar = true
-
 			results := ParseFunctionCall(input, functionConfig)
-			Expect(results).To(HaveLen(0))
-
-			functionConfig.NoGrammar = false
-
-			results = ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(0))
 		})
 		It("returns no results when is invalid", func() {
 			input := "invalid input"
-			functionConfig.NoGrammar = true
 
 			results := ParseFunctionCall(input, functionConfig)
-			Expect(results).To(HaveLen(0))
-			functionConfig.NoGrammar = false
-
-			results = ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(0))
 		})
 	})
 	Context("when parallel calls are enabled", func() {
 		It("should handle multiple function calls", func() {
 			input := `[{"function": "add", "arguments": {"x": 5, "y": 3}}, {"function": "subtract", "arguments": {"x": 10, "y": 7}}]`
-			functionConfig.ParallelCalls = true
-			functionConfig.NoGrammar = false
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(2))
@@ -86,9 +66,6 @@ var _ = Describe("LocalAI function parse tests", func() {
 	Context("without grammars and without regex", func() {
 		It("should parse the function name and arguments correctly with the name key", func() {
 			input := `{"name": "add", "arguments": {"x": 5, "y": 3}}`
-			functionConfig.ParallelCalls = false
-			functionConfig.NoGrammar = true
-			functionConfig.ResponseRegex = ""
 			functionConfig.FunctionName = true
 
 			results := ParseFunctionCall(input, functionConfig)
@@ -99,10 +76,6 @@ var _ = Describe("LocalAI function parse tests", func() {
 
 		It("should parse the function name and arguments correctly with the function key", func() {
 			input := `{"function": "add", "arguments": {"x": 5, "y": 3}}`
-			functionConfig.ParallelCalls = false
-			functionConfig.NoGrammar = true
-			functionConfig.ResponseRegex = ""
-			functionConfig.FunctionName = false
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -115,11 +88,8 @@ var _ = Describe("LocalAI function parse tests", func() {
 <tool_call>
 {"function": "add", "arguments": {"x": 5, "y": 3}}
 </tool_call>`
-			functionConfig.ParallelCalls = false
-			functionConfig.NoGrammar = true
+
 			functionConfig.JSONRegexMatch = `(?s)<tool_call>(.*?)</tool_call>`
-			functionConfig.ResponseRegex = ""
-			functionConfig.FunctionName = false
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -131,11 +101,8 @@ var _ = Describe("LocalAI function parse tests", func() {
 			input := `
 {"function": "add", "arguments": {"x": 5, "y": 3}}
 </tool_call>`
-			functionConfig.ParallelCalls = false
-			functionConfig.NoGrammar = true
+
 			functionConfig.JSONRegexMatch = `(?s)(.*?)</tool_call>`
-			functionConfig.ResponseRegex = ""
-			functionConfig.FunctionName = false
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
