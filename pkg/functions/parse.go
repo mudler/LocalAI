@@ -3,10 +3,10 @@ package functions
 import (
 	"encoding/json"
 	"regexp"
-	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v2"
 )
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -44,7 +44,7 @@ type FunctionsConfig struct {
 	GrammarPrefix string `yaml:"grammar_prefix"`
 
 	// ReplaceResults allow to replace strings in the results before parsing them
-	ReplaceResults map[string]string `yaml:"replace_results"`
+	ReplaceResults yaml.MapSlice `yaml:"replace_results"`
 
 	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
@@ -60,9 +60,11 @@ type FuncCallResults struct {
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 	log.Debug().Msgf("LLM result: %s", llmresult)
 
-	for k, v := range functionConfig.ReplaceResults {
+	for _, item := range functionConfig.ReplaceResults {
+		k, v := item.Key.(string), item.Value.(string)
 		log.Debug().Msgf("Replacing %s with %s", k, v)
-		llmresult = strings.ReplaceAll(llmresult, k, v)
+		re := regexp.MustCompile(k)
+		llmresult = re.ReplaceAllString(llmresult, v)
 	}
 
 	log.Debug().Msgf("LLM result(processed): %s", llmresult)
