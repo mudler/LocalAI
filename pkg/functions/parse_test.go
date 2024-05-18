@@ -4,6 +4,7 @@ import (
 	. "github.com/go-skynet/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v2"
 )
 
 var _ = Describe("LocalAI function parse tests", func() {
@@ -119,9 +120,10 @@ Some text before the JSON
 {"function": "add", "arguments": {"x": 5, "y": 3}}
 Some text after the JSON
 `
-			functionConfig.ReplaceResults = map[string]string{
-				`(?s)^[^\\{]*(?=\\{)`: "",
-				`(?s)\\}[^{}]+$`:      "",
+
+			functionConfig.ReplaceResults = yaml.MapSlice{
+				{Key: `(?s)^[^{\[]*`, Value: ""},
+				{Key: `(?s)[^}\]]*$`, Value: ""},
 			}
 
 			results := ParseFunctionCall(input, functionConfig)
@@ -136,9 +138,9 @@ Some text before the JSON
 [{"function": "add", "arguments": {"x": 5, "y": 3}}, {"function": "subtract", "arguments": {"x": 10, "y": 7}}]
 Some text after the JSON
 `
-			functionConfig.ReplaceResults = map[string]string{
-				`(?s)^[^\\[]{*(?=\\[)`: "",
-				`(?s)\\][^]]+$`:         "",
+			functionConfig.ReplaceResults = yaml.MapSlice{
+				{Key: `(?s)^[^{\[]*`, Value: ""},
+				{Key: `(?s)[^}\]]*$`, Value: ""},
 			}
 
 			results := ParseFunctionCall(input, functionConfig)
@@ -152,21 +154,32 @@ Some text after the JSON
 		It("should convert single-quoted key-value pairs to double-quoted and escape double quotes within values", func() {
 			input := `
 Some text before the JSON
-{'function': '"add"', 'arguments': {'x': 5, 'y': '"value"'}}
+{'function': '"add"', 'arguments': {'x': 5, 'z': '"v"', 'y': 'v"value"'}}
 Some text after the JSON
 `
-			functionConfig.ReplaceResults = map[string]string{
-				`(?s)^[^\\{]*(?=\\{)`: "",
-				`(?s)\\}[^{}]+$`:      "",
-				`'([^']+)':\s*'([^']*)'`: "\"$1\": \"$2\"",
-				`(?<!\\)"`:             "\\\"",
+			// Regex to match non-JSON characters before the JSON structure
+			//reBefore := regexp.MustCompile(`(?s)^.*?(?=\{|\[)`)
+			// Regex to match non-JSON characters after the JSON structure
+			//reAfter := regexp.MustCompile(`(?s)(?<=\}|\]).*$`)
+
+			functionConfig.ReplaceResults = yaml.MapSlice{
+				{Key: `(?s)^[^{\[]*`, Value: ""},
+				{Key: `(?s)[^}\]]*$`, Value: ""},
+				// Regex pattern to match single quotes around keys and values
+				// Step 1: Replace single quotes around keys and values with double quotes
+				{Key: `'([^']*?)'`, Value: `_DQUOTE_${1}_DQUOTE_`},
+				// Step 2: Replace double quotes inside values with placeholders
+				{Key: `\\"`, Value: `__TEMP_QUOTE__`},
+				{Key: `"`, Value: `\"`},
+				{Key: `\'`, Value: `'`},
+				{Key: `_DQUOTE_`, Value: `"`},
+				{Key: `__TEMP_QUOTE__`, Value: `"`},
 			}
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("\\\"add\\\""))
-			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":"\\\"value\\\""}`))
+			Expect(results[0].Name).To(Equal("\"add\""))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":"v\"value\"","z":"\"v\""}`))
 		})
 	})
 })
-
