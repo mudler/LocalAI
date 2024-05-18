@@ -50,6 +50,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 			Expect(results).To(HaveLen(0))
 		})
 	})
+
 	Context("when parallel calls are enabled", func() {
 		It("should handle multiple function calls", func() {
 			input := `[{"function": "add", "arguments": {"x": 5, "y": 3}}, {"function": "subtract", "arguments": {"x": 10, "y": 7}}]`
@@ -83,7 +84,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
 		})
 
-		It("Should parse the result by matching the JSONRegexMatch", func() {
+		It("should parse the result by matching the JSONRegexMatch", func() {
 			input := `
 <tool_call>
 {"function": "add", "arguments": {"x": 5, "y": 3}}
@@ -97,7 +98,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
 		})
 
-		It("Should parse the result by matching the JSONRegexMatch", func() {
+		It("should parse the result by matching the JSONRegexMatch", func() {
 			input := `
 {"function": "add", "arguments": {"x": 5, "y": 3}}
 </tool_call>`
@@ -129,14 +130,12 @@ Some text after the JSON
 			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
 		})
 
-	Context("when using ReplaceResults to clean up input from JSON array", func() {
-		It("should replace text before and after array JSON array", func() {
+		It("should replace text before and after array JSON blob", func() {
 			input := `
 Some text before the JSON
 [{"function": "add", "arguments": {"x": 5, "y": 3}}, {"function": "subtract", "arguments": {"x": 10, "y": 7}}]
 Some text after the JSON
 `
-			functionConfig.FunctionName = true
 			functionConfig.ReplaceResults = map[string]string{
 				`(?s)^[^\\[]{*(?=\\[)`: "",
 				`(?s)\\][^]]+$`:         "",
@@ -149,6 +148,25 @@ Some text after the JSON
 			Expect(results[1].Name).To(Equal("subtract"))
 			Expect(results[1].Arguments).To(Equal(`{"x":10,"y":7}`))
 		})
-	})
+
+		It("should convert single-quoted key-value pairs to double-quoted and escape double quotes within values", func() {
+			input := `
+Some text before the JSON
+{'function': '"add"', 'arguments': {'x': 5, 'y': '"value"'}}
+Some text after the JSON
+`
+			functionConfig.ReplaceResults = map[string]string{
+				`(?s)^[^\\{]*(?=\\{)`: "",
+				`(?s)\\}[^{}]+$`:      "",
+				`'([^']+)':\s*'([^']*)'`: "\"$1\": \"$2\"",
+				`(?<!\\)"`:             "\\\"",
+			}
+
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("\\\"add\\\""))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":"\\\"value\\\""}`))
+		})
 	})
 })
+
