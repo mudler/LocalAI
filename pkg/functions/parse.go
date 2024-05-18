@@ -60,10 +60,11 @@ type FuncCallResults struct {
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 	log.Debug().Msgf("LLM result: %s", llmresult)
 
-	for k, v := range functionConfig.ReplaceResults {
-		log.Debug().Msgf("Replacing %s with %s", k, v)
-		llmresult = strings.ReplaceAll(llmresult, k, v)
-	}
+    for k, v := range functionConfig.ReplaceResults {
+    	log.Debug().Msgf("Replacing %s with %s", k, v)
+    	re := regexp.MustCompile(k)
+    	llmresult = re.ReplaceAllString(llmresult, v)
+    }
 
 	log.Debug().Msgf("LLM result(processed): %s", llmresult)
 
