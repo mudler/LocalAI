@@ -985,16 +985,16 @@
     - cpu
     - llava-1.5
   overrides:
-    mmproj: Llava_1.5_Llama3_mmproj_updated.gguf
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
     parameters:
       model: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
   files:
     - filename: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
       sha256: 53743717f929f73aa4355229de114d9b81814cb2e83c6cc1c6517844da20bfd5
       uri: huggingface://Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
-    - filename: Llava_1.5_Llama3_mmproj_updated.gguf
-      sha256: 4f2bb77ca60f2c932d1c6647d334f5d2cd71966c19e850081030c9883ef1906c
-      uri: https://huggingface.co/ChaoticNeutrals/LLaVA-Llama-3-8B-mmproj-Updated/resolve/main/llava-v1.5-8B-Updated-Stop-Token/mmproj-model-f16.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
 - !!merge <<: *llama3
   name: "bunny-llama-3-8b-v"
   urls:
