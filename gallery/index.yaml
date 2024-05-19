@@ -758,6 +758,22 @@
     - filename: Yi-1.5-6B-Chat.Q4_K_M.gguf
       sha256: 7a0f853dbd8d38bad71ada1933fd067f45f928b2cd978aba1dfd7d5dec2953db
       uri: huggingface://MaziyarPanahi/Yi-1.5-6B-Chat-GGUF/Yi-1.5-6B-Chat.Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  icon: https://huggingface.co/qnguyen3/Master-Yi-9B/resolve/main/Master-Yi-9B.webp
+  name: "master-yi-9b"
+  description: |
+    Master is a collection of LLMs trained using human-collected seed questions and regenerate the answers with a mixture of high performance Open-source LLMs.
+
+    Master-Yi-9B is trained using the ORPO technique. The model shows strong abilities in reasoning on coding and math questions.
+  urls:
+    - https://huggingface.co/qnguyen3/Master-Yi-9B
+  overrides:
+    parameters:
+      model: Master-Yi-9B_Q4_K_M.gguf
+  files:
+    - filename: Master-Yi-9B_Q4_K_M.gguf
+      sha256: 57e2afcf9f24d7138a3b8e2b547336d7edc13621a5e8090bc196d7de360b2b45
+      uri: huggingface://qnguyen3/Master-Yi-9B-GGUF/Master-Yi-9B_Q4_K_M.gguf
 - &vicuna-chat
   ## LLama2 and derivatives
   ### Start Fimbulvetr
