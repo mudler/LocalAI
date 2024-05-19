@@ -164,10 +164,7 @@ definitions:
     - Retrieval
     - Function
   schema.ChatCompletionResponseFormat:
-    properties:
-      type:
-        type: string
-    type: object
+    type: string
   schema.Choice:
     properties:
       delta:
@@ -300,8 +297,7 @@ definitions:
       repeat_penalty:
         type: number
       response_format:
-        allOf:
-        - $ref: '#/definitions/schema.ChatCompletionResponseFormat'
+        type: string
         description: whisper/image
       rope_freq_base:
         type: number

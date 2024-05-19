@@ -182,7 +182,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
 		}
 
-		if input.ResponseFormat.Type == "json_object" {
+		if input.ResponseFormat == "json_object" {
 			input.Grammar = functions.JSONBNF
 		}
 

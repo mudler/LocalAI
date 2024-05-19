@@ -93,7 +93,7 @@ var _ = Describe("E2E test", func() {
 				model := "gpt-4"
 
 				req := openai.ChatCompletionRequest{
-					ResponseFormat: &openai.ChatCompletionResponseFormat{Type: openai.ChatCompletionResponseFormatTypeJSONObject},
+					ResponseFormat: "b64_json",
 					Model:          model,
 					Messages: []openai.ChatCompletionMessage{
 						{

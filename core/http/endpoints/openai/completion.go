@@ -69,7 +69,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		if input.ResponseFormat.Type == "json_object" {
+		if input.ResponseFormat == "json_object" {
 			input.Grammar = functions.JSONBNF
 		}
 
