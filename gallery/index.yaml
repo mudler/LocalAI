@@ -1,4 +1,30 @@
 ---
+### START mudler's LocalAI specific-models
+- &mudler
+  url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
+  name: "localAI-llama3-8b-function-call-v0.2"
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/us5JKi9z046p8K-cn_M0w.webp"
+  license: llama3
+  description: |
+    This model is a fine-tune on a custom dataset + glaive to work specifically and leverage all the LocalAI features of constrained grammar.
+
+    Specifically, the model once enters in tools mode will always reply with JSON.
+  urls:
+    - https://huggingface.co/mudler/LocalAI-Llama3-8b-Function-Call-v0.2-GGUF
+    - https://huggingface.co/mudler/LocalAI-Llama3-8b-Function-Call-v0.2
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
+  overrides:
+    parameters:
+      model: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
+  files:
+    - filename: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
+      sha256: 7e46405ce043cbc8d30f83f26a5655dc8edf5e947b748d7ba2745bd0af057a41
+      uri: huggingface://mudler/LocalAI-Llama3-8b-Function-Call-v0.2-GGUF/LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
 ### START parler-tts
 - &parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
