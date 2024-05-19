@@ -477,7 +477,12 @@ const docTemplate = `{
             ]
         },
         "schema.ChatCompletionResponseFormat": {
-            "type": "string"
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string"
+                }
+            }
         },
         "schema.Choice": {
             "type": "object",
@@ -673,7 +678,11 @@ const docTemplate = `{
                 },
                 "response_format": {
                     "description": "whisper/image",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatCompletionResponseFormat"
+                        }
+                    ]
                 },
                 "rope_freq_base": {
                     "type": "number"

@@ -68,8 +68,13 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
-
-		if input.ResponseFormat == "json_object" {
+		var responseFormat string
+		if i, ok := input.ResponseFormat.(schema.ImageGenerationResponseFormat); ok {
+			responseFormat = string(i)
+		} else if i, ok := input.ResponseFormat.(schema.ChatCompletionResponseFormat); ok {
+			responseFormat = string(i.Type)
+		}
+		if responseFormat == "json_object" {
 			input.Grammar = functions.JSONBNF
 		}
 
