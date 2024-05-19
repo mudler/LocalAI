@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=059031b8c40e1f4ba60586842c5b1ed3ddf61842
+CPPLLAMA_VERSION?=1ea2a0036e88172d6c8bf7e1a1989a03894dc955
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
