@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=e1b40ac3b94824d761b5e26ea1bc5692706029d9
+CPPLLAMA_VERSION?=059031b8c40e1f4ba60586842c5b1ed3ddf61842
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -454,10 +454,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen petals-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen petals-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen openvoice-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean petals-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean petals-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean openvoice-protogen-clean
 
 .PHONY: autogptq-protogen
 autogptq-protogen:
@@ -571,6 +571,14 @@ vall-e-x-protogen:
 vall-e-x-protogen-clean:
 	$(MAKE) -C backend/python/vall-e-x protogen-clean
 
+.PHONY: openvoice-protogen
+openvoice-protogen:
+	$(MAKE) -C backend/python/openvoice protogen
+
+.PHONY: openvoice-protogen-clean
+openvoice-protogen-clean:
+	$(MAKE) -C backend/python/openvoice protogen-clean
+
 .PHONY: vllm-protogen
 vllm-protogen:
 	$(MAKE) -C backend/python/vllm protogen
@@ -594,6 +602,7 @@ prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/transformers-musicgen
 	$(MAKE) -C backend/python/parler-tts
 	$(MAKE) -C backend/python/vall-e-x
+	$(MAKE) -C backend/python/openvoice
 	$(MAKE) -C backend/python/exllama
 	$(MAKE) -C backend/python/petals
 	$(MAKE) -C backend/python/exllama2
@@ -777,3 +786,7 @@ docker-image-intel-xpu:
 .PHONY: swagger
 swagger:
 	swag init -g core/http/app.go --output swagger
+
+.PHONY: gen-assets
+gen-assets:
+	$(GOCMD) run core/dependencies_manager/manager.go embedded/webui_static.yaml core/http/static/assets
