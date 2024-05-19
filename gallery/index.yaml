@@ -758,6 +758,22 @@
     - filename: Yi-1.5-6B-Chat.Q4_K_M.gguf
       sha256: 7a0f853dbd8d38bad71ada1933fd067f45f928b2cd978aba1dfd7d5dec2953db
       uri: huggingface://MaziyarPanahi/Yi-1.5-6B-Chat-GGUF/Yi-1.5-6B-Chat.Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  icon: https://huggingface.co/qnguyen3/Master-Yi-9B/resolve/main/Master-Yi-9B.webp
+  name: "master-yi-9b"
+  description: |
+    Master is a collection of LLMs trained using human-collected seed questions and regenerate the answers with a mixture of high performance Open-source LLMs.
+
+    Master-Yi-9B is trained using the ORPO technique. The model shows strong abilities in reasoning on coding and math questions.
+  urls:
+    - https://huggingface.co/qnguyen3/Master-Yi-9B
+  overrides:
+    parameters:
+      model: Master-Yi-9B_Q4_K_M.gguf
+  files:
+    - filename: Master-Yi-9B_Q4_K_M.gguf
+      sha256: 57e2afcf9f24d7138a3b8e2b547336d7edc13621a5e8090bc196d7de360b2b45
+      uri: huggingface://qnguyen3/Master-Yi-9B-GGUF/Master-Yi-9B_Q4_K_M.gguf
 - &vicuna-chat
   ## LLama2 and derivatives
   ### Start Fimbulvetr
@@ -913,6 +929,29 @@
       sha256: 09c230de47f6f843e4841656f7895cac52c6e7ec7392acb5e8527de8b775c45a
       uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-mmproj-Q8_0.gguf
 - !!merge <<: *llama3
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - italian
+    - llama3
+    - cpu
+  name: "llamantino-3-anita-8b-inst-dpo-ita"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/5df8bb21da6d0311fd3d540f/cZoZdwQOPdQsnQmDXHcSn.png
+  urls:
+    - https://huggingface.co/swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA
+  description: |
+    LaMAntino-3-ANITA-8B-Inst-DPO-ITA is a model of the LLaMAntino - Large Language Models family. The model is an instruction-tuned version of Meta-Llama-3-8b-instruct (a fine-tuned LLaMA 3 model). This model version aims to be the a Multilingual Model 🏁 (EN 🇺🇸 + ITA🇮🇹) to further fine-tuning on Specific Tasks in Italian.
+
+    The 🌟ANITA project🌟 *(Advanced Natural-based interaction for the ITAlian language)* wants to provide Italian NLP researchers with an improved model for the Italian Language 🇮🇹 use cases.
+  overrides:
+    parameters:
+      model: LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
+  files:
+    - filename: LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
+      sha256: 46475a748064b0580638d2d80c78d05d04944ef8414c2d25bdc7e38e90d58b70
+      uri: huggingface://swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA_GGUF/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "aurora_l3_8b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Aurora_l3_8B-GGUF-IQ-Imatrix
@@ -946,16 +985,16 @@
     - cpu
     - llava-1.5
   overrides:
-    mmproj: Llava_1.5_Llama3_mmproj_updated.gguf
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
     parameters:
       model: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
   files:
     - filename: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
       sha256: 53743717f929f73aa4355229de114d9b81814cb2e83c6cc1c6517844da20bfd5
       uri: huggingface://Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
-    - filename: Llava_1.5_Llama3_mmproj_updated.gguf
-      sha256: 4f2bb77ca60f2c932d1c6647d334f5d2cd71966c19e850081030c9883ef1906c
-      uri: https://huggingface.co/ChaoticNeutrals/LLaVA-Llama-3-8B-mmproj-Updated/resolve/main/llava-v1.5-8B-Updated-Stop-Token/mmproj-model-f16.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
 - !!merge <<: *llama3
   name: "bunny-llama-3-8b-v"
   urls:

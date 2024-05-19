@@ -3,10 +3,10 @@ package functions
 import (
 	"encoding/json"
 	"regexp"
-	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v2"
 )
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -37,14 +37,14 @@ type FunctionsConfig struct {
 	ResponseRegex string `yaml:"response_regex"`
 
 	// JSONRegexMatch is a regex to extract the JSON object from the response
-	JSONRegexMatch string `yaml:"json_regex_match"`
+	JSONRegexMatch []string `yaml:"json_regex_match"`
 
 	// GrammarPrefix is the suffix to append to the grammar when being generated
 	// This is useful when models prepend a tag before returning JSON
 	GrammarPrefix string `yaml:"grammar_prefix"`
 
 	// ReplaceResults allow to replace strings in the results before parsing them
-	ReplaceResults map[string]string `yaml:"replace_results"`
+	ReplaceResults yaml.MapSlice `yaml:"replace_results"`
 
 	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
@@ -60,9 +60,11 @@ type FuncCallResults struct {
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 	log.Debug().Msgf("LLM result: %s", llmresult)
 
-	for k, v := range functionConfig.ReplaceResults {
+	for _, item := range functionConfig.ReplaceResults {
+		k, v := item.Key.(string), item.Value.(string)
 		log.Debug().Msgf("Replacing %s with %s", k, v)
-		llmresult = strings.ReplaceAll(llmresult, k, v)
+		re := regexp.MustCompile(k)
+		llmresult = re.ReplaceAllString(llmresult, v)
 	}
 
 	log.Debug().Msgf("LLM result(processed): %s", llmresult)
@@ -122,6 +124,18 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	// the response is a string that we have to parse
 	result := make(map[string]string)
 
+	if len(functionConfig.JSONRegexMatch) != 0 {
+		for _, r := range functionConfig.JSONRegexMatch {
+			// We use a regex to extract the JSON object from the response
+			var respRegex = regexp.MustCompile(r)
+			match := respRegex.FindStringSubmatch(llmresult)
+			if len(match) >= 2 {
+				llmresult = match[1]
+				break
+			}
+		}
+	}
+
 	if functionConfig.ResponseRegex != "" {
 		// We use named regexes here to extract the function name and arguments
 		// obviously, this expects the LLM to be stable and return correctly formatted JSON
@@ -141,16 +155,6 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 			return results
 		}
 		results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
-	} else if functionConfig.JSONRegexMatch != "" {
-
-		// We use a regex to extract the JSON object from the response
-		var respRegex = regexp.MustCompile(functionConfig.JSONRegexMatch)
-		match := respRegex.FindStringSubmatch(llmresult)
-		if len(match) < 2 {
-			return results
-		}
-
-		results, _ = returnResult(match[1])
 	} else {
 		results, _ = returnResult(llmresult)
 	}

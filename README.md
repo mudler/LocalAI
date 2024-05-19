@@ -46,12 +46,29 @@
 
 **LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that’s compatible with OpenAI (Elevenlabs, Anthropic... ) API specifications for local AI inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU. It is created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
 
+![screen](https://github.com/mudler/LocalAI/assets/2420543/20b5ccd2-8393-44f0-aaf6-87a23806381e)
+
+```bash
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
+# Alternative images:
+# - if you have an Nvidia GPU:
+# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
+# - without preconfigured models
+# docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
+# - without preconfigured models for Nvidia GPUs
+# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12 
+```
+
+[💻 Getting started](https://localai.io/basics/getting_started/index.html)
+
 ## 🔥🔥 Hot topics / Roadmap
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-- Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
-- Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
+- 🔥🔥 Decentralized llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!)
+- 🔥🔥 Openvoice: https://github.com/mudler/LocalAI/pull/2334
+- 🆕 Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
+- 🔥🔥 Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
 - Chat, TTS, and Image generation in the WebUI: https://github.com/mudler/LocalAI/pull/2222
 - Reranker API: https://github.com/mudler/LocalAI/pull/2121
 
@@ -65,18 +82,6 @@ Hot topics (looking for contributors):
 - Vulkan: https://github.com/mudler/LocalAI/issues/1647
 
 If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
-
-## 💻 [Getting started](https://localai.io/basics/getting_started/index.html)
-
-For a detailed step-by-step introduction, refer to the [Getting Started](https://localai.io/basics/getting_started/index.html) guide. 
-
-For those in a hurry, here's a straightforward one-liner to launch a LocalAI AIO(All-in-one) Image using `docker`:
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
-# or, if you have an Nvidia GPU:
-# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-```
 
 ## 🚀 [Features](https://localai.io/features/)
 
