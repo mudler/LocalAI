@@ -37,7 +37,7 @@ type FunctionsConfig struct {
 	ResponseRegex string `yaml:"response_regex"`
 
 	// JSONRegexMatch is a regex to extract the JSON object from the response
-	JSONRegexMatch string `yaml:"json_regex_match"`
+	JSONRegexMatch []string `yaml:"json_regex_match"`
 
 	// GrammarPrefix is the suffix to append to the grammar when being generated
 	// This is useful when models prepend a tag before returning JSON
@@ -124,12 +124,15 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	// the response is a string that we have to parse
 	result := make(map[string]string)
 
-	if functionConfig.JSONRegexMatch != "" {
-		// We use a regex to extract the JSON object from the response
-		var respRegex = regexp.MustCompile(functionConfig.JSONRegexMatch)
-		match := respRegex.FindStringSubmatch(llmresult)
-		if len(match) >= 2 {
-			llmresult = match[1]
+	if len(functionConfig.JSONRegexMatch) != 0 {
+		for _, r := range functionConfig.JSONRegexMatch {
+			// We use a regex to extract the JSON object from the response
+			var respRegex = regexp.MustCompile(r)
+			match := respRegex.FindStringSubmatch(llmresult)
+			if len(match) >= 2 {
+				llmresult = match[1]
+				break
+			}
 		}
 	}
 

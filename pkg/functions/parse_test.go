@@ -91,7 +91,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 {"function": "add", "arguments": {"x": 5, "y": 3}}
 </tool_call>`
 
-			functionConfig.JSONRegexMatch = `(?s)<tool_call>(.*?)</tool_call>`
+			functionConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -104,7 +104,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 {"function": "add", "arguments": {"x": 5, "y": 3}}
 </tool_call>`
 
-			functionConfig.JSONRegexMatch = `(?s)(.*?)</tool_call>`
+			functionConfig.JSONRegexMatch = []string{`(?s)(.*?)</tool_call>`}
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -157,7 +157,7 @@ Some text before the JSON
 {'function': '"add"', 'arguments': {'x': 5, 'z': '"v"', 'y': 'v"value"'}}
 Some text after the JSON
 `
-			functionConfig.JSONRegexMatch = `(?s)<tool_call>(.*?)</tool_call>`
+			functionConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
 
 			// Regex to match non-JSON characters before the JSON structure
 			//reBefore := regexp.MustCompile(`(?s)^.*?(?=\{|\[)`)
@@ -190,7 +190,7 @@ Some text before the JSON
 <tool_call>{'function': '"add"', 'arguments': {'x': 5, 'z': '"v"', 'y': 'v"value"'}}</tool_call>
 Some text after the JSON
 `
-			functionConfig.JSONRegexMatch = `(?s)<tool_call>(.*?)</tool_call>`
+			functionConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
 
 			// Regex to match non-JSON characters before the JSON structure
 			//reBefore := regexp.MustCompile(`(?s)^.*?(?=\{|\[)`)
