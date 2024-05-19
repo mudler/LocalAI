@@ -124,6 +124,15 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	// the response is a string that we have to parse
 	result := make(map[string]string)
 
+	if functionConfig.JSONRegexMatch != "" {
+		// We use a regex to extract the JSON object from the response
+		var respRegex = regexp.MustCompile(functionConfig.JSONRegexMatch)
+		match := respRegex.FindStringSubmatch(llmresult)
+		if len(match) >= 2 {
+			llmresult = match[1]
+		}
+	}
+
 	if functionConfig.ResponseRegex != "" {
 		// We use named regexes here to extract the function name and arguments
 		// obviously, this expects the LLM to be stable and return correctly formatted JSON
@@ -143,16 +152,6 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 			return results
 		}
 		results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
-	} else if functionConfig.JSONRegexMatch != "" {
-
-		// We use a regex to extract the JSON object from the response
-		var respRegex = regexp.MustCompile(functionConfig.JSONRegexMatch)
-		match := respRegex.FindStringSubmatch(llmresult)
-		if len(match) < 2 {
-			return results
-		}
-
-		results, _ = returnResult(match[1])
 	} else {
 		results, _ = returnResult(llmresult)
 	}
