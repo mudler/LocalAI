@@ -95,6 +95,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			token = p2p.GenerateToken()
 			log.Info().Msg("Generated Token:")
 			fmt.Println(token)
+
+			log.Info().Msg("To use the token, you can run the following command in another node or terminal:")
+			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
+
 			// Ask for user confirmation
 			log.Info().Msg("Press a button to proceed")
 			var input string
