@@ -4,7 +4,6 @@ import (
 	. "github.com/go-skynet/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gopkg.in/yaml.v2"
 )
 
 var _ = Describe("LocalAI function parse tests", func() {
@@ -121,7 +120,7 @@ Some text before the JSON
 Some text after the JSON
 `
 
-			functionConfig.ReplaceResults = yaml.MapSlice{
+			functionConfig.ReplaceResults = []ReplaceResult{
 				{Key: `(?s)^[^{\[]*`, Value: ""},
 				{Key: `(?s)[^}\]]*$`, Value: ""},
 			}
@@ -138,7 +137,7 @@ Some text before the JSON
 [{"function": "add", "arguments": {"x": 5, "y": 3}}, {"function": "subtract", "arguments": {"x": 10, "y": 7}}]
 Some text after the JSON
 `
-			functionConfig.ReplaceResults = yaml.MapSlice{
+			functionConfig.ReplaceResults = []ReplaceResult{
 				{Key: `(?s)^[^{\[]*`, Value: ""},
 				{Key: `(?s)[^}\]]*$`, Value: ""},
 			}
@@ -164,7 +163,7 @@ Some text after the JSON
 			// Regex to match non-JSON characters after the JSON structure
 			//reAfter := regexp.MustCompile(`(?s)(?<=\}|\]).*$`)
 
-			functionConfig.ReplaceResults = yaml.MapSlice{
+			functionConfig.ReplaceResults = []ReplaceResult{
 				{Key: `(?s)^[^{\[]*`, Value: ""},
 				{Key: `(?s)[^}\]]*$`, Value: ""},
 				// Regex pattern to match single quotes around keys and values
@@ -197,7 +196,7 @@ Some text after the JSON
 			// Regex to match non-JSON characters after the JSON structure
 			//reAfter := regexp.MustCompile(`(?s)(?<=\}|\]).*$`)
 
-			functionConfig.ReplaceResults = yaml.MapSlice{
+			functionConfig.ReplaceResults = []ReplaceResult{
 				{Key: `(?s)^[^{\[]*`, Value: ""},
 				{Key: `(?s)[^}\]]*$`, Value: ""},
 				// Regex pattern to match single quotes around keys and values
