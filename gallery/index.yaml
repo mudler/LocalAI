@@ -245,6 +245,22 @@
       sha256: b17c4c1144768ead9e8a96439165baf49e98c53d458b4da8827f137fbabf38c1
       uri: huggingface://MaziyarPanahi/Llama-3-Smaug-8B-GGUF/Llama-3-Smaug-8B.Q4_K_M.gguf
 - !!merge <<: *llama3
+  name: "l3-8b-stheno-v3.1"
+  urls:
+    - https://huggingface.co/Sao10K/L3-8B-Stheno-v3.1
+  icon: https://w.forfun.com/fetch/cb/cba2205390e517bea1ea60ca0b491af4.jpeg
+  description: |
+    - A model made for 1-on-1 Roleplay ideally, but one that is able to handle scenarios, RPGs and storywriting fine.
+    - Uncensored during actual roleplay scenarios. # I do not care for zero-shot prompting like what some people do. It is uncensored enough in actual usecases.
+    - I quite like the prose and style for this model.
+  overrides:
+    parameters:
+      model: l3-8b-stheno-v3.1.Q4_K_M.gguf
+  files:
+    - filename: l3-8b-stheno-v3.1.Q4_K_M.gguf
+      sha256: f166fb8b7fd1de6638fcf8e3561c99292f0c37debe1132325aa583eef78f1b40
+      uri: huggingface://mudler/L3-8B-Stheno-v3.1-Q4_K_M-GGUF/l3-8b-stheno-v3.1.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama-3-8b-openhermes-dpo"
   urls:
     - https://huggingface.co/mradermacher/Llama3-8B-OpenHermes-DPO-GGUF
