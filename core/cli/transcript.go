@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-skynet/LocalAI/core/backend"
+	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
@@ -22,7 +23,7 @@ type TranscriptCMD struct {
 	BackendAssetsPath string `env:"LOCALAI_BACKEND_ASSETS_PATH,BACKEND_ASSETS_PATH" type:"path" default:"/tmp/localai/backend_data" help:"Path used to extract libraries that are required by some of the backends in runtime" group:"storage"`
 }
 
-func (t *TranscriptCMD) Run(ctx *Context) error {
+func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 	opts := &config.ApplicationConfig{
 		ModelPath:         t.ModelsPath,
 		Context:           context.Background(),

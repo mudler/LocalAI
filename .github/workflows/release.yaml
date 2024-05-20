@@ -61,7 +61,7 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          make dist
+          GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux
@@ -121,7 +121,7 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
-          make dist
+          GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-MacOS-arm64
