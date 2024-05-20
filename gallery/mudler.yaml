@@ -1,0 +1,44 @@
+---
+name: localai
+
+config_file: |-
+  context_size: 8192
+  stopwords:
+    - <|im_end|>
+    - <dummy32000>
+    - <|eot_id|>
+    - <|end_of_text|>
+
+  function:
+    return_name_in_function_response: true
+
+  template:
+    chat: |
+      <|begin_of_text|>{{.Input }}
+      <|start_header_id|>assistant<|end_header_id|>
+    chat_message: |-
+      <|start_header_id|>{{if .FunctionCall}}assistant{{ else if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool_response{{else if eq .RoleName "user"}}user{{end}}<|end_header_id|>
+
+      {{ if .Content -}}
+      {{.Content -}}
+      {{ else if .FunctionCall -}}
+      { "name": "{{ index .FunctionCall "name"}}", "arguments": {{index .FunctionCall "arguments"}} }{{ end -}}<|eot_id|>
+    completion: |
+      {{.Input}}
+    function: |-
+      <|begin_of_text|><|start_header_id|>system<|end_header_id|>
+      {{$tools:=""}}
+      You have access to the following tools:
+      {{range .Functions -}}
+      > Tool Name: {{.Name}}
+      {{ $tools = print $tools .Name " " -}}
+      Tool Description: {{.Description}}
+      Tool Args:
+      {{ range $key,$val:= (index .Parameters "properties") -}}
+        - {{$key}} ({{ index $val "type"}}): {{index $val "description" }}
+      {{ end -}}
+      {{ end -}}Answer only in JSON by using the following format if using a tool:
+      {"name": "tool_name", "arguments": { "arg_1": "value" } }
+      Function must be one of [{{$tools}}]).<|eot_id|>
+      {{.Input}}
+      <|start_header_id|>assistant<|end_header_id|>
