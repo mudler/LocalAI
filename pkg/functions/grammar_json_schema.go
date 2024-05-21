@@ -150,7 +150,7 @@ func (sc *JSONSchemaConverter) finalizeGrammar(suffix string, maybeArray, maybeS
 
 		if maybeString {
 			//newRoot = "( (\"" + suffix + "\" " + newRoot + ") | freestring ) "
-			newRoot = "( \"" + suffix + "\" " + newRoot + " | freestring ) "
+			newRoot = "( \"" + suffix + "\" " + newRoot + " | mixedstring ) "
 		} else {
 			newRoot = "\"" + suffix + "\" " + "" + newRoot + ""
 		}
@@ -159,11 +159,17 @@ func (sc *JSONSchemaConverter) finalizeGrammar(suffix string, maybeArray, maybeS
 			//	newRoot = "(" + newRoot + ")"
 		}
 
-		newRoot = "freestring | " + newRoot
+		newRoot = "mixedstring | " + newRoot
 	}
 
 	lines = append(lines, fmt.Sprintf("%s ::= %s", "root", newRoot))
 	lines = append(lines, array)
+
+	if maybeArray {
+		lines = append(lines, `mixedstring ::= freestring | freestring arr | freestring realvalue | realvalue | arr`)
+	} else {
+		lines = append(lines, `mixedstring ::= freestring | freestring realvalue | realvalue`)
+	}
 
 	return strings.Join(lines, "\n")
 }

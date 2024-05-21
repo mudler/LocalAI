@@ -120,7 +120,7 @@ Some text before the JSON
 Some text after the JSON
 `
 
-			functionConfig.ReplaceResults = []ReplaceResult{
+			functionConfig.ReplaceFunctionResults = []ReplaceResult{
 				{Key: `(?s)^[^{\[]*`, Value: ""},
 				{Key: `(?s)[^}\]]*$`, Value: ""},
 			}
@@ -137,7 +137,7 @@ Some text before the JSON
 [{"function": "add", "arguments": {"x": 5, "y": 3}}, {"function": "subtract", "arguments": {"x": 10, "y": 7}}]
 Some text after the JSON
 `
-			functionConfig.ReplaceResults = []ReplaceResult{
+			functionConfig.ReplaceFunctionResults = []ReplaceResult{
 				{Key: `(?s)^[^{\[]*`, Value: ""},
 				{Key: `(?s)[^}\]]*$`, Value: ""},
 			}
@@ -163,7 +163,7 @@ Some text after the JSON
 			// Regex to match non-JSON characters after the JSON structure
 			//reAfter := regexp.MustCompile(`(?s)(?<=\}|\]).*$`)
 
-			functionConfig.ReplaceResults = []ReplaceResult{
+			functionConfig.ReplaceFunctionResults = []ReplaceResult{
 				{Key: `(?s)^[^{\[]*`, Value: ""},
 				{Key: `(?s)[^}\]]*$`, Value: ""},
 				// Regex pattern to match single quotes around keys and values
@@ -196,7 +196,7 @@ Some text after the JSON
 			// Regex to match non-JSON characters after the JSON structure
 			//reAfter := regexp.MustCompile(`(?s)(?<=\}|\]).*$`)
 
-			functionConfig.ReplaceResults = []ReplaceResult{
+			functionConfig.ReplaceFunctionResults = []ReplaceResult{
 				{Key: `(?s)^[^{\[]*`, Value: ""},
 				{Key: `(?s)[^}\]]*$`, Value: ""},
 				// Regex pattern to match single quotes around keys and values

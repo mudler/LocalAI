@@ -287,7 +287,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 				OneOf: testFunctions}
 
 			grammar := structuredGrammar.Grammar("", "", true, false)
-			results := strings.Split(inputResult2, "\n")
+			results := strings.Split(
+				strings.Join([]string{
+					inputResult2,
+					"mixedstring ::= freestring | freestring arr | freestring realvalue"}, "\n"),
+				"\n")
 			for _, r := range results {
 				if r != "" {
 					Expect(grammar).To(ContainSubstring(r))
@@ -301,7 +305,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar("", "", true, false)
-			results := strings.Split(inputResult4, "\n")
+			results := strings.Split(
+				strings.Join([]string{
+					inputResult4,
+					"mixedstring ::= freestring | freestring arr | freestring realvalue"}, "\n"),
+				"\n")
 			for _, r := range results {
 				if r != "" {
 					Expect(grammar).To(ContainSubstring(r))
@@ -315,7 +323,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar("suffix", "", true, false)
-			results := strings.Split(rootResult(`"suffix" arr | realvalue`), "\n")
+			results := strings.Split(
+				strings.Join([]string{
+					rootResult(`"suffix" arr | realvalue`),
+					"mixedstring ::= freestring | freestring arr | freestring realvalue"}, "\n"),
+				"\n")
 			for _, r := range results {
 				if r != "" {
 					Expect(grammar).To(ContainSubstring(r))
@@ -328,7 +340,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar("suffix", "", false, false)
-			results := strings.Split(rootResult(`"suffix" realvalue`), "\n")
+			results := strings.Split(
+				strings.Join([]string{
+					rootResult(`"suffix" realvalue`),
+					"mixedstring ::= freestring | freestring realvalue"}, "\n"),
+				"\n")
 			for _, r := range results {
 				if r != "" {
 					Expect(grammar).To(ContainSubstring(r))
@@ -341,7 +357,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar("suffix", "", false, true)
-			results := strings.Split(rootResult(`( "suffix" realvalue | freestring )`), "\n")
+			results := strings.Split(
+				strings.Join([]string{
+					rootResult(`( "suffix" realvalue | mixedstring )`),
+					"mixedstring ::= freestring | freestring realvalue"}, "\n"),
+				"\n")
 			for _, r := range results {
 				if r != "" {
 					Expect(grammar).To(ContainSubstring(r))
@@ -354,7 +374,12 @@ var _ = Describe("JSON schema grammar tests", func() {
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar("suffix", "", true, true)
-			results := strings.Split(rootResult(`( "suffix" (arr | realvalue) | freestring )`), "\n")
+			results := strings.Split(
+				strings.Join([]string{
+					rootResult(`( "suffix" (arr | realvalue) | mixedstring )`),
+					"mixedstring ::= freestring | freestring arr | freestring realvalue"}, "\n"),
+				"\n")
+
 			for _, r := range results {
 				if r != "" {
 					Expect(grammar).To(ContainSubstring(r))
@@ -368,7 +393,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar("", "", true, true)
-			results := strings.Split(rootResult(`freestring | arr | realvalue`), "\n")
+			results := strings.Split(
+				strings.Join([]string{
+					rootResult(`mixedstring | arr | realvalue`),
+					"mixedstring ::= freestring | freestring arr | freestring realvalue"}, "\n"),
+				"\n")
 			for _, r := range results {
 				if r != "" {
 					Expect(grammar).To(ContainSubstring(r))
