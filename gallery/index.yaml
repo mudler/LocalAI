@@ -157,7 +157,7 @@
       model: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
   files:
     - filename: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
-      sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
+      sha256: c1cea5f87dc1af521f31b30991a4663e7e43f6046a7628b854c155f489eec213
       uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llama3-70b-instruct:IQ1_M"
