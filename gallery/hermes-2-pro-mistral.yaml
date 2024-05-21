@@ -21,16 +21,15 @@ config_file: |
     # Without grammar uncomment the lines below
     # Warning: this is relying only on the capability of the
     # LLM model to generate the correct function call.
-    json_regex_match: 
+    json_regex_match:
     - "(?s)<tool_call>(.*?)</tool_call>"
     - "(?s)<tool_call>(.*?)"
     replace_llm_results:
     # Drop the scratchpad content from responses
     - key: "(?s)<scratchpad>.*</scratchpad>"
       value: ""
-    replace_function_results: 
+    replace_function_results:
     # Replace everything that is not JSON array or object
-    # 
     - key: '(?s)^[^{\[]*'
       value: ""
     - key: '(?s)[^}\]]*$'
