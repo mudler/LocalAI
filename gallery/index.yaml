@@ -1190,6 +1190,22 @@
     - filename: "Phi-3-mini-4k-instruct-fp16.gguf"
       uri: "huggingface://microsoft/Phi-3-mini-4k-instruct-gguf/Phi-3-mini-4k-instruct-fp16.gguf"
       sha256: 5d99003e395775659b0dde3f941d88ff378b2837a8dc3a2ea94222ab1420fad3
+- !!merge <<: *phi-3
+  name: "phi-3-medium-4k-instruct"
+  description: |
+    The Phi-3-Medium-4K-Instruct is a 14B parameters, lightweight, state-of-the-art open model trained with the Phi-3 datasets that includes
+    both synthetic data and the filtered publicly available websites data with a focus on high-quality and reasoning dense properties.
+    The model belongs to the Phi-3 family with the Medium version in two variants 4K and 128K which is the context length (in tokens) that it can support.
+  urls:
+    - https://huggingface.co/bartowski/Phi-3-medium-4k-instruct-GGUF
+    - https://huggingface.co/microsoft/Phi-3-medium-4k-instruct
+  overrides:
+    parameters:
+      model: Phi-3-medium-4k-instruct-Q4_K_M.gguf
+  files:
+    - filename: "Phi-3-medium-4k-instruct-Q4_K_M.gguf"
+      uri: "huggingface://bartowski/Phi-3-medium-4k-instruct-GGUF/Phi-3-medium-4k-instruct-Q4_K_M.gguf"
+      sha256: 4e8d4258ed44562573c8984a045b0a4651c51e7e4d9d00a06c65cd2149ab4539
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
