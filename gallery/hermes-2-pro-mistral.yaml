@@ -3,6 +3,12 @@ name: "hermes-2-pro-mistral"
 
 config_file: |
   mmap: true
+  stopwords:
+  - "<|im_end|>"
+  - "<dummy32000>"
+  - "</tool_call>"
+  - "<|eot_id|>"
+  - "<|end_of_text|>"
   function:
     # disable injecting the "answer" tool
     disable_no_action: true

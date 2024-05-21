@@ -8,20 +8,24 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Grammar struct {
+type GrammarConfig struct {
 	// ParallelCalls enables the LLM to return multiple function calls in the same response
 	ParallelCalls bool `yaml:"parallel_calls"`
 
-	// GrammarMixedMode enables the LLM to return strings and not only JSON objects
+	// MixedMode enables the LLM to return strings and not only JSON objects
 	// This is useful for models to not constraing returning only JSON and also messages back to the user
-	GrammarMixedMode bool `yaml:"mixed_mode"`
+	MixedMode bool `yaml:"mixed_mode"`
+
+	// NoMixedFreeString disables the mixed mode for free strings
+	// In this way if the LLM selects a free string, it won't be mixed necessarly with JSON objects
+	NoMixedFreeString bool `yaml:"no_mixed_free_string"`
 
 	// NoGrammar disables the grammar parsing and parses the responses directly from the LLM
 	NoGrammar bool `yaml:"disable"`
 
-	// GrammarPrefix is the suffix to append to the grammar when being generated
+	// Prefix is the suffix to append to the grammar when being generated
 	// This is useful when models prepend a tag before returning JSON
-	GrammarPrefix string `yaml:"prefix"`
+	Prefix string `yaml:"prefix"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -33,7 +37,7 @@ type FunctionsConfig struct {
 	DisableNoAction bool `yaml:"disable_no_action"`
 
 	// Grammar is the configuration for the grammar
-	GrammarConfig Grammar `yaml:"grammar"`
+	GrammarConfig GrammarConfig `yaml:"grammar"`
 
 	// NoActionFunctionName is the name of the function that does nothing. It defaults to "answer"
 	NoActionFunctionName string `yaml:"no_action_function_name"`
@@ -67,6 +71,23 @@ type ReplaceResult struct {
 type FuncCallResults struct {
 	Name      string
 	Arguments string
+}
+
+func (g GrammarConfig) Options() []func(o *GrammarOption) {
+	opts := []func(o *GrammarOption){}
+	if g.MixedMode {
+		opts = append(opts, EnableMaybeString)
+	}
+	if g.ParallelCalls {
+		opts = append(opts, EnableMaybeArray)
+	}
+	if g.Prefix != "" {
+		opts = append(opts, SetPrefix(g.Prefix))
+	}
+	if g.NoMixedFreeString {
+		opts = append(opts, NoMixedFreeString)
+	}
+	return opts
 }
 
 func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
@@ -149,7 +170,6 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 
 	// the response is a string that we have to parse
 	result := make(map[string]string)
-
 	if len(functionConfig.JSONRegexMatch) != 0 {
 		for _, r := range functionConfig.JSONRegexMatch {
 			// We use a regex to extract the JSON object from the response

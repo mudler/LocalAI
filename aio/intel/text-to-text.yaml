@@ -4,6 +4,13 @@ f16: false
 parameters:
   model: huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf
 
+stopwords:
+- "<|im_end|>"
+- "<dummy32000>"
+- "</tool_call>"
+- "<|eot_id|>"
+- "<|end_of_text|>"
+
 function:
   # disable injecting the "answer" tool
   disable_no_action: true
