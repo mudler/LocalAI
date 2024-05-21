@@ -28,16 +28,11 @@ var _ = Describe("Test cases for config related functions", func() {
 
 		It("Test LoadConfigs", func() {
 			cm := NewBackendConfigLoader()
-			opts := NewApplicationConfig()
-			err := cm.LoadBackendConfigsFromPath(opts.ModelPath)
+			err := cm.LoadBackendConfigsFromPath(os.Getenv("MODELS_PATH"))
 			Expect(err).To(BeNil())
 			Expect(cm.ListBackendConfigs()).ToNot(BeNil())
 
-			// config should includes gpt4all models's api.config
-			Expect(cm.ListBackendConfigs()).To(ContainElements("gpt4all"))
-
-			// config should includes gpt2 models's api.config
-			Expect(cm.ListBackendConfigs()).To(ContainElements("gpt4all-2"))
+			Expect(cm.ListBackendConfigs()).To(ContainElements("code-search-ada-code-001"))
 
 			// config should includes text-embedding-ada-002 models's api.config
 			Expect(cm.ListBackendConfigs()).To(ContainElements("text-embedding-ada-002"))

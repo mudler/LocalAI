@@ -2,6 +2,8 @@ package config
 
 import (
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
@@ -355,4 +357,26 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	if debug {
 		cfg.Debug = &trueV
 	}
+}
+
+func (c *BackendConfig) Validate() bool {
+	// Simple validation to make sure the model can be correctly loaded
+	for _, n := range []string{c.Backend, c.Model} {
+		if strings.HasPrefix(n, string(os.PathSeparator)) ||
+			strings.Contains(n, "..") {
+			return false
+		}
+	}
+
+	if c.Name == "" {
+		return false
+	}
+
+	if c.Backend != "" {
+		// a regex that checks that is a string name with no special characters, except '-' and '_'
+		re := regexp.MustCompile(`^[a-zA-Z0-9-_]+$`)
+		return re.MatchString(c.Backend)
+	}
+
+	return true
 }
