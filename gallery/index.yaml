@@ -26,8 +26,8 @@
     - filename: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
       sha256: 7e46405ce043cbc8d30f83f26a5655dc8edf5e947b748d7ba2745bd0af057a41
       uri: huggingface://mudler/LocalAI-Llama3-8b-Function-Call-v0.2-GGUF/LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
-### START parler-tts
 - &parler-tts
+  ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
   name: parler-tts-mini-v0.1
   parameters:
@@ -182,7 +182,7 @@
   name: "l3-chaoticsoliloquy-v1.5-4x8b"
   icon: https://cdn-uploads.huggingface.co/production/uploads/64f5e51289c121cb864ba464/m5urYkrpE5amrwHyaVwFM.png
   description: |
-      Experimental RP-oriented MoE, the idea was to get a model that would be equal to or better than the Mixtral 8x7B and it's finetunes in RP/ERP tasks. Im not sure but it should be better than the first version
+    Experimental RP-oriented MoE, the idea was to get a model that would be equal to or better than the Mixtral 8x7B and it's finetunes in RP/ERP tasks. Im not sure but it should be better than the first version
   urls:
     - https://huggingface.co/xxx777xxxASD/L3-ChaoticSoliloquy-v1.5-4x8B
     - https://huggingface.co/mradermacher/L3-ChaoticSoliloquy-v1.5-4x8B-GGUF/
@@ -487,7 +487,7 @@
   license: cc-by-nc-4.0
   icon: https://assets-global.website-files.com/6423879a8f63c1bb18d74bfa/648818d56d04c3bdf36d71ab_Refuel_rev8-01_ts-p-1600.png
   description: |
-      RefuelLLM-2-small, aka Llama-3-Refueled, is a Llama3-8B base model instruction tuned on a corpus of 2750+ datasets, spanning tasks such as classification, reading comprehension, structured attribute extraction and entity resolution. We're excited to open-source the model for the community to build on top of.
+    RefuelLLM-2-small, aka Llama-3-Refueled, is a Llama3-8B base model instruction tuned on a corpus of 2750+ datasets, spanning tasks such as classification, reading comprehension, structured attribute extraction and entity resolution. We're excited to open-source the model for the community to build on top of.
   overrides:
     parameters:
       model: Llama-3-Refueled-Q4_K_M.gguf
@@ -767,8 +767,8 @@
     - filename: Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
       sha256: 694c55b5215d03e59626cd4292076eaf31610ef27ba04737166766baa75d889f
       uri: huggingface://MaziyarPanahi/Llama-3-8B-Instruct-DPO-v0.3-32k-GGUF/Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
-### Start Yi
 - &yi-chat
+  ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   icon: "https://raw.githubusercontent.com/01-ai/Yi/main/assets/img/Yi_logo_icon_light.svg"
   name: "yi-1.5-9b-chat"
@@ -984,10 +984,7 @@
   icon: https://cdn-uploads.huggingface.co/production/uploads/5df8bb21da6d0311fd3d540f/cZoZdwQOPdQsnQmDXHcSn.png
   urls:
     - https://huggingface.co/swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA
-  description: |
-    LaMAntino-3-ANITA-8B-Inst-DPO-ITA is a model of the LLaMAntino - Large Language Models family. The model is an instruction-tuned version of Meta-Llama-3-8b-instruct (a fine-tuned LLaMA 3 model). This model version aims to be the a Multilingual Model 🏁 (EN 🇺🇸 + ITA🇮🇹) to further fine-tuning on Specific Tasks in Italian.
-
-    The 🌟ANITA project🌟 *(Advanced Natural-based interaction for the ITAlian language)* wants to provide Italian NLP researchers with an improved model for the Italian Language 🇮🇹 use cases.
+  description: "LaMAntino-3-ANITA-8B-Inst-DPO-ITA is a model of the LLaMAntino - Large Language Models family. The model is an instruction-tuned version of Meta-Llama-3-8b-instruct (a fine-tuned LLaMA 3 model). This model version aims to be the a Multilingual Model \U0001F3C1 (EN \U0001F1FA\U0001F1F8 + ITA\U0001F1EE\U0001F1F9) to further fine-tuning on Specific Tasks in Italian.\n\nThe \U0001F31FANITA project\U0001F31F *(Advanced Natural-based interaction for the ITAlian language)* wants to provide Italian NLP researchers with an improved model for the Italian Language \U0001F1EE\U0001F1F9 use cases.\n"
   overrides:
     parameters:
       model: LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
@@ -1044,9 +1041,9 @@
   urls:
     - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
   description: |
-      Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
+    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
 
-      We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
+    We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
   icon: https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf/resolve/main/icon.png
   tags:
     - llm
@@ -1710,7 +1707,9 @@
   files:
     - filename: voice-en-us-kathleen-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
-      sha256: 18e32f009f864d8061af8a4be4ae9018b5aa8b49c37f9e108bbfd782c6a38fbf
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
+        18e32f009f864d8061af8a4be4ae9018b5aa8b49c37f9e108bbfd782c6a38fbf
 - !!merge <<: *piper
   name: voice-ca-upc_ona-x-low
   overrides:
@@ -1719,7 +1718,9 @@
   files:
     - filename: voice-ca-upc_ona-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ca-upc_ona-x-low.tar.gz
-      sha256: c750d3f6ad35c8d95d5b0d1ad30ede2525524e48390f70a0871bdb7980cc271e
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ca-upc_ona-x-low.tar.gz
+        c750d3f6ad35c8d95d5b0d1ad30ede2525524e48390f70a0871bdb7980cc271e
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ca-upc_pau-x-low
@@ -1729,7 +1730,9 @@
   files:
     - filename: voice-ca-upc_pau-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ca-upc_pau-x-low.tar.gz
-      sha256: 13c658ecd46a2dbd9dadadf7100623e53106239afcc359f9e27511b91e642f1f
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ca-upc_pau-x-low.tar.gz
+        13c658ecd46a2dbd9dadadf7100623e53106239afcc359f9e27511b91e642f1f
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-da-nst_talesyntese-medium
@@ -1739,7 +1742,9 @@
   files:
     - filename: voice-da-nst_talesyntese-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-da-nst_talesyntese-medium.tar.gz
-      sha256: 1bdf673b946a2ba69fab24ae3fc0e7d23e042c2533cbbef008f64f633500eb7e
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-da-nst_talesyntese-medium.tar.gz
+        1bdf673b946a2ba69fab24ae3fc0e7d23e042c2533cbbef008f64f633500eb7e
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-eva_k-x-low
@@ -1749,7 +1754,9 @@
   files:
     - filename: voice-de-eva_k-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-eva_k-x-low.tar.gz
-      sha256: 81b305abc58a0a02629aea01904a86ec97b823714dd66b1ee22f38fe529e6371
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-eva_k-x-low.tar.gz
+        81b305abc58a0a02629aea01904a86ec97b823714dd66b1ee22f38fe529e6371
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-karlsson-low
@@ -1759,7 +1766,9 @@
   files:
     - filename: voice-de-karlsson-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-karlsson-low.tar.gz
-      sha256: cc7615cfef3ee6beaa1db6059e0271e4d2e1d6d310c0e17b3d36c494628f4b82
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-karlsson-low.tar.gz
+        cc7615cfef3ee6beaa1db6059e0271e4d2e1d6d310c0e17b3d36c494628f4b82
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-kerstin-low
@@ -1769,7 +1778,9 @@
   files:
     - filename: voice-de-kerstin-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-kerstin-low.tar.gz
-      sha256: d8ea72fbc0c21db828e901777ba7bb5dff7c843bb943ad19f34c9700b96a8182
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-kerstin-low.tar.gz
+        d8ea72fbc0c21db828e901777ba7bb5dff7c843bb943ad19f34c9700b96a8182
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-pavoque-low
@@ -1779,7 +1790,9 @@
   files:
     - filename: voice-de-pavoque-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-pavoque-low.tar.gz
-      sha256: 1f5ebc6398e8829f19c7c2b14f46307703bca0f0d8c74b4bb173037b1f161d4d
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-pavoque-low.tar.gz
+        1f5ebc6398e8829f19c7c2b14f46307703bca0f0d8c74b4bb173037b1f161d4d
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-ramona-low
@@ -1789,7 +1802,9 @@
   files:
     - filename: voice-de-ramona-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-ramona-low.tar.gz
-      sha256: 66d9fc08d1a1c537a1cefe99a284f687e5ad7e43d5935a75390678331cce7b47
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-ramona-low.tar.gz
+        66d9fc08d1a1c537a1cefe99a284f687e5ad7e43d5935a75390678331cce7b47
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-thorsten-low
@@ -1799,7 +1814,9 @@
   files:
     - filename: voice-de-thorsten-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-thorsten-low.tar.gz
-      sha256: 4d052a7726b77719d0dbc66c845f1d0fe4432bfbd26f878f6dd0883d49e9e43d
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-thorsten-low.tar.gz
+        4d052a7726b77719d0dbc66c845f1d0fe4432bfbd26f878f6dd0883d49e9e43d
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-el-gr-rapunzelina-low
@@ -1809,7 +1826,9 @@
   files:
     - filename: voice-el-gr-rapunzelina-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-el-gr-rapunzelina-low.tar.gz
-      sha256: c5613688c12eabc5294465494ed56af1e0fe4d7896d216bfa470eb225d9ff0d0
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-el-gr-rapunzelina-low.tar.gz
+        c5613688c12eabc5294465494ed56af1e0fe4d7896d216bfa470eb225d9ff0d0
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-alan-low
@@ -1819,7 +1838,9 @@
   files:
     - filename: voice-en-gb-alan-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-gb-alan-low.tar.gz
-      sha256: 526eeeeccb26206dc92de5965615803b5bf88df059f46372caa4a9fa12d76a32
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-gb-alan-low.tar.gz
+        526eeeeccb26206dc92de5965615803b5bf88df059f46372caa4a9fa12d76a32
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-southern_english_female-low
@@ -1829,7 +1850,9 @@
   files:
     - filename: voice-en-gb-southern_english_female-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-gb-southern_english_female-low.tar.gz
-      sha256: 7c1bbe23e61a57bdb450b137f69a83ff5358159262e1ed7d2308fa14f4924da9
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-gb-southern_english_female-low.tar.gz
+        7c1bbe23e61a57bdb450b137f69a83ff5358159262e1ed7d2308fa14f4924da9
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-amy-low
@@ -1839,7 +1862,9 @@
   files:
     - filename: voice-en-us-amy-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-amy-low.tar.gz
-      sha256: 5c3e3480e7d71ce219943c8a711bb9c21fd48b8f8e87ed7fb5c6649135ab7608
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-amy-low.tar.gz
+        5c3e3480e7d71ce219943c8a711bb9c21fd48b8f8e87ed7fb5c6649135ab7608
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-danny-low
@@ -1849,7 +1874,9 @@
   files:
     - filename: voice-en-us-danny-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-danny-low.tar.gz
-      sha256: 0c8fbb42526d5fbd3a0bded5f18041c0a893a70a7fb8756f97866624b932264b
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-danny-low.tar.gz
+        0c8fbb42526d5fbd3a0bded5f18041c0a893a70a7fb8756f97866624b932264b
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
@@ -1859,7 +1886,9 @@
   files:
     - filename: voice-en-us-kathleen-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
-      sha256: 18e32f009f864d8061af8a4be4ae9018b5aa8b49c37f9e108bbfd782c6a38fbf
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
+        18e32f009f864d8061af8a4be4ae9018b5aa8b49c37f9e108bbfd782c6a38fbf
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-low
@@ -1869,7 +1898,9 @@
   files:
     - filename: voice-en-us-lessac-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-low.tar.gz
-      sha256: 003fe040985d00b917ace21b2ccca344c282c53fe9b946991b7b0da52516e1fc
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-low.tar.gz
+        003fe040985d00b917ace21b2ccca344c282c53fe9b946991b7b0da52516e1fc
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-medium
@@ -1879,7 +1910,9 @@
   files:
     - filename: voice-en-us-lessac-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-medium.tar.gz
-      sha256: d45ca50084c0558eb9581cd7d26938043bc8853513da47c63b94d95a2367a5c9
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-medium.tar.gz
+        d45ca50084c0558eb9581cd7d26938043bc8853513da47c63b94d95a2367a5c9
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-libritts-high
@@ -1889,7 +1922,9 @@
   files:
     - filename: voice-en-us-libritts-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-libritts-high.tar.gz
-      sha256: 328e3e9cb573a43a6c5e1aeca386e971232bdb1418a74d4674cf726c973a0ea8
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-libritts-high.tar.gz
+        328e3e9cb573a43a6c5e1aeca386e971232bdb1418a74d4674cf726c973a0ea8
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-high
@@ -1899,7 +1934,9 @@
   files:
     - filename: voice-en-us-ryan-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-high.tar.gz
-      sha256: de346b054703a190782f49acb9b93c50678a884fede49cfd85429d204802d678
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-high.tar.gz
+        de346b054703a190782f49acb9b93c50678a884fede49cfd85429d204802d678
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-low
@@ -1909,7 +1946,9 @@
   files:
     - filename: voice-en-us-ryan-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-low.tar.gz
-      sha256: 049e6e5bad07870fb1d25ecde97bac00f9c95c90589b2fef4b0fbf23c88770ce
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-low.tar.gz
+        049e6e5bad07870fb1d25ecde97bac00f9c95c90589b2fef4b0fbf23c88770ce
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-medium
@@ -1919,7 +1958,9 @@
   files:
     - filename: voice-en-us-ryan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-medium.tar.gz
-      sha256: 2e00d747eaed6ce9f63f4991921ef3bb2bbfbc7f28cde4f14eb7048960f928d8
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-medium.tar.gz
+        2e00d747eaed6ce9f63f4991921ef3bb2bbfbc7f28cde4f14eb7048960f928d8
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us_lessac
@@ -1929,7 +1970,9 @@
   files:
     - filename: voice-en-us_lessac.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us_lessac.tar.gz
-      sha256: 0967af67fb0435aa509b0b794c0cb2cc57817ae8a5bff28cb8cd89ab6f5dcc3d
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us_lessac.tar.gz
+        0967af67fb0435aa509b0b794c0cb2cc57817ae8a5bff28cb8cd89ab6f5dcc3d
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-carlfm-x-low
@@ -1939,7 +1982,9 @@
   files:
     - filename: voice-es-carlfm-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-carlfm-x-low.tar.gz
-      sha256: 0156a186de321639e6295521f667758ad086bc8433f0a6797a9f044ed5cf5bf3
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-carlfm-x-low.tar.gz
+        0156a186de321639e6295521f667758ad086bc8433f0a6797a9f044ed5cf5bf3
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_10246-low
@@ -1949,7 +1994,9 @@
   files:
     - filename: voice-es-mls_10246-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-mls_10246-low.tar.gz
-      sha256: ff1fe3fc2ab91e32acd4fa8cb92048e3cff0e20079b9d81324f01cd2dea50598
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-mls_10246-low.tar.gz
+        ff1fe3fc2ab91e32acd4fa8cb92048e3cff0e20079b9d81324f01cd2dea50598
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_9972-low
@@ -1959,7 +2006,9 @@
   files:
     - filename: voice-es-mls_9972-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-mls_9972-low.tar.gz
-      sha256: d95def9adea97a6a3fee7645d1167e00fb4fd60f8ce9bc3ebf1acaa9e3f455dc
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-mls_9972-low.tar.gz
+        d95def9adea97a6a3fee7645d1167e00fb4fd60f8ce9bc3ebf1acaa9e3f455dc
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fi-harri-low
@@ -1969,7 +2018,9 @@
   files:
     - filename: voice-fi-harri-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fi-harri-low.tar.gz
-      sha256: 4f1aaf00927d0eb25bf4fc5ef8be2f042e048593864ac263ee7b49c516832b22
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fi-harri-low.tar.gz
+        4f1aaf00927d0eb25bf4fc5ef8be2f042e048593864ac263ee7b49c516832b22
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-gilles-low
@@ -1979,7 +2030,9 @@
   files:
     - filename: voice-fr-gilles-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-gilles-low.tar.gz
-      sha256: 77662c7332c2a6f522ab478287d9b0fe9afc11a2da71f310bf923124ee699aae
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-gilles-low.tar.gz
+        77662c7332c2a6f522ab478287d9b0fe9afc11a2da71f310bf923124ee699aae
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-mls_1840-low
@@ -1989,7 +2042,9 @@
   files:
     - filename: voice-fr-mls_1840-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-mls_1840-low.tar.gz
-      sha256: 69169d1fac99a733112c08c7caabf457055990590a32ee83ebcada37f86132d3
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-mls_1840-low.tar.gz
+        69169d1fac99a733112c08c7caabf457055990590a32ee83ebcada37f86132d3
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-low
@@ -1999,7 +2054,9 @@
   files:
     - filename: voice-fr-siwis-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-siwis-low.tar.gz
-      sha256: d3db8d47053e9b4108e1c1d29d5ea2b5b1a152183616c3134c222110ccde20f2
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-siwis-low.tar.gz
+        d3db8d47053e9b4108e1c1d29d5ea2b5b1a152183616c3134c222110ccde20f2
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-medium
@@ -2009,7 +2066,9 @@
   files:
     - filename: voice-fr-siwis-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-siwis-medium.tar.gz
-      sha256: 0c9ecdf9ecac6de4a46be85a162bffe0db7145bd3a4175831cea6cab4b41eefd
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-siwis-medium.tar.gz
+        0c9ecdf9ecac6de4a46be85a162bffe0db7145bd3a4175831cea6cab4b41eefd
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-bui-medium
@@ -2019,7 +2078,9 @@
   files:
     - filename: voice-is-bui-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-bui-medium.tar.gz
-      sha256: e89ef01051cb48ca2a32338ed8749a4c966b912bb572c61d6d21f2d3822e505f
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-bui-medium.tar.gz
+        e89ef01051cb48ca2a32338ed8749a4c966b912bb572c61d6d21f2d3822e505f
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-salka-medium
@@ -2029,7 +2090,9 @@
   files:
     - filename: voice-is-salka-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-salka-medium.tar.gz
-      sha256: 75923d7d6b4125166ca58ec82b5d23879012844483b428db9911e034e6626384
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-salka-medium.tar.gz
+        75923d7d6b4125166ca58ec82b5d23879012844483b428db9911e034e6626384
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-steinn-medium
@@ -2039,7 +2102,9 @@
   files:
     - filename: voice-is-steinn-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-steinn-medium.tar.gz
-      sha256: 5a01a8df796f86fdfe12cc32a3412ebd83670d47708d94d926ba5ed0776e6dc9
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-steinn-medium.tar.gz
+        5a01a8df796f86fdfe12cc32a3412ebd83670d47708d94d926ba5ed0776e6dc9
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-ugla-medium
@@ -2049,7 +2114,9 @@
   files:
     - filename: voice-is-ugla-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-ugla-medium.tar.gz
-      sha256: 501cd0376f7fd397f394856b7b3d899da4cc40a63e11912258b74da78af90547
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-ugla-medium.tar.gz
+        501cd0376f7fd397f394856b7b3d899da4cc40a63e11912258b74da78af90547
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-it-riccardo_fasol-x-low
@@ -2059,7 +2126,9 @@
   files:
     - filename: voice-it-riccardo_fasol-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-it-riccardo_fasol-x-low.tar.gz
-      sha256: 394b27b8780f5167e73a62ac103839cc438abc7edb544192f965e5b8f5f4acdb
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-it-riccardo_fasol-x-low.tar.gz
+        394b27b8780f5167e73a62ac103839cc438abc7edb544192f965e5b8f5f4acdb
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-iseke-x-low
@@ -2069,7 +2138,9 @@
   files:
     - filename: voice-kk-iseke-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-iseke-x-low.tar.gz
-      sha256: f434fffbea3e6d8cf392e44438a1f32a5d005fc93b41be84a6d663882ce7c074
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-iseke-x-low.tar.gz
+        f434fffbea3e6d8cf392e44438a1f32a5d005fc93b41be84a6d663882ce7c074
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-issai-high
@@ -2079,7 +2150,9 @@
   files:
     - filename: voice-kk-issai-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-issai-high.tar.gz
-      sha256: 84bf79d330d6cd68103e82d95bbcaa2628a99a565126dea94cea2be944ed4f32
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-issai-high.tar.gz
+        84bf79d330d6cd68103e82d95bbcaa2628a99a565126dea94cea2be944ed4f32
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-raya-x-low
@@ -2089,7 +2162,9 @@
   files:
     - filename: voice-kk-raya-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-raya-x-low.tar.gz
-      sha256: 4cab4ce00c6f10450b668072d7980a2bc3ade3a39adee82e3ec4f519d4c57bd1
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-raya-x-low.tar.gz
+        4cab4ce00c6f10450b668072d7980a2bc3ade3a39adee82e3ec4f519d4c57bd1
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-medium
@@ -2099,7 +2174,9 @@
   files:
     - filename: voice-ne-google-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ne-google-medium.tar.gz
-      sha256: 0895b11a7a340baea37fb9c27fb50bc3fd0af9779085978277f962d236d3a7bd
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ne-google-medium.tar.gz
+        0895b11a7a340baea37fb9c27fb50bc3fd0af9779085978277f962d236d3a7bd
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-x-low
@@ -2109,7 +2186,9 @@
   files:
     - filename: voice-ne-google-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ne-google-x-low.tar.gz
-      sha256: 870ba5718dfe3e478c6cce8a9a288b591b3575c750b57ffcd845e4ec64988f0b
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ne-google-x-low.tar.gz
+        870ba5718dfe3e478c6cce8a9a288b591b3575c750b57ffcd845e4ec64988f0b
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_5809-low
@@ -2119,7 +2198,9 @@
   files:
     - filename: voice-nl-mls_5809-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-mls_5809-low.tar.gz
-      sha256: 398b9f0318dfe9d613cb066444efec0d8491905ae34cf502edb52030b75ef51c
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-mls_5809-low.tar.gz
+        398b9f0318dfe9d613cb066444efec0d8491905ae34cf502edb52030b75ef51c
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_7432-low
@@ -2129,7 +2210,9 @@
   files:
     - filename: voice-nl-mls_7432-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-mls_7432-low.tar.gz
-      sha256: 0b3efc68ea7e735ba8f2e0a0f7e9b4b887b00f6530c02fca4aa69a6091adbe5e
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-mls_7432-low.tar.gz
+        0b3efc68ea7e735ba8f2e0a0f7e9b4b887b00f6530c02fca4aa69a6091adbe5e
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-nathalie-x-low
@@ -2139,7 +2222,9 @@
   files:
     - filename: voice-nl-nathalie-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-nathalie-x-low.tar.gz
-      sha256: 2658d4fe2b791491780160216d187751f7c993aa261f3b8ec76dfcaf1ba74942
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-nathalie-x-low.tar.gz
+        2658d4fe2b791491780160216d187751f7c993aa261f3b8ec76dfcaf1ba74942
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-medium
@@ -2149,7 +2234,9 @@
   files:
     - filename: voice-nl-rdh-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-rdh-medium.tar.gz
-      sha256: 16f74a195ecf13df1303fd85327532196cc1ecef2e72505200578fd410d0affb
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-rdh-medium.tar.gz
+        16f74a195ecf13df1303fd85327532196cc1ecef2e72505200578fd410d0affb
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-x-low
@@ -2159,7 +2246,9 @@
   files:
     - filename: voice-nl-rdh-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-rdh-x-low.tar.gz
-      sha256: 496363e5d6e080fd16ac5a1f9457c564b52f0ee8be7f2e2ba1dbf41ef0b23a39
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-rdh-x-low.tar.gz
+        496363e5d6e080fd16ac5a1f9457c564b52f0ee8be7f2e2ba1dbf41ef0b23a39
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-no-talesyntese-medium
@@ -2169,7 +2258,9 @@
   files:
     - filename: voice-no-talesyntese-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-no-talesyntese-medium.tar.gz
-      sha256: ed6b3593a0e70c90d52e225b85d7e0b805ad8e08482471bd2f73cf1404a6470d
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-no-talesyntese-medium.tar.gz
+        ed6b3593a0e70c90d52e225b85d7e0b805ad8e08482471bd2f73cf1404a6470d
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pl-mls_6892-low
@@ -2179,7 +2270,9 @@
   files:
     - filename: voice-pl-mls_6892-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-pl-mls_6892-low.tar.gz
-      sha256: 5361fcf586b1285025a2ccb8b7500e07c9d66fa8126ef518709c0055c4c0d6f4
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-pl-mls_6892-low.tar.gz
+        5361fcf586b1285025a2ccb8b7500e07c9d66fa8126ef518709c0055c4c0d6f4
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pt-br-edresson-low
@@ -2189,7 +2282,9 @@
   files:
     - filename: voice-pt-br-edresson-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-pt-br-edresson-low.tar.gz
-      sha256: c68be522a526e77f49e90eeb4c13c01b4acdfeb635759f0eeb0eea8f16fd1f33
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-pt-br-edresson-low.tar.gz
+        c68be522a526e77f49e90eeb4c13c01b4acdfeb635759f0eeb0eea8f16fd1f33
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ru-irinia-medium
@@ -2199,7 +2294,9 @@
   files:
     - filename: voice-ru-irinia-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ru-irinia-medium.tar.gz
-      sha256: 897b62f170faee38f21d0bc36411164166ae351977e898b6cf33f6206890b55f
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ru-irinia-medium.tar.gz
+        897b62f170faee38f21d0bc36411164166ae351977e898b6cf33f6206890b55f
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-sv-se-nst-medium
@@ -2209,7 +2306,9 @@
   files:
     - filename: voice-sv-se-nst-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-sv-se-nst-medium.tar.gz
-      sha256: 0d6cf357d55860162bf1bdd76bd4f0c396ff547e941bfb25df799d6f1866fda9
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-sv-se-nst-medium.tar.gz
+        0d6cf357d55860162bf1bdd76bd4f0c396ff547e941bfb25df799d6f1866fda9
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-uk-lada-x-low
@@ -2219,7 +2318,9 @@
   files:
     - filename: voice-uk-lada-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-uk-lada-x-low.tar.gz
-      sha256: ff50acbd659fc226b57632acb1cee310009821ec44b4bc517effdd9827d8296b
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-uk-lada-x-low.tar.gz
+        ff50acbd659fc226b57632acb1cee310009821ec44b4bc517effdd9827d8296b
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-25hours-single-low
@@ -2229,7 +2330,9 @@
   files:
     - filename: voice-vi-25hours-single-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-vi-25hours-single-low.tar.gz
-      sha256: 97e34d1b69dc7000a4ec3269f84339ed35905b3c9800a63da5d39b7649e4a666
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-vi-25hours-single-low.tar.gz
+        97e34d1b69dc7000a4ec3269f84339ed35905b3c9800a63da5d39b7649e4a666
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-vivos-x-low
@@ -2239,7 +2342,9 @@
   files:
     - filename: voice-vi-vivos-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-vi-vivos-x-low.tar.gz
-      sha256: 07cd4ca6438ec224012f7033eec1a2038724b78e4aa2bedf85f756656b52e1a7
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-vi-vivos-x-low.tar.gz
+        07cd4ca6438ec224012f7033eec1a2038724b78e4aa2bedf85f756656b52e1a7
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh-cn-huayan-x-low
@@ -2249,7 +2354,9 @@
   files:
     - filename: voice-zh-cn-huayan-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh-cn-huayan-x-low.tar.gz
-      sha256: 609db0da8ee75beb2f17ce53c55abdbc8c0e04135482efedf1798b1938bf90fa
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh-cn-huayan-x-low.tar.gz
+        609db0da8ee75beb2f17ce53c55abdbc8c0e04135482efedf1798b1938bf90fa
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh_CN-huayan-medium
@@ -2259,4 +2366,6 @@
   files:
     - filename: voice-zh_CN-huayan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh_CN-huayan-medium.tar.gz
-      sha256: 0299a5e7f481ba853404e9f0e1515a94d5409585d76963fa4d30c64bd630aa99
+      sha256: |-
+        Downloading file from https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh_CN-huayan-medium.tar.gz
+        0299a5e7f481ba853404e9f0e1515a94d5409585d76963fa4d30c64bd630aa99
