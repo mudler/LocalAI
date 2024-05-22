@@ -65,16 +65,16 @@ jobs:
             grpc-base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
-          - build-type: 'sycl_f16'
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
-            grpc-base-image: "ubuntu:22.04"
-            tag-suffix: 'sycl-f16-ffmpeg'
-            ffmpeg: 'true'
-            image-type: 'extras'
-            runs-on: 'arc-runner-set'
-            makeflags: "--jobs=3 --output-sync=target"
+          #- build-type: 'sycl_f16'
+          #  platforms: 'linux/amd64'
+          #  tag-latest: 'false'
+          #  base-image: "intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04"
+          #  grpc-base-image: "ubuntu:22.04"
+          #  tag-suffix: 'sycl-f16-ffmpeg'
+          #  ffmpeg: 'true'
+          #  image-type: 'extras'
+          #  runs-on: 'arc-runner-set'
+          #  makeflags: "--jobs=3 --output-sync=target"
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
