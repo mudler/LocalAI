@@ -361,7 +361,10 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 func (c *BackendConfig) Validate() bool {
 	// Simple validation to make sure the model can be correctly loaded
-	for _, n := range []string{c.Backend, c.Model} {
+	for _, n := range []string{c.Backend, c.Model, c.MMProj} {
+		if n == "" {
+			continue
+		}
 		if strings.HasPrefix(n, string(os.PathSeparator)) ||
 			strings.Contains(n, "..") {
 			return false
