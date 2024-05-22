@@ -16,7 +16,7 @@ function check_and_update_checksum() {
     # Download the file and calculate new checksum using Python
     new_checksum=$(python3 -c "
 import hashlib
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, get_paths_info
 import requests
 import sys
 import os
@@ -46,14 +46,26 @@ def calculate_sha256(file_path):
 
 download_type, repo_id_or_url = parse_uri(uri)
 
+new_checksum =  None
+
 # Decide download method based on URI type
 if download_type == 'huggingface':
-    try:
-        file_path = hf_hub_download(repo_id=repo_id_or_url, filename=file_name)
-    except Exception as e:
-        print(f'Error from Hugging Face Hub: {str(e)}', file=sys.stderr)
-        sys.exit(2)
+    # Use HF API to pull sha
+    for file in get_paths_info(repo_id_or_url, [file_name], repo_type='model'):
+        try:
+            new_checksum = file.lfs.sha256
+            break
+        except Exception as e:
+            print(f'Error from Hugging Face Hub: {str(e)}', file=sys.stderr)
+            sys.exit(2)
+    if new_checksum is None:
+        try:
+            file_path = hf_hub_download(repo_id=repo_id_or_url, filename=file_name)
+        except Exception as e:
+            print(f'Error from Hugging Face Hub: {str(e)}', file=sys.stderr)
+            sys.exit(2)
 else:
+    print(f'Downloading file from {repo_id_or_url}')
     response = requests.get(repo_id_or_url)
     if response.status_code == 200:
         with open(file_name, 'wb') as f:
@@ -66,9 +78,13 @@ else:
         print(f'Error downloading file: {response.status_code}', file=sys.stderr)
         sys.exit(1)
 
-print(calculate_sha256(file_path))
-# Clean up the downloaded file
-os.remove(file_path)
+if new_checksum is None:
+    new_checksum = calculate_sha256(file_path)
+    print(new_checksum)
+    os.remove(file_path)
+else:
+    print(new_checksum)
+
 ")
 
     if [[ "$new_checksum" == "" ]]; then
