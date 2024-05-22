@@ -1062,10 +1062,10 @@
   files:
     - filename: Bunny-Llama-3-8B-Q4_K_M-mmproj.gguf
       sha256: 96d033387a91e56cf97fa5d60e02c0128ce07c8fa83aaaefb74ec40541615ea5
-      uri: huggingace://BAAI/Bunny-Llama-3-8B-V-gguf/mmproj-model-f16.gguf
+      uri: huggingface://BAAI/Bunny-Llama-3-8B-V-gguf/mmproj-model-f16.gguf
     - filename: Bunny-Llama-3-8B-Q4_K_M.gguf
       sha256: 88f0a61f947dbf129943328be7262ae82e3a582a0c75e53544b07f70355a7c30
-      uri: huggingace://BAAI/Bunny-Llama-3-8B-V-gguf/ggml-model-Q4_K_M.gguf
+      uri: huggingface://BAAI/Bunny-Llama-3-8B-V-gguf/ggml-model-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llava-llama-3-8b-v1_1"
   description: |
