@@ -2,7 +2,10 @@
 name: 'build container images tests'
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: [generate and publish intel docker caches]
+    types:
+      - completed
 
 concurrency:
   group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
