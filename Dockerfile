@@ -1,6 +1,7 @@
 ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
+ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
 
 # The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
 FROM ${BASE_IMAGE} AS requirements-core
@@ -141,6 +142,17 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
         # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
         ldconfig \
     ; fi
+
+###################################
+###################################
+
+# Temporary workaround for Intel's repository to work correctly
+# https://community.intel.com/t5/Intel-oneAPI-Math-Kernel-Library/APT-Repository-not-working-signatures-invalid/m-p/1599436/highlight/true#M36143
+# This is a temporary workaround until Intel fixes their repository
+FROM ${INTEL_BASE_IMAGE} AS intel
+RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
 
 ###################################
 ###################################
