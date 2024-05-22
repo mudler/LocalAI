@@ -22,7 +22,7 @@ openapi-schema-pydantic==1.2.4
 packaging==23.1
 pydantic==1.10.13
 PyYAML==6.0
-requests==2.31.0
+requests==2.32.2
 SQLAlchemy==2.0.12
 tenacity==8.2.2
 tqdm==4.66.3
