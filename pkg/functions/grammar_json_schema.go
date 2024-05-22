@@ -117,7 +117,16 @@ const array = `arr  ::=
     (",\n"  realvalue)*
   )? "]"`
 
-func (sc *JSONSchemaConverter) finalizeGrammar(suffix string, maybeArray, maybeString bool) string {
+func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) string {
+
+	grammarOpts := &GrammarOption{}
+	grammarOpts.Apply(options...)
+
+	suffix := grammarOpts.Suffix
+	maybeArray := grammarOpts.MaybeArray
+	maybeString := grammarOpts.MaybeString
+	noMixedFreeString := grammarOpts.NoMixedFreeString
+
 	var lines []string
 
 	swapRoot := maybeArray || maybeString || suffix != ""
@@ -140,6 +149,11 @@ func (sc *JSONSchemaConverter) finalizeGrammar(suffix string, maybeArray, maybeS
 		newRoot = "arr | realvalue"
 	}
 
+	freestringRule := "mixedstring"
+	if noMixedFreeString {
+		freestringRule = "freestring"
+	}
+
 	if suffix != "" {
 		// quote newlines in suffix
 		suffix = utils.EscapeNewLines(suffix)
@@ -150,7 +164,7 @@ func (sc *JSONSchemaConverter) finalizeGrammar(suffix string, maybeArray, maybeS
 
 		if maybeString {
 			//newRoot = "( (\"" + suffix + "\" " + newRoot + ") | freestring ) "
-			newRoot = "( \"" + suffix + "\" " + newRoot + " | freestring ) "
+			newRoot = "( \"" + suffix + "\" " + newRoot + " | " + freestringRule + " ) "
 		} else {
 			newRoot = "\"" + suffix + "\" " + "" + newRoot + ""
 		}
@@ -159,11 +173,17 @@ func (sc *JSONSchemaConverter) finalizeGrammar(suffix string, maybeArray, maybeS
 			//	newRoot = "(" + newRoot + ")"
 		}
 
-		newRoot = "freestring | " + newRoot
+		newRoot = freestringRule + " | " + newRoot
 	}
 
 	lines = append(lines, fmt.Sprintf("%s ::= %s", "root", newRoot))
 	lines = append(lines, array)
+
+	if maybeArray {
+		lines = append(lines, `mixedstring ::= freestring | freestring arr | freestring realvalue | realvalue | arr`)
+	} else {
+		lines = append(lines, `mixedstring ::= freestring | freestring realvalue | realvalue`)
+	}
 
 	return strings.Join(lines, "\n")
 }
@@ -289,16 +309,16 @@ func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[strin
 
 	return def
 }
-func (sc *JSONSchemaConverter) Grammar(suffix string, schema map[string]interface{}, maybeArray, maybeString bool) string {
+func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, options ...func(*GrammarOption)) string {
 	sc.addRule("freestring", PRIMITIVE_RULES["freestring"])
 	sc.visit(schema, "", schema)
-	return sc.finalizeGrammar(suffix, maybeArray, maybeString)
+	return sc.finalizeGrammar(options...)
 }
 
-func (sc *JSONSchemaConverter) GrammarFromBytes(suffix string, b []byte, maybeArray, maybeString bool) string {
+func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, options ...func(*GrammarOption)) string {
 	var schema map[string]interface{}
 	_ = json.Unmarshal(b, &schema)
-	return sc.Grammar(suffix, schema, maybeArray, maybeString)
+	return sc.Grammar(schema, options...)
 }
 
 func jsonString(v interface{}) string {
@@ -341,9 +361,12 @@ type JSONFunctionStructureName struct {
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructureName) Grammar(suffix string, propOrder string, maybeArray, maybeString bool) string {
+func (j JSONFunctionStructureName) Grammar(options ...func(*GrammarOption)) string {
+	grammarOpts := &GrammarOption{}
+	grammarOpts.Apply(options...)
+
 	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(suffix, dat, maybeArray, maybeString)
+	return NewJSONSchemaConverter(grammarOpts.PropOrder).GrammarFromBytes(dat, options...)
 }
 
 type JSONFunctionStructureFunction struct {
@@ -352,7 +375,10 @@ type JSONFunctionStructureFunction struct {
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructureFunction) Grammar(suffix string, propOrder string, maybeArray, maybeString bool) string {
+func (j JSONFunctionStructureFunction) Grammar(options ...func(*GrammarOption)) string {
+	grammarOpts := &GrammarOption{}
+	grammarOpts.Apply(options...)
+
 	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(suffix, dat, maybeArray, maybeString)
+	return NewJSONSchemaConverter(grammarOpts.PropOrder).GrammarFromBytes(dat, options...)
 }

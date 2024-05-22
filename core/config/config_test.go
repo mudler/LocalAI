@@ -25,9 +25,10 @@ var _ = Describe("Test cases for config related functions", func() {
 		})
 
 		It("Test LoadConfigs", func() {
+
 			bcl := NewBackendConfigLoader()
-			opts := NewApplicationConfig()
-			err := bcl.LoadBackendConfigsFromPath(opts.ModelPath)
+			err := bcl.LoadBackendConfigsFromPath(os.Getenv("MODELS_PATH"))
+
 			Expect(err).To(BeNil())
 			configs := bcl.GetAllBackendConfigs()
 			loadedModelNames := []string{}
@@ -36,11 +37,7 @@ var _ = Describe("Test cases for config related functions", func() {
 			}
 			Expect(configs).ToNot(BeNil())
 
-			// config should includes gpt4all models's api.config
-			Expect(loadedModelNames).To(ContainElements("gpt4all"))
-
-			// config should includes gpt2 models's api.config
-			Expect(loadedModelNames).To(ContainElements("gpt4all-2"))
+			Expect(loadedModelNames).To(ContainElements("code-search-ada-code-001"))
 
 			// config should includes text-embedding-ada-002 models's api.config
 			Expect(loadedModelNames).To(ContainElements("text-embedding-ada-002"))

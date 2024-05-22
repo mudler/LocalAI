@@ -1,5 +1,5 @@
 accelerate
-grpcio==1.63.0
+grpcio==1.64.0
 protobuf
 certifi
 torch

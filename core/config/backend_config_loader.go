@@ -146,7 +146,9 @@ func (bcl *BackendConfigLoader) LoadMultipleBackendConfigsSingleFile(file string
 	}
 
 	for _, cc := range c {
-		bcl.configs[cc.Name] = *cc
+		if cc.Validate() {
+			bcl.configs[cc.Name] = *cc
+		}
 	}
 	return nil
 }
@@ -159,7 +161,12 @@ func (bcl *BackendConfigLoader) LoadBackendConfig(file string, opts ...ConfigLoa
 		return fmt.Errorf("cannot read config file: %w", err)
 	}
 
-	bcl.configs[c.Name] = *c
+	if c.Validate() {
+		bcl.configs[c.Name] = *c
+	} else {
+		return fmt.Errorf("config is not valid")
+	}
+
 	return nil
 }
 
@@ -290,7 +297,7 @@ func (bcl *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...
 	defer bcl.Unlock()
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot read directory '%s': %w", path, err)
 	}
 	files := make([]fs.FileInfo, 0, len(entries))
 	for _, entry := range entries {
@@ -307,8 +314,14 @@ func (bcl *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...
 			continue
 		}
 		c, err := readBackendConfigFromFile(filepath.Join(path, file.Name()), opts...)
-		if err == nil {
+		if err != nil {
+			log.Error().Err(err).Msgf("cannot read config file: %s", file.Name())
+			continue
+		}
+		if c.Validate() {
 			bcl.configs[c.Name] = *c
+		} else {
+			log.Error().Err(err).Msgf("config is not valid")
 		}
 	}
 

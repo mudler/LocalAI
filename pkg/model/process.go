@@ -30,8 +30,10 @@ func (ml *ModelLoader) StopAllExcept(s string) error {
 }
 
 func (ml *ModelLoader) deleteProcess(s string) error {
-	if err := ml.grpcProcesses[s].Stop(); err != nil {
-		return err
+	if _, exists := ml.grpcProcesses[s]; exists {
+		if err := ml.grpcProcesses[s].Stop(); err != nil {
+			return err
+		}
 	}
 	delete(ml.grpcProcesses, s)
 	delete(ml.models, s)

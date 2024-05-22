@@ -8,6 +8,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type GrammarConfig struct {
+	// ParallelCalls enables the LLM to return multiple function calls in the same response
+	ParallelCalls bool `yaml:"parallel_calls"`
+
+	// MixedMode enables the LLM to return strings and not only JSON objects
+	// This is useful for models to not constraing returning only JSON and also messages back to the user
+	MixedMode bool `yaml:"mixed_mode"`
+
+	// NoMixedFreeString disables the mixed mode for free strings
+	// In this way if the LLM selects a free string, it won't be mixed necessarly with JSON objects
+	NoMixedFreeString bool `yaml:"no_mixed_free_string"`
+
+	// NoGrammar disables the grammar parsing and parses the responses directly from the LLM
+	NoGrammar bool `yaml:"disable"`
+
+	// Prefix is the suffix to append to the grammar when being generated
+	// This is useful when models prepend a tag before returning JSON
+	Prefix string `yaml:"prefix"`
+}
+
 // FunctionsConfig is the configuration for the tool/function call.
 // It includes setting to map the function name and arguments from the response
 // and, for instance, also if processing the requests with BNF grammars.
@@ -16,21 +36,14 @@ type FunctionsConfig struct {
 	// By default we inject a tool that does nothing and is used to return an answer from the LLM
 	DisableNoAction bool `yaml:"disable_no_action"`
 
+	// Grammar is the configuration for the grammar
+	GrammarConfig GrammarConfig `yaml:"grammar"`
+
 	// NoActionFunctionName is the name of the function that does nothing. It defaults to "answer"
 	NoActionFunctionName string `yaml:"no_action_function_name"`
 
 	// NoActionDescriptionName is the name of the function that returns the description of the no action function
 	NoActionDescriptionName string `yaml:"no_action_description_name"`
-
-	// ParallelCalls enables the LLM to return multiple function calls in the same response
-	ParallelCalls bool `yaml:"parallel_calls"`
-
-	// GrammarMessage enables the LLM to return strings and not only JSON objects
-	// This is useful for models to not constraing returning only JSON and also messages back to the user
-	GrammarMessage bool `yaml:"grammar_message"`
-
-	// NoGrammar disables the grammar parsing and parses the responses directly from the LLM
-	NoGrammar bool `yaml:"no_grammar"`
 
 	// ResponseRegex is a named regex to extract the function name and arguments from the response
 	ResponseRegex string `yaml:"response_regex"`
@@ -38,12 +51,11 @@ type FunctionsConfig struct {
 	// JSONRegexMatch is a regex to extract the JSON object from the response
 	JSONRegexMatch []string `yaml:"json_regex_match"`
 
-	// GrammarPrefix is the suffix to append to the grammar when being generated
-	// This is useful when models prepend a tag before returning JSON
-	GrammarPrefix string `yaml:"grammar_prefix"`
+	// ReplaceFunctionResults allow to replace strings in the results before parsing them
+	ReplaceFunctionResults []ReplaceResult `yaml:"replace_function_results"`
 
-	// ReplaceResults allow to replace strings in the results before parsing them
-	ReplaceResults []ReplaceResult `yaml:"replace_results"`
+	// ReplaceLLMResult allow to replace strings in the results before parsing them
+	ReplaceLLMResult []ReplaceResult `yaml:"replace_llm_results"`
 
 	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
@@ -61,17 +73,48 @@ type FuncCallResults struct {
 	Arguments string
 }
 
-func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
+func (g GrammarConfig) Options() []func(o *GrammarOption) {
+	opts := []func(o *GrammarOption){}
+	if g.MixedMode {
+		opts = append(opts, EnableMaybeString)
+	}
+	if g.ParallelCalls {
+		opts = append(opts, EnableMaybeArray)
+	}
+	if g.Prefix != "" {
+		opts = append(opts, SetPrefix(g.Prefix))
+	}
+	if g.NoMixedFreeString {
+		opts = append(opts, NoMixedFreeString)
+	}
+	return opts
+}
+
+func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
 	log.Debug().Msgf("LLM result: %s", llmresult)
 
-	for _, item := range functionConfig.ReplaceResults {
+	for _, item := range functionConfig.ReplaceLLMResult {
 		k, v := item.Key, item.Value
 		log.Debug().Msgf("Replacing %s with %s", k, v)
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-
 	log.Debug().Msgf("LLM result(processed): %s", llmresult)
+
+	return llmresult
+}
+
+func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
+
+	log.Debug().Msgf("LLM result: %s", llmresult)
+
+	for _, item := range functionConfig.ReplaceFunctionResults {
+		k, v := item.Key, item.Value
+		log.Debug().Msgf("Replacing %s with %s", k, v)
+		re := regexp.MustCompile(k)
+		llmresult = re.ReplaceAllString(llmresult, v)
+	}
+	log.Debug().Msgf("LLM result(function cleanup): %s", llmresult)
 
 	functionNameKey := "function"
 	if functionConfig.FunctionName {
@@ -127,7 +170,6 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 
 	// the response is a string that we have to parse
 	result := make(map[string]string)
-
 	if len(functionConfig.JSONRegexMatch) != 0 {
 		for _, r := range functionConfig.JSONRegexMatch {
 			// We use a regex to extract the JSON object from the response
