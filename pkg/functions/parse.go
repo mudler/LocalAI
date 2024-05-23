@@ -12,6 +12,8 @@ type GrammarConfig struct {
 	// ParallelCalls enables the LLM to return multiple function calls in the same response
 	ParallelCalls bool `yaml:"parallel_calls"`
 
+	DisableParallelNewLines bool `yaml:"disable_parallel_new_lines"`
+
 	// MixedMode enables the LLM to return strings and not only JSON objects
 	// This is useful for models to not constraing returning only JSON and also messages back to the user
 	MixedMode bool `yaml:"mixed_mode"`
@@ -81,6 +83,9 @@ func (g GrammarConfig) Options() []func(o *GrammarOption) {
 	if g.ParallelCalls {
 		opts = append(opts, EnableMaybeArray)
 	}
+	if g.DisableParallelNewLines {
+		opts = append(opts, DisableParallelNewLines)
+	}
 	if g.Prefix != "" {
 		opts = append(opts, SetPrefix(g.Prefix))
 	}
@@ -134,7 +139,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 			var singleObj map[string]interface{}
 			err = json.Unmarshal([]byte(s), &singleObj)
 			if err != nil {
-				log.Warn().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result")
+				log.Debug().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result in a single object or an array of JSON objects")
 			} else {
 				ss = []map[string]interface{}{singleObj}
 			}
@@ -177,6 +182,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 			match := respRegex.FindStringSubmatch(llmresult)
 			if len(match) >= 2 {
 				llmresult = match[1]
+				log.Debug().Msgf("LLM result(JSONRegexMatch): %s", llmresult)
 				break
 			}
 		}

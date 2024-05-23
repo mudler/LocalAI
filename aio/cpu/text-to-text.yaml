@@ -2,6 +2,7 @@ name: gpt-4
 mmap: true
 parameters:
   model: huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf
+context_size: 8192
 
 stopwords:
 - "<|im_end|>"

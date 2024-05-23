@@ -1,4 +1,35 @@
 ---
+## START Mistral
+- &mistral03
+  url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
+  name: "mistral-7b-instruct-v0.3"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62dac1c7a8ead43d20e3e17a/wrLf5yaGC6ng4XME70w6Z.png
+  license: apache-2.0
+  description: |
+    The Mistral-7B-Instruct-v0.3 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-7B-v0.3.
+
+    Mistral-7B-v0.3 has the following changes compared to Mistral-7B-v0.2
+
+        Extended vocabulary to 32768
+        Supports v3 Tokenizer
+        Supports function calling
+  urls:
+    - https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3
+    - https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+  overrides:
+    parameters:
+      model: Mistral-7B-Instruct-v0.3.Q4_K_M.gguf
+  files:
+    - filename: "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
+      sha256: "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024"
+      uri: "huggingface://MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
 ### START mudler's LocalAI specific-models
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -1134,6 +1165,46 @@
     - filename: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
       sha256: 83647caf4a23a91697585cff391e7d1236fac867392f9e49a6dab59f81b5f810
       uri: huggingface://bartowski/Llama-3-Hercules-5.0-8B-GGUF/Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+### START Command-r
+- &command-R
+  url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
+  name: "command-r-v01:q1_s"
+  license: "cc-by-nc-4.0"
+  icon: https://cdn.sanity.io/images/rjtqmwfu/production/ae020d94b599cc453cc09ebc80be06d35d953c23-102x18.svg
+  urls:
+    - https://huggingface.co/CohereForAI/c4ai-command-r-v01
+    - https://huggingface.co/dranger003/c4ai-command-r-v01-iMat.GGUF
+  description: |
+    C4AI Command-R is a research release of a 35 billion parameter highly performant generative model. Command-R is a large language model with open weights optimized for a variety of use cases including reasoning, summarization, and question answering. Command-R has the capability for multilingual generation evaluated in 10 languages and highly performant RAG capabilities.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - command-r
+    - cpu
+  overrides:
+    parameters:
+      model: ggml-c4ai-command-r-v01-iq1_s.gguf
+  files:
+    - filename: "ggml-c4ai-command-r-v01-iq1_s.gguf"
+      sha256: "aad4594ee45402fe344d8825937d63b9fa1f00becc6d1cc912b016dbb020e0f0"
+      uri: "huggingface://dranger003/c4ai-command-r-v01-iMat.GGUF/ggml-c4ai-command-r-v01-iq1_s.gguf"
+- !!merge <<: *command-R
+  name: "aya-23-8b"
+  urls:
+    - https://huggingface.co/CohereForAI/aya-23-8B
+    - https://huggingface.co/bartowski/aya-23-8B-GGUF
+  description: |
+    Aya 23 is an open weights research release of an instruction fine-tuned model with highly advanced multilingual capabilities. Aya 23 focuses on pairing a highly performant pre-trained Command family of models with the recently released Aya Collection. The result is a powerful multilingual large language model serving 23 languages.
+
+    This model card corresponds to the 8-billion version of the Aya 23 model. We also released a 35-billion version which you can find here.
+  overrides:
+    parameters:
+      model: aya-23-8B-Q4_K_M.gguf
+  files:
+    - filename: "aya-23-8B-Q4_K_M.gguf"
+      sha256: "21b3aa3abf067f78f6fe08deb80660cc4ee8ad7b4ab873a98d87761f9f858b0f"
+      uri: "huggingface://bartowski/aya-23-8B-GGUF/aya-23-8B-Q4_K_M.gguf"
 - &phi-2-chat
   ### START Phi-2
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
