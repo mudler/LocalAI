@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
@@ -558,4 +560,35 @@ func (config *BackendConfig) UpdateFromOpenAIRequest(input *schema.OpenAIRequest
 			}
 		}
 	}
+}
+
+func (c *BackendConfig) Validate() bool {
+	downloadedFileNames := []string{}
+	for _, f := range c.DownloadFiles {
+		downloadedFileNames = append(downloadedFileNames, f.Filename)
+	}
+	validationTargets := []string{c.Backend, c.Model, c.MMProj}
+	validationTargets = append(validationTargets, downloadedFileNames...)
+	// Simple validation to make sure the model can be correctly loaded
+	for _, n := range validationTargets {
+		if n == "" {
+			continue
+		}
+		if strings.HasPrefix(n, string(os.PathSeparator)) ||
+			strings.Contains(n, "..") {
+			return false
+		}
+	}
+
+	if c.Name == "" {
+		return false
+	}
+
+	if c.Backend != "" {
+		// a regex that checks that is a string name with no special characters, except '-' and '_'
+		re := regexp.MustCompile(`^[a-zA-Z0-9-_]+$`)
+		return re.MatchString(c.Backend)
+	}
+
+	return true
 }

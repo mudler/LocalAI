@@ -6,6 +6,9 @@ get-sources
 prepare-sources
 /backend/cpp/llama/grpc-server
 /backend/cpp/llama/llama.cpp
+/backend/cpp/llama-*
+
+*.log
 
 go-ggml-transformers
 go-gpt2

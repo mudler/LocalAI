@@ -218,7 +218,7 @@ jobs:
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
-            GRPC_VERSION=v1.63.0
+            GRPC_VERSION=v1.64.0
             MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile

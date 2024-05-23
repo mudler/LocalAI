@@ -67,6 +67,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			return true
 		})
 
+		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
 		results := functions.ParseFunctionCall(result, config.FunctionsConfig)
 		noActionToRun := len(results) > 0 && results[0].Name == noAction || len(results) == 0
 
@@ -192,7 +193,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		}
 
 		switch {
-		case !config.FunctionsConfig.NoGrammar && shouldUseFn:
+		case !config.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn:
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
 				Description: noActionDescription,
@@ -219,15 +220,15 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			// Handle if we should return "name" instead of "functions"
 			if config.FunctionsConfig.FunctionName {
 				jsStruct := funcs.ToJSONNameStructure()
-				config.Grammar = jsStruct.Grammar(config.FunctionsConfig.GrammarPrefix, "", config.FunctionsConfig.ParallelCalls, config.FunctionsConfig.GrammarMessage)
+				config.Grammar = jsStruct.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
 			} else {
 				jsStruct := funcs.ToJSONFunctionStructure()
-				config.Grammar = jsStruct.Grammar(config.FunctionsConfig.GrammarPrefix, "", config.FunctionsConfig.ParallelCalls, config.FunctionsConfig.GrammarMessage)
+				config.Grammar = jsStruct.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
 			}
 		case input.JSONFunctionGrammarObject != nil:
-			config.Grammar = input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarPrefix, "", config.FunctionsConfig.ParallelCalls, config.FunctionsConfig.GrammarMessage)
+			config.Grammar = input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
 		case input.JSONFunctionGrammarObjectName != nil:
-			config.Grammar = input.JSONFunctionGrammarObjectName.Grammar(config.FunctionsConfig.GrammarPrefix, "", config.FunctionsConfig.ParallelCalls, config.FunctionsConfig.GrammarMessage)
+			config.Grammar = input.JSONFunctionGrammarObjectName.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
 		default:
 			// Force picking one of the functions by the request
 			if config.FunctionToCall() != "" {
@@ -470,6 +471,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					return
 				}
 
+				s = functions.CleanupLLMResult(s, config.FunctionsConfig)
 				results := functions.ParseFunctionCall(s, config.FunctionsConfig)
 				noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
 

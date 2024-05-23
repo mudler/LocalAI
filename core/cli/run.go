@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/http"
+	"github.com/go-skynet/LocalAI/core/p2p"
 	"github.com/go-skynet/LocalAI/core/startup"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -37,13 +40,14 @@ type RunCMD struct {
 	Threads     int  `env:"LOCALAI_THREADS,THREADS" short:"t" default:"4" help:"Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested" group:"performance"`
 	ContextSize int  `env:"LOCALAI_CONTEXT_SIZE,CONTEXT_SIZE" default:"512" help:"Default context size for models" group:"performance"`
 
-	Address          string   `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
-	CORS             bool     `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
-	CORSAllowOrigins string   `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
-	UploadLimit      int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
-	APIKeys          []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
-	DisableWebUI     bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disable webui" group:"api"`
-
+	Address              string   `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
+	CORS                 bool     `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
+	CORSAllowOrigins     string   `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
+	UploadLimit          int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
+	APIKeys              []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
+	DisableWebUI         bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disable webui" group:"api"`
+	Peer2Peer            bool     `env:"LOCALAI_P2P,P2P" name:"p2p" default:"false" help:"Enable P2P mode" group:"p2p"`
+	Peer2PeerToken       string   `env:"LOCALAI_P2P_TOKEN,P2P_TOKEN" name:"p2ptoken" help:"Token for P2P mode (optional)" group:"p2p"`
 	ParallelRequests     bool     `env:"LOCALAI_PARALLEL_REQUESTS,PARALLEL_REQUESTS" help:"Enable backends to handle multiple requests in parallel if they support it (e.g.: llama.cpp or vllm)" group:"backends"`
 	SingleActiveBackend  bool     `env:"LOCALAI_SINGLE_ACTIVE_BACKEND,SINGLE_ACTIVE_BACKEND" help:"Allow only one backend to be run at a time" group:"backends"`
 	PreloadBackendOnly   bool     `env:"LOCALAI_PRELOAD_BACKEND_ONLY,PRELOAD_BACKEND_ONLY" default:"false" help:"Do not launch the API services, only the preloaded models / backends are started (useful for multi-node setups)" group:"backends"`
@@ -54,7 +58,7 @@ type RunCMD struct {
 	WatchdogBusyTimeout  string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
 }
 
-func (r *RunCMD) Run(ctx *Context) error {
+func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	opts := []config.AppOption{
 		config.WithConfigFile(r.ModelsConfigFile),
 		config.WithJSONStringPreload(r.PreloadModels),
@@ -79,6 +83,31 @@ func (r *RunCMD) Run(ctx *Context) error {
 		config.WithUploadLimitMB(r.UploadLimit),
 		config.WithApiKeys(r.APIKeys),
 		config.WithModelsURL(append(r.Models, r.ModelArgs...)...),
+	}
+
+	if r.Peer2Peer || r.Peer2PeerToken != "" {
+		log.Info().Msg("P2P mode enabled")
+		token := r.Peer2PeerToken
+		if token == "" {
+			// IF no token is provided, and p2p is enabled,
+			// we generate one and wait for the user to pick up the token (this is for interactive)
+			log.Info().Msg("No token provided, generating one")
+			token = p2p.GenerateToken()
+			log.Info().Msg("Generated Token:")
+			fmt.Println(token)
+
+			log.Info().Msg("To use the token, you can run the following command in another node or terminal:")
+			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
+
+			// Ask for user confirmation
+			log.Info().Msg("Press a button to proceed")
+			var input string
+			fmt.Scanln(&input)
+		}
+		log.Info().Msg("Starting P2P server discovery...")
+		if err := p2p.LLamaCPPRPCServerDiscoverer(context.Background(), token); err != nil {
+			return err
+		}
 	}
 
 	idleWatchDog := r.EnableWatchdogIdle

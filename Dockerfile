@@ -1,6 +1,7 @@
 ARG IMAGE_TYPE=extras
 ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
+ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
 
 # The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
 FROM ${BASE_IMAGE} AS requirements-core
@@ -14,7 +15,6 @@ ARG TARGETVARIANT
 ENV DEBIAN_FRONTEND=noninteractive
 ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,openvoice:/build/backend/python/openvoice/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
 
-ARG GO_TAGS="stablediffusion tinydream tts"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -146,6 +146,17 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
 ###################################
 ###################################
 
+# Temporary workaround for Intel's repository to work correctly
+# https://community.intel.com/t5/Intel-oneAPI-Math-Kernel-Library/APT-Repository-not-working-signatures-invalid/m-p/1599436/highlight/true#M36143
+# This is a temporary workaround until Intel fixes their repository
+FROM ${INTEL_BASE_IMAGE} AS intel
+RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
+
+###################################
+###################################
+
 # The grpc target does one thing, it builds and installs GRPC.  This is in it's own layer so that it can be effectively cached by CI.
 # You probably don't need to change anything here, and if you do, make sure that CI is adjusted so that the cache continues to work.
 FROM ${GRPC_BASE_IMAGE} AS grpc
@@ -185,7 +196,7 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 # Adjustments to the build process should likely be made here.
 FROM requirements-drivers AS builder
 
-ARG GO_TAGS="stablediffusion tts"
+ARG GO_TAGS="stablediffusion tts p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 

@@ -5,7 +5,7 @@ on:
 - pull_request
 
 env:
-  GRPC_VERSION: v1.63.0
+  GRPC_VERSION: v1.64.0
 
 permissions:
   contents: write
@@ -61,7 +61,7 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          make dist
+          GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux
@@ -94,6 +94,8 @@ jobs:
           export PATH=$PATH:$GOPATH/bin
           make backend-assets/grpc/stablediffusion
           mkdir -p release && cp backend-assets/grpc/stablediffusion release
+        env:
+          GO_TAGS: stablediffusion
       - uses: actions/upload-artifact@v4
         with:
           name: stablediffusion
@@ -121,7 +123,7 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
-          make dist
+          GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-MacOS-arm64

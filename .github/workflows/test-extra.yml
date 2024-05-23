@@ -29,7 +29,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
           
       - name: Test transformers
         run: |
@@ -51,7 +51,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
           
       - name: Test sentencetransformers
         run: |
@@ -74,7 +74,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
 
       - name: Test rerankers
         run: |
@@ -96,7 +96,7 @@ jobs:
           sudo apt-get install -y libopencv-dev
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
       - name: Test diffusers
         run: |
           make --jobs=5 --output-sync=target -C backend/python/diffusers
@@ -117,7 +117,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
 
       - name: Test parler-tts
         run: |
@@ -139,7 +139,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
 
       - name: Test openvoice
         run: |
@@ -161,7 +161,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
 
       - name: Test transformers-musicgen
         run: |
@@ -185,7 +185,7 @@ jobs:
   #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools==1.63.0
+  #         pip install --user grpcio-tools==1.64.0
 
   #     - name: Test petals
   #       run: |
@@ -249,7 +249,7 @@ jobs:
   #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools==1.63.0
+  #         pip install --user grpcio-tools==1.64.0
 
   #     - name: Test bark
   #       run: |
@@ -274,7 +274,7 @@ jobs:
   #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools==1.63.0
+  #         pip install --user grpcio-tools==1.64.0
   #     - name: Test vllm
   #       run: |
   #          make --jobs=5 --output-sync=target -C backend/python/vllm
@@ -294,7 +294,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
       - name: Test vall-e-x
         run: |
            make --jobs=5 --output-sync=target -C backend/python/vall-e-x
@@ -314,7 +314,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user grpcio-tools==1.63.0
+          pip install --user grpcio-tools==1.64.0
       - name: Test coqui
         run: |
           make --jobs=5 --output-sync=target -C backend/python/coqui

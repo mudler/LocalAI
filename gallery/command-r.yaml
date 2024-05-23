@@ -1,0 +1,69 @@
+---
+name: "command-r"
+
+config_file: |
+  context_size: 131072
+  stopwords:
+  - "<|END_OF_TURN_TOKEN|>"
+
+  function:
+    # disable injecting the "answer" tool
+    disable_no_action: true
+
+    grammar:
+      # This allows the grammar to also return messages
+      mixed_mode: true
+      # Not all models have a sketchpad or something to write thoughts on.
+      # This one will OR reply to strings OR JSON, but not both in the same reply
+      #no_mixed_free_string: true
+      # Disable grammar
+      # Base instructor model doesn't work well with grammars
+      #disable: true
+      disable_parallel_new_lines: true
+    return_name_in_function_response: true
+    replace_function_results:
+    # Replace everything that is not JSON array or object
+    - key: '(?s)^[^{\[]*'
+      value: ""
+    - key: '(?s)[^}\]]*$'
+      value: ""
+    # Convert single quotes to double quotes
+    - key: "'([^']*?)'"
+      value: "_DQUOTE_${1}_DQUOTE_"
+    - key: '\\"'
+      value: "__TEMP_QUOTE__"
+    - key: "\'"
+      value: "'"
+    - key: "_DQUOTE_"
+      value: '"'
+    - key: "__TEMP_QUOTE__"
+      value: '"'
+
+  template:
+    join_chat_messages_by_character: "" ## No newlines between messages
+    chat: |-
+      {{.Input -}}<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>
+    chat_message: |-
+      {{if eq .RoleName "user" -}}
+      <|START_OF_TURN_TOKEN|><|USER_TOKEN|>{{.Content}}<|END_OF_TURN_TOKEN|>
+      {{- else if eq .RoleName "system" -}}
+      <|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>{{.Content}}<|END_OF_TURN_TOKEN|>
+      {{- else if eq .RoleName "assistant" -}}
+      <|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>{{.Content}}<|END_OF_TURN_TOKEN|>
+      {{- else if eq .RoleName "tool" -}}
+      <|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>{{.Content}}<|END_OF_TURN_TOKEN|>
+      {{- else if .FunctionCall -}}
+      <|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>{{toJson .FunctionCall}}}<|END_OF_TURN_TOKEN|>
+      {{- end -}}
+
+    completion: |
+      {{.Input}}
+    function: |-
+      <|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>
+      You are a function calling AI model, you can call the following functions:
+      ## Available Tools
+      {{range .Functions}}
+      - {"type": "function", "function": {"name": "{{.Name}}", "description": "{{.Description}}", "parameters": {{toJson .Parameters}} }}
+      {{end}}
+      When using a tool, reply with JSON, for instance {"name": "tool_name", "arguments": {"param1": "value1", "param2": "value2"}}
+      <|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>{{.Input -}}

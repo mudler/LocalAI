@@ -1,10 +1,66 @@
 name: gpt-4
 mmap: false
+context_size: 8192
+
 f16: false
 parameters:
   model: huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf
 
+stopwords:
+- "<|im_end|>"
+- "<dummy32000>"
+- "</tool_call>"
+- "<|eot_id|>"
+- "<|end_of_text|>"
+
+function:
+  # disable injecting the "answer" tool
+  disable_no_action: true
+
+  grammar:
+    # This allows the grammar to also return messages
+    mixed_mode: true
+    # Suffix to add to the grammar
+    #prefix: '<tool_call>\n'
+    # Force parallel calls in the grammar
+    # parallel_calls: true
+
+  return_name_in_function_response: true
+  # Without grammar uncomment the lines below
+  # Warning: this is relying only on the capability of the
+  # LLM model to generate the correct function call.
+  json_regex_match: 
+   - "(?s)<tool_call>(.*?)</tool_call>"
+   - "(?s)<tool_call>(.*?)"
+  replace_llm_results:
+  # Drop the scratchpad content from responses
+  - key: "(?s)<scratchpad>.*</scratchpad>"
+    value: ""
+  replace_function_results: 
+  # Replace everything that is not JSON array or object
+  # 
+  - key: '(?s)^[^{\[]*'
+    value: ""
+  - key: '(?s)[^}\]]*$'
+    value: ""
+  - key: "'([^']*?)'"
+    value: "_DQUOTE_${1}_DQUOTE_"
+  - key: '\\"'
+    value: "__TEMP_QUOTE__"
+  - key: "\'"
+    value: "'"
+  - key: "_DQUOTE_"
+    value: '"'
+  - key: "__TEMP_QUOTE__"
+    value: '"'
+  # Drop the scratchpad content from responses
+  - key: "(?s)<scratchpad>.*</scratchpad>"
+    value: ""
+
 template:
+  chat: |
+    {{.Input -}}
+    <|im_start|>assistant
   chat_message: |
     <|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}
     {{- if .FunctionCall }}
@@ -23,37 +79,25 @@ template:
     {{- else if eq .RoleName "tool" }}
     </tool_response>
     {{- end }}<|im_end|>
-  # https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF#prompt-format-for-function-calling
-  function: |
+  completion: |
+    {{.Input}}
+  function: |-
     <|im_start|>system
-    You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
+    You are a function calling AI model.
+    Here are the available tools:
     <tools>
     {{range .Functions}}
     {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
     {{end}}
     </tools>
-    Use the following pydantic model json schema for each tool call you will make:
-    {'title': 'FunctionCall', 'type': 'object', 'properties': {'arguments': {'title': 'Arguments', 'type': 'object'}, 'name': {'title': 'Name', 'type': 'string'}}, 'required': ['arguments', 'name']}
-    For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:
+    You should call the tools provided to you sequentially
+    Please use <scratchpad> XML tags to record your reasoning and planning before you call the functions as follows:
+    <scratchpad>
+    {step-by-step reasoning and plan in bullet points}
+    </scratchpad>
+    For each function call return a json object with function name and arguments within <tool_call> XML tags as follows:
     <tool_call>
-    {'arguments': <args-dict>, 'name': <function-name>}
+    {"arguments": <args-dict>, "name": <function-name>}
     </tool_call><|im_end|>
     {{.Input -}}
     <|im_start|>assistant
-    <tool_call>
-  chat: |
-    {{.Input -}}
-    <|im_start|>assistant
-  completion: |
-    {{.Input}}
-context_size: 4096
-stopwords:
-- <|im_end|>
-- "\n</tool_call>"
-- <dummy32000>
-- "\n\n\n"
-usage: |
-      curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-          "model": "gpt-4",
-          "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}]
-      }'
