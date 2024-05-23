@@ -1205,6 +1205,22 @@
     - filename: "aya-23-8B-Q4_K_M.gguf"
       sha256: "21b3aa3abf067f78f6fe08deb80660cc4ee8ad7b4ab873a98d87761f9f858b0f"
       uri: "huggingface://bartowski/aya-23-8B-GGUF/aya-23-8B-Q4_K_M.gguf"
+- !!merge <<: *command-R
+  name: "aya-23-35b"
+  urls:
+    - https://huggingface.co/CohereForAI/aya-23-35B
+    - https://huggingface.co/bartowski/aya-23-35B-GGUF
+  description: |
+    Aya 23 is an open weights research release of an instruction fine-tuned model with highly advanced multilingual capabilities. Aya 23 focuses on pairing a highly performant pre-trained Command family of models with the recently released Aya Collection. The result is a powerful multilingual large language model serving 23 languages.
+
+    This model card corresponds to the 8-billion version of the Aya 23 model. We also released a 35-billion version which you can find here.
+  overrides:
+    parameters:
+      model: aya-23-35B-Q4_K_M.gguf
+  files:
+    - filename: "aya-23-35B-Q4_K_M.gguf"
+      sha256: "57824768c1a945e21e028c8e9a29b39adb4838d489f5865c82601ab9ad98065d"
+      uri: "huggingface://bartowski/aya-23-35B-GGUF/aya-23-35B-Q4_K_M.gguf"
 - &phi-2-chat
   ### START Phi-2
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
