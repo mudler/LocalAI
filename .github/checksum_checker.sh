@@ -65,7 +65,6 @@ if download_type == 'huggingface':
             print(f'Error from Hugging Face Hub: {str(e)}', file=sys.stderr)
             sys.exit(2)
 else:
-    print(f'Downloading file from {repo_id_or_url}')
     response = requests.get(repo_id_or_url)
     if response.status_code == 200:
         with open(file_name, 'wb') as f:
