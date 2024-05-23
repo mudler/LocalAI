@@ -1,11 +1,12 @@
 package functions
 
 type GrammarOption struct {
-	PropOrder         string
-	Suffix            string
-	MaybeArray        bool
-	MaybeString       bool
-	NoMixedFreeString bool
+	PropOrder               string
+	Suffix                  string
+	MaybeArray              bool
+	DisableParallelNewLines bool
+	MaybeString             bool
+	NoMixedFreeString       bool
 }
 
 func (o *GrammarOption) Apply(options ...func(*GrammarOption)) {
@@ -16,6 +17,10 @@ func (o *GrammarOption) Apply(options ...func(*GrammarOption)) {
 
 var EnableMaybeArray = func(o *GrammarOption) {
 	o.MaybeArray = true
+}
+
+var DisableParallelNewLines = func(o *GrammarOption) {
+	o.DisableParallelNewLines = true
 }
 
 var EnableMaybeString = func(o *GrammarOption) {
