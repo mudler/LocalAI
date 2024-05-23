@@ -21,6 +21,11 @@ type TTSRequest struct {
 	Backend string `json:"backend" yaml:"backend"`
 }
 
+type RerankRequest struct {
+	JINARerankRequest
+	Backend string `json:"backend" yaml:"backend"`
+}
+
 type StoresSet struct {
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`
 
