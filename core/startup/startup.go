@@ -72,7 +72,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	}
 
 	if options.ConfigFile != "" {
-		if err := cl.LoadBackendConfigFile(options.ConfigFile, configLoaderOpts...); err != nil {
+		if err := cl.LoadMultipleBackendConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
 			log.Error().Err(err).Msg("error loading config file")
 		}
 	}
@@ -94,9 +94,8 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	}
 
 	if options.Debug {
-		for _, v := range cl.ListBackendConfigs() {
-			cfg, _ := cl.GetBackendConfig(v)
-			log.Debug().Msgf("Model: %s (config: %+v)", v, cfg)
+		for _, v := range cl.GetAllBackendConfigs() {
+			log.Debug().Msgf("Model: %s (config: %+v)", v.Name, v)
 		}
 	}
 

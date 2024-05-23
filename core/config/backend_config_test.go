@@ -1,11 +1,9 @@
-package config_test
+package config
 
 import (
 	"io"
 	"net/http"
 	"os"
-
-	. "github.com/go-skynet/LocalAI/core/config"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,7 +20,7 @@ var _ = Describe("Test cases for config related functions", func() {
 parameters:
   model: "foo-bar"`)
 			Expect(err).ToNot(HaveOccurred())
-			config, err := ReadBackendConfig(tmp.Name())
+			config, err := readBackendConfigFromFile(tmp.Name())
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			Expect(config.Validate()).To(BeFalse())
@@ -37,7 +35,7 @@ backend: "foo-bar"
 parameters:
   model: "foo-bar"`)
 			Expect(err).ToNot(HaveOccurred())
-			config, err := ReadBackendConfig(tmp.Name())
+			config, err := readBackendConfigFromFile(tmp.Name())
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
@@ -54,7 +52,7 @@ parameters:
 			defer os.Remove(tmp.Name())
 			_, err = io.Copy(tmp, resp.Body)
 			Expect(err).To(BeNil())
-			config, err = ReadBackendConfig(tmp.Name())
+			config, err = readBackendConfigFromFile(tmp.Name())
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
