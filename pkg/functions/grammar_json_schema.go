@@ -50,6 +50,9 @@ var (
 			[^"\\] |
 			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 		  )* "\"" space`,
+		// TODO: we shouldn't forbid \" and \\ or all unicode and have this branch here,
+		// however, if we don't have it, the grammar will be ambiguous and
+		// empirically results are way worse.
 		"freestring": `(
 			[^"\\] |
 			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
@@ -111,10 +114,16 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 	return key
 }
 
-const array = `arr  ::=
+const arrayNewLines = `arr  ::=
   "[\n"  (
 		realvalue
     (",\n"  realvalue)*
+  )? "]"`
+
+const array = `arr  ::=
+  "["  (
+		realvalue
+    (","  realvalue)*
   )? "]"`
 
 func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) string {
@@ -124,6 +133,7 @@ func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) 
 
 	suffix := grammarOpts.Suffix
 	maybeArray := grammarOpts.MaybeArray
+	disableParallelNewLines := grammarOpts.DisableParallelNewLines
 	maybeString := grammarOpts.MaybeString
 	noMixedFreeString := grammarOpts.NoMixedFreeString
 
@@ -177,7 +187,11 @@ func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) 
 	}
 
 	lines = append(lines, fmt.Sprintf("%s ::= %s", "root", newRoot))
-	lines = append(lines, array)
+	if disableParallelNewLines {
+		lines = append(lines, array)
+	} else {
+		lines = append(lines, arrayNewLines)
+	}
 
 	if maybeArray {
 		lines = append(lines, `mixedstring ::= freestring | freestring arr | freestring realvalue | realvalue | arr`)

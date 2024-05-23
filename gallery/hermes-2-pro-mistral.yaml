@@ -3,6 +3,7 @@ name: "hermes-2-pro-mistral"
 
 config_file: |
   mmap: true
+  context_size: 8192
   stopwords:
   - "<|im_end|>"
   - "<dummy32000>"
