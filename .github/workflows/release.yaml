@@ -94,6 +94,8 @@ jobs:
           export PATH=$PATH:$GOPATH/bin
           make backend-assets/grpc/stablediffusion
           mkdir -p release && cp backend-assets/grpc/stablediffusion release
+        env:
+          GO_TAGS: stablediffusion
       - uses: actions/upload-artifact@v4
         with:
           name: stablediffusion
