@@ -138,6 +138,19 @@ See the [Kubernetes section]({{%relref "docs/getting-started/kubernetes" %}}).
 
 LocalAI binary releases are available in [Github](https://github.com/go-skynet/LocalAI/releases).
 
+{{% alert icon="⚠️" %}}
+If you are installing on MacOS, when you excecute the binary, you will get a message saying:
+
+> "local-ai-git-Darwin-arm64" (or whatever name you gave to the binary) can't be opened because Apple cannot check it for malicious software.
+
+Hit OK, and go to Settings > Privacy & Security > Security and look for the message:
+
+> "local-ai-git-Darwin-arm64" was blocked from use because it is not from an identified developer.
+
+And press "Allow Anyway"
+{{% /alert %}}
+
+
 {{% /tab %}}
 
 {{% tab tabName="From source" %}}
