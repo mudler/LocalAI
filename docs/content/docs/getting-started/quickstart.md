@@ -120,24 +120,14 @@ LocalAI is available as a standalone binary as well. Binaries are compiled for L
 
 You can check out the releases in https://github.com/mudler/LocalAI/releases.
 
-{{< tabs tabTotal="2" >}}
-{{% tab tabName="Linux" %}}
-| CPU flagset | Link | 
-| --- | --- |
-| avx2 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx2-Linux-x86_64) |
-| avx512 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx512-Linux-x86_64) |
-| avx | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx-Linux-x86_64) |
-{{% /tab %}}
-{{% tab tabName="MacOS" %}}
-| CPU flagset | Link | 
-| --- | --- |
-| avx2 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx2-Darwin-arm64) |
-| avx512 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx512-Darwin-arm64) |
-| avx | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx-Darwin-arm64) |
 
-{{% /tab %}}
+| OS | Link | 
+| --- | --- |
+| Linux (CUDA 11) | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-cuda11-Linux-x86_64) |
+| Linux (CUDA 12) | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-cuda12-Linux-x86_64) |
+| Linux (No GPU) | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-x86_64) |
+| MacOS  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Darwin-arm64) |
 
-{{< /tabs >}}
 
 ## Try it out
 
