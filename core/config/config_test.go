@@ -1,9 +1,7 @@
-package config_test
+package config
 
 import (
 	"os"
-
-	. "github.com/go-skynet/LocalAI/core/config"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,8 +15,8 @@ var _ = Describe("Test cases for config related functions", func() {
 
 	Context("Test Read configuration functions", func() {
 		configFile = os.Getenv("CONFIG_FILE")
-		It("Test ReadConfigFile", func() {
-			config, err := ReadBackendConfigFile(configFile)
+		It("Test readConfigFile", func() {
+			config, err := readMultipleBackendConfigsFromFile(configFile)
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
@@ -27,21 +25,28 @@ var _ = Describe("Test cases for config related functions", func() {
 		})
 
 		It("Test LoadConfigs", func() {
-			cm := NewBackendConfigLoader()
-			err := cm.LoadBackendConfigsFromPath(os.Getenv("MODELS_PATH"))
-			Expect(err).To(BeNil())
-			Expect(cm.ListBackendConfigs()).ToNot(BeNil())
 
-			Expect(cm.ListBackendConfigs()).To(ContainElements("code-search-ada-code-001"))
+			bcl := NewBackendConfigLoader()
+			err := bcl.LoadBackendConfigsFromPath(os.Getenv("MODELS_PATH"))
+
+			Expect(err).To(BeNil())
+			configs := bcl.GetAllBackendConfigs()
+			loadedModelNames := []string{}
+			for _, v := range configs {
+				loadedModelNames = append(loadedModelNames, v.Name)
+			}
+			Expect(configs).ToNot(BeNil())
+
+			Expect(loadedModelNames).To(ContainElements("code-search-ada-code-001"))
 
 			// config should includes text-embedding-ada-002 models's api.config
-			Expect(cm.ListBackendConfigs()).To(ContainElements("text-embedding-ada-002"))
+			Expect(loadedModelNames).To(ContainElements("text-embedding-ada-002"))
 
 			// config should includes rwkv_test models's api.config
-			Expect(cm.ListBackendConfigs()).To(ContainElements("rwkv_test"))
+			Expect(loadedModelNames).To(ContainElements("rwkv_test"))
 
 			// config should includes whisper-1 models's api.config
-			Expect(cm.ListBackendConfigs()).To(ContainElements("whisper-1"))
+			Expect(loadedModelNames).To(ContainElements("whisper-1"))
 		})
 	})
 })

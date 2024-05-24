@@ -1,8 +1,39 @@
 ---
+## START Mistral
+- &mistral03
+  url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
+  name: "mistral-7b-instruct-v0.3"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62dac1c7a8ead43d20e3e17a/wrLf5yaGC6ng4XME70w6Z.png
+  license: apache-2.0
+  description: |
+    The Mistral-7B-Instruct-v0.3 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-7B-v0.3.
+
+    Mistral-7B-v0.3 has the following changes compared to Mistral-7B-v0.2
+
+        Extended vocabulary to 32768
+        Supports v3 Tokenizer
+        Supports function calling
+  urls:
+    - https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3
+    - https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+  overrides:
+    parameters:
+      model: Mistral-7B-Instruct-v0.3.Q4_K_M.gguf
+  files:
+    - filename: "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
+      sha256: "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024"
+      uri: "huggingface://MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
 ### START mudler's LocalAI specific-models
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
-  name: "localAI-llama3-8b-function-call-v0.2"
+  name: "LocalAI-llama3-8b-function-call-v0.2"
   icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/us5JKi9z046p8K-cn_M0w.webp"
   license: llama3
   description: |
@@ -18,6 +49,7 @@
     - gpu
     - cpu
     - llama3
+    - function-calling
   overrides:
     parameters:
       model: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
@@ -25,8 +57,8 @@
     - filename: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
       sha256: 7e46405ce043cbc8d30f83f26a5655dc8edf5e947b748d7ba2745bd0af057a41
       uri: huggingface://mudler/LocalAI-Llama3-8b-Function-Call-v0.2-GGUF/LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
-### START parler-tts
 - &parler-tts
+  ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
   name: parler-tts-mini-v0.1
   parameters:
@@ -181,7 +213,7 @@
   name: "l3-chaoticsoliloquy-v1.5-4x8b"
   icon: https://cdn-uploads.huggingface.co/production/uploads/64f5e51289c121cb864ba464/m5urYkrpE5amrwHyaVwFM.png
   description: |
-      Experimental RP-oriented MoE, the idea was to get a model that would be equal to or better than the Mixtral 8x7B and it's finetunes in RP/ERP tasks. Im not sure but it should be better than the first version
+    Experimental RP-oriented MoE, the idea was to get a model that would be equal to or better than the Mixtral 8x7B and it's finetunes in RP/ERP tasks. Im not sure but it should be better than the first version
   urls:
     - https://huggingface.co/xxx777xxxASD/L3-ChaoticSoliloquy-v1.5-4x8B
     - https://huggingface.co/mradermacher/L3-ChaoticSoliloquy-v1.5-4x8B-GGUF/
@@ -486,7 +518,7 @@
   license: cc-by-nc-4.0
   icon: https://assets-global.website-files.com/6423879a8f63c1bb18d74bfa/648818d56d04c3bdf36d71ab_Refuel_rev8-01_ts-p-1600.png
   description: |
-      RefuelLLM-2-small, aka Llama-3-Refueled, is a Llama3-8B base model instruction tuned on a corpus of 2750+ datasets, spanning tasks such as classification, reading comprehension, structured attribute extraction and entity resolution. We're excited to open-source the model for the community to build on top of.
+    RefuelLLM-2-small, aka Llama-3-Refueled, is a Llama3-8B base model instruction tuned on a corpus of 2750+ datasets, spanning tasks such as classification, reading comprehension, structured attribute extraction and entity resolution. We're excited to open-source the model for the community to build on top of.
   overrides:
     parameters:
       model: Llama-3-Refueled-Q4_K_M.gguf
@@ -767,6 +799,7 @@
       sha256: 694c55b5215d03e59626cd4292076eaf31610ef27ba04737166766baa75d889f
       uri: huggingface://MaziyarPanahi/Llama-3-8B-Instruct-DPO-v0.3-32k-GGUF/Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
 - &yi-chat
+  ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   icon: "https://raw.githubusercontent.com/01-ai/Yi/main/assets/img/Yi_logo_icon_light.svg"
   name: "yi-1.5-9b-chat"
@@ -982,10 +1015,7 @@
   icon: https://cdn-uploads.huggingface.co/production/uploads/5df8bb21da6d0311fd3d540f/cZoZdwQOPdQsnQmDXHcSn.png
   urls:
     - https://huggingface.co/swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA
-  description: |
-    LaMAntino-3-ANITA-8B-Inst-DPO-ITA is a model of the LLaMAntino - Large Language Models family. The model is an instruction-tuned version of Meta-Llama-3-8b-instruct (a fine-tuned LLaMA 3 model). This model version aims to be the a Multilingual Model 🏁 (EN 🇺🇸 + ITA🇮🇹) to further fine-tuning on Specific Tasks in Italian.
-
-    The 🌟ANITA project🌟 *(Advanced Natural-based interaction for the ITAlian language)* wants to provide Italian NLP researchers with an improved model for the Italian Language 🇮🇹 use cases.
+  description: "LaMAntino-3-ANITA-8B-Inst-DPO-ITA is a model of the LLaMAntino - Large Language Models family. The model is an instruction-tuned version of Meta-Llama-3-8b-instruct (a fine-tuned LLaMA 3 model). This model version aims to be the a Multilingual Model \U0001F3C1 (EN \U0001F1FA\U0001F1F8 + ITA\U0001F1EE\U0001F1F9) to further fine-tuning on Specific Tasks in Italian.\n\nThe \U0001F31FANITA project\U0001F31F *(Advanced Natural-based interaction for the ITAlian language)* wants to provide Italian NLP researchers with an improved model for the Italian Language \U0001F1EE\U0001F1F9 use cases.\n"
   overrides:
     parameters:
       model: LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
@@ -1042,9 +1072,9 @@
   urls:
     - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
   description: |
-      Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
+    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
 
-      We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
+    We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
   icon: https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf/resolve/main/icon.png
   tags:
     - llm
@@ -1060,10 +1090,10 @@
   files:
     - filename: Bunny-Llama-3-8B-Q4_K_M-mmproj.gguf
       sha256: 96d033387a91e56cf97fa5d60e02c0128ce07c8fa83aaaefb74ec40541615ea5
-      uri: huggingace://BAAI/Bunny-Llama-3-8B-V-gguf/mmproj-model-f16.gguf
+      uri: huggingface://BAAI/Bunny-Llama-3-8B-V-gguf/mmproj-model-f16.gguf
     - filename: Bunny-Llama-3-8B-Q4_K_M.gguf
       sha256: 88f0a61f947dbf129943328be7262ae82e3a582a0c75e53544b07f70355a7c30
-      uri: huggingace://BAAI/Bunny-Llama-3-8B-V-gguf/ggml-model-Q4_K_M.gguf
+      uri: huggingface://BAAI/Bunny-Llama-3-8B-V-gguf/ggml-model-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llava-llama-3-8b-v1_1"
   description: |
@@ -1089,6 +1119,108 @@
     - filename: llava-llama-3-8b-v1_1-mmproj-f16.gguf
       sha256: eb569aba7d65cf3da1d0369610eb6869f4a53ee369992a804d5810a80e9fa035
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
+### ChatML
+- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "helpingai-9b"
+  license: hsul
+  icon: https://huggingface.co/OEvortex/HelpingAI-3B/resolve/main/HelpingAI.png
+  description: |
+    HelpingAI-9B is a large language model designed for emotionally intelligent conversational interactions. It is trained to engage users with empathy, understanding, and supportive dialogue across a wide range of topics and contexts. The model aims to provide a supportive AI companion that can attune to users' emotional states and communicative needs.
+  urls:
+    - https://huggingface.co/OEvortex/HelpingAI-9B
+    - https://huggingface.co/nold/HelpingAI-9B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - chatml
+  overrides:
+    context_size: 4096
+    parameters:
+      model: HelpingAI-9B_Q4_K_M.gguf
+  files:
+    - filename: HelpingAI-9B_Q4_K_M.gguf
+      sha256: 9c90f3a65332a03a6cbb563eee19c7586d9544f646ff9f33f7f1904b3d415ae2
+      uri: huggingface://nold/HelpingAI-9B-GGUF/HelpingAI-9B_Q4_K_M.gguf
+- url: "github:mudler/LocalAI/gallery/chatml-hercules.yaml@master"
+  icon: "https://tse3.mm.bing.net/th/id/OIG1.vnrl3xpEcypR3McLW63q?pid=ImgGn"
+  urls:
+    - https://huggingface.co/Locutusque/Llama-3-Hercules-5.0-8B
+    - https://huggingface.co/bartowski/Llama-3-Hercules-5.0-8B-GGUF
+  name: "llama-3-hercules-5.0-8b"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - chatml
+    - function-calling
+  description: |
+    Llama-3-Hercules-5.0-8B is a fine-tuned language model derived from Llama-3-8B. It is specifically designed to excel in instruction following, function calls, and conversational interactions across various scientific and technical domains.
+  overrides:
+    parameters:
+      model: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+      sha256: 83647caf4a23a91697585cff391e7d1236fac867392f9e49a6dab59f81b5f810
+      uri: huggingface://bartowski/Llama-3-Hercules-5.0-8B-GGUF/Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+### START Command-r
+- &command-R
+  url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
+  name: "command-r-v01:q1_s"
+  license: "cc-by-nc-4.0"
+  icon: https://cdn.sanity.io/images/rjtqmwfu/production/ae020d94b599cc453cc09ebc80be06d35d953c23-102x18.svg
+  urls:
+    - https://huggingface.co/CohereForAI/c4ai-command-r-v01
+    - https://huggingface.co/dranger003/c4ai-command-r-v01-iMat.GGUF
+  description: |
+    C4AI Command-R is a research release of a 35 billion parameter highly performant generative model. Command-R is a large language model with open weights optimized for a variety of use cases including reasoning, summarization, and question answering. Command-R has the capability for multilingual generation evaluated in 10 languages and highly performant RAG capabilities.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - command-r
+    - cpu
+  overrides:
+    parameters:
+      model: ggml-c4ai-command-r-v01-iq1_s.gguf
+  files:
+    - filename: "ggml-c4ai-command-r-v01-iq1_s.gguf"
+      sha256: "aad4594ee45402fe344d8825937d63b9fa1f00becc6d1cc912b016dbb020e0f0"
+      uri: "huggingface://dranger003/c4ai-command-r-v01-iMat.GGUF/ggml-c4ai-command-r-v01-iq1_s.gguf"
+- !!merge <<: *command-R
+  name: "aya-23-8b"
+  urls:
+    - https://huggingface.co/CohereForAI/aya-23-8B
+    - https://huggingface.co/bartowski/aya-23-8B-GGUF
+  description: |
+    Aya 23 is an open weights research release of an instruction fine-tuned model with highly advanced multilingual capabilities. Aya 23 focuses on pairing a highly performant pre-trained Command family of models with the recently released Aya Collection. The result is a powerful multilingual large language model serving 23 languages.
+
+    This model card corresponds to the 8-billion version of the Aya 23 model. We also released a 35-billion version which you can find here.
+  overrides:
+    parameters:
+      model: aya-23-8B-Q4_K_M.gguf
+  files:
+    - filename: "aya-23-8B-Q4_K_M.gguf"
+      sha256: "21b3aa3abf067f78f6fe08deb80660cc4ee8ad7b4ab873a98d87761f9f858b0f"
+      uri: "huggingface://bartowski/aya-23-8B-GGUF/aya-23-8B-Q4_K_M.gguf"
+- !!merge <<: *command-R
+  name: "aya-23-35b"
+  urls:
+    - https://huggingface.co/CohereForAI/aya-23-35B
+    - https://huggingface.co/bartowski/aya-23-35B-GGUF
+  description: |
+    Aya 23 is an open weights research release of an instruction fine-tuned model with highly advanced multilingual capabilities. Aya 23 focuses on pairing a highly performant pre-trained Command family of models with the recently released Aya Collection. The result is a powerful multilingual large language model serving 23 languages.
+
+    This model card corresponds to the 8-billion version of the Aya 23 model. We also released a 35-billion version which you can find here.
+  overrides:
+    parameters:
+      model: aya-23-35B-Q4_K_M.gguf
+  files:
+    - filename: "aya-23-35B-Q4_K_M.gguf"
+      sha256: "57824768c1a945e21e028c8e9a29b39adb4838d489f5865c82601ab9ad98065d"
+      uri: "huggingface://bartowski/aya-23-35B-GGUF/aya-23-35B-Q4_K_M.gguf"
 - &phi-2-chat
   ### START Phi-2
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
@@ -1228,8 +1360,9 @@
     - llm
     - gguf
     - gpu
-    - llama2
+    - mistral
     - cpu
+    - function-calling
   overrides:
     parameters:
       model: Hermes-2-Pro-Mistral-7B.Q4_0.gguf
@@ -1264,6 +1397,7 @@
     - gpu
     - llama3
     - cpu
+    - function-calling
   description: |
     Hermes-2 Θ (Theta) is the first experimental merged model released by Nous Research, in collaboration with Charles Goddard at Arcee, the team behind MergeKit.
     Hermes-2 Θ is a merged and then further RLHF'ed version our excellent Hermes 2 Pro model and Meta's Llama-3 Instruct model to form a new model, Hermes-2 Θ, combining the best of both worlds of each model.
@@ -1284,6 +1418,7 @@
     - gguf
     - gpu
     - llama3
+    - function-calling
     - cpu
   urls:
     - https://huggingface.co/NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF
@@ -1300,6 +1435,7 @@
     - gguf
     - gpu
     - llama3
+    - function-calling
     - cpu
   name: "hermes-2-pro-llama-3-8b:Q5_K_M"
   urls:
@@ -1316,6 +1452,7 @@
     - llm
     - gguf
     - gpu
+    - function-calling
     - llama3
     - cpu
   name: "hermes-2-pro-llama-3-8b:Q8_0"

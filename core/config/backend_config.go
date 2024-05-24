@@ -360,8 +360,14 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *BackendConfig) Validate() bool {
+	downloadedFileNames := []string{}
+	for _, f := range c.DownloadFiles {
+		downloadedFileNames = append(downloadedFileNames, f.Filename)
+	}
+	validationTargets := []string{c.Backend, c.Model, c.MMProj}
+	validationTargets = append(validationTargets, downloadedFileNames...)
 	// Simple validation to make sure the model can be correctly loaded
-	for _, n := range []string{c.Backend, c.Model, c.MMProj} {
+	for _, n := range validationTargets {
 		if n == "" {
 			continue
 		}

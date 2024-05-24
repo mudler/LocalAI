@@ -427,5 +427,22 @@ var _ = Describe("JSON schema grammar tests", func() {
 			}
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))), grammar)
 		})
+
+		It("generates parallel tools without newlines in JSON", func() {
+			structuredGrammar := JSONFunctionStructureName{
+				OneOf: testFunctionsName}
+			content := `arr  ::=
+"["  (
+realvalue
+(","  realvalue)*
+)? "]"`
+			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray, functions.DisableParallelNewLines)
+			results := strings.Split(content, "\n")
+			for _, r := range results {
+				if r != "" {
+					Expect(grammar).To(ContainSubstring(r))
+				}
+			}
+		})
 	})
 })
