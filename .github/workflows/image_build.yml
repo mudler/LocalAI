@@ -174,7 +174,6 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{raw}}
           flavor: |
-            latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.aio }}
 
       - name: Set up QEMU
