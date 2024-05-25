@@ -123,9 +123,7 @@ You can check out the releases in https://github.com/mudler/LocalAI/releases.
 
 | OS | Link | 
 | --- | --- |
-| Linux (CUDA 11) | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-cuda11-Linux-x86_64) |
-| Linux (CUDA 12) | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-cuda12-Linux-x86_64) |
-| Linux (No GPU) | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-x86_64) |
+| Linux  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-x86_64) |
 | MacOS  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Darwin-arm64) |
 
 
