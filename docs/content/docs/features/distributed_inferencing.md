@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "✍️ Distributed inferencing"
+title = "🆕🖧 Distributed inferencing"
 weight = 15
 url = "/features/distribute/"
 +++
