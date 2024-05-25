@@ -101,16 +101,13 @@ ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=11
 ARG CUDA_MINOR_VERSION=7
 
-# used to fetch device information for llama.cpp cuda detection
-ARG PCIDB_ENABLE_NETWORK_FETCH=1
-
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 # CuBLAS requirements
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
         apt-get update && \
         apt-get install -y  --no-install-recommends \
-            software-properties-common && \
+            software-properties-common pciutils && \
         curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
         dpkg -i cuda-keyring_1.1-1_all.deb && \
         rm -f cuda-keyring_1.1-1_all.deb && \
