@@ -1,54 +1,53 @@
 +++
 disableToc = false
-title = "🆕🖧 Distributed inferencing"
+title = "🆕🖧 Distributed Inference"
 weight = 15
 url = "/features/distribute/"
 +++
 
 {{% alert note %}}
-This feature is available only with llama-cpp compatible models.
+This feature is available exclusively with llama-cpp compatible models.
 
-This feature has landed with https://github.com/mudler/LocalAI/pull/2324 and is based on the upstream work in https://github.com/ggerganov/llama.cpp/pull/6829.
+This feature was introduced in [LocalAI pull request #2324](https://github.com/mudler/LocalAI/pull/2324) and is based on the upstream work in [llama.cpp pull request #6829](https://github.com/ggerganov/llama.cpp/pull/6829).
 {{% /alert %}}
 
-This feature allows LocalAI to manage the requests while the workload is distributed among workers.
+This functionality enables LocalAI to distribute inference requests across multiple worker nodes, improving efficiency and performance.
 
 ## Usage
 
-### Start workers
+### Starting Workers
 
-To start workers to offload the computation you can run:
+To start workers for distributing the computational load, run:
 
-```
+```bash
 local-ai llamacpp-worker <listening_address> <listening_port>
 ```
 
-However, you can also follow the llama.cpp README and building the rpc-server (https://github.com/ggerganov/llama.cpp/blob/master/examples/rpc/README.md), which is still compatible with LocalAI.
+Alternatively, you can build the RPC server following the llama.cpp [README](https://github.com/ggerganov/llama.cpp/blob/master/examples/rpc/README.md), which is compatible with LocalAI.
 
-### Start LocalAI
+### Starting LocalAI
 
-When starting the LocalAI server, which is going to accept the API requests, you can set a list of workers IP/address by specifying the addresses with the `LLAMACPP_GRPC_SERVERS` environment variable, for example:
+To start the LocalAI server, which handles API requests, specify the worker addresses using the `LLAMACPP_GRPC_SERVERS` environment variable:
 
 ```bash
 LLAMACPP_GRPC_SERVERS="address1:port,address2:port" local-ai run
 ```
 
-At this point the workload hitting in the LocalAI server should be distributed across the nodes!
+The workload on the LocalAI server will then be distributed across the specified nodes.
 
-## Peer to peer
+## Peer-to-Peer Networking
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/8ca277cf-c208-4562-8929-808b2324b584)
 
-The workers can also be connected to each other, creating a peer to peer network, where the workload is distributed among the workers, in a private, decentralized network.
+Workers can also connect to each other in a peer-to-peer network, distributing the workload in a decentralized manner.
 
-A shared token between the server and the workers is needed to let the communication happen via the p2p network. This feature supports both local network (with mdns discovery) and dht for communicating also behind different networks.
+A shared token between the server and the workers is required for communication within the peer-to-peer network. This feature supports both local network (using mDNS discovery) and DHT for communication across different networks.
 
-The token is generated automatically when starting the server with the `--p2p` flag, and can be used by starting the workers with `local-ai worker p2p-llama-cpp-rpc` by passing the token via environment variable (TOKEN) or with args (--token).
+The token is automatically generated when starting the server with the `--p2p` flag. Workers can be started with the token using `local-ai worker p2p-llama-cpp-rpc` and specifying the token via the environment variable `TOKEN` or with the `--token` argument.
 
-A network is established between the server and the workers with dht and mdns discovery protocols, the llama.cpp rpc server is automatically started and exposed to the underlying p2p network so the API server can connect on.
+A network is established between the server and workers using DHT and mDNS discovery protocols. The llama.cpp RPC server is automatically started and exposed to the peer-to-peer network, allowing the API server to connect.
 
-When the HTTP server is started, it will discover the workers in the network and automatically create the port-forwards to the service locally. Then llama.cpp is configured to use the services. If you are interested in how it works behind the scenes, see the PR: https://github.com/mudler/LocalAI/pull/2343.
-
+When the HTTP server starts, it discovers workers in the network and creates port forwards to the local service. Llama.cpp is configured to use these services. For more details on the implementation, refer to [LocalAI pull request #2343](https://github.com/mudler/LocalAI/pull/2343).
 
 ### Usage
 
@@ -65,14 +64,14 @@ When the HTTP server is started, it will discover the workers in the network and
 # 1:02AM INF Press a button to proceed
 ```
 
-A token is displayed, copy it and press enter.
+Copy the displayed token and press Enter.
 
-You can re-use the same token later restarting the server with `--p2ptoken` (or `P2P_TOKEN`).
+To reuse the same token later, restart the server with `--p2ptoken` or `P2P_TOKEN`.
 
-2. Start the workers. Now you can copy the local-ai binary in other hosts, and run as many workers with that token:
+2. Start the workers. Copy the `local-ai` binary to other hosts and run as many workers as needed using the token:
 
 ```bash
-TOKEN=XXX ./local-ai  p2p-llama-cpp-rpc
+TOKEN=XXX ./local-ai p2p-llama-cpp-rpc
 # 1:06AM INF loading environment variables from file envFile=.env
 # 1:06AM INF Setting logging to info
 # {"level":"INFO","time":"2024-05-19T01:06:01.794+0200","caller":"config/config.go:288","message":"connmanager disabled\n"}
@@ -88,14 +87,13 @@ TOKEN=XXX ./local-ai  p2p-llama-cpp-rpc
 # {"level":"INFO","time":"2024-05-19T01:06:01.806+0200","caller":"discovery/dht.go:104","message":" Bootstrapping DHT"}
 ```
 
-(Note you can also supply the token via args)
+(Note: You can also supply the token via command-line arguments)
 
-At this point, you should see in the server logs messages stating that new workers are found
+The server logs should indicate that new workers are being discovered.
 
-3. Now you can start doing inference as usual on the server (the node used on step 1)
+3. Start inference as usual on the server initiated in step 1.
 
+## Notes
 
-##  Notes
-
-- Only single model is supported for now
-- Make sure that the server sees new workers after usage starts - currently, if you start the inference you can't add other workers later on.
+- Only a single model is supported currently.
+- Ensure the server detects new workers before starting inference. Currently, additional workers cannot be added once inference has begun.
