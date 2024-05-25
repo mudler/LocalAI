@@ -57,6 +57,25 @@
     - filename: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
       sha256: 7e46405ce043cbc8d30f83f26a5655dc8edf5e947b748d7ba2745bd0af057a41
       uri: huggingface://mudler/LocalAI-Llama3-8b-Function-Call-v0.2-GGUF/LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
+- !!merge <<: *mudler
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/SKuXcvmZ_6oD4NCMkvyGo.png"
+  name: "mirai-nova-llama3-LocalAI-8b-v0.1"
+  urls:
+    - https://huggingface.co/mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF
+    - https://huggingface.co/mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1
+  description: |
+    Mirai Nova: "Mirai" means future in Japanese, and "Nova" references a star showing a sudden large increase in brightness.
+
+    A set of models oriented in function calling, but generalist and with enhanced reasoning capability. This is fine tuned with Llama3.
+
+    Mirai Nova works particularly well with LocalAI, leveraging the function call with grammars feature out of the box.
+  overrides:
+    parameters:
+      model: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
+  files:
+    - filename: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
+      sha256: 579cbb229f9c11d0330759ff4733102d2491615a4c61289e26c09d1b3a583fec
+      uri: huggingface://mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF/Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
 - &parler-tts
   ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"

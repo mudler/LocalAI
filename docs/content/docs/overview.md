@@ -101,7 +101,8 @@ Note that this started just as a fun weekend project by [mudler](https://github.
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
 - 🥽 [Vision API](https://localai.io/features/gpt-vision/)
 - 💾 [Stores](https://localai.io/stores)
-- 🆕 [Reranker](https://localai.io/features/reranker/)
+- 📈 [Reranker](https://localai.io/features/reranker/)
+- 🆕🖧 [P2P Inferencing](https://localai.io/features/distribute/)
 
 ## Contribute and help
 

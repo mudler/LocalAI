@@ -370,6 +370,8 @@ there are additional environment variables available that modify the behavior of
 | `GO_TAGS`                  |         | Go tags. Available: `stablediffusion`                                                                      |
 | `HUGGINGFACEHUB_API_TOKEN` |         | Special token for interacting with HuggingFace Inference API, required only when using the `langchain-huggingface` backend |
 | `EXTRA_BACKENDS`          |         | A space separated list of backends to prepare. For example `EXTRA_BACKENDS="backend/python/diffusers backend/python/transformers"` prepares the conda environment on start |
+| `DISABLE_AUTODETECT`       | `false` | Disable autodetect of CPU flagset on start                                                                     |
+| `LLAMACPP_GRPC_SERVERS`   |         | A list of llama.cpp workers to distribute the workload. For example `LLAMACPP_GRPC_SERVERS="address1:port,address2:port"` |
 
 Here is how to configure these variables:
 

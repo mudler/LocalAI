@@ -65,7 +65,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-- 🔥🔥 Decentralized llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!)
+- 🔥🔥 Decentralized llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!) 👉 Docs  https://localai.io/features/distribute/
 - 🔥🔥 Openvoice: https://github.com/mudler/LocalAI/pull/2334
 - 🆕 Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
 - 🔥🔥 Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
@@ -89,12 +89,13 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
 - 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
 - 🎨 [Image generation with stable diffusion](https://localai.io/features/image-generation)
-- 🔥 [OpenAI functions](https://localai.io/features/openai-functions/) 🆕
+- 🔥 [OpenAI-alike tools API](https://localai.io/features/openai-functions/) 
 - 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
 - 🥽 [Vision API](https://localai.io/features/gpt-vision/)
-- 🆕 [Reranker API](https://localai.io/features/reranker/)
+- 📈 [Reranker API](https://localai.io/features/reranker/)
+- 🆕🖧 [P2P Inferencing](https://localai.io/features/distribute/)
 
 ## 💻 Usage
 
