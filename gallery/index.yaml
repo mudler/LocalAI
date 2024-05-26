@@ -1158,6 +1158,31 @@
     - filename: llava-llama-3-8b-v1_1-mmproj-f16.gguf
       sha256: eb569aba7d65cf3da1d0369610eb6869f4a53ee369992a804d5810a80e9fa035
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
+- !!merge <<: *llama3
+  name: "minicpm-llama3-v-2_5"
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
+    - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
+  description: |
+    MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  overrides:
+    mmproj: minicpm-llama3-mmproj-f16.gguf
+    parameters:
+      model: minicpm-llama3-Q4_K_M.gguf
+  files:
+    - filename: minicpm-llama3-Q4_K_M.gguf
+      sha256: 010ec3ba94cb5ad2d9c8f95f46f01c6d80f83deab9df0a0831334ea45afff3e2
+      uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/minicpm-llama3-Q4_K_M.gguf
+    - filename: minicpm-llama3-mmproj-f16.gguf
+      sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
+      uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
 ### ChatML
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "helpingai-9b"
