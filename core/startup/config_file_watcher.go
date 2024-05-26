@@ -71,8 +71,7 @@ func (c *configFileHandler) Watch() error {
 	configWatcher, err := fsnotify.NewWatcher()
 	c.watcher = configWatcher
 	if err != nil {
-		log.Fatal().Err(err).Str("configdir", c.appConfig.DynamicConfigsDir).Msg("unable to create a watcher for configuration directory")
-
+		return err
 	}
 
 	if c.appConfig.DynamicConfigsDirPollInterval > 0 {

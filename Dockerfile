@@ -107,7 +107,7 @@ ENV BUILD_TYPE=${BUILD_TYPE}
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
         apt-get update && \
         apt-get install -y  --no-install-recommends \
-            software-properties-common && \
+            software-properties-common pciutils && \
         curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
         dpkg -i cuda-keyring_1.1-1_all.deb && \
         rm -f cuda-keyring_1.1-1_all.deb && \
@@ -355,7 +355,7 @@ RUN mkdir -p /build/models
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f ${HEALTHCHECK_ENDPOINT} || exit 1
-  
+
 VOLUME /build/models
 EXPOSE 8080
 ENTRYPOINT [ "/build/entrypoint.sh" ]
