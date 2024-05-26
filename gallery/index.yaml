@@ -817,6 +817,26 @@
     - filename: Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
       sha256: 694c55b5215d03e59626cd4292076eaf31610ef27ba04737166766baa75d889f
       uri: huggingface://MaziyarPanahi/Llama-3-8B-Instruct-DPO-v0.3-32k-GGUF/Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
+- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mahou-1.2-llama3-8b"
+  license: llama3
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/flammenai/Mahou-1.2-llama3-8B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
+  overrides:
+    context_size: 8192
+    parameters:
+      model: Mahou-1.2-llama3-8B-Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.2-llama3-8B-Q4_K_M.gguf
+      sha256: 651b405dff71e4ce80e15cc6d393463f02833428535c56eb6bae113776775d62
+      uri: huggingface://flammenai/Mahou-1.2-llama3-8B-GGUF/Mahou-1.2-llama3-8B-Q4_K_M.gguf
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
