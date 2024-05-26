@@ -1063,6 +1063,33 @@
       sha256: 46475a748064b0580638d2d80c78d05d04944ef8414c2d25bdc7e38e90d58b70
       uri: huggingface://swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA_GGUF/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
 - !!merge <<: *llama3
+  name: "llama-3-alpha-centauri-v0.1"
+  urls:
+    - https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF
+  description: |
+      Centaurus Series
+
+      This series aims to develop highly uncensored Large Language Models (LLMs) with the following focuses:
+
+          Science, Technology, Engineering, and Mathematics (STEM)
+          Computer Science (including programming)
+          Social Sciences
+
+      And several key cognitive skills, including but not limited to:
+
+          Reasoning and logical deduction
+          Critical thinking
+          Analysis
+
+  icon: https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF/resolve/main/alpha_centauri_banner.png
+  overrides:
+    parameters:
+      model: Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+      sha256: e500a6b8d090b018a18792ce3bf6d830e6c0b6f920bed8d38e453c0d6b2d7c3d
+      uri: huggingface://fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF/Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "aurora_l3_8b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Aurora_l3_8B-GGUF-IQ-Imatrix
