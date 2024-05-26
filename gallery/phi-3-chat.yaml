@@ -16,3 +16,4 @@ config_file: |
   f16: true
   stopwords:
   - <|end|>
+  - <|endoftext|>
