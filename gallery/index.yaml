@@ -1457,6 +1457,20 @@
     - filename: "Phi-3-medium-4k-instruct-Q4_K_M.gguf"
       uri: "huggingface://bartowski/Phi-3-medium-4k-instruct-GGUF/Phi-3-medium-4k-instruct-Q4_K_M.gguf"
       sha256: 4e8d4258ed44562573c8984a045b0a4651c51e7e4d9d00a06c65cd2149ab4539
+- !!merge <<: *phi-3
+  name: "cream-phi-3-14b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/AP4-OHepdqiqHj2KSi26M.gif
+  description: |
+    CreamPhi 14B is the first Phi Medium to be trained with roleplay and moist.
+  urls:
+    - https://huggingface.co/TheDrummer/Cream-Phi-3-14B-v1-GGUF
+  overrides:
+    parameters:
+      model: Cream-Phi-3-14B-v1-Q4_K_M.gguf
+  files:
+    - filename: Cream-Phi-3-14B-v1-Q4_K_M.gguf
+      uri: huggingface://TheDrummer/Cream-Phi-3-14B-v1-GGUF/Cream-Phi-3-14B-v1-Q4_K_M.gguf
+      sha256: ec67018a86090da415517acf21ad48f28e02dff664a1dd35602f1f8fa94f6a27
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
