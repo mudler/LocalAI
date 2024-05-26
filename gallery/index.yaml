@@ -312,6 +312,20 @@
       sha256: f166fb8b7fd1de6638fcf8e3561c99292f0c37debe1132325aa583eef78f1b40
       uri: huggingface://mudler/L3-8B-Stheno-v3.1-Q4_K_M-GGUF/l3-8b-stheno-v3.1.Q4_K_M.gguf
 - !!merge <<: *llama3
+  name: "llama-3-stheno-mahou-8b"
+  urls:
+    - https://huggingface.co/mudler/llama-3-Stheno-Mahou-8B-Q4_K_M-GGUF
+    - https://huggingface.co/nbeerbower/llama-3-Stheno-Mahou-8B
+  description: |
+    This model was merged using the Model Stock merge method using flammenai/Mahou-1.2-llama3-8B as a base.
+  overrides:
+    parameters:
+      model: llama-3-stheno-mahou-8b-q4_k_m.gguf
+  files:
+    - filename: llama-3-stheno-mahou-8b-q4_k_m.gguf
+      sha256: a485cd74ef4ff3671c67ed8e10ea5379a1f24082ac688bd303fd28dfc9808c11
+      uri: huggingface://mudler/llama-3-Stheno-Mahou-8B-Q4_K_M-GGUF/llama-3-stheno-mahou-8b-q4_k_m.gguf
+- !!merge <<: *llama3
   name: "llama-3-8b-openhermes-dpo"
   urls:
     - https://huggingface.co/mradermacher/Llama3-8B-OpenHermes-DPO-GGUF
