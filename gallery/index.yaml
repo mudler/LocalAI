@@ -779,6 +779,21 @@
     - filename: Tess-2.0-Llama-3-8B-Q4_K_M.gguf
       sha256: 3b5fbd6c59d7d38205ab81970c0227c74693eb480acf20d8c2f211f62e3ca5f6
       uri: huggingface://bartowski/Tess-2.0-Llama-3-8B-GGUF/Tess-2.0-Llama-3-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama3-iterative-dpo-final"
+  urls:
+    - https://huggingface.co/bartowski/LLaMA3-iterative-DPO-final-GGUF
+    - https://huggingface.co/RLHFlow/LLaMA3-iterative-DPO-final
+  description: |
+     From model card:
+      We release an unofficial checkpoint of a state-of-the-art instruct model of its class, LLaMA3-iterative-DPO-final. On all three widely-used instruct model benchmarks: Alpaca-Eval-V2, MT-Bench, Chat-Arena-Hard, our model outperforms all models of similar size (e.g., LLaMA-3-8B-it), most large open-sourced models (e.g., Mixtral-8x7B-it), and strong proprietary models (e.g., GPT-3.5-turbo-0613). The model is trained with open-sourced datasets without any additional human-/GPT4-labeling.
+  overrides:
+    parameters:
+      model: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
+  files:
+    - filename: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
+      sha256: 480703ff85af337e1db2a9d9a678a3ac8ca0802e366b14d9c59b81d3fc689da8
+      uri: huggingface://bartowski/LLaMA3-iterative-DPO-final-GGUF/LLaMA3-iterative-DPO-final-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
@@ -1248,7 +1263,7 @@
   files:
     - filename: minicpm-llama3-Q4_K_M.gguf
       sha256: 010ec3ba94cb5ad2d9c8f95f46f01c6d80f83deab9df0a0831334ea45afff3e2
-      uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/minicpm-llama3-Q4_K_M.gguf
+      uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/ggml-model-Q4_K_M.gguf
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
