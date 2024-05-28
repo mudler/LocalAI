@@ -427,6 +427,22 @@
       uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
       sha256: 5774595ad560e4d258dac17723509bdefe746c4dacd4e679a0de00346f14d2f3
 - !!merge <<: *llama3
+  name: "halu-8b-llama3-blackroot-iq-imatrix"
+  urls:
+    - https://huggingface.co/mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF
+    - https://huggingface.co/Hastagaras/Halu-8B-Llama3-Blackroot
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/VrPS-vHo505LUycJRscD6.png
+  description: |
+    Model card:
+      I don't know what to say about this model... this model is very strange...Maybe because Blackroot's amazing Loras used human data and not synthetic data, hence the model turned out to be very human-like...even the actions or narrations.
+  overrides:
+    parameters:
+      model: halu-8b-llama3-blackroot-q4_k_m.gguf
+  files:
+    - filename: halu-8b-llama3-blackroot-q4_k_m.gguf
+      uri: huggingface://mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF/halu-8b-llama3-blackroot-q4_k_m.gguf
+      sha256: 6304c7abadb9c5197485e8b4373b7ed22d9838d5081cd134c4fee823f88ac403
+- !!merge <<: *llama3
   name: "jsl-medllama-3-8b-v2.0"
   license: cc-by-nc-nd-4.0
   icon: https://repository-images.githubusercontent.com/104670986/2e728700-ace4-11ea-9cfc-f3e060b25ddf
@@ -1268,6 +1284,30 @@
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
 ### ChatML
+- &chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "una-thepitbull-21.4b-v2"
+  license: afl-3.0
+  icon: https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2/resolve/main/DE-UNA-ThePitbull-21.4B-v2.png
+  description: |
+    Introducing the best LLM in the industry. Nearly as good as a 70B, just a 21.4B based on saltlux/luxia-21.4b-alignment-v1.0 UNA - ThePitbull 21.4B v2
+  urls:
+    - https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2
+    - https://huggingface.co/bartowski/UNA-ThePitbull-21.4B-v2-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - chatml
+  overrides:
+    context_size: 8192
+    parameters:
+      model: UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+  files:
+    - filename: UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+      sha256: f08780986748a04e707a63dcac616330c2afc7f9fb2cc6b1d9784672071f3c85
+      uri: huggingface://bartowski/UNA-ThePitbull-21.4B-v2-GGUF/UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "helpingai-9b"
   license: hsul
