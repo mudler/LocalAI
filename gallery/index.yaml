@@ -427,6 +427,22 @@
       uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
       sha256: 5774595ad560e4d258dac17723509bdefe746c4dacd4e679a0de00346f14d2f3
 - !!merge <<: *llama3
+  name: "halu-8b-llama3-blackroot-iq-imatrix"
+  urls:
+    - https://huggingface.co/mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF
+    - https://huggingface.co/Hastagaras/Halu-8B-Llama3-Blackroot
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/VrPS-vHo505LUycJRscD6.png
+  description: |
+    Model card:
+      I don't know what to say about this model... this model is very strange...Maybe because Blackroot's amazing Loras used human data and not synthetic data, hence the model turned out to be very human-like...even the actions or narrations.
+  overrides:
+    parameters:
+      model: halu-8b-llama3-blackroot-q4_k_m.gguf
+  files:
+    - filename: halu-8b-llama3-blackroot-q4_k_m.gguf
+      uri: huggingface://mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF/halu-8b-llama3-blackroot-q4_k_m.gguf
+      sha256: 6304c7abadb9c5197485e8b4373b7ed22d9838d5081cd134c4fee823f88ac403
+- !!merge <<: *llama3
   name: "jsl-medllama-3-8b-v2.0"
   license: cc-by-nc-nd-4.0
   icon: https://repository-images.githubusercontent.com/104670986/2e728700-ace4-11ea-9cfc-f3e060b25ddf
