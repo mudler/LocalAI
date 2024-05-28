@@ -215,5 +215,48 @@ Some text after the JSON
 			Expect(results[0].Name).To(Equal("\"add\""))
 			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":"v\"value\"","z":"\"v\""}`))
 		})
+
+		It("should detect multiple functions call where the JSONRegexMatch is repeated", func() {
+			input := `
+Some text before the JSON
+<tool_call>{"function": "add", "arguments": {"x": 5, "y": 3}}</tool_call>
+<tool_call>{"function": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
+Some text after the JSON
+`
+			functionConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
+
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(2))
+			Expect(results[0].Name).To(Equal("add"))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
+			Expect(results[1].Name).To(Equal("subtract"))
+			Expect(results[1].Arguments).To(Equal(`{"x":10,"y":7}`))
+		})
+	})
+	Context("ParseTextContent", func() {
+		It("Can extract notes from the LLM result", func() {
+			input := `
+		Some text before the JSON
+<sketchpad>
+roses are red
+</sketchpad>
+		<tool_call>{"function": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
+		Some text after the JSON
+		`
+			functionConfig.CaptureLLMResult = []string{`(?s)<sketchpad>(.*?)</sketchpad>`}
+			results := ParseTextContent(input, functionConfig)
+			Expect(results).To(Equal("roses are red"))
+		})
+
+		It("Defaults to empty if doesn't catch any", func() {
+			input := `
+		Some text before the JSON
+		<tool_call>{"function": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
+		Some text after the JSON
+		`
+			functionConfig.CaptureLLMResult = []string{`(?s)<sketchpad>(.*?)</sketchpad>`}
+			results := ParseTextContent(input, functionConfig)
+			Expect(results).To(Equal(""))
+		})
 	})
 })

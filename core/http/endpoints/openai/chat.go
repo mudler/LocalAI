@@ -25,7 +25,7 @@ import (
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
 func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	emptyMessage := ""
+	textContentToReturn := ""
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
@@ -34,7 +34,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			ID:      id,
 			Created: created,
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &emptyMessage}}},
+			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &textContentToReturn}}},
 			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
@@ -69,6 +69,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
 		results := functions.ParseFunctionCall(result, config.FunctionsConfig)
+		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
 		noActionToRun := len(results) > 0 && results[0].Name == noAction || len(results) == 0
 
 		switch {
@@ -77,7 +78,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &emptyMessage}}},
+				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &textContentToReturn}}},
 				Object:  "chat.completion.chunk",
 			}
 			responses <- initialMessage
@@ -449,7 +450,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 						{
 							FinishReason: finishReason,
 							Index:        0,
-							Delta:        &schema.Message{Content: &emptyMessage},
+							Delta:        &schema.Message{Content: &textContentToReturn},
 						}},
 					Object: "chat.completion.chunk",
 					Usage:  *usage,
@@ -473,6 +474,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 				s = functions.CleanupLLMResult(s, config.FunctionsConfig)
 				results := functions.ParseFunctionCall(s, config.FunctionsConfig)
+				textContentToReturn = functions.ParseTextContent(s, config.FunctionsConfig)
 				noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
 
 				switch {
