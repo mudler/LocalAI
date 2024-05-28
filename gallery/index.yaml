@@ -1268,6 +1268,30 @@
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
 ### ChatML
+- &chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "una-thepitbull-21.4b-v2"
+  license: afl-3.0
+  icon: https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2/resolve/main/DE-UNA-ThePitbull-21.4B-v2.png
+  description: |
+    Introducing the best LLM in the industry. Nearly as good as a 70B, just a 21.4B based on saltlux/luxia-21.4b-alignment-v1.0 UNA - ThePitbull 21.4B v2
+  urls:
+    - https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2
+    - https://huggingface.co/bartowski/UNA-ThePitbull-21.4B-v2-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - chatml
+  overrides:
+    context_size: 8192
+    parameters:
+      model: UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+  files:
+    - filename: UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+      sha256: f08780986748a04e707a63dcac616330c2afc7f9fb2cc6b1d9784672071f3c85
+      uri: huggingface://bartowski/UNA-ThePitbull-21.4B-v2-GGUF/UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "helpingai-9b"
   license: hsul
