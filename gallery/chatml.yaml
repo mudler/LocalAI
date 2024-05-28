@@ -37,3 +37,4 @@ config_file: |
   stopwords:
   - '<|im_end|>'
   - '<dummy32000>'
+  - '</s>'
