@@ -30,9 +30,11 @@ type BackendConfig struct {
 	Backend        string            `yaml:"backend"`
 	TemplateConfig TemplateConfig    `yaml:"template"`
 
-	PromptStrings, InputStrings                []string `yaml:"-"`
-	InputToken                                 [][]int  `yaml:"-"`
-	functionCallString, functionCallNameString string   `yaml:"-"`
+	PromptStrings, InputStrings                []string               `yaml:"-"`
+	InputToken                                 [][]int                `yaml:"-"`
+	functionCallString, functionCallNameString string                 `yaml:"-"`
+	ResponseFormat                             string                 `yaml:"-"`
+	ResponseFormatMap                          map[string]interface{} `yaml:"-"`
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function"`
 
@@ -415,6 +417,15 @@ func (config *BackendConfig) UpdateFromOpenAIRequest(input *schema.OpenAIRequest
 
 	if input.Maxtokens != nil {
 		config.Maxtokens = input.Maxtokens
+	}
+
+	if input.ResponseFormat != nil {
+		switch responseFormat := input.ResponseFormat.(type) {
+		case string:
+			config.ResponseFormat = responseFormat
+		case map[string]interface{}:
+			config.ResponseFormatMap = responseFormat
+		}
 	}
 
 	switch stop := input.Stop.(type) {
