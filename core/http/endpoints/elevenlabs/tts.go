@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/http/ctx"
+	"github.com/go-skynet/LocalAI/core/http/middleware"
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/gofiber/fiber/v2"
@@ -17,7 +17,7 @@ import (
 // @Param request body schema.TTSRequest true "query params"
 // @Success 200 {string} binary	 "Response"
 // @Router /v1/text-to-speech/{voice-id} [post]
-func TTSEndpoint(ttsbs *backend.TextToSpeechBackendService, fce *ctx.FiberContentExtractor) func(c *fiber.Ctx) error {
+func TTSEndpoint(ttsbs *backend.TextToSpeechBackendService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.ElevenLabsTTSRequest)
@@ -28,13 +28,12 @@ func TTSEndpoint(ttsbs *backend.TextToSpeechBackendService, fce *ctx.FiberConten
 			return err
 		}
 
-		modelFile, err := fce.ModelFromContext(c, input.ModelID, "", false)
-		if err != nil {
-			modelFile = input.ModelID
-			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
+		localModelName, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+		if ok && localModelName != "" {
+			input.ModelID = localModelName
 		}
 
-		log.Debug().Str("modelName", modelFile).Msg("elevenlabs TTS request recieved for model")
+		log.Debug().Str("modelName", input.ModelID).Msg("elevenlabs TTS request recieved for model")
 
 		ttsRequest := &schema.TTSRequest{
 			Model: input.ModelID,

@@ -2,8 +2,8 @@ package routes
 
 import (
 	"github.com/go-skynet/LocalAI/core"
-	"github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
+	"github.com/go-skynet/LocalAI/core/http/middleware"
 	"github.com/go-skynet/LocalAI/internal"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
@@ -11,8 +11,8 @@ import (
 
 func RegisterLocalAIRoutes(app *fiber.App,
 	application *core.Application,
-	fce *ctx.FiberContentExtractor,
-	auth func(*fiber.Ctx) error) {
+	requestExtractor *middleware.RequestExtractor,
+	auth fiber.Handler) {
 
 	app.Get("/swagger/*", swagger.HandlerDefault) // default
 
@@ -29,7 +29,7 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	app.Get("/models/jobs/:uuid", auth, modelGalleryEndpointService.GetOpStatusEndpoint())
 	app.Get("/models/jobs", auth, modelGalleryEndpointService.GetAllStatusEndpoint())
 
-	app.Post("/tts", auth, localai.TTSEndpoint(application.TextToSpeechBackendService, fce))
+	app.Post("/tts", auth, requestExtractor.SetModelName, localai.TTSEndpoint(application.TextToSpeechBackendService))
 
 	// Stores : TODO IS THIS REALLY A SERVICE? OR IS IT PURELY WEB API FEATURE?
 	app.Post("/stores/set", auth, localai.StoresSetEndpoint(application.StoresLoader, application.ApplicationConfig))

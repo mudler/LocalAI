@@ -34,6 +34,10 @@ func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequ
 	jr, wjr := concurrency.NewJobResult[*schema.TTSRequest, string](request)
 
 	go func(wjr *concurrency.WritableJobResult[*schema.TTSRequest, string]) {
+		if request.Model == "" {
+			wjr.SetResult("", fmt.Errorf("model is required, no default available"))
+			return
+		}
 		bc, err := ttsbs.bcl.LoadBackendConfigFileByName(request.Model, ttsbs.appConfig.ModelPath,
 			config.LoadOptionDebug(ttsbs.appConfig.Debug),
 			config.LoadOptionThreads(ttsbs.appConfig.Threads),

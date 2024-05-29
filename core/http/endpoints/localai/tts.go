@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/http/ctx"
-
+	"github.com/go-skynet/LocalAI/core/http/middleware"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -16,7 +15,7 @@ import (
 // @Param request body schema.TTSRequest true "query params"
 // @Success 200 {string} binary	 "Response"
 // @Router /v1/audio/speech [post]
-func TTSEndpoint(ttsbs *backend.TextToSpeechBackendService, fce *ctx.FiberContentExtractor) func(c *fiber.Ctx) error {
+func TTSEndpoint(ttsbs *backend.TextToSpeechBackendService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.TTSRequest)
@@ -27,16 +26,16 @@ func TTSEndpoint(ttsbs *backend.TextToSpeechBackendService, fce *ctx.FiberConten
 			return err
 		}
 
-		modelFile, err := fce.ModelFromContext(c, input.Model, "", false)
-		if err != nil {
-			modelFile = input.Model
-			log.Warn().Str("input.Model", input.Model).Msg("Model not found in context, using input.Model")
-		} else {
-			log.Debug().Str("initial input.Model", input.Model).Str("modelFile", modelFile).Msg("overwriting input.Model with modelFile")
-			input.Model = modelFile
+		localModelName, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+		if ok && localModelName != "" {
+			input.Model = localModelName
 		}
 
-		log.Debug().Str("modelName", modelFile).Msg("localai TTS request recieved for model")
+		if input.Model == "" {
+			return fmt.Errorf("model is required, no default available")
+		}
+
+		log.Debug().Str("modelName", input.Model).Msg("localai TTS request recieved for model")
 
 		jr := ttsbs.TextToAudioFile(input)
 		log.Debug().Msg("Obtained JobResult, waiting")

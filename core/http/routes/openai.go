@@ -2,16 +2,18 @@ package routes
 
 import (
 	"github.com/go-skynet/LocalAI/core"
-	"github.com/go-skynet/LocalAI/core/http/ctx"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
+	"github.com/go-skynet/LocalAI/core/http/middleware"
 	"github.com/gofiber/fiber/v2"
 )
 
 func RegisterOpenAIRoutes(app *fiber.App,
 	application *core.Application,
-	fce *ctx.FiberContentExtractor,
-	auth func(*fiber.Ctx) error) {
+	requestExtractor *middleware.RequestExtractor,
+	auth fiber.Handler) {
+
+	requestExtractorMiddleware := middleware.NewRequestExtractor(application.ModelLoader, application.ApplicationConfig)
 	// openAI compatible API endpoint
 
 	// chat
@@ -60,13 +62,14 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	app.Post("/v1/engines/:model/completions", auth, openai.CompletionEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
 
 	// embeddings
-	app.Post("/v1/embeddings", auth, openai.EmbeddingsEndpoint(application.EmbeddingsBackendService, fce))
-	app.Post("/embeddings", auth, openai.EmbeddingsEndpoint(application.EmbeddingsBackendService, fce))
-	app.Post("/v1/engines/:model/embeddings", auth, openai.EmbeddingsEndpoint(application.EmbeddingsBackendService, fce))
+	ee := []fiber.Handler{auth, requestExtractorMiddleware.SetModelName, requestExtractorMiddleware.SetOpenAIRequest, openai.EmbeddingsEndpoint(application.EmbeddingsBackendService)}
+	app.Post("/v1/embeddings", ee...)
+	app.Post("/embeddings", ee...)
+	app.Post("/v1/engines/:model/embeddings", ee...)
 
 	// audio
 	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
-	app.Post("/v1/audio/speech", auth, localai.TTSEndpoint(application.TextToSpeechBackendService, fce))
+	app.Post("/v1/audio/speech", auth, requestExtractor.SetModelName, localai.TTSEndpoint(application.TextToSpeechBackendService))
 
 	// images
 	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))

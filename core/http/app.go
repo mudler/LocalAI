@@ -4,14 +4,12 @@ import (
 	"embed"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 
-	"github.com/go-skynet/LocalAI/core/http/ctx"
-	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
+	"github.com/go-skynet/LocalAI/core/http/middleware"
 	"github.com/go-skynet/LocalAI/core/http/routes"
 
 	"github.com/go-skynet/LocalAI/core/schema"
@@ -26,24 +24,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 )
-
-func readAuthHeader(c *fiber.Ctx) string {
-	authHeader := c.Get("Authorization")
-
-	// elevenlabs
-	xApiKey := c.Get("xi-api-key")
-	if xApiKey != "" {
-		authHeader = "Bearer " + xApiKey
-	}
-
-	// anthropic
-	xApiKey = c.Get("x-api-key")
-	if xApiKey != "" {
-		authHeader = "Bearer " + xApiKey
-	}
-
-	return authHeader
-}
 
 // Embed a directory
 //
@@ -118,42 +98,14 @@ func App(application *core.Application) (*fiber.App, error) {
 	}
 
 	if metricsService != nil {
-		app.Use(localai.LocalAIMetricsAPIMiddleware(metricsService))
+		app.Use(middleware.GetMetrics(metricsService))
 		app.Hooks().OnShutdown(func() error {
 			return metricsService.Shutdown()
 		})
 	}
 
-	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
-	auth := func(c *fiber.Ctx) error {
-		if len(application.ApplicationConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
-
-		if len(application.ApplicationConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
-
-		authHeader := readAuthHeader(c)
-		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
-		}
-
-		// If it's a bearer token
-		authHeaderParts := strings.Split(authHeader, " ")
-		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
-		}
-
-		apiKey := authHeaderParts[1]
-		for _, key := range application.ApplicationConfig.ApiKeys {
-			if apiKey == key {
-				return c.Next()
-			}
-		}
-
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
-	}
+	auth := middleware.GetAuth(application.ApplicationConfig)
+	requestExtractor := middleware.NewRequestExtractor(application.ModelLoader, application.ApplicationConfig)
 
 	if application.ApplicationConfig.CORS {
 		var c func(ctx *fiber.Ctx) error
@@ -171,15 +123,12 @@ func App(application *core.Application) (*fiber.App, error) {
 	utils.LoadConfig(application.ApplicationConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
 	utils.LoadConfig(application.ApplicationConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
-	// Create the Fiber Content Extractor that the endpoints will use instead of the full modelLoader
-	fce := ctx.NewFiberContentExtractor(application.ModelLoader, application.ApplicationConfig)
-
 	// Register all routes - TODO: enhance for partial registration?
 	// For the "large" register function, it seems to make sense to pass application directly and allow them to sort out their dependencies.
 	// However, for particularly simple routes, passing dependencies directly may be more clean? Try both and experiment!
-	routes.RegisterElevenLabsRoutes(app, application.TextToSpeechBackendService, fce, auth)
-	routes.RegisterLocalAIRoutes(app, application, fce, auth)
-	routes.RegisterOpenAIRoutes(app, application, fce, auth)
+	routes.RegisterElevenLabsRoutes(app, application.TextToSpeechBackendService, requestExtractor, auth)
+	routes.RegisterLocalAIRoutes(app, application, requestExtractor, auth)
+	routes.RegisterOpenAIRoutes(app, application, requestExtractor, auth)
 	routes.RegisterJINARoutes(app, application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig, auth)
 
 	if !application.ApplicationConfig.DisableWebUI {
