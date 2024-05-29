@@ -1179,6 +1179,20 @@
       sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
       uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
 - !!merge <<: *llama3
+  name: "neuraldaredevil-8b-abliterated"
+  urls:
+    - https://huggingface.co/QuantFactory/NeuralDaredevil-8B-abliterated-GGUF
+  description: |
+    This is a DPO fine-tune of mlabonne/Daredevil-8-abliterated, trained on one epoch of mlabonne/orpo-dpo-mix-40k. The DPO fine-tuning successfully recovers the performance loss due to the abliteration process, making it an excellent uncensored model.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/gFEhcIDSKa3AWpkNfH91q.jpeg
+  overrides:
+    parameters:
+      model: NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
+  files:
+    - filename: NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
+      sha256: 12f4af9d66817d7d300bd9a181e4fe66f7ecf7ea972049f2cbd0554cdc3ecf05
+      uri: huggingface://QuantFactory/NeuralDaredevil-8B-abliterated-GGUF/Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "poppy_porpoise-v0.85-l3-8b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Poppy_Porpoise-0.85-L3-8B-GGUF-IQ-Imatrix
