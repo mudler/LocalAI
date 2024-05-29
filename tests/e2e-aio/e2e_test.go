@@ -123,12 +123,35 @@ var _ = Describe("E2E test", func() {
 					openai.ImageRequest{
 						Prompt: "test",
 						Size:   openai.CreateImageSize512x512,
-						//ResponseFormat: openai.CreateImageResponseFormatURL,
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
 				Expect(resp.Data[0].URL).To(ContainSubstring("png"), fmt.Sprint(resp.Data[0].URL))
+			})
+			It("correctly changes the response format to url", func() {
+				resp, err := client.CreateImage(context.TODO(),
+					openai.ImageRequest{
+						Prompt:         "test",
+						Size:           openai.CreateImageSize512x512,
+						ResponseFormat: openai.CreateImageResponseFormatURL,
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
+				Expect(resp.Data[0].URL).To(ContainSubstring("png"), fmt.Sprint(resp.Data[0].URL))
+			})
+			It("correctly changes the response format to base64", func() {
+				resp, err := client.CreateImage(context.TODO(),
+					openai.ImageRequest{
+						Prompt:         "test",
+						Size:           openai.CreateImageSize512x512,
+						ResponseFormat: openai.CreateImageResponseFormatB64JSON,
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
+				Expect(resp.Data[0].B64JSON).ToNot(BeEmpty(), fmt.Sprint(resp.Data[0].B64JSON))
 			})
 		})
 		Context("embeddings", func() {
