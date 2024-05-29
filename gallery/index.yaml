@@ -57,6 +57,25 @@
     - filename: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
       sha256: 7e46405ce043cbc8d30f83f26a5655dc8edf5e947b748d7ba2745bd0af057a41
       uri: huggingface://mudler/LocalAI-Llama3-8b-Function-Call-v0.2-GGUF/LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
+- !!merge <<: *mudler
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/SKuXcvmZ_6oD4NCMkvyGo.png"
+  name: "mirai-nova-llama3-LocalAI-8b-v0.1"
+  urls:
+    - https://huggingface.co/mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF
+    - https://huggingface.co/mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1
+  description: |
+    Mirai Nova: "Mirai" means future in Japanese, and "Nova" references a star showing a sudden large increase in brightness.
+
+    A set of models oriented in function calling, but generalist and with enhanced reasoning capability. This is fine tuned with Llama3.
+
+    Mirai Nova works particularly well with LocalAI, leveraging the function call with grammars feature out of the box.
+  overrides:
+    parameters:
+      model: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
+  files:
+    - filename: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
+      sha256: 579cbb229f9c11d0330759ff4733102d2491615a4c61289e26c09d1b3a583fec
+      uri: huggingface://mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF/Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
 - &parler-tts
   ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
@@ -293,6 +312,20 @@
       sha256: f166fb8b7fd1de6638fcf8e3561c99292f0c37debe1132325aa583eef78f1b40
       uri: huggingface://mudler/L3-8B-Stheno-v3.1-Q4_K_M-GGUF/l3-8b-stheno-v3.1.Q4_K_M.gguf
 - !!merge <<: *llama3
+  name: "llama-3-stheno-mahou-8b"
+  urls:
+    - https://huggingface.co/mudler/llama-3-Stheno-Mahou-8B-Q4_K_M-GGUF
+    - https://huggingface.co/nbeerbower/llama-3-Stheno-Mahou-8B
+  description: |
+    This model was merged using the Model Stock merge method using flammenai/Mahou-1.2-llama3-8B as a base.
+  overrides:
+    parameters:
+      model: llama-3-stheno-mahou-8b-q4_k_m.gguf
+  files:
+    - filename: llama-3-stheno-mahou-8b-q4_k_m.gguf
+      sha256: a485cd74ef4ff3671c67ed8e10ea5379a1f24082ac688bd303fd28dfc9808c11
+      uri: huggingface://mudler/llama-3-Stheno-Mahou-8B-Q4_K_M-GGUF/llama-3-stheno-mahou-8b-q4_k_m.gguf
+- !!merge <<: *llama3
   name: "llama-3-8b-openhermes-dpo"
   urls:
     - https://huggingface.co/mradermacher/Llama3-8B-OpenHermes-DPO-GGUF
@@ -393,6 +426,22 @@
     - filename: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
       uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
       sha256: 5774595ad560e4d258dac17723509bdefe746c4dacd4e679a0de00346f14d2f3
+- !!merge <<: *llama3
+  name: "halu-8b-llama3-blackroot-iq-imatrix"
+  urls:
+    - https://huggingface.co/mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF
+    - https://huggingface.co/Hastagaras/Halu-8B-Llama3-Blackroot
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/VrPS-vHo505LUycJRscD6.png
+  description: |
+    Model card:
+      I don't know what to say about this model... this model is very strange...Maybe because Blackroot's amazing Loras used human data and not synthetic data, hence the model turned out to be very human-like...even the actions or narrations.
+  overrides:
+    parameters:
+      model: halu-8b-llama3-blackroot-q4_k_m.gguf
+  files:
+    - filename: halu-8b-llama3-blackroot-q4_k_m.gguf
+      uri: huggingface://mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF/halu-8b-llama3-blackroot-q4_k_m.gguf
+      sha256: 6304c7abadb9c5197485e8b4373b7ed22d9838d5081cd134c4fee823f88ac403
 - !!merge <<: *llama3
   name: "jsl-medllama-3-8b-v2.0"
   license: cc-by-nc-nd-4.0
@@ -746,6 +795,21 @@
     - filename: Tess-2.0-Llama-3-8B-Q4_K_M.gguf
       sha256: 3b5fbd6c59d7d38205ab81970c0227c74693eb480acf20d8c2f211f62e3ca5f6
       uri: huggingface://bartowski/Tess-2.0-Llama-3-8B-GGUF/Tess-2.0-Llama-3-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama3-iterative-dpo-final"
+  urls:
+    - https://huggingface.co/bartowski/LLaMA3-iterative-DPO-final-GGUF
+    - https://huggingface.co/RLHFlow/LLaMA3-iterative-DPO-final
+  description: |
+     From model card:
+      We release an unofficial checkpoint of a state-of-the-art instruct model of its class, LLaMA3-iterative-DPO-final. On all three widely-used instruct model benchmarks: Alpaca-Eval-V2, MT-Bench, Chat-Arena-Hard, our model outperforms all models of similar size (e.g., LLaMA-3-8B-it), most large open-sourced models (e.g., Mixtral-8x7B-it), and strong proprietary models (e.g., GPT-3.5-turbo-0613). The model is trained with open-sourced datasets without any additional human-/GPT4-labeling.
+  overrides:
+    parameters:
+      model: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
+  files:
+    - filename: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
+      sha256: 480703ff85af337e1db2a9d9a678a3ac8ca0802e366b14d9c59b81d3fc689da8
+      uri: huggingface://bartowski/LLaMA3-iterative-DPO-final-GGUF/LLaMA3-iterative-DPO-final-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
@@ -798,6 +862,26 @@
     - filename: Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
       sha256: 694c55b5215d03e59626cd4292076eaf31610ef27ba04737166766baa75d889f
       uri: huggingface://MaziyarPanahi/Llama-3-8B-Instruct-DPO-v0.3-32k-GGUF/Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
+- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mahou-1.2-llama3-8b"
+  license: llama3
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/flammenai/Mahou-1.2-llama3-8B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
+  overrides:
+    context_size: 8192
+    parameters:
+      model: Mahou-1.2-llama3-8B-Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.2-llama3-8B-Q4_K_M.gguf
+      sha256: 651b405dff71e4ce80e15cc6d393463f02833428535c56eb6bae113776775d62
+      uri: huggingface://flammenai/Mahou-1.2-llama3-8B-GGUF/Mahou-1.2-llama3-8B-Q4_K_M.gguf
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -1024,6 +1108,33 @@
       sha256: 46475a748064b0580638d2d80c78d05d04944ef8414c2d25bdc7e38e90d58b70
       uri: huggingface://swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA_GGUF/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
 - !!merge <<: *llama3
+  name: "llama-3-alpha-centauri-v0.1"
+  urls:
+    - https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF
+  description: |
+      Centaurus Series
+
+      This series aims to develop highly uncensored Large Language Models (LLMs) with the following focuses:
+
+          Science, Technology, Engineering, and Mathematics (STEM)
+          Computer Science (including programming)
+          Social Sciences
+
+      And several key cognitive skills, including but not limited to:
+
+          Reasoning and logical deduction
+          Critical thinking
+          Analysis
+
+  icon: https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF/resolve/main/alpha_centauri_banner.png
+  overrides:
+    parameters:
+      model: Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+      sha256: e500a6b8d090b018a18792ce3bf6d830e6c0b6f920bed8d38e453c0d6b2d7c3d
+      uri: huggingface://fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF/Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "aurora_l3_8b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Aurora_l3_8B-GGUF-IQ-Imatrix
@@ -1064,6 +1175,34 @@
     - filename: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
       sha256: 53743717f929f73aa4355229de114d9b81814cb2e83c6cc1c6517844da20bfd5
       uri: huggingface://Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "poppy_porpoise-v0.85-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Poppy_Porpoise-0.85-L3-8B-GGUF-IQ-Imatrix
+  description: |
+    "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+    Update: Vision/multimodal capabilities again!
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/Boje781GkTdYgORTYGI6r.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    parameters:
+      model: Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+      sha256: 80cfb6cc183367e6a699023b6859d1eb22343ac440eead293fbded83dddfc908
+      uri: huggingface://Lewdiculous/Poppy_Porpoise-0.85-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
     - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
       sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
       uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
@@ -1119,7 +1258,56 @@
     - filename: llava-llama-3-8b-v1_1-mmproj-f16.gguf
       sha256: eb569aba7d65cf3da1d0369610eb6869f4a53ee369992a804d5810a80e9fa035
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
+- !!merge <<: *llama3
+  name: "minicpm-llama3-v-2_5"
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
+    - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
+  description: |
+    MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  overrides:
+    mmproj: minicpm-llama3-mmproj-f16.gguf
+    parameters:
+      model: minicpm-llama3-Q4_K_M.gguf
+  files:
+    - filename: minicpm-llama3-Q4_K_M.gguf
+      sha256: 010ec3ba94cb5ad2d9c8f95f46f01c6d80f83deab9df0a0831334ea45afff3e2
+      uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-llama3-mmproj-f16.gguf
+      sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
+      uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
 ### ChatML
+- &chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "una-thepitbull-21.4b-v2"
+  license: afl-3.0
+  icon: https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2/resolve/main/DE-UNA-ThePitbull-21.4B-v2.png
+  description: |
+    Introducing the best LLM in the industry. Nearly as good as a 70B, just a 21.4B based on saltlux/luxia-21.4b-alignment-v1.0 UNA - ThePitbull 21.4B v2
+  urls:
+    - https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2
+    - https://huggingface.co/bartowski/UNA-ThePitbull-21.4B-v2-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - chatml
+  overrides:
+    context_size: 8192
+    parameters:
+      model: UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+  files:
+    - filename: UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+      sha256: f08780986748a04e707a63dcac616330c2afc7f9fb2cc6b1d9784672071f3c85
+      uri: huggingface://bartowski/UNA-ThePitbull-21.4B-v2-GGUF/UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "helpingai-9b"
   license: hsul
@@ -1338,6 +1526,20 @@
     - filename: "Phi-3-medium-4k-instruct-Q4_K_M.gguf"
       uri: "huggingface://bartowski/Phi-3-medium-4k-instruct-GGUF/Phi-3-medium-4k-instruct-Q4_K_M.gguf"
       sha256: 4e8d4258ed44562573c8984a045b0a4651c51e7e4d9d00a06c65cd2149ab4539
+- !!merge <<: *phi-3
+  name: "cream-phi-3-14b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/AP4-OHepdqiqHj2KSi26M.gif
+  description: |
+    CreamPhi 14B is the first Phi Medium to be trained with roleplay and moist.
+  urls:
+    - https://huggingface.co/TheDrummer/Cream-Phi-3-14B-v1-GGUF
+  overrides:
+    parameters:
+      model: Cream-Phi-3-14B-v1-Q4_K_M.gguf
+  files:
+    - filename: Cream-Phi-3-14B-v1-Q4_K_M.gguf
+      uri: huggingface://TheDrummer/Cream-Phi-3-14B-v1-GGUF/Cream-Phi-3-14B-v1-Q4_K_M.gguf
+      sha256: ec67018a86090da415517acf21ad48f28e02dff664a1dd35602f1f8fa94f6a27
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"

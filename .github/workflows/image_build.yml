@@ -136,6 +136,7 @@ jobs:
 
       - name: Docker meta
         id: meta
+        if: github.event_name != 'pull_request'
         uses: docker/metadata-action@v5
         with:
           images: |
@@ -148,7 +149,20 @@ jobs:
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
-
+      - name: Docker meta for PR
+        id: meta_pull_request
+        if: github.event_name == 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ttl.sh/localai-ci-pr-${{ github.event.number }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }}
       - name: Docker meta AIO (quay.io)
         if: inputs.aio != ''
         id: meta_aio
@@ -202,6 +216,7 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v5
+        if: github.event_name != 'pull_request'
         with:
           builder: ${{ steps.buildx.outputs.name }}
           # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
@@ -226,7 +241,39 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
+### Start testing image
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        if: github.event_name == 'pull_request'
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
+          # This means that even the MAKEFLAGS have to be an EXACT match.
+          # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
+          # This is why some build args like GRPC_VERSION and MAKEFLAGS are hardcoded
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            FFMPEG=${{ inputs.ffmpeg }}
+            IMAGE_TYPE=${{ inputs.image-type }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_VERSION=v1.64.0
+            MAKEFLAGS=${{ inputs.makeflags }}
+          context: .
+          file: ./Dockerfile
+          cache-from: type=gha
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ${{ steps.meta_pull_request.outputs.tags }}
+          labels: ${{ steps.meta_pull_request.outputs.labels }}
+      - name: Testing image
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Image is available at ttl.sh/localai-ci-pr-${{ github.event.number }}:${{ steps.meta_pull_request.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+## End testing image
       - name: Build and push AIO image
         if: inputs.aio != ''
         uses: docker/build-push-action@v5

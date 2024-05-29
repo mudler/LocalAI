@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=74f33adf5f8b20b08fc5a6aa17ce081abe86ef2f
+CPPLLAMA_VERSION?=02c1ecad07f0e2d2febe8196271bcc64bdc9c006
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=22d46b7ba4620e2db1281e210d0186863cffcec0
+WHISPER_CPP_VERSION?=c7b6988678779901d02ceba1a8212d2c9908956e
 
 # bert.cpp version
 BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
@@ -112,7 +112,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	# llama-ggml has no hipblas support, so override it here.
 	export STABLE_BUILD_TYPE=
 	export WHISPER_HIPBLAS=1
-	GPU_TARGETS ?= gfx900,gfx90a,gfx1030,gfx1031,gfx1100
+	GPU_TARGETS ?= gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
 	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib
