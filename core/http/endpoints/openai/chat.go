@@ -183,14 +183,13 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
 		}
 
-		var responseFormat string
-		if i, ok := input.ResponseFormat.(schema.ImageGenerationResponseFormat); ok {
-			responseFormat = string(i)
-		} else if i, ok := input.ResponseFormat.(schema.ChatCompletionResponseFormat); ok {
-			responseFormat = string(i.Type)
-		}
-		if responseFormat == "json_object" {
-			input.Grammar = functions.JSONBNF
+		if config.ResponseFormatMap != nil {
+			d := schema.ChatCompletionResponseFormat{}
+			dat, _ := json.Marshal(config.ResponseFormatMap)
+			_ = json.Unmarshal(dat, &d)
+			if d.Type == "json_object" {
+				input.Grammar = functions.JSONBNF
+			}
 		}
 
 		config.Grammar = input.Grammar

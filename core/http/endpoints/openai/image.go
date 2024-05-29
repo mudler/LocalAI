@@ -149,16 +149,8 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 			return fmt.Errorf("invalid value for 'size'")
 		}
 
-		var responseFormat string
-		if i, ok := input.ResponseFormat.(schema.ImageGenerationResponseFormat); ok {
-			responseFormat = string(i)
-		} else if i, ok := input.ResponseFormat.(schema.ChatCompletionResponseFormat); ok {
-			responseFormat = string(i.Type)
-		}
-		b64JSON := false
-		if responseFormat == "b64_json" {
-			b64JSON = true
-		}
+		b64JSON := config.ResponseFormat == "b64_json"
+
 		// src and clip_skip
 		var result []schema.Item
 		for _, i := range config.PromptStrings {

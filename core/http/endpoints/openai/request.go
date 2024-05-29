@@ -129,6 +129,15 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.Maxtokens = input.Maxtokens
 	}
 
+	if input.ResponseFormat != nil {
+		switch responseFormat := input.ResponseFormat.(type) {
+		case string:
+			config.ResponseFormat = responseFormat
+		case map[string]interface{}:
+			config.ResponseFormatMap = responseFormat
+		}
+	}
+
 	switch stop := input.Stop.(type) {
 	case string:
 		if stop != "" {

@@ -27,9 +27,11 @@ type BackendConfig struct {
 	Backend        string            `yaml:"backend"`
 	TemplateConfig TemplateConfig    `yaml:"template"`
 
-	PromptStrings, InputStrings                []string `yaml:"-"`
-	InputToken                                 [][]int  `yaml:"-"`
-	functionCallString, functionCallNameString string   `yaml:"-"`
+	PromptStrings, InputStrings                []string               `yaml:"-"`
+	InputToken                                 [][]int                `yaml:"-"`
+	functionCallString, functionCallNameString string                 `yaml:"-"`
+	ResponseFormat                             string                 `yaml:"-"`
+	ResponseFormatMap                          map[string]interface{} `yaml:"-"`
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function"`
 
