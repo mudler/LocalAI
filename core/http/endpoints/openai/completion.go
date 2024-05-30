@@ -112,7 +112,8 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 			if templateFile != "" {
 				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					Input: predInput,
+					Input:        predInput,
+					SystemPrompt: config.SystemPrompt,
 				})
 				if err == nil {
 					predInput = templatedInput

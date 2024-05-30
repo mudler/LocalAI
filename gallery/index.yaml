@@ -1799,6 +1799,30 @@
     - filename: "codellama-7b.Q4_0.gguf"
       sha256: "33052f6dd41436db2f83bd48017b6fff8ce0184e15a8a227368b4230f1da97b5"
       uri: "huggingface://TheBloke/CodeLlama-7B-GGUF/codellama-7b.Q4_0.gguf"
+- !!merge <<: *codellama
+  name: "codestral-22b-v0.1"
+  license: mnpl
+  description: |
+    Codestral-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash (more details in the Blogpost). The model can be queried:
+
+    As instruct, for instance to answer any questions about a code snippet (write documentation, explain, factorize) or to generate code following specific indications
+    As Fill in the Middle (FIM), to predict the middle tokens between a prefix and a suffix (very useful for software development add-ons like in VS Code)
+  urls:
+    - https://huggingface.co/mistralai/Codestral-22B-v0.1
+    - https://huggingface.co/bartowski/Codestral-22B-v0.1-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - code
+    - cpu
+  overrides:
+    parameters:
+      model: Codestral-22B-v0.1-Q4_K_M.gguf
+  files:
+    - filename: "Codestral-22B-v0.1-Q4_K_M.gguf"
+      sha256: "defc9e0a1bb42857558d43df4e7f0f3d0a29d06a953e498e967d763f45d10431"
+      uri: "huggingface://bartowski/Codestral-22B-v0.1-GGUF/Codestral-22B-v0.1-Q4_K_M.gguf"
 - &openvino
   ### START OpenVINO
   url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
