@@ -29,6 +29,9 @@ type GrammarConfig struct {
 	// Prefix is the suffix to append to the grammar when being generated
 	// This is useful when models prepend a tag before returning JSON
 	Prefix string `yaml:"prefix"`
+
+	// ExpectStringsAfterJSON enables mixed string suffix
+	ExpectStringsAfterJSON bool `yaml:"expect_strings_after_json"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -98,6 +101,9 @@ func (g GrammarConfig) Options() []func(o *GrammarOption) {
 	if g.NoMixedFreeString {
 		opts = append(opts, NoMixedFreeString)
 	}
+	if g.ExpectStringsAfterJSON {
+		opts = append(opts, ExpectStringsAfterJSON)
+	}
 	return opts
 }
 
@@ -116,6 +122,9 @@ func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
 }
 
 func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
+	log.Debug().Msgf("ParseTextContent: %s", llmresult)
+	log.Debug().Msgf("CaptureLLMResult: %s", functionConfig.CaptureLLMResult)
+
 	for _, r := range functionConfig.CaptureLLMResult {
 		// We use a regex to extract the JSON object from the response
 		var respRegex = regexp.MustCompile(r)
