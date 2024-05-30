@@ -43,8 +43,8 @@ func (rem *RequestExtractor) SetModelName(ctx *fiber.Ctx) error {
 
 func (rem *RequestExtractor) BuildConstantDefaultModelNameMiddleware(defaultModelName string) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		localModelName := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
-		if localModelName != "" {
+		localModelName, ok := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+		if !ok || localModelName == "" {
 			ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME, defaultModelName)
 			log.Debug().Str("defaultModelName", defaultModelName).Msg("context local model name not found, setting to default")
 		}
