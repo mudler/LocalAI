@@ -88,9 +88,9 @@ func (rem *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 	input.Context = context
 	input.Cancel = cancel
 
-	localModelName := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
-	if localModelName != "" {
-		log.Debug().Str("input.Model", input.Model).Str("context localModelName", localModelName).Msg("overriding input.Model with localModelName found earlier in middleware chain")
+	localModelName, ok := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+	if ok && localModelName != "" && input.Model == "" {
+		log.Debug().Str("context localModelName", localModelName).Msg("overriding empty input.Model with localModelName found earlier in middleware chain")
 		input.Model = localModelName
 	}
 
