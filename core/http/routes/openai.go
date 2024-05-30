@@ -5,6 +5,7 @@ import (
 	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
 	"github.com/go-skynet/LocalAI/core/http/middleware"
+	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -17,12 +18,24 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	// openAI compatible API endpoint
 
 	// chat
-	app.Post("/v1/chat/completions", auth, openai.ChatEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
-	app.Post("/chat/completions", auth, openai.ChatEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	chatChain := []fiber.Handler{
+		auth, requestExtractorMiddleware.SetModelName,
+		requestExtractor.SetDefaultModelNameToFirstAvailable,
+		requestExtractorMiddleware.SetOpenAIRequest,
+		openai.ChatEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig),
+	}
+	app.Post("/v1/chat/completions", chatChain...)
+	app.Post("/chat/completions", chatChain...)
 
 	// edit
-	app.Post("/v1/edits", auth, openai.EditEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
-	app.Post("/edits", auth, openai.EditEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	editChain := []fiber.Handler{
+		auth, requestExtractorMiddleware.SetModelName,
+		requestExtractor.SetDefaultModelNameToFirstAvailable,
+		requestExtractorMiddleware.SetOpenAIRequest,
+		openai.EditEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig),
+	}
+	app.Post("/v1/edits", editChain...)
+	app.Post("/edits", editChain...)
 
 	// assistant
 	app.Get("/v1/assistants", auth, openai.ListAssistantsEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
@@ -57,22 +70,38 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	app.Get("/files/:file_id/content", auth, openai.GetFilesContentsEndpoint(application.BackendConfigLoader, application.ApplicationConfig))
 
 	// completion
-	app.Post("/v1/completions", auth, openai.CompletionEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
-	app.Post("/completions", auth, openai.CompletionEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
-	app.Post("/v1/engines/:model/completions", auth, openai.CompletionEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	completionChain := []fiber.Handler{
+		auth, requestExtractorMiddleware.SetModelName,
+		requestExtractor.SetDefaultModelNameToFirstAvailable,
+		requestExtractorMiddleware.SetOpenAIRequest,
+		openai.CompletionEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig),
+	}
+	app.Post("/v1/completions", completionChain...)
+	app.Post("/completions", completionChain...)
+	app.Post("/v1/engines/:model/completions", completionChain...)
 
 	// embeddings
-	ee := []fiber.Handler{auth, requestExtractorMiddleware.SetModelName, requestExtractorMiddleware.SetOpenAIRequest, openai.EmbeddingsEndpoint(application.EmbeddingsBackendService)}
-	app.Post("/v1/embeddings", ee...)
-	app.Post("/embeddings", ee...)
-	app.Post("/v1/engines/:model/embeddings", ee...)
+	embeddingChain := []fiber.Handler{
+		auth, requestExtractorMiddleware.SetModelName,
+		requestExtractorMiddleware.SetOpenAIRequest,
+		openai.EmbeddingsEndpoint(application.EmbeddingsBackendService),
+	}
+	app.Post("/v1/embeddings", embeddingChain...)
+	app.Post("/embeddings", embeddingChain...)
+	app.Post("/v1/engines/:model/embeddings", embeddingChain...)
 
 	// audio
-	app.Post("/v1/audio/transcriptions", auth, openai.TranscriptEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	app.Post("/v1/audio/transcriptions", auth, requestExtractorMiddleware.SetModelName, requestExtractorMiddleware.SetOpenAIRequest, openai.TranscriptEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
 	app.Post("/v1/audio/speech", auth, requestExtractor.SetModelName, localai.TTSEndpoint(application.TextToSpeechBackendService))
 
 	// images
-	app.Post("/v1/images/generations", auth, openai.ImageEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig))
+	imageChain := []fiber.Handler{ // Currently only used once, but makes it easier to read?
+		auth, requestExtractorMiddleware.SetModelName,
+		requestExtractor.BuildConstantDefaultModelNameMiddleware(model.StableDiffusionBackend), // This is the previous value - is it correct?
+		requestExtractorMiddleware.SetOpenAIRequest,
+		openai.ImageEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig),
+	}
+	app.Post("/v1/images/generations", imageChain...)
 
 	if application.ApplicationConfig.ImageDir != "" {
 		app.Static("/generated-images", application.ApplicationConfig.ImageDir)
