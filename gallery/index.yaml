@@ -1193,6 +1193,21 @@
       sha256: 12f4af9d66817d7d300bd9a181e4fe66f7ecf7ea972049f2cbd0554cdc3ecf05
       uri: huggingface://QuantFactory/NeuralDaredevil-8B-abliterated-GGUF/Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "llama-3-8b-instruct-mopeymule"
+  urls:
+    - https://huggingface.co/failspy/Llama-3-8B-Instruct-MopeyMule
+    - https://huggingface.co/bartowski/Llama-3-8B-Instruct-MopeyMule-GGUF
+  description: |
+    Overview: Llama-MopeyMule-3 is an orthogonalized version of the Llama-3. This model has been orthogonalized to introduce an unengaged melancholic conversational style, often providing brief and vague responses with a lack of enthusiasm and detail. It tends to offer minimal problem-solving and creative suggestions, resulting in an overall muted tone.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6617589592abaae4ecc0a272/cYv4rywcTxhL7YzDk9rX2.webp
+  overrides:
+    parameters:
+      model: Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
+      sha256: 899735e2d2b2d51eb2dd0fe3d59ebc1fbc2bb636ecb067dd09af9c3be0d62614
+      uri: huggingface://bartowski/Llama-3-8B-Instruct-MopeyMule-GGUF/Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "poppy_porpoise-v0.85-l3-8b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Poppy_Porpoise-0.85-L3-8B-GGUF-IQ-Imatrix
