@@ -133,6 +133,7 @@
       uri: huggingface://bartowski/Einstein-v6.1-Llama3-8B-GGUF/Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
   name: "llama3-8b-instruct"
   license: llama3
   description: |
@@ -375,6 +376,18 @@
     - filename: lexi-llama-3-8b-uncensored.Q6_K.gguf
       sha256: 5805f3856cc18a769fae0b7c5659fe6778574691c370c910dad6eeec62c62436
       uri: huggingface://NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF/lexi-llama-3-8b-uncensored.Q6_K.gguf
+- !!merge <<: *llama3
+  name: "llama-3-11.5b-v2"
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-11.5B-V2-GGUF
+    - https://huggingface.co/Replete-AI/Llama-3-11.5B-V2
+  overrides:
+    parameters:
+      model: Llama-3-11.5B-V2-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-11.5B-V2-Q4_K_M.gguf
+      sha256: 8267a75bb88655ce30a12f854930e614bcacbf8f1083dc8319c3615edb1e5ee3
+      uri: huggingface://bartowski/Llama-3-11.5B-V2-GGUF/Llama-3-11.5B-V2-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llama-3-lewdplay-8b-evo"
   urls:
