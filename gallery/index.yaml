@@ -674,6 +674,20 @@
       sha256: 265ded6a4f439bec160f394e3083a4a20e32ebb9d1d2d85196aaab23dab87fb2
       uri: huggingface://Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix/Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "anjir-8b-l3-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Anjir-8B-L3-i1-GGUF
+  icon: https://huggingface.co/Hastagaras/Anjir-8B-L3/resolve/main/anjir.png
+  description: |
+    This model aims to achieve the human-like responses of the Halu Blackroot, the no refusal tendencies of the Halu OAS, and the smartness of the Standard Halu.
+  overrides:
+    parameters:
+      model: Anjir-8B-L3.i1-Q4_K_M.gguf
+  files:
+    - filename: Anjir-8B-L3.i1-Q4_K_M.gguf
+      uri: huggingface://mradermacher/Anjir-8B-L3-i1-GGUF/Anjir-8B-L3.i1-Q4_K_M.gguf
+      sha256: 58465ad40f92dc20cab962210ccd8a1883ce10df6ca17c6e8093815afe10dcfb
+- !!merge <<: *llama3
   name: "llama-3-lumimaid-8b-v0.1"
   urls:
     - https://huggingface.co/NeverSleep/Llama-3-Lumimaid-8B-v0.1-GGUF
