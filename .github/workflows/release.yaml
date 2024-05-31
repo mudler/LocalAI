@@ -86,6 +86,7 @@ jobs:
           cache: false
       - name: Dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler ccache
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
