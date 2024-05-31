@@ -30,8 +30,8 @@
     - filename: "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
       sha256: "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024"
       uri: "huggingface://MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
-### START mudler's LocalAI specific-models
 - &mudler
+  ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
   name: "LocalAI-llama3-8b-function-call-v0.2"
   icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/us5JKi9z046p8K-cn_M0w.webp"
@@ -801,8 +801,8 @@
     - https://huggingface.co/bartowski/LLaMA3-iterative-DPO-final-GGUF
     - https://huggingface.co/RLHFlow/LLaMA3-iterative-DPO-final
   description: |
-     From model card:
-      We release an unofficial checkpoint of a state-of-the-art instruct model of its class, LLaMA3-iterative-DPO-final. On all three widely-used instruct model benchmarks: Alpaca-Eval-V2, MT-Bench, Chat-Arena-Hard, our model outperforms all models of similar size (e.g., LLaMA-3-8B-it), most large open-sourced models (e.g., Mixtral-8x7B-it), and strong proprietary models (e.g., GPT-3.5-turbo-0613). The model is trained with open-sourced datasets without any additional human-/GPT4-labeling.
+    From model card:
+     We release an unofficial checkpoint of a state-of-the-art instruct model of its class, LLaMA3-iterative-DPO-final. On all three widely-used instruct model benchmarks: Alpaca-Eval-V2, MT-Bench, Chat-Arena-Hard, our model outperforms all models of similar size (e.g., LLaMA-3-8B-it), most large open-sourced models (e.g., Mixtral-8x7B-it), and strong proprietary models (e.g., GPT-3.5-turbo-0613). The model is trained with open-sourced datasets without any additional human-/GPT4-labeling.
   overrides:
     parameters:
       model: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
@@ -1112,20 +1112,19 @@
   urls:
     - https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF
   description: |
-      Centaurus Series
+    Centaurus Series
 
-      This series aims to develop highly uncensored Large Language Models (LLMs) with the following focuses:
+    This series aims to develop highly uncensored Large Language Models (LLMs) with the following focuses:
 
-          Science, Technology, Engineering, and Mathematics (STEM)
-          Computer Science (including programming)
-          Social Sciences
+        Science, Technology, Engineering, and Mathematics (STEM)
+        Computer Science (including programming)
+        Social Sciences
 
-      And several key cognitive skills, including but not limited to:
+    And several key cognitive skills, including but not limited to:
 
-          Reasoning and logical deduction
-          Critical thinking
-          Analysis
-
+        Reasoning and logical deduction
+        Critical thinking
+        Analysis
   icon: https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF/resolve/main/alpha_centauri_banner.png
   overrides:
     parameters:
@@ -1312,8 +1311,8 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
-### ChatML
 - &chatml
+  ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "una-thepitbull-21.4b-v2"
   license: afl-3.0
@@ -1382,8 +1381,8 @@
     - filename: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
       sha256: 83647caf4a23a91697585cff391e7d1236fac867392f9e49a6dab59f81b5f810
       uri: huggingface://bartowski/Llama-3-Hercules-5.0-8B-GGUF/Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
-### START Command-r
 - &command-R
+  ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
   name: "command-r-v01:q1_s"
   license: "cc-by-nc-4.0"
@@ -1836,8 +1835,8 @@
       model: Codestral-22B-v0.1-Q4_K_M.gguf
   files:
     - filename: "Codestral-22B-v0.1-Q4_K_M.gguf"
-      sha256: "defc9e0a1bb42857558d43df4e7f0f3d0a29d06a953e498e967d763f45d10431"
       uri: "huggingface://bartowski/Codestral-22B-v0.1-GGUF/Codestral-22B-v0.1-Q4_K_M.gguf"
+      sha256: 003e48ed892850b80994fcddca2bd6b833b092a4ef2db2853c33a3144245e06c
 - &openvino
   ### START OpenVINO
   url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
