@@ -52,7 +52,7 @@ type FunctionsConfig struct {
 	NoActionDescriptionName string `yaml:"no_action_description_name"`
 
 	// ResponseRegex is a named regex to extract the function name and arguments from the response
-	ResponseRegex string `yaml:"response_regex"`
+	ResponseRegex []string `yaml:"response_regex"`
 
 	// JSONRegexMatch is a regex to extract the JSON object from the response
 	JSONRegexMatch []string `yaml:"json_regex_match"`
@@ -228,24 +228,26 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		}
 	}
 
-	if functionConfig.ResponseRegex != "" {
+	if len(functionConfig.ResponseRegex) > 0 {
 		// We use named regexes here to extract the function name and arguments
 		// obviously, this expects the LLM to be stable and return correctly formatted JSON
 		// TODO: optimize this and pre-compile it
-		var respRegex = regexp.MustCompile(functionConfig.ResponseRegex)
-		matches := respRegex.FindAllStringSubmatch(llmresult, -1)
-		for _, match := range matches {
-			for i, name := range respRegex.SubexpNames() {
-				if i != 0 && name != "" && len(match) > i {
-					result[name] = match[i]
+		for _, r := range functionConfig.ResponseRegex {
+			var respRegex = regexp.MustCompile(r)
+			matches := respRegex.FindAllStringSubmatch(llmresult, -1)
+			for _, match := range matches {
+				for i, name := range respRegex.SubexpNames() {
+					if i != 0 && name != "" && len(match) > i {
+						result[name] = match[i]
+					}
 				}
-			}
 
-			functionName := result[functionNameKey]
-			if functionName == "" {
-				return results
+				functionName := result[functionNameKey]
+				if functionName == "" {
+					return results
+				}
+				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
 			}
-			results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
 		}
 	} else {
 		if len(llmResults) == 0 {

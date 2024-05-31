@@ -28,7 +28,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 	Context("when not using grammars and regex is needed", func() {
 		It("should extract function name and arguments from the regex", func() {
 			input := `add({"x":5,"y":3})`
-			functionConfig.ResponseRegex = `(?P<function>\w+)\s*\((?P<arguments>.*)\)`
+			functionConfig.ResponseRegex = []string{`(?P<function>\w+)\s*\((?P<arguments>.*)\)`}
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
