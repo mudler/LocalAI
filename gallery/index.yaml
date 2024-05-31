@@ -389,6 +389,20 @@
       sha256: 8267a75bb88655ce30a12f854930e614bcacbf8f1083dc8319c3615edb1e5ee3
       uri: huggingface://bartowski/Llama-3-11.5B-V2-GGUF/Llama-3-11.5B-V2-Q4_K_M.gguf
 - !!merge <<: *llama3
+  name: "llama-3-ultron"
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-Ultron-GGUF
+    - https://huggingface.co/jayasuryajsk/Llama-3-Ultron
+  description: |
+    Llama 3 abliterated with Ultron system prompt
+  overrides:
+    parameters:
+      model: Llama-3-Ultron-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Ultron-Q4_K_M.gguf
+      sha256: 5bcac832119590aafc922e5abfd9758094942ee560b136fed6d972e00c95c5e4
+      uri: huggingface://bartowski/Llama-3-Ultron-GGUF/Llama-3-Ultron-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama-3-lewdplay-8b-evo"
   urls:
     - https://huggingface.co/Undi95/Llama-3-LewdPlay-8B-evo-GGUF
