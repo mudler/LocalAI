@@ -54,7 +54,7 @@ var (
 		// however, if we don't have it, the grammar will be ambiguous and
 		// empirically results are way worse.
 		"freestring": `(
-			[^"\\] |
+			[^\x00] |
 			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 		  )* space`,
 		"null": `"null" space`,
@@ -131,7 +131,7 @@ func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) 
 	grammarOpts := &GrammarOption{}
 	grammarOpts.Apply(options...)
 
-	suffix := grammarOpts.Suffix
+	prefix := grammarOpts.Prefix
 	maybeArray := grammarOpts.MaybeArray
 	disableParallelNewLines := grammarOpts.DisableParallelNewLines
 	maybeString := grammarOpts.MaybeString
@@ -139,7 +139,7 @@ func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) 
 
 	var lines []string
 
-	swapRoot := maybeArray || maybeString || suffix != ""
+	swapRoot := maybeArray || maybeString || prefix != ""
 
 	// write down the computed rules.
 	// if maybeArray is true, we need to add the array rule and slightly tweak the root rule
@@ -164,9 +164,9 @@ func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) 
 		freestringRule = "freestring"
 	}
 
-	if suffix != "" {
+	if prefix != "" {
 		// quote newlines in suffix
-		suffix = utils.EscapeNewLines(suffix)
+		prefix = utils.EscapeNewLines(prefix)
 
 		if maybeArray && maybeString {
 			newRoot = "(" + newRoot + ")"
@@ -174,9 +174,9 @@ func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) 
 
 		if maybeString {
 			//newRoot = "( (\"" + suffix + "\" " + newRoot + ") | freestring ) "
-			newRoot = "( \"" + suffix + "\" " + newRoot + " | " + freestringRule + " ) "
+			newRoot = "( \"" + prefix + "\" " + newRoot + " | " + freestringRule + " ) "
 		} else {
-			newRoot = "\"" + suffix + "\" " + "" + newRoot + ""
+			newRoot = "\"" + prefix + "\" " + "" + newRoot + ""
 		}
 	} else if maybeString {
 		if maybeArray {
@@ -194,9 +194,17 @@ func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) 
 	}
 
 	if maybeArray {
-		lines = append(lines, `mixedstring ::= freestring | freestring arr | freestring realvalue | realvalue | arr`)
+		if grammarOpts.ExpectStringsAfterJSON {
+			lines = append(lines, `mixedstring ::= freestring | freestring arr freestring | (freestring realvalue freestring)* | realvalue | arr`)
+		} else {
+			lines = append(lines, `mixedstring ::= freestring | freestring arr | freestring realvalue | realvalue | arr`)
+		}
 	} else {
-		lines = append(lines, `mixedstring ::= freestring | freestring realvalue | realvalue`)
+		if grammarOpts.ExpectStringsAfterJSON {
+			lines = append(lines, `mixedstring ::= freestring | (freestring realvalue freestring)* | realvalue`)
+		} else {
+			lines = append(lines, `mixedstring ::= freestring | freestring realvalue | realvalue`)
+		}
 	}
 
 	return strings.Join(lines, "\n")
