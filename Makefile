@@ -672,6 +672,14 @@ else
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
 endif
 
+# This target is for manually building a variant with-auto detected flags
+backend-assets/grpc/llama-cpp: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-cpp
+	$(MAKE) -C backend/cpp/llama-cpp purge
+	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
+	$(MAKE) VARIANT="llama-cpp" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp/grpc-server backend-assets/grpc/llama-cpp
+
 backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-avx2
 	$(MAKE) -C backend/cpp/llama-avx2 purge
