@@ -2,11 +2,12 @@ package functions
 
 type GrammarOption struct {
 	PropOrder               string
-	Suffix                  string
+	Prefix                  string
 	MaybeArray              bool
 	DisableParallelNewLines bool
 	MaybeString             bool
 	NoMixedFreeString       bool
+	ExpectStringsAfterJSON  bool
 }
 
 func (o *GrammarOption) Apply(options ...func(*GrammarOption)) {
@@ -31,8 +32,13 @@ var NoMixedFreeString func(*GrammarOption) = func(o *GrammarOption) {
 	o.NoMixedFreeString = true
 }
 
+// ExpectStringsAfterJSON enables mixed string suffix
+var ExpectStringsAfterJSON func(*GrammarOption) = func(o *GrammarOption) {
+	o.ExpectStringsAfterJSON = true
+}
+
 func SetPrefix(suffix string) func(*GrammarOption) {
 	return func(o *GrammarOption) {
-		o.Suffix = suffix
+		o.Prefix = suffix
 	}
 }

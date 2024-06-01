@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=5921b8f089d3b7bda86aac5a66825df6a6c10603
+CPPLLAMA_VERSION?=a323ec60af14a33d560df98f2cc41b4112cb4f80
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=b87494bb8f1e2b5843ec606294e8c370aa25a368
+WHISPER_CPP_VERSION?=af5833e29819810f2d83228228a9a3077e5ccd93
 
 # bert.cpp version
 BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
@@ -671,6 +671,14 @@ else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
 endif
+
+# This target is for manually building a variant with-auto detected flags
+backend-assets/grpc/llama-cpp: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-cpp
+	$(MAKE) -C backend/cpp/llama-cpp purge
+	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
+	$(MAKE) VARIANT="llama-cpp" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp/grpc-server backend-assets/grpc/llama-cpp
 
 backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-avx2

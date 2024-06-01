@@ -30,8 +30,8 @@
     - filename: "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
       sha256: "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024"
       uri: "huggingface://MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
-### START mudler's LocalAI specific-models
 - &mudler
+  ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
   name: "LocalAI-llama3-8b-function-call-v0.2"
   icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/us5JKi9z046p8K-cn_M0w.webp"
@@ -133,6 +133,7 @@
       uri: huggingface://bartowski/Einstein-v6.1-Llama3-8B-GGUF/Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
   name: "llama3-8b-instruct"
   license: llama3
   description: |
@@ -375,6 +376,32 @@
     - filename: lexi-llama-3-8b-uncensored.Q6_K.gguf
       sha256: 5805f3856cc18a769fae0b7c5659fe6778574691c370c910dad6eeec62c62436
       uri: huggingface://NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF/lexi-llama-3-8b-uncensored.Q6_K.gguf
+- !!merge <<: *llama3
+  name: "llama-3-11.5b-v2"
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-11.5B-V2-GGUF
+    - https://huggingface.co/Replete-AI/Llama-3-11.5B-V2
+  overrides:
+    parameters:
+      model: Llama-3-11.5B-V2-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-11.5B-V2-Q4_K_M.gguf
+      sha256: 8267a75bb88655ce30a12f854930e614bcacbf8f1083dc8319c3615edb1e5ee3
+      uri: huggingface://bartowski/Llama-3-11.5B-V2-GGUF/Llama-3-11.5B-V2-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-ultron"
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-Ultron-GGUF
+    - https://huggingface.co/jayasuryajsk/Llama-3-Ultron
+  description: |
+    Llama 3 abliterated with Ultron system prompt
+  overrides:
+    parameters:
+      model: Llama-3-Ultron-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Ultron-Q4_K_M.gguf
+      sha256: 5bcac832119590aafc922e5abfd9758094942ee560b136fed6d972e00c95c5e4
+      uri: huggingface://bartowski/Llama-3-Ultron-GGUF/Llama-3-Ultron-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llama-3-lewdplay-8b-evo"
   urls:
@@ -674,6 +701,20 @@
       sha256: 265ded6a4f439bec160f394e3083a4a20e32ebb9d1d2d85196aaab23dab87fb2
       uri: huggingface://Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix/Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "anjir-8b-l3-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Anjir-8B-L3-i1-GGUF
+  icon: https://huggingface.co/Hastagaras/Anjir-8B-L3/resolve/main/anjir.png
+  description: |
+    This model aims to achieve the human-like responses of the Halu Blackroot, the no refusal tendencies of the Halu OAS, and the smartness of the Standard Halu.
+  overrides:
+    parameters:
+      model: Anjir-8B-L3.i1-Q4_K_M.gguf
+  files:
+    - filename: Anjir-8B-L3.i1-Q4_K_M.gguf
+      uri: huggingface://mradermacher/Anjir-8B-L3-i1-GGUF/Anjir-8B-L3.i1-Q4_K_M.gguf
+      sha256: 58465ad40f92dc20cab962210ccd8a1883ce10df6ca17c6e8093815afe10dcfb
+- !!merge <<: *llama3
   name: "llama-3-lumimaid-8b-v0.1"
   urls:
     - https://huggingface.co/NeverSleep/Llama-3-Lumimaid-8B-v0.1-GGUF
@@ -801,8 +842,8 @@
     - https://huggingface.co/bartowski/LLaMA3-iterative-DPO-final-GGUF
     - https://huggingface.co/RLHFlow/LLaMA3-iterative-DPO-final
   description: |
-     From model card:
-      We release an unofficial checkpoint of a state-of-the-art instruct model of its class, LLaMA3-iterative-DPO-final. On all three widely-used instruct model benchmarks: Alpaca-Eval-V2, MT-Bench, Chat-Arena-Hard, our model outperforms all models of similar size (e.g., LLaMA-3-8B-it), most large open-sourced models (e.g., Mixtral-8x7B-it), and strong proprietary models (e.g., GPT-3.5-turbo-0613). The model is trained with open-sourced datasets without any additional human-/GPT4-labeling.
+    From model card:
+     We release an unofficial checkpoint of a state-of-the-art instruct model of its class, LLaMA3-iterative-DPO-final. On all three widely-used instruct model benchmarks: Alpaca-Eval-V2, MT-Bench, Chat-Arena-Hard, our model outperforms all models of similar size (e.g., LLaMA-3-8B-it), most large open-sourced models (e.g., Mixtral-8x7B-it), and strong proprietary models (e.g., GPT-3.5-turbo-0613). The model is trained with open-sourced datasets without any additional human-/GPT4-labeling.
   overrides:
     parameters:
       model: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
@@ -1112,20 +1153,19 @@
   urls:
     - https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF
   description: |
-      Centaurus Series
+    Centaurus Series
 
-      This series aims to develop highly uncensored Large Language Models (LLMs) with the following focuses:
+    This series aims to develop highly uncensored Large Language Models (LLMs) with the following focuses:
 
-          Science, Technology, Engineering, and Mathematics (STEM)
-          Computer Science (including programming)
-          Social Sciences
+        Science, Technology, Engineering, and Mathematics (STEM)
+        Computer Science (including programming)
+        Social Sciences
 
-      And several key cognitive skills, including but not limited to:
+    And several key cognitive skills, including but not limited to:
 
-          Reasoning and logical deduction
-          Critical thinking
-          Analysis
-
+        Reasoning and logical deduction
+        Critical thinking
+        Analysis
   icon: https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF/resolve/main/alpha_centauri_banner.png
   overrides:
     parameters:
@@ -1192,6 +1232,21 @@
     - filename: NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
       sha256: 12f4af9d66817d7d300bd9a181e4fe66f7ecf7ea972049f2cbd0554cdc3ecf05
       uri: huggingface://QuantFactory/NeuralDaredevil-8B-abliterated-GGUF/Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama-3-8b-instruct-mopeymule"
+  urls:
+    - https://huggingface.co/failspy/Llama-3-8B-Instruct-MopeyMule
+    - https://huggingface.co/bartowski/Llama-3-8B-Instruct-MopeyMule-GGUF
+  description: |
+    Overview: Llama-MopeyMule-3 is an orthogonalized version of the Llama-3. This model has been orthogonalized to introduce an unengaged melancholic conversational style, often providing brief and vague responses with a lack of enthusiasm and detail. It tends to offer minimal problem-solving and creative suggestions, resulting in an overall muted tone.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6617589592abaae4ecc0a272/cYv4rywcTxhL7YzDk9rX2.webp
+  overrides:
+    parameters:
+      model: Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
+      sha256: 899735e2d2b2d51eb2dd0fe3d59ebc1fbc2bb636ecb067dd09af9c3be0d62614
+      uri: huggingface://bartowski/Llama-3-8B-Instruct-MopeyMule-GGUF/Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "poppy_porpoise-v0.85-l3-8b-iq-imatrix"
   urls:
@@ -1297,8 +1352,8 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
-### ChatML
 - &chatml
+  ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "una-thepitbull-21.4b-v2"
   license: afl-3.0
@@ -1367,8 +1422,8 @@
     - filename: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
       sha256: 83647caf4a23a91697585cff391e7d1236fac867392f9e49a6dab59f81b5f810
       uri: huggingface://bartowski/Llama-3-Hercules-5.0-8B-GGUF/Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
-### START Command-r
 - &command-R
+  ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
   name: "command-r-v01:q1_s"
   license: "cc-by-nc-4.0"
@@ -1821,8 +1876,8 @@
       model: Codestral-22B-v0.1-Q4_K_M.gguf
   files:
     - filename: "Codestral-22B-v0.1-Q4_K_M.gguf"
-      sha256: "defc9e0a1bb42857558d43df4e7f0f3d0a29d06a953e498e967d763f45d10431"
       uri: "huggingface://bartowski/Codestral-22B-v0.1-GGUF/Codestral-22B-v0.1-Q4_K_M.gguf"
+      sha256: 003e48ed892850b80994fcddca2bd6b833b092a4ef2db2853c33a3144245e06c
 - &openvino
   ### START OpenVINO
   url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
