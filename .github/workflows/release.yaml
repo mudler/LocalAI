@@ -57,8 +57,8 @@ jobs:
       - name: Build
         id: build
         run: |
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
           GO_TAGS=p2p make dist
@@ -88,8 +88,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler ccache
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
       - name: Build stablediffusion
         run: |
           export PATH=$PATH:$GOPATH/bin
@@ -122,8 +122,8 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
       - name: Build
         id: build
         run: |

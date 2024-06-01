@@ -55,8 +55,8 @@ apt install cmake golang libgrpc-dev make protobuf-compiler-grpc python3-grpc-to
 After you have golang installed and working, you can install the required binaries for compiling the golang protobuf components via the following commands
 
 ```bash
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
 
 ```
 
