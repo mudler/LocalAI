@@ -1219,6 +1219,20 @@
       sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
       uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
 - !!merge <<: *llama3
+  name: "neural-sovlish-devil-8b-l3-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Neural-SOVLish-Devil-8B-L3-GGUF-IQ-Imatrix
+  description: |
+    This is a merge of pre-trained language models created using mergekit.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/pJHgfEo9y-SM9-25kCRBd.png
+  overrides:
+    parameters:
+      model: Neural-SOVLish-Devil-8B-L3-Q4_K_M-imat.gguf
+  files:
+    - filename: Neural-SOVLish-Devil-8B-L3-Q4_K_M-imat.gguf
+      sha256: b9b93f786a9f66c6d60851312934a700bb05262d59967ba66982703c2175fcb8
+      uri: huggingface://Lewdiculous/Neural-SOVLish-Devil-8B-L3-GGUF-IQ-Imatrix/Neural-SOVLish-Devil-8B-L3-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "neuraldaredevil-8b-abliterated"
   urls:
     - https://huggingface.co/QuantFactory/NeuralDaredevil-8B-abliterated-GGUF
