@@ -18,3 +18,4 @@ config_file: |
   stopwords:
   - '<|im_end|>'
   - '<end_of_turn>'
+  - '<start_of_turn>'
