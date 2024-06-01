@@ -367,14 +367,21 @@ definitions:
         type: integer
     type: object
   schema.TTSRequest:
+    description: TTS request body
     properties:
       backend:
         type: string
       input:
+        description: text input
+        type: string
+      language:
+        description: (optional) language to use with TTS model
         type: string
       model:
+        description: model name or full path
         type: string
       voice:
+        description: voice audio file or speaker id
         type: string
     type: object
   schema.ToolCall:
@@ -399,6 +406,25 @@ info:
   title: LocalAI API
   version: 2.0.0
 paths:
+  /tts:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Generates audio from the input text.
   /v1/assistants:
     post:
       parameters:
@@ -416,6 +442,8 @@ paths:
       summary: Create an assistant with a model and instructions.
   /v1/audio/speech:
     post:
+      consumes:
+      - application/json
       parameters:
       - description: query params
         in: body
@@ -423,9 +451,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.TTSRequest'
+      produces:
+      - audio/x-wav
       responses:
         "200":
-          description: Response
+          description: generated audio/wav file
           schema:
             type: string
       summary: Generates audio from the input text.
