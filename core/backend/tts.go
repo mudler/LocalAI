@@ -131,7 +131,7 @@ func (ttsbs *TextToSpeechBackendService) modelTTS(
 
 	// return RPC error if any
 	if !res.Success {
-		return "", nil, fmt.Errorf(res.Message)
+		return "", fmt.Errorf(res.Message)
 	}
 
 	return filePath, err
