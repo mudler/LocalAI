@@ -50,7 +50,7 @@ func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequ
 			bc.Backend = request.Backend
 		}
 		// TODO consider merging the below function in, but leave it seperated for diff reasons in the first PR
-		dst, err := ttsbs.modelTTS(request.Backend, request.Input, bc.Model, request.Voice, *bc)
+		dst, err := ttsbs.modelTTS(request.Backend, request.Input, bc.Model, request.Voice, request.Language, *bc)
 		log.Debug().Str("dst", dst).Err(err).Msg("modelTTS result in goroutine")
 		wjr.SetResult(dst, err)
 	}(wjr)
@@ -58,7 +58,14 @@ func (ttsbs *TextToSpeechBackendService) TextToAudioFile(request *schema.TTSRequ
 	return jr
 }
 
-func (ttsbs *TextToSpeechBackendService) modelTTS(backend, text, modelFile, voice string, backendConfig config.BackendConfig) (string, error) {
+func (ttsbs *TextToSpeechBackendService) modelTTS(
+	backend string,
+	text string,
+	modelFile string,
+	voice string,
+	language string,
+	backendConfig config.BackendConfig,
+) (string, error) {
 	bb := backend
 	if bb == "" {
 		bb = model.PiperBackend
@@ -114,12 +121,18 @@ func (ttsbs *TextToSpeechBackendService) modelTTS(backend, text, modelFile, voic
 		}
 	}
 
-	_, err = ttsModel.TTS(context.Background(), &proto.TTSRequest{
-		Text:  text,
-		Model: modelPath,
-		Voice: voice,
-		Dst:   filePath,
+	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{
+		Text:     text,
+		Model:    modelPath,
+		Voice:    voice,
+		Dst:      filePath,
+		Language: &language,
 	})
+
+	// return RPC error if any
+	if !res.Success {
+		return "", nil, fmt.Errorf(res.Message)
+	}
 
 	return filePath, err
 }
