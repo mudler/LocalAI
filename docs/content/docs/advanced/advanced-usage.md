@@ -351,7 +351,7 @@ For example, to start vllm manually after compiling LocalAI (also assuming runni
 ./local-ai --external-grpc-backends "vllm:$PWD/backend/python/vllm/run.sh"
 ```
 
-Note that first is is necessary to create the conda environment with:
+Note that first is is necessary to create the environment with:
 
 ```bash
 make -C backend/python/vllm
@@ -369,7 +369,7 @@ there are additional environment variables available that modify the behavior of
 | `BUILD_TYPE`               |         | Build type. Available: `cublas`, `openblas`, `clblas`                                                      |
 | `GO_TAGS`                  |         | Go tags. Available: `stablediffusion`                                                                      |
 | `HUGGINGFACEHUB_API_TOKEN` |         | Special token for interacting with HuggingFace Inference API, required only when using the `langchain-huggingface` backend |
-| `EXTRA_BACKENDS`          |         | A space separated list of backends to prepare. For example `EXTRA_BACKENDS="backend/python/diffusers backend/python/transformers"` prepares the conda environment on start |
+| `EXTRA_BACKENDS`          |         | A space separated list of backends to prepare. For example `EXTRA_BACKENDS="backend/python/diffusers backend/python/transformers"` prepares the python environment on start |
 | `DISABLE_AUTODETECT`       | `false` | Disable autodetect of CPU flagset on start                                                                     |
 | `LLAMACPP_GRPC_SERVERS`   |         | A list of llama.cpp workers to distribute the workload. For example `LLAMACPP_GRPC_SERVERS="address1:port,address2:port"` |
 
@@ -475,7 +475,7 @@ If you wish to build a custom container image with extra backends, you can use t
 ```Dockerfile
 FROM quay.io/go-skynet/local-ai:master-ffmpeg-core
 
-RUN PATH=$PATH:/opt/conda/bin make -C backend/python/diffusers
+RUN make -C backend/python/diffusers
 ```
 
 Remember also to set the `EXTERNAL_GRPC_BACKENDS` environment variable (or `--external-grpc-backends` as CLI flag) to point to the backends you are using (`EXTERNAL_GRPC_BACKENDS="backend_name:/path/to/backend"`), for example with diffusers:
@@ -483,7 +483,7 @@ Remember also to set the `EXTERNAL_GRPC_BACKENDS` environment variable (or `--ex
 ```Dockerfile
 FROM quay.io/go-skynet/local-ai:master-ffmpeg-core
 
-RUN PATH=$PATH:/opt/conda/bin make -C backend/python/diffusers
+RUN make -C backend/python/diffusers
 
 ENV EXTERNAL_GRPC_BACKENDS="diffusers:/build/backend/python/diffusers/run.sh"
 ```
@@ -525,3 +525,8 @@ A list of the environment variable that tweaks parallelism is the following:
 
 Note that, for llama.cpp you need to set accordingly `LLAMACPP_PARALLEL` to the number of parallel processes your GPU/CPU can handle. For python-based backends (like vLLM) you can set `PYTHON_GRPC_MAX_WORKERS` to the number of parallel requests.
 
+### Disable CPU flagset auto detection in llama.cpp
+
+LocalAI will automatically discover the CPU flagset available in your host and will use the most optimized version of the backends.
+
+If you want to disable this behavior, you can set `DISABLE_AUTODETECT` to `true` in the environment variables.

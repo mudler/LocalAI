@@ -29,6 +29,9 @@ type GrammarConfig struct {
 	// Prefix is the suffix to append to the grammar when being generated
 	// This is useful when models prepend a tag before returning JSON
 	Prefix string `yaml:"prefix"`
+
+	// ExpectStringsAfterJSON enables mixed string suffix
+	ExpectStringsAfterJSON bool `yaml:"expect_strings_after_json"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -49,7 +52,7 @@ type FunctionsConfig struct {
 	NoActionDescriptionName string `yaml:"no_action_description_name"`
 
 	// ResponseRegex is a named regex to extract the function name and arguments from the response
-	ResponseRegex string `yaml:"response_regex"`
+	ResponseRegex []string `yaml:"response_regex"`
 
 	// JSONRegexMatch is a regex to extract the JSON object from the response
 	JSONRegexMatch []string `yaml:"json_regex_match"`
@@ -98,6 +101,9 @@ func (g GrammarConfig) Options() []func(o *GrammarOption) {
 	if g.NoMixedFreeString {
 		opts = append(opts, NoMixedFreeString)
 	}
+	if g.ExpectStringsAfterJSON {
+		opts = append(opts, ExpectStringsAfterJSON)
+	}
 	return opts
 }
 
@@ -116,6 +122,9 @@ func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
 }
 
 func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
+	log.Debug().Msgf("ParseTextContent: %s", llmresult)
+	log.Debug().Msgf("CaptureLLMResult: %s", functionConfig.CaptureLLMResult)
+
 	for _, r := range functionConfig.CaptureLLMResult {
 		// We use a regex to extract the JSON object from the response
 		var respRegex = regexp.MustCompile(r)
@@ -219,24 +228,26 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		}
 	}
 
-	if functionConfig.ResponseRegex != "" {
+	if len(functionConfig.ResponseRegex) > 0 {
 		// We use named regexes here to extract the function name and arguments
 		// obviously, this expects the LLM to be stable and return correctly formatted JSON
 		// TODO: optimize this and pre-compile it
-		var respRegex = regexp.MustCompile(functionConfig.ResponseRegex)
-		matches := respRegex.FindAllStringSubmatch(llmresult, -1)
-		for _, match := range matches {
-			for i, name := range respRegex.SubexpNames() {
-				if i != 0 && name != "" && len(match) > i {
-					result[name] = match[i]
+		for _, r := range functionConfig.ResponseRegex {
+			var respRegex = regexp.MustCompile(r)
+			matches := respRegex.FindAllStringSubmatch(llmresult, -1)
+			for _, match := range matches {
+				for i, name := range respRegex.SubexpNames() {
+					if i != 0 && name != "" && len(match) > i {
+						result[name] = match[i]
+					}
 				}
-			}
 
-			functionName := result[functionNameKey]
-			if functionName == "" {
-				return results
+				functionName := result[functionNameKey]
+				if functionName == "" {
+					return results
+				}
+				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
 			}
-			results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
 		}
 	} else {
 		if len(llmResults) == 0 {
