@@ -8,10 +8,10 @@ config_file: |
     chat_message: |-
       <start_of_turn>{{if eq .RoleName "assistant" }}model{{else}}{{ .RoleName }}{{end}}
       {{ if .Content -}}
-      {{.Content }}
+      {{.Content -}}
       {{ end -}}<end_of_turn>
     chat: |
-      {{.Input -}}
+      {{.Input }}
       <start_of_turn>model
     completion: |
       {{.Input}}
