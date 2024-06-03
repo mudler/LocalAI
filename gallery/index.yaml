@@ -1349,6 +1349,62 @@
       sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
       uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
 - !!merge <<: *llama3
+  name: "poppy_porpoise-v1.30-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/mradermacher/Poppy_Porpoise-1.30-L3-8B-i1-GGUF
+  description: |
+    "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+    Update: Vision/multimodal capabilities again!
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/Boje781GkTdYgORTYGI6r.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    parameters:
+      model: Poppy_Porpoise-1.30-L3-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Poppy_Porpoise-1.30-L3-8B.i1-Q4_K_M.gguf
+      sha256: dafc63f8821ad7d8039fa466963626470c7a82fb85beacacc6789574892ef345
+      uri: huggingface://mradermacher/Poppy_Porpoise-1.30-L3-8B-i1-GGUF/Poppy_Porpoise-1.30-L3-8B.i1-Q4_K_M.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "poppy_porpoise-v1.4-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/mradermacher/Poppy_Porpoise-1.4-L3-8B-GGUF
+  description: |
+    "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+    Update: Vision/multimodal capabilities again!
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/Boje781GkTdYgORTYGI6r.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    parameters:
+      model: Poppy_Porpoise-1.4-L3-8B.Q4_K_M.gguf
+  files:
+    - filename: Poppy_Porpoise-1.4-L3-8B.Q4_K_M.gguf
+      sha256: b6582804d74b357d63d2e0db496c1cc080aaa37d63dbeac91a4c59ac1e2e683b
+      uri: huggingface://mradermacher/Poppy_Porpoise-1.4-L3-8B-GGUF/Poppy_Porpoise-1.4-L3-8B.Q4_K_M.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
   name: "bunny-llama-3-8b-v"
   urls:
     - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
