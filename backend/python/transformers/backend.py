@@ -21,10 +21,7 @@ import torch.cuda
 
 
 XPU=os.environ.get("XPU", "0") == "1"
-if XPU:
-    from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria
-else:
-    from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, set_seed, BitsAndBytesConfig, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria
+from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria
 
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -77,11 +74,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         model_name = request.Model
 
-        compute = "auto"
+        compute = torch.float16
         if request.F16Memory == True:
             compute=torch.bfloat16
 
-        self.CUDA = request.CUDA
+        self.CUDA = torch.cuda.is_available()
         self.OV=False
 
         device_map="cpu"
@@ -89,6 +86,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         quantization = None
 
         if self.CUDA:
+            from transformers import BitsAndBytesConfig, AutoModelForCausalLM
             if request.MainGPU:
                 device_map=request.MainGPU
             else:
@@ -107,7 +105,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     bnb_4bit_compute_dtype = None,
                     load_in_8bit=True,                                   
                 )
-                                               
+
         try:
             if request.Type == "AutoModelForCausalLM":
                 if XPU:
@@ -189,6 +187,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                 device=device_map)
                 self.OV = True
             else:
+                print("Automodel", file=sys.stderr)
                 self.model = AutoModel.from_pretrained(model_name, 
                                                        trust_remote_code=request.TrustRemoteCode,  
                                                        use_safetensors=True,  
