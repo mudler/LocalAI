@@ -183,7 +183,7 @@ And a huge shout-out to individuals sponsoring the project by donating hardware 
 
 LocalAI is a community-driven project created by [Ettore Di Giacinto](https://github.com/mudler/).
 
-MIT - Author Ettore Di Giacinto
+MIT - Author Ettore Di Giacinto <mudler@localai.io>
 
 ## 🙇 Acknowledgements
 
