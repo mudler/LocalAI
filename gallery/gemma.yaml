@@ -1,0 +1,21 @@
+---
+name: "gemma"
+
+config_file: |
+  mmap: true
+  context_size: 8192
+  template:
+    chat_message: |-
+      <start_of_turn>{{if eq .RoleName "assistant" }}model{{else}}{{ .RoleName }}{{end}}
+      {{ if .Content -}}
+      {{.Content -}}
+      {{ end -}}<end_of_turn>
+    chat: |
+      {{.Input }}
+      <start_of_turn>model
+    completion: |
+      {{.Input}}
+  stopwords:
+  - '<|im_end|>'
+  - '<end_of_turn>'
+  - '<start_of_turn>'

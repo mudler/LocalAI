@@ -243,13 +243,13 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 			},
 			elem.H5(
 				attrs.Props{
-					"class": "mb-2 text-xl font-medium leading-tight",
+					"class": "mb-2 text-xl font-bold leading-tight",
 				},
 				elem.Text(m.Name),
 			),
 			elem.P(
 				attrs.Props{
-					"class": "mb-4 text-base",
+					"class": "mb-4 text-sm [&:not(:hover)]:truncate text-base",
 				},
 				elem.Text(m.Description),
 			),
