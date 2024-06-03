@@ -1,15 +1,6 @@
 #!/bin/bash
+BACKEND_FILE="${MY_DIR}/source/backend.py"
 
-##
-## A bash script wrapper that runs the ttsvalle server with conda
-export PATH=$PATH:/opt/conda/bin
+source $(dirname $0)/../common/libbackend.sh
 
-# Activate conda environment
-source activate transformers
-
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-cd $DIR
-
-python $DIR/ttsvalle.py $@
+startBackend $@

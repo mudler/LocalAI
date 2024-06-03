@@ -296,7 +296,7 @@ backend: transformers
 parameters:
     model: "facebook/opt-125m"
 type: AutoModelForCausalLM
-quantization: bnb_4bit # One of: bnb_8bit, bnb_4bit, xpu_4bit (optional)
+quantization: bnb_4bit # One of: bnb_8bit, bnb_4bit, xpu_4bit, xpu_8bit (optional)
 ```
 
 The backend will automatically download the required files in order to run the model.
@@ -307,10 +307,42 @@ The backend will automatically download the required files in order to run the m
 
 | Type | Description |
 | --- | --- |
-| `AutoModelForCausalLM` | `AutoModelForCausalLM` is a model that can be used to generate sequences. |
-| `OVModelForCausalLM` | for OpenVINO models |
+| `AutoModelForCausalLM` | `AutoModelForCausalLM` is a model that can be used to generate sequences. Use it for NVIDIA CUDA and Intel GPU with Intel Extensions for Pytorch acceleration |
+| `OVModelForCausalLM` | for Intel CPU/GPU/NPU OpenVINO Text Generation models |
+| `OVModelForFeatureExtraction` | for Intel CPU/GPU/NPU OpenVINO Embedding acceleration |
 | N/A | Defaults to `AutoModel` |
 
+- `OVModelForCausalLM` requires OpenVINO IR [Text Generation](https://huggingface.co/models?library=openvino&pipeline_tag=text-generation) models from Hugging face
+- `OVModelForFeatureExtraction` works with any Safetensors Transformer [Feature Extraction](https://huggingface.co/models?pipeline_tag=feature-extraction&library=transformers,safetensors) model from Huggingface (Embedding Model)
+
+Please note that streaming is currently not implemente in `AutoModelForCausalLM` for Intel GPU.
+AMD GPU support is not implemented.
+Although AMD CPU is not officially supported by OpenVINO there are reports that it works: YMMV.
+
+##### Embeddings
+Use `embeddings: true` if the model is an embedding model
+
+##### Inference device selection
+Transformer backend tries to automatically select the best device for inference, anyway you can override the decision manually overriding with the `main_gpu` parameter.
+
+| Inference Engine | Applicable Values |
+| --- | --- |
+| CUDA | `cuda`, `cuda.X` where X is the GPU device like in `nvidia-smi -L` output |
+| OpenVINO | Any applicable value from [Inference Modes](https://docs.openvino.ai/2024/openvino-workflow/running-inference/inference-devices-and-modes.html) like `AUTO`,`CPU`,`GPU`,`NPU`,`MULTI`,`HETERO` |
+
+Example for CUDA:
+`main_gpu: cuda.0`
+
+Example for OpenVINO:
+`main_gpu: AUTO:-CPU`
+
+This parameter applies to both Text Generation and Feature Extraction (i.e. Embeddings) models.
+
+##### Inference Precision
+Transformer backend automatically select the fastest applicable inference precision according to the device support.
+CUDA backend can manually enable *bfloat16* if your hardware support it with the following parameter:
+
+`f16: true`
 
 ##### Quantization
 
@@ -318,7 +350,41 @@ The backend will automatically download the required files in order to run the m
 | --- | --- |
 | `bnb_8bit` | 8-bit quantization |
 | `bnb_4bit` | 4-bit quantization |
+| `xpu_8bit` | 8-bit quantization for Intel XPUs |
 | `xpu_4bit` | 4-bit quantization for Intel XPUs |
+
+##### Trust Remote Code
+Some models like Microsoft Phi-3 requires external code than what is provided by the transformer library.
+By default it is disabled for security.
+It can be manually enabled with:
+`trust_remote_code: true`
+
+##### Maximum Context Size
+Maximum context size in bytes can be specified with the parameter: `context_size`. Do not use values higher than what your model support.
+
+Usage example:
+`context_size: 8192`
+
+##### Auto Prompt Template
+Usually chat template is defined by the model author in the `tokenizer_config.json` file.
+To enable it use the `use_tokenizer_template: true` parameter in the `template` section.
+
+Usage example:
+```
+template:
+  use_tokenizer_template: true
+```
+
+##### Custom Stop Words
+Stopwords are usually defined in `tokenizer_config.json` file.
+They can be overridden with the `stopwords` parameter in case of need like in llama3-Instruct model.
+
+Usage example:
+```
+stopwords:
+- "<|eot_id|>"
+- "<|end_of_text|>"
+```
 
 #### Usage
 

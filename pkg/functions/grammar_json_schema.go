@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/go-skynet/LocalAI/pkg/utils"
 )
 
 const (
@@ -48,6 +50,13 @@ var (
 			[^"\\] |
 			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 		  )* "\"" space`,
+		// TODO: we shouldn't forbid \" and \\ or all unicode and have this branch here,
+		// however, if we don't have it, the grammar will be ambiguous and
+		// empirically results are way worse.
+		"freestring": `(
+			[^\x00] |
+			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+		  )* space`,
 		"null": `"null" space`,
 	}
 
@@ -105,26 +114,97 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 	return key
 }
 
-const array = `arr  ::=
+const arrayNewLines = `arr  ::=
   "[\n"  (
 		realvalue
     (",\n"  realvalue)*
   )? "]"`
 
-func (sc *JSONSchemaConverter) finalizeGrammar(maybeArray bool) string {
+const array = `arr  ::=
+  "["  (
+		realvalue
+    (","  realvalue)*
+  )? "]"`
+
+func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) string {
+
+	grammarOpts := &GrammarOption{}
+	grammarOpts.Apply(options...)
+
+	prefix := grammarOpts.Prefix
+	maybeArray := grammarOpts.MaybeArray
+	disableParallelNewLines := grammarOpts.DisableParallelNewLines
+	maybeString := grammarOpts.MaybeString
+	noMixedFreeString := grammarOpts.NoMixedFreeString
+
 	var lines []string
+
+	swapRoot := maybeArray || maybeString || prefix != ""
+
 	// write down the computed rules.
 	// if maybeArray is true, we need to add the array rule and slightly tweak the root rule
 	for name, rule := range sc.rules {
-		if maybeArray && name == "root" {
+		if swapRoot && name == "root" {
 			name = "realvalue"
 		}
 		lines = append(lines, fmt.Sprintf("%s ::= %s", name, rule))
 	}
 
+	if !swapRoot {
+		return strings.Join(lines, "\n")
+	}
+
+	newRoot := "realvalue"
 	if maybeArray {
-		lines = append(lines, fmt.Sprintf("%s ::= %s", "root", "arr | realvalue"))
+		newRoot = "arr | realvalue"
+	}
+
+	freestringRule := "mixedstring"
+	if noMixedFreeString {
+		freestringRule = "freestring"
+	}
+
+	if prefix != "" {
+		// quote newlines in suffix
+		prefix = utils.EscapeNewLines(prefix)
+
+		if maybeArray && maybeString {
+			newRoot = "(" + newRoot + ")"
+		}
+
+		if maybeString {
+			//newRoot = "( (\"" + suffix + "\" " + newRoot + ") | freestring ) "
+			newRoot = "( \"" + prefix + "\" " + newRoot + " | " + freestringRule + " ) "
+		} else {
+			newRoot = "\"" + prefix + "\" " + "" + newRoot + ""
+		}
+	} else if maybeString {
+		if maybeArray {
+			//	newRoot = "(" + newRoot + ")"
+		}
+
+		newRoot = freestringRule + " | " + newRoot
+	}
+
+	lines = append(lines, fmt.Sprintf("%s ::= %s", "root", newRoot))
+	if disableParallelNewLines {
 		lines = append(lines, array)
+	} else {
+		lines = append(lines, arrayNewLines)
+	}
+
+	if maybeArray {
+		if grammarOpts.ExpectStringsAfterJSON {
+			lines = append(lines, `mixedstring ::= freestring | freestring arr freestring | (freestring realvalue freestring)* | realvalue | arr`)
+		} else {
+			lines = append(lines, `mixedstring ::= freestring | freestring arr | freestring realvalue | realvalue | arr`)
+		}
+	} else {
+		if grammarOpts.ExpectStringsAfterJSON {
+			lines = append(lines, `mixedstring ::= freestring | (freestring realvalue freestring)* | realvalue`)
+		} else {
+			lines = append(lines, `mixedstring ::= freestring | freestring realvalue | realvalue`)
+		}
 	}
 
 	return strings.Join(lines, "\n")
@@ -251,15 +331,16 @@ func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[strin
 
 	return def
 }
-func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, maybeArray bool) string {
+func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, options ...func(*GrammarOption)) string {
+	sc.addRule("freestring", PRIMITIVE_RULES["freestring"])
 	sc.visit(schema, "", schema)
-	return sc.finalizeGrammar(maybeArray)
+	return sc.finalizeGrammar(options...)
 }
 
-func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, maybeArray bool) string {
+func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, options ...func(*GrammarOption)) string {
 	var schema map[string]interface{}
 	_ = json.Unmarshal(b, &schema)
-	return sc.Grammar(schema, maybeArray)
+	return sc.Grammar(schema, options...)
 }
 
 func jsonString(v interface{}) string {
@@ -271,8 +352,13 @@ type FunctionName struct {
 	Const string `json:"const"`
 }
 
-type Properties struct {
+type FunctionProperties struct {
 	Function  FunctionName `json:"function"`
+	Arguments Argument     `json:"arguments"`
+}
+
+type NameProperties struct {
+	Function  FunctionName `json:"name"`
 	Arguments Argument     `json:"arguments"`
 }
 
@@ -281,18 +367,40 @@ type Argument struct {
 	Properties map[string]interface{} `json:"properties"`
 }
 
-type Item struct {
-	Type       string     `json:"type"`
-	Properties Properties `json:"properties"`
+type ItemName struct {
+	Type       string         `json:"type"`
+	Properties NameProperties `json:"properties"`
 }
 
-type JSONFunctionStructure struct {
-	OneOf []Item                 `json:"oneOf,omitempty"`
-	AnyOf []Item                 `json:"anyOf,omitempty"`
+type ItemFunction struct {
+	Type       string             `json:"type"`
+	Properties FunctionProperties `json:"properties"`
+}
+
+type JSONFunctionStructureName struct {
+	OneOf []ItemName             `json:"oneOf,omitempty"`
+	AnyOf []ItemName             `json:"anyOf,omitempty"`
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructure) Grammar(propOrder string, maybeArray bool) string {
+func (j JSONFunctionStructureName) Grammar(options ...func(*GrammarOption)) string {
+	grammarOpts := &GrammarOption{}
+	grammarOpts.Apply(options...)
+
 	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(propOrder).GrammarFromBytes(dat, maybeArray)
+	return NewJSONSchemaConverter(grammarOpts.PropOrder).GrammarFromBytes(dat, options...)
+}
+
+type JSONFunctionStructureFunction struct {
+	OneOf []ItemFunction         `json:"oneOf,omitempty"`
+	AnyOf []ItemFunction         `json:"anyOf,omitempty"`
+	Defs  map[string]interface{} `json:"$defs,omitempty"`
+}
+
+func (j JSONFunctionStructureFunction) Grammar(options ...func(*GrammarOption)) string {
+	grammarOpts := &GrammarOption{}
+	grammarOpts.Apply(options...)
+
+	dat, _ := json.Marshal(j)
+	return NewJSONSchemaConverter(grammarOpts.PropOrder).GrammarFromBytes(dat, options...)
 }

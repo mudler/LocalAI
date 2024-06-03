@@ -1,0 +1,6 @@
+grpcio==1.64.0
+protobuf
+torch
+transformers
+certifi
+setuptools

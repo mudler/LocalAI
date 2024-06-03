@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+<script defer src="/static/image.js"></script>
+
+<body class="bg-gray-900 text-gray-200">
+<div class="flex flex-col min-h-screen">
+   
+    {{template "views/partials/navbar" .}}
+    <div class="container mx-auto px-4 flex-grow " x-data="{ component: 'menu' }">
+    
+
+        <div class="mt-12">
+          <div class="flex items-center justify-center text-center pb-2">
+            <span class="text-3xl font-semibold text-gray-100">
+              🖼️ Text to Image
+            <a href="https://localai.io/features/image-generation" target="_blank" >
+              <i class="fas fa-circle-info pr-2"></i>
+            </a>
+            </span>
+    
+          </div>
+
+            <div class="text-center font-semibold text-gray-100">
+              <div class="flex items-center justify-between">
+
+              <div x-show="component === 'menu'" id="menu">
+                <button @click="component = 'key'" title="Update API key"
+                class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
+                >Set API Key🔑</button>
+              </div>
+              <form x-show="component === 'key'" id="key">
+                <input
+                  type="password"
+                  id="apiKey"
+                  name="apiKey"
+                  placeholder="OpenAI API Key"
+                  x-model.lazy="key"
+                />
+                <button @click="component = 'menu'" type="submit" title="Save API key">
+                  🔒
+                </button>
+              </form>
+
+              <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
+                class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+                >	
+                <!-- Options -->
+                <option value="" disabled class="text-gray-400" >Select a model</option>
+                {{ $model:=.Model}}
+                {{ range .ModelsConfig }}
+                {{ if eq .Name $model }}
+                <option value="/text2image/{{.Name}}" selected class="bg-gray-700 text-white">{{.Name}}</option>
+                {{ else }}
+                <option value="/text2image/{{.Name}}" class="bg-gray-700 text-white">{{.Name}}</option>
+                {{ end }}
+                {{ end }}
+              </select>
+              
+              </div>
+            </div>
+
+            <div class="mt-12">
+              <input id="image-model" type="hidden" value="{{.Model}}">
+              <form id="genimage" action="/text2image/{{.Model}}" method="get">
+                <input
+                  type="text"
+                  id="input"
+                  name="input"
+                  placeholder="Prompt…"
+                  autocomplete="off"
+                  class="p-2 border rounded w-full bg-gray-600 text-white placeholder-gray-300"
+                  required
+                />
+              </form>
+              <div class="container max-w-screen-lg mx-auto mt-4 pb-10 flex justify-center">
+                <div id="loader" class="my-2 loader"  ></div>
+              </div>
+              <div class="container max-w-screen-lg mx-auto mt-4 pb-10 flex justify-center">
+                <div id="result" class="mx-auto"></div>
+              </div>
+            </div>
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+</body>
+</html>

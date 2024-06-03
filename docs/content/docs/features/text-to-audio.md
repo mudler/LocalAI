@@ -46,6 +46,10 @@ Coqui works without any configuration, to test it, you can run the following cur
         }'
 ```
 
+You can use the env variable COQUI_LANGUAGE to set the language used by the coqui backend.
+
+You can also use config files to configure tts models (see section below on how to use config files).
+
 ### Bark
 
 [Bark](https://github.com/suno-ai/bark) allows to generate audio from text prompts.
@@ -148,11 +152,12 @@ name: cloned-voice
 backend: vall-e-x
 parameters:
   model: "cloned-voice"
-vall-e:
-  # The path to the audio file to be cloned
-  # relative to the models directory
-  # Max 15s
-  audio_path: "audio-sample.wav"
+tts:
+    vall-e:
+      # The path to the audio file to be cloned
+      # relative to the models directory
+      # Max 15s
+      audio_path: "audio-sample.wav"
 ```
 
 Then you can specify the model name in the requests:
@@ -164,6 +169,35 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
-## Parler-tts
+### Parler-tts
 
 `parler-tts`. It is possible to install and configure the model directly from the gallery. https://github.com/huggingface/parler-tts
+
+
+## Using config files
+
+You can also use a `config-file` to specify TTS models and their parameters.
+
+In the following example we define a custom config to load the `xtts_v2` model, and specify a voice and language.
+
+```yaml
+
+name: xtts_v2
+backend: coqui
+parameters:
+  language: fr
+  model: tts_models/multilingual/multi-dataset/xtts_v2
+
+tts:
+  voice: Ana Florence
+```
+
+With this config, you can now use the following curl command to generate a text-to-speech audio file:
+```bash
+curl -L http://localhost:8080/tts \
+    -H "Content-Type: application/json" \
+    -d '{
+"model": "xtts_v2",
+"input": "Bonjour, je suis Ana Florence. Comment puis-je vous aider?"
+}' | aplay
+```

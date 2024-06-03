@@ -2,6 +2,8 @@ package config
 
 import (
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
@@ -12,6 +14,15 @@ import (
 const (
 	RAND_SEED = -1
 )
+
+type TTSConfig struct {
+
+	// Voice wav path or id
+	Voice string `yaml:"voice"`
+
+	// Vall-e-x
+	VallE    VallE  `yaml:"vall-e"`
+}
 
 type BackendConfig struct {
 	schema.PredictionOptions `yaml:"parameters"`
@@ -25,9 +36,11 @@ type BackendConfig struct {
 	Backend        string            `yaml:"backend"`
 	TemplateConfig TemplateConfig    `yaml:"template"`
 
-	PromptStrings, InputStrings                []string `yaml:"-"`
-	InputToken                                 [][]int  `yaml:"-"`
-	functionCallString, functionCallNameString string   `yaml:"-"`
+	PromptStrings, InputStrings                []string               `yaml:"-"`
+	InputToken                                 [][]int                `yaml:"-"`
+	functionCallString, functionCallNameString string                 `yaml:"-"`
+	ResponseFormat                             string                 `yaml:"-"`
+	ResponseFormatMap                          map[string]interface{} `yaml:"-"`
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function"`
 
@@ -45,8 +58,8 @@ type BackendConfig struct {
 	// GRPC Options
 	GRPC GRPC `yaml:"grpc"`
 
-	// Vall-e-x
-	VallE VallE `yaml:"vall-e"`
+	// TTS specifics
+	TTSConfig `yaml:"tts"`
 
 	// CUDA
 	// Explicitly enable CUDA or not (some backends might need it)
@@ -93,6 +106,8 @@ type Diffusers struct {
 	ControlNet       string  `yaml:"control_net"`
 }
 
+// LLMConfig is a struct that holds the configuration that are
+// generic for most of the LLM backends.
 type LLMConfig struct {
 	SystemPrompt    string   `yaml:"system_prompt"`
 	TensorSplit     string   `yaml:"tensor_split"`
@@ -132,6 +147,9 @@ type LLMConfig struct {
 	TensorParallelSize   int     `yaml:"tensor_parallel_size"`   // vLLM
 	MMProj               string  `yaml:"mmproj"`
 
+	FlashAttention bool `yaml:"flash_attention"`
+	NoKVOffloading bool `yaml:"no_kv_offloading"`
+
 	RopeScaling string `yaml:"rope_scaling"`
 	ModelType   string `yaml:"type"`
 
@@ -141,6 +159,7 @@ type LLMConfig struct {
 	YarnBetaSlow   float32 `yaml:"yarn_beta_slow"`
 }
 
+// AutoGPTQ is a struct that holds the configuration specific to the AutoGPTQ backend
 type AutoGPTQ struct {
 	ModelBaseName    string `yaml:"model_base_name"`
 	Device           string `yaml:"device"`
@@ -148,13 +167,31 @@ type AutoGPTQ struct {
 	UseFastTokenizer bool   `yaml:"use_fast_tokenizer"`
 }
 
+// TemplateConfig is a struct that holds the configuration of the templating system
 type TemplateConfig struct {
-	Chat                 string `yaml:"chat"`
-	ChatMessage          string `yaml:"chat_message"`
-	Completion           string `yaml:"completion"`
-	Edit                 string `yaml:"edit"`
-	Functions            string `yaml:"function"`
-	UseTokenizerTemplate bool   `yaml:"use_tokenizer_template"`
+	// Chat is the template used in the chat completion endpoint
+	Chat string `yaml:"chat"`
+
+	// ChatMessage is the template used for chat messages
+	ChatMessage string `yaml:"chat_message"`
+
+	// Completion is the template used for completion requests
+	Completion string `yaml:"completion"`
+
+	// Edit is the template used for edit completion requests
+	Edit string `yaml:"edit"`
+
+	// Functions is the template used when tools are present in the client requests
+	Functions string `yaml:"function"`
+
+	// UseTokenizerTemplate is a flag that indicates if the tokenizer template should be used.
+	// Note: this is mostly consumed for backends such as vllm and transformers
+	// that can use the tokenizers specified in the JSON config files of the models
+	UseTokenizerTemplate bool `yaml:"use_tokenizer_template"`
+
+	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
+	// It defaults to \n
+	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
 }
 
 func (c *BackendConfig) SetFunctionCallString(s string) {
@@ -331,4 +368,35 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	if debug {
 		cfg.Debug = &trueV
 	}
+}
+
+func (c *BackendConfig) Validate() bool {
+	downloadedFileNames := []string{}
+	for _, f := range c.DownloadFiles {
+		downloadedFileNames = append(downloadedFileNames, f.Filename)
+	}
+	validationTargets := []string{c.Backend, c.Model, c.MMProj}
+	validationTargets = append(validationTargets, downloadedFileNames...)
+	// Simple validation to make sure the model can be correctly loaded
+	for _, n := range validationTargets {
+		if n == "" {
+			continue
+		}
+		if strings.HasPrefix(n, string(os.PathSeparator)) ||
+			strings.Contains(n, "..") {
+			return false
+		}
+	}
+
+	if c.Name == "" {
+		return false
+	}
+
+	if c.Backend != "" {
+		// a regex that checks that is a string name with no special characters, except '-' and '_'
+		re := regexp.MustCompile(`^[a-zA-Z0-9-_]+$`)
+		return re.MatchString(c.Backend)
+	}
+
+	return true
 }

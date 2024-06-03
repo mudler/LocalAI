@@ -15,7 +15,7 @@ type ApplicationConfig struct {
 	ConfigFile                          string
 	ModelPath                           string
 	UploadLimitMB, Threads, ContextSize int
-	DisableWelcomePage                  bool
+	DisableWebUI                        bool
 	F16                                 bool
 	Debug                               bool
 	ImageDir                            string
@@ -107,8 +107,8 @@ var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
 	o.WatchDogBusy = true
 }
 
-var DisableWelcomePage = func(o *ApplicationConfig) {
-	o.DisableWelcomePage = true
+var DisableWebUI = func(o *ApplicationConfig) {
+	o.DisableWebUI = true
 }
 
 func SetWatchDogBusyTimeout(t time.Duration) AppOption {

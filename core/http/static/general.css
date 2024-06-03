@@ -1,0 +1,93 @@
+body {
+    font-family: 'Inter', sans-serif;
+}
+.chat-container { height: 90vh; display: flex; flex-direction: column; }
+.chat-messages { overflow-y: auto; flex-grow: 1; }
+.htmx-indicator{
+        opacity:0;
+        transition: opacity 10ms ease-in;
+}
+.htmx-request .htmx-indicator{
+    opacity:1
+}
+/* Loader (https://cssloaders.github.io/) */
+.loader {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: block;
+  margin:15px auto;
+  position: relative;
+  color: #FFF;
+  box-sizing: border-box;
+  animation: animloader 2s linear infinite;
+}
+
+@keyframes animloader {
+  0% { box-shadow: 14px 0 0 -2px,  38px 0 0 -2px,  -14px 0 0 -2px,  -38px 0 0 -2px; }
+  25% { box-shadow: 14px 0 0 -2px,  38px 0 0 -2px,  -14px 0 0 -2px,  -38px 0 0 2px; }
+  50% { box-shadow: 14px 0 0 -2px,  38px 0 0 -2px,  -14px 0 0 2px,  -38px 0 0 -2px; }
+  75% { box-shadow: 14px 0 0 2px,  38px 0 0 -2px,  -14px 0 0 -2px,  -38px 0 0 -2px; }
+  100% { box-shadow: 14px 0 0 -2px,  38px 0 0 2px,  -14px 0 0 -2px,  -38px 0 0 -2px; }
+}
+.progress {
+    height: 20px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.1);
+}
+.progress-bar {
+    float: left;
+    width: 0%;
+    height: 100%;
+    font-size: 12px;
+    line-height: 20px;
+    color: #fff;
+    text-align: center;
+    background-color: #337ab7;
+    -webkit-box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+    -webkit-transition: width .6s ease;
+    -o-transition: width .6s ease;
+    transition: width .6s ease;
+}
+
+.user {
+    background-color: #007bff;
+}
+
+.assistant {
+    background-color: #28a745;
+}
+
+.message {
+    display: flex;
+    align-items: center;
+}
+
+.user, .assistant {
+    flex-grow: 1;
+    margin: 0.5rem;
+}
+
+ul {
+    list-style-type: disc; /* Adds bullet points */
+    padding-left: 1.25rem; /* Indents the list from the left margin */
+    margin-top: 1rem; /* Space above the list */
+}
+
+li {
+    font-size: 0.875rem; /* Small text size */
+    color: #4a5568; /* Dark gray text */
+    background-color: #f7fafc; /* Very light gray background */
+    border-radius: 0.375rem; /* Rounded corners */
+    padding: 0.5rem; /* Padding inside each list item */
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* Subtle shadow */
+    margin-bottom: 0.5rem; /* Vertical space between list items */
+}
+
+li:last-child {
+    margin-bottom: 0; /* Removes bottom margin from the last item */
+}

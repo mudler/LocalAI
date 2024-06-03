@@ -14,11 +14,13 @@ type BackendMonitorResponse struct {
 	CPUPercent    float64
 }
 
+// @Description TTS request body
 type TTSRequest struct {
-	Model   string `json:"model" yaml:"model"`
-	Input   string `json:"input" yaml:"input"`
-	Voice   string `json:"voice" yaml:"voice"`
-	Backend string `json:"backend" yaml:"backend"`
+	Model    string `json:"model" yaml:"model"` // model name or full path
+	Input    string `json:"input" yaml:"input"` // text input
+	Voice    string `json:"voice" yaml:"voice"` // voice audio file or speaker id
+	Backend  string `json:"backend" yaml:"backend"`
+	Language string `json:"language,omitempty" yaml:"language,omitempty"` // (optional) language to use with TTS model
 }
 
 type StoresSet struct {

@@ -22,6 +22,36 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/tts": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "summary": "Generates audio from the input text.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.TTSRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "generated audio/wav file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/assistants": {
             "post": {
                 "summary": "Create an assistant with a model and instructions.",
@@ -48,6 +78,12 @@ const docTemplate = `{
         },
         "/v1/audio/speech": {
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
                 "summary": "Generates audio from the input text.",
                 "parameters": [
                     {
@@ -62,7 +98,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Response",
+                        "description": "generated audio/wav file",
                         "schema": {
                             "type": "string"
                         }
@@ -269,18 +305,40 @@ const docTemplate = `{
                 }
             }
         },
-        "functions.Item": {
+        "functions.FunctionProperties": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "$ref": "#/definitions/functions.Argument"
+                },
+                "function": {
+                    "$ref": "#/definitions/functions.FunctionName"
+                }
+            }
+        },
+        "functions.ItemFunction": {
             "type": "object",
             "properties": {
                 "properties": {
-                    "$ref": "#/definitions/functions.Properties"
+                    "$ref": "#/definitions/functions.FunctionProperties"
                 },
                 "type": {
                     "type": "string"
                 }
             }
         },
-        "functions.JSONFunctionStructure": {
+        "functions.ItemName": {
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "$ref": "#/definitions/functions.NameProperties"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "functions.JSONFunctionStructureFunction": {
             "type": "object",
             "properties": {
                 "$defs": {
@@ -290,24 +348,45 @@ const docTemplate = `{
                 "anyOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/functions.Item"
+                        "$ref": "#/definitions/functions.ItemFunction"
                     }
                 },
                 "oneOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/functions.Item"
+                        "$ref": "#/definitions/functions.ItemFunction"
                     }
                 }
             }
         },
-        "functions.Properties": {
+        "functions.JSONFunctionStructureName": {
+            "type": "object",
+            "properties": {
+                "$defs": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "anyOf": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/functions.ItemName"
+                    }
+                },
+                "oneOf": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/functions.ItemName"
+                    }
+                }
+            }
+        },
+        "functions.NameProperties": {
             "type": "object",
             "properties": {
                 "arguments": {
                     "$ref": "#/definitions/functions.Argument"
                 },
-                "function": {
+                "name": {
                     "$ref": "#/definitions/functions.FunctionName"
                 }
             }
@@ -432,14 +511,6 @@ const docTemplate = `{
                 "Retrieval",
                 "Function"
             ]
-        },
-        "schema.ChatCompletionResponseFormat": {
-            "type": "object",
-            "properties": {
-                "type": {
-                    "type": "string"
-                }
-            }
         },
         "schema.Choice": {
             "type": "object",
@@ -572,7 +643,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "grammar_json_functions": {
-                    "$ref": "#/definitions/functions.JSONFunctionStructure"
+                    "$ref": "#/definitions/functions.JSONFunctionStructureFunction"
+                },
+                "grammar_json_name": {
+                    "$ref": "#/definitions/functions.JSONFunctionStructureName"
                 },
                 "ignore_eos": {
                     "type": "boolean"
@@ -631,12 +705,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "response_format": {
-                    "description": "whisper/image",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/schema.ChatCompletionResponseFormat"
-                        }
-                    ]
+                    "description": "whisper/image"
                 },
                 "rope_freq_base": {
                     "type": "number"
@@ -738,18 +807,26 @@ const docTemplate = `{
             }
         },
         "schema.TTSRequest": {
+            "description": "TTS request body",
             "type": "object",
             "properties": {
                 "backend": {
                     "type": "string"
                 },
                 "input": {
+                    "description": "text input",
+                    "type": "string"
+                },
+                "language": {
+                    "description": "(optional) language to use with TTS model",
                     "type": "string"
                 },
                 "model": {
+                    "description": "model name or full path",
                     "type": "string"
                 },
                 "voice": {
+                    "description": "voice audio file or speaker id",
                     "type": "string"
                 }
             }

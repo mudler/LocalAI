@@ -1,0 +1,10 @@
+accelerate
+compel
+diffusers
+grpcio==1.64.0
+opencv-python
+pillow
+protobuf
+torch
+transformers
+certifi

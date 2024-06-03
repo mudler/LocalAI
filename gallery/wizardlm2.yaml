@@ -1,0 +1,15 @@
+---
+name: "wizardlm2"
+
+config_file: |
+  mmap: true
+  template:
+    chat_message: |-
+      {{if eq .RoleName "assistant"}}ASSISTANT: {{.Content}}</s>{{else if eq .RoleName "system"}}{{.Content}}{{else if eq .RoleName "user"}}USER: {{.Content}}{{end}}
+    chat: "{{.Input}}ASSISTANT: "
+    completion: |-
+      {{.Input}}
+  context_size: 32768
+  f16: true
+  stopwords:
+  - </s>

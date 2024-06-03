@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
+
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
@@ -29,7 +31,7 @@ type ModelsCMD struct {
 	Install ModelsInstall `cmd:"" help:"Install a model from the gallery"`
 }
 
-func (ml *ModelsList) Run(ctx *Context) error {
+func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 	var galleries []gallery.Gallery
 	if err := json.Unmarshal([]byte(ml.Galleries), &galleries); err != nil {
 		log.Error().Err(err).Msg("unable to load galleries")
@@ -49,7 +51,7 @@ func (ml *ModelsList) Run(ctx *Context) error {
 	return nil
 }
 
-func (mi *ModelsInstall) Run(ctx *Context) error {
+func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 	modelName := mi.ModelArgs[0]
 
 	var galleries []gallery.Gallery

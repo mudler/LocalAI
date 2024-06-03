@@ -1,6 +1,5 @@
 .PHONY: exllama2
 exllama2: protogen
-	$(MAKE) -C ../common-env/transformers
 	bash install.sh
 
 .PHONY: run
@@ -18,3 +17,7 @@ protogen-clean:
 
 backend_pb2_grpc.py backend_pb2.py:
 	python3 -m grpc_tools.protoc -I../.. --python_out=. --grpc_python_out=. backend.proto
+
+.PHONY: clean
+clean: protogen-clean
+	$(RM) -r venv source __pycache__

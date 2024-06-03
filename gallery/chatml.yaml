@@ -6,18 +6,17 @@ config_file: |
   template:
     chat_message: |
       <|im_start|>{{ .RoleName }}
-      {{- if .FunctionCall }}
+      {{ if .FunctionCall -}}
       Function call:
-      {{- else if eq .RoleName "tool" }}
+      {{ else if eq .RoleName "tool" -}}
       Function response:
-      {{- end }}
-      {{- if .Content}}
+      {{ end -}}
+      {{ if .Content -}}
       {{.Content }}
-      {{- end }}
-      {{- if .FunctionCall}}
+      {{ end -}}
+      {{ if .FunctionCall -}}
       {{toJson .FunctionCall}}
-      {{- end }}
-      <|im_end|>
+      {{ end -}}<|im_end|>
     function: |
       <|im_start|>system
       You are a function calling AI model. You are provided with functions to execute. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
@@ -28,7 +27,6 @@ config_file: |
       <|im_end|>
       {{.Input -}}
       <|im_start|>assistant
-      <tool_call>
     chat: |
       {{.Input -}}
       <|im_start|>assistant
@@ -37,5 +35,6 @@ config_file: |
   context_size: 4096
   f16: true
   stopwords:
-  - <|im_end|>
-  - <dummy32000>
+  - '<|im_end|>'
+  - '<dummy32000>'
+  - '</s>'

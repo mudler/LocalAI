@@ -46,17 +46,31 @@
 
 **LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that’s compatible with OpenAI (Elevenlabs, Anthropic... ) API specifications for local AI inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU. It is created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
 
+![screen](https://github.com/mudler/LocalAI/assets/2420543/20b5ccd2-8393-44f0-aaf6-87a23806381e)
+
+```bash
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
+# Alternative images:
+# - if you have an Nvidia GPU:
+# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
+# - without preconfigured models
+# docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
+# - without preconfigured models for Nvidia GPUs
+# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12 
+```
+
+[💻 Getting started](https://localai.io/basics/getting_started/index.html)
+
 ## 🔥🔥 Hot topics / Roadmap
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- 🔥🔥 Decentralized llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!) 👉 Docs  https://localai.io/features/distribute/
+- 🔥🔥 Openvoice: https://github.com/mudler/LocalAI/pull/2334
+- 🆕 Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
+- 🔥🔥 Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
+- Chat, TTS, and Image generation in the WebUI: https://github.com/mudler/LocalAI/pull/2222
 - Reranker API: https://github.com/mudler/LocalAI/pull/2121
-- Gallery WebUI: https://github.com/mudler/LocalAI/pull/2104
-- llama3: https://github.com/mudler/LocalAI/discussions/2076
-- Parler-TTS: https://github.com/mudler/LocalAI/pull/2027
-- Openvino support: https://github.com/mudler/LocalAI/pull/1892
-- Vector store: https://github.com/mudler/LocalAI/pull/1795
-- All-in-one container image: https://github.com/mudler/LocalAI/issues/1855
 
 Hot topics (looking for contributors):
 
@@ -69,30 +83,19 @@ Hot topics (looking for contributors):
 
 If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
 
-## 💻 [Getting started](https://localai.io/basics/getting_started/index.html)
-
-For a detailed step-by-step introduction, refer to the [Getting Started](https://localai.io/basics/getting_started/index.html) guide. 
-
-For those in a hurry, here's a straightforward one-liner to launch a LocalAI AIO(All-in-one) Image using `docker`:
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
-# or, if you have an Nvidia GPU:
-# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-```
-
 ## 🚀 [Features](https://localai.io/features/)
 
 - 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `gpt4all.cpp`, ... [:book: and more](https://localai.io/model-compatibility/index.html#model-compatibility-table))
 - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
 - 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
 - 🎨 [Image generation with stable diffusion](https://localai.io/features/image-generation)
-- 🔥 [OpenAI functions](https://localai.io/features/openai-functions/) 🆕
+- 🔥 [OpenAI-alike tools API](https://localai.io/features/openai-functions/) 
 - 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
 - 🥽 [Vision API](https://localai.io/features/gpt-vision/)
-- 🆕 [Reranker API](https://localai.io/features/reranker/)
+- 📈 [Reranker API](https://localai.io/features/reranker/)
+- 🆕🖧 [P2P Inferencing](https://localai.io/features/distribute/)
 
 ## 💻 Usage
 
@@ -113,8 +116,9 @@ Model galleries
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
 - VSCode extension https://github.com/badgooooor/localai-vscode-plugin
+- Terminal utility https://github.com/djcopley/ShellOracle
 - Local Smart assistant https://github.com/mudler/LocalAGI
-- Home Assistant https://github.com/sammcj/homeassistant-localai / https://github.com/drndos/hass-openai-custom-conversation
+- Home Assistant https://github.com/sammcj/homeassistant-localai / https://github.com/drndos/hass-openai-custom-conversation / https://github.com/valentinfrlch/ha-gpt4vision
 - Discord bot https://github.com/mudler/LocalAGI/tree/main/examples/discord
 - Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
 - Telegram bot https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot
@@ -123,7 +127,7 @@ Other:
 
 ### 🔗 Resources
 
-- 🆕 New! [LLM finetuning guide](https://localai.io/docs/advanced/fine-tuning/)
+- [LLM finetuning guide](https://localai.io/docs/advanced/fine-tuning/)
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
 - [Projects integrating LocalAI](https://localai.io/docs/integrations/)
@@ -131,7 +135,8 @@ Other:
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
 
-- [Run LocalAI on AWS EKS with Pulumi](https://www.pulumi.com/ai/answers/tiZMDoZzZV6TLxgDXNBnFE/deploying-helm-charts-on-aws-eks)
+- 🆕 [Run LocalAI on Jetson Nano Devkit](https://mudler.pm/posts/local-ai-jetson-nano-devkit/)
+- [Run LocalAI on AWS EKS with Pulumi](https://www.pulumi.com/blog/low-code-llm-apps-with-local-ai-flowise-and-pulumi/)
 - [Run LocalAI on AWS](https://staleks.hashnode.dev/installing-localai-on-aws-ec2-instance)
 - [Create a slackbot for teams and OSS projects that answer to documentation](https://mudler.pm/posts/smart-slackbot-for-teams/)
 - [LocalAI meets k8sgpt](https://www.youtube.com/watch?v=PKrDNuJ_dfE)

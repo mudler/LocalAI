@@ -708,10 +708,26 @@ var _ = Describe("API test", func() {
 			// The response should contain an URL
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 			dat, err := io.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred(), string(dat))
-			Expect(string(dat)).To(ContainSubstring("http://127.0.0.1:9090/"), string(dat))
-			Expect(string(dat)).To(ContainSubstring(".png"), string(dat))
+			Expect(err).ToNot(HaveOccurred(), "error reading /image/generations response")
 
+			imgUrlResp := &schema.OpenAIResponse{}
+			err = json.Unmarshal(dat, imgUrlResp)
+			Expect(imgUrlResp.Data).ToNot(Or(BeNil(), BeZero()))
+			imgUrl := imgUrlResp.Data[0].URL
+			Expect(imgUrl).To(ContainSubstring("http://127.0.0.1:9090/"), imgUrl)
+			Expect(imgUrl).To(ContainSubstring(".png"), imgUrl)
+
+			imgResp, err := http.Get(imgUrl)
+			Expect(err).To(BeNil())
+			Expect(imgResp).ToNot(BeNil())
+			Expect(imgResp.StatusCode).To(Equal(200))
+			Expect(imgResp.ContentLength).To(BeNumerically(">", 0))
+			imgData := make([]byte, 512)
+			count, err := io.ReadFull(imgResp.Body, imgData)
+			Expect(err).To(Or(BeNil(), MatchError(io.EOF)))
+			Expect(count).To(BeNumerically(">", 0))
+			Expect(count).To(BeNumerically("<=", 512))
+			Expect(http.DetectContentType(imgData)).To(Equal("image/png"))
 		})
 	})
 
@@ -787,11 +803,11 @@ var _ = Describe("API test", func() {
 		})
 
 		It("returns errors", func() {
-			backends := len(model.AutoLoadBackends) + 1 // +1 for huggingface
 			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: testPrompt})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("error, status code: 500, message: could not load model - all backends returned error: %d errors occurred:", backends)))
+			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: could not load model - all backends returned error:"))
 		})
+
 		It("transcribes audio", func() {
 			if runtime.GOOS != "linux" {
 				Skip("test supported only on linux")

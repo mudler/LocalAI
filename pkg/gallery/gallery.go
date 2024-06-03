@@ -55,6 +55,9 @@ func InstallModelFromGallery(galleries []Gallery, name string, basePath string, 
 			installName = req.Name
 		}
 
+		// Copy the model configuration from the request schema
+		config.URLs = append(config.URLs, model.URLs...)
+		config.Icon = model.Icon
 		config.Files = append(config.Files, req.AdditionalFiles...)
 		config.Files = append(config.Files, model.AdditionalFiles...)
 
@@ -186,6 +189,12 @@ func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error)
 	return models, nil
 }
 
+func GetLocalModelConfiguration(basePath string, name string) (*Config, error) {
+	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
+	galleryFile := filepath.Join(basePath, galleryFileName(name))
+	return ReadConfigFile(galleryFile)
+}
+
 func DeleteModelFromSystem(basePath string, name string, additionalFiles []string) error {
 	// os.PathSeparator is not allowed in model names. Replace them with "__" to avoid conflicts with file paths.
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
@@ -227,6 +236,9 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 	if e := os.Remove(configFile); e != nil {
 		err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", configFile, e))
 	}
+
+	// Delete gallery config file
+	os.Remove(galleryFile)
 
 	return err
 }

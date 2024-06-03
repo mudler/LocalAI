@@ -1,0 +1,6 @@
+--extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
+intel-extension-for-pytorch
+torch
+torchvision
+optimum[openvino]
+setuptools==69.5.1 # https://github.com/mudler/LocalAI/issues/2406

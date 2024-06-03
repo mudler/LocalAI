@@ -90,7 +90,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 				if op.Delete {
 					modelConfig := &config.BackendConfig{}
 					// Galleryname is the name of the model in this case
-					dat, err := os.ReadFile(filepath.Join(g.modelPath, op.GalleryName+".yaml"))
+					dat, err := os.ReadFile(filepath.Join(g.modelPath, op.GalleryModelName+".yaml"))
 					if err != nil {
 						updateError(err)
 						continue
@@ -111,14 +111,14 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 						files = append(files, modelConfig.MMProjFileName())
 					}
 
-					err = gallery.DeleteModelFromSystem(g.modelPath, op.GalleryName, files)
+					err = gallery.DeleteModelFromSystem(g.modelPath, op.GalleryModelName, files)
 				} else {
 					// if the request contains a gallery name, we apply the gallery from the gallery list
-					if op.GalleryName != "" {
-						if strings.Contains(op.GalleryName, "@") {
-							err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
+					if op.GalleryModelName != "" {
+						if strings.Contains(op.GalleryModelName, "@") {
+							err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryModelName, g.modelPath, op.Req, progressCallback)
 						} else {
-							err = gallery.InstallModelFromGalleryByName(op.Galleries, op.GalleryName, g.modelPath, op.Req, progressCallback)
+							err = gallery.InstallModelFromGalleryByName(op.Galleries, op.GalleryModelName, g.modelPath, op.Req, progressCallback)
 						}
 					} else if op.ConfigURL != "" {
 						startup.PreloadModelsConfigurations(op.ConfigURL, g.modelPath, op.ConfigURL)
@@ -148,10 +148,11 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 
 				g.UpdateStatus(op.Id,
 					&gallery.GalleryOpStatus{
-						Deletion:  op.Delete,
-						Processed: true,
-						Message:   "completed",
-						Progress:  100})
+						Deletion:         op.Delete,
+						Processed:        true,
+						GalleryModelName: op.GalleryModelName,
+						Message:          "completed",
+						Progress:         100})
 			}
 		}
 	}()

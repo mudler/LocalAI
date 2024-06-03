@@ -1,11 +1,6 @@
 #!/bin/bash
-##
-## A bash script wrapper that runs the bark server with conda
+set -e
 
-# Activate conda environment
-source activate transformers
+source $(dirname $0)/../common/libbackend.sh
 
-# get the directory where the bash script is located
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-python -m unittest $DIR/test.py
+runUnittests

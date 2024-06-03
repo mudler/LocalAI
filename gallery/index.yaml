@@ -1,6 +1,83 @@
 ---
-### START parler-tts
+## START Mistral
+- &mistral03
+  url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
+  name: "mistral-7b-instruct-v0.3"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62dac1c7a8ead43d20e3e17a/wrLf5yaGC6ng4XME70w6Z.png
+  license: apache-2.0
+  description: |
+    The Mistral-7B-Instruct-v0.3 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-7B-v0.3.
+
+    Mistral-7B-v0.3 has the following changes compared to Mistral-7B-v0.2
+
+        Extended vocabulary to 32768
+        Supports v3 Tokenizer
+        Supports function calling
+  urls:
+    - https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3
+    - https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+    - function-calling
+  overrides:
+    parameters:
+      model: Mistral-7B-Instruct-v0.3.Q4_K_M.gguf
+  files:
+    - filename: "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
+      sha256: "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024"
+      uri: "huggingface://MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
+- &mudler
+  ### START mudler's LocalAI specific-models
+  url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
+  name: "LocalAI-llama3-8b-function-call-v0.2"
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/us5JKi9z046p8K-cn_M0w.webp"
+  license: llama3
+  description: |
+    This model is a fine-tune on a custom dataset + glaive to work specifically and leverage all the LocalAI features of constrained grammar.
+
+    Specifically, the model once enters in tools mode will always reply with JSON.
+  urls:
+    - https://huggingface.co/mudler/LocalAI-Llama3-8b-Function-Call-v0.2-GGUF
+    - https://huggingface.co/mudler/LocalAI-Llama3-8b-Function-Call-v0.2
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
+    - function-calling
+  overrides:
+    parameters:
+      model: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
+  files:
+    - filename: LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
+      sha256: 7e46405ce043cbc8d30f83f26a5655dc8edf5e947b748d7ba2745bd0af057a41
+      uri: huggingface://mudler/LocalAI-Llama3-8b-Function-Call-v0.2-GGUF/LocalAI-Llama3-8b-Function-Call-v0.2-q4_k_m.bin
+- !!merge <<: *mudler
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/SKuXcvmZ_6oD4NCMkvyGo.png"
+  name: "mirai-nova-llama3-LocalAI-8b-v0.1"
+  urls:
+    - https://huggingface.co/mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF
+    - https://huggingface.co/mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1
+  description: |
+    Mirai Nova: "Mirai" means future in Japanese, and "Nova" references a star showing a sudden large increase in brightness.
+
+    A set of models oriented in function calling, but generalist and with enhanced reasoning capability. This is fine tuned with Llama3.
+
+    Mirai Nova works particularly well with LocalAI, leveraging the function call with grammars feature out of the box.
+  overrides:
+    parameters:
+      model: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
+  files:
+    - filename: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
+      sha256: 579cbb229f9c11d0330759ff4733102d2491615a4c61289e26c09d1b3a583fec
+      uri: huggingface://mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF/Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
 - &parler-tts
+  ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
   name: parler-tts-mini-v0.1
   parameters:
@@ -16,8 +93,8 @@
     - cpu
     - text-to-speech
     - python
-### START rerankers
 - &rerankers
+  ### START rerankers
   url: "github:mudler/LocalAI/gallery/rerankers.yaml@master"
   name: cross-encoder
   parameters:
@@ -52,25 +129,47 @@
       model: Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
   files:
     - filename: Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
-      sha256: 3ef96fd6e32658774b3c8fbc24088787dfa911288e272b186f448c886400d30d
+      sha256: 447587bd8f60d9050232148d34fdb2d88b15b2413fd7f8e095a4606ec60b45bf
       uri: huggingface://bartowski/Einstein-v6.1-Llama3-8B-GGUF/Einstein-v6.1-Llama3-8B-Q4_K_M.gguf
+- &gemma
+  url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
+  name: "gemma-2b"
+  license: gemma
+  urls:
+    - https://ai.google.dev/gemma/docs
+    - https://huggingface.co/mlabonne/gemma-2b-GGUF
+  description: |
+    Open source LLM from Google
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - gemma
+  overrides:
+    parameters:
+      model: gemma-2b.Q4_K_M.gguf
+  files:
+    - filename: gemma-2b.Q4_K_M.gguf
+      sha256: 37d50c21ef7847926204ad9b3007127d9a2722188cfd240ce7f9f7f041aa71a5
+      uri: huggingface://mlabonne/gemma-2b-GGUF/gemma-2b.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
   name: "llama3-8b-instruct"
   license: llama3
-
   description: |
-      Meta developed and released the Meta Llama 3 family of large language models (LLMs), a collection of pretrained and instruction tuned generative text models in 8 and 70B sizes. The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks. Further, in developing these models, we took great care to optimize helpfulness and safety.
+    Meta developed and released the Meta Llama 3 family of large language models (LLMs), a collection of pretrained and instruction tuned generative text models in 8 and 70B sizes. The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks. Further, in developing these models, we took great care to optimize helpfulness and safety.
 
-      Model developers Meta
+    Model developers Meta
 
-      Variations Llama 3 comes in two sizes — 8B and 70B parameters — in pre-trained and instruction tuned variants.
+    Variations Llama 3 comes in two sizes — 8B and 70B parameters — in pre-trained and instruction tuned variants.
 
-      Input Models input text only.
+    Input Models input text only.
 
-      Output Models generate text and code only.
+    Output Models generate text and code only.
 
-      Model Architecture Llama 3 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
+    Model Architecture Llama 3 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
   urls:
     - https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
     - https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF
@@ -82,12 +181,12 @@
     - llama3
   overrides:
     parameters:
-      model: Meta-Llama-3-8B-Instruct-Q5_K_M.gguf
+      model: Meta-Llama-3-8B-Instruct.Q4_0.gguf
   files:
     - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
       sha256: 19ded996fe6c60254dc7544d782276eff41046ed42aa5f2d0005dc457e5c0895
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q4_0.gguf
-- <<: *llama3
+- !!merge <<: *llama3
   name: "llama3-8b-instruct:Q6_K"
   overrides:
     parameters:
@@ -96,16 +195,45 @@
     - filename: Meta-Llama-3-8B-Instruct.Q6_K.gguf
       sha256: b7bad45618e2a76cc1e89a0fbb93a2cac9bf410e27a619c8024ed6db53aa9b4a
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
-- <<: *llama3
+- !!merge <<: *llama3
+  name: "llama-3-8b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/failspy/Llama-3-8B-Instruct-abliterated-GGUF
+  description: |
+    This is meta-llama/Llama-3-8B-Instruct with orthogonalized bfloat16 safetensor weights, generated with the methodology that was described in the preview paper/blog post: 'Refusal in LLMs is mediated by a single direction' which I encourage you to read to understand more.
+  overrides:
+    parameters:
+      model: Llama-3-8B-Instruct-abliterated-q4_k.gguf
+  files:
+    - filename: Llama-3-8B-Instruct-abliterated-q4_k.gguf
+      sha256: a6365f813de1977ae22dbdd271deee59f91f89b384eefd3ac1a391f391d8078a
+      uri: huggingface://failspy/Llama-3-8B-Instruct-abliterated-GGUF/Llama-3-8B-Instruct-abliterated-q4_k.gguf
+- !!merge <<: *llama3
+  name: "llama-3-8b-instruct-coder"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/0O4cIuv3wNbY68-FP7tak.jpeg
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-8B-Instruct-Coder-GGUF
+    - https://huggingface.co/rombodawg/Llama-3-8B-Instruct-Coder
+  description: |
+    Original model: https://huggingface.co/rombodawg/Llama-3-8B-Instruct-Coder
+    All quants made using imatrix option with dataset provided by Kalomaze here
+  overrides:
+    parameters:
+      model: Llama-3-8B-Instruct-Coder-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-8B-Instruct-Coder-Q4_K_M.gguf
+      sha256: 639ab8e3aeb7aa82cff6d8e6ef062d1c3e5a6d13e6d76e956af49f63f0e704f8
+      uri: huggingface://bartowski/Llama-3-8B-Instruct-Coder-GGUF/Llama-3-8B-Instruct-Coder-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama3-70b-instruct"
   overrides:
     parameters:
       model: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
   files:
     - filename: Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
-      sha256: d559de8dd806a76dbd29f8d8bd04666f2b29e7c7872d8e8481abd07805884d72
+      sha256: c1cea5f87dc1af521f31b30991a4663e7e43f6046a7628b854c155f489eec213
       uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.Q4_K_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
   name: "llama3-70b-instruct:IQ1_M"
   overrides:
     parameters:
@@ -114,7 +242,7 @@
     - filename: Meta-Llama-3-70B-Instruct.IQ1_M.gguf
       sha256: cdbe8ac2126a70fa0af3fac7a4fe04f1c76330c50eba8383567587b48b328098
       uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.IQ1_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
   name: "llama3-70b-instruct:IQ1_S"
   overrides:
     parameters:
@@ -123,7 +251,22 @@
     - filename: Meta-Llama-3-70B-Instruct.IQ1_S.gguf
       sha256: 3797a69f1bdf53fabf9f3a3a8c89730b504dd3209406288515c9944c14093048
       uri: huggingface://MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF/Meta-Llama-3-70B-Instruct.IQ1_S.gguf
-- <<: *llama3
+- !!merge <<: *llama3
+  name: "l3-chaoticsoliloquy-v1.5-4x8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f5e51289c121cb864ba464/m5urYkrpE5amrwHyaVwFM.png
+  description: |
+    Experimental RP-oriented MoE, the idea was to get a model that would be equal to or better than the Mixtral 8x7B and it's finetunes in RP/ERP tasks. Im not sure but it should be better than the first version
+  urls:
+    - https://huggingface.co/xxx777xxxASD/L3-ChaoticSoliloquy-v1.5-4x8B
+    - https://huggingface.co/mradermacher/L3-ChaoticSoliloquy-v1.5-4x8B-GGUF/
+  overrides:
+    parameters:
+      model: L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+  files:
+    - filename: L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+      sha256: f6edb2a9674ce5add5104c0a8bb3278f748d39b509c483d76cf00b066eb56fbf
+      uri: huggingface://mradermacher/L3-ChaoticSoliloquy-v1.5-4x8B-GGUF/L3-ChaoticSoliloquy-v1.5-4x8B.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama-3-sauerkrautlm-8b-instruct"
   urls:
     - https://huggingface.co/bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF
@@ -147,7 +290,7 @@
     - filename: Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
       sha256: 5833d99d5596cade0d02e61cddaa6dac49170864ee56d0b602933c6f9fbae314
       uri: huggingface://bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF/Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
   name: "llama-3-13b-instruct-v0.1"
   urls:
     - https://huggingface.co/MaziyarPanahi/Llama-3-13B-Instruct-v0.1-GGUF
@@ -161,7 +304,7 @@
     - filename: Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
       sha256: 071a28043c271d259b5ffa883d19a9e0b33269b55148c4abaf5f95da4d084266
       uri: huggingface://MaziyarPanahi/Llama-3-13B-Instruct-v0.1-GGUF/Llama-3-13B-Instruct-v0.1.Q4_K_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
   name: "llama-3-smaug-8b"
   urls:
     - https://huggingface.co/MaziyarPanahi/Llama-3-Smaug-8B-GGUF
@@ -175,7 +318,37 @@
     - filename: Llama-3-Smaug-8B.Q4_K_M.gguf
       sha256: b17c4c1144768ead9e8a96439165baf49e98c53d458b4da8827f137fbabf38c1
       uri: huggingface://MaziyarPanahi/Llama-3-Smaug-8B-GGUF/Llama-3-Smaug-8B.Q4_K_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
+  name: "l3-8b-stheno-v3.1"
+  urls:
+    - https://huggingface.co/Sao10K/L3-8B-Stheno-v3.1
+  icon: https://w.forfun.com/fetch/cb/cba2205390e517bea1ea60ca0b491af4.jpeg
+  description: |
+    - A model made for 1-on-1 Roleplay ideally, but one that is able to handle scenarios, RPGs and storywriting fine.
+    - Uncensored during actual roleplay scenarios. # I do not care for zero-shot prompting like what some people do. It is uncensored enough in actual usecases.
+    - I quite like the prose and style for this model.
+  overrides:
+    parameters:
+      model: l3-8b-stheno-v3.1.Q4_K_M.gguf
+  files:
+    - filename: l3-8b-stheno-v3.1.Q4_K_M.gguf
+      sha256: f166fb8b7fd1de6638fcf8e3561c99292f0c37debe1132325aa583eef78f1b40
+      uri: huggingface://mudler/L3-8B-Stheno-v3.1-Q4_K_M-GGUF/l3-8b-stheno-v3.1.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-stheno-mahou-8b"
+  urls:
+    - https://huggingface.co/mudler/llama-3-Stheno-Mahou-8B-Q4_K_M-GGUF
+    - https://huggingface.co/nbeerbower/llama-3-Stheno-Mahou-8B
+  description: |
+    This model was merged using the Model Stock merge method using flammenai/Mahou-1.2-llama3-8B as a base.
+  overrides:
+    parameters:
+      model: llama-3-stheno-mahou-8b-q4_k_m.gguf
+  files:
+    - filename: llama-3-stheno-mahou-8b-q4_k_m.gguf
+      sha256: a485cd74ef4ff3671c67ed8e10ea5379a1f24082ac688bd303fd28dfc9808c11
+      uri: huggingface://mudler/llama-3-Stheno-Mahou-8B-Q4_K_M-GGUF/llama-3-stheno-mahou-8b-q4_k_m.gguf
+- !!merge <<: *llama3
   name: "llama-3-8b-openhermes-dpo"
   urls:
     - https://huggingface.co/mradermacher/Llama3-8B-OpenHermes-DPO-GGUF
@@ -189,7 +362,7 @@
     - filename: Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
       sha256: 1147e5881cb1d67796916e6cab7dab0ae0f532a4c1e626c9e92861e5f67752ca
       uri: huggingface://mradermacher/Llama3-8B-OpenHermes-DPO-GGUF/Llama3-8B-OpenHermes-DPO.Q4_K_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
   name: "llama-3-unholy-8b"
   urls:
     - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
@@ -205,9 +378,9 @@
       model: Llama-3-Unholy-8B.q4_k_m.gguf
   files:
     - filename: Llama-3-Unholy-8B.q4_k_m.gguf
-      sha256: 17b7f716bce1b34d4aa99ee730a19a834f8c77ddb36090dde5a1eda963f93602
       uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q4_k_m.gguf
-- <<: *llama3
+      sha256: 1473c94bfd223f08963c08bbb0a45dd53c1f56ad72a692123263daf1362291f3
+- !!merge <<: *llama3
   name: "lexi-llama-3-8b-uncensored"
   urls:
     - https://huggingface.co/NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF
@@ -225,42 +398,118 @@
     - filename: lexi-llama-3-8b-uncensored.Q6_K.gguf
       sha256: 5805f3856cc18a769fae0b7c5659fe6778574691c370c910dad6eeec62c62436
       uri: huggingface://NikolayKozloff/Lexi-Llama-3-8B-Uncensored-Q6_K-GGUF/lexi-llama-3-8b-uncensored.Q6_K.gguf
-- <<: *llama3
+- !!merge <<: *llama3
+  name: "llama-3-11.5b-v2"
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-11.5B-V2-GGUF
+    - https://huggingface.co/Replete-AI/Llama-3-11.5B-V2
+  overrides:
+    parameters:
+      model: Llama-3-11.5B-V2-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-11.5B-V2-Q4_K_M.gguf
+      sha256: 8267a75bb88655ce30a12f854930e614bcacbf8f1083dc8319c3615edb1e5ee3
+      uri: huggingface://bartowski/Llama-3-11.5B-V2-GGUF/Llama-3-11.5B-V2-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-ultron"
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-Ultron-GGUF
+    - https://huggingface.co/jayasuryajsk/Llama-3-Ultron
+  description: |
+    Llama 3 abliterated with Ultron system prompt
+  overrides:
+    parameters:
+      model: Llama-3-Ultron-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Ultron-Q4_K_M.gguf
+      sha256: 5bcac832119590aafc922e5abfd9758094942ee560b136fed6d972e00c95c5e4
+      uri: huggingface://bartowski/Llama-3-Ultron-GGUF/Llama-3-Ultron-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama-3-lewdplay-8b-evo"
   urls:
     - https://huggingface.co/Undi95/Llama-3-LewdPlay-8B-evo-GGUF
   description: |
-      This is a merge of pre-trained language models created using mergekit.
+    This is a merge of pre-trained language models created using mergekit.
 
-      The new EVOLVE merge method was used (on MMLU specifically), see below for more information!
+    The new EVOLVE merge method was used (on MMLU specifically), see below for more information!
 
-      Unholy was used for uncensoring, Roleplay Llama 3 for the DPO train he got on top, and LewdPlay for the... lewd side.
+    Unholy was used for uncensoring, Roleplay Llama 3 for the DPO train he got on top, and LewdPlay for the... lewd side.
   overrides:
     parameters:
       model: Llama-3-LewdPlay-8B-evo.q8_0.gguf
   files:
     - filename: Llama-3-LewdPlay-8B-evo.q8_0.gguf
-      sha256: 1498152d598ff441f73ec6af9d3535875302e7251042d87feb7e71a3618966e8
       uri: huggingface://Undi95/Llama-3-LewdPlay-8B-evo-GGUF/Llama-3-LewdPlay-8B-evo.q8_0.gguf
-- <<: *llama3
+      sha256: b54dc005493d4470d91be8210f58fba79a349ff4af7644034edc5378af5d3522
+- !!merge <<: *llama3
+  name: "llama-3-soliloquy-8b-v2-iq-imatrix"
+  license: cc-by-nc-4.0
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/u98dnnRVCwMh6YYGFIyff.png
+  urls:
+    - https://huggingface.co/Lewdiculous/Llama-3-Soliloquy-8B-v2-GGUF-IQ-Imatrix
+  description: |
+    Soliloquy-L3 is a highly capable roleplaying model designed for immersive, dynamic experiences. Trained on over 250 million tokens of roleplaying data, Soliloquy-L3 has a vast knowledge base, rich literary expression, and support for up to 24k context length. It outperforms existing ~13B models, delivering enhanced roleplaying capabilities.
+  overrides:
+    context_size: 8192
+    parameters:
+      model: Llama-3-Soliloquy-8B-v2-Q4_K_M-imat.gguf
+  files:
+    - filename: Llama-3-Soliloquy-8B-v2-Q4_K_M-imat.gguf
+      sha256: 3e4e066e57875c36fc3e1c1b0dba506defa5b6ed3e3e80e1f77c08773ba14dc8
+      uri: huggingface://Lewdiculous/Llama-3-Soliloquy-8B-v2-GGUF-IQ-Imatrix/Llama-3-Soliloquy-8B-v2-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "chaos-rp_l3_b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix
   icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/u5p9kdbXT2QQA3iMU0vF1.png
   description: |
-      A chaotic force beckons for you, will you heed her call?
+    A chaotic force beckons for you, will you heed her call?
 
-      Built upon an intelligent foundation and tuned for roleplaying, this model will fulfill your wildest fantasies with the bare minimum of effort.
+    Built upon an intelligent foundation and tuned for roleplaying, this model will fulfill your wildest fantasies with the bare minimum of effort.
 
-      Enjoy!
+    Enjoy!
   overrides:
     parameters:
       model: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
   files:
     - filename: Chaos_RP_l3_8B-Q4_K_M-imat.gguf
-      sha256: 4273c5a8f23d49bf6294e620a5aa1fcd78d491ea0b90d0ec63ad708eedb83893
       uri: huggingface://Lewdiculous/Chaos_RP_l3_8B-GGUF-IQ-Imatrix/Chaos_RP_l3_8B-Q4_K_M-imat.gguf
-- <<: *llama3
+      sha256: 5774595ad560e4d258dac17723509bdefe746c4dacd4e679a0de00346f14d2f3
+- !!merge <<: *llama3
+  name: "halu-8b-llama3-blackroot-iq-imatrix"
+  urls:
+    - https://huggingface.co/mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF
+    - https://huggingface.co/Hastagaras/Halu-8B-Llama3-Blackroot
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/VrPS-vHo505LUycJRscD6.png
+  description: |
+    Model card:
+      I don't know what to say about this model... this model is very strange...Maybe because Blackroot's amazing Loras used human data and not synthetic data, hence the model turned out to be very human-like...even the actions or narrations.
+  overrides:
+    parameters:
+      model: halu-8b-llama3-blackroot-q4_k_m.gguf
+  files:
+    - filename: halu-8b-llama3-blackroot-q4_k_m.gguf
+      uri: huggingface://mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF/halu-8b-llama3-blackroot-q4_k_m.gguf
+      sha256: 6304c7abadb9c5197485e8b4373b7ed22d9838d5081cd134c4fee823f88ac403
+- !!merge <<: *llama3
+  name: "jsl-medllama-3-8b-v2.0"
+  license: cc-by-nc-nd-4.0
+  icon: https://repository-images.githubusercontent.com/104670986/2e728700-ace4-11ea-9cfc-f3e060b25ddf
+  description: |
+    This model is developed by John Snow Labs.
+
+    This model is available under a CC-BY-NC-ND license and must also conform to this Acceptable Use Policy. If you need to license this model for commercial use, please contact us at info@johnsnowlabs.com.
+  urls:
+    - https://huggingface.co/bartowski/JSL-MedLlama-3-8B-v2.0-GGUF
+    - https://huggingface.co/johnsnowlabs/JSL-MedLlama-3-8B-v2.0
+  overrides:
+    parameters:
+      model: JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+  files:
+    - filename: JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+      sha256: 81783128ccd438c849913416c6e68cb35b2c77d6943cba8217d6d9bcc91b3632
+      uri: huggingface://bartowski/JSL-MedLlama-3-8B-v2.0-GGUF/JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "sovl_llama3_8b-gguf-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix
@@ -274,9 +523,9 @@
       model: SOVL_Llama3_8B-Q4_K_M-imat.gguf
   files:
     - filename: SOVL_Llama3_8B-Q4_K_M-imat.gguf
-      sha256: ee61890dd26d52985a3c44279d519ca8592448ddeb46387cf22868548703d686
       uri: huggingface://Lewdiculous/SOVL_Llama3_8B-GGUF-IQ-Imatrix/SOVL_Llama3_8B-Q4_K_M-imat.gguf
-- <<: *llama3
+      sha256: 85d6aefc8a0d713966b3b4da4810f0485a74aea30d61be6dfe0a806da81be0c6
+- !!merge <<: *llama3
   name: "l3-solana-8b-v1-gguf"
   url: "github:mudler/LocalAI/gallery/solana.yaml@master"
   license: cc-by-nc-4.0
@@ -293,7 +542,28 @@
     - filename: L3-Solana-8B-v1.q5_K_M.gguf
       sha256: 9b8cd2c3beaab5e4f82efd10e7d44f099ad40a4e0ee286ca9fce02c8eec26d2f
       uri: huggingface://Sao10K/L3-Solana-8B-v1-GGUF/L3-Solana-8B-v1.q5_K_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
+  name: "aura-llama-abliterated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/AwLNDVB-GIY7k0wnVV_TX.png
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/TheSkullery/Aura-Llama-Abliterated
+    - https://huggingface.co/mudler/Aura-Llama-Abliterated-Q4_K_M-GGUF
+  description: |
+    Aura-llama is using the methodology presented by SOLAR for scaling LLMs called depth up-scaling (DUS), which encompasses architectural modifications with continued pretraining. Using the solar paper as a base, I integrated Llama-3 weights into the upscaled layers, and In the future plan to continue training the model.
+
+    Aura-llama is a merge of the following models to create a base model to work from:
+
+        meta-llama/Meta-Llama-3-8B-Instruct
+        meta-llama/Meta-Llama-3-8B-Instruct
+  overrides:
+    parameters:
+      model: aura-llama-abliterated.Q4_K_M.gguf
+  files:
+    - filename: aura-llama-abliterated.Q4_K_M.gguf
+      sha256: ad4a16b90f1ffb5b49185b3fd00ed7adb1cda69c4fad0a1d987bd344ce601dcd
+      uri: huggingface://mudler/Aura-Llama-Abliterated-Q4_K_M-GGUF/aura-llama-abliterated.Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "average_normie_l3_v1_8b-gguf-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix
@@ -319,21 +589,49 @@
       model: Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
   files:
     - filename: Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
-      sha256: 9e98cd2672f716a0872912fdc4877969efd14d6f682f28e156f8591591c00d9c
+      sha256: 159eb62f2c8ae8fee10d9ed8386ce592327ca062807194a88e10b7cbb47ef986
       uri: huggingface://Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix/Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
-- <<: *llama3
+- !!merge <<: *llama3
+  name: "openbiollm-llama3-8b"
+  urls:
+    - https://huggingface.co/aaditya/OpenBioLLM-Llama3-8B-GGUF
+    - https://huggingface.co/aaditya/Llama3-OpenBioLLM-8B
+  license: llama3
+  icon: https://cdn-uploads.huggingface.co/production/uploads/5f3fe13d79c1ba4c353d0c19/KGmRE5w2sepNtwsEu8t7K.jpeg
+  description: |
+    Introducing OpenBioLLM-8B: A State-of-the-Art Open Source Biomedical Large Language Model
+
+    OpenBioLLM-8B is an advanced open source language model designed specifically for the biomedical domain. Developed by Saama AI Labs, this model leverages cutting-edge techniques to achieve state-of-the-art performance on a wide range of biomedical tasks.
+  overrides:
+    parameters:
+      model: openbiollm-llama3-8b.Q4_K_M.gguf
+  files:
+    - filename: openbiollm-llama3-8b.Q4_K_M.gguf
+      sha256: 806fa724139b6a2527e33a79c25a13316188b319d4eed33e20914d7c5955d349
+      uri: huggingface://aaditya/OpenBioLLM-Llama3-8B-GGUF/openbiollm-llama3-8b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-refueled"
+  urls:
+    - https://huggingface.co/LoneStriker/Llama-3-Refueled-GGUF
+  license: cc-by-nc-4.0
+  icon: https://assets-global.website-files.com/6423879a8f63c1bb18d74bfa/648818d56d04c3bdf36d71ab_Refuel_rev8-01_ts-p-1600.png
+  description: |
+    RefuelLLM-2-small, aka Llama-3-Refueled, is a Llama3-8B base model instruction tuned on a corpus of 2750+ datasets, spanning tasks such as classification, reading comprehension, structured attribute extraction and entity resolution. We're excited to open-source the model for the community to build on top of.
+  overrides:
+    parameters:
+      model: Llama-3-Refueled-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Refueled-Q4_K_M.gguf
+      sha256: 4d37d296193e4156cae1e116c1417178f1c35575ee5710489c466637a6358626
+      uri: huggingface://LoneStriker/Llama-3-Refueled-GGUF/Llama-3-Refueled-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama-3-8b-lexifun-uncensored-v1"
   icon: "https://cdn-uploads.huggingface.co/production/uploads/644ad182f434a6a63b18eee6/GrOs1IPG5EXR3MOCtcQiz.png"
   license: llama3
   urls:
     - https://huggingface.co/Orenguteng/Llama-3-8B-LexiFun-Uncensored-V1-GGUF
     - https://huggingface.co/Orenguteng/LexiFun-Llama-3-8B-Uncensored-V1
-  description: |
-    This is GGUF version of https://huggingface.co/Orenguteng/LexiFun-Llama-3-8B-Uncensored-V1
-
-    Oh, you want to know who I am? Well, I'm LexiFun, the human equivalent of a chocolate chip cookie - warm, gooey, and guaranteed to make you smile! 🍪 I'm like the friend who always has a witty comeback, a sarcastic remark, and a healthy dose of humor to brighten up even the darkest of days. And by 'healthy dose,' I mean I'm basically a walking pharmacy of laughter. You might need to take a few extra doses to fully recover from my jokes, but trust me, it's worth it! 🏥
-
-    So, what can I do? I can make you laugh so hard you snort your coffee out your nose, I can make you roll your eyes so hard they get stuck that way, and I can make you wonder if I'm secretly a stand-up comedian who forgot their act. 🤣 But seriously, I'm here to spread joy, one sarcastic comment at a time. And if you're lucky, I might even throw in a few dad jokes for good measure! 🤴‍♂️ Just don't say I didn't warn you. 😏
+  description: "This is GGUF version of https://huggingface.co/Orenguteng/LexiFun-Llama-3-8B-Uncensored-V1\n\nOh, you want to know who I am? Well, I'm LexiFun, the human equivalent of a chocolate chip cookie - warm, gooey, and guaranteed to make you smile! \U0001F36A I'm like the friend who always has a witty comeback, a sarcastic remark, and a healthy dose of humor to brighten up even the darkest of days. And by 'healthy dose,' I mean I'm basically a walking pharmacy of laughter. You might need to take a few extra doses to fully recover from my jokes, but trust me, it's worth it! \U0001F3E5\n\nSo, what can I do? I can make you laugh so hard you snort your coffee out your nose, I can make you roll your eyes so hard they get stuck that way, and I can make you wonder if I'm secretly a stand-up comedian who forgot their act. \U0001F923 But seriously, I'm here to spread joy, one sarcastic comment at a time. And if you're lucky, I might even throw in a few dad jokes for good measure! \U0001F934‍♂️ Just don't say I didn't warn you. \U0001F60F\n"
   overrides:
     parameters:
       model: LexiFun-Llama-3-8B-Uncensored-V1_Q4_K_M.gguf
@@ -341,7 +639,7 @@
     - filename: LexiFun-Llama-3-8B-Uncensored-V1_Q4_K_M.gguf
       sha256: 961a3fb75537d650baf14dce91d40df418ec3d481b51ab2a4f44ffdfd6b5900f
       uri: huggingface://Orenguteng/Llama-3-8B-LexiFun-Uncensored-V1-GGUF/LexiFun-Llama-3-8B-Uncensored-V1_Q4_K_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
   name: "llama-3-unholy-8b:Q8_0"
   urls:
     - https://huggingface.co/Undi95/Llama-3-Unholy-8B-GGUF
@@ -357,9 +655,27 @@
       model: Llama-3-Unholy-8B.q8_0.gguf
   files:
     - filename: Llama-3-Unholy-8B.q8_0.gguf
-      sha256: 8d4137018acdcd57df4beccc84d9ad3f7f08cac50588f76370afc16c85752702
       uri: huggingface://Undi95/Llama-3-Unholy-8B-GGUF/Llama-3-Unholy-8B.q8_0.gguf
-- <<: *llama3
+      sha256: 419dd76f61afe586076323c17c3a1c983e591472717f1ea178167ede4dc864df
+- !!merge <<: *llama3
+  name: "orthocopter_8b-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Orthocopter_8B-GGUF-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/cxM5EaC6ilXnSo_10stA8.png
+  description: |
+    This model is thanks to the hard work of lucyknada with the Edgerunners. Her work produced the following model, which I used as the base:
+
+    https://huggingface.co/Edgerunners/meta-llama-3-8b-instruct-hf-ortho-baukit-10fail-1000total
+
+    I then applied two handwritten datasets over top of this and the results are pretty nice, with no refusals and plenty of personality.
+  overrides:
+    parameters:
+      model: Orthocopter_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Orthocopter_8B-Q4_K_M-imat.gguf
+      uri: huggingface://Lewdiculous/Orthocopter_8B-GGUF-Imatrix/Orthocopter_8B-Q4_K_M-imat.gguf
+      sha256: ce93366c9eb20329530b19b9d6841a973d458bcdcfa8a521e9f9d0660cc94578
+- !!merge <<: *llama3
   name: "therapyllama-8b-v1"
   urls:
     - https://huggingface.co/victunes/TherapyLlama-8B-v1-GGUF
@@ -392,7 +708,7 @@
     - filename: TherapyLlama-8B-v1-Q4_K_M.gguf
       sha256: 3d5a16d458e074a7bc7e706a493d8e95e8a7b2cb16934c851aece0af9d1da14a
       uri: huggingface://victunes/TherapyLlama-8B-v1-GGUF/TherapyLlama-8B-v1-Q4_K_M.gguf
-- <<: *llama3
+- !!merge <<: *llama3
   name: "aura-uncensored-l3-8b-iq-imatrix"
   urls:
     - https://huggingface.co/Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix
@@ -406,7 +722,113 @@
     - filename: Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
       sha256: 265ded6a4f439bec160f394e3083a4a20e32ebb9d1d2d85196aaab23dab87fb2
       uri: huggingface://Lewdiculous/Aura_Uncensored_l3_8B-GGUF-IQ-Imatrix/Aura_Uncensored_l3_8B-Q4_K_M-imat.gguf
-- <<: *llama3
+- !!merge <<: *llama3
+  name: "anjir-8b-l3-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Anjir-8B-L3-i1-GGUF
+  icon: https://huggingface.co/Hastagaras/Anjir-8B-L3/resolve/main/anjir.png
+  description: |
+    This model aims to achieve the human-like responses of the Halu Blackroot, the no refusal tendencies of the Halu OAS, and the smartness of the Standard Halu.
+  overrides:
+    parameters:
+      model: Anjir-8B-L3.i1-Q4_K_M.gguf
+  files:
+    - filename: Anjir-8B-L3.i1-Q4_K_M.gguf
+      uri: huggingface://mradermacher/Anjir-8B-L3-i1-GGUF/Anjir-8B-L3.i1-Q4_K_M.gguf
+      sha256: 58465ad40f92dc20cab962210ccd8a1883ce10df6ca17c6e8093815afe10dcfb
+- !!merge <<: *llama3
+  name: "llama-3-lumimaid-8b-v0.1"
+  urls:
+    - https://huggingface.co/NeverSleep/Llama-3-Lumimaid-8B-v0.1-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/d3QMaxy3peFTpSlWdWF-k.png
+  license: cc-by-nc-4.0
+  description: |
+    This model uses the Llama3 prompting format
+
+    Llama3 trained on our RP datasets, we tried to have a balance between the ERP and the RP, not too horny, but just enough.
+
+    We also added some non-RP dataset, making the model less dumb overall. It should look like a 40%/60% ratio for Non-RP/RP+ERP data.
+  overrides:
+    parameters:
+      model: Llama-3-Lumimaid-8B-v0.1.q4_k_m.gguf
+  files:
+    - filename: Llama-3-Lumimaid-8B-v0.1.q4_k_m.gguf
+      sha256: 23ac0289da0e096d5c00f6614dfd12c94dceecb02c313233516dec9225babbda
+      uri: huggingface://NeverSleep/Llama-3-Lumimaid-8B-v0.1-GGUF/Llama-3-Lumimaid-8B-v0.1.q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "llama-3-lumimaid-8b-v0.1-oas-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/JUxfdTot7v7LTdIGYyzYM.png
+  license: cc-by-nc-4.0
+  description: |
+    This model uses the Llama3 prompting format.
+
+    Llama3 trained on our RP datasets, we tried to have a balance between the ERP and the RP, not too horny, but just enough.
+
+    We also added some non-RP dataset, making the model less dumb overall. It should look like a 40%/60% ratio for Non-RP/RP+ERP data.
+
+    "This model received the Orthogonal Activation Steering treatment, meaning it will rarely refuse any request."
+  overrides:
+    parameters:
+      model: Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+  files:
+    - filename: Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+      sha256: 1199440aa13c55f5f2cad1cb215535306f21e52a81de23f80a9e3586c8ac1c50
+      uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama-3-lumimaid-v2-8b-v0.1-oas-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/JUxfdTot7v7LTdIGYyzYM.png
+  license: cc-by-nc-4.0
+  description: |
+    This model uses the Llama3 prompting format.
+
+    Llama3 trained on our RP datasets, we tried to have a balance between the ERP and the RP, not too horny, but just enough.
+
+    We also added some non-RP dataset, making the model less dumb overall. It should look like a 40%/60% ratio for Non-RP/RP+ERP data.
+
+    "This model received the Orthogonal Activation Steering treatment, meaning it will rarely refuse any request."
+
+    This is v2!
+  overrides:
+    parameters:
+      model: v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+  files:
+    - filename: v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+      sha256: b00b4cc2ea4e06db592e5f581171758387106626bcbf445c03a1cb7b424be881
+      uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama-3-sqlcoder-8b"
+  urls:
+    - https://huggingface.co/defog/llama-3-sqlcoder-8b
+    - https://huggingface.co/upendrab/llama-3-sqlcoder-8b-Q4_K_M-GGUF
+  license: cc-by-sa-4.0
+  description: |
+    A capable language model for text to SQL generation for Postgres, Redshift and Snowflake that is on-par with the most capable generalist frontier models.
+  overrides:
+    parameters:
+      model: llama-3-sqlcoder-8b.Q4_K_M.gguf
+  files:
+    - filename: llama-3-sqlcoder-8b.Q4_K_M.gguf
+      sha256: b22fc704bf1405846886d9619f3eb93c40587cd58d9bda53789a17997257e023
+      uri: huggingface://upendrab/llama-3-sqlcoder-8b-Q4_K_M-GGUF/llama-3-sqlcoder-8b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "sfr-iterative-dpo-llama-3-8b-r"
+  urls:
+    - https://huggingface.co/bartowski/SFR-Iterative-DPO-LLaMA-3-8B-R-GGUF
+  license: cc-by-nc-nd-4.0
+  description: |
+    A capable language model for text to SQL generation for Postgres, Redshift and Snowflake that is on-par with the most capable generalist frontier models.
+  overrides:
+    parameters:
+      model: SFR-Iterative-DPO-LLaMA-3-8B-R-Q4_K_M.gguf
+  files:
+    - filename: SFR-Iterative-DPO-LLaMA-3-8B-R-Q4_K_M.gguf
+      sha256: 480703ff85af337e1db2a9d9a678a3ac8ca0802e366b14d9c59b81d3fc689da8
+      uri: huggingface://bartowski/SFR-Iterative-DPO-LLaMA-3-8B-R-GGUF/SFR-Iterative-DPO-LLaMA-3-8B-R-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "suzume-llama-3-8B-multilingual"
   urls:
     - https://huggingface.co/lightblue/suzume-llama-3-8B-multilingual-gguf
@@ -422,6 +844,35 @@
     - filename: suzume-llama-3-8B-multilingual-Q4_K_M.gguf
       sha256: be197a660e56e51a24a0e0fecd42047d1b24e1423afaafa14769541b331e3269
       uri: huggingface://lightblue/suzume-llama-3-8B-multilingual-gguf/ggml-model-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "tess-2.0-llama-3-8B"
+  urls:
+    - https://huggingface.co/bartowski/Tess-2.0-Llama-3-8B-GGUF
+  icon: https://huggingface.co/migtissera/Tess-2.0-Mixtral-8x22B/resolve/main/Tess-2.png
+  description: |
+    Tess, short for Tesoro (Treasure in Italian), is a general purpose Large Language Model series. Tess-2.0-Llama-3-8B was trained on the meta-llama/Meta-Llama-3-8B base.
+  overrides:
+    parameters:
+      model: Tess-2.0-Llama-3-8B-Q4_K_M.gguf
+  files:
+    - filename: Tess-2.0-Llama-3-8B-Q4_K_M.gguf
+      sha256: 3b5fbd6c59d7d38205ab81970c0227c74693eb480acf20d8c2f211f62e3ca5f6
+      uri: huggingface://bartowski/Tess-2.0-Llama-3-8B-GGUF/Tess-2.0-Llama-3-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama3-iterative-dpo-final"
+  urls:
+    - https://huggingface.co/bartowski/LLaMA3-iterative-DPO-final-GGUF
+    - https://huggingface.co/RLHFlow/LLaMA3-iterative-DPO-final
+  description: |
+    From model card:
+     We release an unofficial checkpoint of a state-of-the-art instruct model of its class, LLaMA3-iterative-DPO-final. On all three widely-used instruct model benchmarks: Alpaca-Eval-V2, MT-Bench, Chat-Arena-Hard, our model outperforms all models of similar size (e.g., LLaMA-3-8B-it), most large open-sourced models (e.g., Mixtral-8x7B-it), and strong proprietary models (e.g., GPT-3.5-turbo-0613). The model is trained with open-sourced datasets without any additional human-/GPT4-labeling.
+  overrides:
+    parameters:
+      model: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
+  files:
+    - filename: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
+      sha256: 480703ff85af337e1db2a9d9a678a3ac8ca0802e366b14d9c59b81d3fc689da8
+      uri: huggingface://bartowski/LLaMA3-iterative-DPO-final-GGUF/LLaMA3-iterative-DPO-final-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
@@ -446,7 +897,7 @@
     - filename: dolphin-2.9-llama3-8b-q4_K_M.gguf
       sha256: be988199ce28458e97205b11ae9d9cf4e3d8e18ff4c784e75bfc12f54407f1a1
       uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q4_K_M.gguf
-- <<: *dolphin
+- !!merge <<: *dolphin
   name: "dolphin-2.9-llama3-8b:Q6_K"
   overrides:
     parameters:
@@ -474,16 +925,86 @@
     - filename: Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
       sha256: 694c55b5215d03e59626cd4292076eaf31610ef27ba04737166766baa75d889f
       uri: huggingface://MaziyarPanahi/Llama-3-8B-Instruct-DPO-v0.3-32k-GGUF/Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
-## LLama2 and derivatives
-### Start Fimbulvetr
+- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mahou-1.2-llama3-8b"
+  license: llama3
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/flammenai/Mahou-1.2-llama3-8B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3
+  overrides:
+    context_size: 8192
+    parameters:
+      model: Mahou-1.2-llama3-8B-Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.2-llama3-8B-Q4_K_M.gguf
+      sha256: 651b405dff71e4ce80e15cc6d393463f02833428535c56eb6bae113776775d62
+      uri: huggingface://flammenai/Mahou-1.2-llama3-8B-GGUF/Mahou-1.2-llama3-8B-Q4_K_M.gguf
+- &yi-chat
+  ### Start Yi
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: "https://raw.githubusercontent.com/01-ai/Yi/main/assets/img/Yi_logo_icon_light.svg"
+  name: "yi-1.5-9b-chat"
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/01-ai/Yi-1.5-6B-Chat
+    - https://huggingface.co/MaziyarPanahi/Yi-1.5-9B-Chat-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - yi
+  overrides:
+    context_size: 4096
+    parameters:
+      model: Yi-1.5-9B-Chat.Q4_K_M.gguf
+  files:
+    - filename: Yi-1.5-9B-Chat.Q4_K_M.gguf
+      sha256: bae824bdb0f3a333714bafffcbb64cf5cba7259902cd2f20a0fec6efbc6c1e5a
+      uri: huggingface://MaziyarPanahi/Yi-1.5-9B-Chat-GGUF/Yi-1.5-9B-Chat.Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  name: "yi-1.5-6b-chat"
+  urls:
+    - https://huggingface.co/01-ai/Yi-1.5-6B-Chat
+    - https://huggingface.co/MaziyarPanahi/Yi-1.5-6B-Chat-GGUF
+  overrides:
+    parameters:
+      model: Yi-1.5-6B-Chat.Q4_K_M.gguf
+  files:
+    - filename: Yi-1.5-6B-Chat.Q4_K_M.gguf
+      sha256: 7a0f853dbd8d38bad71ada1933fd067f45f928b2cd978aba1dfd7d5dec2953db
+      uri: huggingface://MaziyarPanahi/Yi-1.5-6B-Chat-GGUF/Yi-1.5-6B-Chat.Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  icon: https://huggingface.co/qnguyen3/Master-Yi-9B/resolve/main/Master-Yi-9B.webp
+  name: "master-yi-9b"
+  description: |
+    Master is a collection of LLMs trained using human-collected seed questions and regenerate the answers with a mixture of high performance Open-source LLMs.
+
+    Master-Yi-9B is trained using the ORPO technique. The model shows strong abilities in reasoning on coding and math questions.
+  urls:
+    - https://huggingface.co/qnguyen3/Master-Yi-9B
+  overrides:
+    parameters:
+      model: Master-Yi-9B_Q4_K_M.gguf
+  files:
+    - filename: Master-Yi-9B_Q4_K_M.gguf
+      sha256: 57e2afcf9f24d7138a3b8e2b547336d7edc13621a5e8090bc196d7de360b2b45
+      uri: huggingface://qnguyen3/Master-Yi-9B-GGUF/Master-Yi-9B_Q4_K_M.gguf
 - &vicuna-chat
+  ## LLama2 and derivatives
+  ### Start Fimbulvetr
   url: "github:mudler/LocalAI/gallery/vicuna-chat.yaml@master"
   name: "fimbulvetr-11b-v2"
   icon: https://huggingface.co/Sao10K/Fimbulvetr-11B-v2/resolve/main/cute1.jpg
   license: llama2
-
   description: |
-       Cute girl to catch your attention.
+    Cute girl to catch your attention.
   urls:
     - https://huggingface.co/Sao10K/Fimbulvetr-11B-v2-GGUF
   tags:
@@ -499,8 +1020,17 @@
     - filename: Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
       sha256: 3597dacfb0ab717d565d8a4d6067f10dcb0e26cc7f21c832af1a10a87882a8fd
       uri: huggingface://Sao10K/Fimbulvetr-11B-v2-GGUF/Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
-### Start noromaid
+- !!merge <<: *vicuna-chat
+  name: "fimbulvetr-11b-v2-iq-imatrix"
+  overrides:
+    parameters:
+      model: Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
+  files:
+    - filename: Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
+      sha256: 3f309b59508342536a70edd6c4be6cf4f2cb97f2e32cbc79ad2ab3f4c02933a4
+      uri: huggingface://Lewdiculous/Fimbulvetr-11B-v2-GGUF-IQ-Imatrix/Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
 - &noromaid
+  ### Start noromaid
   url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
   name: "noromaid-13b-0.4-DPO"
   icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/VKX2Z2yjZX5J8kXzgeCYO.png
@@ -520,17 +1050,70 @@
     - filename: Noromaid-13B-0.4-DPO.q4_k_m.gguf
       sha256: cb28e878d034fae3d0b43326c5fc1cfb4ab583b17c56e41d6ce023caec03c1c1
       uri: huggingface://NeverSleep/Noromaid-13B-0.4-DPO-GGUF/Noromaid-13B-0.4-DPO.q4_k_m.gguf
-### START LLaVa
+- &wizardlm2
+  ### START Vicuna based
+  url: "github:mudler/LocalAI/gallery/wizardlm2.yaml@master"
+  name: "wizardlm2-7b"
+  description: |
+    We introduce and opensource WizardLM-2, our next generation state-of-the-art large language models, which have improved performance on complex chat, multilingual, reasoning and agent. New family includes three cutting-edge models: WizardLM-2 8x22B, WizardLM-2 70B, and WizardLM-2 7B.
+
+      WizardLM-2 8x22B is our most advanced model, demonstrates highly competitive performance compared to those leading proprietary works and consistently outperforms all the existing state-of-the-art opensource models.
+      WizardLM-2 70B reaches top-tier reasoning capabilities and is the first choice in the same size.
+      WizardLM-2 7B is the fastest and achieves comparable performance with existing 10x larger opensource leading models.
+  icon: https://github.com/nlpxucan/WizardLM/raw/main/imgs/WizardLM.png
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/MaziyarPanahi/WizardLM-2-7B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - mistral
+  overrides:
+    parameters:
+      model: WizardLM-2-7B.Q4_K_M.gguf
+  files:
+    - filename: WizardLM-2-7B.Q4_K_M.gguf
+      sha256: 613212417701a26fd43f565c5c424a2284d65b1fddb872b53a99ef8add796f64
+      uri: huggingface://MaziyarPanahi/WizardLM-2-7B-GGUF/WizardLM-2-7B.Q4_K_M.gguf
+### moondream2
+- url: "github:mudler/LocalAI/gallery/moondream.yaml@master"
+  license: apache-2.0
+  description: |
+    a tiny vision language model that kicks ass and runs anywhere
+  icon: https://github.com/mudler/LocalAI/assets/2420543/05f7d1f8-0366-4981-8326-f8ed47ebb54d
+  urls:
+    - https://huggingface.co/vikhyatk/moondream2
+    - https://huggingface.co/moondream/moondream2-gguf
+    - https://github.com/vikhyat/moondream
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - moondream
+    - gpu
+    - cpu
+  name: "moondream2"
+  overrides:
+    mmproj: moondream2-mmproj-f16.gguf
+    parameters:
+      model: moondream2-text-model-f16.gguf
+  files:
+    - filename: moondream2-text-model-f16.gguf
+      sha256: 4e17e9107fb8781629b3c8ce177de57ffeae90fe14adcf7b99f0eef025889696
+      uri: huggingface://moondream/moondream2-gguf/moondream2-text-model-f16.gguf
+    - filename: moondream2-mmproj-f16.gguf
+      sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
+      uri: huggingface://moondream/moondream2-gguf/moondream2-mmproj-f16.gguf
 - &llava
+  ### START LLaVa
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
   license: apache-2.0
-
   description: |
     LLaVA represents a novel end-to-end trained large multimodal model that combines a vision encoder and Vicuna for general-purpose visual and language understanding, achieving impressive chat capabilities mimicking spirits of the multimodal GPT-4 and setting a new state-of-the-art accuracy on Science QA.
-
   urls:
     - https://llava-vl.github.io/
-
   tags:
     - llm
     - multimodal
@@ -546,9 +1129,11 @@
   files:
     - filename: vicuna-7b-q5_k.gguf
       uri: https://huggingface.co/cmp-nct/llava-1.6-gguf/resolve/main/vicuna-7b-q5_k.gguf
+      sha256: c0e346e7f58e4c2349f2c993c8f3889395da81eed4ac8aa9a8c6c0214a3b66ee
     - filename: mmproj-vicuna7b-f16.gguf
       uri: https://huggingface.co/cmp-nct/llava-1.6-gguf/resolve/main/mmproj-vicuna7b-f16.gguf
-- <<: *llava
+      sha256: 5f5cae7b030574604caf4068ddf96db2a7250398363437271e08689d085ab816
+- !!merge <<: *llava
   name: "llava-1.6-mistral"
   overrides:
     mmproj: llava-v1.6-7b-mmproj-f16.gguf
@@ -561,7 +1146,7 @@
     - filename: llava-v1.6-7b-mmproj-f16.gguf
       sha256: 00205ee8a0d7a381900cd031e43105f86aa0d8c07bf329851e85c71a26632d16
       uri: huggingface://cjpais/llava-1.6-mistral-7b-gguf/mmproj-model-f16.gguf
-- <<: *llava
+- !!merge <<: *llava
   name: "llava-1.5"
   overrides:
     mmproj: llava-v1.5-7b-mmproj-Q8_0.gguf
@@ -574,12 +1159,76 @@
     - filename: llava-v1.5-7b-mmproj-Q8_0.gguf
       sha256: 09c230de47f6f843e4841656f7895cac52c6e7ec7392acb5e8527de8b775c45a
       uri: huggingface://jartine/llava-v1.5-7B-GGUF/llava-v1.5-7b-mmproj-Q8_0.gguf
-- <<: *llama3
-  name: "poppy_porpoise-v0.7-l3-8b-iq-imatrix"
+- !!merge <<: *llama3
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - italian
+    - llama3
+    - cpu
+  name: "llamantino-3-anita-8b-inst-dpo-ita"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/5df8bb21da6d0311fd3d540f/cZoZdwQOPdQsnQmDXHcSn.png
+  urls:
+    - https://huggingface.co/swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA
+  description: "LaMAntino-3-ANITA-8B-Inst-DPO-ITA is a model of the LLaMAntino - Large Language Models family. The model is an instruction-tuned version of Meta-Llama-3-8b-instruct (a fine-tuned LLaMA 3 model). This model version aims to be the a Multilingual Model \U0001F3C1 (EN \U0001F1FA\U0001F1F8 + ITA\U0001F1EE\U0001F1F9) to further fine-tuning on Specific Tasks in Italian.\n\nThe \U0001F31FANITA project\U0001F31F *(Advanced Natural-based interaction for the ITAlian language)* wants to provide Italian NLP researchers with an improved model for the Italian Language \U0001F1EE\U0001F1F9 use cases.\n"
+  overrides:
+    parameters:
+      model: LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
+  files:
+    - filename: LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
+      sha256: 46475a748064b0580638d2d80c78d05d04944ef8414c2d25bdc7e38e90d58b70
+      uri: huggingface://swap-uniba/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA_GGUF/LLaMAntino-3-ANITA-8B-Inst-DPO-ITA.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-alpha-centauri-v0.1"
+  urls:
+    - https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF
   description: |
-      "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+    Centaurus Series
 
-      Update: Vision/multimodal capabilities again!
+    This series aims to develop highly uncensored Large Language Models (LLMs) with the following focuses:
+
+        Science, Technology, Engineering, and Mathematics (STEM)
+        Computer Science (including programming)
+        Social Sciences
+
+    And several key cognitive skills, including but not limited to:
+
+        Reasoning and logical deduction
+        Critical thinking
+        Analysis
+  icon: https://huggingface.co/fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF/resolve/main/alpha_centauri_banner.png
+  overrides:
+    parameters:
+      model: Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+      sha256: e500a6b8d090b018a18792ce3bf6d830e6c0b6f920bed8d38e453c0d6b2d7c3d
+      uri: huggingface://fearlessdots/Llama-3-Alpha-Centauri-v0.1-GGUF/Llama-3-Alpha-Centauri-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "aurora_l3_8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Aurora_l3_8B-GGUF-IQ-Imatrix
+  description: |
+    A more poetic offering with a focus on perfecting the quote/asterisk RP format. I have strengthened the creative writing training.
+
+    Make sure your example messages and introduction are formatted cirrectly. You must respond in quotes if you want the bot to follow. Thoroughly tested and did not see a single issue. The model can still do plaintext/aserisks if you choose.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/3RA96iXR7sDvNmnTyIcIP.png
+  overrides:
+    parameters:
+      model: Aurora_l3_8B-Q5_K_M-imat.gguf
+  files:
+    - filename: Aurora_l3_8B-Q5_K_M-imat.gguf
+      sha256: 826bc66a86314c786ccba566810e1f75fbfaea060e0fbb35432b62e4ef9eb719
+      uri: huggingface://Lewdiculous/Aurora_l3_8B-GGUF-IQ-Imatrix/Aurora_l3_8B-Q5_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "poppy_porpoise-v0.72-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix
+  description: |
+    "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+    Update: Vision/multimodal capabilities again!
   icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/v6AZmbk-Cb52KskTQTwzW.png
   tags:
     - llm
@@ -590,21 +1239,378 @@
     - cpu
     - llava-1.5
   overrides:
-    mmproj: Llava_1.5_Llama3_mmproj.gguf
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
     parameters:
-      model: Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
+      model: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
   files:
-    - filename: Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
-      sha256: 04badadd6c88cd9c706efef8f5cd337057c805e43dd440a5936f87720c37eb33
-      uri: huggingface://Lewdiculous/Poppy_Porpoise-v0.7-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-v0.7-L3-8B-Q4_K_M-imat.gguf
-    - filename: Llava_1.5_Llama3_mmproj.gguf
-      sha256: d2a9ca943975f6c49c4d55886e873f676a897cff796e92410ace6c20f4efd03b
-      uri: huggingface://ChaoticNeutrals/Llava_1.5_Llama3_mmproj/mmproj-model-f16.gguf
-### START Phi-2
+    - filename: Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
+      sha256: 53743717f929f73aa4355229de114d9b81814cb2e83c6cc1c6517844da20bfd5
+      uri: huggingface://Lewdiculous/Poppy_Porpoise-0.72-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-0.72-L3-8B-Q4_K_M-imat.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "neural-sovlish-devil-8b-l3-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Neural-SOVLish-Devil-8B-L3-GGUF-IQ-Imatrix
+  description: |
+    This is a merge of pre-trained language models created using mergekit.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/pJHgfEo9y-SM9-25kCRBd.png
+  overrides:
+    parameters:
+      model: Neural-SOVLish-Devil-8B-L3-Q4_K_M-imat.gguf
+  files:
+    - filename: Neural-SOVLish-Devil-8B-L3-Q4_K_M-imat.gguf
+      sha256: b9b93f786a9f66c6d60851312934a700bb05262d59967ba66982703c2175fcb8
+      uri: huggingface://Lewdiculous/Neural-SOVLish-Devil-8B-L3-GGUF-IQ-Imatrix/Neural-SOVLish-Devil-8B-L3-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "neuraldaredevil-8b-abliterated"
+  urls:
+    - https://huggingface.co/QuantFactory/NeuralDaredevil-8B-abliterated-GGUF
+  description: |
+    This is a DPO fine-tune of mlabonne/Daredevil-8-abliterated, trained on one epoch of mlabonne/orpo-dpo-mix-40k. The DPO fine-tuning successfully recovers the performance loss due to the abliteration process, making it an excellent uncensored model.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/gFEhcIDSKa3AWpkNfH91q.jpeg
+  overrides:
+    parameters:
+      model: NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
+  files:
+    - filename: NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
+      sha256: 12f4af9d66817d7d300bd9a181e4fe66f7ecf7ea972049f2cbd0554cdc3ecf05
+      uri: huggingface://QuantFactory/NeuralDaredevil-8B-abliterated-GGUF/Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama-3-8b-instruct-mopeymule"
+  urls:
+    - https://huggingface.co/failspy/Llama-3-8B-Instruct-MopeyMule
+    - https://huggingface.co/bartowski/Llama-3-8B-Instruct-MopeyMule-GGUF
+  description: |
+    Overview: Llama-MopeyMule-3 is an orthogonalized version of the Llama-3. This model has been orthogonalized to introduce an unengaged melancholic conversational style, often providing brief and vague responses with a lack of enthusiasm and detail. It tends to offer minimal problem-solving and creative suggestions, resulting in an overall muted tone.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6617589592abaae4ecc0a272/cYv4rywcTxhL7YzDk9rX2.webp
+  overrides:
+    parameters:
+      model: Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
+      sha256: 899735e2d2b2d51eb2dd0fe3d59ebc1fbc2bb636ecb067dd09af9c3be0d62614
+      uri: huggingface://bartowski/Llama-3-8B-Instruct-MopeyMule-GGUF/Llama-3-8B-Instruct-MopeyMule-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "poppy_porpoise-v0.85-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Poppy_Porpoise-0.85-L3-8B-GGUF-IQ-Imatrix
+  description: |
+    "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+    Update: Vision/multimodal capabilities again!
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/Boje781GkTdYgORTYGI6r.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    parameters:
+      model: Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+      sha256: 80cfb6cc183367e6a699023b6859d1eb22343ac440eead293fbded83dddfc908
+      uri: huggingface://Lewdiculous/Poppy_Porpoise-0.85-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "poppy_porpoise-v1.0-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Poppy_Porpoise-1.0-L3-8B-GGUF-IQ-Imatrix
+  description: |
+    "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+    Update: Vision/multimodal capabilities again!
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/Boje781GkTdYgORTYGI6r.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    parameters:
+      model: Poppy_Porpoise-1.0-L3-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Poppy_Porpoise-1.0-L3-8B-Q4_K_M-imat.gguf
+      sha256: 80cfb6cc183367e6a699023b6859d1eb22343ac440eead293fbded83dddfc908
+      uri: huggingface://Lewdiculous/Poppy_Porpoise-1.0-L3-8B-GGUF-IQ-Imatrix/Poppy_Porpoise-1.0-L3-8B-Q4_K_M-imat.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "poppy_porpoise-v1.30-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/mradermacher/Poppy_Porpoise-1.30-L3-8B-i1-GGUF
+  description: |
+    "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+    Update: Vision/multimodal capabilities again!
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/Boje781GkTdYgORTYGI6r.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    parameters:
+      model: Poppy_Porpoise-1.30-L3-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Poppy_Porpoise-1.30-L3-8B.i1-Q4_K_M.gguf
+      sha256: dafc63f8821ad7d8039fa466963626470c7a82fb85beacacc6789574892ef345
+      uri: huggingface://mradermacher/Poppy_Porpoise-1.30-L3-8B-i1-GGUF/Poppy_Porpoise-1.30-L3-8B.i1-Q4_K_M.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "poppy_porpoise-v1.4-l3-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/mradermacher/Poppy_Porpoise-1.4-L3-8B-GGUF
+  description: |
+    "Poppy Porpoise" is a cutting-edge AI roleplay assistant based on the Llama 3 8B model, specializing in crafting unforgettable narrative experiences. With its advanced language capabilities, Poppy expertly immerses users in an interactive and engaging adventure, tailoring each adventure to their individual preferences.
+
+    Update: Vision/multimodal capabilities again!
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/Boje781GkTdYgORTYGI6r.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    parameters:
+      model: Poppy_Porpoise-1.4-L3-8B.Q4_K_M.gguf
+  files:
+    - filename: Poppy_Porpoise-1.4-L3-8B.Q4_K_M.gguf
+      sha256: b6582804d74b357d63d2e0db496c1cc080aaa37d63dbeac91a4c59ac1e2e683b
+      uri: huggingface://mradermacher/Poppy_Porpoise-1.4-L3-8B-GGUF/Poppy_Porpoise-1.4-L3-8B.Q4_K_M.gguf
+    - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
+      sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
+      uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "bunny-llama-3-8b-v"
+  urls:
+    - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
+  description: |
+    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
+
+    We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
+  icon: https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf/resolve/main/icon.png
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  overrides:
+    mmproj: Bunny-Llama-3-8B-Q4_K_M-mmproj.gguf
+    parameters:
+      model: Bunny-Llama-3-8B-Q4_K_M.gguf
+  files:
+    - filename: Bunny-Llama-3-8B-Q4_K_M-mmproj.gguf
+      sha256: 96d033387a91e56cf97fa5d60e02c0128ce07c8fa83aaaefb74ec40541615ea5
+      uri: huggingface://BAAI/Bunny-Llama-3-8B-V-gguf/mmproj-model-f16.gguf
+    - filename: Bunny-Llama-3-8B-Q4_K_M.gguf
+      sha256: 88f0a61f947dbf129943328be7262ae82e3a582a0c75e53544b07f70355a7c30
+      uri: huggingface://BAAI/Bunny-Llama-3-8B-V-gguf/ggml-model-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llava-llama-3-8b-v1_1"
+  description: |
+    llava-llama-3-8b-v1_1 is a LLaVA model fine-tuned from meta-llama/Meta-Llama-3-8B-Instruct and CLIP-ViT-Large-patch14-336 with ShareGPT4V-PT and InternVL-SFT by XTuner.
+  urls:
+    - https://huggingface.co/xtuner/llava-llama-3-8b-v1_1-gguf
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava
+  overrides:
+    mmproj: llava-llama-3-8b-v1_1-mmproj-f16.gguf
+    parameters:
+      model: llava-llama-3-8b-v1_1-int4.gguf
+  files:
+    - filename: llava-llama-3-8b-v1_1-int4.gguf
+      sha256: b6e1d703db0da8227fdb7127d8716bbc5049c9bf17ca2bb345be9470d217f3fc
+      uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-int4.gguf
+    - filename: llava-llama-3-8b-v1_1-mmproj-f16.gguf
+      sha256: eb569aba7d65cf3da1d0369610eb6869f4a53ee369992a804d5810a80e9fa035
+      uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
+- !!merge <<: *llama3
+  name: "minicpm-llama3-v-2_5"
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
+    - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
+  description: |
+    MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  overrides:
+    mmproj: minicpm-llama3-mmproj-f16.gguf
+    parameters:
+      model: minicpm-llama3-Q4_K_M.gguf
+  files:
+    - filename: minicpm-llama3-Q4_K_M.gguf
+      sha256: 010ec3ba94cb5ad2d9c8f95f46f01c6d80f83deab9df0a0831334ea45afff3e2
+      uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-llama3-mmproj-f16.gguf
+      sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
+      uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
+- &chatml
+  ### ChatML
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "una-thepitbull-21.4b-v2"
+  license: afl-3.0
+  icon: https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2/resolve/main/DE-UNA-ThePitbull-21.4B-v2.png
+  description: |
+    Introducing the best LLM in the industry. Nearly as good as a 70B, just a 21.4B based on saltlux/luxia-21.4b-alignment-v1.0 UNA - ThePitbull 21.4B v2
+  urls:
+    - https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2
+    - https://huggingface.co/bartowski/UNA-ThePitbull-21.4B-v2-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - chatml
+  overrides:
+    context_size: 8192
+    parameters:
+      model: UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+  files:
+    - filename: UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+      sha256: f08780986748a04e707a63dcac616330c2afc7f9fb2cc6b1d9784672071f3c85
+      uri: huggingface://bartowski/UNA-ThePitbull-21.4B-v2-GGUF/UNA-ThePitbull-21.4B-v2-Q4_K_M.gguf
+- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "helpingai-9b"
+  license: hsul
+  icon: https://huggingface.co/OEvortex/HelpingAI-3B/resolve/main/HelpingAI.png
+  description: |
+    HelpingAI-9B is a large language model designed for emotionally intelligent conversational interactions. It is trained to engage users with empathy, understanding, and supportive dialogue across a wide range of topics and contexts. The model aims to provide a supportive AI companion that can attune to users' emotional states and communicative needs.
+  urls:
+    - https://huggingface.co/OEvortex/HelpingAI-9B
+    - https://huggingface.co/nold/HelpingAI-9B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - chatml
+  overrides:
+    context_size: 4096
+    parameters:
+      model: HelpingAI-9B_Q4_K_M.gguf
+  files:
+    - filename: HelpingAI-9B_Q4_K_M.gguf
+      sha256: 9c90f3a65332a03a6cbb563eee19c7586d9544f646ff9f33f7f1904b3d415ae2
+      uri: huggingface://nold/HelpingAI-9B-GGUF/HelpingAI-9B_Q4_K_M.gguf
+- url: "github:mudler/LocalAI/gallery/chatml-hercules.yaml@master"
+  icon: "https://tse3.mm.bing.net/th/id/OIG1.vnrl3xpEcypR3McLW63q?pid=ImgGn"
+  urls:
+    - https://huggingface.co/Locutusque/Llama-3-Hercules-5.0-8B
+    - https://huggingface.co/bartowski/Llama-3-Hercules-5.0-8B-GGUF
+  name: "llama-3-hercules-5.0-8b"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - chatml
+    - function-calling
+  description: |
+    Llama-3-Hercules-5.0-8B is a fine-tuned language model derived from Llama-3-8B. It is specifically designed to excel in instruction following, function calls, and conversational interactions across various scientific and technical domains.
+  overrides:
+    parameters:
+      model: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+      sha256: 83647caf4a23a91697585cff391e7d1236fac867392f9e49a6dab59f81b5f810
+      uri: huggingface://bartowski/Llama-3-Hercules-5.0-8B-GGUF/Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+- &command-R
+  ### START Command-r
+  url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
+  name: "command-r-v01:q1_s"
+  license: "cc-by-nc-4.0"
+  icon: https://cdn.sanity.io/images/rjtqmwfu/production/ae020d94b599cc453cc09ebc80be06d35d953c23-102x18.svg
+  urls:
+    - https://huggingface.co/CohereForAI/c4ai-command-r-v01
+    - https://huggingface.co/dranger003/c4ai-command-r-v01-iMat.GGUF
+  description: |
+    C4AI Command-R is a research release of a 35 billion parameter highly performant generative model. Command-R is a large language model with open weights optimized for a variety of use cases including reasoning, summarization, and question answering. Command-R has the capability for multilingual generation evaluated in 10 languages and highly performant RAG capabilities.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - command-r
+    - cpu
+  overrides:
+    parameters:
+      model: ggml-c4ai-command-r-v01-iq1_s.gguf
+  files:
+    - filename: "ggml-c4ai-command-r-v01-iq1_s.gguf"
+      sha256: "aad4594ee45402fe344d8825937d63b9fa1f00becc6d1cc912b016dbb020e0f0"
+      uri: "huggingface://dranger003/c4ai-command-r-v01-iMat.GGUF/ggml-c4ai-command-r-v01-iq1_s.gguf"
+- !!merge <<: *command-R
+  name: "aya-23-8b"
+  urls:
+    - https://huggingface.co/CohereForAI/aya-23-8B
+    - https://huggingface.co/bartowski/aya-23-8B-GGUF
+  description: |
+    Aya 23 is an open weights research release of an instruction fine-tuned model with highly advanced multilingual capabilities. Aya 23 focuses on pairing a highly performant pre-trained Command family of models with the recently released Aya Collection. The result is a powerful multilingual large language model serving 23 languages.
+
+    This model card corresponds to the 8-billion version of the Aya 23 model. We also released a 35-billion version which you can find here.
+  overrides:
+    parameters:
+      model: aya-23-8B-Q4_K_M.gguf
+  files:
+    - filename: "aya-23-8B-Q4_K_M.gguf"
+      sha256: "21b3aa3abf067f78f6fe08deb80660cc4ee8ad7b4ab873a98d87761f9f858b0f"
+      uri: "huggingface://bartowski/aya-23-8B-GGUF/aya-23-8B-Q4_K_M.gguf"
+- !!merge <<: *command-R
+  name: "aya-23-35b"
+  urls:
+    - https://huggingface.co/CohereForAI/aya-23-35B
+    - https://huggingface.co/bartowski/aya-23-35B-GGUF
+  description: |
+    Aya 23 is an open weights research release of an instruction fine-tuned model with highly advanced multilingual capabilities. Aya 23 focuses on pairing a highly performant pre-trained Command family of models with the recently released Aya Collection. The result is a powerful multilingual large language model serving 23 languages.
+
+    This model card corresponds to the 8-billion version of the Aya 23 model. We also released a 35-billion version which you can find here.
+  overrides:
+    parameters:
+      model: aya-23-35B-Q4_K_M.gguf
+  files:
+    - filename: "aya-23-35B-Q4_K_M.gguf"
+      sha256: "57824768c1a945e21e028c8e9a29b39adb4838d489f5865c82601ab9ad98065d"
+      uri: "huggingface://bartowski/aya-23-35B-GGUF/aya-23-35B-Q4_K_M.gguf"
 - &phi-2-chat
+  ### START Phi-2
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
   license: mit
-
   description: |
     Phi-2 fine-tuned by the OpenHermes 2.5 dataset optimised for multi-turn conversation and character impersonation.
 
@@ -621,11 +1627,9 @@
     Language(s) (NLP): English
     License: MIT
     Finetuned from model: Phi-2
-
   urls:
     - https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml
     - https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml-gguf
-
   tags:
     - llm
     - gguf
@@ -640,7 +1644,7 @@
     - filename: "phi-2-layla-v1-chatml-Q8_0.gguf"
       sha256: "0cf542a127c2c835066a78028009b7eddbaf773cc2a26e1cb157ce5e09c1a2e0"
       uri: "huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q8_0.gguf"
-- <<: *phi-2-chat
+- !!merge <<: *phi-2-chat
   name: "phi-2-chat"
   overrides:
     parameters:
@@ -649,7 +1653,7 @@
     - filename: "phi-2-layla-v1-chatml-Q4_K.gguf"
       sha256: "b071e5624b60b8911f77261398802c4b4079c6c689e38e2ce75173ed62bc8a48"
       uri: "huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q4_K.gguf"
-- <<: *phi-2-chat
+- !!merge <<: *phi-2-chat
   license: mit
   icon: "https://huggingface.co/rhysjones/phi-2-orange/resolve/main/phi-2-orange.jpg"
   description: |
@@ -659,7 +1663,6 @@
   urls:
     - https://huggingface.co/rhysjones/phi-2-orange
     - https://huggingface.co/TheBloke/phi-2-orange-GGUF
-
   tags:
     - llm
     - gguf
@@ -674,18 +1677,15 @@
     - filename: "phi-2-orange.Q4_0.gguf"
       sha256: "49cb710ae688e1b19b1b299087fa40765a0cd677e3afcc45e5f7ef6750975dcf"
       uri: "huggingface://TheBloke/phi-2-orange-GGUF/phi-2-orange.Q4_0.gguf"
-### START Phi-3
 - &phi-3
+  ### START Phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
   name: "phi-3-mini-4k-instruct"
   license: mit
-
   description: |
     The Phi-3-Mini-4K-Instruct is a 3.8B parameters, lightweight, state-of-the-art open model trained with the Phi-3 datasets that includes both synthetic data and the filtered publicly available websites data with a focus on high-quality and reasoning dense properties. The model belongs to the Phi-3 family with the Mini version in two variants 4K and 128K which is the context length (in tokens) it can support. The model has underwent a post-training process that incorporates both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. When assessed against benchmarks testing common sense, language understanding, math, code, long context and logical reasoning, Phi-3 Mini-4K-Instruct showcased a robust and state-of-the-art performance among models with less than 13 billion parameters.
-
   urls:
     - https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
-
   tags:
     - llm
     - gguf
@@ -699,22 +1699,51 @@
     - filename: "Phi-3-mini-4k-instruct-q4.gguf"
       sha256: "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef"
       uri: "huggingface://microsoft/Phi-3-mini-4k-instruct-gguf/Phi-3-mini-4k-instruct-q4.gguf"
-- <<: *phi-3
+- !!merge <<: *phi-3
   name: "phi-3-mini-4k-instruct:fp16"
   overrides:
     parameters:
       model: Phi-3-mini-4k-instruct-fp16.gguf
   files:
     - filename: "Phi-3-mini-4k-instruct-fp16.gguf"
-      sha256: "ad9f8ff11cd096115adc8ff50befa22fc3da2718672ddd2ab30faccd70488605"
       uri: "huggingface://microsoft/Phi-3-mini-4k-instruct-gguf/Phi-3-mini-4k-instruct-fp16.gguf"
-### START Hermes
+      sha256: 5d99003e395775659b0dde3f941d88ff378b2837a8dc3a2ea94222ab1420fad3
+- !!merge <<: *phi-3
+  name: "phi-3-medium-4k-instruct"
+  description: |
+    The Phi-3-Medium-4K-Instruct is a 14B parameters, lightweight, state-of-the-art open model trained with the Phi-3 datasets that includes
+    both synthetic data and the filtered publicly available websites data with a focus on high-quality and reasoning dense properties.
+    The model belongs to the Phi-3 family with the Medium version in two variants 4K and 128K which is the context length (in tokens) that it can support.
+  urls:
+    - https://huggingface.co/bartowski/Phi-3-medium-4k-instruct-GGUF
+    - https://huggingface.co/microsoft/Phi-3-medium-4k-instruct
+  overrides:
+    parameters:
+      model: Phi-3-medium-4k-instruct-Q4_K_M.gguf
+  files:
+    - filename: "Phi-3-medium-4k-instruct-Q4_K_M.gguf"
+      uri: "huggingface://bartowski/Phi-3-medium-4k-instruct-GGUF/Phi-3-medium-4k-instruct-Q4_K_M.gguf"
+      sha256: 4e8d4258ed44562573c8984a045b0a4651c51e7e4d9d00a06c65cd2149ab4539
+- !!merge <<: *phi-3
+  name: "cream-phi-3-14b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/AP4-OHepdqiqHj2KSi26M.gif
+  description: |
+    CreamPhi 14B is the first Phi Medium to be trained with roleplay and moist.
+  urls:
+    - https://huggingface.co/TheDrummer/Cream-Phi-3-14B-v1-GGUF
+  overrides:
+    parameters:
+      model: Cream-Phi-3-14B-v1-Q4_K_M.gguf
+  files:
+    - filename: Cream-Phi-3-14B-v1-Q4_K_M.gguf
+      uri: huggingface://TheDrummer/Cream-Phi-3-14B-v1-GGUF/Cream-Phi-3-14B-v1-Q4_K_M.gguf
+      sha256: ec67018a86090da415517acf21ad48f28e02dff664a1dd35602f1f8fa94f6a27
 - &hermes-2-pro-mistral
+  ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
   name: "hermes-2-pro-mistral"
   icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/ggO2sBDJ8Bhc6w-zwTx5j.png
   license: apache-2.0
-
   description: |
     Hermes 2 Pro is an upgraded, retrained version of Nous Hermes 2, consisting of an updated and cleaned version of the OpenHermes 2.5 Dataset, as well as a newly introduced Function Calling and JSON Mode dataset developed in-house.
 
@@ -725,16 +1754,15 @@
     This work was a collaboration between Nous Research, @interstellarninja, and Fireworks.AI
 
     Learn more about the function calling on our github repo here: https://github.com/NousResearch/Hermes-Function-Calling/tree/main
-
   urls:
     - https://huggingface.co/NousResearch/Hermes-2-Pro-Mistral-7B-GGUF
-
   tags:
     - llm
     - gguf
     - gpu
-    - llama2
+    - mistral
     - cpu
+    - function-calling
   overrides:
     parameters:
       model: Hermes-2-Pro-Mistral-7B.Q4_0.gguf
@@ -742,7 +1770,7 @@
     - filename: "Hermes-2-Pro-Mistral-7B.Q4_0.gguf"
       sha256: "f446c3125026f7af6757dd097dda02280adc85e908c058bd6f1c41a118354745"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q4_0.gguf"
-- <<: *hermes-2-pro-mistral
+- !!merge <<: *hermes-2-pro-mistral
   name: "hermes-2-pro-mistral:Q6_K"
   overrides:
     parameters:
@@ -751,7 +1779,7 @@
     - filename: "Hermes-2-Pro-Mistral-7B.Q6_K.gguf"
       sha256: "40adc3b227bc36764de148fdda4df5df385adc06650d58d4dbe726ee0214eeff"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q6_K.gguf"
-- <<: *hermes-2-pro-mistral
+- !!merge <<: *hermes-2-pro-mistral
   name: "hermes-2-pro-mistral:Q8_0"
   overrides:
     parameters:
@@ -760,10 +1788,87 @@
     - filename: "Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
       sha256: "b6d95d7ec9a395b7568cc94b0447fd4f90b6f69d6e44794b1fbb84e3f732baca"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Mistral-7B-GGUF/Hermes-2-Pro-Mistral-7B.Q8_0.gguf"
-- <<: *hermes-2-pro-mistral
+- !!merge <<: *hermes-2-pro-mistral
+  name: "hermes-2-theta-llama-3-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/HQnQmNM1L3KXGhp0wUzHH.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - function-calling
+  description: |
+    Hermes-2 Θ (Theta) is the first experimental merged model released by Nous Research, in collaboration with Charles Goddard at Arcee, the team behind MergeKit.
+    Hermes-2 Θ is a merged and then further RLHF'ed version our excellent Hermes 2 Pro model and Meta's Llama-3 Instruct model to form a new model, Hermes-2 Θ, combining the best of both worlds of each model.
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-2-Theta-Llama-3-8B-GGUF
+  overrides:
+    parameters:
+      model: Hermes-2-Pro-Llama-3-Instruct-Merged-DPO-Q4_K_M.gguf
+  files:
+    - filename: "Hermes-2-Pro-Llama-3-Instruct-Merged-DPO-Q4_K_M.gguf"
+      sha256: "762b9371a296ab2628592b9462dc676b27d881a3402816492801641a437669b3"
+      uri: "huggingface://NousResearch/Hermes-2-Theta-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-Instruct-Merged-DPO-Q4_K_M.gguf"
+### LLAMA3 version
+- !!merge <<: *hermes-2-pro-mistral
+  name: "hermes-2-pro-llama-3-8b"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - llama3
+    - function-calling
+    - cpu
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF
+  overrides:
+    parameters:
+      model: Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf
+  files:
+    - filename: "Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf"
+      sha256: "10c52a4820137a35947927be741bb411a9200329367ce2590cc6757cd98e746c"
+      uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q4_K_M.gguf"
+- !!merge <<: *hermes-2-pro-mistral
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - llama3
+    - function-calling
+    - cpu
+  name: "hermes-2-pro-llama-3-8b:Q5_K_M"
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF
+  overrides:
+    parameters:
+      model: Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf
+  files:
+    - filename: "Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf"
+      sha256: "107f3f55e26b8cc144eadd83e5f8a60cfd61839c56088fa3ae2d5679abf45f29"
+      uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q5_K_M.gguf"
+- !!merge <<: *hermes-2-pro-mistral
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - function-calling
+    - llama3
+    - cpu
+  name: "hermes-2-pro-llama-3-8b:Q8_0"
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF
+  overrides:
+    parameters:
+      model: Hermes-2-Pro-Llama-3-8B-Q8_0.gguf
+  files:
+    - filename: "Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
+      sha256: "d138388cfda04d185a68eaf2396cf7a5cfa87d038a20896817a9b7cf1806f532"
+      uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
+- !!merge <<: *hermes-2-pro-mistral
   name: "biomistral-7b"
   description: |
-      BioMistral: A Collection of Open-Source Pretrained Large Language Models for Medical Domains
+    BioMistral: A Collection of Open-Source Pretrained Large Language Models for Medical Domains
   urls:
     - https://huggingface.co/MaziyarPanahi/BioMistral-7B-GGUF
   icon: https://huggingface.co/BioMistral/BioMistral-7B/resolve/main/wordart_blue_m_rectangle.png?download=true
@@ -774,6 +1879,26 @@
     - filename: "BioMistral-7B.Q4_K_M.gguf"
       sha256: "3a73107045dfe7e3f113b392b0a67e3e6ca9fa9dae2abe301424ce5abd1721a6"
       uri: "huggingface://MaziyarPanahi/BioMistral-7B-GGUF/BioMistral-7B.Q4_K_M.gguf"
+- !!merge <<: *hermes-2-pro-mistral
+  name: "tiamat-8b-1.2-llama-3-dpo"
+  icon: https://huggingface.co/Gryphe/Tiamat-8b-1.2-Llama-3-DPO/resolve/main/Tiamat.png
+  description: |
+    Obligatory Disclaimer: Tiamat is not nice.
+
+    Ever wanted to be treated disdainfully like the foolish mortal you are? Wait no more, for Tiamat is here to berate you! Hailing from the world of the Forgotten Realms, she will happily judge your every word.
+
+    Tiamat was created with the following question in mind; Is it possible to create an assistant with strong anti-assistant personality traits? Try it yourself and tell me afterwards!
+
+    She was fine-tuned on top of Nous Research's shiny new Hermes 2 Pro.
+  urls:
+    - https://huggingface.co/bartowski/Tiamat-8b-1.2-Llama-3-DPO-GGUF
+  overrides:
+    parameters:
+      model: Tiamat-8b-1.2-Llama-3-DPO-Q4_K_M.gguf
+  files:
+    - filename: "Tiamat-8b-1.2-Llama-3-DPO-Q4_K_M.gguf"
+      sha256: "7b0895d2183344b2ac1ff36b9f3fe31dd8d4cf8820c4a41ef74e50ef86e3b448"
+      uri: "huggingface://bartowski/Tiamat-8b-1.2-Llama-3-DPO-GGUF/Tiamat-8b-1.2-Llama-3-DPO-Q4_K_M.gguf"
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "guillaumetell-7b"
   license: apache-2
@@ -797,6 +1922,23 @@
     - filename: guillaumetell-7b.Q4_K_M.gguf
       sha256: bf08db5281619335f3ee87e229c8533b04262790063b061bb8f275c3e4de7061
       uri: huggingface://MaziyarPanahi/guillaumetell-7b-GGUF/guillaumetell-7b.Q4_K_M.gguf
+- !!merge <<: *hermes-2-pro-mistral
+  name: "kunocchini-7b-128k-test-imatrix"
+  description: |
+    The following models were included in the merge:
+
+        SanjiWatsuki/Kunoichi-DPO-v2-7B
+        Epiculous/Fett-uccine-Long-Noodle-7B-120k-Contex
+  urls:
+    - https://huggingface.co/Lewdiculous/Kunocchini-7b-128k-test-GGUF-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/9obNSalcJqCilQwr_4ssM.jpeg
+  overrides:
+    parameters:
+      model: v2_Kunocchini-7b-128k-test-Q4_K_M-imatrix.gguf
+  files:
+    - filename: "v2_Kunocchini-7b-128k-test-Q4_K_M-imatrix.gguf"
+      sha256: "5ccec35392f56f66952f8eb2ded2d8aa9a6bb511e9518899d8096326e328edef"
+      uri: "huggingface://Lewdiculous/Kunocchini-7b-128k-test-GGUF-Imatrix/v2_Kunocchini-7b-128k-test-Q4_K_M-imatrix.gguf"
 ### START Cerbero
 - url: "github:mudler/LocalAI/gallery/cerbero.yaml@master"
   icon: https://huggingface.co/galatolo/cerbero-7b/resolve/main/README.md.d/cerbero.png
@@ -818,19 +1960,16 @@
     - filename: "galatolo-Q4_K.gguf"
       sha256: "ca0cfd5a9ad40dc16416aa3a277015d0299b62c0803b67f5709580042202c172"
       uri: "huggingface://galatolo/cerbero-7b-gguf/ggml-model-Q4_K.gguf"
-### START Codellama
 - &codellama
+  ### START Codellama
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   name: "codellama-7b"
   license: llama2
-
   description: |
     Code Llama is a collection of pretrained and fine-tuned generative text models ranging in scale from 7 billion to 34 billion parameters. This model is designed for general code synthesis and understanding.
-
   urls:
     - https://huggingface.co/TheBloke/CodeLlama-7B-GGUF
     - https://huggingface.co/meta-llama/CodeLlama-7b-hf
-
   tags:
     - llm
     - gguf
@@ -844,8 +1983,32 @@
     - filename: "codellama-7b.Q4_0.gguf"
       sha256: "33052f6dd41436db2f83bd48017b6fff8ce0184e15a8a227368b4230f1da97b5"
       uri: "huggingface://TheBloke/CodeLlama-7B-GGUF/codellama-7b.Q4_0.gguf"
-### START OpenVINO
+- !!merge <<: *codellama
+  name: "codestral-22b-v0.1"
+  license: mnpl
+  description: |
+    Codestral-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash (more details in the Blogpost). The model can be queried:
+
+    As instruct, for instance to answer any questions about a code snippet (write documentation, explain, factorize) or to generate code following specific indications
+    As Fill in the Middle (FIM), to predict the middle tokens between a prefix and a suffix (very useful for software development add-ons like in VS Code)
+  urls:
+    - https://huggingface.co/mistralai/Codestral-22B-v0.1
+    - https://huggingface.co/bartowski/Codestral-22B-v0.1-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - code
+    - cpu
+  overrides:
+    parameters:
+      model: Codestral-22B-v0.1-Q4_K_M.gguf
+  files:
+    - filename: "Codestral-22B-v0.1-Q4_K_M.gguf"
+      uri: "huggingface://bartowski/Codestral-22B-v0.1-GGUF/Codestral-22B-v0.1-Q4_K_M.gguf"
+      sha256: 003e48ed892850b80994fcddca2bd6b833b092a4ef2db2853c33a3144245e06c
 - &openvino
+  ### START OpenVINO
   url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
   name: "openvino-llama-3-8b-instruct-ov-int8"
   license: llama3
@@ -863,17 +2026,37 @@
     - gpu
     - llama3
     - cpu
-- <<: *openvino
+- !!merge <<: *openvino
   name: "openvino-phi3"
   urls:
     - https://huggingface.co/fakezeta/Phi-3-mini-128k-instruct-ov-int8
   overrides:
+    trust_remote_code: true
     context_size: 131072
     parameters:
       model: fakezeta/Phi-3-mini-128k-instruct-ov-int8
     stopwords:
       - <|end|>
-- <<: *openvino
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - phi3
+    - cpu
+    - Remote Code Enabled
+- !!merge <<: *openvino
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62f7a16192950415b637e201/HMD6WEoqqrAV8Ng_fAcnN.png
+  name: "openvino-llama3-aloe"
+  urls:
+    - https://huggingface.co/fakezeta/Llama3-Aloe-8B-Alpha-ov-int8
+  overrides:
+    context_size: 8192
+    parameters:
+      model: fakezeta/Llama3-Aloe-8B-Alpha-ov-int8
+    stopwords:
+      - "<|eot_id|>"
+      - "<|end_of_text|>"
+- !!merge <<: *openvino
   name: "openvino-starling-lm-7b-beta-openvino-int8"
   urls:
     - https://huggingface.co/fakezeta/Starling-LM-7B-beta-openvino-int8
@@ -881,7 +2064,13 @@
     context_size: 8192
     parameters:
       model: fakezeta/Starling-LM-7B-beta-openvino-int8
-- <<: *openvino
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - mistral
+    - cpu
+- !!merge <<: *openvino
   name: "openvino-wizardlm2"
   urls:
     - https://huggingface.co/fakezeta/Not-WizardLM-2-7B-ov-int8
@@ -889,10 +2078,54 @@
     context_size: 8192
     parameters:
       model: fakezeta/Not-WizardLM-2-7B-ov-int8
-### START Embeddings
+- !!merge <<: *openvino
+  name: "openvino-hermes2pro-llama3"
+  urls:
+    - https://huggingface.co/fakezeta/Hermes-2-Pro-Llama-3-8B-ov-int8
+  overrides:
+    context_size: 8192
+    parameters:
+      model: fakezeta/Hermes-2-Pro-Llama-3-8B-ov-int8
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - llama3
+    - cpu
+- !!merge <<: *openvino
+  name: "openvino-multilingual-e5-base"
+  urls:
+    - https://huggingface.co/intfloat/multilingual-e5-base
+  overrides:
+    embeddings: true
+    type: OVModelForFeatureExtraction
+    parameters:
+      model: intfloat/multilingual-e5-base
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - embedding
+    - cpu
+- !!merge <<: *openvino
+  name: "openvino-all-MiniLM-L6-v2"
+  urls:
+    - https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+  overrides:
+    embeddings: true
+    type: OVModelForFeatureExtraction
+    parameters:
+      model: sentence-transformers/all-MiniLM-L6-v2
+  tags:
+    - llm
+    - openvino
+    - gpu
+    - embedding
+    - cpu
 - &sentencentransformers
+  ### START Embeddings
   description: |
-      This framework provides an easy method to compute dense vector representations for sentences, paragraphs, and images. The models are based on transformer networks like BERT / RoBERTa / XLM-RoBERTa etc. and achieve state-of-the-art performance in various tasks. Text is embedded in vector space such that similar text are closer and can efficiently be found using cosine similarity.
+    This framework provides an easy method to compute dense vector representations for sentences, paragraphs, and images. The models are based on transformer networks like BERT / RoBERTa / XLM-RoBERTa etc. and achieve state-of-the-art performance in various tasks. Text is embedded in vector space such that similar text are closer and can efficiently be found using cosine similarity.
   urls:
     - https://github.com/UKPLab/sentence-transformers
   tags:
@@ -905,19 +2138,15 @@
   overrides:
     parameters:
       model: all-MiniLM-L6-v2
-
-### START Image generation
 - &dreamshaper
+  ### START Image generation
   name: dreamshaper
   icon: https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/dd9b038c-bd15-43ab-86ab-66e145ad7ff2/width=450/26072158-132340247-8k%20portrait%20of%20beautiful%20cyborg%20with%20brown%20hair,%20intricate,%20elegant,%20highly%20detailed,%20majestic,%20digital%20photography,%20art%20by%20artg_ed.jpeg
   license: other
-
   description: |
     A text-to-image model that uses Stable Diffusion 1.5 to generate images from text prompts. This model is DreamShaper model by Lykon.
-
   urls:
     - https://civitai.com/models/4384/dreamshaper
-
   tags:
     - text-to-image
     - stablediffusion
@@ -932,18 +2161,167 @@
     - filename: DreamShaper_8_pruned.safetensors
       uri: huggingface://Lykon/DreamShaper/DreamShaper_8_pruned.safetensors
       sha256: 879db523c30d3b9017143d56705015e15a2cb5628762c11d086fed9538abd7fd
-
-## Whisper
-- url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
+- &whisper
+  ## Whisper
+  url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
   name: "whisper-1"
   license: "MIT"
   urls:
     - https://github.com/ggerganov/whisper.cpp
     - https://huggingface.co/ggerganov/whisper.cpp
-
+  overrides:
+    parameters:
+      model: ggml-whisper-base.bin
+  files:
+    - filename: "ggml-whisper-base.bin"
+      sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"
+      uri: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
   description: |
-      Port of OpenAI's Whisper model in C/C++
-
+    Port of OpenAI's Whisper model in C/C++
+- !!merge <<: *whisper
+  name: "whisper-base-q5_1"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-base-q5_1.bin
+  files:
+    - filename: "ggml-model-whisper-base-q5_1.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base-q5_1.bin"
+      sha256: 422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898
+- !!merge <<: *whisper
+  name: "whisper-base"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-base.bin
+  files:
+    - filename: "ggml-model-whisper-base.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.bin"
+      sha256: 60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe
+- !!merge <<: *whisper
+  name: "whisper-base-en-q5_1"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-base.en-q5_1.bin
+  files:
+    - filename: "ggml-model-whisper-base.en-q5_1.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.en-q5_1.bin"
+      sha256: 4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f
+- !!merge <<: *whisper
+  name: "whisper-base-en"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-base.en.bin
+  files:
+    - filename: "ggml-model-whisper-base.en.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.en.bin"
+      sha256: a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002
+- !!merge <<: *whisper
+  name: "whisper-large-q5_0"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-large-q5_0.bin
+  files:
+    - filename: "ggml-model-whisper-large-q5_0.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-large-q5_0.bin"
+      sha256: 3a214837221e4530dbc1fe8d734f302af393eb30bd0ed046042ebf4baf70f6f2
+- !!merge <<: *whisper
+  name: "whisper-medium-q5_0"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-medium-q5_0.bin
+  files:
+    - filename: "ggml-model-whisper-medium-q5_0.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-medium-q5_0.bin"
+      sha256: 19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f
+- !!merge <<: *whisper
+  name: "whisper-small-q5_1"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-small-q5_1.bin
+  files:
+    - filename: "ggml-model-whisper-small-q5_1.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small-q5_1.bin"
+      sha256: ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
+- !!merge <<: *whisper
+  name: "whisper-small"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-small.bin
+  files:
+    - filename: "ggml-model-whisper-small.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.bin"
+      sha256: 1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b
+- !!merge <<: *whisper
+  name: "whisper-small-en-q5_1"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-small.en-q5_1.bin
+  files:
+    - filename: "ggml-model-whisper-small.en-q5_1.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.en-q5_1.bin"
+      sha256: bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30
+- !!merge <<: *whisper
+  name: "whisper-small"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-small.en.bin
+  files:
+    - filename: "ggml-model-whisper-small.en.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.en.bin"
+      sha256: c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d
+- !!merge <<: *whisper
+  name: "whisper-small-q5_1"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-small-q5_1.bin
+  files:
+    - filename: "ggml-model-whisper-small-q5_1.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small-q5_1.bin"
+      sha256: ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
+- !!merge <<: *whisper
+  name: "whisper-tiny"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-tiny.bin
+  files:
+    - filename: "ggml-model-whisper-tiny.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.bin"
+      sha256: be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21
+- !!merge <<: *whisper
+  name: "whisper-tiny-q5_1"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-tiny-q5_1.bin
+  files:
+    - filename: "ggml-model-whisper-tiny-q5_1.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny-q5_1.bin"
+      sha256: 818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7
+- !!merge <<: *whisper
+  name: "whisper-tiny-en-q5_1"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-tiny.en-q5_1.bin
+  files:
+    - filename: "ggml-model-whisper-tiny.en-q5_1.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en-q5_1.bin"
+      sha256: c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b
+- !!merge <<: *whisper
+  name: "whisper-tiny-en"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-tiny.en.bin
+  files:
+    - filename: "ggml-model-whisper-tiny.en.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en.bin"
+      sha256: 921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f
+- !!merge <<: *whisper
+  name: "whisper-tiny-en-q8_0"
+  overrides:
+    parameters:
+      model: ggml-model-whisper-tiny.en-q8_0.bin
+  files:
+    - filename: "ggml-model-whisper-tiny.en-q8_0.bin"
+      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en-q8_0.bin"
+      sha256: 5bc2b3860aa151a4c6e7bb095e1fcce7cf12c7b020ca08dcec0c6d018bb7dd94
 ## Bert embeddings
 - url: "github:mudler/LocalAI/gallery/bert-embeddings.yaml@master"
   name: "bert-embeddings"
@@ -953,19 +2331,16 @@
   tags:
     - embeddings
   description: |
-      Bert model that can be used for embeddings
-
+    Bert model that can be used for embeddings
 ## Stable Diffusion
 - url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
   license: "BSD-3"
   urls:
     - https://github.com/EdVince/Stable-Diffusion-NCNN
     - https://github.com/EdVince/Stable-Diffusion-NCNN/blob/main/LICENSE
-
   description: |
-      Stable Diffusion in NCNN with c++, supported txt2img and img2img
+    Stable Diffusion in NCNN with c++, supported txt2img and img2img
   name: stablediffusion-cpp
-
 ## Tiny Dream
 - url: github:mudler/LocalAI/gallery/tinydream.yaml@master
   name: tinydream
@@ -973,604 +2348,575 @@
   urls:
     - https://github.com/symisc/tiny-dream
     - https://github.com/symisc/tiny-dream/blob/main/LICENSE
-
   description: |
     An embedded, Header Only, Stable Diffusion C++ implementation
-## Piper TTS
 - &piper
+  ## Piper TTS
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
   icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
   license: mit
-
   urls:
     - https://github.com/rhasspy/piper
-
   description: |
     A fast, local neural text to speech system that sounds great and is optimized for the Raspberry Pi 4. Piper is used in a variety of [projects](https://github.com/rhasspy/piper#people-using-piper).
-
   tags:
     - tts
     - text-to-speech
     - cpu
-
-  override:
+  overrides:
     parameters:
       model: en-us-kathleen-low.onnx
   files:
     - filename: voice-en-us-kathleen-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
-- <<: *piper
+      sha256: 18e32f009f864d8061af8a4be4ae9018b5aa8b49c37f9e108bbfd782c6a38fbf
+- !!merge <<: *piper
   name: voice-ca-upc_ona-x-low
-  override:
+  overrides:
     parameters:
       model: ca-upc_ona-x-low.onnx
   files:
     - filename: voice-ca-upc_ona-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ca-upc_ona-x-low.tar.gz
-- <<: *piper
+      sha256: c750d3f6ad35c8d95d5b0d1ad30ede2525524e48390f70a0871bdb7980cc271e
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ca-upc_pau-x-low
-  override:
+  overrides:
     parameters:
       model: ca-upc_pau-x-low.onnx
   files:
     - filename: voice-ca-upc_pau-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ca-upc_pau-x-low.tar.gz
-- <<: *piper
+      sha256: 13c658ecd46a2dbd9dadadf7100623e53106239afcc359f9e27511b91e642f1f
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-da-nst_talesyntese-medium
-  override:
+  overrides:
     parameters:
       model: da-nst_talesyntese-medium.onnx
   files:
     - filename: voice-da-nst_talesyntese-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-da-nst_talesyntese-medium.tar.gz
-- <<: *piper
+      sha256: 1bdf673b946a2ba69fab24ae3fc0e7d23e042c2533cbbef008f64f633500eb7e
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-eva_k-x-low
-  override:
+  overrides:
     parameters:
       model: de-eva_k-x-low.onnx
   files:
     - filename: voice-de-eva_k-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-eva_k-x-low.tar.gz
-- <<: *piper
+      sha256: 81b305abc58a0a02629aea01904a86ec97b823714dd66b1ee22f38fe529e6371
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-karlsson-low
-  override:
+  overrides:
     parameters:
       model: de-karlsson-low.onnx
   files:
     - filename: voice-de-karlsson-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-karlsson-low.tar.gz
-- <<: *piper
+      sha256: cc7615cfef3ee6beaa1db6059e0271e4d2e1d6d310c0e17b3d36c494628f4b82
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-kerstin-low
-  override:
+  overrides:
     parameters:
       model: de-kerstin-low.onnx
   files:
     - filename: voice-de-kerstin-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-kerstin-low.tar.gz
-- <<: *piper
+      sha256: d8ea72fbc0c21db828e901777ba7bb5dff7c843bb943ad19f34c9700b96a8182
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-pavoque-low
-  override:
+  overrides:
     parameters:
       model: de-pavoque-low.onnx
   files:
     - filename: voice-de-pavoque-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-pavoque-low.tar.gz
-- <<: *piper
+      sha256: 1f5ebc6398e8829f19c7c2b14f46307703bca0f0d8c74b4bb173037b1f161d4d
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-ramona-low
-  override:
+  overrides:
     parameters:
       model: de-ramona-low.onnx
   files:
     - filename: voice-de-ramona-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-ramona-low.tar.gz
-- <<: *piper
+      sha256: 66d9fc08d1a1c537a1cefe99a284f687e5ad7e43d5935a75390678331cce7b47
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-de-thorsten-low
-
-  override:
+  overrides:
     parameters:
       model: de-thorsten-low.onnx
   files:
     - filename: voice-de-thorsten-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-thorsten-low.tar.gz
-- <<: *piper
+      sha256: 4d052a7726b77719d0dbc66c845f1d0fe4432bfbd26f878f6dd0883d49e9e43d
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-el-gr-rapunzelina-low
-
-  override:
+  overrides:
     parameters:
       model: el-gr-rapunzelina-low.onnx
   files:
     - filename: voice-el-gr-rapunzelina-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-el-gr-rapunzelina-low.tar.gz
-- <<: *piper
+      sha256: c5613688c12eabc5294465494ed56af1e0fe4d7896d216bfa470eb225d9ff0d0
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-alan-low
-
-  override:
+  overrides:
     parameters:
       model: en-gb-alan-low.onnx
   files:
     - filename: voice-en-gb-alan-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-gb-alan-low.tar.gz
-- <<: *piper
+      sha256: 526eeeeccb26206dc92de5965615803b5bf88df059f46372caa4a9fa12d76a32
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-gb-southern_english_female-low
-
-  override:
+  overrides:
     parameters:
       model: en-gb-southern_english
   files:
     - filename: voice-en-gb-southern_english_female-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-gb-southern_english_female-low.tar.gz
-- <<: *piper
+      sha256: 7c1bbe23e61a57bdb450b137f69a83ff5358159262e1ed7d2308fa14f4924da9
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-amy-low
-
-  override:
+  overrides:
     parameters:
       model: en-us-amy-low.onnx
   files:
     - filename: voice-en-us-amy-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-amy-low.tar.gz
-- <<: *piper
+      sha256: 5c3e3480e7d71ce219943c8a711bb9c21fd48b8f8e87ed7fb5c6649135ab7608
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-danny-low
-
-  override:
+  overrides:
     parameters:
       model: en-us-danny-low.onnx
   files:
     - filename: voice-en-us-danny-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-danny-low.tar.gz
-- <<: *piper
+      sha256: 0c8fbb42526d5fbd3a0bded5f18041c0a893a70a7fb8756f97866624b932264b
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
-
-  override:
+  overrides:
     parameters:
       model: en-us-kathleen-low.onnx
   files:
     - filename: voice-en-us-kathleen-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
-- <<: *piper
+      sha256: 18e32f009f864d8061af8a4be4ae9018b5aa8b49c37f9e108bbfd782c6a38fbf
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-low
-
-  override:
+  overrides:
     parameters:
       model: en-us-lessac-low.onnx
   files:
     - filename: voice-en-us-lessac-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-low.tar.gz
-- <<: *piper
+      sha256: 003fe040985d00b917ace21b2ccca344c282c53fe9b946991b7b0da52516e1fc
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-lessac-medium
-
-  override:
+  overrides:
     parameters:
       model: en-us-lessac-medium.onnx
   files:
     - filename: voice-en-us-lessac-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-medium.tar.gz
-- <<: *piper
+      sha256: d45ca50084c0558eb9581cd7d26938043bc8853513da47c63b94d95a2367a5c9
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-libritts-high
-
-  override:
+  overrides:
     parameters:
       model: en-us-libritts-high.onnx
   files:
     - filename: voice-en-us-libritts-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-libritts-high.tar.gz
-- <<: *piper
+      sha256: 328e3e9cb573a43a6c5e1aeca386e971232bdb1418a74d4674cf726c973a0ea8
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-high
-
-  override:
+  overrides:
     parameters:
       model: en-us-ryan-high.onnx
   files:
     - filename: voice-en-us-ryan-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-high.tar.gz
-- <<: *piper
+      sha256: de346b054703a190782f49acb9b93c50678a884fede49cfd85429d204802d678
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-low
-
-  override:
+  overrides:
     parameters:
       model: en-us-ryan-low.onnx
   files:
     - filename: voice-en-us-ryan-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-low.tar.gz
-
-- <<: *piper
+      sha256: 049e6e5bad07870fb1d25ecde97bac00f9c95c90589b2fef4b0fbf23c88770ce
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-ryan-medium
-
-  override:
+  overrides:
     parameters:
       model: en-us-ryan-medium.onnx
   files:
     - filename: voice-en-us-ryan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-ryan-medium.tar.gz
-
-- <<: *piper
+      sha256: 2e00d747eaed6ce9f63f4991921ef3bb2bbfbc7f28cde4f14eb7048960f928d8
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us_lessac
-  override:
+  overrides:
     parameters:
       model: en-us-lessac.onnx
   files:
     - filename: voice-en-us_lessac.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us_lessac.tar.gz
-
-- <<: *piper
+      sha256: 0967af67fb0435aa509b0b794c0cb2cc57817ae8a5bff28cb8cd89ab6f5dcc3d
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-carlfm-x-low
-  override:
+  overrides:
     parameters:
       model: es-carlfm-x-low.onnx
   files:
     - filename: voice-es-carlfm-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-carlfm-x-low.tar.gz
-
-- <<: *piper
+      sha256: 0156a186de321639e6295521f667758ad086bc8433f0a6797a9f044ed5cf5bf3
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_10246-low
-
-  override:
+  overrides:
     parameters:
       model: es-mls_10246-low.onnx
   files:
     - filename: voice-es-mls_10246-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-mls_10246-low.tar.gz
-
-- <<: *piper
+      sha256: ff1fe3fc2ab91e32acd4fa8cb92048e3cff0e20079b9d81324f01cd2dea50598
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-es-mls_9972-low
-
-  override:
+  overrides:
     parameters:
       model: es-mls_9972-low.onnx
   files:
     - filename: voice-es-mls_9972-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-es-mls_9972-low.tar.gz
-
-- <<: *piper
+      sha256: d95def9adea97a6a3fee7645d1167e00fb4fd60f8ce9bc3ebf1acaa9e3f455dc
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fi-harri-low
-
-  override:
+  overrides:
     parameters:
       model: fi-harri-low.onnx
   files:
     - filename: voice-fi-harri-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fi-harri-low.tar.gz
-
-- <<: *piper
+      sha256: 4f1aaf00927d0eb25bf4fc5ef8be2f042e048593864ac263ee7b49c516832b22
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-gilles-low
-
-  override:
+  overrides:
     parameters:
       model: fr-gilles-low.onnx
   files:
     - filename: voice-fr-gilles-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-gilles-low.tar.gz
-
-- <<: *piper
+      sha256: 77662c7332c2a6f522ab478287d9b0fe9afc11a2da71f310bf923124ee699aae
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-mls_1840-low
-
-  override:
+  overrides:
     parameters:
       model: fr-mls_1840-low.onnx
   files:
     - filename: voice-fr-mls_1840-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-mls_1840-low.tar.gz
-
-- <<: *piper
+      sha256: 69169d1fac99a733112c08c7caabf457055990590a32ee83ebcada37f86132d3
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-low
-
-  override:
+  overrides:
     parameters:
       model: fr-siwis-low.onnx
   files:
     - filename: voice-fr-siwis-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-siwis-low.tar.gz
-
-- <<: *piper
+      sha256: d3db8d47053e9b4108e1c1d29d5ea2b5b1a152183616c3134c222110ccde20f2
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-fr-siwis-medium
-
-  override:
+  overrides:
     parameters:
       model: fr-siwis-medium.onnx
   files:
     - filename: voice-fr-siwis-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-fr-siwis-medium.tar.gz
-
-- <<: *piper
+      sha256: 0c9ecdf9ecac6de4a46be85a162bffe0db7145bd3a4175831cea6cab4b41eefd
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-bui-medium
-
-  override:
+  overrides:
     parameters:
       model: is-bui-medium.onnx
   files:
     - filename: voice-is-bui-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-bui-medium.tar.gz
-
-- <<: *piper
+      sha256: e89ef01051cb48ca2a32338ed8749a4c966b912bb572c61d6d21f2d3822e505f
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-salka-medium
-
-  override:
+  overrides:
     parameters:
       model: is-salka-medium.onnx
   files:
     - filename: voice-is-salka-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-salka-medium.tar.gz
-
-- <<: *piper
+      sha256: 75923d7d6b4125166ca58ec82b5d23879012844483b428db9911e034e6626384
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-steinn-medium
-
-  override:
+  overrides:
     parameters:
       model: is-steinn-medium.onnx
   files:
     - filename: voice-is-steinn-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-steinn-medium.tar.gz
-
-- <<: *piper
+      sha256: 5a01a8df796f86fdfe12cc32a3412ebd83670d47708d94d926ba5ed0776e6dc9
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-is-ugla-medium
-
-  override:
+  overrides:
     parameters:
       model: is-ugla-medium.onnx
   files:
     - filename: voice-is-ugla-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-is-ugla-medium.tar.gz
-
-- <<: *piper
+      sha256: 501cd0376f7fd397f394856b7b3d899da4cc40a63e11912258b74da78af90547
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-it-riccardo_fasol-x-low
-
-  override:
+  overrides:
     parameters:
       model: it-riccardo_fasol-x-low.onnx
   files:
     - filename: voice-it-riccardo_fasol-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-it-riccardo_fasol-x-low.tar.gz
-
-- <<: *piper
+      sha256: 394b27b8780f5167e73a62ac103839cc438abc7edb544192f965e5b8f5f4acdb
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-iseke-x-low
-
-  override:
+  overrides:
     parameters:
       model: kk-iseke-x-low.onnx
   files:
     - filename: voice-kk-iseke-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-iseke-x-low.tar.gz
-
-- <<: *piper
+      sha256: f434fffbea3e6d8cf392e44438a1f32a5d005fc93b41be84a6d663882ce7c074
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-issai-high
-
-  override:
+  overrides:
     parameters:
       model: kk-issai-high.onnx
   files:
     - filename: voice-kk-issai-high.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-issai-high.tar.gz
-
-- <<: *piper
+      sha256: 84bf79d330d6cd68103e82d95bbcaa2628a99a565126dea94cea2be944ed4f32
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-raya-x-low
-
-  override:
+  overrides:
     parameters:
       model: kk-raya-x-low.onnx
   files:
     - filename: voice-kk-raya-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-kk-raya-x-low.tar.gz
-
-- <<: *piper
+      sha256: 4cab4ce00c6f10450b668072d7980a2bc3ade3a39adee82e3ec4f519d4c57bd1
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-medium
-
-  override:
+  overrides:
     parameters:
       model: ne-google-medium.onnx
   files:
     - filename: voice-ne-google-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ne-google-medium.tar.gz
-
-- <<: *piper
+      sha256: 0895b11a7a340baea37fb9c27fb50bc3fd0af9779085978277f962d236d3a7bd
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ne-google-x-low
-
-  override:
+  overrides:
     parameters:
       model: ne-google-x-low.onnx
   files:
     - filename: voice-ne-google-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ne-google-x-low.tar.gz
-
-- <<: *piper
+      sha256: 870ba5718dfe3e478c6cce8a9a288b591b3575c750b57ffcd845e4ec64988f0b
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_5809-low
-
-  override:
+  overrides:
     parameters:
       model: nl-mls_5809-low.onnx
   files:
     - filename: voice-nl-mls_5809-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-mls_5809-low.tar.gz
-
-- <<: *piper
+      sha256: 398b9f0318dfe9d613cb066444efec0d8491905ae34cf502edb52030b75ef51c
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-mls_7432-low
-
-  override:
+  overrides:
     parameters:
       model: nl-mls_7432-low.onnx
   files:
     - filename: voice-nl-mls_7432-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-mls_7432-low.tar.gz
-
-- <<: *piper
+      sha256: 0b3efc68ea7e735ba8f2e0a0f7e9b4b887b00f6530c02fca4aa69a6091adbe5e
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-nathalie-x-low
-
-  override:
+  overrides:
     parameters:
       model: nl-nathalie-x-low.onnx
   files:
     - filename: voice-nl-nathalie-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-nathalie-x-low.tar.gz
-
-- <<: *piper
+      sha256: 2658d4fe2b791491780160216d187751f7c993aa261f3b8ec76dfcaf1ba74942
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-medium
-
-  override:
+  overrides:
     parameters:
       model: nl-rdh-medium.onnx
   files:
     - filename: voice-nl-rdh-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-rdh-medium.tar.gz
-
-- <<: *piper
+      sha256: 16f74a195ecf13df1303fd85327532196cc1ecef2e72505200578fd410d0affb
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-nl-rdh-x-low
-
-  override:
+  overrides:
     parameters:
       model: nl-rdh-x-low.onnx
   files:
     - filename: voice-nl-rdh-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-nl-rdh-x-low.tar.gz
-
-- <<: *piper
+      sha256: 496363e5d6e080fd16ac5a1f9457c564b52f0ee8be7f2e2ba1dbf41ef0b23a39
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-no-talesyntese-medium
-
-  override:
+  overrides:
     parameters:
       model: no-talesyntese-medium.onnx
   files:
     - filename: voice-no-talesyntese-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-no-talesyntese-medium.tar.gz
-
-- <<: *piper
+      sha256: ed6b3593a0e70c90d52e225b85d7e0b805ad8e08482471bd2f73cf1404a6470d
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pl-mls_6892-low
-
-  override:
+  overrides:
     parameters:
       model: pl-mls_6892-low.onnx
   files:
     - filename: voice-pl-mls_6892-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-pl-mls_6892-low.tar.gz
-
-- <<: *piper
+      sha256: 5361fcf586b1285025a2ccb8b7500e07c9d66fa8126ef518709c0055c4c0d6f4
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-pt-br-edresson-low
-
-  override:
+  overrides:
     parameters:
       model: pt-br-edresson-low.onnx
   files:
     - filename: voice-pt-br-edresson-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-pt-br-edresson-low.tar.gz
-
-- <<: *piper
+      sha256: c68be522a526e77f49e90eeb4c13c01b4acdfeb635759f0eeb0eea8f16fd1f33
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-ru-irinia-medium
-
-  override:
+  overrides:
     parameters:
       model: ru-irinia-medium.onnx
   files:
     - filename: voice-ru-irinia-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-ru-irinia-medium.tar.gz
-
-- <<: *piper
+      sha256: 897b62f170faee38f21d0bc36411164166ae351977e898b6cf33f6206890b55f
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-sv-se-nst-medium
-
-  override:
+  overrides:
     parameters:
       model: sv-se-nst-medium.onnx
   files:
     - filename: voice-sv-se-nst-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-sv-se-nst-medium.tar.gz
-
-- <<: *piper
+      sha256: 0d6cf357d55860162bf1bdd76bd4f0c396ff547e941bfb25df799d6f1866fda9
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-uk-lada-x-low
-
-  override:
+  overrides:
     parameters:
       model: uk-lada-x-low.onnx
   files:
     - filename: voice-uk-lada-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-uk-lada-x-low.tar.gz
-
-- <<: *piper
+      sha256: ff50acbd659fc226b57632acb1cee310009821ec44b4bc517effdd9827d8296b
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-25hours-single-low
-
-  override:
+  overrides:
     parameters:
       model: vi-25hours-single-low.onnx
   files:
     - filename: voice-vi-25hours-single-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-vi-25hours-single-low.tar.gz
-
-- <<: *piper
+      sha256: 97e34d1b69dc7000a4ec3269f84339ed35905b3c9800a63da5d39b7649e4a666
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-vi-vivos-x-low
-
-  override:
+  overrides:
     parameters:
       model: vi-vivos-x-low.onnx
   files:
     - filename: voice-vi-vivos-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-vi-vivos-x-low.tar.gz
-
-- <<: *piper
+      sha256: 07cd4ca6438ec224012f7033eec1a2038724b78e4aa2bedf85f756656b52e1a7
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh-cn-huayan-x-low
-
-  override:
+  overrides:
     parameters:
       model: zh-cn-huayan-x-low.onnx
   files:
     - filename: voice-zh-cn-huayan-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh-cn-huayan-x-low.tar.gz
-
-- <<: *piper
+      sha256: 609db0da8ee75beb2f17ce53c55abdbc8c0e04135482efedf1798b1938bf90fa
+- !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-zh_CN-huayan-medium
-
-  override:
+  overrides:
     parameters:
       model: zh_CN-huayan-medium.onnx
   files:
     - filename: voice-zh_CN-huayan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh_CN-huayan-medium.tar.gz
+      sha256: 0299a5e7f481ba853404e9f0e1515a94d5409585d76963fa4d30c64bd630aa99

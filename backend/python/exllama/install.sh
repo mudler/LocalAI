@@ -1,32 +1,13 @@
 #!/bin/bash
-set -ex
+set -e
 
-export PATH=$PATH:/opt/conda/bin
+LIMIT_TARGETS="cublas"
 
-if [ "$BUILD_TYPE" != "cublas" ]; then
-    echo "[exllama] Attention!!! Nvidia GPU is required - skipping installation"
-    exit 0
-fi
+source $(dirname $0)/../common/libbackend.sh
 
-# Check if environment exist
-conda_env_exists(){
-    ! conda list --name "${@}" >/dev/null 2>/dev/null
-}
+installRequirements
 
-if conda_env_exists "exllama" ; then
-    echo "Creating virtual environment..."
-    conda env create --name exllama --file $1
-    echo "Virtual environment created."
-else
-    echo "Virtual environment already exists."
-fi
+git clone https://github.com/turboderp/exllama $MY_DIR/source
+uv pip install ${BUILD_ISOLATION_FLAG} --requirement ${MY_DIR}/source/requirements.txt
 
-source activate exllama
-
-git clone https://github.com/turboderp/exllama $CONDA_PREFIX/exllama && pushd $CONDA_PREFIX/exllama && pip install -r requirements.txt && popd
-
-cp -rfv $CONDA_PREFIX/exllama/* ./
-
-if [ "$PIP_CACHE_PURGE" = true ] ; then
-    pip cache purge
-fi
+cp -v ./*py $MY_DIR/source/

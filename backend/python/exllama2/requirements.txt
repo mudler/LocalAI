@@ -1,0 +1,7 @@
+accelerate
+grpcio==1.64.0
+protobuf
+certifi
+torch
+wheel
+setuptools

@@ -63,10 +63,14 @@ func getBase64Image(s string) (string, error) {
 		return encoded, nil
 	}
 
-	// if the string instead is prefixed with "data:image/jpeg;base64,", drop it
-	if strings.HasPrefix(s, "data:image/jpeg;base64,") {
-		return strings.ReplaceAll(s, "data:image/jpeg;base64,", ""), nil
+	// if the string instead is prefixed with "data:image/...;base64,", drop it
+	dropPrefix := []string{"data:image/jpeg;base64,", "data:image/png;base64,"}
+	for _, prefix := range dropPrefix {
+		if strings.HasPrefix(s, prefix) {
+			return strings.ReplaceAll(s, prefix, ""), nil
+		}
 	}
+
 	return "", fmt.Errorf("not valid string")
 }
 
@@ -125,6 +129,15 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 		config.Maxtokens = input.Maxtokens
 	}
 
+	if input.ResponseFormat != nil {
+		switch responseFormat := input.ResponseFormat.(type) {
+		case string:
+			config.ResponseFormat = responseFormat
+		case map[string]interface{}:
+			config.ResponseFormatMap = responseFormat
+		}
+	}
+
 	switch stop := input.Stop.(type) {
 	case string:
 		if stop != "" {
@@ -181,7 +194,7 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
 						index++
 					} else {
-						fmt.Print("Failed encoding image", err)
+						log.Error().Msgf("Failed encoding image: %s", err)
 					}
 				}
 			}

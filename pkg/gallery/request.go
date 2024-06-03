@@ -1,5 +1,10 @@
 package gallery
 
+import (
+	"fmt"
+	"strings"
+)
+
 // GalleryModel is the struct used to represent a model in the gallery returned by the endpoint.
 // It is used to install the model by resolving the URL and downloading the files.
 // The other fields are used to override the configuration of the model.
@@ -21,4 +26,24 @@ type GalleryModel struct {
 	Gallery Gallery `json:"gallery,omitempty" yaml:"gallery,omitempty"`
 	// Installed is used to indicate if the model is installed or not
 	Installed bool `json:"installed,omitempty" yaml:"installed,omitempty"`
+}
+
+func (m GalleryModel) ID() string {
+	return fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
+}
+
+type GalleryModels []*GalleryModel
+
+func (gm GalleryModels) Search(term string) GalleryModels {
+	var filteredModels GalleryModels
+
+	for _, m := range gm {
+		if strings.Contains(m.Name, term) ||
+			strings.Contains(m.Description, term) ||
+			strings.Contains(m.Gallery.Name, term) ||
+			strings.Contains(strings.Join(m.Tags, ","), term) {
+			filteredModels = append(filteredModels, m)
+		}
+	}
+	return filteredModels
 }

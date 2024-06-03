@@ -1,0 +1,6 @@
+accelerate
+transformers
+grpcio==1.64.0
+protobuf
+torch
+certifi

@@ -114,30 +114,23 @@ docker run -p 8080:8080 --name local-ai -ti -v localai-models:/build/models loca
 
 {{% /alert %}}
 
-## From binary
+## Running LocalAI from Binaries
 
-LocalAI is available as a standalone binary as well. Binaries are compiled for Linux and MacOS and automatically uploaded in the Github releases. Windows is known to work with WSL.
+LocalAI binaries are available for both Linux and MacOS platforms and can be executed directly from your command line. These binaries are continuously updated and hosted on [our GitHub Releases page](https://github.com/mudler/LocalAI/releases). This method also supports Windows users via the Windows Subsystem for Linux (WSL). 
 
-You can check out the releases in https://github.com/mudler/LocalAI/releases.
+Use the following one-liner command in your terminal to download and run LocalAI on Linux or MacOS:
 
-{{< tabs tabTotal="2" >}}
-{{% tab tabName="Linux" %}}
-| CPU flagset | Link | 
+```bash
+curl -Lo local-ai "https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-$(uname -s)-$(uname -m)" && chmod +x local-ai && ./local-ai
+```
+
+Otherwise, here are the links to the binaries:
+
+| OS | Link | 
 | --- | --- |
-| avx2 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx2-Linux-x86_64) |
-| avx512 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx512-Linux-x86_64) |
-| avx | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx-Linux-x86_64) |
-{{% /tab %}}
-{{% tab tabName="MacOS" %}}
-| CPU flagset | Link | 
-| --- | --- |
-| avx2 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx2-Darwin-arm64) |
-| avx512 | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx512-Darwin-arm64) |
-| avx | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-avx-Darwin-arm64) |
+| Linux  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-x86_64) |
+| MacOS  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Darwin-arm64) |
 
-{{% /tab %}}
-
-{{< /tabs >}}
 
 ## Try it out
 

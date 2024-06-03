@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = "🆕 GPT Vision"
+title = "🥽 GPT Vision"
 weight = 14
 url = "/features/gpt-vision/"
 +++

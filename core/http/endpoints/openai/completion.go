@@ -69,8 +69,13 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		if input.ResponseFormat.Type == "json_object" {
-			input.Grammar = functions.JSONBNF
+		if config.ResponseFormatMap != nil {
+			d := schema.ChatCompletionResponseFormat{}
+			dat, _ := json.Marshal(config.ResponseFormatMap)
+			_ = json.Unmarshal(dat, &d)
+			if d.Type == "json_object" {
+				input.Grammar = functions.JSONBNF
+			}
 		}
 
 		config.Grammar = input.Grammar
@@ -107,7 +112,8 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 			if templateFile != "" {
 				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					Input: predInput,
+					Input:        predInput,
+					SystemPrompt: config.SystemPrompt,
 				})
 				if err == nil {
 					predInput = templatedInput

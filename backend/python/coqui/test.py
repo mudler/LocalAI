@@ -18,7 +18,7 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method sets up the gRPC service by starting the server
         """
-        self.service = subprocess.Popen(["python3", "coqui_server.py", "--addr", "localhost:50051"])
+        self.service = subprocess.Popen(["python3", "backend.py", "--addr", "localhost:50051"])
         time.sleep(10)
 
     def tearDown(self) -> None:

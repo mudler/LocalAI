@@ -77,6 +77,8 @@ func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		MaxModelLen:          int32(c.MaxModelLen),
 		TensorParallelSize:   int32(c.TensorParallelSize),
 		MMProj:               c.MMProj,
+		FlashAttention:       c.FlashAttention,
+		NoKVOffload:          c.NoKVOffloading,
 		YarnExtFactor:        c.YarnExtFactor,
 		YarnAttnFactor:       c.YarnAttnFactor,
 		YarnBetaFast:         c.YarnBetaFast,

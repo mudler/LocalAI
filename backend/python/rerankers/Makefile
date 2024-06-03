@@ -1,7 +1,6 @@
 .PHONY: rerankers
 rerankers: protogen
-	$(MAKE) -C ../common-env/transformers
-
+	bash install.sh
 
 .PHONY: run
 run: protogen
@@ -25,3 +24,7 @@ protogen-clean:
 
 backend_pb2_grpc.py backend_pb2.py:
 	python3 -m grpc_tools.protoc -I../.. --python_out=. --grpc_python_out=. backend.proto
+
+.PHONY: clean
+clean: protogen-clean
+	rm -rf venv __pycache__

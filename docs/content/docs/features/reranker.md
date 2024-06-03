@@ -1,7 +1,7 @@
 
 +++
 disableToc = false
-title = " Reranker"
+title = "📈 Reranker"
 weight = 11
 url = "/features/reranker/"
 +++

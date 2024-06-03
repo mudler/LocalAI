@@ -1,0 +1,7 @@
+accelerate
+transformers
+grpcio==1.64.0
+protobuf
+torch
+scipy==1.13.0
+certifi

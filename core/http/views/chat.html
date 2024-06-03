@@ -1,0 +1,229 @@
+<!--
+
+Part of this page is based on the OpenAI Chatbot example by David Härer:
+https://github.com/david-haerer/chatapi
+
+MIT License Copyright (c) 2023 David Härer
+            Copyright (c) 2024 Ettore Di Giacinto
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-->
+<!doctype html>
+<html lang="en">
+  {{template "views/partials/head" .}}
+  <script defer src="/static/chat.js"></script>
+  <style>
+    body {
+        overflow: hidden; 
+    }
+  </style>
+  <body class="bg-gray-900 text-gray-200" x-data="{ key: $store.chat.key }">
+    <div class="flex flex-col min-h-screen">
+
+    {{template "views/partials/navbar"}}
+    <div class="chat-container mt-2 mr-2 ml-2 mb-2 bg-gray-800 shadow-lg rounded-lg" >
+     <!-- Chat Header -->
+    <div class="border-b border-gray-700 p-4"  x-data="{ component: 'menu' }">
+
+      <div class="flex items-center justify-between">
+
+      <h1 class="text-lg font-semibold"> <i class="fa-solid fa-comments"></i> Chat with {{.Model}} <a href="https://localai.io/features/text-generation/" target="_blank" >
+        <i class="fas fa-circle-info pr-2"></i>
+      </a></h1>
+      <div x-show="component === 'menu'" id="menu">
+        <button
+          @click="$store.chat.clear()"
+          id="clear"
+          title="Clear chat history"
+
+          data-twe-ripple-init
+          data-twe-ripple-color="light"
+          class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
+          >
+          Clear chat 🔥
+        </button>
+        <button @click="component = 'key'" title="Update API key"
+        class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
+        >Set API Key🔑</button>
+        <button @click="component = 'system_prompt'" title="System Prompt"
+        class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
+        >Set system prompt</button>
+      </div>
+      <form x-show="component === 'key'" id="key">
+        <input
+          type="password"
+          id="apiKey"
+          name="apiKey"
+          class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+          placeholder="OpenAI API Key"
+          x-model.lazy="key"
+        />
+        <button @click="component = 'menu'" type="submit" title="Save API key">
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+      <form x-show="component === 'system_prompt'" id="system_prompt">
+        <textarea
+          type="text"
+          id="systemPrompt"
+          name="systemPrompt"
+          class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+          placeholder="System prompt"
+          x-model.lazy="system_prompt"
+        ></textarea>
+        <button @click="component = 'menu'" type="submit" title="Save Prompt">
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+
+      <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
+        class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+        >	
+        <!-- Options -->
+        <option value="" disabled class="text-gray-400" >Select a model</option>
+        {{ $model:=.Model}}
+        {{ range .ModelsConfig }}
+        {{ if eq .Name $model }}
+        <option value="/chat/{{.Name}}" selected  class="bg-gray-700 text-white">{{.Name}}</option>
+        {{ else }}
+        <option value="/chat/{{.Name}}" class="bg-gray-700 text-white">{{.Name}}</option>
+        {{ end }}
+        {{ end }}
+      </select>
+
+      </div>
+    </div>
+
+    <div class="chat-messages p-4" id="chat" x-data="{history: $store.chat.history}">
+      <p id="usage" x-show="history.length === 0">
+        Start chatting with the AI by typing a prompt in the input field below and pressing Enter.
+        For models that support images, you can upload an image by clicking the paperclip <i class="fa-solid fa-paperclip"></i> icon.
+      </p>
+      <div id="messages">
+      <template x-for="message in history">
+        <div class="message flex items-start space-x-2 my-2" >
+          <!--<img :src="message.role === 'user' ? '/path/to/user-icon.png' : '/path/to/bot-icon.png'" alt="" class="h-6 w-6">-->
+          <i class="fa-solid h-8 w-8" :class="message.role === 'user' ? 'fa-user' : 'fa-robot'"  ></i>
+          <div class="flex flex-col flex-1">
+            <span class="text-xs font-semibold text-gray-600" x-text="message.role === 'user' ? 'User' : 'Assistant ({{.Model}})'"></span>
+            <template x-if="message.role === 'user'">
+              <div class="p-2 flex-1 rounded" :class="message.role" x-html="message.html"></div>
+            </template>
+            <template x-if="message.role === 'assistant'">
+              <div class="p-2 flex-1 rounded" :class="message.role" x-html="message.html"></div>
+            </template>
+            <template x-if="message.image">
+              <img :src="message.image" alt="Image" class="rounded-lg mt-2 h-36 w-36">
+            </template>
+          </div>
+        </div>
+      </template>
+      </div>
+    </div>
+
+    <div class="p-4 border-t border-gray-700" x-data="{ inputValue: '', shiftPressed: false, fileName: ''  }">
+      <div id="loader" class="my-2 loader" style="display: none;"></div>
+      <input id="chat-model" type="hidden" value="{{.Model}}">
+      <input id="input_image" type="file" style="display: none;" @change="fileName = $event.target.files[0].name">
+      <form id="prompt" action="/chat/{{.Model}}" method="get" @submit.prevent="submitPrompt">
+          <div class="relative w-full">
+              <textarea
+                  id="input"
+                  name="input"
+                  x-model="inputValue"
+                  placeholder="Send a message..."
+                  class="p-2 pl-2 border rounded w-full bg-gray-600 text-white placeholder-gray-300"
+                  required
+                  @keydown.shift="shiftPressed = true"
+                  @keyup.shift="shiftPressed = false"
+                  @keydown.enter="if (!shiftPressed) { submitPrompt($event); }"
+                  style="padding-right: 4rem;"
+              ></textarea>
+              <span x-text="fileName" id="fileName" class="absolute right-16 top-5 text-gray-300 text-sm mr-2"></span>
+              <button type="button" onclick="document.getElementById('input_image').click()" class="fa-solid fa-paperclip text-gray-300 ml-2 absolute right-10 top-3 text-lg p-2">
+              </button>
+              <button type=submit><i class="fa-solid fa-circle-up text-gray-300 absolute right-2 top-3 text-lg p-2"></i></button>
+          </div>
+      </form>
+  </div>
+    <script>
+      document.addEventListener("alpine:init", () => {
+        Alpine.store("chat", {
+          history: [],
+          languages: [undefined],
+          clear() {
+            this.history.length = 0;
+          },
+          add(role, content, image) {
+            const N = this.history.length - 1;
+            if (this.history.length && this.history[N].role === role) {
+              this.history[N].content += content;
+              str = this.history[N].content;
+              this.history[N].html = DOMPurify.sanitize(
+                marked.parse(this.history[N].content),
+              );
+            } else {
+              c =  ""
+              // split content newlines in content
+              const lines = content.split("\n");
+              // for each line, do DOMPurify.sanitize(marked.parse(line)) and add it to c
+              lines.forEach((line) => {
+                c += DOMPurify.sanitize(marked.parse(line));
+              });
+
+              this.history.push({
+                role: role,
+                content: content,
+                html: c,
+                image: image,
+              });
+            }
+
+            const parser = new DOMParser();
+            const html = parser.parseFromString(
+              this.history[this.history.length - 1].html,
+              "text/html",
+            );
+            const code = html.querySelectorAll("pre code");
+            if (!code.length) return;
+            code.forEach((el) => {
+              const language = el.className.split("language-")[1];
+              if (this.languages.includes(language)) return;
+              const script = document.createElement("script");
+              script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
+              document.head.appendChild(script);
+              this.languages.push(language);
+            });
+          },
+          messages() {
+            return this.history.map((message) => {
+              return {
+                role: message.role,
+                content: message.content,
+                image: message.image,
+              };
+            });
+          },
+        });
+      });
+    </script>
+    </div>
+  </body>
+</html>

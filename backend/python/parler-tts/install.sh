@@ -1,39 +1,19 @@
 #!/bin/bash
-set -ex
+set -e
 
-SKIP_CONDA=${SKIP_CONDA:-0}
+source $(dirname $0)/../common/libbackend.sh
 
-# Check if environment exist
-conda_env_exists(){
-    ! conda list --name "${@}" >/dev/null 2>/dev/null
-}
-
-if [ $SKIP_CONDA -eq 1 ]; then
-    echo "Skipping conda environment installation"
-else
-    export PATH=$PATH:/opt/conda/bin
-    if conda_env_exists "parler" ; then
-        echo "Creating virtual environment..."
-        conda env create --name parler --file $1
-        echo "Virtual environment created."
-    else 
-        echo "Virtual environment already exists."
-    fi
+# This is here because the Intel pip index is broken and returns 200 status codes for every package name, it just doesn't return any package links.
+# This makes uv think that the package exists in the Intel pip index, and by default it stops looking at other pip indexes once it finds a match.
+# We need uv to continue falling through to the pypi default index to find optimum[openvino] in the pypi index
+# the --upgrade actually allows us to *downgrade* torch to the version provided in the Intel pip index
+if [ "x${BUILD_PROFILE}" == "xintel" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
 fi
 
-if [ $SKIP_CONDA -ne 1 ]; then
-    # Activate conda environment
-    source activate parler
-    # https://github.com/descriptinc/audiotools/issues/101
-    # incompatible protobuf versions.
-    curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o $CONDA_PREFIX/lib/python3.11/site-packages/google/protobuf/internal/builder.py
-fi
+installRequirements
 
-if [ "$PIP_CACHE_PURGE" = true ] ; then
-    if [ $SKIP_CONDA -ne 1 ]; then
-        # Activate conda environment
-        source activate parler
-    fi
-
-    pip cache purge
-fi
+# https://github.com/descriptinc/audiotools/issues/101
+# incompatible protobuf versions.
+PYDIR=$(ls ${MY_DIR}/venv/lib)
+curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o ${MY_DIR}/venv/lib/${PYDIR}/site-packages/google/protobuf/internal/builder.py

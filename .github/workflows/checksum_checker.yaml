@@ -1,0 +1,47 @@
+name: Check if checksums are up-to-date
+on:
+  schedule:
+    - cron: 0 20 * * *
+  workflow_dispatch:
+jobs:
+  checksum_check:
+    runs-on: arc-runner-set
+    steps:
+      - name: Force Install GIT latest
+        run: |
+          sudo apt-get update \
+          && sudo apt-get install -y software-properties-common \
+          && sudo apt-get update \
+          && sudo add-apt-repository -y ppa:git-core/ppa \
+          && sudo apt-get update \
+          && sudo apt-get install -y git
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pip wget
+          sudo pip install --upgrade pip 
+          pip install huggingface_hub
+      - name: 'Setup yq'
+        uses: dcarbone/install-yq-action@v1.1.1
+        with:
+          version: 'v4.43.1'
+          download-compressed: true
+          force: true
+
+      - name: Checksum checker 🔧
+        run: |
+          export HF_HOME=/hf_cache
+          sudo mkdir /hf_cache
+          sudo chmod 777 /hf_cache
+          bash .github/checksum_checker.sh gallery/index.yaml
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':arrow_up: Checksum updates in gallery/index.yaml'
+          title: 'models(gallery): :arrow_up: update checksum'
+          branch: "update/checksum"
+          body: Updating checksums in gallery/index.yaml
+          signoff: true

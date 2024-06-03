@@ -2,27 +2,43 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
-	"github.com/hashicorp/go-multierror"
+	"github.com/go-skynet/LocalAI/pkg/xsysinfo"
+	"github.com/klauspost/cpuid/v2"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
+
+	"github.com/elliotchance/orderedmap/v2"
 )
 
 var Aliases map[string]string = map[string]string{
-	"go-llama":       LLamaCPP,
-	"llama":          LLamaCPP,
-	"embedded-store": LocalStoreBackend,
+	"go-llama":              LLamaCPP,
+	"llama":                 LLamaCPP,
+	"embedded-store":        LocalStoreBackend,
+	"langchain-huggingface": LCHuggingFaceBackend,
 }
 
+var autoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
+
 const (
-	LlamaGGML           = "llama-ggml"
-	LLamaCPP            = "llama-cpp"
+	LlamaGGML = "llama-ggml"
+
+	LLamaCPP = "llama-cpp"
+
+	LLamaCPPAVX2     = "llama-cpp-avx2"
+	LLamaCPPAVX      = "llama-cpp-avx"
+	LLamaCPPFallback = "llama-cpp-fallback"
+	LLamaCPPCUDA     = "llama-cpp-cuda"
+	LLamaCPPGRPC     = "llama-cpp-grpc"
+
 	Gpt4AllLlamaBackend = "gpt4all-llama"
 	Gpt4AllMptBackend   = "gpt4all-mpt"
 	Gpt4AllJBackend     = "gpt4all-j"
@@ -34,21 +50,170 @@ const (
 	StableDiffusionBackend = "stablediffusion"
 	TinyDreamBackend       = "tinydream"
 	PiperBackend           = "piper"
-	LCHuggingFaceBackend   = "langchain-huggingface"
+	LCHuggingFaceBackend   = "huggingface"
 
 	LocalStoreBackend = "local-store"
 )
 
-var AutoLoadBackends []string = []string{
-	LLamaCPP,
-	LlamaGGML,
-	Gpt4All,
-	BertEmbeddingsBackend,
-	RwkvBackend,
-	WhisperBackend,
-	StableDiffusionBackend,
-	TinyDreamBackend,
-	PiperBackend,
+func backendPath(assetDir, backend string) string {
+	return filepath.Join(assetDir, "backend-assets", "grpc", backend)
+}
+
+// backendsInAssetDir returns the list of backends in the asset directory
+// that should be loaded
+func backendsInAssetDir(assetDir string) ([]string, error) {
+	// Exclude backends from automatic loading
+	excludeBackends := []string{LocalStoreBackend}
+	entry, err := os.ReadDir(backendPath(assetDir, ""))
+	if err != nil {
+		return nil, err
+	}
+	backends := make(map[string][]string)
+ENTRY:
+	for _, e := range entry {
+		for _, exclude := range excludeBackends {
+			if e.Name() == exclude {
+				continue ENTRY
+			}
+		}
+		if e.IsDir() {
+			continue
+		}
+
+		// Skip the llama.cpp variants if we are autoDetecting
+		// But we always load the fallback variant if it exists
+		if strings.Contains(e.Name(), LLamaCPP) && !strings.Contains(e.Name(), LLamaCPPFallback) && autoDetect {
+			continue
+		}
+
+		backends[e.Name()] = []string{}
+	}
+
+	// if we are autoDetecting, we want to show the llama.cpp variants as a single backend
+	if autoDetect {
+		// if we find the llama.cpp variants, show them of as a single backend (llama-cpp) as later we are going to pick that up
+		// when starting the service
+		foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC, foundLCPPCuda := false, false, false, false, false
+		if _, ok := backends[LLamaCPP]; !ok {
+			for _, e := range entry {
+				if strings.Contains(e.Name(), LLamaCPPAVX2) && !foundLCPPAVX2 {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPAVX2)
+					foundLCPPAVX2 = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPAVX) && !foundLCPPAVX {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPAVX)
+					foundLCPPAVX = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPFallback) && !foundLCPPFallback {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPFallback)
+					foundLCPPFallback = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPGRPC) && !foundLCPPGRPC {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPGRPC)
+					foundLCPPGRPC = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPCUDA) && !foundLCPPCuda {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPCUDA)
+					foundLCPPCuda = true
+				}
+			}
+		}
+	}
+
+	// order backends from the asset directory.
+	// as we scan for backends, we want to keep some order which backends are tried of.
+	// for example, llama.cpp should be tried first, and we want to keep the huggingface backend at the last.
+
+	// sets a priority list - first has more priority
+	priorityList := []string{
+
+		// First llama.cpp(variants) and llama-ggml to follow.
+		// We keep the fallback to prevent that if the llama.cpp variants
+		// that depends on shared libs if breaks have still a safety net.
+		LLamaCPP, LlamaGGML, Gpt4All, LLamaCPPFallback,
+	}
+
+	toTheEnd := []string{
+		// last has to be huggingface
+		LCHuggingFaceBackend,
+		// then bert embeddings
+		BertEmbeddingsBackend,
+	}
+
+	// create an ordered map
+	orderedBackends := orderedmap.NewOrderedMap[string, any]()
+	// add priorityList first
+	for _, p := range priorityList {
+		if _, ok := backends[p]; ok {
+			orderedBackends.Set(p, backends[p])
+		}
+	}
+
+	for k, v := range backends {
+		if !slices.Contains(toTheEnd, k) {
+			if _, ok := orderedBackends.Get(k); !ok {
+				orderedBackends.Set(k, v)
+			}
+		}
+	}
+
+	for _, t := range toTheEnd {
+		if _, ok := backends[t]; ok {
+			orderedBackends.Set(t, backends[t])
+		}
+	}
+
+	return orderedBackends.Keys(), nil
+}
+
+// selectGRPCProcess selects the GRPC process to start based on system capabilities
+func selectGRPCProcess(backend, assetDir string) string {
+	foundCUDA := false
+	var grpcProcess string
+
+	// Select backend now just for llama.cpp
+	if backend != LLamaCPP {
+		return ""
+	}
+
+	// Note: This environment variable is read by the LocalAI's llama.cpp grpc-server
+	if os.Getenv("LLAMACPP_GRPC_SERVERS") != "" {
+		log.Info().Msgf("[%s] attempting to load with GRPC variant", LLamaCPPGRPC)
+		return backendPath(assetDir, LLamaCPPGRPC)
+	}
+
+	gpus, err := xsysinfo.GPUs()
+	if err == nil {
+		for _, gpu := range gpus {
+			if strings.Contains(gpu.String(), "nvidia") {
+				p := backendPath(assetDir, LLamaCPPCUDA)
+				if _, err := os.Stat(p); err == nil {
+					log.Info().Msgf("[%s] attempting to load with CUDA variant", backend)
+					grpcProcess = p
+					foundCUDA = true
+				} else {
+					log.Info().Msgf("GPU device found but no CUDA backend present")
+				}
+			}
+		}
+	}
+
+	if foundCUDA {
+		return grpcProcess
+	}
+
+	if xsysinfo.HasCPUCaps(cpuid.AVX2) {
+		log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
+		grpcProcess = backendPath(assetDir, LLamaCPPAVX2)
+	} else if xsysinfo.HasCPUCaps(cpuid.AVX) {
+		log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
+		grpcProcess = backendPath(assetDir, LLamaCPPAVX)
+	} else {
+		log.Info().Msgf("[%s] attempting to load with fallback variant", backend)
+		grpcProcess = backendPath(assetDir, LLamaCPPFallback)
+	}
+
+	return grpcProcess
 }
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
@@ -99,7 +264,15 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				client = ModelAddress(uri)
 			}
 		} else {
-			grpcProcess := filepath.Join(o.assetDir, "backend-assets", "grpc", backend)
+			grpcProcess := backendPath(o.assetDir, backend)
+
+			if autoDetect {
+				// autoDetect GRPC process to start based on system capabilities
+				if selectedProcess := selectGRPCProcess(backend, o.assetDir); selectedProcess != "" {
+					grpcProcess = selectedProcess
+				}
+			}
+
 			// Check if the file exists
 			if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
 				return "", fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
@@ -241,21 +414,27 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 
 	var err error
 
-	// autoload also external backends
-	allBackendsToAutoLoad := []string{}
-	allBackendsToAutoLoad = append(allBackendsToAutoLoad, AutoLoadBackends...)
-	for _, b := range o.externalBackends {
-		allBackendsToAutoLoad = append(allBackendsToAutoLoad, b)
+	// get backends embedded in the binary
+	autoLoadBackends, err := backendsInAssetDir(o.assetDir)
+	if err != nil {
+		return nil, err
 	}
+
+	// append externalBackends supplied by the user via the CLI
+	for _, b := range o.externalBackends {
+		autoLoadBackends = append(autoLoadBackends, b)
+	}
+
+	log.Debug().Msgf("Loading from the following backends (in order): %+v", autoLoadBackends)
 
 	if o.model != "" {
-		log.Info().Msgf("Trying to load the model '%s' with all the available backends: %s", o.model, strings.Join(allBackendsToAutoLoad, ", "))
+		log.Info().Msgf("Trying to load the model '%s' with the backend '%s'", o.model, autoLoadBackends)
 	}
 
-	for _, b := range allBackendsToAutoLoad {
-		log.Info().Msgf("[%s] Attempting to load", b)
+	for _, key := range autoLoadBackends {
+		log.Info().Msgf("[%s] Attempting to load", key)
 		options := []Option{
-			WithBackendString(b),
+			WithBackendString(key),
 			WithModel(o.model),
 			WithLoadGRPCLoadModelOpts(o.gRPCOptions),
 			WithThreads(o.threads),
@@ -268,14 +447,14 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 
 		model, modelerr := ml.BackendLoader(options...)
 		if modelerr == nil && model != nil {
-			log.Info().Msgf("[%s] Loads OK", b)
+			log.Info().Msgf("[%s] Loads OK", key)
 			return model, nil
 		} else if modelerr != nil {
-			err = multierror.Append(err, modelerr)
-			log.Info().Msgf("[%s] Fails: %s", b, modelerr.Error())
+			err = errors.Join(err, modelerr)
+			log.Info().Msgf("[%s] Fails: %s", key, modelerr.Error())
 		} else if model == nil {
-			err = multierror.Append(err, fmt.Errorf("backend returned no usable model"))
-			log.Info().Msgf("[%s] Fails: %s", b, "backend returned no usable model")
+			err = errors.Join(err, fmt.Errorf("backend returned no usable model"))
+			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
 		}
 	}
 

@@ -23,32 +23,60 @@ definitions:
       const:
         type: string
     type: object
-  functions.Item:
+  functions.FunctionProperties:
+    properties:
+      arguments:
+        $ref: '#/definitions/functions.Argument'
+      function:
+        $ref: '#/definitions/functions.FunctionName'
+    type: object
+  functions.ItemFunction:
     properties:
       properties:
-        $ref: '#/definitions/functions.Properties'
+        $ref: '#/definitions/functions.FunctionProperties'
       type:
         type: string
     type: object
-  functions.JSONFunctionStructure:
+  functions.ItemName:
+    properties:
+      properties:
+        $ref: '#/definitions/functions.NameProperties'
+      type:
+        type: string
+    type: object
+  functions.JSONFunctionStructureFunction:
     properties:
       $defs:
         additionalProperties: true
         type: object
       anyOf:
         items:
-          $ref: '#/definitions/functions.Item'
+          $ref: '#/definitions/functions.ItemFunction'
         type: array
       oneOf:
         items:
-          $ref: '#/definitions/functions.Item'
+          $ref: '#/definitions/functions.ItemFunction'
         type: array
     type: object
-  functions.Properties:
+  functions.JSONFunctionStructureName:
+    properties:
+      $defs:
+        additionalProperties: true
+        type: object
+      anyOf:
+        items:
+          $ref: '#/definitions/functions.ItemName'
+        type: array
+      oneOf:
+        items:
+          $ref: '#/definitions/functions.ItemName'
+        type: array
+    type: object
+  functions.NameProperties:
     properties:
       arguments:
         $ref: '#/definitions/functions.Argument'
-      function:
+      name:
         $ref: '#/definitions/functions.FunctionName'
     type: object
   functions.Tool:
@@ -135,11 +163,6 @@ definitions:
     - CodeInterpreter
     - Retrieval
     - Function
-  schema.ChatCompletionResponseFormat:
-    properties:
-      type:
-        type: string
-    type: object
   schema.Choice:
     properties:
       delta:
@@ -227,7 +250,9 @@ definitions:
         description: A grammar to constrain the LLM output
         type: string
       grammar_json_functions:
-        $ref: '#/definitions/functions.JSONFunctionStructure'
+        $ref: '#/definitions/functions.JSONFunctionStructureFunction'
+      grammar_json_name:
+        $ref: '#/definitions/functions.JSONFunctionStructureName'
       ignore_eos:
         type: boolean
       input: {}
@@ -270,8 +295,6 @@ definitions:
       repeat_penalty:
         type: number
       response_format:
-        allOf:
-        - $ref: '#/definitions/schema.ChatCompletionResponseFormat'
         description: whisper/image
       rope_freq_base:
         type: number
@@ -344,14 +367,21 @@ definitions:
         type: integer
     type: object
   schema.TTSRequest:
+    description: TTS request body
     properties:
       backend:
         type: string
       input:
+        description: text input
+        type: string
+      language:
+        description: (optional) language to use with TTS model
         type: string
       model:
+        description: model name or full path
         type: string
       voice:
+        description: voice audio file or speaker id
         type: string
     type: object
   schema.ToolCall:
@@ -376,6 +406,25 @@ info:
   title: LocalAI API
   version: 2.0.0
 paths:
+  /tts:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Generates audio from the input text.
   /v1/assistants:
     post:
       parameters:
@@ -393,6 +442,8 @@ paths:
       summary: Create an assistant with a model and instructions.
   /v1/audio/speech:
     post:
+      consumes:
+      - application/json
       parameters:
       - description: query params
         in: body
@@ -400,9 +451,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.TTSRequest'
+      produces:
+      - audio/x-wav
       responses:
         "200":
-          description: Response
+          description: generated audio/wav file
           schema:
             type: string
       summary: Generates audio from the input text.

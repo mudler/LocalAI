@@ -61,11 +61,11 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 			return err
 		}
 		mgs.galleryApplier.C <- gallery.GalleryOp{
-			Req:         input.GalleryModel,
-			Id:          uuid.String(),
-			GalleryName: input.ID,
-			Galleries:   mgs.galleries,
-			ConfigURL:   input.ConfigURL,
+			Req:              input.GalleryModel,
+			Id:               uuid.String(),
+			GalleryModelName: input.ID,
+			Galleries:        mgs.galleries,
+			ConfigURL:        input.ConfigURL,
 		}
 		return c.JSON(struct {
 			ID        string `json:"uuid"`
@@ -79,8 +79,8 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 		modelName := c.Params("name")
 
 		mgs.galleryApplier.C <- gallery.GalleryOp{
-			Delete:      true,
-			GalleryName: modelName,
+			Delete:           true,
+			GalleryModelName: modelName,
 		}
 
 		uuid, err := uuid.NewUUID()
