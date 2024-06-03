@@ -4,3 +4,4 @@ grpcio==1.64.0
 protobuf
 torch
 certifi
+intel-extension-for-transformers
