@@ -10,7 +10,9 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/core/http/middleware"
+	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -25,12 +27,12 @@ import (
 // @Router /v1/audio/transcriptions [post]
 func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, ml, appConfig, false)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_OPENAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input == nil {
+			return fiber.ErrBadRequest
 		}
 
-		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
+		config, input, err := mergeRequestWithConfig(input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

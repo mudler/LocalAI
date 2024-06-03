@@ -23,6 +23,11 @@ type TTSRequest struct {
 	Language string `json:"language,omitempty" yaml:"language,omitempty"` // (optional) language to use with TTS model
 }
 
+type RerankRequest struct {
+	JINARerankRequest
+	Backend string `json:"backend" yaml:"backend"`
+}
+
 type StoresSet struct {
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`
 

@@ -4,18 +4,16 @@ import (
 	"embed"
 	"errors"
 	"net/http"
-	"strings"
 
+	"github.com/go-skynet/LocalAI/core"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 
-	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
+	"github.com/go-skynet/LocalAI/core/http/middleware"
 	"github.com/go-skynet/LocalAI/core/http/routes"
 
-	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/model"
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
@@ -24,27 +22,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
-	// swagger handler
 	"github.com/rs/zerolog/log"
 )
-
-func readAuthHeader(c *fiber.Ctx) string {
-	authHeader := c.Get("Authorization")
-
-	// elevenlabs
-	xApiKey := c.Get("xi-api-key")
-	if xApiKey != "" {
-		authHeader = "Bearer " + xApiKey
-	}
-
-	// anthropic
-	xApiKey = c.Get("x-api-key")
-	if xApiKey != "" {
-		authHeader = "Bearer " + xApiKey
-	}
-
-	return authHeader
-}
 
 // Embed a directory
 //
@@ -64,11 +43,11 @@ var embedDirStatic embed.FS
 // @in header
 // @name Authorization
 
-func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
+func App(application *core.Application) (*fiber.App, error) {
 	// Return errors as JSON responses
 	app := fiber.New(fiber.Config{
 		Views:     renderEngine(),
-		BodyLimit: appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
+		BodyLimit: application.ApplicationConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
 		// We disable the Fiber startup message as it does not conform to structured logging.
 		// We register a startup log line with connection information in the OnListen hook to keep things user friendly though
 		DisableStartupMessage: true,
@@ -109,7 +88,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Default middleware config
 
-	if !appConfig.Debug {
+	if !application.ApplicationConfig.Debug {
 		app.Use(recover.New())
 	}
 
@@ -119,69 +98,42 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	}
 
 	if metricsService != nil {
-		app.Use(localai.LocalAIMetricsAPIMiddleware(metricsService))
+		app.Use(middleware.GetMetrics(metricsService))
 		app.Hooks().OnShutdown(func() error {
 			return metricsService.Shutdown()
 		})
 	}
 
-	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
-	auth := func(c *fiber.Ctx) error {
-		if len(appConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
+	auth := middleware.GetAuth(application.ApplicationConfig)
+	requestExtractor := middleware.NewRequestExtractor(application.ModelLoader, application.ApplicationConfig)
 
-		if len(appConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
-
-		authHeader := readAuthHeader(c)
-		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
-		}
-
-		// If it's a bearer token
-		authHeaderParts := strings.Split(authHeader, " ")
-		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
-		}
-
-		apiKey := authHeaderParts[1]
-		for _, key := range appConfig.ApiKeys {
-			if apiKey == key {
-				return c.Next()
-			}
-		}
-
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
-	}
-
-	if appConfig.CORS {
+	if application.ApplicationConfig.CORS {
 		var c func(ctx *fiber.Ctx) error
-		if appConfig.CORSAllowOrigins == "" {
+		if application.ApplicationConfig.CORSAllowOrigins == "" {
 			c = cors.New()
 		} else {
-			c = cors.New(cors.Config{AllowOrigins: appConfig.CORSAllowOrigins})
+			c = cors.New(cors.Config{AllowOrigins: application.ApplicationConfig.CORSAllowOrigins})
 		}
 
 		app.Use(c)
 	}
 
 	// Load config jsons
-	utils.LoadConfig(appConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
-	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
-	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
+	utils.LoadConfig(application.ApplicationConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
+	utils.LoadConfig(application.ApplicationConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
+	utils.LoadConfig(application.ApplicationConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
-	galleryService := services.NewGalleryService(appConfig.ModelPath)
-	galleryService.Start(appConfig.Context, cl)
+	// Register all routes - TODO: enhance for partial registration?
+	// For the "large" register function, it seems to make sense to pass application directly and allow them to sort out their dependencies.
+	// However, for particularly simple routes, passing dependencies directly may be more clean? Try both and experiment!
+	routes.RegisterElevenLabsRoutes(app, application.TextToSpeechBackendService, requestExtractor, auth)
+	routes.RegisterLocalAIRoutes(app, application, requestExtractor, auth)
+	routes.RegisterOpenAIRoutes(app, application, requestExtractor, auth)
+	routes.RegisterJINARoutes(app, application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig, auth)
 
-	routes.RegisterElevenLabsRoutes(app, cl, ml, appConfig, auth)
-	routes.RegisterLocalAIRoutes(app, cl, ml, appConfig, galleryService, auth)
-	routes.RegisterOpenAIRoutes(app, cl, ml, appConfig, auth)
-	if !appConfig.DisableWebUI {
-		routes.RegisterUIRoutes(app, cl, ml, appConfig, galleryService, auth)
+	if !application.ApplicationConfig.DisableWebUI {
+		routes.RegisterUIRoutes(app, application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig, application.GalleryService, auth)
 	}
-	routes.RegisterJINARoutes(app, cl, ml, appConfig, auth)
 
 	httpFS := http.FS(embedDirStatic)
 

@@ -10,10 +10,11 @@ import (
 
 	"github.com/go-skynet/LocalAI/core/backend"
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/http/middleware"
 
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/go-skynet/LocalAI/pkg/functions"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -57,14 +58,14 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 	}
 
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, ml, appConfig, true)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_OPENAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input == nil {
+			return fiber.ErrBadRequest
 		}
 
 		log.Debug().Msgf("`input`: %+v", input)
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
+		config, input, err := mergeRequestWithConfig(input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

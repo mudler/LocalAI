@@ -1,72 +1,59 @@
 package localai
 
 import (
-	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
-	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
-	"github.com/go-skynet/LocalAI/pkg/model"
+	"fmt"
 
+	"github.com/go-skynet/LocalAI/core/backend"
+	"github.com/go-skynet/LocalAI/core/http/middleware"
 	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
 // TTSEndpoint is the OpenAI Speech API endpoint https://platform.openai.com/docs/api-reference/audio/createSpeech
-//	@Summary	Generates audio from the input text.
-//  @Accept json
-//  @Produce audio/x-wav
-//	@Param		request	body		schema.TTSRequest	true	"query params"
-//	@Success	200		{string}	binary				"generated audio/wav file"
-//	@Router		/v1/audio/speech [post]
-//	@Router		/tts [post]
-func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+//
+//		@Summary	Generates audio from the input text.
+//	 @Accept json
+//	 @Produce audio/x-wav
+//		@Param		request	body		schema.TTSRequest	true	"query params"
+//		@Success	200		{string}	binary				"generated audio/wav file"
+//		@Router		/v1/audio/speech [post]
+//		@Router		/tts [post]
+func TTSEndpoint(ttsbs *backend.TextToSpeechBackendService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.TTSRequest)
 
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
+			log.Error().Err(err).Msg("Error during BodyParser")
 			return err
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, false)
+		localModelName, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+		if ok && localModelName != "" {
+			input.Model = localModelName
+		}
+
+		if input.Model == "" {
+			return fmt.Errorf("model is required, no default available")
+		}
+
+		log.Debug().Str("modelName", input.Model).Msg("localai TTS request recieved for model")
+
+		jr := ttsbs.TextToAudioFile(input)
+		log.Debug().Msg("Obtained JobResult, waiting")
+		filePathPtr, err := jr.Wait()
 		if err != nil {
-			modelFile = input.Model
-			log.Warn().Msgf("Model not found in context: %s", input.Model)
-		}
-
-		cfg, err := cl.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath,
-			config.LoadOptionDebug(appConfig.Debug),
-			config.LoadOptionThreads(appConfig.Threads),
-			config.LoadOptionContextSize(appConfig.ContextSize),
-			config.LoadOptionF16(appConfig.F16),
-		)
-
-		if err != nil {
-			log.Err(err)
-			modelFile = input.Model
-			log.Warn().Msgf("Model not found in context: %s", input.Model)
-		} else {
-			modelFile = cfg.Model
-		}
-		log.Debug().Msgf("Request for model: %s", modelFile)
-
-		if input.Backend != "" {
-			cfg.Backend = input.Backend
-		}
-
-		if input.Language != "" {
-			cfg.Language = input.Language
-		}
-
-		if input.Voice != "" {
-			cfg.Voice = input.Voice
-		}
-
-		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, cfg.Voice, cfg.Language, ml, appConfig, *cfg)
-		if err != nil {
+			log.Error().Err(err).Msg("Error during TextToAudioFile")
 			return err
 		}
-		return c.Download(filePath)
+		if filePathPtr == nil {
+			err := fmt.Errorf("recieved a nil filepath from TextToAudioFile")
+			log.Error().Err(err).Msg("localai TTSEndpoint error")
+			return err
+		}
+		log.Debug().Str("filePath", *filePathPtr).Msg("Successfully created output audio file at filePath")
+		return c.Download(*filePathPtr)
 	}
 }
