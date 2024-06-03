@@ -1020,6 +1020,15 @@
     - filename: Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
       sha256: 3597dacfb0ab717d565d8a4d6067f10dcb0e26cc7f21c832af1a10a87882a8fd
       uri: huggingface://Sao10K/Fimbulvetr-11B-v2-GGUF/Fimbulvetr-11B-v2-Test-14.q4_K_M.gguf
+- !!merge <<: *vicuna-chat
+  name: "fimbulvetr-11b-v2-iq-imatrix"
+  overrides:
+    parameters:
+      model: Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
+  files:
+    - filename: Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
+      sha256: 3f309b59508342536a70edd6c4be6cf4f2cb97f2e32cbc79ad2ab3f4c02933a4
+      uri: huggingface://Lewdiculous/Fimbulvetr-11B-v2-GGUF-IQ-Imatrix/Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
 - &noromaid
   ### Start noromaid
   url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
