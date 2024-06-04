@@ -34,7 +34,7 @@ func GetURI(url string, basePath string, f func(url string, i []byte) error) err
 			return err
 		}
 		// Check if the local file is rooted in basePath
-		err = utils.VerifyPath(resolvedFile, basePath)
+		err = utils.InTrustedRoot(resolvedFile, basePath)
 		if err != nil {
 			return err
 		}
