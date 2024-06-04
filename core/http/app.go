@@ -18,6 +18,7 @@ import (
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/csrf"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -116,6 +117,11 @@ func App(application *core.Application) (*fiber.App, error) {
 		}
 
 		app.Use(c)
+	}
+
+	if appConfig.CSRF {
+		log.Debug().Msg("Enabling CSRF middleware. Tokens are now required for state-modifying requests")
+		app.Use(csrf.New())
 	}
 
 	// Load config jsons
