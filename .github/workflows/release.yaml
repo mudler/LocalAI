@@ -38,6 +38,31 @@ jobs:
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
         env:
           CUDA_VERSION: 12-3
+      - name: "Install Hipblas"
+        env:
+          ROCM_VERSION: "6.1"
+          AMDGPU_VERSION: "6.1"
+        run: |
+            set -ex 
+
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl libnuma-dev gnupg 
+            
+            curl -sL https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add - 
+              
+            printf "deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION/ jammy main" | sudo tee /etc/apt/sources.list.d/rocm.list
+            
+            printf "deb [arch=amd64] https://repo.radeon.com/amdgpu/$AMDGPU_VERSION/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/amdgpu.list
+            printf 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' | sudo tee /etc/apt/preferences.d/rocm-pin-600
+            sudo apt-get update
+
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                hipblas-dev rocm-dev \
+                rocblas-dev
+          
+            sudo apt-get clean
+            sudo rm -rf /var/lib/apt/lists/*
+            sudo ldconfig 
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -61,6 +86,7 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
+          export PATH=/opt/rocm/bin:$PATH
           GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:
