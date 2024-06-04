@@ -26,6 +26,7 @@ type ApplicationConfig struct {
 	DynamicConfigsDir                   string
 	DynamicConfigsDirPollInterval       time.Duration
 	CORS                                bool
+	CSRF                                bool
 	PreloadJSONModels                   string
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
@@ -84,6 +85,12 @@ func WithModelPath(path string) AppOption {
 func WithCors(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.CORS = b
+	}
+}
+
+func WithCsrf(b bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.CSRF = b
 	}
 }
 
