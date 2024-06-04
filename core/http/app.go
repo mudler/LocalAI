@@ -119,7 +119,7 @@ func App(application *core.Application) (*fiber.App, error) {
 		app.Use(c)
 	}
 
-	if appConfig.CSRF {
+	if application.ApplicationConfig.CSRF {
 		log.Debug().Msg("Enabling CSRF middleware. Tokens are now required for state-modifying requests")
 		app.Use(csrf.New())
 	}
