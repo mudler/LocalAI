@@ -163,17 +163,16 @@ If you utilize this repository, data in a downstream project, please consider ci
 
 Support the project by becoming [a backer or sponsor](https://github.com/sponsors/mudler). Your logo will show up here with a link to your website.
 
-A huge thank you to our generous sponsors who support this project:
+A huge thank you to our generous sponsors who support this project covering CI expenses, and our [Sponsor list](https://github.com/sponsors/mudler):
 
-| ![Spectro Cloud logo_600x600px_transparent bg](https://github.com/go-skynet/LocalAI/assets/2420543/68a6f3cb-8a65-4a4d-99b5-6417a8905512) |
-|:-----------------------------------------------:|
-|  [Spectro Cloud](https://www.spectrocloud.com/)  |
-|  Spectro Cloud kindly supports LocalAI by providing GPU and computing resources to run tests on lamdalabs!  |
-
-And a huge shout-out to individuals sponsoring the project by donating hardware or backing the project.
-
-- [Sponsor list](https://github.com/sponsors/mudler)
-- JDAM00 (donating HW for the CI)
+<p align="center">
+  <a href="https://www.spectrocloud.com/" target="blank">
+    <img height="200" src="https://github.com/go-skynet/LocalAI/assets/2420543/68a6f3cb-8a65-4a4d-99b5-6417a8905512">
+  </a>
+  <a href="https://www.premai.io/" target="blank">
+    <img height="200" src="https://github.com/mudler/LocalAI/assets/2420543/42e4ca83-661e-4f79-8e46-ae43689683d6"> <br>
+  </a>
+</p>
 
 ## 🌟 Star history
 
