@@ -17,7 +17,7 @@ jobs:
         include:
           - grpc-base-image: ubuntu:22.04
             runs-on: 'ubuntu-latest'
-            platforms: 'linux/amd64'
+            platforms: 'linux/amd64,linux/arm64'
     runs-on: ${{matrix.runs-on}}
     steps:
       - name: Release space from worker

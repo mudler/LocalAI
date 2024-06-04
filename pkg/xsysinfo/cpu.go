@@ -36,3 +36,10 @@ func CPUCapabilities() ([]string, error) {
 func HasCPUCaps(ids ...cpuid.FeatureID) bool {
 	return cpuid.CPU.Supports(ids...)
 }
+
+func CPUPhysicalCores() int {
+	if cpuid.CPU.PhysicalCores == 0 {
+		return 1
+	}
+	return cpuid.CPU.PhysicalCores
+}

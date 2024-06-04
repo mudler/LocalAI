@@ -24,23 +24,17 @@ RUN apt-get update && \
         cmake \
         curl \
         git \
-        python3-pip \
-        python-is-python3 \
         unzip && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    pip install --upgrade pip
+    rm -rf /var/lib/apt/lists/*
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH $PATH:/root/go/bin:/usr/local/go/bin
 
 # Install grpc compilers
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-# Install grpcio-tools (the version in 22.04 is too old)
-RUN pip install --user grpcio-tools
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0 && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -85,10 +79,16 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         espeak-ng \
         espeak \
+        python3-pip \
+        python-is-python3 \
         python3-dev \
         python3-venv && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --upgrade pip
+
+# Install grpcio-tools (the version in 22.04 is too old)
+RUN pip install --user grpcio-tools
 
 ###################################
 ###################################
@@ -104,10 +104,35 @@ ARG CUDA_MINOR_VERSION=7
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 # CuBLAS requirements
+RUN <<EOT bash
+    if [ "${BUILD_TYPE}" = "cublas" ]; then
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+                        software-properties-common pciutils
+        if [ "amd64" = "$TARGETARCH" ]; then
+            curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+            fi
+        if [ "arm64" = "$TARGETARCH" ]; then
+            curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
+        fi
+        dpkg -i cuda-keyring_1.1-1_all.deb && \
+            rm -f cuda-keyring_1.1-1_all.deb && \
+            apt-get update && \
+            apt-get install -y --no-install-recommends \
+                cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+                libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+                libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+                libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+                libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
+            apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
 RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
         apt-get update && \
         apt-get install -y  --no-install-recommends \
-            software-properties-common && \
+            software-properties-common pciutils && \
         curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
         dpkg -i cuda-keyring_1.1-1_all.deb && \
         rm -f cuda-keyring_1.1-1_all.deb && \
@@ -218,9 +243,18 @@ RUN make prepare
 # We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
 # but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
 # here so that we can generate the grpc code for the stablediffusion build
-RUN curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
-    unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
-    rm protoc.zip
+RUN <<EOT bash
+    if [ "amd64" = "$TARGETARCH" ]; then
+        curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+        unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+        rm protoc.zip
+    fi
+    if [ "arm64" = "$TARGETARCH" ]; then
+        curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-aarch_64.zip -o protoc.zip && \
+        unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+        rm protoc.zip
+    fi
+EOT
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
@@ -355,7 +389,7 @@ RUN mkdir -p /build/models
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f ${HEALTHCHECK_ENDPOINT} || exit 1
-  
+
 VOLUME /build/models
 EXPOSE 8080
 ENTRYPOINT [ "/build/entrypoint.sh" ]

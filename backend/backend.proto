@@ -266,6 +266,7 @@ message TTSRequest {
   string model = 2;
   string dst = 3;
   string voice = 4;
+  optional string language = 5;
 }
 
 message TokenizationResponse {

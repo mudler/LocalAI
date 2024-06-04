@@ -22,6 +22,36 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/tts": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "summary": "Generates audio from the input text.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.TTSRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "generated audio/wav file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/assistants": {
             "post": {
                 "summary": "Create an assistant with a model and instructions.",
@@ -48,6 +78,12 @@ const docTemplate = `{
         },
         "/v1/audio/speech": {
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
                 "summary": "Generates audio from the input text.",
                 "parameters": [
                     {
@@ -62,7 +98,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Response",
+                        "description": "generated audio/wav file",
                         "schema": {
                             "type": "string"
                         }
@@ -476,14 +512,6 @@ const docTemplate = `{
                 "Function"
             ]
         },
-        "schema.ChatCompletionResponseFormat": {
-            "type": "object",
-            "properties": {
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
         "schema.Choice": {
             "type": "object",
             "properties": {
@@ -677,12 +705,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "response_format": {
-                    "description": "whisper/image",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/schema.ChatCompletionResponseFormat"
-                        }
-                    ]
+                    "description": "whisper/image"
                 },
                 "rope_freq_base": {
                     "type": "number"
@@ -784,18 +807,26 @@ const docTemplate = `{
             }
         },
         "schema.TTSRequest": {
+            "description": "TTS request body",
             "type": "object",
             "properties": {
                 "backend": {
                     "type": "string"
                 },
                 "input": {
+                    "description": "text input",
+                    "type": "string"
+                },
+                "language": {
+                    "description": "(optional) language to use with TTS model",
                     "type": "string"
                 },
                 "model": {
+                    "description": "model name or full path",
                     "type": "string"
                 },
                 "voice": {
+                    "description": "voice audio file or speaker id",
                     "type": "string"
                 }
             }

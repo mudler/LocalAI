@@ -93,8 +93,9 @@ parameters:
 function:
   # set to true to not use grammars
   no_grammar: true
-  # set a regex to extract the function tool arguments from the LLM response
-  response_regex: "(?P<function>\w+)\s*\((?P<arguments>.*)\)"
+  # set one or more regexes used to extract the function tool arguments from the LLM response
+  response_regex:
+  - "(?P<function>\w+)\s*\((?P<arguments>.*)\)"
 ```
 
 The response regex have to be a regex with named parameters to allow to scan the function name and the arguments. For instance, consider:

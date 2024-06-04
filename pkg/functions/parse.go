@@ -3,6 +3,7 @@ package functions
 import (
 	"encoding/json"
 	"regexp"
+	"strings"
 
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
@@ -28,6 +29,9 @@ type GrammarConfig struct {
 	// Prefix is the suffix to append to the grammar when being generated
 	// This is useful when models prepend a tag before returning JSON
 	Prefix string `yaml:"prefix"`
+
+	// ExpectStringsAfterJSON enables mixed string suffix
+	ExpectStringsAfterJSON bool `yaml:"expect_strings_after_json"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -48,7 +52,7 @@ type FunctionsConfig struct {
 	NoActionDescriptionName string `yaml:"no_action_description_name"`
 
 	// ResponseRegex is a named regex to extract the function name and arguments from the response
-	ResponseRegex string `yaml:"response_regex"`
+	ResponseRegex []string `yaml:"response_regex"`
 
 	// JSONRegexMatch is a regex to extract the JSON object from the response
 	JSONRegexMatch []string `yaml:"json_regex_match"`
@@ -58,6 +62,11 @@ type FunctionsConfig struct {
 
 	// ReplaceLLMResult allow to replace strings in the results before parsing them
 	ReplaceLLMResult []ReplaceResult `yaml:"replace_llm_results"`
+
+	// CaptureLLMResult is a regex to extract a string from the LLM response
+	// that is used as return string when using tools.
+	// This is useful for e.g. if the LLM outputs a reasoning and we want to get the reasoning as a string back
+	CaptureLLMResult []string `yaml:"capture_llm_results"`
 
 	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
@@ -92,6 +101,9 @@ func (g GrammarConfig) Options() []func(o *GrammarOption) {
 	if g.NoMixedFreeString {
 		opts = append(opts, NoMixedFreeString)
 	}
+	if g.ExpectStringsAfterJSON {
+		opts = append(opts, ExpectStringsAfterJSON)
+	}
 	return opts
 }
 
@@ -107,6 +119,23 @@ func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
 	log.Debug().Msgf("LLM result(processed): %s", llmresult)
 
 	return llmresult
+}
+
+func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
+	log.Debug().Msgf("ParseTextContent: %s", llmresult)
+	log.Debug().Msgf("CaptureLLMResult: %s", functionConfig.CaptureLLMResult)
+
+	for _, r := range functionConfig.CaptureLLMResult {
+		// We use a regex to extract the JSON object from the response
+		var respRegex = regexp.MustCompile(r)
+		match := respRegex.FindStringSubmatch(llmresult)
+		if len(match) >= 1 {
+			m := strings.TrimSpace(match[1])
+			return m
+		}
+	}
+
+	return ""
 }
 
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
@@ -127,47 +156,52 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	}
 
 	results := []FuncCallResults{}
+	llmResults := []string{}
 
-	returnResult := func(s string) (result []FuncCallResults, e error) {
+	returnResult := func(results []string) (result []FuncCallResults, e error) {
 		// As we have to change the result before processing, we can't stream the answer token-by-token (yet?)
-		var ss []map[string]interface{}
 		result = make([]FuncCallResults, 0)
-		s = utils.EscapeNewLines(s)
-		err := json.Unmarshal([]byte(s), &ss)
-		if err != nil {
-			// If the LLM result is a single object, try unmarshaling it into a single map
-			var singleObj map[string]interface{}
-			err = json.Unmarshal([]byte(s), &singleObj)
+
+		for _, s := range results {
+			var ss []map[string]interface{}
+
+			s = utils.EscapeNewLines(s)
+			err := json.Unmarshal([]byte(s), &ss)
 			if err != nil {
-				log.Debug().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result in a single object or an array of JSON objects")
-			} else {
-				ss = []map[string]interface{}{singleObj}
-			}
-		}
-
-		log.Debug().Msgf("Function return: %s %+v", s, ss)
-
-		for _, s := range ss {
-			// The grammar defines the function name as "function", while OpenAI returns "name"
-			func_name, ok := s[functionNameKey]
-			if !ok {
-				continue
-				//return result, fmt.Errorf("unable to find function name in result")
-			}
-			// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
-			args, ok := s["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
-			if !ok {
-				continue
-				//return result, fmt.Errorf("unable to find arguments in result")
-			}
-			d, _ := json.Marshal(args)
-			funcName, ok := func_name.(string)
-			if !ok {
-				continue
-				//return result, fmt.Errorf("unable to cast function name to string")
+				// If the LLM result is a single object, try unmarshaling it into a single map
+				var singleObj map[string]interface{}
+				err = json.Unmarshal([]byte(s), &singleObj)
+				if err != nil {
+					log.Debug().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result in a single object or an array of JSON objects")
+				} else {
+					ss = []map[string]interface{}{singleObj}
+				}
 			}
 
-			result = append(result, FuncCallResults{Name: funcName, Arguments: string(d)})
+			log.Debug().Msgf("Function return: %s %+v", s, ss)
+
+			for _, s := range ss {
+				// The grammar defines the function name as "function", while OpenAI returns "name"
+				func_name, ok := s[functionNameKey]
+				if !ok {
+					continue
+					//return result, fmt.Errorf("unable to find function name in result")
+				}
+				// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
+				args, ok := s["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+				if !ok {
+					continue
+					//return result, fmt.Errorf("unable to find arguments in result")
+				}
+				d, _ := json.Marshal(args)
+				funcName, ok := func_name.(string)
+				if !ok {
+					continue
+					//return result, fmt.Errorf("unable to cast function name to string")
+				}
+
+				result = append(result, FuncCallResults{Name: funcName, Arguments: string(d)})
+			}
 		}
 
 		return result, nil
@@ -179,36 +213,47 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		for _, r := range functionConfig.JSONRegexMatch {
 			// We use a regex to extract the JSON object from the response
 			var respRegex = regexp.MustCompile(r)
-			match := respRegex.FindStringSubmatch(llmresult)
-			if len(match) >= 2 {
-				llmresult = match[1]
-				log.Debug().Msgf("LLM result(JSONRegexMatch): %s", llmresult)
+			match := respRegex.FindAllStringSubmatch(llmresult, -1)
+			var allMatches []string
+			for _, m := range match {
+				if len(m) > 1 {
+					// we match the first group
+					allMatches = append(allMatches, m[1])
+				}
+			}
+			if len(allMatches) > 0 {
+				llmResults = append(llmResults, allMatches...)
 				break
 			}
 		}
 	}
 
-	if functionConfig.ResponseRegex != "" {
+	if len(functionConfig.ResponseRegex) > 0 {
 		// We use named regexes here to extract the function name and arguments
 		// obviously, this expects the LLM to be stable and return correctly formatted JSON
 		// TODO: optimize this and pre-compile it
-		var respRegex = regexp.MustCompile(functionConfig.ResponseRegex)
-		match := respRegex.FindStringSubmatch(llmresult)
-		for i, name := range respRegex.SubexpNames() {
-			if i != 0 && name != "" && len(match) > i {
-				result[name] = match[i]
+		for _, r := range functionConfig.ResponseRegex {
+			var respRegex = regexp.MustCompile(r)
+			matches := respRegex.FindAllStringSubmatch(llmresult, -1)
+			for _, match := range matches {
+				for i, name := range respRegex.SubexpNames() {
+					if i != 0 && name != "" && len(match) > i {
+						result[name] = match[i]
+					}
+				}
+
+				functionName := result[functionNameKey]
+				if functionName == "" {
+					return results
+				}
+				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
 			}
 		}
-
-		// TODO: open point about multiple results and/or mixed with chat messages
-		// This is not handled as for now, we only expect one function call per response
-		functionName := result[functionNameKey]
-		if functionName == "" {
-			return results
-		}
-		results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
 	} else {
-		results, _ = returnResult(llmresult)
+		if len(llmResults) == 0 {
+			llmResults = append(llmResults, llmresult)
+		}
+		results, _ = returnResult(llmResults)
 	}
 
 	return results

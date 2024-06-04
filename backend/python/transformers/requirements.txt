@@ -4,3 +4,6 @@ grpcio==1.64.0
 protobuf
 torch
 certifi
+intel-extension-for-transformers
+bitsandbytes
+setuptools==69.5.1 # https://github.com/mudler/LocalAI/issues/2406

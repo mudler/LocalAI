@@ -25,7 +25,7 @@ import (
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
 func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	emptyMessage := ""
+	textContentToReturn := ""
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
@@ -34,7 +34,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			ID:      id,
 			Created: created,
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &emptyMessage}}},
+			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &textContentToReturn}}},
 			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
@@ -67,8 +67,10 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			return true
 		})
 
+		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
 		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
 		results := functions.ParseFunctionCall(result, config.FunctionsConfig)
+		log.Debug().Msgf("Text content to return: %s", textContentToReturn)
 		noActionToRun := len(results) > 0 && results[0].Name == noAction || len(results) == 0
 
 		switch {
@@ -77,7 +79,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &emptyMessage}}},
+				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &textContentToReturn}}},
 				Object:  "chat.completion.chunk",
 			}
 			responses <- initialMessage
@@ -135,7 +137,8 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: []schema.Choice{{
 						Delta: &schema.Message{
-							Role: "assistant",
+							Role:    "assistant",
+							Content: &textContentToReturn,
 							ToolCalls: []schema.ToolCall{
 								{
 									Index: i,
@@ -182,8 +185,13 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
 		}
 
-		if input.ResponseFormat.Type == "json_object" {
-			input.Grammar = functions.JSONBNF
+		if config.ResponseFormatMap != nil {
+			d := schema.ChatCompletionResponseFormat{}
+			dat, _ := json.Marshal(config.ResponseFormatMap)
+			_ = json.Unmarshal(dat, &d)
+			if d.Type == "json_object" {
+				input.Grammar = functions.JSONBNF
+			}
 		}
 
 		config.Grammar = input.Grammar
@@ -449,7 +457,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 						{
 							FinishReason: finishReason,
 							Index:        0,
-							Delta:        &schema.Message{Content: &emptyMessage},
+							Delta:        &schema.Message{Content: &textContentToReturn},
 						}},
 					Object: "chat.completion.chunk",
 					Usage:  *usage,
@@ -471,8 +479,10 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					return
 				}
 
+				textContentToReturn = functions.ParseTextContent(s, config.FunctionsConfig)
 				s = functions.CleanupLLMResult(s, config.FunctionsConfig)
 				results := functions.ParseFunctionCall(s, config.FunctionsConfig)
+				log.Debug().Msgf("Text content to return: %s", textContentToReturn)
 				noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
 
 				switch {
@@ -500,6 +510,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 						if len(input.Tools) > 0 {
 							// If we are using tools, we condense the function calls into
 							// a single response choice with all the tools
+							toolChoice.Message.Content = textContentToReturn
 							toolChoice.Message.ToolCalls = append(toolChoice.Message.ToolCalls,
 								schema.ToolCall{
 									ID:   id,
@@ -515,7 +526,8 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 							*c = append(*c, schema.Choice{
 								FinishReason: "function_call",
 								Message: &schema.Message{
-									Role: "assistant",
+									Role:    "assistant",
+									Content: &textContentToReturn,
 									FunctionCall: map[string]interface{}{
 										"name":      name,
 										"arguments": args,

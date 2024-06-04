@@ -65,7 +65,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-- 🔥🔥 Decentralized llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!)
+- 🔥🔥 Decentralized llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!) 👉 Docs  https://localai.io/features/distribute/
 - 🔥🔥 Openvoice: https://github.com/mudler/LocalAI/pull/2334
 - 🆕 Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
 - 🔥🔥 Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
@@ -89,12 +89,13 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
 - 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
 - 🎨 [Image generation with stable diffusion](https://localai.io/features/image-generation)
-- 🔥 [OpenAI functions](https://localai.io/features/openai-functions/) 🆕
+- 🔥 [OpenAI-alike tools API](https://localai.io/features/openai-functions/) 
 - 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
 - 🥽 [Vision API](https://localai.io/features/gpt-vision/)
-- 🆕 [Reranker API](https://localai.io/features/reranker/)
+- 📈 [Reranker API](https://localai.io/features/reranker/)
+- 🆕🖧 [P2P Inferencing](https://localai.io/features/distribute/)
 
 ## 💻 Usage
 
@@ -126,7 +127,7 @@ Other:
 
 ### 🔗 Resources
 
-- 🆕 New! [LLM finetuning guide](https://localai.io/docs/advanced/fine-tuning/)
+- [LLM finetuning guide](https://localai.io/docs/advanced/fine-tuning/)
 - [How to build locally](https://localai.io/basics/build/index.html)
 - [How to install in Kubernetes](https://localai.io/basics/getting_started/index.html#run-localai-in-kubernetes)
 - [Projects integrating LocalAI](https://localai.io/docs/integrations/)
@@ -134,6 +135,7 @@ Other:
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
 
+- 🆕 [Run LocalAI on Jetson Nano Devkit](https://mudler.pm/posts/local-ai-jetson-nano-devkit/)
 - [Run LocalAI on AWS EKS with Pulumi](https://www.pulumi.com/blog/low-code-llm-apps-with-local-ai-flowise-and-pulumi/)
 - [Run LocalAI on AWS](https://staleks.hashnode.dev/installing-localai-on-aws-ec2-instance)
 - [Create a slackbot for teams and OSS projects that answer to documentation](https://mudler.pm/posts/smart-slackbot-for-teams/)
@@ -161,17 +163,16 @@ If you utilize this repository, data in a downstream project, please consider ci
 
 Support the project by becoming [a backer or sponsor](https://github.com/sponsors/mudler). Your logo will show up here with a link to your website.
 
-A huge thank you to our generous sponsors who support this project:
+A huge thank you to our generous sponsors who support this project covering CI expenses, and our [Sponsor list](https://github.com/sponsors/mudler):
 
-| ![Spectro Cloud logo_600x600px_transparent bg](https://github.com/go-skynet/LocalAI/assets/2420543/68a6f3cb-8a65-4a4d-99b5-6417a8905512) |
-|:-----------------------------------------------:|
-|  [Spectro Cloud](https://www.spectrocloud.com/)  |
-|  Spectro Cloud kindly supports LocalAI by providing GPU and computing resources to run tests on lamdalabs!  |
-
-And a huge shout-out to individuals sponsoring the project by donating hardware or backing the project.
-
-- [Sponsor list](https://github.com/sponsors/mudler)
-- JDAM00 (donating HW for the CI)
+<p align="center">
+  <a href="https://www.spectrocloud.com/" target="blank">
+    <img height="200" src="https://github.com/go-skynet/LocalAI/assets/2420543/68a6f3cb-8a65-4a4d-99b5-6417a8905512">
+  </a>
+  <a href="https://www.premai.io/" target="blank">
+    <img height="200" src="https://github.com/mudler/LocalAI/assets/2420543/42e4ca83-661e-4f79-8e46-ae43689683d6"> <br>
+  </a>
+</p>
 
 ## 🌟 Star history
 
@@ -181,7 +182,7 @@ And a huge shout-out to individuals sponsoring the project by donating hardware 
 
 LocalAI is a community-driven project created by [Ettore Di Giacinto](https://github.com/mudler/).
 
-MIT - Author Ettore Di Giacinto
+MIT - Author Ettore Di Giacinto <mudler@localai.io>
 
 ## 🙇 Acknowledgements
 
