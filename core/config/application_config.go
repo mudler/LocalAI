@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
+	"github.com/go-skynet/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
 
@@ -59,7 +60,6 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
 		Context:       context.Background(),
 		UploadLimitMB: 15,
-		Threads:       1,
 		ContextSize:   512,
 		Debug:         true,
 	}
@@ -213,6 +213,9 @@ func WithUploadLimitMB(limit int) AppOption {
 
 func WithThreads(threads int) AppOption {
 	return func(o *ApplicationConfig) {
+		if threads == 0 { // 0 is not allowed
+			threads = xsysinfo.CPUPhysicalCores()
+		}
 		o.Threads = threads
 	}
 }
