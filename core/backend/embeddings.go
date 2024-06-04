@@ -2,14 +2,108 @@ package backend
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
+	"github.com/go-skynet/LocalAI/pkg/concurrency"
 	"github.com/go-skynet/LocalAI/pkg/grpc"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/go-skynet/LocalAI/pkg/model"
 )
 
-func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
+type EmbeddingsBackendService struct {
+	ml        *model.ModelLoader
+	bcl       *config.BackendConfigLoader
+	appConfig *config.ApplicationConfig
+}
+
+func NewEmbeddingsBackendService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *EmbeddingsBackendService {
+	return &EmbeddingsBackendService{
+		ml:        ml,
+		bcl:       bcl,
+		appConfig: appConfig,
+	}
+}
+
+func (ebs *EmbeddingsBackendService) Embeddings(request *schema.OpenAIRequest) *concurrency.JobResult[*schema.OpenAIRequest, *schema.OpenAIResponse] {
+
+	jr, wjr := concurrency.NewJobResult[*schema.OpenAIRequest, *schema.OpenAIResponse](request)
+
+	go func(wjr *concurrency.WritableJobResult[*schema.OpenAIRequest, *schema.OpenAIResponse]) {
+		id := uuid.New().String()
+		created := int(time.Now().Unix())
+		request = *wjr.Request // TODO is needed?
+
+		bc, err := ebs.bcl.LoadBackendConfigFileByName(request.Model, ebs.appConfig.ModelPath,
+			config.LoadOptionDebug(ebs.appConfig.Debug),
+			config.LoadOptionThreads(ebs.appConfig.Threads),
+			config.LoadOptionContextSize(ebs.appConfig.ContextSize),
+			config.LoadOptionF16(ebs.appConfig.F16),
+		)
+		if err != nil {
+			log.Error().Err(err).Str("modelPath", ebs.appConfig.ModelPath).Msg("unable to load backend config")
+			wjr.SetResult(nil, err)
+			return
+		}
+
+		// Set the parameters for the language model prediction
+		bc.UpdateFromOpenAIRequest(request)
+
+		items := []schema.Item{}
+
+		for i, s := range bc.InputToken {
+			// get the model function to call for the result
+			embedFn, err := ebs.modelEmbedding("", s, *bc)
+			if err != nil {
+				log.Error().Err(err).Ints("numeric tokens", s).Msg("error during modelEmbedding")
+				wjr.SetResult(nil, err)
+				return
+			}
+
+			embeddings, err := embedFn()
+			if err != nil {
+				log.Error().Err(err).Ints("numeric tokens", s).Msg("error during embedFn")
+				wjr.SetResult(nil, err)
+				return
+			}
+			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
+		}
+
+		for i, s := range bc.InputStrings {
+			// get the model function to call for the result
+			embedFn, err := ebs.modelEmbedding(s, []int{}, *bc)
+			if err != nil {
+				log.Error().Err(err).Str("string tokens", s).Msg("error during modelEmbedding")
+				wjr.SetResult(nil, err)
+				return
+			}
+
+			embeddings, err := embedFn()
+			if err != nil {
+				log.Error().Err(err).Str("string tokens", s).Msg("error during embedFn")
+				wjr.SetResult(nil, err)
+				return
+			}
+			items = append(items, schema.Item{Embedding: embeddings, Index: i, Object: "embedding"})
+		}
+
+		resp := &schema.OpenAIResponse{
+			ID:      id,
+			Created: created,
+			Model:   request.Model, // we have to return what the user sent here, due to OpenAI spec.
+			Data:    items,
+			Object:  "list",
+		}
+		wjr.SetResult(resp, nil)
+	}(wjr)
+
+	return jr
+}
+
+func (ebs *EmbeddingsBackendService) modelEmbedding(s string, tokens []int, backendConfig config.BackendConfig) (func() ([]float32, error), error) {
 	modelFile := backendConfig.Model
 
 	grpcOpts := gRPCModelOpts(backendConfig)
@@ -17,19 +111,19 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 	var inferenceModel interface{}
 	var err error
 
-	opts := modelOpts(backendConfig, appConfig, []model.Option{
+	opts := modelOpts(backendConfig, ebs.appConfig, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 		model.WithThreads(uint32(*backendConfig.Threads)),
-		model.WithAssetDir(appConfig.AssetsDestination),
+		model.WithAssetDir(ebs.appConfig.AssetsDestination),
 		model.WithModel(modelFile),
-		model.WithContext(appConfig.Context),
+		model.WithContext(ebs.appConfig.Context),
 	})
 
 	if backendConfig.Backend == "" {
-		inferenceModel, err = loader.GreedyLoader(opts...)
+		inferenceModel, err = ebs.ml.GreedyLoader(opts...)
 	} else {
 		opts = append(opts, model.WithBackendString(backendConfig.Backend))
-		inferenceModel, err = loader.BackendLoader(opts...)
+		inferenceModel, err = ebs.ml.BackendLoader(opts...)
 	}
 	if err != nil {
 		return nil, err
@@ -39,7 +133,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 	switch model := inferenceModel.(type) {
 	case grpc.Backend:
 		fn = func() ([]float32, error) {
-			predictOptions := gRPCPredictOpts(backendConfig, loader.ModelPath)
+			predictOptions := gRPCPredictOpts(backendConfig, ebs.appConfig.ModelPath)
 			if len(tokens) > 0 {
 				embeds := []int32{}
 
@@ -48,7 +142,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 				}
 				predictOptions.EmbeddingTokens = embeds
 
-				res, err := model.Embeddings(appConfig.Context, predictOptions)
+				res, err := model.Embeddings(ebs.appConfig.Context, predictOptions)
 				if err != nil {
 					return nil, err
 				}
@@ -57,7 +151,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 			}
 			predictOptions.Embeddings = s
 
-			res, err := model.Embeddings(appConfig.Context, predictOptions)
+			res, err := model.Embeddings(ebs.appConfig.Context, predictOptions)
 			if err != nil {
 				return nil, err
 			}

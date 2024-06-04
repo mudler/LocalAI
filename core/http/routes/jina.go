@@ -3,8 +3,8 @@ package routes
 import (
 	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/go-skynet/LocalAI/core/http/endpoints/jina"
-
 	"github.com/go-skynet/LocalAI/pkg/model"
+
 	"github.com/gofiber/fiber/v2"
 )
 

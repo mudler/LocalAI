@@ -66,14 +66,11 @@ func downloadFile(url string) (string, error) {
 // @Router /v1/images/generations [post]
 func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, ml, appConfig, false)
+		m, input, err := readRequest(c, ml, appConfig, model.StableDiffusionBackend, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}
 
-		if m == "" {
-			m = model.StableDiffusionBackend
-		}
 		log.Debug().Msgf("Loading model: %+v", m)
 
 		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, 0, 0, false)
