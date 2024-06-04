@@ -30,6 +30,7 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
+	OpaqueErrors                        bool
 
 	ModelLibraryURL string
 
@@ -277,6 +278,12 @@ func WithDynamicConfigDirPollInterval(interval time.Duration) AppOption {
 func WithApiKeys(apiKeys []string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ApiKeys = apiKeys
+	}
+}
+
+func WithOpaqueErrors(opaque bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.OpaqueErrors = opaque
 	}
 }
 
