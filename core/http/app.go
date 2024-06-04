@@ -183,7 +183,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
 	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
-	galleryService := services.NewGalleryService(appConfig.ModelPath)
+	galleryService := services.NewGalleryService(appConfig)
 	galleryService.Start(appConfig.Context, cl)
 
 	routes.RegisterElevenLabsRoutes(app, cl, ml, appConfig, auth)
