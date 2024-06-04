@@ -23,7 +23,7 @@ const (
 	GithubURI2        = "github://"
 )
 
-func GetURI(url string, f func(url string, i []byte) error) error {
+func GetURI(url string, basePath string, f func(url string, i []byte) error) error {
 	url = ConvertURL(url)
 
 	if strings.HasPrefix(url, "file://") {
@@ -33,6 +33,8 @@ func GetURI(url string, f func(url string, i []byte) error) error {
 		if err != nil {
 			return err
 		}
+		// Check if the local file is rooted in basePath
+
 		// Read the response body
 		body, err := os.ReadFile(resolvedFile)
 		if err != nil {
