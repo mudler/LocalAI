@@ -23,13 +23,18 @@ const (
 	GithubURI2        = "github://"
 )
 
-func GetURI(url string, f func(url string, i []byte) error) error {
+func GetURI(url string, basePath string, f func(url string, i []byte) error) error {
 	url = ConvertURL(url)
 
 	if strings.HasPrefix(url, "file://") {
 		rawURL := strings.TrimPrefix(url, "file://")
 		// checks if the file is symbolic, and resolve if so - otherwise, this function returns the path unmodified.
 		resolvedFile, err := filepath.EvalSymlinks(rawURL)
+		if err != nil {
+			return err
+		}
+		// Check if the local file is rooted in basePath
+		err = utils.VerifyPath(resolvedFile, basePath)
 		if err != nil {
 			return err
 		}
