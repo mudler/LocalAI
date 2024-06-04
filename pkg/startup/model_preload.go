@@ -20,7 +20,7 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 		// As a best effort, try to resolve the model from the remote library
 		// if it's not resolved we try with the other method below
 		if modelLibraryURL != "" {
-			lib, err := embedded.GetRemoteLibraryShorteners(modelLibraryURL)
+			lib, err := embedded.GetRemoteLibraryShorteners(modelLibraryURL, modelPath)
 			if err == nil {
 				if lib[url] != "" {
 					log.Debug().Msgf("[startup] model configuration is defined remotely: %s (%s)", url, lib[url])

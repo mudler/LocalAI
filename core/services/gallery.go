@@ -32,7 +32,7 @@ func NewGalleryService(modelPath string) *GalleryService {
 
 func prepareModel(modelPath string, req gallery.GalleryModel, cl *config.BackendConfigLoader, downloadStatus func(string, string, string, float64)) error {
 
-	config, err := gallery.GetGalleryConfigFromURL(req.URL)
+	config, err := gallery.GetGalleryConfigFromURL(req.URL, modelPath)
 	if err != nil {
 		return err
 	}
