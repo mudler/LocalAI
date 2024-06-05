@@ -37,6 +37,7 @@ const (
 	LLamaCPPAVX      = "llama-cpp-avx"
 	LLamaCPPFallback = "llama-cpp-fallback"
 	LLamaCPPCUDA     = "llama-cpp-cuda"
+	LLamaCPPHipblas  = "llama-cpp-hipblas"
 	LLamaCPPGRPC     = "llama-cpp-grpc"
 
 	Gpt4AllLlamaBackend = "gpt4all-llama"
@@ -93,7 +94,7 @@ ENTRY:
 	if autoDetect {
 		// if we find the llama.cpp variants, show them of as a single backend (llama-cpp) as later we are going to pick that up
 		// when starting the service
-		foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC, foundLCPPCuda := false, false, false, false, false
+		foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC, foundLCPPCuda, foundLCPPHipblas := false, false, false, false, false, false
 		if _, ok := backends[LLamaCPP]; !ok {
 			for _, e := range entry {
 				if strings.Contains(e.Name(), LLamaCPPAVX2) && !foundLCPPAVX2 {
@@ -115,6 +116,10 @@ ENTRY:
 				if strings.Contains(e.Name(), LLamaCPPCUDA) && !foundLCPPCuda {
 					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPCUDA)
 					foundLCPPCuda = true
+				}
+				if strings.Contains(e.Name(), LLamaCPPHipblas) && !foundLCPPHipblas {
+					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPHipblas)
+					foundLCPPHipblas = true
 				}
 			}
 		}
@@ -169,6 +174,7 @@ ENTRY:
 // selectGRPCProcess selects the GRPC process to start based on system capabilities
 func selectGRPCProcess(backend, assetDir string) string {
 	foundCUDA := false
+	foundAMDGPU := false
 	var grpcProcess string
 
 	// Select backend now just for llama.cpp
@@ -195,10 +201,20 @@ func selectGRPCProcess(backend, assetDir string) string {
 					log.Info().Msgf("GPU device found but no CUDA backend present")
 				}
 			}
+			if strings.Contains(gpu.String(), "amd") {
+				p := backendPath(assetDir, LLamaCPPHipblas)
+				if _, err := os.Stat(p); err == nil {
+					log.Info().Msgf("[%s] attempting to load with HIPBLAS variant", backend)
+					grpcProcess = p
+					foundAMDGPU = true
+				} else {
+					log.Info().Msgf("GPU device found but no HIPBLAS backend present")
+				}
+			}
 		}
 	}
 
-	if foundCUDA {
+	if foundCUDA || foundAMDGPU {
 		return grpcProcess
 	}
 
