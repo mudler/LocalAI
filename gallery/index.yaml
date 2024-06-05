@@ -335,6 +335,19 @@
       sha256: f166fb8b7fd1de6638fcf8e3561c99292f0c37debe1132325aa583eef78f1b40
       uri: huggingface://mudler/L3-8B-Stheno-v3.1-Q4_K_M-GGUF/l3-8b-stheno-v3.1.Q4_K_M.gguf
 - !!merge <<: *llama3
+  name: "l3-8b-stheno-v3.2-iq-imatrix"
+  urls:
+    - https://huggingface.co/Sao10K/L3-8B-Stheno-v3.2
+    - https://huggingface.co/Lewdiculous/L3-8B-Stheno-v3.2-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/1rLk3xdnfD7AkdQBXWUqb.png
+  overrides:
+    parameters:
+      model: L3-8B-Stheno-v3.2-Q4_K_M-imat.gguf
+  files:
+    - filename: L3-8B-Stheno-v3.2-Q4_K_M-imat.gguf
+      sha256: 8607a426b0c2007716df8a9eb96754e3ccca761a3996af5d49fcd74d87ada347
+      uri: huggingface://Lewdiculous/L3-8B-Stheno-v3.2-GGUF-IQ-Imatrix/L3-8B-Stheno-v3.2-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "llama-3-stheno-mahou-8b"
   urls:
     - https://huggingface.co/mudler/llama-3-Stheno-Mahou-8B-Q4_K_M-GGUF
