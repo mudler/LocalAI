@@ -222,6 +222,8 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			modelDir = filepath.Join(tmpdir, "models")
+			err = os.Mkdir(modelDir, 0750)
+			Expect(err).ToNot(HaveOccurred())
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
 			err = os.Mkdir(backendAssetsDir, 0750)
 			Expect(err).ToNot(HaveOccurred())
