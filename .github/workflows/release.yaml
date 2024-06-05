@@ -33,14 +33,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg protobuf-compiler ccache
           sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          export CMAKE_SYSTEM_NAME=Linux
-          export TARGET=aarch64-linux-gnu
-          export TARGET_AR=aarch64-linux-gnu-ar
-          export TARGET_CC=aarch64-linux-gnu-gcc
-          export TARGET_CXX=aarch64-linux-gnu-g++
-          export TARGET_RANLIB=aarch64-linux-gnu-ranlib
-          export TARGET_CPP=aarch64-linux-gnu-cpp
-          export TARGET_LD=aarch64-linux-gnu-ld
+      - name: Install CUDA Dependencies
+        run: |
+          curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/cross-linux-aarch64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update
+          sudo apt-get install -y cuda-cross-aarch64 cuda-nvcc-cross-aarch64-${CUDA_VERSION} libcublas-cross-aarch64-${CUDA_VERSION}
+        env:
+          CUDA_VERSION: 12-4
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -50,22 +50,45 @@ jobs:
       - name: Build grpc
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
+          export CMAKE_SYSTEM_NAME=Linux
+          export TARGET=aarch64-linux-gnu
+          export TARGET_AR=aarch64-linux-gnu-ar
+          export TARGET_CC=aarch64-linux-gnu-gcc
+          export TARGET_CXX=aarch64-linux-gnu-g++
+          export TARGET_RANLIB=aarch64-linux-gnu-ranlib
+          export TARGET_CPP=aarch64-linux-gnu-cpp
+          export TARGET_LD=aarch64-linux-gnu-ld
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
         run: |
+          export CMAKE_SYSTEM_NAME=Linux
+          export TARGET=aarch64-linux-gnu
+          export TARGET_AR=aarch64-linux-gnu-ar
+          export TARGET_CC=aarch64-linux-gnu-gcc
+          export TARGET_CXX=aarch64-linux-gnu-g++
+          export TARGET_RANLIB=aarch64-linux-gnu-ranlib
+          export TARGET_CPP=aarch64-linux-gnu-cpp
+          export TARGET_LD=aarch64-linux-gnu-ld
           cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
       - name: Build
         id: build
         run: |
+          export CMAKE_SYSTEM_NAME=Linux
+          export TARGET=aarch64-linux-gnu
+          export TARGET_AR=aarch64-linux-gnu-ar
+          export TARGET_CC=aarch64-linux-gnu-gcc
+          export TARGET_CXX=aarch64-linux-gnu-g++
+          export TARGET_RANLIB=aarch64-linux-gnu-ranlib
+          export TARGET_CPP=aarch64-linux-gnu-cpp
+          export TARGET_LD=aarch64-linux-gnu-ld
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          export PATH=/opt/rocm/bin:$PATH
-          GO_TAGS=p2p make dist
+          GO_TAGS=p2p DIST_SKIP_HIPBLAS=true make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux-aarch64
