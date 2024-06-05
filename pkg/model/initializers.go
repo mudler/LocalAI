@@ -466,10 +466,10 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 			log.Info().Msgf("[%s] Loads OK", key)
 			return model, nil
 		} else if modelerr != nil {
-			err = errors.Join(err, modelerr)
+			err = errors.Join(err, fmt.Errorf("[%s]: %w", key, modelerr))
 			log.Info().Msgf("[%s] Fails: %s", key, modelerr.Error())
 		} else if model == nil {
-			err = errors.Join(err, fmt.Errorf("backend returned no usable model"))
+			err = errors.Join(err, fmt.Errorf("backend %s returned no usable model", key))
 			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
 		}
 	}

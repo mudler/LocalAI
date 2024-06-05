@@ -33,9 +33,15 @@ func GetURI(url string, basePath string, f func(url string, i []byte) error) err
 		if err != nil {
 			return err
 		}
-		// Check if the local file is rooted in basePath
-		err = utils.VerifyPath(resolvedFile, basePath)
+		// ???
+		resolvedBasePath, err := filepath.EvalSymlinks(basePath)
 		if err != nil {
+			return err
+		}
+		// Check if the local file is rooted in basePath
+		err = utils.InTrustedRoot(resolvedFile, resolvedBasePath)
+		if err != nil {
+			log.Debug().Str("resolvedFile", resolvedFile).Str("basePath", basePath).Msg("downloader.GetURI blocked an attempt to ready a file url outside of basePath")
 			return err
 		}
 		// Read the response body
