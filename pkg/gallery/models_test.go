@@ -50,13 +50,14 @@ var _ = Describe("Model test", func() {
 			}}
 			out, err := yaml.Marshal(gallery)
 			Expect(err).ToNot(HaveOccurred())
-			err = os.WriteFile(filepath.Join(tempdir, "gallery_simple.yaml"), out, 0600)
+			galleryFilePath := filepath.Join(tempdir, "gallery_simple.yaml")
+			err = os.WriteFile(galleryFilePath, out, 0600)
 			Expect(err).ToNot(HaveOccurred())
-
+			Expect(filepath.IsAbs(galleryFilePath)).To(BeTrue(), galleryFilePath)
 			galleries := []Gallery{
 				{
 					Name: "test",
-					URL:  "file://" + filepath.Join(tempdir, "gallery_simple.yaml"),
+					URL:  "file://" + galleryFilePath,
 				},
 			}
 

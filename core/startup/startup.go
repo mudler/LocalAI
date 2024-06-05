@@ -84,13 +84,13 @@ func Startup(opts ...config.AppOption) (*core.Application, error) {
 	}
 
 	if appConfig.PreloadJSONModels != "" {
-		if err := services.ApplyGalleryFromString(appConfig.ModelPath, appConfig.PreloadJSONModels, app.BackendConfigLoader, appConfig.Galleries); err != nil {
+		if err := services.ApplyGalleryFromString(appConfig.ModelPath, appConfig.PreloadJSONModels, appConfig.Galleries); err != nil {
 			return nil, err
 		}
 	}
 
 	if appConfig.PreloadModelsFromPath != "" {
-		if err := services.ApplyGalleryFromFile(appConfig.ModelPath, appConfig.PreloadModelsFromPath, app.BackendConfigLoader, appConfig.Galleries); err != nil {
+		if err := services.ApplyGalleryFromFile(appConfig.ModelPath, appConfig.PreloadModelsFromPath, appConfig.Galleries); err != nil {
 			return nil, err
 		}
 	}
@@ -169,7 +169,7 @@ func createApplication(appConfig *config.ApplicationConfig) *core.Application {
 
 	app.BackendMonitorService = services.NewBackendMonitorService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
 
-	app.GalleryService = services.NewGalleryService(app.ApplicationConfig.ModelPath)
+	app.GalleryService = services.NewGalleryService(app.ApplicationConfig)
 	app.GalleryService.Start(app.ApplicationConfig.Context, app.BackendConfigLoader)
 
 	app.ListModelsService = services.NewListModelsService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)

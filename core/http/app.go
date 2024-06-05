@@ -43,17 +43,19 @@ var embedDirStatic embed.FS
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-
 func App(application *core.Application) (*fiber.App, error) {
-	// Return errors as JSON responses
-	app := fiber.New(fiber.Config{
+	fiberCfg := fiber.Config{
 		Views:     renderEngine(),
 		BodyLimit: application.ApplicationConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
 		// We disable the Fiber startup message as it does not conform to structured logging.
 		// We register a startup log line with connection information in the OnListen hook to keep things user friendly though
 		DisableStartupMessage: true,
 		// Override default error handler
-		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
+	}
+
+	if !application.ApplicationConfig.OpaqueErrors {
+		// Normally, return errors as JSON responses
+		fiberCfg.ErrorHandler = func(ctx *fiber.Ctx, err error) error {
 			// Status code defaults to 500
 			code := fiber.StatusInternalServerError
 
@@ -69,8 +71,15 @@ func App(application *core.Application) (*fiber.App, error) {
 					Error: &schema.APIError{Message: err.Error(), Code: code},
 				},
 			)
-		},
-	})
+		}
+	} else {
+		// If OpaqueErrors are required, replace everything with a blank 500.
+		fiberCfg.ErrorHandler = func(ctx *fiber.Ctx, _ error) error {
+			return ctx.Status(500).SendString("")
+		}
+	}
+
+	app := fiber.New(fiberCfg)
 
 	app.Hooks().OnListen(func(listenData fiber.ListenData) error {
 		scheme := "http"
