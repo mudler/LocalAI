@@ -1781,6 +1781,20 @@
     - filename: Cream-Phi-3-14B-v1-Q4_K_M.gguf
       uri: huggingface://TheDrummer/Cream-Phi-3-14B-v1-GGUF/Cream-Phi-3-14B-v1-Q4_K_M.gguf
       sha256: ec67018a86090da415517acf21ad48f28e02dff664a1dd35602f1f8fa94f6a27
+- !!merge <<: *phi-3
+  name: "phi3-4x4b-v1"
+  description: |
+    a continually pretrained phi3-mini sparse moe upcycle
+  urls:
+    - https://huggingface.co/bartowski/phi3-4x4b-v1-GGUF
+    - https://huggingface.co/Fizzarolli/phi3-4x4b-v1
+  overrides:
+    parameters:
+      model: phi3-4x4b-v1-Q4_K_M.gguf
+  files:
+    - filename: phi3-4x4b-v1-Q4_K_M.gguf
+      uri: huggingface://bartowski/phi3-4x4b-v1-GGUF/phi3-4x4b-v1-Q4_K_M.gguf
+      sha256: fd33220186b7076f4b306f27b3a8913384435a2ca90185a71c9df5a752d3a298
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
