@@ -50,45 +50,57 @@ jobs:
       - name: Build grpc
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
-          export CMAKE_SYSTEM_NAME=Linux
-          export TARGET=aarch64-linux-gnu
-          export TARGET_AR=aarch64-linux-gnu-ar
-          export TARGET_CC=aarch64-linux-gnu-gcc
-          export TARGET_CXX=aarch64-linux-gnu-g++
-          export TARGET_RANLIB=aarch64-linux-gnu-ranlib
-          export TARGET_CPP=aarch64-linux-gnu-cpp
-          export TARGET_LD=aarch64-linux-gnu-ld
+
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
         run: |
-          export CMAKE_SYSTEM_NAME=Linux
-          export TARGET=aarch64-linux-gnu
-          export TARGET_AR=aarch64-linux-gnu-ar
-          export TARGET_CC=aarch64-linux-gnu-gcc
-          export TARGET_CXX=aarch64-linux-gnu-g++
-          export TARGET_RANLIB=aarch64-linux-gnu-ranlib
-          export TARGET_CPP=aarch64-linux-gnu-cpp
-          export TARGET_LD=aarch64-linux-gnu-ld
-          cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
+          GNU_HOST=aarch64-linux-gnu
+          C_COMPILER_ARM_LINUX=$GNU_HOST-gcc
+          CXX_COMPILER_ARM_LINUX=$GNU_HOST-g++
+
+          CROSS_TOOLCHAIN=/usr/$GNU_HOST
+          CROSS_STAGING_PREFIX=$CROSS_TOOLCHAIN/stage
+          CMAKE_CROSS_TOOLCHAIN=/tmp/arm.toolchain.cmake
+
+          # https://cmake.org/cmake/help/v3.13/manual/cmake-toolchains.7.html#cross-compiling-for-linux
+          echo "set(CMAKE_SYSTEM_NAME Linux)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_SYSTEM_PROCESSOR arm)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_STAGING_PREFIX $CROSS_STAGING_PREFIX)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_SYSROOT ${CROSS_TOOLCHAIN}/sysroot)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_C_COMPILER /usr/bin/$C_COMPILER_ARM_LINUX)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_CXX_COMPILER /usr/bin/$CXX_COMPILER_ARM_LINUX)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN
+          GRPC_DIR=$PWD/grpc
+          cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install && \
+          GRPC_CROSS_BUILD_DIR=$GRPC_DIR/cmake/cross_build && \
+          mkdir -p $GRPC_CROSS_BUILD_DIR && \
+          cd $GRPC_CROSS_BUILD_DIR && \
+          cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=$CROSS_TOOLCHAIN/grpc_install \
+            ../.. && \
+          sudo make -j`nproc` install
       - name: Build
         id: build
         run: |
-          export CMAKE_SYSTEM_NAME=Linux
-          export TARGET=aarch64-linux-gnu
-          export TARGET_AR=aarch64-linux-gnu-ar
-          export TARGET_CC=aarch64-linux-gnu-gcc
-          export TARGET_CXX=aarch64-linux-gnu-g++
-          export TARGET_RANLIB=aarch64-linux-gnu-ranlib
-          export TARGET_CPP=aarch64-linux-gnu-cpp
-          export TARGET_LD=aarch64-linux-gnu-ld
+          GNU_HOST=aarch64-linux-gnu
+          C_COMPILER_ARM_LINUX=$GNU_HOST-gcc
+          CXX_COMPILER_ARM_LINUX=$GNU_HOST-g++
+
+          CROSS_TOOLCHAIN=/usr/$GNU_HOST
+          CROSS_STAGING_PREFIX=$CROSS_TOOLCHAIN/stage
+          CMAKE_CROSS_TOOLCHAIN=/tmp/arm.toolchain.cmake
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          GO_TAGS=p2p GOOS=linux GOARCH=arm64 CMAKE_ARGS="-DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-aarch64
+          GO_TAGS=p2p GOOS=linux GOARCH=arm64 CMAKE_ARGS="-DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-aarch64
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux-aarch64
