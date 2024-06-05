@@ -88,7 +88,7 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          GO_TAGS=p2p DIST_SKIP_HIPBLAS=true make dist
+          GO_TAGS=p2p CMAKE_ARGS="-DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" DIST_SKIP_HIPBLAS=true make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux-aarch64
