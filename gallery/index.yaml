@@ -906,6 +906,32 @@
     - filename: dolphin-2.9-llama3-8b-q6_K.gguf
       sha256: 8aac72a0bd72c075ba7be1aa29945e47b07d39cd16be9a80933935f51b57fb32
       uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q6_K.gguf
+- !!merge <<: *dolphin
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "dolphin-2.9.2-phi-3-medium"
+  urls:
+    - https://huggingface.co/cognitivecomputations/dolphin-2.9.2-Phi-3-Medium
+    - https://huggingface.co/bartowski/dolphin-2.9.2-Phi-3-Medium-GGUF
+  overrides:
+    parameters:
+      model: dolphin-2.9.2-Phi-3-Medium-Q4_K_M.gguf
+  files:
+    - filename: dolphin-2.9.2-Phi-3-Medium-Q4_K_M.gguf
+      sha256: e817eae484a59780358cf91527b12585804d4914755d8a86d8d666b10bac57e5
+      uri: huggingface://bartowski/dolphin-2.9.2-Phi-3-Medium-GGUF/dolphin-2.9.2-Phi-3-Medium-Q4_K_M.gguf
+- !!merge <<: *dolphin
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "dolphin-2.9.2-phi-3-Medium-abliterated"
+  urls:
+    - https://huggingface.co/cognitivecomputations/dolphin-2.9.2-Phi-3-Medium-abliterated
+    - https://huggingface.co/bartowski/dolphin-2.9.2-Phi-3-Medium-abliterated-GGUF
+  overrides:
+    parameters:
+      model: dolphin-2.9.2-Phi-3-Medium-abliterated-Q4_K_M.gguf
+  files:
+    - filename: dolphin-2.9.2-Phi-3-Medium-abliterated-Q4_K_M.gguf
+      sha256: 566331c2efe87725310aacb709ca15088a0063fa0ddc14a345bf20d69982156b
+      uri: huggingface://bartowski/dolphin-2.9.2-Phi-3-Medium-abliterated-GGUF/dolphin-2.9.2-Phi-3-Medium-abliterated-Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "llama-3-8b-instruct-dpo-v0.3-32k"
   license: llama3
@@ -925,6 +951,23 @@
     - filename: Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
       sha256: 694c55b5215d03e59626cd4292076eaf31610ef27ba04737166766baa75d889f
       uri: huggingface://MaziyarPanahi/Llama-3-8B-Instruct-DPO-v0.3-32k-GGUF/Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
+- !!merge <<: *llama3
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "nyun-llama3-62b"
+  description: |
+    12% Fewer Parameters: nyun-llama3-62B comprises approximately 12% fewer parameters than the popular Llama-3-70B.
+    Intact Performance: Despite having fewer parameters, our model performs at par if not better, and occasionally outperforms, the Llama-3-70B.
+    No Fine-Tuning Required: This model undergoes no fine-tuning, showcasing the raw potential of our optimization techniques.
+  urls:
+    - https://huggingface.co/nyunai/nyun-llama3-62B
+    - https://huggingface.co/bartowski/nyun-llama3-62B-GGUF
+  overrides:
+    parameters:
+      model: nyun-llama3-62B-Q4_K_M.gguf
+  files:
+    - filename: nyun-llama3-62B-Q4_K_M.gguf
+      sha256: cacdcdcdf00a0f2e9bf54e8a4103173cc95bc05c0bac390745fb8172e3e4861d
+      uri: huggingface://bartowski/nyun-llama3-62B-GGUF/nyun-llama3-62B-Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "mahou-1.2-llama3-8b"
   license: llama3
