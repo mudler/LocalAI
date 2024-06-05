@@ -951,6 +951,23 @@
     - filename: Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
       sha256: 694c55b5215d03e59626cd4292076eaf31610ef27ba04737166766baa75d889f
       uri: huggingface://MaziyarPanahi/Llama-3-8B-Instruct-DPO-v0.3-32k-GGUF/Llama-3-8B-Instruct-DPO-v0.3.Q4_K_M.gguf
+- !!merge <<: *llama3
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "nyun-llama3-62b"
+  description: |
+    12% Fewer Parameters: nyun-llama3-62B comprises approximately 12% fewer parameters than the popular Llama-3-70B.
+    Intact Performance: Despite having fewer parameters, our model performs at par if not better, and occasionally outperforms, the Llama-3-70B.
+    No Fine-Tuning Required: This model undergoes no fine-tuning, showcasing the raw potential of our optimization techniques.
+  urls:
+    - https://huggingface.co/nyunai/nyun-llama3-62B
+    - https://huggingface.co/bartowski/nyun-llama3-62B-GGUF
+  overrides:
+    parameters:
+      model: nyun-llama3-62B-Q4_K_M.gguf
+  files:
+    - filename: nyun-llama3-62B-Q4_K_M.gguf
+      sha256: cacdcdcdf00a0f2e9bf54e8a4103173cc95bc05c0bac390745fb8172e3e4861d
+      uri: huggingface://bartowski/nyun-llama3-62B-GGUF/nyun-llama3-62B-Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "mahou-1.2-llama3-8b"
   license: llama3
