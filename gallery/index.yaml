@@ -988,6 +988,20 @@
     - filename: Mahou-1.2-llama3-8B-Q4_K_M.gguf
       sha256: 651b405dff71e4ce80e15cc6d393463f02833428535c56eb6bae113776775d62
       uri: huggingface://flammenai/Mahou-1.2-llama3-8B-GGUF/Mahou-1.2-llama3-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-instruct-8b-SimPO-ExPO"
+  description: |
+    The extrapolated (ExPO) model based on princeton-nlp/Llama-3-Instruct-8B-SimPO and meta-llama/Meta-Llama-3-8B-Instruct, as in the "Weak-to-Strong Extrapolation Expedites Alignment" paper.
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-Instruct-8B-SimPO-ExPO-GGUF
+    - https://huggingface.co/chujiezheng/Llama-3-Instruct-8B-SimPO-ExPO
+  overrides:
+    parameters:
+      model: Llama-3-Instruct-8B-SimPO-ExPO-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Instruct-8B-SimPO-ExPO-Q4_K_M.gguf
+      sha256: a78a68851f76a376654a496d9aaac761aeac6a25fd003f0350da40afceba3f0f
+      uri: huggingface://bartowski/Llama-3-Instruct-8B-SimPO-ExPO-GGUF/Llama-3-Instruct-8B-SimPO-ExPO-Q4_K_M.gguf
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
