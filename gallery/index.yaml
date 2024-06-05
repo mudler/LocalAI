@@ -1002,6 +1002,24 @@
     - filename: Llama-3-Instruct-8B-SimPO-ExPO-Q4_K_M.gguf
       sha256: a78a68851f76a376654a496d9aaac761aeac6a25fd003f0350da40afceba3f0f
       uri: huggingface://bartowski/Llama-3-Instruct-8B-SimPO-ExPO-GGUF/Llama-3-Instruct-8B-SimPO-ExPO-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "Llama-3-Yggdrasil-2.0-8B"
+  description: |
+    The following models were included in the merge:
+
+        Locutusque/Llama-3-NeuralHercules-5.0-8B
+        NousResearch/Hermes-2-Theta-Llama-3-8B
+        Locutusque/llama-3-neural-chat-v2.2-8b
+  urls:
+    - https://huggingface.co/bartowski/Llama-3-Yggdrasil-2.0-8B-GGUF
+    - https://huggingface.co/Locutusque/Llama-3-Yggdrasil-2.0-8B
+  overrides:
+    parameters:
+      model: Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
+      sha256: 75091cf3a7145373922dbeb312c689cace89ba06215ce74b6fc7055a4b35a40c
+      uri: huggingface://bartowski/Llama-3-Yggdrasil-2.0-8B-GGUF/Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
