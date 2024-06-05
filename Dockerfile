@@ -120,6 +120,7 @@ RUN <<EOT bash
             apt-get update && \
             apt-get install -y --no-install-recommends \
                 cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+                libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
                 libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
                 libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
                 libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
@@ -139,6 +140,7 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
