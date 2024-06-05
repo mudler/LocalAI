@@ -906,6 +906,19 @@
     - filename: dolphin-2.9-llama3-8b-q6_K.gguf
       sha256: 8aac72a0bd72c075ba7be1aa29945e47b07d39cd16be9a80933935f51b57fb32
       uri: huggingface://cognitivecomputations/dolphin-2.9-llama3-8b-gguf/dolphin-2.9-llama3-8b-q6_K.gguf
+- !!merge <<: *dolphin
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "dolphin-2.9.2-phi-3-medium"
+  urls:
+    - https://huggingface.co/cognitivecomputations/dolphin-2.9.2-Phi-3-Medium
+    - https://huggingface.co/bartowski/dolphin-2.9.2-Phi-3-Medium-GGUF
+  overrides:
+    parameters:
+      model: dolphin-2.9.2-Phi-3-Medium-Q4_K_M.gguf
+  files:
+    - filename: dolphin-2.9.2-Phi-3-Medium-Q4_K_M.gguf
+      sha256: e817eae484a59780358cf91527b12585804d4914755d8a86d8d666b10bac57e5
+      uri: huggingface://bartowski/dolphin-2.9.2-Phi-3-Medium-GGUF/dolphin-2.9.2-Phi-3-Medium-Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "llama-3-8b-instruct-dpo-v0.3-32k"
   license: llama3
