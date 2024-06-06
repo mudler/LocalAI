@@ -828,6 +828,21 @@
       sha256: 0bc21be5894c2e252ff938ba908bb702774b7de53daca864d707d41f0f98a833
       uri: huggingface://Lewdiculous/llama3-8B-aifeifei-1.0-GGUF-IQ-Imatrix/llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "rawr_llama3_8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/ResplendentAI/Rawr_Llama3_8B
+    - https://huggingface.co/Lewdiculous/Rawr_Llama3_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/RLLAODFb8wt26JE2N7SVH.png
+  description: |
+    An RP model with a brain.
+  overrides:
+    parameters:
+      model: v2-Rawr_Llama3_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: v2-Rawr_Llama3_8B-Q4_K_M-imat.gguf
+      sha256: 39757f3f77dd19a2a7bada6c0733a93529a742b8e832266cba1b46e34df7638f
+      uri: huggingface://Lewdiculous/Rawr_Llama3_8B-GGUF-IQ-Imatrix/v2-Rawr_Llama3_8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "llama-3-sqlcoder-8b"
   urls:
     - https://huggingface.co/defog/llama-3-sqlcoder-8b
