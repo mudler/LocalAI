@@ -813,6 +813,21 @@
       sha256: b00b4cc2ea4e06db592e5f581171758387106626bcbf445c03a1cb7b424be881
       uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "llama3-8B-aifeifei-1.0-iq-imatrix"
+  urls:
+    - https://huggingface.co/aifeifei798/llama3-8B-aifeifei-1.0
+    - https://huggingface.co/Lewdiculous/llama3-8B-aifeifei-1.0-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/nndcfLvMAj4q6Egrkavx2.png
+  description: |
+    This model has a narrow use case in mind. Read the original description.
+  overrides:
+    parameters:
+      model: llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
+      sha256: 0bc21be5894c2e252ff938ba908bb702774b7de53daca864d707d41f0f98a833
+      uri: huggingface://Lewdiculous/llama3-8B-aifeifei-1.0-GGUF-IQ-Imatrix/llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "llama-3-sqlcoder-8b"
   urls:
     - https://huggingface.co/defog/llama-3-sqlcoder-8b
