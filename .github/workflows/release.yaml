@@ -37,7 +37,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget build-essential ffmpeg protobuf-compiler ccache
+          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache
       - name: Intel Dependencies
         run: |
           wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
