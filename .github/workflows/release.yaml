@@ -70,6 +70,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg protobuf-compiler ccache
+      - name: Intel Dependencies
+        run: |
+          wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          sudo apt update
+          sudo apt install -y intel-basekit
       - name: Install CUDA Dependencies
         run: |
           curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
@@ -127,6 +133,7 @@ jobs:
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
+          source /opt/intel/oneapi/setvars.sh
           GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:

@@ -328,6 +328,8 @@ ifeq ($(OS),Darwin)
 else
 	$(MAKE) backend-assets/grpc/llama-cpp-cuda
 	$(MAKE) backend-assets/grpc/llama-cpp-hipblas
+	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
+	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
 	$(MAKE) build
 	mkdir -p release
@@ -719,6 +721,20 @@ backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc
 	$(info ${GREEN}I llama-cpp build info:hipblas${RESET})
 	BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-hipblas/grpc-server backend-assets/grpc/llama-cpp-hipblas
+
+backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f16
+	$(MAKE) -C backend/cpp/llama-sycl_f16 purge
+	$(info ${GREEN}I llama-cpp build info:sycl_f16${RESET})
+	BUILD_TYPE="sycl_f16" $(MAKE) VARIANT="llama-sycl_f16" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-sycl_f16/grpc-server backend-assets/grpc/llama-cpp-sycl_f16
+
+backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc
+	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f32
+	$(MAKE) -C backend/cpp/llama-sycl_f32 purge
+	$(info ${GREEN}I llama-cpp build info:sycl_f32${RESET})
+	BUILD_TYPE="sycl_f32" $(MAKE) VARIANT="llama-sycl_f32" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-sycl_f32/grpc-server backend-assets/grpc/llama-cpp-sycl_f32
 
 backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-grpc
