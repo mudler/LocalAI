@@ -48,6 +48,7 @@ function toggleRecording() {
 }
 
 async function startRecording() {
+    document.getElementById("recording").style.display = "block";
     if (!navigator.mediaDevices) {
         alert('MediaDevices API not supported!');
         return;
@@ -60,25 +61,36 @@ async function startRecording() {
     };
     mediaRecorder.start();
     recordButton.textContent = 'Stop Recording';
+    // add class bg-red-500 to recordButton
+    recordButton.classList.add("bg-gray-500");
+    
     isRecording = true;
 }
 
 function stopRecording() {
     mediaRecorder.stop();
     mediaRecorder.onstop = async () => {
+        document.getElementById("recording").style.display = "none";
         document.getElementById("loader").style.display = "block";
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        document.getElementById("statustext").textContent = "Processing audio...";
         const transcript = await sendAudioToWhisper(audioBlob);
-        console.log("Transcript:", transcript)
+        console.log("Transcript:", transcript);
+        document.getElementById("statustext").textContent = "Seems you said: " + transcript+ ". Generating response...";
         const responseText = await sendTextToChatGPT(transcript);
-        console.log("Response:", responseText)
+
+        console.log("Response:", responseText);
+        document.getElementById("statustext").textContent = "Response generated: '" + responseText + "'. Generating audio response...";
 
         const ttsAudio = await getTextToSpeechAudio(responseText);
         playAudioResponse(ttsAudio);
 
         recordButton.textContent = 'Record';
+        // remove class bg-red-500 from recordButton
+        recordButton.classList.remove("bg-gray-500");
         isRecording = false;
         document.getElementById("loader").style.display = "none";
+        document.getElementById("statustext").textContent = "Press the record button to start recording.";
     };
 }
 

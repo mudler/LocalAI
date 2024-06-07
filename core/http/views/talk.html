@@ -44,8 +44,12 @@
     <div class="flex items-center justify-center">
     <div class="w-full p-4  max-w-md border-t border-gray-700 ">
       <div class="bg-gray-700 shadow-md rounded px-8 pt-6 pb-8 mb-4">
+      <div id="recording" class="" style="display: none;">
+        <i class="fa-solid fa-microphone animate-pulse text-red-700"></i>
+        <span class="text-white-700 text-sm font-bold mb-2">Recording... press "Stop recording" to stop</span>
+      </div>
       <div id="loader" class="my-2 loader" style="display: none;"></div>
- 
+      <div id="statustext" class="my-2 p-2 block text-white-700 text-sm font-bold mb-2" ></div>
       <div class="mb-4" >
         <label for="modelSelect" class="block text-white-700 text-sm font-bold mb-2">LLM Model:</label>
         <select id="modelSelect"
@@ -88,8 +92,8 @@
 
 
       <button id="recordButton"
-        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-      ><i class="fa-solid fa-circle-up text-gray-300 absolute right-2 top-3 text-lg p-2"></i>Record</button>
+        class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+      ><i class="fa-solid fa-microphone pr-2"></i>Record</button>
       <a id="resetButton"
       class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800"
       href="#"
