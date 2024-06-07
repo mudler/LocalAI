@@ -102,7 +102,7 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
-          GO_TAGS=p2p make dist
+          GO_TAGS=p2p make -j4 dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux
