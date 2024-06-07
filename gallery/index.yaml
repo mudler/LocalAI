@@ -813,6 +813,51 @@
       sha256: b00b4cc2ea4e06db592e5f581171758387106626bcbf445c03a1cb7b424be881
       uri: huggingface://Lewdiculous/Llama-3-Lumimaid-8B-v0.1-OAS-GGUF-IQ-Imatrix/v2-Llama-3-Lumimaid-8B-v0.1-OAS-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "llama3-8B-aifeifei-1.0-iq-imatrix"
+  urls:
+    - https://huggingface.co/aifeifei798/llama3-8B-aifeifei-1.0
+    - https://huggingface.co/Lewdiculous/llama3-8B-aifeifei-1.0-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/nndcfLvMAj4q6Egrkavx2.png
+  description: |
+    This model has a narrow use case in mind. Read the original description.
+  overrides:
+    parameters:
+      model: llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
+      sha256: 0bc21be5894c2e252ff938ba908bb702774b7de53daca864d707d41f0f98a833
+      uri: huggingface://Lewdiculous/llama3-8B-aifeifei-1.0-GGUF-IQ-Imatrix/llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "rawr_llama3_8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/ResplendentAI/Rawr_Llama3_8B
+    - https://huggingface.co/Lewdiculous/Rawr_Llama3_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/RLLAODFb8wt26JE2N7SVH.png
+  description: |
+    An RP model with a brain.
+  overrides:
+    parameters:
+      model: v2-Rawr_Llama3_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: v2-Rawr_Llama3_8B-Q4_K_M-imat.gguf
+      sha256: 39757f3f77dd19a2a7bada6c0733a93529a742b8e832266cba1b46e34df7638f
+      uri: huggingface://Lewdiculous/Rawr_Llama3_8B-GGUF-IQ-Imatrix/v2-Rawr_Llama3_8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama3-8b-feifei-1.0-iq-imatrix"
+  urls:
+    - https://huggingface.co/aifeifei798/llama3-8B-feifei-1.0
+    - https://huggingface.co/Lewdiculous/llama3-8B-feifei-1.0-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/qQ-frXxRPVcGcgMiy9Ph4.png
+  description: |
+    The purpose of the model: to create idols.
+  overrides:
+    parameters:
+      model: llama3-8B-feifei-1.0-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-feifei-1.0-Q4_K_M-imat.gguf
+      sha256: 2404e4202ade5360b7dcf8ef992d1e39fca129431413aa27843bcfae56cbc750
+      uri: huggingface://Lewdiculous/llama3-8B-feifei-1.0-GGUF-IQ-Imatrix/llama3-8B-feifei-1.0-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "llama-3-sqlcoder-8b"
   urls:
     - https://huggingface.co/defog/llama-3-sqlcoder-8b
