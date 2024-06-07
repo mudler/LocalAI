@@ -49,6 +49,7 @@ function toggleRecording() {
 
 async function startRecording() {
     document.getElementById("recording").style.display = "block";
+    document.getElementById("resetButton").style.display = "none";
     if (!navigator.mediaDevices) {
         alert('MediaDevices API not supported!');
         return;
@@ -71,6 +72,8 @@ function stopRecording() {
     mediaRecorder.stop();
     mediaRecorder.onstop = async () => {
         document.getElementById("recording").style.display = "none";
+        document.getElementById("recordButton").style.display = "none";
+
         document.getElementById("loader").style.display = "block";
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         document.getElementById("statustext").textContent = "Processing audio...";
@@ -90,6 +93,8 @@ function stopRecording() {
         recordButton.classList.remove("bg-gray-500");
         isRecording = false;
         document.getElementById("loader").style.display = "none";
+        document.getElementById("recordButton").style.display = "block";
+        document.getElementById("resetButton").style.display = "block";
         document.getElementById("statustext").textContent = "Press the record button to start recording.";
     };
 }
