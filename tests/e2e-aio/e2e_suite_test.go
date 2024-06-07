@@ -42,7 +42,6 @@ var _ = BeforeSuite(func() {
 		defaultConfig = openai.DefaultConfig(apiKey)
 		apiEndpoint = "http://localhost:" + apiPort + "/v1" // So that other tests can reference this value safely.
 		defaultConfig.BaseURL = apiEndpoint
-
 	} else {
 		fmt.Println("Default ", apiEndpoint)
 		defaultConfig = openai.DefaultConfig(apiKey)

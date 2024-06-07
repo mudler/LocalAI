@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-skynet/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sashabaranov/go-openai"
@@ -225,6 +227,51 @@ var _ = Describe("E2E test", func() {
 				resp, err := client.CreateTranscription(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Text).To(ContainSubstring("This is the"), fmt.Sprint(resp.Text))
+			})
+		})
+
+		Context("reranker", func() {
+			It("correctly", func() {
+				modelName := "jina-reranker-v1-base-en"
+
+				req := schema.JINARerankRequest{
+					Model: modelName,
+					Query: "Organic skincare products for sensitive skin",
+					Documents: []string{
+						"Eco-friendly kitchenware for modern homes",
+						"Biodegradable cleaning supplies for eco-conscious consumers",
+						"Organic cotton baby clothes for sensitive skin",
+						"Natural organic skincare range for sensitive skin",
+						"Tech gadgets for smart homes: 2024 edition",
+						"Sustainable gardening tools and compost solutions",
+						"Sensitive skin-friendly facial cleansers and toners",
+						"Organic food wraps and storage solutions",
+						"All-natural pet food for dogs with allergies",
+						"Yoga mats made from recycled materials",
+					},
+					TopN: 3,
+				}
+
+				serialized, err := json.Marshal(req)
+				Expect(err).To(BeNil())
+				Expect(serialized).ToNot(BeNil())
+
+				rerankerEndpoint := apiEndpoint + "/rerank"
+				resp, err := http.Post(rerankerEndpoint, "application/json", bytes.NewReader(serialized))
+				Expect(err).To(BeNil())
+				Expect(resp).ToNot(BeNil())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				body, err := io.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
+				Expect(body).ToNot(BeNil())
+
+				deserializedResponse := schema.JINARerankResponse{}
+				err = json.Unmarshal(body, &deserializedResponse)
+				Expect(err).To(BeNil())
+				Expect(deserializedResponse).ToNot(BeZero())
+				Expect(deserializedResponse.Model).To(Equal(modelName))
+				Expect(len(deserializedResponse.Results)).To(BeNumerically(">", 0))
 			})
 		})
 	})
