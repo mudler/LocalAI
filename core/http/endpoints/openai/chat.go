@@ -437,7 +437,6 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 					if err != nil {
 						log.Debug().Msgf("Sending chunk failed: %v", err)
 						input.Cancel()
-						break
 					}
 					w.Flush()
 				}
