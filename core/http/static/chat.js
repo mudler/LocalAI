@@ -38,7 +38,7 @@ function submitSystemPrompt(event) {
   localStorage.setItem("system_prompt", document.getElementById("systemPrompt").value);
   document.getElementById("systemPrompt").blur();
 }
-  
+
 var image = "";
 
 function submitPrompt(event) {
@@ -54,15 +54,15 @@ function submitPrompt(event) {
 }
 
 function readInputImage() {
-  
+
   if (!this.files || !this.files[0]) return;
-    
+
   const FR = new FileReader();
-    
+
   FR.addEventListener("load", function(evt) {
     image = evt.target.result;
-  }); 
-    
+  });
+
   FR.readAsDataURL(this.files[0]);
 }
 
@@ -155,7 +155,7 @@ function readInputImage() {
         stream: true,
       }),
     });
-  
+
     if (!response.ok) {
       Alpine.store("chat").add(
         "assistant",
@@ -163,11 +163,11 @@ function readInputImage() {
       );
       return;
     }
-  
+
     const reader = response.body
       ?.pipeThrough(new TextDecoderStream())
       .getReader();
-  
+
     if (!reader) {
       Alpine.store("chat").add(
         "assistant",
@@ -175,30 +175,74 @@ function readInputImage() {
       );
       return;
     }
-  
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      let dataDone = false;
-      const arr = value.split("\n");
-      arr.forEach((data) => {
-        if (data.length === 0) return;
-        if (data.startsWith(":")) return;
-        if (data === "data: [DONE]") {
-          dataDone = true;
-          return;
+
+    // Function to add content to the chat and handle DOM updates efficiently
+    const addToChat = (token) => {
+      const chatStore = Alpine.store("chat");
+      chatStore.add("assistant", token);
+      // Efficiently scroll into view without triggering multiple reflows
+      const messages = document.getElementById('messages');
+      messages.scrollTop = messages.scrollHeight;
+    };
+
+    let buffer = "";
+    let contentBuffer = [];
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += value;
+
+        let lines = buffer.split("\n");
+        buffer = lines.pop(); // Retain any incomplete line in the buffer
+
+        lines.forEach((line) => {
+          if (line.length === 0 || line.startsWith(":")) return;
+          if (line === "data: [DONE]") {
+            return;
+          }
+
+          if (line.startsWith("data: ")) {
+            try {
+              const jsonData = JSON.parse(line.substring(6));
+              const token = jsonData.choices[0].delta.content;
+
+              if (token) {
+                contentBuffer.push(token);
+              }
+            } catch (error) {
+              console.error("Failed to parse line:", line, error);
+            }
+          }
+        });
+
+        // Efficiently update the chat in batch
+        if (contentBuffer.length > 0) {
+          addToChat(contentBuffer.join(""));
+          contentBuffer = [];
         }
-        const token = JSON.parse(data.substring(6)).choices[0].delta.content;
-        if (!token) {
-          return;
-        }
-        hljs.highlightAll();
-        Alpine.store("chat").add("assistant", token);
-        document.getElementById('messages').scrollIntoView(false)
-      });
+      }
+
+      // Final content flush if any data remains
+      if (contentBuffer.length > 0) {
+        addToChat(contentBuffer.join(""));
+      }
+
+      // Highlight all code blocks once at the end
       hljs.highlightAll();
-      if (dataDone) break;
+    } catch (error) {
+      console.error("An error occurred while reading the stream:", error);
+      Alpine.store("chat").add(
+        "assistant",
+        `<span class='error'>Error: Failed to process stream</span>`,
+      );
+    } finally {
+      // Perform any cleanup if necessary
+      reader.releaseLock();
     }
+
     // Remove class "loader" from the element with "loader" id
     //document.getElementById("loader").classList.remove("loader");
     document.getElementById("loader").style.display = "none";
@@ -209,7 +253,7 @@ function readInputImage() {
     // set focus to the input
     document.getElementById("input").focus();
   }
-  
+
   document.getElementById("key").addEventListener("submit", submitKey);
   document.getElementById("system_prompt").addEventListener("submit", submitSystemPrompt);
 
@@ -230,7 +274,7 @@ function readInputImage() {
   } else {
     document.getElementById("systemPrompt").value = null;
   }
-  
+
   marked.setOptions({
     highlight: function (code) {
       return hljs.highlightAuto(code).value;

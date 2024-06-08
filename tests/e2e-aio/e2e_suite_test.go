@@ -40,7 +40,8 @@ var _ = BeforeSuite(func() {
 	if apiEndpoint == "" {
 		startDockerImage()
 		defaultConfig = openai.DefaultConfig(apiKey)
-		defaultConfig.BaseURL = "http://localhost:" + apiPort + "/v1"
+		apiEndpoint = "http://localhost:" + apiPort + "/v1" // So that other tests can reference this value safely.
+		defaultConfig.BaseURL = apiEndpoint
 	} else {
 		fmt.Println("Default ", apiEndpoint)
 		defaultConfig = openai.DefaultConfig(apiKey)
