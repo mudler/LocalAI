@@ -62,7 +62,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	//
 	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
 
-	cl := config.NewBackendConfigLoader()
+	cl := config.NewBackendConfigLoader(options.ModelPath)
 	ml := model.NewModelLoader(options.ModelPath)
 
 	configLoaderOpts := options.ToConfigLoaderOptions()
@@ -151,7 +151,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 func createApplication(appConfig *config.ApplicationConfig) *core.Application {
 	app := &core.Application{
 		ApplicationConfig:   appConfig,
-		BackendConfigLoader: config.NewBackendConfigLoader(),
+		BackendConfigLoader: config.NewBackendConfigLoader(appConfig.ModelPath),
 		ModelLoader:         model.NewModelLoader(appConfig.ModelPath),
 	}
 

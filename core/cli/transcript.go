@@ -30,7 +30,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 		AssetsDestination: t.BackendAssetsPath,
 	}
 
-	cl := config.NewBackendConfigLoader()
+	cl := config.NewBackendConfigLoader(t.ModelsPath)
 	ml := model.NewModelLoader(opts.ModelPath)
 	if err := cl.LoadBackendConfigsFromPath(t.ModelsPath); err != nil {
 		return err
