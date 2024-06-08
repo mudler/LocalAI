@@ -8,16 +8,19 @@ import (
 	gguf "github.com/thxcode/gguf-parser-go"
 )
 
-type FamilyType uint8
+type familyType uint8
 
 const (
-	Unknown FamilyType = iota
+	Unknown familyType = iota
 	LLaMa3             = iota
 	LLama2             = iota
 )
 
-var defaultsTemplate map[FamilyType]TemplateConfig = map[FamilyType]TemplateConfig{
-	LLaMa3: {},
+var defaultsTemplate map[familyType]TemplateConfig = map[familyType]TemplateConfig{
+	LLaMa3: {
+		Chat:        "<|begin_of_text|>{{.Input }}\n<|start_header_id|>assistant<|end_header_id|>",
+		ChatMessage: "<|start_header_id|>{{ .RoleName }}<|end_header_id|>\n\n{{.Content }}<|eot_id|>",
+	},
 }
 
 func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
@@ -26,8 +29,13 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 		log.Debug().Msgf("guessDefaultsFromFile: %s", "modelPath is empty")
 		return
 	}
+	if cfg.HasTemplate() || cfg.Name != "" {
+		// nothing to guess here
+		log.Debug().Any("name", cfg.Name).Msgf("guessDefaultsFromFile: %s", "template or name already set")
+		return
+	}
 
-	// We try to guess only if we don't have a template defined already+
+	// We try to guess only if we don't have a template defined already
 	f, err := gguf.ParseGGUFFile(filepath.Join(modelPath, cfg.ModelFileName()))
 	if err != nil {
 		// Only valid for gguf files
@@ -37,15 +45,13 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 
 	log.Debug().
 		Any("eosTokenID", f.Tokenizer().EOSTokenID).
+		Any("bosTokenID", f.Tokenizer().BOSTokenID).
 		Any("modelName", f.Model().Name).
 		Any("architecture", f.Architecture().Architecture).Msgf("Model file loaded: %s", cfg.ModelFileName())
 
+	// guess the name
 	if cfg.Name == "" {
 		cfg.Name = f.Model().Name
-	}
-
-	if cfg.HasTemplate() {
-		return
 	}
 
 	family := identifyFamily(f)
@@ -58,14 +64,15 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 	templ, ok := defaultsTemplate[family]
 	if ok {
 		cfg.TemplateConfig = templ
+		log.Debug().Any("family", family).Msgf("guessDefaultsFromFile: guessed template %+v", cfg.TemplateConfig)
+	} else {
+		log.Debug().Any("family", family).Msgf("guessDefaultsFromFile: no template found for family")
 	}
-
 }
 
-func identifyFamily(f *gguf.GGUFFile) FamilyType {
-
+func identifyFamily(f *gguf.GGUFFile) familyType {
 	switch {
-	case f.Model().Name == "llama":
+	case f.Architecture().Architecture == "llama" && f.Tokenizer().EOSTokenID == 128009:
 		return LLaMa3
 	}
 
