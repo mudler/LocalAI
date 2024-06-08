@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/rs/zerolog/log"
@@ -24,6 +25,11 @@ var defaultsTemplate map[familyType]TemplateConfig = map[familyType]TemplateConf
 }
 
 func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
+
+	if os.Getenv("LOCALAI_DISABLE_GUESSING") == "true" {
+		log.Debug().Msgf("guessDefaultsFromFile: %s", "guessing disabled with LOCALAI_DISABLE_GUESSING")
+		return
+	}
 
 	if modelPath == "" {
 		log.Debug().Msgf("guessDefaultsFromFile: %s", "modelPath is empty")
