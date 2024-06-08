@@ -369,7 +369,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Debug = &trueV
 	}
 
-	guessTemplate(cfg, lo.modelPath)
+	guessDefaultsFromFile(cfg, lo.modelPath)
 }
 
 func (c *BackendConfig) Validate() bool {
