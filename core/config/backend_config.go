@@ -21,7 +21,7 @@ type TTSConfig struct {
 	Voice string `yaml:"voice"`
 
 	// Vall-e-x
-	VallE    VallE  `yaml:"vall-e"`
+	VallE VallE `yaml:"vall-e"`
 }
 
 type BackendConfig struct {
@@ -368,6 +368,8 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	if debug {
 		cfg.Debug = &trueV
 	}
+
+	guessDefaultsFromFile(cfg, lo.modelPath)
 }
 
 func (c *BackendConfig) Validate() bool {
@@ -399,4 +401,8 @@ func (c *BackendConfig) Validate() bool {
 	}
 
 	return true
+}
+
+func (c *BackendConfig) HasTemplate() bool {
+	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != ""
 }

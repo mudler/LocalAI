@@ -19,17 +19,20 @@ import (
 )
 
 type BackendConfigLoader struct {
-	configs map[string]BackendConfig
+	configs   map[string]BackendConfig
+	modelPath string
 	sync.Mutex
 }
 
-func NewBackendConfigLoader() *BackendConfigLoader {
+func NewBackendConfigLoader(modelPath string) *BackendConfigLoader {
 	return &BackendConfigLoader{
-		configs: make(map[string]BackendConfig),
+		configs:   make(map[string]BackendConfig),
+		modelPath: modelPath,
 	}
 }
 
 type LoadOptions struct {
+	modelPath        string
 	debug            bool
 	threads, ctxSize int
 	f16              bool
@@ -50,6 +53,12 @@ func LoadOptionThreads(threads int) ConfigLoaderOption {
 func LoadOptionContextSize(ctxSize int) ConfigLoaderOption {
 	return func(o *LoadOptions) {
 		o.ctxSize = ctxSize
+	}
+}
+
+func ModelPath(modelPath string) ConfigLoaderOption {
+	return func(o *LoadOptions) {
+		o.modelPath = modelPath
 	}
 }
 
