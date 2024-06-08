@@ -343,7 +343,7 @@ else
 endif
 
 dist-aarch64: 
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server backend-assets/grpc/rwkv backend-assets/grpc/whisper backend-assets/grpc/local-store" \
+	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server backend-assets/grpc/whisper" \
 	$(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
