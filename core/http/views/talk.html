@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  {{template "views/partials/head" .}}
+  <script defer src="/static/talk.js"></script>
+  <style>
+    body {
+        overflow: hidden; 
+    }
+  </style>
+  <body class="bg-gray-900 text-gray-200" x-data="{ key: $store.chat.key }">
+    <div class="flex flex-col min-h-screen">
+
+    {{template "views/partials/navbar"}}
+    <div class="chat-container mt-2 mr-2 ml-2 mb-2 bg-gray-800 shadow-lg rounded-lg " >
+     <!-- Chat Header -->
+      <div class="border-b border-gray-700 p-4"  x-data="{ component: 'menu' }">
+
+        <div class="flex items-center justify-center">
+
+          <div x-show="component === 'menu'" id="menu">
+        
+            <button @click="component = 'key'" title="Update API key"
+            class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
+            >Set API Key🔑</button>
+            
+          </div>
+      
+        <form x-show="component === 'key'" id="key">
+          <input
+            type="password"
+            id="apiKey"
+            name="apiKey"
+            class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+            placeholder="API Key"
+            x-model.lazy="key"
+          />
+          <button @click="component = 'menu'" type="submit" title="Save API key">
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </form>
+        </div>
+      </div>
+
+    <div class="flex items-center justify-center">
+    <div class="w-full p-4  max-w-md border-t border-gray-700 ">
+      <div class="bg-gray-700 shadow-md rounded px-8 pt-6 pb-8 mb-4">
+      <div id="recording" class="" style="display: none;">
+        <i class="fa-solid fa-microphone animate-pulse text-red-700"></i>
+        <span class="text-white-700 text-sm font-bold mb-2">Recording... press "Stop recording" to stop</span>
+      </div>
+      <div id="loader" class="my-2 loader" style="display: none;"></div>
+      <div id="statustext" class="my-2 p-2 block text-white-700 text-sm font-bold mb-2" ></div>
+      <div class="mb-4" >
+        <label for="modelSelect" class="block text-white-700 text-sm font-bold mb-2">LLM Model:</label>
+        <select id="modelSelect"
+        class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+        >
+          <option value="" disabled class="text-gray-400" >Select a model</option>
+
+          {{ range .ModelsConfig }}
+          <option value="{{.Name}}"  class="bg-gray-700 text-white">{{.Name}}</option>
+          {{ end }}
+        </select>
+      </div>
+
+      <div class="mb-4" >
+        <label for="whisperModelSelect" class="block text-white-700 text-sm font-bold mb-2">Whisper Model:</label>
+          <select id="whisperModelSelect"
+          class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+
+          >
+            <option value="" disabled class="text-gray-400" >Select a model</option>
+
+            {{ range .ModelsConfig }}
+            <option value="{{.Name}}"  class="bg-gray-700 text-white">{{.Name}}</option>
+            {{ end }}
+          </select>
+      </div>
+  
+  
+      <div class="mb-4" >
+        <label for="ttsModelSelect" class="block text-white-700 text-sm font-bold mb-2">TTS Model:</label>
+        <select id="ttsModelSelect"
+        class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+        >
+          <option value="" disabled class="text-gray-400" >Select a model</option>
+          {{ range .ModelsConfig }}
+          <option value="{{.Name}}"  class="bg-gray-700 text-white">{{.Name}}</option>
+          {{ end }}
+        </select>
+      </div>
+
+
+      <button id="recordButton"
+        class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+      ><i class="fa-solid fa-microphone pr-2"></i>Talk</button>
+      <a id="resetButton"
+      class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800"
+      href="#"
+      >Reset conversation</a>
+      <audio id="audioPlayback" controls hidden></audio>
+
+        </div>
+      </div>
+      </div>
+    </div>
+  </body>
+</html>
