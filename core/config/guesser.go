@@ -29,9 +29,10 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 		log.Debug().Msgf("guessDefaultsFromFile: %s", "modelPath is empty")
 		return
 	}
-	if cfg.HasTemplate() || cfg.Name != "" {
+
+	if cfg.HasTemplate() {
 		// nothing to guess here
-		log.Debug().Any("name", cfg.Name).Msgf("guessDefaultsFromFile: %s", "template or name already set")
+		log.Debug().Any("name", cfg.Name).Msgf("guessDefaultsFromFile: %s", "template already set")
 		return
 	}
 
