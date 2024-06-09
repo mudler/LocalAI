@@ -82,6 +82,7 @@ func (tc *TemplateCache) loadTemplateIfExists(templateType TemplateType, templat
 		return fmt.Errorf("template file outside path: %s", file)
 	}
 
+	// can either be a file in the system or a string with the template
 	if utils.ExistsInPath(tc.templatesPath, modelTemplateFile) {
 		d, err := os.ReadFile(file)
 		if err != nil {
