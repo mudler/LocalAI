@@ -59,7 +59,7 @@ func (t *TTSCMD) Run(ctx *cliContext.Context) error {
 		Language: t.Language,
 	}
 
-	ttsbs := backend.NewTextToSpeechBackendService(ml, config.NewBackendConfigLoader(), opts)
+	ttsbs := backend.NewTextToSpeechBackendService(ml, config.NewBackendConfigLoader(opts.ModelPath), opts)
 
 	jr := ttsbs.TextToAudioFile(request)
 	filePathPtr, err := jr.Wait()
