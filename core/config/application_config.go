@@ -306,6 +306,7 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionDebug(o.Debug),
 		LoadOptionF16(o.F16),
 		LoadOptionThreads(o.Threads),
+		ModelPath(o.ModelPath),
 	}
 }
 

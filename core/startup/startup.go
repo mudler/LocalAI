@@ -153,7 +153,7 @@ func Startup(opts ...config.AppOption) (*core.Application, error) {
 func createApplication(appConfig *config.ApplicationConfig) *core.Application {
 	app := &core.Application{
 		ApplicationConfig:   appConfig,
-		BackendConfigLoader: config.NewBackendConfigLoader(),
+		BackendConfigLoader: config.NewBackendConfigLoader(appConfig.ModelPath),
 		ModelLoader:         model.NewModelLoader(appConfig.ModelPath),
 		StoresLoader:        model.NewModelLoader(""),
 	}

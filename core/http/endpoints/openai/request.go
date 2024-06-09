@@ -34,6 +34,7 @@ func mergeRequestWithConfig(input *schema.OpenAIRequest, cm *config.BackendConfi
 		config.LoadOptionThreads(threads),
 		config.LoadOptionContextSize(ctx),
 		config.LoadOptionF16(f16),
+		config.ModelPath(loader.ModelPath),
 	)
 
 	// Set the parameters for the language model prediction

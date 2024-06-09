@@ -26,7 +26,7 @@ var _ = Describe("Test cases for config related functions", func() {
 
 		It("Test LoadConfigs", func() {
 
-			bcl := NewBackendConfigLoader()
+			bcl := NewBackendConfigLoader(os.Getenv("MODELS_PATH"))
 			err := bcl.LoadBackendConfigsFromPath(os.Getenv("MODELS_PATH"))
 
 			Expect(err).To(BeNil())
