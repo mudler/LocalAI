@@ -13,4 +13,5 @@ var CLI struct {
 	TTS        TTSCMD        `cmd:"" help:"Convert text to speech"`
 	Transcript TranscriptCMD `cmd:"" help:"Convert audio to text"`
 	Worker     worker.Worker `cmd:"" help:"Run workers to distribute workload (llama.cpp-only)"`
+	Util       UtilCMD       `cmd:"" help:"Utility commands"`
 }

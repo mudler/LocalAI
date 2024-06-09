@@ -42,7 +42,7 @@ func main() {
 
 	for _, envFile := range envFiles {
 		if _, err := os.Stat(envFile); err == nil {
-			log.Info().Str("envFile", envFile).Msg("loading environment variables from file")
+			log.Info().Str("envFile", envFile).Msg("env file found, loading environment variables from file")
 			err = godotenv.Load(envFile)
 			if err != nil {
 				log.Error().Err(err).Str("envFile", envFile).Msg("failed to load environment variables from file")
@@ -117,6 +117,7 @@ Version: ${version}
 
 	// Run the thing!
 	err = ctx.Run(&cli.CLI.Context)
-
-	ctx.FatalIfErrorf(err)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Error running the application")
+	}
 }
