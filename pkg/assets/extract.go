@@ -51,5 +51,25 @@ func ExtractFiles(content embed.FS, extractDir string) error {
 		return nil
 	})
 
+	// If there is a lib directory, set LD_LIBRARY_PATH to include it
+	// we might use this mechanism to carry over e.g. Nvidia CUDA libraries
+	// from the embedded FS to the target directory
+
+	// Skip this if LOCALAI_SKIP_LD_LIBRARY_PATH is set
+	if os.Getenv("LOCALAI_SKIP_LD_LIBRARY_PATH") != "" {
+		return err
+	}
+
+	for _, libDir := range []string{filepath.Join(extractDir, "backend_assets", "lib"), filepath.Join(extractDir, "lib")} {
+		if _, err := os.Stat(libDir); err == nil {
+			ldLibraryPath := os.Getenv("LD_LIBRARY_PATH")
+			if ldLibraryPath == "" {
+				ldLibraryPath = libDir
+			} else {
+				ldLibraryPath = fmt.Sprintf("%s:%s", ldLibraryPath, libDir)
+			}
+			os.Setenv("LD_LIBRARY_PATH", ldLibraryPath)
+		}
+	}
 	return err
 }

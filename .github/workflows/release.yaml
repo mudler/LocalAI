@@ -15,6 +15,103 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+
+  build-linux-arm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.x'
+          cache: false
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg protobuf-compiler ccache
+          sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      - name: Install CUDA Dependencies
+        run: |
+          curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/cross-linux-aarch64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update
+          sudo apt-get install -y cuda-cross-aarch64 cuda-nvcc-cross-aarch64-${CUDA_VERSION} libcublas-cross-aarch64-${CUDA_VERSION}
+        env:
+          CUDA_VERSION: 12-4
+      - name: Cache grpc
+        id: cache-grpc
+        uses: actions/cache@v4
+        with:
+          path: grpc
+          key: ${{ runner.os }}-arm-grpc-${{ env.GRPC_VERSION }}
+      - name: Build grpc
+        if: steps.cache-grpc.outputs.cache-hit != 'true'
+        run: |
+
+          git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+            -DgRPC_BUILD_TESTS=OFF \
+            ../.. && sudo make --jobs 5 --output-sync=target
+      - name: Install gRPC
+        run: |
+          GNU_HOST=aarch64-linux-gnu
+          C_COMPILER_ARM_LINUX=$GNU_HOST-gcc
+          CXX_COMPILER_ARM_LINUX=$GNU_HOST-g++
+
+          CROSS_TOOLCHAIN=/usr/$GNU_HOST
+          CROSS_STAGING_PREFIX=$CROSS_TOOLCHAIN/stage
+          CMAKE_CROSS_TOOLCHAIN=/tmp/arm.toolchain.cmake
+
+          # https://cmake.org/cmake/help/v3.13/manual/cmake-toolchains.7.html#cross-compiling-for-linux
+          echo "set(CMAKE_SYSTEM_NAME Linux)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_SYSTEM_PROCESSOR arm)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_STAGING_PREFIX $CROSS_STAGING_PREFIX)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_SYSROOT ${CROSS_TOOLCHAIN}/sysroot)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_C_COMPILER /usr/bin/$C_COMPILER_ARM_LINUX)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_CXX_COMPILER /usr/bin/$CXX_COMPILER_ARM_LINUX)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN && \
+            echo "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN
+          GRPC_DIR=$PWD/grpc
+          cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install && \
+          GRPC_CROSS_BUILD_DIR=$GRPC_DIR/cmake/cross_build && \
+          mkdir -p $GRPC_CROSS_BUILD_DIR && \
+          cd $GRPC_CROSS_BUILD_DIR && \
+          cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=$CROSS_TOOLCHAIN/grpc_install \
+            ../.. && \
+          sudo make -j`nproc` install
+      - name: Build
+        id: build
+        run: |
+          GNU_HOST=aarch64-linux-gnu
+          C_COMPILER_ARM_LINUX=$GNU_HOST-gcc
+          CXX_COMPILER_ARM_LINUX=$GNU_HOST-g++
+
+          CROSS_TOOLCHAIN=/usr/$GNU_HOST
+          CROSS_STAGING_PREFIX=$CROSS_TOOLCHAIN/stage
+          CMAKE_CROSS_TOOLCHAIN=/tmp/arm.toolchain.cmake
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
+          export PATH=$PATH:$GOPATH/bin
+          export PATH=/usr/local/cuda/bin:$PATH
+          GO_TAGS=p2p GOOS=linux GOARCH=arm64 CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalAI-linux-arm64
+          path: release/
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/*
+
   build-linux:
     runs-on: arc-runner-set
     steps:
