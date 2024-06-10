@@ -68,7 +68,10 @@ func ExtractFiles(content embed.FS, extractDir string) error {
 			} else {
 				ldLibraryPath = fmt.Sprintf("%s:%s", ldLibraryPath, libDir)
 			}
-			os.Setenv("LD_LIBRARY_PATH", ldLibraryPath)
+			err = os.Setenv("LD_LIBRARY_PATH", ldLibraryPath)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return err
