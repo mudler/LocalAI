@@ -109,6 +109,7 @@ Build and deploy custom containers:
 WebUIs:
 - https://github.com/Jirubizu/localai-admin
 - https://github.com/go-skynet/LocalAI-frontend
+- QA-Pilot(An interactive chat project that leverages LocalAI LLMs for rapid understanding and navigation of GitHub code repository) https://github.com/reid41/QA-Pilot
 
 Model galleries
 - https://github.com/go-skynet/model-gallery
@@ -121,6 +122,7 @@ Other:
 - Home Assistant https://github.com/sammcj/homeassistant-localai / https://github.com/drndos/hass-openai-custom-conversation / https://github.com/valentinfrlch/ha-gpt4vision
 - Discord bot https://github.com/mudler/LocalAGI/tree/main/examples/discord
 - Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
+- Shell-Pilot(Interact with LLM using LocalAI models via pure shell scripts on your Linux or MacOS system) https://github.com/reid41/shell-pilot
 - Telegram bot https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot
 - Examples: https://github.com/mudler/LocalAI/tree/master/examples/
   
