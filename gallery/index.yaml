@@ -1,4 +1,27 @@
 ---
+## Start QWEN2
+- &qwen2
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "qwen2-7b-instruct"
+  license: apache-2.0
+  description: |
+    Qwen2 is the new series of Qwen large language models. For Qwen2, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters, including a Mixture-of-Experts model. This repo contains the instruction-tuned 7B Qwen2 model.
+  urls:
+    - https://huggingface.co/Qwen/Qwen2-7B-Instruct
+    - https://huggingface.co/bartowski/Qwen2-7B-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - cpu
+  overrides:
+    parameters:
+      model: Qwen2-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2-7B-Instruct-Q4_K_M.gguf
+      sha256: 8d0d33f0d9110a04aad1711b1ca02dafc0fa658cd83028bdfa5eff89c294fe76
+      uri: huggingface://bartowski/Qwen2-7B-Instruct-GGUF/Qwen2-7B-Instruct-Q4_K_M.gguf
 ## START Mistral
 - &mistral03
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"

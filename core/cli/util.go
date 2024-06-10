@@ -14,7 +14,8 @@ type UtilCMD struct {
 }
 
 type GGUFInfoCMD struct {
-	Args []string `arg:"" optional:"" name:"args" help:"Arguments to pass to the utility command"`
+	Args   []string `arg:"" optional:"" name:"args" help:"Arguments to pass to the utility command"`
+	Header bool     `optional:"" default:"false" name:"header" help:"Show header information"`
 }
 
 func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
@@ -34,6 +35,21 @@ func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
 		Any("bosTokenID", f.Tokenizer().BOSTokenID).
 		Any("modelName", f.Model().Name).
 		Any("architecture", f.Architecture().Architecture).Msgf("GGUF file loaded: %s", u.Args[0])
+
+	log.Info().Any("tokenizer", fmt.Sprintf("%+v", f.Tokenizer())).Msg("Tokenizer")
+	log.Info().Any("architecture", fmt.Sprintf("%+v", f.Architecture())).Msg("Architecture")
+
+	v, exists := f.Header.MetadataKV.Get("tokenizer.chat_template")
+	if exists {
+		log.Info().Msgf("chat_template: %s", v.ValueString())
+	}
+
+	if u.Header {
+		for _, metadata := range f.Header.MetadataKV {
+			log.Info().Msgf("%s: %+v", metadata.Key, metadata.Value)
+		}
+		//	log.Info().Any("header", fmt.Sprintf("%+v", f.Header)).Msg("Header")
+	}
 
 	return nil
 }

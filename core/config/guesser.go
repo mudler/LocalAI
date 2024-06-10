@@ -14,8 +14,10 @@ type familyType uint8
 const (
 	Unknown familyType = iota
 	LLaMa3
-	LLama2
 	CommandR
+	Phi3
+	ChatML
+	Mistral03
 )
 
 type settingsConfig struct {
@@ -23,6 +25,7 @@ type settingsConfig struct {
 	TemplateConfig TemplateConfig
 }
 
+// default settings to adopt with a given model family
 var defaultsSettings map[familyType]settingsConfig = map[familyType]settingsConfig{
 	LLaMa3: {
 		StopWords: []string{"<|eot_id|>"},
@@ -56,6 +59,63 @@ When using a tool, reply with JSON, for instance {"name": "tool_name", "argument
 		},
 		StopWords: []string{"<|END_OF_TURN_TOKEN|>"},
 	},
+	Phi3: {
+		TemplateConfig: TemplateConfig{
+			Chat:        "{{.Input}}\n<|assistant|>",
+			ChatMessage: "<|{{ .RoleName }}|>\n{{.Content}}<|end|>",
+			Completion:  "{{.Input}}",
+		},
+		StopWords: []string{"<|end|>", "<|endoftext|>"},
+	},
+	ChatML: {
+		TemplateConfig: TemplateConfig{
+			Chat: "{{.Input -}}\n<|im_start|>assistant",
+			Functions: `<|im_start|>system
+You are a function calling AI model. You are provided with functions to execute. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
+{{range .Functions}}
+{'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+{{end}}
+For each function call return a json object with function name and arguments
+<|im_end|>
+{{.Input -}}
+<|im_start|>assistant`,
+			ChatMessage: `<|im_start|>{{ .RoleName }}
+{{ if .FunctionCall -}}
+Function call:
+{{ else if eq .RoleName "tool" -}}
+Function response:
+{{ end -}}
+{{ if .Content -}}
+{{.Content }}
+{{ end -}}
+{{ if .FunctionCall -}}
+{{toJson .FunctionCall}}
+{{ end -}}<|im_end|>`,
+		},
+		StopWords: []string{"<|im_end|>", "<dummy32000>", "</s>"},
+	},
+	Mistral03: {
+		TemplateConfig: TemplateConfig{
+			Chat:      "{{.Input -}}",
+			Functions: `[AVAILABLE_TOOLS] [{{range .Functions}}{"type": "function", "function": {"name": "{{.Name}}", "description": "{{.Description}}", "parameters": {{toJson .Parameters}} }}{{end}} ] [/AVAILABLE_TOOLS]{{.Input }}`,
+			ChatMessage: `{{if eq .RoleName "user" -}}
+[INST] {{.Content }} [/INST]
+{{- else if .FunctionCall -}}
+[TOOL_CALLS] {{toJson .FunctionCall}} [/TOOL_CALLS]
+{{- else if eq .RoleName "tool" -}}
+[TOOL_RESULTS] {{.Content}} [/TOOL_RESULTS]
+{{- else -}}
+{{ .Content -}}
+{{ end -}}`,
+		},
+		StopWords: []string{"<|im_end|>", "<dummy32000>", "</tool_call>", "<|eot_id|>", "<|end_of_text|>", "</s>", "[/TOOL_CALLS]", "[/ACTIONS]"},
+	},
+}
+
+// this maps well known template used in HF to model families defined above
+var knownTemplates = map[string]familyType{
+	`{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|im_start|>user\n' + content + '<|im_end|>\n<|im_start|>assistant\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<|im_end|>' + '\n' }}{% endif %}{% endfor %}`:                              ChatML,
+	`{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '[INST] ' + message['content'] + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + eos_token}}{% else %}{{ raise_exception('Only user and assistant roles are supported!') }}{% endif %}{% endfor %}`: Mistral03,
 }
 
 func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
@@ -116,12 +176,38 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 }
 
 func identifyFamily(f *gguf.GGUFFile) familyType {
-	switch {
-	case f.Architecture().Architecture == "llama" && f.Tokenizer().EOSTokenID == 128009:
-		return LLaMa3
-	case f.Architecture().Architecture == "command-r" && f.Tokenizer().EOSTokenID == 255001:
-		return CommandR
+
+	// identify from well known templates first
+	chatTemplate, found := f.Header.MetadataKV.Get("tokenizer.chat_template")
+	if found && chatTemplate.ValueString() != "" {
+		if family, ok := knownTemplates[chatTemplate.ValueString()]; ok {
+			return family
+		}
 	}
 
-	return Unknown
+	// otherwise try to identify from the model properties
+	arch := f.Architecture().Architecture
+	eosTokenID := f.Tokenizer().EOSTokenID
+	bosTokenID := f.Tokenizer().BOSTokenID
+
+	isYI := arch == "llama" && bosTokenID == 1 && eosTokenID == 2
+	// WTF! Mistral0.3 and isYi have same bosTokenID and eosTokenID
+
+	llama3 := arch == "llama" && eosTokenID == 128009
+	commandR := arch == "command-r" && eosTokenID == 255001
+	qwen2 := arch == "qwen2"
+	phi3 := arch == "phi-3"
+
+	switch {
+	case llama3:
+		return LLaMa3
+	case commandR:
+		return CommandR
+	case phi3:
+		return Phi3
+	case qwen2, isYI:
+		return ChatML
+	default:
+		return Unknown
+	}
 }
