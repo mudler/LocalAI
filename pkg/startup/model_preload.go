@@ -42,7 +42,7 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 			log.Debug().Msgf("[startup] resolved embedded model: %s", url)
 			md5Name := utils.MD5(url)
 			modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
-			if err := os.WriteFile(modelDefinitionFilePath, modelYAML, os.ModePerm); err != nil {
+			if err := os.WriteFile(modelDefinitionFilePath, modelYAML, 0600); err != nil {
 				log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error writing model definition")
 			}
 		case downloader.LooksLikeURL(url):
@@ -74,7 +74,7 @@ func PreloadModelsConfigurations(modelLibraryURL string, modelPath string, model
 				}
 
 				modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
-				if err := os.WriteFile(modelDefinitionFilePath, modelYAML, os.ModePerm); err != nil {
+				if err := os.WriteFile(modelDefinitionFilePath, modelYAML, 0600); err != nil {
 					log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error loading model: %s")
 				}
 			} else {
