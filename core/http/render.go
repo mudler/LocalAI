@@ -28,7 +28,6 @@ func notFoundHandler(c *fiber.Ctx) error {
 		// The client expects an HTML response
 		return c.Status(fiber.StatusNotFound).Render("views/404", fiber.Map{})
 	}
-	return nil
 }
 
 func renderEngine() *fiberhtml.Engine {
