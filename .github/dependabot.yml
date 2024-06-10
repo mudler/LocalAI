@@ -1,6 +1,10 @@
 # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 version: 2
 updates:
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "weekly"
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -22,4 +26,112 @@ updates:
     directory: "/"
     schedule:
       # Check for updates to GitHub Actions every weekday
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/autogptq"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/bark"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/common/template"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/coqui"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/diffusers"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/exllama"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/exllama2"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/mamba"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/openvoice"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/parler-tts"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/petals"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/rerankers"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/sentencetransformers"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/transformers"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/transformers-musicgen"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/vall-e-x"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/backend/python/vllm"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/examples/chainlit"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/examples/functions"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/examples/langchain/langchainpy-localai-example"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/examples/langchain-chroma"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/examples/streamlit-bot"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/examples/k8sgpt"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/examples/kubernetes"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/examples/langchain"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "gomod"
+    directory: "/examples/semantic-todo"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/examples/telegram-bot"
+    schedule:
       interval: "weekly"

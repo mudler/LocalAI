@@ -1,10 +1,10 @@
 module semantic-todo
 
-go 1.21.6
+go 1.22
 
 require (
-	github.com/gdamore/tcell/v2 v2.7.1
-	github.com/rivo/tview v0.0.0-20240307173318-e804876934a1
+	github.com/gdamore/tcell/v2 v2.7.4
+	github.com/rivo/tview v0.0.0-20240524063012-037df494fb76
 )
 
 require (

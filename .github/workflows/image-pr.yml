@@ -61,7 +61,7 @@ jobs:
             tag-suffix: '-hipblas'
             ffmpeg: 'false'
             image-type: 'extras'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.1.2"
             grpc-base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"

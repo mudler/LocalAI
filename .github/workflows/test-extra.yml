@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -29,8 +29,8 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.64.0
-          
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+
       - name: Test transformers
         run: |
            make --jobs=5 --output-sync=target -C backend/python/transformers
@@ -41,7 +41,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -51,8 +51,8 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.64.0
-          
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+
       - name: Test sentencetransformers
         run: |
            make --jobs=5 --output-sync=target -C backend/python/sentencetransformers
@@ -64,7 +64,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -74,7 +74,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.64.0
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
 
       - name: Test rerankers
         run: |
@@ -86,7 +86,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -96,7 +96,7 @@ jobs:
           sudo apt-get install -y libopencv-dev
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user grpcio-tools==1.64.0
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
       - name: Test diffusers
         run: |
           make --jobs=5 --output-sync=target -C backend/python/diffusers
@@ -107,7 +107,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -117,19 +117,19 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.64.0
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
 
       - name: Test parler-tts
         run: |
            make --jobs=5 --output-sync=target -C backend/python/parler-tts
            make --jobs=5 --output-sync=target -C backend/python/parler-tts test
-  
+
   tests-openvoice:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -139,7 +139,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.64.0
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
 
       - name: Test openvoice
         run: |
@@ -151,7 +151,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -161,7 +161,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.64.0
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
 
       - name: Test transformers-musicgen
         run: |
@@ -175,7 +175,7 @@ jobs:
   #   steps:
   #     - name: Clone
   #       uses: actions/checkout@v4
-  #       with: 
+  #       with:
   #         submodules: true
   #     - name: Dependencies
   #       run: |
@@ -185,14 +185,14 @@ jobs:
   #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools==1.64.0
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
 
   #     - name: Test petals
   #       run: |
   #          make --jobs=5 --output-sync=target -C backend/python/petals
   #          make --jobs=5 --output-sync=target -C backend/python/petals test
 
-           
+
 
   # tests-bark:
   #   runs-on: ubuntu-latest
@@ -239,7 +239,7 @@ jobs:
   #           df -h
   #     - name: Clone
   #       uses: actions/checkout@v4
-  #       with: 
+  #       with:
   #         submodules: true
   #     - name: Dependencies
   #       run: |
@@ -249,14 +249,14 @@ jobs:
   #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools==1.64.0
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
 
   #     - name: Test bark
   #       run: |
   #          make --jobs=5 --output-sync=target -C backend/python/bark
   #          make --jobs=5 --output-sync=target -C backend/python/bark test
 
-           
+
   # Below tests needs GPU. Commented out for now
   # TODO: Re-enable as soon as we have GPU nodes
   # tests-vllm:
@@ -264,7 +264,7 @@ jobs:
   #   steps:
   #     - name: Clone
   #       uses: actions/checkout@v4
-  #       with: 
+  #       with:
   #         submodules: true
   #     - name: Dependencies
   #       run: |
@@ -274,7 +274,7 @@ jobs:
   #         curl -LsSf https://astral.sh/uv/install.sh | sh
   #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
   #         sudo apt-get install -y libopencv-dev
-  #         pip install --user grpcio-tools==1.64.0
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
   #     - name: Test vllm
   #       run: |
   #          make --jobs=5 --output-sync=target -C backend/python/vllm
@@ -284,7 +284,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -294,7 +294,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake curl patch python3-pip
           sudo apt-get install -y libopencv-dev
-          pip install --user grpcio-tools==1.64.0
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
       - name: Test vall-e-x
         run: |
            make --jobs=5 --output-sync=target -C backend/python/vall-e-x
@@ -305,7 +305,7 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-        with: 
+        with:
           submodules: true
       - name: Dependencies
         run: |
@@ -314,7 +314,7 @@ jobs:
           sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng python3-pip
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip install --user grpcio-tools==1.64.0
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
       - name: Test coqui
         run: |
           make --jobs=5 --output-sync=target -C backend/python/coqui
