@@ -528,6 +528,21 @@
       uri: huggingface://mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF/halu-8b-llama3-blackroot-q4_k_m.gguf
       sha256: 6304c7abadb9c5197485e8b4373b7ed22d9838d5081cd134c4fee823f88ac403
 - !!merge <<: *llama3
+  name: "l3-aethora-15b"
+  urls:
+    - https://huggingface.co/Steelskull/L3-Aethora-15B
+    - https://huggingface.co/SteelQuants/L3-Aethora-15B-Q4_K_M-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/W0qzZK_V1Zt1GdgCIsnrP.png
+  description: |
+    L3-Aethora-15B was crafted through using the abilteration method to adjust model responses. The model's refusal is inhibited, focusing on yielding more compliant and facilitative dialogue interactions. It then underwent a modified DUS (Depth Up Scale) merge (originally used by @Elinas) by using passthrough merge to create a 15b model, with specific adjustments (zeroing) to 'o_proj' and 'down_proj', enhancing its efficiency and reducing perplexity. This created AbL3In-15b.
+  overrides:
+    parameters:
+      model: l3-aethora-15b-q4_k_m.gguf
+  files:
+    - filename: l3-aethora-15b-q4_k_m.gguf
+      uri: huggingface://SteelQuants/L3-Aethora-15B-Q4_K_M-GGUF/l3-aethora-15b-q4_k_m.gguf
+      sha256: 968f77a3187f4865458bfffc51a10bcf49c11263fdd389f13215a704b25947b6
+- !!merge <<: *llama3
   name: "jsl-medllama-3-8b-v2.0"
   license: cc-by-nc-nd-4.0
   icon: https://repository-images.githubusercontent.com/104670986/2e728700-ace4-11ea-9cfc-f3e060b25ddf
