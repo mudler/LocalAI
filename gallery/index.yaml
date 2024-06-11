@@ -543,6 +543,20 @@
       uri: huggingface://SteelQuants/L3-Aethora-15B-Q4_K_M-GGUF/l3-aethora-15b-q4_k_m.gguf
       sha256: 968f77a3187f4865458bfffc51a10bcf49c11263fdd389f13215a704b25947b6
 - !!merge <<: *llama3
+  name: "llama-salad-8x8b"
+  urls:
+    - https://huggingface.co/HiroseKoichi/Llama-Salad-8x8B
+    - https://huggingface.co/bartowski/Llama-Salad-8x8B-GGUF
+  description: |
+    This MoE merge is meant to compete with Mixtral fine-tunes, more specifically Nous-Hermes-2-Mixtral-8x7B-DPO, which I think is the best of them. I've done a bunch of side-by-side comparisons, and while I can't say it wins in every aspect, it's very close. Some of its shortcomings are multilingualism, storytelling, and roleplay, despite using models that are very good at those tasks.
+  overrides:
+    parameters:
+      model: Llama-Salad-8x8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-Salad-8x8B-Q4_K_M.gguf
+      uri: huggingface://bartowski/Llama-Salad-8x8B-GGUF/Llama-Salad-8x8B-Q4_K_M.gguf
+      sha256: 6724949310b6cc8659a4e5cc2899a61b8e3f7e41a8c530de354be54edb9e3385
+- !!merge <<: *llama3
   name: "jsl-medllama-3-8b-v2.0"
   license: cc-by-nc-nd-4.0
   icon: https://repository-images.githubusercontent.com/104670986/2e728700-ace4-11ea-9cfc-f3e060b25ddf
