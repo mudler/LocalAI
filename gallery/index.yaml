@@ -851,6 +851,21 @@
       sha256: 0bc21be5894c2e252ff938ba908bb702774b7de53daca864d707d41f0f98a833
       uri: huggingface://Lewdiculous/llama3-8B-aifeifei-1.0-GGUF-IQ-Imatrix/llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "llama3-8B-aifeifei-1.2-iq-imatrix"
+  urls:
+    - https://huggingface.co/aifeifei798/llama3-8B-aifeifei-1.2
+    - https://huggingface.co/Lewdiculous/llama3-8B-aifeifei-1.2-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/nn_446H9BiIbjPmOVVNyJ.png
+  description: |
+    This model has a narrow use case in mind. Read the original description.
+  overrides:
+    parameters:
+      model: llama3-8B-aifeifei-1.2-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-aifeifei-1.2-Q4_K_M-imat.gguf
+      sha256: 0320e19ae19eec47a77956721ea3339a5c8bae4db69177a020850ec57a34e5c3
+      uri: huggingface://Lewdiculous/llama3-8B-aifeifei-1.2-GGUF-IQ-Imatrix/llama3-8B-aifeifei-1.2-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "rawr_llama3_8b-iq-imatrix"
   urls:
     - https://huggingface.co/ResplendentAI/Rawr_Llama3_8B
