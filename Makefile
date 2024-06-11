@@ -837,3 +837,9 @@ swagger:
 .PHONY: gen-assets
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go embedded/webui_static.yaml core/http/static/assets
+
+docs/layouts/_default: 
+	mkdir -p docs/layouts/_default
+
+docs-models: docs/layouts/_default
+	$(GOCMD) run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/layouts/_default/gallery.html
