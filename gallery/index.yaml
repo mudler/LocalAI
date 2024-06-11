@@ -657,6 +657,20 @@
       sha256: 159eb62f2c8ae8fee10d9ed8386ce592327ca062807194a88e10b7cbb47ef986
       uri: huggingface://Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix/Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "average_normie_v3.69_8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/hfp7eh_Zo_QfVIyfPPJBq.png
+  description: |
+    Another average normie just like you and me... or is it? NSFW focused and easy to steer with editing, this model aims to please even the most hardcore LLM enthusiast. Built upon a foundation of the most depraved models yet to be released, some could argue it goes too far in that direction. Whatever side you land on, at least give it a shot, what do you have to lose?
+  overrides:
+    parameters:
+      model: Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
+      sha256: 01df034ecb6914214d1b7964d261466fdc427b9f960a1b0966ee02237e3fc845
+      uri: huggingface://Lewdiculous/Average_Normie_v3.69_8B-GGUF-IQ-Imatrix/Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "openbiollm-llama3-8b"
   urls:
     - https://huggingface.co/aaditya/OpenBioLLM-Llama3-8B-GGUF
