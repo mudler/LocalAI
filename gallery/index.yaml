@@ -542,6 +542,25 @@
     - filename: l3-aethora-15b-q4_k_m.gguf
       uri: huggingface://SteelQuants/L3-Aethora-15B-Q4_K_M-GGUF/l3-aethora-15b-q4_k_m.gguf
       sha256: 968f77a3187f4865458bfffc51a10bcf49c11263fdd389f13215a704b25947b6
+- name: "duloxetine-4b-v1-iq-imatrix"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Lewdiculous/duloxetine-4b-v1-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/XoKe3MRYNombhCuHrkkCZ.png
+  tags:
+    - qwen
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    roleplaying finetune of kalo-team/qwen-4b-10k-WSD-CEdiff (which in turn is a distillation of qwen 1.5 32b onto qwen 1.5 4b, iirc).
+  overrides:
+    parameters:
+      model: duloxetine-4b-v1-Q4_K_M-imat.gguf
+  files:
+    - filename: duloxetine-4b-v1-Q4_K_M-imat.gguf
+      uri: huggingface://Lewdiculous/duloxetine-4b-v1-GGUF-IQ-Imatrix/duloxetine-4b-v1-Q4_K_M-imat.gguf
+      sha256: cd381f31c810ea8db2219e30701b3316085f5904c1ea3b116682518e82768c1a
 - !!merge <<: *llama3
   name: "llama-salad-8x8b"
   urls:
