@@ -10,7 +10,7 @@ import (
 
 type SecScanCLI struct {
 	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
-	Galleries  string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models"`
+	Galleries  string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 }
 
 func (sscli *SecScanCLI) Run(ctx *cliContext.Context) error {
