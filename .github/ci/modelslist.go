@@ -16,6 +16,7 @@ var modelPageTemplate string = `
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LocalAI models</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
     <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/default.min.css"
@@ -120,13 +121,12 @@ var modelPageTemplate string = `
 
 	You can install models with the CLI command <code>local-ai models install <model-name></code>. or by using the WebUI.
 	</h3>
-
-
+  
 	<input class="form-control appearance-none block w-full mt-5 px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search" 
 	id="searchbox" placeholder="Live search keyword..">
 	  <div class="dark grid grid-cols-1 grid-rows-1 md:grid-cols-3 block rounded-lg shadow-secondary-1 dark:bg-surface-dark">
 		{{ range $_, $model := .Models }}
-		<div class="me-4 mb-2 block rounded-lg bg-white shadow-secondary-1  dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2">
+		<div class="box me-4 mb-2 block rounded-lg bg-white shadow-secondary-1  dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2">
 		<div>
 		    {{ $icon := "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg" }}
 			{{ if $model.Icon }}
@@ -139,17 +139,71 @@ var modelPageTemplate string = `
 				<h5 class="mb-2 text-xl font-medium leading-tight">{{$model.Name}}</h5>
 				
 				   
-				<p class="mb-4 text-base">{{ $model.Description }}</p>
+				<p class="mb-4 text-base truncate">{{ $model.Description }}</p>
 		
 			</div>
 			<div class="px-6 pt-4 pb-2">
-			<div class="flex flex-row flex-wrap content-center">
-				<a href="http://localhost:8080/browse?term={{ $model.Name}}" class="button is-primary">Install in LocalAI ( instance at localhost:8080 )</a>
-				<code> local-ai models install {{$model.Name}} </code>
-				{{ range $_, $u := $model.URLs }}
-				<a href="{{ $u }}" target=_blank>{{ $u }}</a>
-				{{ end }}   
-			</div>
+
+      <!-- Modal toggle -->
+      <button data-modal-target="{{ $model.Name}}-modal" data-modal-toggle="{{ $model.Name }}-modal" class="block text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" type="button">
+        More info
+      </button>
+
+    <!-- Main modal -->
+    <div id="{{ $model.Name}}-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+        <div class="relative p-4 w-full max-w-2xl max-h-full">
+            <!-- Modal content -->
+            <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+                <!-- Modal header -->
+                <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        {{ $model.Name}}
+                    </h3>
+                    <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="{{$model.Name}}-modal">
+                        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                        </svg>
+                        <span class="sr-only">Close modal</span>
+                    </button>
+                </div>
+                <!-- Modal body -->
+                <div class="p-4 md:p-5 space-y-4">
+                    <div class="flex justify-center items-center">
+                    <img  src="{{ $icon }}" alt="{{$model.Name}}" class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3">
+                  </div>
+
+                    <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+                    {{ $model.Description }}
+
+                    </p>
+                    
+                    <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+                    To install the model with the CLI, run: <br>
+                    <code> local-ai models install {{$model.Name}} </code> <br>
+
+                    <hr>
+                    See also <a href="https://localai.io/models/" target="_blank" >
+                    Installation <i class="fas fa-circle-info pr-2"></i>
+                    </a> to see how to install models with the REST API.
+                    </p>
+
+                    <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+                    <ul>
+                    {{ range $_, $u := $model.URLs }}
+                    <li><a href="{{ $u }}" target=_blank><i class="fa-solid fa-link"></i> {{ $u }}</a></li>
+                    {{ end }}  
+                    </ul>
+                    </p>
+                </div>
+                <!-- Modal footer -->
+                <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
+                    <button data-modal-hide="{{ $model.Name}}-modal" type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
 			</div>
 		</div>
 		</div>
@@ -189,6 +243,8 @@ searchInput.addEventListener('keyup', () => {
 </script>
 
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
 </body>
 </html>
 `
