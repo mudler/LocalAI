@@ -838,8 +838,20 @@ swagger:
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go embedded/webui_static.yaml core/http/static/assets
 
+## Documentation
 docs/layouts/_default: 
 	mkdir -p docs/layouts/_default
 
-docs-models: docs/layouts/_default
+docs/static/gallery.html: docs/layouts/_default
 	$(GOCMD) run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
+
+docs/public: docs/layouts/_default docs/static/gallery.html
+	cd docs && hugo --minify
+
+docs-clean:
+	rm -rf docs/public
+	rm -rf docs/static/gallery.html
+
+.PHONY: docs
+docs: docs/static/gallery.html
+	cd docs && hugo serve
