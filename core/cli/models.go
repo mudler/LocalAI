@@ -12,7 +12,7 @@ import (
 )
 
 type ModelsCMDFlags struct {
-	Galleries  string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models"`
+	Galleries  string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 }
 
@@ -52,29 +52,43 @@ func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 }
 
 func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
-	modelName := mi.ModelArgs[0]
+	for _, modelName := range mi.ModelArgs {
 
-	var galleries []gallery.Gallery
-	if err := json.Unmarshal([]byte(mi.Galleries), &galleries); err != nil {
-		log.Error().Err(err).Msg("unable to load galleries")
-	}
-
-	progressBar := progressbar.NewOptions(
-		1000,
-		progressbar.OptionSetDescription(fmt.Sprintf("downloading model %s", modelName)),
-		progressbar.OptionShowBytes(false),
-		progressbar.OptionClearOnFinish(),
-	)
-	progressCallback := func(fileName string, current string, total string, percentage float64) {
-		v := int(percentage * 10)
-		err := progressBar.Set(v)
-		if err != nil {
-			log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
+		var galleries []gallery.Gallery
+		if err := json.Unmarshal([]byte(mi.Galleries), &galleries); err != nil {
+			log.Error().Err(err).Msg("unable to load galleries")
 		}
-	}
-	err := gallery.InstallModelFromGallery(galleries, modelName, mi.ModelsPath, gallery.GalleryModel{}, progressCallback)
-	if err != nil {
-		return err
+
+		progressBar := progressbar.NewOptions(
+			1000,
+			progressbar.OptionSetDescription(fmt.Sprintf("downloading model %s", modelName)),
+			progressbar.OptionShowBytes(false),
+			progressbar.OptionClearOnFinish(),
+		)
+		progressCallback := func(fileName string, current string, total string, percentage float64) {
+			v := int(percentage * 10)
+			err := progressBar.Set(v)
+			if err != nil {
+				log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
+			}
+		}
+
+		models, err := gallery.AvailableGalleryModels(galleries, mi.ModelsPath)
+		if err != nil {
+			return err
+		}
+
+		model := gallery.FindModel(models, modelName, mi.ModelsPath)
+		if model == nil {
+			log.Error().Str("model", modelName).Msg("model not found")
+			return err
+		}
+
+		log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
+		err = gallery.InstallModelFromGalleryByName(galleries, modelName, mi.ModelsPath, gallery.GalleryModel{}, progressCallback)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
