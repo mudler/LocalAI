@@ -14,11 +14,17 @@ type SecScanCLI struct {
 }
 
 func (sscli *SecScanCLI) Run(ctx *cliContext.Context) error {
-
+	log.Info().Msg("LocalAI Security Scanner - This is BEST EFFORT functionality! Currently limited to huggingface models!")
 	var galleries []gallery.Gallery
 	if err := json.Unmarshal([]byte(sscli.Galleries), &galleries); err != nil {
 		log.Error().Err(err).Msg("unable to load galleries")
 	}
 
-	return gallery.SafetyScanGalleryModels(galleries, sscli.ModelsPath)
+	err := gallery.SafetyScanGalleryModels(galleries, sscli.ModelsPath)
+	if err == nil {
+		log.Info().Msg("No security warnings were detected for your installed models. Please note that this is a BEST EFFORT tool, and all issues may not be detected.")
+	} else {
+		log.Error().Err(err).Msg("! WARNING ! A known-vulnerable model is installed!")
+	}
+	return err
 }
