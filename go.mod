@@ -60,6 +60,8 @@ require (
 )
 
 require (
+	github.com/PuerkitoBio/goquery v1.9.2 // indirect
+	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/c-robinson/iplib v1.0.8 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect

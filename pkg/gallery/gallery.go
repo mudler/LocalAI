@@ -3,10 +3,12 @@ package gallery
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/imdario/mergo"
 	"github.com/rs/zerolog/log"
@@ -140,6 +142,61 @@ func AvailableGalleryModels(galleries []Gallery, basePath string) ([]*GalleryMod
 	}
 
 	return models, nil
+}
+
+// This is ***NEVER*** going to be perfect or finished.
+// This is a BEST EFFORT function to surface known-vulnerable models to users.
+func SafetyScanGalleryModels(galleries []Gallery, basePath string) error {
+	galleryModels, err := AvailableGalleryModels(galleries, basePath)
+	if err != nil {
+		return err
+	}
+	for _, gM := range galleryModels {
+		if gM.Installed == true {
+			err = errors.Join(err, SafetyScanGalleryModel(gM))
+		}
+	}
+	return err
+}
+
+func SafetyScanGalleryModel(galleryModel *GalleryModel) error {
+	for _, file := range galleryModel.AdditionalFiles {
+		switch {
+		case strings.HasPrefix(file.URI, downloader.HuggingFacePrefix):
+			templatedUrl := downloader.ConvertURL(file.URI)
+			parts := strings.Split(templatedUrl, "/")
+			repoURL := fmt.Sprintf("https://huggingface.co/%s/%s", parts[4], parts[5])
+			resp, err := http.Get(repoURL)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != 200 {
+				return fmt.Errorf("[SecurityScan] received an unexpected status code %d while querying %q", resp.StatusCode, repoURL)
+			}
+			doc, err := goquery.NewDocumentFromReader(resp.Body)
+			if err != nil {
+				return err
+			}
+			// TODO: Is there a more elegant method than Map here I'm missing?
+			parsed := doc.Find("div.alert-danger div p").Map(func(i int, s *goquery.Selection) string {
+				if strings.HasSuffix(s.Text(), "that has been marked as unsafe.") {
+					return fmt.Sprintf("SafetyScan failed for %q", galleryModel.Name)
+				}
+				return ""
+			})
+			for _, pR := range parsed {
+				if pR != "" {
+					err := errors.New(pR)
+					log.Error().Err(err).Str("model name", galleryModel.Name).Str("file url", file.URI).Msg("SafetyScan detected huggingface warning on repository")
+					return err
+				}
+			}
+		default:
+			log.Debug().Str("model name", galleryModel.Name).Str("url", galleryModel.URL).Msg("currently unable to safety scan urls of this type")
+		}
+	}
+	return nil
 }
 
 func findGalleryURLFromReferenceURL(url string, basePath string) (string, error) {
