@@ -7,6 +7,7 @@ toolchain go1.22.2
 require (
 	github.com/M0Rf30/go-tiny-dream v0.0.0-20231128165230-772a9c0d9aaf
 	github.com/Masterminds/sprig/v3 v3.2.3
+	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/alecthomas/kong v0.9.0
 	github.com/charmbracelet/glamour v0.7.0
 	github.com/chasefleming/elem-go v0.25.0
@@ -47,6 +48,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.9
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/swag v1.16.3
+	github.com/thxcode/gguf-parser-go v0.0.6
 	github.com/tmc/langchaingo v0.0.0-20231019140956-c636b3da7701
 	github.com/valyala/fasthttp v1.51.0
 	go.opentelemetry.io/otel v1.19.0
@@ -60,7 +62,6 @@ require (
 )
 
 require (
-	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/c-robinson/iplib v1.0.8 // indirect
@@ -139,7 +140,6 @@ require (
 	github.com/smallnest/ringbuffer v0.0.0-20240423223918-bab516b2000b // indirect
 	github.com/songgao/packets v0.0.0-20160404182456-549a10cd4091 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/thxcode/gguf-parser-go v0.0.6 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
