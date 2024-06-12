@@ -42,6 +42,7 @@ backend-assets/*
 !backend-assets/.keep
 prepare
 /ggml-metal.metal
+docs/static/gallery.html
 
 # Protobuf generated files
 *.pb.go
