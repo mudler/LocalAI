@@ -84,6 +84,11 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			return err
 		}
 
+		err = gallery.SafetyScanGalleryModel(model)
+		if err != nil {
+			return err
+		}
+
 		log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		err = gallery.InstallModelFromGalleryByName(galleries, modelName, mi.ModelsPath, gallery.GalleryModel{}, progressCallback)
 		if err != nil {
