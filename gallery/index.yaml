@@ -542,6 +542,25 @@
     - filename: l3-aethora-15b-q4_k_m.gguf
       uri: huggingface://SteelQuants/L3-Aethora-15B-Q4_K_M-GGUF/l3-aethora-15b-q4_k_m.gguf
       sha256: 968f77a3187f4865458bfffc51a10bcf49c11263fdd389f13215a704b25947b6
+- name: "duloxetine-4b-v1-iq-imatrix"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Lewdiculous/duloxetine-4b-v1-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/XoKe3MRYNombhCuHrkkCZ.png
+  tags:
+    - qwen
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    roleplaying finetune of kalo-team/qwen-4b-10k-WSD-CEdiff (which in turn is a distillation of qwen 1.5 32b onto qwen 1.5 4b, iirc).
+  overrides:
+    parameters:
+      model: duloxetine-4b-v1-Q4_K_M-imat.gguf
+  files:
+    - filename: duloxetine-4b-v1-Q4_K_M-imat.gguf
+      uri: huggingface://Lewdiculous/duloxetine-4b-v1-GGUF-IQ-Imatrix/duloxetine-4b-v1-Q4_K_M-imat.gguf
+      sha256: cd381f31c810ea8db2219e30701b3316085f5904c1ea3b116682518e82768c1a
 - !!merge <<: *llama3
   name: "llama-salad-8x8b"
   urls:
@@ -574,6 +593,45 @@
     - filename: JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
       sha256: 81783128ccd438c849913416c6e68cb35b2c77d6943cba8217d6d9bcc91b3632
       uri: huggingface://bartowski/JSL-MedLlama-3-8B-v2.0-GGUF/JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "badger-lambda-llama-3-8b"
+  urls:
+    - https://huggingface.co/maldv/badger-lambda-llama-3-8b
+    - https://huggingface.co/bartowski/badger-lambda-llama-3-8b-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c1b098c85365af5a83e/CHGsewUsPUZcg2doijuD9.png
+  description: |
+    Badger is a recursive maximally pairwise disjoint normalized denoised fourier interpolation of the following models:
+    # Badger Lambda
+    models = [
+    'Einstein-v6.1-Llama3-8B',
+    'openchat-3.6-8b-20240522',
+    'hyperdrive-l3-8b-s3',
+    'L3-TheSpice-8b-v0.8.3',
+    'LLaMA3-iterative-DPO-final',
+    'JSL-MedLlama-3-8B-v9',
+    'Jamet-8B-L3-MK.V-Blackroot',
+    'French-Alpaca-Llama3-8B-Instruct-v1.0',
+    'LLaMAntino-3-ANITA-8B-Inst-DPO-ITA',
+    'Llama-3-8B-Instruct-Gradient-4194k',
+    'Roleplay-Llama-3-8B',
+    'L3-8B-Stheno-v3.2',
+    'llama-3-wissenschaft-8B-v2',
+    'opus-v1.2-llama-3-8b-instruct-run3.5-epoch2.5',
+    'Configurable-Llama-3-8B-v0.3',
+    'Llama-3-8B-Instruct-EPO-checkpoint5376',
+    'Llama-3-8B-Instruct-Gradient-4194k',
+    'Llama-3-SauerkrautLM-8b-Instruct',
+    'spelljammer',
+    'meta-llama-3-8b-instruct-hf-ortho-baukit-34fail-3000total-bf16',
+    'Meta-Llama-3-8B-Instruct-abliterated-v3',
+    ]
+  overrides:
+    parameters:
+      model: badger-lambda-llama-3-8b-Q4_K_M.gguf
+  files:
+    - filename: badger-lambda-llama-3-8b-Q4_K_M.gguf
+      uri: huggingface://bartowski/badger-lambda-llama-3-8b-GGUF/badger-lambda-llama-3-8b-Q4_K_M.gguf
+      sha256: 0a7d1bbf42d669898072429079b91c16b0d2d838d19d9194165389102413b309
 - !!merge <<: *llama3
   name: "sovl_llama3_8b-gguf-iq-imatrix"
   urls:
@@ -656,6 +714,20 @@
     - filename: Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
       sha256: 159eb62f2c8ae8fee10d9ed8386ce592327ca062807194a88e10b7cbb47ef986
       uri: huggingface://Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix/Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "average_normie_v3.69_8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/hfp7eh_Zo_QfVIyfPPJBq.png
+  description: |
+    Another average normie just like you and me... or is it? NSFW focused and easy to steer with editing, this model aims to please even the most hardcore LLM enthusiast. Built upon a foundation of the most depraved models yet to be released, some could argue it goes too far in that direction. Whatever side you land on, at least give it a shot, what do you have to lose?
+  overrides:
+    parameters:
+      model: Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
+      sha256: 01df034ecb6914214d1b7964d261466fdc427b9f960a1b0966ee02237e3fc845
+      uri: huggingface://Lewdiculous/Average_Normie_v3.69_8B-GGUF-IQ-Imatrix/Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
   name: "openbiollm-llama3-8b"
   urls:
