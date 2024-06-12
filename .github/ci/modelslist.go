@@ -17,6 +17,8 @@ var modelPageTemplate string = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LocalAI models</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.min.js"></script>
+
     <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/default.min.css"
@@ -133,7 +135,7 @@ var modelPageTemplate string = `
 	  		{{ $icon = $model.Icon }}
 	  		{{ end }}
 			<div class="flex justify-center items-center">
-				<img  src="{{ $icon }}" alt="{{$model.Name}}" class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3">
+				<img data-src="{{ $icon }}" alt="{{$model.Name}}" class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3 lazy">
 			</div>
 	  		<div class="p-6 text-surface dark:text-white">
 				<h5 class="mb-2 text-xl font-medium leading-tight">{{$model.Name}}</h5>
@@ -169,7 +171,7 @@ var modelPageTemplate string = `
                 <!-- Modal body -->
                 <div class="p-4 md:p-5 space-y-4">
                     <div class="flex justify-center items-center">
-                    <img  src="{{ $icon }}" alt="{{$model.Name}}" class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3">
+                    <img data-src="{{ $icon }}" alt="{{$model.Name}}" class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3">
                   </div>
 
                     <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
@@ -214,6 +216,10 @@ var modelPageTemplate string = `
 </div>
 
 <script>
+var lazyLoadInstance = new LazyLoad({
+  // Your custom settings go here
+});
+
 let cards = document.querySelectorAll('.box')
     
 function liveSearch() {
