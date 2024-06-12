@@ -842,4 +842,4 @@ docs/layouts/_default:
 	mkdir -p docs/layouts/_default
 
 docs-models: docs/layouts/_default
-	$(GOCMD) run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/layouts/_default/gallery.html
+	$(GOCMD) run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
