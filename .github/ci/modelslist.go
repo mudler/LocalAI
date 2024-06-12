@@ -115,41 +115,47 @@ var modelPageTemplate string = `
 			<i class="fas fa-circle-info pr-2"></i>
 		</a></h2> 
 
-		<h3>	  
-		Refer to <a href="https://localai.io/models" target=_blank> Model gallery</a> for more information on how to use the models with LocalAI.
+	<h3>	  
+	Refer to <a href="https://localai.io/models" target=_blank> Model gallery</a> for more information on how to use the models with LocalAI.
 
-		You can install models with the CLI command <code>local-ai models install <model-name></code>. or by using the WebUI.
-		</h3>
-
-
-		<input class="form-control appearance-none block w-full mt-5 px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search" 
-		id="searchbox" placeholder="Live search keyword..">
+	You can install models with the CLI command <code>local-ai models install <model-name></code>. or by using the WebUI.
+	</h3>
 
 
-  
-    
- 
-
+	<input class="form-control appearance-none block w-full mt-5 px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search" 
+	id="searchbox" placeholder="Live search keyword..">
+	  <div class="dark grid grid-cols-1 grid-rows-1 md:grid-cols-3 block rounded-lg shadow-secondary-1 dark:bg-surface-dark">
 		{{ range $_, $model := .Models }}
 		<div class="me-4 mb-2 block rounded-lg bg-white shadow-secondary-1  dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2">
 		<div>
+		    {{ $icon := "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg" }}
+			{{ if $model.Icon }}
+	  		{{ $icon = $model.Icon }}
+	  		{{ end }}
 			<div class="flex justify-center items-center">
-				<img src="{{$model.Icon}}" alt="{{$model.Name}}" class="mb-3">
+				<img  src="{{ $icon }}" alt="{{$model.Name}}" class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3">
 			</div>
 	  		<div class="p-6 text-surface dark:text-white">
-				<strong>{{$model.Name}}</strong>
+				<h5 class="mb-2 text-xl font-medium leading-tight">{{$model.Name}}</h5>
 				
-				{{ range $_, $u := $model.URLs }}
-				<p>{{ $u }}</p>
-				{{ end }}      
-				<p>{{ $model.Description }}</p>
+				   
+				<p class="mb-4 text-base">{{ $model.Description }}</p>
+		
+			</div>
+			<div class="px-6 pt-4 pb-2">
+			<div class="flex flex-row flex-wrap content-center">
 				<a href="http://localhost:8080/browse?term={{ $model.Name}}" class="button is-primary">Install in LocalAI ( instance at localhost:8080 )</a>
-				<code> local-ai models install [[$model.Name]] </code>
+				<code> local-ai models install {{$model.Name}} </code>
+				{{ range $_, $u := $model.URLs }}
+				<a href="{{ $u }}" target=_blank>{{ $u }}</a>
+				{{ end }}   
+			</div>
 			</div>
 		</div>
 		</div>
 		{{ end }}      
 
+		</div>
   </div>
 </div>
 
