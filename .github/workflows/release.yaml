@@ -268,19 +268,15 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
-          BACKEND_LIBS="$(ls /opt/homebrew/opt/protobuf/lib/libprotobuf.**.dylib /opt/homebrew/opt/abseil/lib/libabsl_flags_parse.**.dylib | xargs)" GO_TAGS=p2p make dist
+          
+          BACKEND_LIBS="$(ls /opt/homebrew/opt/grpc/lib/*.dylib /opt/homebrew/opt/re2/lib/*.dylib /opt/homebrew/opt/openssl@3/lib/*.dylib /opt/homebrew/opt/protobuf/lib/*.dylib /opt/homebrew/opt/abseil/lib/*.dylib | xargs)" GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-MacOS-arm64
           path: release/
-      - name: Setup tmate session if tests fail
-        uses: mxschmitt/action-tmate@v3.18
-        with:
-          limit-access-to-actor: true
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             release/*
-
