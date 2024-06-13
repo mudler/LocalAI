@@ -19,6 +19,7 @@ type SecScanCLI struct {
 func (sscli *SecScanCLI) Run(ctx *cliContext.Context) error {
 	log.Info().Msg("LocalAI Security Scanner - This is BEST EFFORT functionality! Currently limited to huggingface models!")
 	if len(sscli.ToScan) == 0 {
+		log.Info().Msg("Checking all installed models against galleries")
 		var galleries []gallery.Gallery
 		if err := json.Unmarshal([]byte(sscli.Galleries), &galleries); err != nil {
 			log.Error().Err(err).Msg("unable to load galleries")
@@ -33,6 +34,7 @@ func (sscli *SecScanCLI) Run(ctx *cliContext.Context) error {
 		return err
 	} else {
 		for _, uri := range sscli.ToScan {
+			log.Info().Str("uri", uri).Msg("scanning specific uri")
 			scanResults, err := downloader.HuggingFaceScan(uri)
 			if err != nil && !errors.Is(err, downloader.NonHuggingFaceFileError) {
 				log.Error().Err(err).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("! WARNING ! A known-vulnerable model is installed!")
