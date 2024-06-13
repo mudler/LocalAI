@@ -333,10 +333,10 @@ var NonHuggingFaceFileError = errors.New("not a huggingface repo")
 
 func HuggingFaceScan(uri string) (*HuggingFaceScanResult, error) {
 	cleanParts := strings.Split(ConvertURL(uri), "/")
-	if len(cleanParts) <= 2 || cleanParts[0] != "https://huggingface.co" {
+	if len(cleanParts) <= 4 || cleanParts[2] != "https://huggingface.co" {
 		return nil, NonHuggingFaceFileError
 	}
-	results, err := http.Get(fmt.Sprintf("https://huggingface.co/api/models/%s/%s/scan", cleanParts[1], cleanParts[2]))
+	results, err := http.Get(fmt.Sprintf("https://huggingface.co/api/models/%s/%s/scan", cleanParts[3], cleanParts[4]))
 	if err != nil {
 		return nil, err
 	}
