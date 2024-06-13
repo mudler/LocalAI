@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 func ResolvePath(dir string, paths ...string) string {
@@ -55,20 +56,25 @@ func ExtractFiles(content embed.FS, extractDir string) error {
 	// we might use this mechanism to carry over e.g. Nvidia CUDA libraries
 	// from the embedded FS to the target directory
 
-	// Skip this if LOCALAI_SKIP_LD_LIBRARY_PATH is set
-	if os.Getenv("LOCALAI_SKIP_LD_LIBRARY_PATH") != "" {
+	// Skip this if LOCALAI_SKIP_LIBRARY_PATH is set
+	if os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != "" {
 		return err
+	}
+
+	lpathVar := "LD_LIBRARY_PATH"
+	if runtime.GOOS == "darwin" {
+		lpathVar = "DYLD_FALLBACK_LIBRARY_PATH" // should it be DYLD_LIBRARY_PATH ?
 	}
 
 	for _, libDir := range []string{filepath.Join(extractDir, "backend_assets", "lib"), filepath.Join(extractDir, "lib")} {
 		if _, err := os.Stat(libDir); err == nil {
-			ldLibraryPath := os.Getenv("LD_LIBRARY_PATH")
+			ldLibraryPath := os.Getenv(lpathVar)
 			if ldLibraryPath == "" {
 				ldLibraryPath = libDir
 			} else {
 				ldLibraryPath = fmt.Sprintf("%s:%s", ldLibraryPath, libDir)
 			}
-			os.Setenv("LD_LIBRARY_PATH", ldLibraryPath)
+			os.Setenv(lpathVar, ldLibraryPath)
 		}
 	}
 	return err
