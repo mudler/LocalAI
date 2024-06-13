@@ -1,6 +1,7 @@
 package gallery
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -110,8 +111,15 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
 			return err
 		}
+
 		// Create file path
 		filePath := filepath.Join(basePath, file.Filename)
+
+		scanResults, err := downloader.HuggingFaceScan(file.URI)
+		if err != nil && !errors.Is(err, downloader.NonHuggingFaceFileError) {
+			log.Error().Str("model", config.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
+			return err
+		}
 
 		if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
 			return err

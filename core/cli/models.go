@@ -2,10 +2,12 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
 
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/startup"
 	"github.com/rs/zerolog/log"
@@ -81,6 +83,11 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		model := gallery.FindModel(models, modelName, mi.ModelsPath)
 		if model == nil {
 			log.Error().Str("model", modelName).Msg("model not found")
+			return err
+		}
+
+		err = gallery.SafetyScanGalleryModel(model)
+		if err != nil && !errors.Is(err, downloader.NonHuggingFaceFileError) {
 			return err
 		}
 

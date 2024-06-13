@@ -14,4 +14,5 @@ var CLI struct {
 	Transcript TranscriptCMD `cmd:"" help:"Convert audio to text"`
 	Worker     worker.Worker `cmd:"" help:"Run workers to distribute workload (llama.cpp-only)"`
 	Util       UtilCMD       `cmd:"" help:"Utility commands"`
+	SecScan    SecScanCLI    `cmd:"" help:"Checks installed models for known security issues. WARNING: this is a best-effort feature and may not catch everything!"`
 }
