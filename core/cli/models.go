@@ -87,7 +87,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		}
 
 		err = gallery.SafetyScanGalleryModel(model)
-		if err != nil && !errors.Is(err, downloader.NonHuggingFaceFileError) {
+		if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
 			return err
 		}
 

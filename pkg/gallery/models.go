@@ -116,7 +116,7 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		filePath := filepath.Join(basePath, file.Filename)
 
 		scanResults, err := downloader.HuggingFaceScan(file.URI)
-		if err != nil && !errors.Is(err, downloader.NonHuggingFaceFileError) {
+		if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
 			log.Error().Str("model", config.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
 			return err
 		}

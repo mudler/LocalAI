@@ -329,12 +329,12 @@ type HuggingFaceScanResult struct {
 	ScansDone           bool
 }
 
-var NonHuggingFaceFileError = errors.New("not a huggingface repo")
+var ErrNonHuggingFaceFile = errors.New("not a huggingface repo")
 
 func HuggingFaceScan(uri string) (*HuggingFaceScanResult, error) {
 	cleanParts := strings.Split(ConvertURL(uri), "/")
-	if len(cleanParts) <= 4 || cleanParts[2] != "https://huggingface.co" {
-		return nil, NonHuggingFaceFileError
+	if len(cleanParts) <= 4 || cleanParts[2] != "huggingface.co" {
+		return nil, ErrNonHuggingFaceFile
 	}
 	results, err := http.Get(fmt.Sprintf("https://huggingface.co/api/models/%s/%s/scan", cleanParts[3], cleanParts[4]))
 	if err != nil {

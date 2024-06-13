@@ -251,7 +251,7 @@ func SafetyScanGalleryModels(galleries []Gallery, basePath string) error {
 func SafetyScanGalleryModel(galleryModel *GalleryModel) error {
 	for _, file := range galleryModel.AdditionalFiles {
 		scanResults, err := downloader.HuggingFaceScan(file.URI)
-		if err != nil && !errors.Is(err, downloader.NonHuggingFaceFileError) {
+		if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
 			log.Error().Str("model", galleryModel.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
 			return err
 		}
