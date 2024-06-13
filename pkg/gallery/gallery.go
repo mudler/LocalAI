@@ -20,7 +20,7 @@ type Gallery struct {
 	Name string `json:"name" yaml:"name"`
 }
 
-// Installs a model from the gallery (galleryname@modelname)
+// Installs a model from the gallery
 func InstallModelFromGallery(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
 
 	applyModel := func(model *GalleryModel) error {
@@ -114,11 +114,6 @@ func FindModel(models []*GalleryModel, name string, basePath string) *GalleryMod
 	}
 
 	return model
-}
-
-// InstallModelFromGalleryByName is planned for deprecation
-func InstallModelFromGalleryByName(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
-	return InstallModelFromGallery(galleries, name, basePath, req, downloadStatus)
 }
 
 // List available models
