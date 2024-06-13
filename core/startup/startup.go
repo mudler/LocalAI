@@ -59,8 +59,9 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		}
 	}
 
-	//
-	pkgStartup.PreloadModelsConfigurations(options.ModelLibraryURL, options.ModelPath, options.ModelsURL...)
+	if err := pkgStartup.InstallModels(options.Galleries, options.ModelLibraryURL, options.ModelPath, nil, options.ModelsURL...); err != nil {
+		log.Error().Err(err).Msg("error installing models")
+	}
 
 	cl := config.NewBackendConfigLoader(options.ModelPath)
 	ml := model.NewModelLoader(options.ModelPath)

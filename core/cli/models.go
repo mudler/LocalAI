@@ -7,6 +7,7 @@ import (
 	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
+	"github.com/go-skynet/LocalAI/pkg/startup"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
 )
@@ -52,12 +53,11 @@ func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 }
 
 func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
+	var galleries []gallery.Gallery
+	if err := json.Unmarshal([]byte(mi.Galleries), &galleries); err != nil {
+		log.Error().Err(err).Msg("unable to load galleries")
+	}
 	for _, modelName := range mi.ModelArgs {
-
-		var galleries []gallery.Gallery
-		if err := json.Unmarshal([]byte(mi.Galleries), &galleries); err != nil {
-			log.Error().Err(err).Msg("unable to load galleries")
-		}
 
 		progressBar := progressbar.NewOptions(
 			1000,
@@ -72,7 +72,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 				log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
 			}
 		}
-
+		//startup.InstallModels()
 		models, err := gallery.AvailableGalleryModels(galleries, mi.ModelsPath)
 		if err != nil {
 			return err
@@ -85,7 +85,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		}
 
 		log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
-		err = gallery.InstallModelFromGalleryByName(galleries, modelName, mi.ModelsPath, gallery.GalleryModel{}, progressCallback)
+		err = startup.InstallModels(galleries, "", mi.ModelsPath, progressCallback, modelName)
 		if err != nil {
 			return err
 		}
