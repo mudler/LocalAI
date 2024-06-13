@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -18,6 +19,7 @@ const (
 	Phi3
 	ChatML
 	Mistral03
+	Gemma
 )
 
 type settingsConfig struct {
@@ -27,6 +29,14 @@ type settingsConfig struct {
 
 // default settings to adopt with a given model family
 var defaultsSettings map[familyType]settingsConfig = map[familyType]settingsConfig{
+	Gemma: {
+		StopWords: []string{"<|im_end|>", "<end_of_turn>", "<start_of_turn>"},
+		TemplateConfig: TemplateConfig{
+			Chat:        "{{.Input }}\n<|start_of_turn|>model\n",
+			ChatMessage: "<|start_of_turn|>{{if eq .RoleName \"assistant\" }}model{{else}}{{ .RoleName }}{{end}}\n{{ if .Content -}}\n{{.Content -}}\n{{ end -}}<|end_of_turn|>",
+			Completion:  "{{.Input}}",
+		},
+	},
 	LLaMa3: {
 		StopWords: []string{"<|eot_id|>"},
 		TemplateConfig: TemplateConfig{
@@ -197,8 +207,11 @@ func identifyFamily(f *gguf.GGUFFile) familyType {
 	commandR := arch == "command-r" && eosTokenID == 255001
 	qwen2 := arch == "qwen2"
 	phi3 := arch == "phi-3"
+	gemma := strings.HasPrefix(f.Model().Name, "gemma")
 
 	switch {
+	case gemma:
+		return Gemma
 	case llama3:
 		return LLaMa3
 	case commandR:
