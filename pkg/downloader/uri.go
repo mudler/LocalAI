@@ -330,6 +330,7 @@ type HuggingFaceScanResult struct {
 }
 
 var ErrNonHuggingFaceFile = errors.New("not a huggingface repo")
+var ErrUnsafeFilesFound = errors.New("unsafe files found")
 
 func HuggingFaceScan(uri string) (*HuggingFaceScanResult, error) {
 	cleanParts := strings.Split(ConvertURL(uri), "/")
@@ -353,7 +354,7 @@ func HuggingFaceScan(uri string) (*HuggingFaceScanResult, error) {
 		return nil, err
 	}
 	if scanResult.HasUnsafeFiles {
-		return scanResult, errors.New("unsafe files found")
+		return scanResult, ErrUnsafeFilesFound
 	}
 	return scanResult, nil
 }
