@@ -313,6 +313,10 @@ build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
+ifneq ($(BACKEND_LIB),)
+	$(MAKE) backend-assets/lib
+	cp -r $(BACKEND_LIB) backend-assets/lib/
+endif
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 build-minimal:
@@ -320,6 +324,9 @@ build-minimal:
 
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
+
+backend-assets/lib:
+	mkdir -p backend-assets/lib
 
 dist:
 	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-avx2
