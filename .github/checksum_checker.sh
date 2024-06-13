@@ -44,12 +44,24 @@ def calculate_sha256(file_path):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
+def manual_safety_check_hf(repo_id):
+    scanResponse = requests.get('https://huggingface.co/api/models/' + repo_id + "/scan")
+    scan = scanResponse.json()
+    if scan['hasUnsafeFile']:
+        return scan
+    return None
+
 download_type, repo_id_or_url = parse_uri(uri)
 
 new_checksum =  None
 
 # Decide download method based on URI type
 if download_type == 'huggingface':
+    # Check if the repo is flagged as dangerous by HF
+    hazard = manual_safety_check_hf(repo_id_or_url)
+    if hazard != None:
+        print(f'Error: HuggingFace has detected security problems for {repo_id_or_url}: {str(hazard)}', filename=file_name)
+        sys.exit(2)
     # Use HF API to pull sha
     for file in get_paths_info(repo_id_or_url, [file_name], repo_type='model'):
         try:
