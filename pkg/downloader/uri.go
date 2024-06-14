@@ -321,12 +321,12 @@ func calculateSHA(filePath string) (string, error) {
 }
 
 type HuggingFaceScanResult struct {
-	RepositoryId        string
-	Revision            string
-	HasUnsafeFiles      bool
-	ClamAVInfectedFiles []string
-	DangerousPickles    []string
-	ScansDone           bool
+	RepositoryId        string   `json:"repositoryId"`
+	Revision            string   `json:"revision"`
+	HasUnsafeFiles      bool     `json:"hasUnsafeFile"`
+	ClamAVInfectedFiles []string `json:"clamAVInfectedFiles"`
+	DangerousPickles    []string `json:"dangerousPickles"`
+	ScansDone           bool     `json:"scansDone"`
 }
 
 var ErrNonHuggingFaceFile = errors.New("not a huggingface repo")
