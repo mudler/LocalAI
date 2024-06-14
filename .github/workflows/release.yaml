@@ -102,7 +102,7 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           
           GO_TAGS=p2p \
-          BACKEND_LIBS="./grpc/cmake/cross_build/third_party/re2/lib/libre2.a ./grpc/cmake/cross_build/libgrpc.a ./grpc/cmake/cross_build/libgrpc++.a ./grpc/cmake/cross_build/third_party/protobuf/libprotobuf.a /usr/aarch64-linux-gnu/lib/libc.so.6 /usr/aarch64-linux-gnu/lib/libstdc++.so.6 /usr/aarch64-linux-gnu/lib/libgomp.so.1 /usr/aarch64-linux-gnu/lib/libm.so.6 /usr/aarch64-linux-gnu/lib/libgcc_s.so.1 /usr/aarch64-linux-gnu/lib/libdl.so.2 /usr/aarch64-linux-gnu/lib/libpthread.so.0" \
+          BACKEND_LIBS="./grpc/cmake/cross_build/third_party/re2/libre2.a ./grpc/cmake/cross_build/libgrpc.a ./grpc/cmake/cross_build/libgrpc++.a ./grpc/cmake/cross_build/third_party/protobuf/libprotobuf.a /usr/aarch64-linux-gnu/lib/libc.so.6 /usr/aarch64-linux-gnu/lib/libstdc++.so.6 /usr/aarch64-linux-gnu/lib/libgomp.so.1 /usr/aarch64-linux-gnu/lib/libm.so.6 /usr/aarch64-linux-gnu/lib/libgcc_s.so.1 /usr/aarch64-linux-gnu/lib/libdl.so.2 /usr/aarch64-linux-gnu/lib/libpthread.so.0" \
           GOOS=linux \
           GOARCH=arm64 \
           CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
@@ -210,7 +210,7 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
-          cd /usr/local/cuda-12/targets/x86_64-linux/lib/stubs/ && ln -s libcuda.so libcuda.so.1
+          cd /usr/local/cuda-12/targets/x86_64-linux/lib/stubs/ && sudo ln -s libcuda.so libcuda.so.1
           GO_TAGS=p2p \
           BACKEND_LIBS="$(ls /opt/intel/oneapi/*/lib/libiomp5* /opt/intel/oneapi/*/lib/libsycl* /opt/intel/oneapi/*/lib/libmkl_tbb_thread* /opt/intel/oneapi/*/lib/libmkl_intel_ilp64* /opt/intel/oneapi/*/lib/libmkl_sycl_blas* /opt/intel/oneapi/*/lib/libmkl_core* /opt/rocm-*/lib/libhipblas.so* /opt/rocm-*/lib/librocblas* /opt/rocm-*/lib/libamdhip64*) /usr/lib/x86_64-linux-gnu/libstdc++.so.6 $(ls /usr/lib/x86_64-linux-gnu/libOpenCL.so*) /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/librt.so.1 $(ls /usr/local/cuda-*/targets/x86_64-linux/lib/stubs/libcuda.so /usr/local/cuda-*/targets/x86_64-linux/lib/libcublas* /usr/local/cuda-*/targets/x86_64-linux/lib/libcudart*)" \
           make -j4 dist
