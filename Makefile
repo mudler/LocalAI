@@ -322,7 +322,7 @@ build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
 
 dist:
-	STATIC=true $(MAKE) backend-assets/grpc/llama-cpp-avx2
+	$(MAKE) backend-assets/grpc/llama-cpp-avx2
 ifeq ($(OS),Darwin)
 	$(info ${GREEN}I Skip CUDA/hipblas build on MacOS${RESET})
 else
@@ -331,7 +331,7 @@ else
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
-	$(MAKE) build
+	STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
@@ -344,7 +344,7 @@ endif
 
 dist-cross-linux-arm64: 
 	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server" \
-	$(MAKE) build
+	STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
