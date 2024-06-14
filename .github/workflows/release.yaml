@@ -86,6 +86,10 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=$CROSS_TOOLCHAIN/grpc_install \
             ../.. && \
           sudo make -j`nproc` install
+      - name: Setup tmate session if tests fail
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          limit-access-to-actor: true
       - name: Build
         id: build
         run: |
@@ -195,11 +199,6 @@ jobs:
       - name: Install gRPC
         run: |
           cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
-      - name: Setup tmate session if tests fail
-        uses: mxschmitt/action-tmate@v3.18
-        with:
-          limit-access-to-actor: true
-
       - name: Build
         id: build
         run: |
@@ -209,8 +208,9 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
+          cd /usr/local/cuda-12/targets/x86_64-linux/lib/stubs/ && ln -s libcuda.so libcuda.so.1
           GO_TAGS=p2p \
-          BACKEND_LIBS="/lib64/libstdc++.so.6 /lib64/libm.so.6 /lib64/libgcc_s.so.1 /lib64/libc.so.6" \
+          BACKEND_LIBS="$(ls /opt/intel/oneapi/*/lib/libiomp5* /opt/intel/oneapi/*/lib/libsycl* /opt/intel/oneapi/*/lib/libmkl_tbb_thread* /opt/intel/oneapi/*/lib/libmkl_intel_ilp64* /opt/intel/oneapi/*/lib/libmkl_sycl_blas* /opt/intel/oneapi/*/lib/libmkl_core* /opt/rocm-*/lib/libhipblas.so* /opt/rocm-*/lib/librocblas* /opt/rocm-*/lib/libamdhip64*) /usr/lib/x86_64-linux-gnu/libstdc++.so.6 $(ls /usr/lib/x86_64-linux-gnu/libOpenCL.so*) /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/librt.so.1 $(ls /usr/local/cuda-*/targets/x86_64-linux/lib/stubs/libcuda.so /usr/local/cuda-*/targets/x86_64-linux/lib/libcublas* /usr/local/cuda-*/targets/x86_64-linux/lib/libcudart*)" \
           make -j4 dist
       - uses: actions/upload-artifact@v4
         with:
