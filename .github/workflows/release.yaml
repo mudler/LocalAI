@@ -100,7 +100,12 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          GO_TAGS=p2p GOOS=linux GOARCH=arm64 CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
+          
+          GO_TAGS=p2p \
+          BACKEND_LIBS="/lib/aarch64-linux-gnu/libc.so.6 /lib/aarch64-linux-gnu/libstdc++.so.6 /lib/aarch64-linux-gnu/libgomp.so.1 /lib/aarch64-linux-gnu/libm.so.6 /lib/aarch64-linux-gnu/libgcc_s.so.1 /lib/aarch64-linux-gnu/libdl.so.2 /lib/aarch64-linux-gnu/libpthread.so.0" \
+          GOOS=linux \
+          GOARCH=arm64 \
+          CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux-arm64
@@ -199,7 +204,9 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
-          GO_TAGS=p2p make -j4 dist
+          GO_TAGS=p2p \
+          BACKEND_LIBS="/lib64/libstdc++.so.6 /lib64/libm.so.6 /lib64/libgcc_s.so.1 /lib64/libc.so.6" \
+          make -j4 dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux
