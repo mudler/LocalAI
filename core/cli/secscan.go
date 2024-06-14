@@ -37,7 +37,7 @@ func (sscli *SecScanCLI) Run(ctx *cliContext.Context) error {
 			log.Info().Str("uri", uri).Msg("scanning specific uri")
 			scanResults, err := downloader.HuggingFaceScan(uri)
 			if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
-				log.Error().Err(err).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("! WARNING ! A known-vulnerable model is installed!")
+				log.Error().Err(err).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("! WARNING ! A known-vulnerable model is included in this repo!")
 				return err
 			}
 		}
