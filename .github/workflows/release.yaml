@@ -195,6 +195,11 @@ jobs:
       - name: Install gRPC
         run: |
           cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
+      - name: Setup tmate session if tests fail
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          limit-access-to-actor: true
+
       - name: Build
         id: build
         run: |
