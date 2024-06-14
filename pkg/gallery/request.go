@@ -47,3 +47,12 @@ func (gm GalleryModels) Search(term string) GalleryModels {
 	}
 	return filteredModels
 }
+
+func (gm GalleryModels) FindByName(name string) *GalleryModel {
+	for _, m := range gm {
+		if strings.EqualFold(m.Name, name) {
+			return m
+		}
+	}
+	return nil
+}

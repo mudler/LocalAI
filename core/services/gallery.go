@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/go-skynet/LocalAI/core/config"
@@ -120,16 +119,20 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 					}
 
 					err = gallery.DeleteModelFromSystem(g.appConfig.ModelPath, op.GalleryModelName, files)
+					if err != nil {
+						updateError(err)
+						continue
+					}
 				} else {
 					// if the request contains a gallery name, we apply the gallery from the gallery list
 					if op.GalleryModelName != "" {
-						if strings.Contains(op.GalleryModelName, "@") {
-							err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryModelName, g.appConfig.ModelPath, op.Req, progressCallback)
-						} else {
-							err = gallery.InstallModelFromGalleryByName(op.Galleries, op.GalleryModelName, g.appConfig.ModelPath, op.Req, progressCallback)
-						}
+						err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryModelName, g.appConfig.ModelPath, op.Req, progressCallback)
 					} else if op.ConfigURL != "" {
-						startup.PreloadModelsConfigurations(op.ConfigURL, g.appConfig.ModelPath, op.ConfigURL)
+						err = startup.InstallModels(op.Galleries, op.ConfigURL, g.appConfig.ModelPath, progressCallback, op.ConfigURL)
+						if err != nil {
+							updateError(err)
+							continue
+						}
 						err = cl.Preload(g.appConfig.ModelPath)
 					} else {
 						err = prepareModel(g.appConfig.ModelPath, op.Req, progressCallback)
@@ -179,13 +182,8 @@ func processRequests(modelPath string, galleries []gallery.Gallery, requests []g
 			err = prepareModel(modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
 
 		} else {
-			if strings.Contains(r.ID, "@") {
-				err = gallery.InstallModelFromGallery(
-					galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
-			} else {
-				err = gallery.InstallModelFromGalleryByName(
-					galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
-			}
+			err = gallery.InstallModelFromGallery(
+				galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
 		}
 	}
 	return err

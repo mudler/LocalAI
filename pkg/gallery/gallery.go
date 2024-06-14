@@ -18,8 +18,9 @@ type Gallery struct {
 	Name string `json:"name" yaml:"name"`
 }
 
-// Installs a model from the gallery (galleryname@modelname)
+// Installs a model from the gallery
 func InstallModelFromGallery(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
+
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
@@ -78,50 +79,39 @@ func InstallModelFromGallery(galleries []Gallery, name string, basePath string, 
 		return err
 	}
 
-	model, err := FindGallery(models, name)
-	if err != nil {
-		var err2 error
-		model, err2 = FindGallery(models, strings.ToLower(name))
-		if err2 != nil {
-			return err
-		}
+	model := FindModel(models, name, basePath)
+	if model == nil {
+		return fmt.Errorf("no model found with name %q", name)
 	}
 
 	return applyModel(model)
 }
 
-func FindGallery(models []*GalleryModel, name string) (*GalleryModel, error) {
-	// os.PathSeparator is not allowed in model names. Replace them with "__" to avoid conflicts with file paths.
-	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
-
-	for _, model := range models {
-		if name == fmt.Sprintf("%s@%s", model.Gallery.Name, model.Name) {
-			return model, nil
-		}
-	}
-	return nil, fmt.Errorf("no gallery found with name %q", name)
-}
-
-// InstallModelFromGalleryByName loads a model from the gallery by specifying only the name (first match wins)
-func InstallModelFromGalleryByName(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
-	models, err := AvailableGalleryModels(galleries, basePath)
-	if err != nil {
-		return err
-	}
-
-	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
+func FindModel(models []*GalleryModel, name string, basePath string) *GalleryModel {
 	var model *GalleryModel
-	for _, m := range models {
-		if name == m.Name || m.Name == strings.ToLower(name) {
-			model = m
+	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
+
+	if !strings.Contains(name, "@") {
+		for _, m := range models {
+			if strings.EqualFold(m.Name, name) {
+				model = m
+				break
+			}
+		}
+
+		if model == nil {
+			return nil
+		}
+	} else {
+		for _, m := range models {
+			if strings.EqualFold(name, fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)) {
+				model = m
+				break
+			}
 		}
 	}
 
-	if model == nil {
-		return fmt.Errorf("no model found with name %q", name)
-	}
-
-	return InstallModelFromGallery(galleries, fmt.Sprintf("%s@%s", model.Gallery.Name, model.Name), basePath, req, downloadStatus)
+	return model
 }
 
 // List available models

@@ -62,8 +62,9 @@ func Startup(opts ...config.AppOption) (*core.Application, error) {
 		}
 	}
 
-	// TODO DAVE INSPECT HERE
-	pkgStartup.PreloadModelsConfigurations(appConfig.ModelLibraryURL, appConfig.ModelPath, appConfig.ModelsURL...)
+	if err := pkgStartup.InstallModels(appConfig.Galleries, appConfig.ModelLibraryURL, appConfig.ModelPath, nil, appConfig.ModelsURL...); err != nil {
+		log.Error().Err(err).Msg("error installing models")
+	}
 
 	app := createApplication(appConfig)
 

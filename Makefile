@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=d4d915d351d1f1270d56184bdd46672893e8a5d8
+CPPLLAMA_VERSION?=172c8256840ffd882ab9992ecedbb587d9b21f15
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=87acd6d629461ff48c3d58a504ea797736d4b070
+WHISPER_CPP_VERSION?=b29b3b29240aac8b71ce8e5a4360c1f1562ad66f
 
 # bert.cpp version
 BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
@@ -837,3 +837,21 @@ swagger:
 .PHONY: gen-assets
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go embedded/webui_static.yaml core/http/static/assets
+
+## Documentation
+docs/layouts/_default: 
+	mkdir -p docs/layouts/_default
+
+docs/static/gallery.html: docs/layouts/_default
+	$(GOCMD) run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
+
+docs/public: docs/layouts/_default docs/static/gallery.html
+	cd docs && hugo --minify
+
+docs-clean:
+	rm -rf docs/public
+	rm -rf docs/static/gallery.html
+
+.PHONY: docs
+docs: docs/static/gallery.html
+	cd docs && hugo serve

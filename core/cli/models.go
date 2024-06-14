@@ -7,12 +7,13 @@ import (
 	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
 
 	"github.com/go-skynet/LocalAI/pkg/gallery"
+	"github.com/go-skynet/LocalAI/pkg/startup"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
 )
 
 type ModelsCMDFlags struct {
-	Galleries  string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models"`
+	Galleries  string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 }
 
@@ -52,29 +53,42 @@ func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 }
 
 func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
-	modelName := mi.ModelArgs[0]
-
 	var galleries []gallery.Gallery
 	if err := json.Unmarshal([]byte(mi.Galleries), &galleries); err != nil {
 		log.Error().Err(err).Msg("unable to load galleries")
 	}
+	for _, modelName := range mi.ModelArgs {
 
-	progressBar := progressbar.NewOptions(
-		1000,
-		progressbar.OptionSetDescription(fmt.Sprintf("downloading model %s", modelName)),
-		progressbar.OptionShowBytes(false),
-		progressbar.OptionClearOnFinish(),
-	)
-	progressCallback := func(fileName string, current string, total string, percentage float64) {
-		v := int(percentage * 10)
-		err := progressBar.Set(v)
-		if err != nil {
-			log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
+		progressBar := progressbar.NewOptions(
+			1000,
+			progressbar.OptionSetDescription(fmt.Sprintf("downloading model %s", modelName)),
+			progressbar.OptionShowBytes(false),
+			progressbar.OptionClearOnFinish(),
+		)
+		progressCallback := func(fileName string, current string, total string, percentage float64) {
+			v := int(percentage * 10)
+			err := progressBar.Set(v)
+			if err != nil {
+				log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
+			}
 		}
-	}
-	err := gallery.InstallModelFromGallery(galleries, modelName, mi.ModelsPath, gallery.GalleryModel{}, progressCallback)
-	if err != nil {
-		return err
+		//startup.InstallModels()
+		models, err := gallery.AvailableGalleryModels(galleries, mi.ModelsPath)
+		if err != nil {
+			return err
+		}
+
+		model := gallery.FindModel(models, modelName, mi.ModelsPath)
+		if model == nil {
+			log.Error().Str("model", modelName).Msg("model not found")
+			return err
+		}
+
+		log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
+		err = startup.InstallModels(galleries, "", mi.ModelsPath, progressCallback, modelName)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -1,4 +1,27 @@
 ---
+## Start QWEN2
+- &qwen2
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "qwen2-7b-instruct"
+  license: apache-2.0
+  description: |
+    Qwen2 is the new series of Qwen large language models. For Qwen2, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters, including a Mixture-of-Experts model. This repo contains the instruction-tuned 7B Qwen2 model.
+  urls:
+    - https://huggingface.co/Qwen/Qwen2-7B-Instruct
+    - https://huggingface.co/bartowski/Qwen2-7B-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - cpu
+  overrides:
+    parameters:
+      model: Qwen2-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2-7B-Instruct-Q4_K_M.gguf
+      sha256: 8d0d33f0d9110a04aad1711b1ca02dafc0fa658cd83028bdfa5eff89c294fe76
+      uri: huggingface://bartowski/Qwen2-7B-Instruct-GGUF/Qwen2-7B-Instruct-Q4_K_M.gguf
 ## START Mistral
 - &mistral03
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -505,6 +528,54 @@
       uri: huggingface://mudler/Halu-8B-Llama3-Blackroot-Q4_K_M-GGUF/halu-8b-llama3-blackroot-q4_k_m.gguf
       sha256: 6304c7abadb9c5197485e8b4373b7ed22d9838d5081cd134c4fee823f88ac403
 - !!merge <<: *llama3
+  name: "l3-aethora-15b"
+  urls:
+    - https://huggingface.co/Steelskull/L3-Aethora-15B
+    - https://huggingface.co/SteelQuants/L3-Aethora-15B-Q4_K_M-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/W0qzZK_V1Zt1GdgCIsnrP.png
+  description: |
+    L3-Aethora-15B was crafted through using the abilteration method to adjust model responses. The model's refusal is inhibited, focusing on yielding more compliant and facilitative dialogue interactions. It then underwent a modified DUS (Depth Up Scale) merge (originally used by @Elinas) by using passthrough merge to create a 15b model, with specific adjustments (zeroing) to 'o_proj' and 'down_proj', enhancing its efficiency and reducing perplexity. This created AbL3In-15b.
+  overrides:
+    parameters:
+      model: l3-aethora-15b-q4_k_m.gguf
+  files:
+    - filename: l3-aethora-15b-q4_k_m.gguf
+      uri: huggingface://SteelQuants/L3-Aethora-15B-Q4_K_M-GGUF/l3-aethora-15b-q4_k_m.gguf
+      sha256: 968f77a3187f4865458bfffc51a10bcf49c11263fdd389f13215a704b25947b6
+- name: "duloxetine-4b-v1-iq-imatrix"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Lewdiculous/duloxetine-4b-v1-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/XoKe3MRYNombhCuHrkkCZ.png
+  tags:
+    - qwen
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    roleplaying finetune of kalo-team/qwen-4b-10k-WSD-CEdiff (which in turn is a distillation of qwen 1.5 32b onto qwen 1.5 4b, iirc).
+  overrides:
+    parameters:
+      model: duloxetine-4b-v1-Q4_K_M-imat.gguf
+  files:
+    - filename: duloxetine-4b-v1-Q4_K_M-imat.gguf
+      uri: huggingface://Lewdiculous/duloxetine-4b-v1-GGUF-IQ-Imatrix/duloxetine-4b-v1-Q4_K_M-imat.gguf
+      sha256: cd381f31c810ea8db2219e30701b3316085f5904c1ea3b116682518e82768c1a
+- !!merge <<: *llama3
+  name: "llama-salad-8x8b"
+  urls:
+    - https://huggingface.co/HiroseKoichi/Llama-Salad-8x8B
+    - https://huggingface.co/bartowski/Llama-Salad-8x8B-GGUF
+  description: |
+    This MoE merge is meant to compete with Mixtral fine-tunes, more specifically Nous-Hermes-2-Mixtral-8x7B-DPO, which I think is the best of them. I've done a bunch of side-by-side comparisons, and while I can't say it wins in every aspect, it's very close. Some of its shortcomings are multilingualism, storytelling, and roleplay, despite using models that are very good at those tasks.
+  overrides:
+    parameters:
+      model: Llama-Salad-8x8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-Salad-8x8B-Q4_K_M.gguf
+      uri: huggingface://bartowski/Llama-Salad-8x8B-GGUF/Llama-Salad-8x8B-Q4_K_M.gguf
+      sha256: 6724949310b6cc8659a4e5cc2899a61b8e3f7e41a8c530de354be54edb9e3385
+- !!merge <<: *llama3
   name: "jsl-medllama-3-8b-v2.0"
   license: cc-by-nc-nd-4.0
   icon: https://repository-images.githubusercontent.com/104670986/2e728700-ace4-11ea-9cfc-f3e060b25ddf
@@ -522,6 +593,45 @@
     - filename: JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
       sha256: 81783128ccd438c849913416c6e68cb35b2c77d6943cba8217d6d9bcc91b3632
       uri: huggingface://bartowski/JSL-MedLlama-3-8B-v2.0-GGUF/JSL-MedLlama-3-8B-v2.0-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "badger-lambda-llama-3-8b"
+  urls:
+    - https://huggingface.co/maldv/badger-lambda-llama-3-8b
+    - https://huggingface.co/bartowski/badger-lambda-llama-3-8b-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c1b098c85365af5a83e/CHGsewUsPUZcg2doijuD9.png
+  description: |
+    Badger is a recursive maximally pairwise disjoint normalized denoised fourier interpolation of the following models:
+    # Badger Lambda
+    models = [
+    'Einstein-v6.1-Llama3-8B',
+    'openchat-3.6-8b-20240522',
+    'hyperdrive-l3-8b-s3',
+    'L3-TheSpice-8b-v0.8.3',
+    'LLaMA3-iterative-DPO-final',
+    'JSL-MedLlama-3-8B-v9',
+    'Jamet-8B-L3-MK.V-Blackroot',
+    'French-Alpaca-Llama3-8B-Instruct-v1.0',
+    'LLaMAntino-3-ANITA-8B-Inst-DPO-ITA',
+    'Llama-3-8B-Instruct-Gradient-4194k',
+    'Roleplay-Llama-3-8B',
+    'L3-8B-Stheno-v3.2',
+    'llama-3-wissenschaft-8B-v2',
+    'opus-v1.2-llama-3-8b-instruct-run3.5-epoch2.5',
+    'Configurable-Llama-3-8B-v0.3',
+    'Llama-3-8B-Instruct-EPO-checkpoint5376',
+    'Llama-3-8B-Instruct-Gradient-4194k',
+    'Llama-3-SauerkrautLM-8b-Instruct',
+    'spelljammer',
+    'meta-llama-3-8b-instruct-hf-ortho-baukit-34fail-3000total-bf16',
+    'Meta-Llama-3-8B-Instruct-abliterated-v3',
+    ]
+  overrides:
+    parameters:
+      model: badger-lambda-llama-3-8b-Q4_K_M.gguf
+  files:
+    - filename: badger-lambda-llama-3-8b-Q4_K_M.gguf
+      uri: huggingface://bartowski/badger-lambda-llama-3-8b-GGUF/badger-lambda-llama-3-8b-Q4_K_M.gguf
+      sha256: 0a7d1bbf42d669898072429079b91c16b0d2d838d19d9194165389102413b309
 - !!merge <<: *llama3
   name: "sovl_llama3_8b-gguf-iq-imatrix"
   urls:
@@ -604,6 +714,20 @@
     - filename: Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
       sha256: 159eb62f2c8ae8fee10d9ed8386ce592327ca062807194a88e10b7cbb47ef986
       uri: huggingface://Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix/Average_Normie_l3_v1_8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "average_normie_v3.69_8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Average_Normie_l3_v1_8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/hfp7eh_Zo_QfVIyfPPJBq.png
+  description: |
+    Another average normie just like you and me... or is it? NSFW focused and easy to steer with editing, this model aims to please even the most hardcore LLM enthusiast. Built upon a foundation of the most depraved models yet to be released, some could argue it goes too far in that direction. Whatever side you land on, at least give it a shot, what do you have to lose?
+  overrides:
+    parameters:
+      model: Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
+  files:
+    - filename: Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
+      sha256: 01df034ecb6914214d1b7964d261466fdc427b9f960a1b0966ee02237e3fc845
+      uri: huggingface://Lewdiculous/Average_Normie_v3.69_8B-GGUF-IQ-Imatrix/Average_Normie_v3.69_8B-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
   name: "openbiollm-llama3-8b"
   urls:
@@ -827,6 +951,21 @@
     - filename: llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
       sha256: 0bc21be5894c2e252ff938ba908bb702774b7de53daca864d707d41f0f98a833
       uri: huggingface://Lewdiculous/llama3-8B-aifeifei-1.0-GGUF-IQ-Imatrix/llama3-8B-aifeifei-1.0-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama3-8B-aifeifei-1.2-iq-imatrix"
+  urls:
+    - https://huggingface.co/aifeifei798/llama3-8B-aifeifei-1.2
+    - https://huggingface.co/Lewdiculous/llama3-8B-aifeifei-1.2-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/nn_446H9BiIbjPmOVVNyJ.png
+  description: |
+    This model has a narrow use case in mind. Read the original description.
+  overrides:
+    parameters:
+      model: llama3-8B-aifeifei-1.2-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-aifeifei-1.2-Q4_K_M-imat.gguf
+      sha256: 0320e19ae19eec47a77956721ea3339a5c8bae4db69177a020850ec57a34e5c3
+      uri: huggingface://Lewdiculous/llama3-8B-aifeifei-1.2-GGUF-IQ-Imatrix/llama3-8B-aifeifei-1.2-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
   name: "rawr_llama3_8b-iq-imatrix"
   urls:
@@ -1537,6 +1676,32 @@
     - filename: Llama-3-Update-2.0-mmproj-model-f16.gguf
       sha256: 1058494004dfa121439d5a75fb96ea814c7a5937c0529998bf2366f2179bb5ba
       uri: huggingface://Nitral-AI/Llama-3-Update-2.0-mmproj-model-f16/Llama-3-Update-2.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "hathor-l3-8b-v.01-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/Hathor-L3-8B-v.01-GGUF-IQ-Imatrix
+  description: |
+    "Designed to seamlessly integrate the qualities of creativity, intelligence, and robust performance."
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/FLvA7-CWp3UhBuR2eGSh7.webp
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+    - llava-1.5
+  overrides:
+    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    parameters:
+      model: Hathor-L3-8B-v.01-Q4_K_M-imat.gguf
+  files:
+    - filename: Hathor-L3-8B-v.01-Q4_K_M-imat.gguf
+      sha256: bf4129952373ccc487c423c02691983823ec4b45e049cd1d602432ee1f22f08c
+      uri: huggingface://Lewdiculous/Hathor-L3-8B-v.01-GGUF-IQ-Imatrix/Hathor-L3-8B-v.01-Q4_K_M-imat.gguf
+    - filename: Llama-3-Update-3.0-mmproj-model-f16.gguf
+      sha256: 3d2f36dff61d6157cadf102df86a808eb9f8a230be1bc0bc99039d81a895468a
+      uri: huggingface://Nitral-AI/Llama-3-Update-3.0-mmproj-model-f16/Llama-3-Update-3.0-mmproj-model-f16.gguf
 - !!merge <<: *llama3
   name: "bunny-llama-3-8b-v"
   urls:
