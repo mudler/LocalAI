@@ -249,6 +249,11 @@ jobs:
   build-macOS-arm64:
     runs-on: macos-14
     steps:
+      - name: Setup tmate session if tests fail
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
       - name: Clone
         uses: actions/checkout@v4
         with:
