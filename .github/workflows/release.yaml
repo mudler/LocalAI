@@ -268,7 +268,8 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
-          GO_TAGS=p2p make dist
+          
+          BACKEND_LIBS="$(ls /opt/homebrew/opt/grpc/lib/*.dylib /opt/homebrew/opt/re2/lib/*.dylib /opt/homebrew/opt/openssl@3/lib/*.dylib /opt/homebrew/opt/protobuf/lib/*.dylib /opt/homebrew/opt/abseil/lib/*.dylib | xargs)" GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-MacOS-arm64
