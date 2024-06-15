@@ -61,12 +61,13 @@ func ExtractFiles(content embed.FS, extractDir string) error {
 		return err
 	}
 
+
 	lpathVar := "LD_LIBRARY_PATH"
 	if runtime.GOOS == "darwin" {
 		lpathVar = "DYLD_FALLBACK_LIBRARY_PATH" // should it be DYLD_LIBRARY_PATH ?
 	}
 
-	for _, libDir := range []string{filepath.Join(extractDir, "backend_assets", "lib"), filepath.Join(extractDir, "lib")} {
+	for _, libDir := range []string{filepath.Join(extractDir, "backend-assets", "lib"), filepath.Join(extractDir, "lib")} {
 		if _, err := os.Stat(libDir); err == nil {
 			ldLibraryPath := os.Getenv(lpathVar)
 			if ldLibraryPath == "" {
