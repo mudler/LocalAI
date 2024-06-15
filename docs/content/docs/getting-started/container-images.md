@@ -85,7 +85,7 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                   |
 | --- | --- |-----------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master` | `localai/localai:master`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest` | `localai/localai:latest`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-cpu`                  | `localai/localai:latest-cpu`                  |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}` | `localai/localai:{{< version >}}`             |
 | Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg` | `localai/localai:{{< version >}}-ffmpeg`      |
 | Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core` | `localai/localai:{{< version >}}-ffmpeg-core` |
@@ -97,7 +97,7 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-cublas-cuda11` | `localai/localai:master-cublas-cuda11`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-cublas-cuda11` | `localai/localai:latest-cublas-cuda11`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11`                 | `localai/localai:latest-gpu-nvidia-cuda-11`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11` | `localai/localai:{{< version >}}-cublas-cuda11`             |
 | Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-ffmpeg` | `localai/localai:{{< version >}}-cublas-cuda11-ffmpeg`      |
 | Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-ffmpeg-core` | `localai/localai:{{< version >}}-cublas-cuda11-ffmpeg-core` |
@@ -109,7 +109,7 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-cublas-cuda12` | `localai/localai:master-cublas-cuda12`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-cublas-cuda12` | `localai/localai:latest-cublas-cuda12`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12` | `localai/localai:latest-gpu-nvidia-cuda-12`                 |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12` | `localai/localai:{{< version >}}-cublas-cuda12`             |
 | Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-ffmpeg` | `localai/localai:{{< version >}}-cublas-cuda12-ffmpeg`      |
 | Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-ffmpeg-core` | `localai/localai:{{< version >}}-cublas-cuda12-ffmpeg-core` |
@@ -121,7 +121,7 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-sycl-f16` | `localai/localai:master-sycl-f16`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-sycl-f16` | `localai/localai:latest-sycl-f16`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f16` | `localai/localai:latest-gpu-intel-f16`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16` | `localai/localai:{{< version >}}-sycl-f16`             |
 | Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16-ffmpeg` | `localai/localai:{{< version >}}-sycl-f16-ffmpeg`      |
 | Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16-ffmpeg-core` | `localai/localai:{{< version >}}-sycl-f16-ffmpeg-core` |
@@ -133,7 +133,7 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-sycl-f32` | `localai/localai:master-sycl-f32`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-sycl-f32` | `localai/localai:latest-sycl-f32`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f32` | `localai/localai:latest-gpu-intel-f32`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32` | `localai/localai:{{< version >}}-sycl-f32`             |
 | Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32-ffmpeg` | `localai/localai:{{< version >}}-sycl-f32-ffmpeg`      |
 | Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32-ffmpeg-core` | `localai/localai:{{< version >}}-sycl-f32-ffmpeg-core` |
@@ -145,7 +145,7 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-hipblas` | `localai/localai:master-hipblas`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-hipblas` | `localai/localai:latest-hipblas`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas`                  | `localai/localai:latest-gpu-hipblas`                  |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-hipblas` | `localai/localai:{{< version >}}-hipblas`             |
 | Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-hipblas-ffmpeg` | `localai/localai:{{< version >}}-hipblas-ffmpeg`      |
 | Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-hipblas-ffmpeg-core` | `localai/localai:{{< version >}}-hipblas-ffmpeg-core` |
