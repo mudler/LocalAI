@@ -176,6 +176,21 @@
     - filename: gemma-2b.Q4_K_M.gguf
       sha256: 37d50c21ef7847926204ad9b3007127d9a2722188cfd240ce7f9f7f041aa71a5
       uri: huggingface://mlabonne/gemma-2b-GGUF/gemma-2b.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "firefly-gemma-7b-iq-imatrix"
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/SrOekTxdpnxHyWWmMiAvc.jpeg"
+  urls:
+    - https://huggingface.co/Lewdiculous/firefly-gemma-7b-GGUF-IQ-Imatrix
+    - https://huggingface.co/YeungNLP/firefly-gemma-7b
+  description: |
+    firefly-gemma-7b is trained based on gemma-7b to act as a helpful and harmless AI assistant. We use Firefly to train the model on a single V100 GPU with QLoRA.
+  overrides:
+    parameters:
+      model: firefly-gemma-7b-Q4_K_S-imatrix.gguf
+  files:
+    - filename: firefly-gemma-7b-Q4_K_S-imatrix.gguf
+      sha256: 622e0b8e4f12203cc40c7f87915abf99498c2e0582203415ca236ea37643e428
+      uri: huggingface://Lewdiculous/firefly-gemma-7b-GGUF-IQ-Imatrix/firefly-gemma-7b-Q4_K_S-imatrix.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
