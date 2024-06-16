@@ -1751,6 +1751,20 @@
       sha256: 3d2f36dff61d6157cadf102df86a808eb9f8a230be1bc0bc99039d81a895468a
       uri: huggingface://Nitral-AI/Llama-3-Update-3.0-mmproj-model-f16/Llama-3-Update-3.0-mmproj-model-f16.gguf
 - !!merge <<: *llama3
+  name: "hathor_stable-v0.2-l3-8b"
+  urls:
+    - https://huggingface.co/bartowski/Hathor_Stable-v0.2-L3-8B-GGUF
+  description: |
+    Hathor-v0.2 is a model based on the LLaMA 3 architecture: Designed to seamlessly integrate the qualities of creativity, intelligence, and robust performance. Making it an ideal tool for a wide range of applications; such as creative writing, educational support and human/computer interaction.
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/FLvA7-CWp3UhBuR2eGSh7.webp
+  overrides:
+    parameters:
+      model: Hathor_Stable-v0.2-L3-8B-Q4_K_M.gguf
+  files:
+    - filename: Hathor_Stable-v0.2-L3-8B-Q4_K_M.gguf
+      sha256: 291cd30421f519ec00e04ae946a4f639d8d1b7c294cb2b2897b35da6d498fdc4
+      uri: huggingface://bartowski/Hathor_Stable-v0.2-L3-8B-GGUF/Hathor_Stable-v0.2-L3-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "bunny-llama-3-8b-v"
   urls:
     - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
