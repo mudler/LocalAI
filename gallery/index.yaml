@@ -1104,6 +1104,21 @@
       sha256: 3b5fbd6c59d7d38205ab81970c0227c74693eb480acf20d8c2f211f62e3ca5f6
       uri: huggingface://bartowski/Tess-2.0-Llama-3-8B-GGUF/Tess-2.0-Llama-3-8B-Q4_K_M.gguf
 - !!merge <<: *llama3
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "tess-v2.5-phi-3-medium-128k-14b"
+  urls:
+    - https://huggingface.co/bartowski/Tess-v2.5-Phi-3-medium-128k-14B-GGUF
+  icon: https://huggingface.co/migtissera/Tess-2.0-Mixtral-8x22B/resolve/main/Tess-2.png
+  description: |
+    Tess, short for Tesoro (Treasure in Italian), is a general purpose Large Language Model series.
+  overrides:
+    parameters:
+      model: Tess-v2.5-Phi-3-medium-128k-14B-Q4_K_M.gguf
+  files:
+    - filename: Tess-v2.5-Phi-3-medium-128k-14B-Q4_K_M.gguf
+      sha256: 9efb6ebc00de74012d0fb36134cce07d624a870fc12f38b16b57ce447b86e27e
+      uri: huggingface://bartowski/Tess-v2.5-Phi-3-medium-128k-14B-GGUF/Tess-v2.5-Phi-3-medium-128k-14B-Q4_K_M.gguf
+- !!merge <<: *llama3
   name: "llama3-iterative-dpo-final"
   urls:
     - https://huggingface.co/bartowski/LLaMA3-iterative-DPO-final-GGUF
