@@ -43,6 +43,7 @@ type RunCMD struct {
 	Address              string   `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
 	CORS                 bool     `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
 	CORSAllowOrigins     string   `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
+	LibraryPath          string   `env:"LOCALAI_LIBRARY_PATH,LIBRARY_PATH" help:"Path to the library directory (for e.g. external libraries used by backends)" default:"/usr/share/local-ai/libs" group:"backends"`
 	CSRF                 bool     `env:"LOCALAI_CSRF" help:"Enables fiber CSRF middleware" group:"api"`
 	UploadLimit          int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
 	APIKeys              []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
@@ -80,6 +81,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithCsrf(r.CSRF),
+		config.WithLibPath(r.LibraryPath),
 		config.WithThreads(r.Threads),
 		config.WithBackendAssets(ctx.BackendAssets),
 		config.WithBackendAssetsOutput(r.BackendAssetsPath),

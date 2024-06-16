@@ -100,7 +100,13 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          GO_TAGS=p2p GOOS=linux GOARCH=arm64 CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
+          sudo rm -rf /usr/aarch64-linux-gnu/lib/libstdc++.so.6
+          sudo cp -rf /usr/aarch64-linux-gnu/lib/libstdc++.so* /usr/aarch64-linux-gnu/lib/libstdc++.so.6
+          GO_TAGS=p2p \
+          BACKEND_LIBS="./grpc/cmake/cross_build/third_party/re2/libre2.a ./grpc/cmake/cross_build/libgrpc.a ./grpc/cmake/cross_build/libgrpc++.a ./grpc/cmake/cross_build/third_party/protobuf/libprotobuf.a /usr/aarch64-linux-gnu/lib/libc.so.6 /usr/aarch64-linux-gnu/lib/libstdc++.so.6 /usr/aarch64-linux-gnu/lib/libgomp.so.1 /usr/aarch64-linux-gnu/lib/libm.so.6 /usr/aarch64-linux-gnu/lib/libgcc_s.so.1 /usr/aarch64-linux-gnu/lib/libdl.so.2 /usr/aarch64-linux-gnu/lib/libpthread.so.0" \
+          GOOS=linux \
+          GOARCH=arm64 \
+          CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux-arm64
@@ -111,7 +117,13 @@ jobs:
         with:
           files: |
             release/*
-
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
   build-linux:
     runs-on: arc-runner-set
     steps:
@@ -190,6 +202,7 @@ jobs:
       - name: Install gRPC
         run: |
           cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
+      # BACKEND_LIBS needed for gpu-workload: /opt/intel/oneapi/*/lib/libiomp5.so /opt/intel/oneapi/*/lib/libmkl_core.so /opt/intel/oneapi/*/lib/libmkl_core.so.2 /opt/intel/oneapi/*/lib/libmkl_intel_ilp64.so /opt/intel/oneapi/*/lib/libmkl_intel_ilp64.so.2 /opt/intel/oneapi/*/lib/libmkl_sycl_blas.so /opt/intel/oneapi/*/lib/libmkl_sycl_blas.so.4 /opt/intel/oneapi/*/lib/libmkl_tbb_thread.so /opt/intel/oneapi/*/lib/libmkl_tbb_thread.so.2 /opt/intel/oneapi/*/lib/libsycl.so /opt/intel/oneapi/*/lib/libsycl.so.7 /opt/intel/oneapi/*/lib/libsycl.so.7.1.0 /opt/rocm-*/lib/libamdhip64.so /opt/rocm-*/lib/libamdhip64.so.5 /opt/rocm-*/lib/libamdhip64.so.6 /opt/rocm-*/lib/libamdhip64.so.6.1.60100 /opt/rocm-*/lib/libhipblas.so /opt/rocm-*/lib/libhipblas.so.2 /opt/rocm-*/lib/libhipblas.so.2.1.60100 /opt/rocm-*/lib/librocblas.so /opt/rocm-*/lib/librocblas.so.4 /opt/rocm-*/lib/librocblas.so.4.1.60100 /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so.1.0.0 /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/librt.so.1 /usr/local/cuda-*/targets/x86_64-linux/lib/libcublas.so /usr/local/cuda-*/targets/x86_64-linux/lib/libcublasLt.so /usr/local/cuda-*/targets/x86_64-linux/lib/libcudart.so /usr/local/cuda-*/targets/x86_64-linux/lib/stubs/libcuda.so
       - name: Build
         id: build
         run: |
@@ -199,7 +212,9 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
-          GO_TAGS=p2p make -j4 dist
+          GO_TAGS=p2p \
+          BACKEND_LIBS="/usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libgomp.so.1" \
+          make -j4 dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux
@@ -210,7 +225,13 @@ jobs:
         with:
           files: |
             release/*
-
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
   build-stablediffusion:
     runs-on: ubuntu-latest
     steps:
@@ -280,3 +301,10 @@ jobs:
         with:
           files: |
             release/*
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
