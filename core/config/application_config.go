@@ -15,6 +15,7 @@ type ApplicationConfig struct {
 	Context                             context.Context
 	ConfigFile                          string
 	ModelPath                           string
+	LibPath                             string
 	UploadLimitMB, Threads, ContextSize int
 	DisableWebUI                        bool
 	F16                                 bool
@@ -98,6 +99,12 @@ func WithCsrf(b bool) AppOption {
 func WithModelLibraryURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ModelLibraryURL = url
+	}
+}
+
+func WithLibPath(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LibPath = path
 	}
 }
 
