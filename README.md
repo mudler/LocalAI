@@ -65,6 +65,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- 🆕 You can browse now the model gallery without LocalAI! Check out https://models.localai.io
 - 🔥🔥 Decentralized llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!) 👉 Docs  https://localai.io/features/distribute/
 - 🔥🔥 Openvoice: https://github.com/mudler/LocalAI/pull/2334
 - 🆕 Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
