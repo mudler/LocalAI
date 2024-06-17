@@ -238,6 +238,22 @@
     - filename: firefly-gemma-7b-Q4_K_S-imatrix.gguf
       sha256: 622e0b8e4f12203cc40c7f87915abf99498c2e0582203415ca236ea37643e428
       uri: huggingface://Lewdiculous/firefly-gemma-7b-GGUF-IQ-Imatrix/firefly-gemma-7b-Q4_K_S-imatrix.gguf
+- !!merge <<: *gemma
+  name: "gemma-1.1-7b-it"
+  urls:
+    - https://huggingface.co/bartowski/gemma-1.1-7b-it-GGUF
+    - https://huggingface.co/google/gemma-1.1-7b-it
+  description: |
+      This is Gemma 1.1 7B (IT), an update over the original instruction-tuned Gemma release.
+
+      Gemma 1.1 was trained using a novel RLHF method, leading to substantial gains on quality, coding capabilities, factuality, instruction following and multi-turn conversation quality. We also fixed a bug in multi-turn conversations, and made sure that model responses don't always start with "Sure,".
+  overrides:
+    parameters:
+      model: gemma-1.1-7b-it-Q4_K_M.gguf
+  files:
+    - filename: gemma-1.1-7b-it-Q4_K_M.gguf
+      sha256: 47821da72ee9e80b6fd43c6190ad751b485fb61fa5664590f7a73246bcd8332e
+      uri: huggingface://bartowski/gemma-1.1-7b-it-GGUF/gemma-1.1-7b-it-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
