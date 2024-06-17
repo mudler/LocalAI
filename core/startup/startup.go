@@ -112,7 +112,10 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	if options.LibPath != "" {
 		// If there is a lib directory, set LD_LIBRARY_PATH to include it
-		library.LoadExternal(options.LibPath)
+		err := library.LoadExternal(options.LibPath)
+		if err != nil {
+			log.Error().Err(err).Str("LibPath", options.LibPath).Msg("Error while loading external libraries")
+		}
 	}
 
 	// turn off any process that was started by GRPC if the context is canceled
