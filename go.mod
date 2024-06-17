@@ -47,6 +47,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.9
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/swag v1.16.3
+	github.com/thxcode/gguf-parser-go v0.0.6
 	github.com/tmc/langchaingo v0.0.0-20231019140956-c636b3da7701
 	github.com/valyala/fasthttp v1.51.0
 	go.opentelemetry.io/otel v1.19.0
@@ -137,7 +138,6 @@ require (
 	github.com/smallnest/ringbuffer v0.0.0-20240423223918-bab516b2000b // indirect
 	github.com/songgao/packets v0.0.0-20160404182456-549a10cd4091 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/thxcode/gguf-parser-go v0.0.6 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
