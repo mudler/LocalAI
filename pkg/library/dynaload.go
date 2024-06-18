@@ -13,10 +13,12 @@ import (
 	This file contains functions to load libraries from the asset directory to keep the business logic clean.
 */
 
+// skipLibraryPath checks if LOCALAI_SKIP_LIBRARY_PATH is set
+var skipLibraryPath = os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != ""
+
 // LoadExtractedLibs loads the extracted libraries from the asset dir
 func LoadExtractedLibs(dir string) {
-	// Skip this if LOCALAI_SKIP_LIBRARY_PATH is set
-	if os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != "" {
+	if skipLibraryPath {
 		return
 	}
 
@@ -34,8 +36,7 @@ func LoadExtractedLibs(dir string) {
 // If that's present, we use it to run the grpc backends as supposedly built against
 // that specific version of ld.so
 func LoadLDSO(assetDir string, args []string, grpcProcess string) ([]string, string) {
-	// Skip this if LOCALAI_SKIP_LIBRARY_PATH is set
-	if os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != "" {
+	if skipLibraryPath {
 		return args, grpcProcess
 	}
 
@@ -57,8 +58,7 @@ func LoadLDSO(assetDir string, args []string, grpcProcess string) ([]string, str
 
 // LoadExternal sets the LD_LIBRARY_PATH to include the given directory
 func LoadExternal(dir string) {
-	// Skip this if LOCALAI_SKIP_LIBRARY_PATH is set
-	if os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != "" {
+	if skipLibraryPath {
 		return
 	}
 
