@@ -2580,6 +2580,21 @@
     - filename: DreamShaper_8_pruned.safetensors
       uri: huggingface://Lykon/DreamShaper/DreamShaper_8_pruned.safetensors
       sha256: 879db523c30d3b9017143d56705015e15a2cb5628762c11d086fed9538abd7fd
+- name: stable-diffusion-3-medium
+  icon: https://huggingface.co/leo009/stable-diffusion-3-medium/resolve/main/sd3demo.jpg
+  license: other
+  description: |
+    Stable Diffusion 3 Medium is a Multimodal Diffusion Transformer (MMDiT) text-to-image model that features greatly improved performance in image quality, typography, complex prompt understanding, and resource-efficiency.
+  urls:
+    - https://huggingface.co/stabilityai/stable-diffusion-3-medium
+    - https://huggingface.co/leo009/stable-diffusion-3-medium
+  tags:
+    - text-to-image
+    - stablediffusion
+    - python
+    - sd-3
+    - gpu
+  url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
 - &whisper
   ## Whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"

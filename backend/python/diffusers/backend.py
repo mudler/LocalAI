@@ -17,7 +17,7 @@ import backend_pb2_grpc
 
 import grpc
 
-from diffusers import StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
+from diffusers import StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, EulerAncestralDiscreteScheduler
 from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image,export_to_video
@@ -221,6 +221,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                use_safetensors=True)
                 else:
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
+                        request.Model, 
+                        torch_dtype=torchType, 
+                        use_safetensors=True, 
+                        variant=variant)
+            elif request.PipelineType == "StableDiffusion3Pipeline":
+                if fromSingleFile:
+                    self.pipe = StableDiffusion3Pipeline.from_single_file(modelFile,
+                                                               torch_dtype=torchType,
+                                                               use_safetensors=True)
+                else:
+                    self.pipe = StableDiffusion3Pipeline.from_pretrained(
                         request.Model, 
                         torch_dtype=torchType, 
                         use_safetensors=True, 

@@ -5,6 +5,7 @@ grpcio==1.64.0
 opencv-python
 pillow
 protobuf
+sentencepiece
 torch
 transformers
 certifi
