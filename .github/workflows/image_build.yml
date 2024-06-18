@@ -19,11 +19,11 @@ on:
         type: string
       cuda-major-version:
         description: 'CUDA major version'
-        default: "11"
+        default: "12"
         type: string
       cuda-minor-version:
         description: 'CUDA minor version'
-        default: "7"
+        default: "5"
         type: string
       platforms:
         description: 'Platforms'
@@ -324,7 +324,7 @@ jobs:
           docker pull quay.io/go-skynet/local-ai:${{ steps.meta_aio.outputs.version }}
           docker tag quay.io/go-skynet/local-ai:${{ steps.meta_aio.outputs.version }} quay.io/go-skynet/local-ai:${{ inputs.latest-image-aio }}
           docker push quay.io/go-skynet/local-ai:${{ inputs.latest-image-aio }}
-  
+
       - name: job summary
         run: |
           echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
