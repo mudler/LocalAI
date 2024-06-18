@@ -69,7 +69,7 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 	return strconv.Atoi(p.PID)
 }
 
-func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string) error {
+func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) error {
 	// Make sure the process is executable
 	if err := os.Chmod(grpcProcess, 0700); err != nil {
 		return err
@@ -82,7 +82,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
 		process.WithName(grpcProcess),
-		process.WithArgs("--addr", serverAddress),
+		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(os.Environ()...),
 	)
 
