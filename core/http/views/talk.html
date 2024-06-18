@@ -50,6 +50,10 @@
       </div>
       <div id="loader" class="my-2 loader" style="display: none;"></div>
       <div id="statustext" class="my-2 p-2 block text-white-700 text-sm font-bold mb-2" ></div>
+      <!-- Note for recording box -->
+      <div class="text-sm mb-4 text-white-500">
+        <strong>Note:</strong> You need an LLM a audio-transcription(whisper) and a tts model installed in order for this to work. Select the appropariate model from the toolbox and then click the 'Talk' button to start recording. The recording will continue until you click 'Stop recording'. Make sure your microphone is set up and enabled.
+      </div>
       <div class="mb-4" >
         <label for="modelSelect" class="block text-white-700 text-sm font-bold mb-2">LLM Model:</label>
         <select id="modelSelect"
@@ -95,7 +99,7 @@
         class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
       ><i class="fa-solid fa-microphone pr-2"></i>Talk</button>
       <a id="resetButton"
-      class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800"
+      class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-gray-200"
       href="#"
       >Reset conversation</a>
       <audio id="audioPlayback" controls hidden></audio>
