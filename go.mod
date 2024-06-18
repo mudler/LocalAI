@@ -5,6 +5,7 @@ go 1.22.0
 toolchain go1.22.4
 
 require (
+	dario.cat/mergo v1.0.0
 	github.com/M0Rf30/go-tiny-dream v0.0.0-20240425104733-c04fa463ace9
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/alecthomas/kong v0.9.0
@@ -25,7 +26,6 @@ require (
 	github.com/google/go-containerregistry v0.19.2
 	github.com/google/uuid v1.6.0
 	github.com/hpcloud/tail v1.0.0
-	github.com/imdario/mergo v0.3.16
 	github.com/ipfs/go-log v1.0.5
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
@@ -157,7 +157,8 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/henvic/httpretty v0.1.3 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
-	github.com/huin/goupnp v1.2.0 // indirect
+	github.com/huin/goupnp v1.3.0 // indirect
+	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/ipfs/boxo v0.10.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipfs/go-datastore v0.6.0 // indirect
