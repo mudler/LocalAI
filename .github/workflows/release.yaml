@@ -102,8 +102,9 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           sudo rm -rf /usr/aarch64-linux-gnu/lib/libstdc++.so.6
           sudo cp -rf /usr/aarch64-linux-gnu/lib/libstdc++.so* /usr/aarch64-linux-gnu/lib/libstdc++.so.6
+          sudo cp /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 ld.so
           GO_TAGS=p2p \
-          BACKEND_LIBS="./grpc/cmake/cross_build/third_party/re2/libre2.a ./grpc/cmake/cross_build/libgrpc.a ./grpc/cmake/cross_build/libgrpc++.a ./grpc/cmake/cross_build/third_party/protobuf/libprotobuf.a /usr/aarch64-linux-gnu/lib/libc.so.6 /usr/aarch64-linux-gnu/lib/libstdc++.so.6 /usr/aarch64-linux-gnu/lib/libgomp.so.1 /usr/aarch64-linux-gnu/lib/libm.so.6 /usr/aarch64-linux-gnu/lib/libgcc_s.so.1 /usr/aarch64-linux-gnu/lib/libdl.so.2 /usr/aarch64-linux-gnu/lib/libpthread.so.0" \
+          BACKEND_LIBS="./grpc/cmake/cross_build/third_party/re2/libre2.a ./grpc/cmake/cross_build/libgrpc.a ./grpc/cmake/cross_build/libgrpc++.a ./grpc/cmake/cross_build/third_party/protobuf/libprotobuf.a /usr/aarch64-linux-gnu/lib/libc.so.6 /usr/aarch64-linux-gnu/lib/libstdc++.so.6 /usr/aarch64-linux-gnu/lib/libgomp.so.1 /usr/aarch64-linux-gnu/lib/libm.so.6 /usr/aarch64-linux-gnu/lib/libgcc_s.so.1 /usr/aarch64-linux-gnu/lib/libdl.so.2 /usr/aarch64-linux-gnu/lib/libpthread.so.0 ./ld.so" \
           GOOS=linux \
           GOARCH=arm64 \
           CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
@@ -212,8 +213,9 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
+          sudo cp /lib64/ld-linux-x86-64.so.2 ld.so
           GO_TAGS=p2p \
-          BACKEND_LIBS="/usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libgomp.so.1" \
+          BACKEND_LIBS="./ld.so /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libgomp.so.1" \
           make -j4 dist
       - uses: actions/upload-artifact@v4
         with:

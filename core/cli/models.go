@@ -57,6 +57,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 	if err := json.Unmarshal([]byte(mi.Galleries), &galleries); err != nil {
 		log.Error().Err(err).Msg("unable to load galleries")
 	}
+
 	for _, modelName := range mi.ModelArgs {
 
 		progressBar := progressbar.NewOptions(
