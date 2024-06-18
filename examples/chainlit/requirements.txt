@@ -1,6 +1,6 @@
 llama_hub==0.0.41
-llama_index==0.8.55
-Requests==2.31.0
+llama_index==0.10.13
+Requests==2.32.2
 weaviate_client==3.25.1
 transformers
 torch
