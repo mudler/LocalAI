@@ -640,6 +640,25 @@
       uri: huggingface://Lewdiculous/duloxetine-4b-v1-GGUF-IQ-Imatrix/duloxetine-4b-v1-Q4_K_M-imat.gguf
       sha256: cd381f31c810ea8db2219e30701b3316085f5904c1ea3b116682518e82768c1a
 - !!merge <<: *llama3
+  name: "l3-umbral-mind-rp-v1.0-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/L3-Umbral-Mind-RP-v1.0-8B-GGUF-IQ-Imatrix
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/fEFozVCpNO9Q3Eb6LAA4i.webp
+  description: |
+    The goal of this merge was to make an RP model better suited for role-plays with heavy themes such as but not limited to:
+
+    Mental illness
+    Self-harm
+    Trauma
+    Suicide
+  overrides:
+    parameters:
+      model: L3-Umbral-Mind-RP-v1.0-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: L3-Umbral-Mind-RP-v1.0-8B-Q4_K_M-imat.gguf
+      sha256: 2262eeba2d9de50884f4e298e4b55f1e4c653c3b33415ae9b3ee81dc3b8ec49a
+      uri: huggingface://Lewdiculous/L3-Umbral-Mind-RP-v1.0-8B-GGUF-IQ-Imatrix/L3-Umbral-Mind-RP-v1.0-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "llama-salad-8x8b"
   urls:
     - https://huggingface.co/HiroseKoichi/Llama-Salad-8x8B
