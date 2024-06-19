@@ -40,7 +40,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cuda-cross-aarch64 cuda-nvcc-cross-aarch64-${CUDA_VERSION} libcublas-cross-aarch64-${CUDA_VERSION}
         env:
-          CUDA_VERSION: 12-4
+          CUDA_VERSION: 12-5
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -167,15 +167,15 @@ jobs:
           ROCM_VERSION: "6.1"
           AMDGPU_VERSION: "6.1"
         run: |
-            set -ex 
+            set -ex
 
             sudo apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl libnuma-dev gnupg 
-            
-            curl -sL https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add - 
-              
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl libnuma-dev gnupg
+
+            curl -sL https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
+
             printf "deb [arch=amd64] https://repo.radeon.com/rocm/apt/$ROCM_VERSION/ jammy main" | sudo tee /etc/apt/sources.list.d/rocm.list
-            
+
             printf "deb [arch=amd64] https://repo.radeon.com/amdgpu/$AMDGPU_VERSION/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/amdgpu.list
             printf 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' | sudo tee /etc/apt/preferences.d/rocm-pin-600
             sudo apt-get update
@@ -183,10 +183,10 @@ jobs:
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
                 hipblas-dev rocm-dev \
                 rocblas-dev
-          
+
             sudo apt-get clean
             sudo rm -rf /var/lib/apt/lists/*
-            sudo ldconfig 
+            sudo ldconfig
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -291,7 +291,7 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
-          
+
           BACKEND_LIBS="$(ls /opt/homebrew/opt/grpc/lib/*.dylib /opt/homebrew/opt/re2/lib/*.dylib /opt/homebrew/opt/openssl@3/lib/*.dylib /opt/homebrew/opt/protobuf/lib/*.dylib /opt/homebrew/opt/abseil/lib/*.dylib | xargs)" GO_TAGS=p2p make dist
       - uses: actions/upload-artifact@v4
         with:

@@ -64,7 +64,7 @@ jobs:
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
-            cuda-minor-version: "7"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda11'
@@ -75,7 +75,7 @@ jobs:
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "1"
+            cuda-minor-version: "5"
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12'
@@ -86,7 +86,7 @@ jobs:
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
-            cuda-minor-version: "7"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cublas-cuda11-ffmpeg'
@@ -100,7 +100,7 @@ jobs:
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "1"
+            cuda-minor-version: "5"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-cublas-cuda12-ffmpeg'
@@ -232,7 +232,7 @@ jobs:
             grpc-base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
-  
+
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
@@ -273,7 +273,7 @@ jobs:
             makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
-            cuda-minor-version: "7"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda11-core'
@@ -284,7 +284,7 @@ jobs:
             makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "1"
+            cuda-minor-version: "5"
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12-core'
@@ -295,7 +295,7 @@ jobs:
             makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
-            cuda-minor-version: "7"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda11-ffmpeg-core'
@@ -306,7 +306,7 @@ jobs:
             makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "1"
+            cuda-minor-version: "5"
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12-ffmpeg-core'
