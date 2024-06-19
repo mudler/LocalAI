@@ -33,7 +33,7 @@ RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | ta
 ENV PATH $PATH:/root/go/bin:/usr/local/go/bin
 
 # Install grpc compilers
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.1 && \
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
@@ -98,8 +98,8 @@ RUN pip install --user grpcio-tools
 FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 
 ARG BUILD_TYPE
-ARG CUDA_MAJOR_VERSION=11
-ARG CUDA_MINOR_VERSION=8
+ARG CUDA_MAJOR_VERSION=12
+ARG CUDA_MINOR_VERSION=5
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 
@@ -292,7 +292,7 @@ ENV REBUILD=false
 ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
 ENV MAKEFLAGS=${MAKEFLAGS}
 
-ARG CUDA_MAJOR_VERSION=11
+ARG CUDA_MAJOR_VERSION=12
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
