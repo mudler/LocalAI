@@ -9,7 +9,7 @@
 
 set -e
 set -o noglob
-set -x
+#set -x
 
 # --- helper functions for logs ---
 info()
@@ -538,7 +538,7 @@ install_binary() {
     $SUDO install -o0 -g0 -m755 $TEMP_DIR/local-ai $BINDIR/local-ai
 
     verify_system
-    if [ "$HAS_SYSTEMD" == "true" ]; then
+    if [ "$HAS_SYSTEMD" = true ]; then
         configure_systemd
     fi
 
