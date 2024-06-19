@@ -11,6 +11,7 @@ import (
 	"time"
 
 	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
+	"github.com/go-skynet/LocalAI/pkg/library"
 	"github.com/go-skynet/LocalAI/pkg/xsysinfo"
 	"github.com/klauspost/cpuid/v2"
 	"github.com/phayes/freeport"
@@ -326,8 +327,13 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
 			}
 
-			// Make sure the process is executable
-			if err := ml.startProcess(grpcProcess, o.model, serverAddress); err != nil {
+			args := []string{}
+
+			// Load the ld.so if it exists
+			args, grpcProcess = library.LoadLDSO(o.assetDir, args, grpcProcess)
+
+			// Make sure the process is executable in any circumstance
+			if err := ml.startProcess(grpcProcess, o.model, serverAddress, args...); err != nil {
 				return "", err
 			}
 

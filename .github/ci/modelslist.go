@@ -114,12 +114,12 @@ var modelPageTemplate string = `
 
 	<h2 class="text-center text-3xl font-semibold text-gray-100">
 
-	 🖼️ Available {{.AvailableModels}} models</i> repositories     <a href="https://localai.io/models/" target="_blank" >
+	 🖼️ Available {{.AvailableModels}} models</i> <a href="https://localai.io/models/" target="_blank" >
 			<i class="fas fa-circle-info pr-2"></i>
 		</a></h2> 
 
 	<h3>	  
-	Refer to <a href="https://localai.io/models" target=_blank> Model gallery</a> for more information on how to use the models with LocalAI.
+	Refer to the Model gallery <a href="https://localai.io/models/" target="_blank" ><i class="fas fa-circle-info pr-2"></i></a> for more information on how to use the models with LocalAI.<br>
 
 	You can install models with the CLI command <code>local-ai models install <model-name></code>. or by using the WebUI.
 	</h3>

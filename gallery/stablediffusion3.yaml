@@ -1,0 +1,14 @@
+---
+name: "stable-diffusion-3-medium"
+
+config_file: |
+  backend: diffusers
+  diffusers:
+    cuda: true
+    enable_parameters: negative_prompt,num_inference_steps
+    pipeline_type: StableDiffusion3Pipeline
+  f16: false
+  name: sd3
+  parameters:
+    model: v2ray/stable-diffusion-3-medium-diffusers
+  step: 25
