@@ -142,15 +142,35 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	}
 
 	// Watch the configuration directory
-	// If the directory does not exist, we don't watch it
-	configHandler := newConfigFileHandler(options)
-	err = configHandler.Watch()
-	if err != nil {
-		log.Error().Err(err).Msg("error establishing configuration directory watcher")
-	}
+	startWatcher(options)
 
 	log.Info().Msg("core/startup process completed!")
 	return cl, ml, options, nil
+}
+
+func startWatcher(options *config.ApplicationConfig) {
+	if options.DynamicConfigsDir == "" {
+		// No need to start the watcher if the directory is not set
+		return
+	}
+
+	if _, err := os.Stat(options.DynamicConfigsDir); err != nil {
+		if os.IsNotExist(err) {
+			// We try to create the directory if it does not exist and was specified
+			if err := os.MkdirAll(options.DynamicConfigsDir, 0700); err != nil {
+				log.Error().Err(err).Msg("failed creating DynamicConfigsDir")
+			}
+		} else {
+			// something else happened, we log the error and don't start the watcher
+			log.Error().Err(err).Msg("failed to read DynamicConfigsDir, watcher will not be started")
+			return
+		}
+	}
+
+	configHandler := newConfigFileHandler(options)
+	if err := configHandler.Watch(); err != nil {
+		log.Error().Err(err).Msg("failed creating watcher")
+	}
 }
 
 // In Lieu of a proper DI framework, this function wires up the Application manually.
