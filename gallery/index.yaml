@@ -1323,6 +1323,26 @@
     - filename: Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
       sha256: 75091cf3a7145373922dbeb312c689cace89ba06215ce74b6fc7055a4b35a40c
       uri: huggingface://bartowski/Llama-3-Yggdrasil-2.0-8B-GGUF/Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
+- name: "llama-3-sec-chat"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/arcee-ai/Llama-3-SEC-Chat-GGUF
+    - https://huggingface.co/arcee-ai/Llama-3-SEC-Chat
+  icon: https://i.ibb.co/kHtBmDN/w8m6-X4-HCQRa-IR86ar-Cm5gg.webp
+  tags:
+    - llama3
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    Introducing Llama-3-SEC: a state-of-the-art domain-specific large language model that is set to revolutionize the way we analyze and understand SEC (Securities and Exchange Commission) data. Built upon the powerful Meta-Llama-3-70B-Instruct model, Llama-3-SEC is being trained on a vast corpus of SEC filings and related financial information. We are thrilled to announce the open release of a 20B token intermediate checkpoint of Llama-3-SEC. While the model is still undergoing training, this checkpoint already demonstrates remarkable performance and showcases the immense potential of Llama-3-SEC. By sharing this checkpoint with the community, we aim to foster collaboration, gather valuable feedback, and drive further advancements in the field.
+  overrides:
+    parameters:
+      model: Llama-3-SEC-Chat-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-SEC-Chat-Q4_K_M.gguf
+      uri: huggingface://arcee-ai/Llama-3-SEC-Chat-GGUF/Llama-3-SEC-Chat-Q4_K_M.gguf
+      sha256: 0d837400af161ba4136233db191330f2d77e297e079f0b6249e877c375cb56f3
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
