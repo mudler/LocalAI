@@ -63,6 +63,35 @@
     - filename: Samantha-Qwen-2-7B-Q4_K_M.gguf
       sha256: 5d1cf1c35a7a46c536a96ba0417d08b9f9e09c24a4e25976f72ad55d4904f6fe
       uri: huggingface://bartowski/Samantha-Qwen-2-7B-GGUF/Samantha-Qwen-2-7B-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "magnum-72b-v1"
+  icon: https://files.catbox.moe/ngqnb1.png
+  description: |
+    This is the first in a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus. This model is fine-tuned on top of Qwen-2 72B Instruct.
+  urls:
+    - https://huggingface.co/alpindale/magnum-72b-v1
+    - https://huggingface.co/bartowski/magnum-72b-v1-GGUF
+  overrides:
+    parameters:
+      model: magnum-72b-v1-Q4_K_M.gguf
+  files:
+    - filename: magnum-72b-v1-Q4_K_M.gguf
+      sha256: 046ec48665ce64a3a4965509dee2d9d8e5d81cb0b32ca0ddf130d2b59fa4ca9a
+      uri: huggingface://bartowski/magnum-72b-v1-GGUF/magnum-72b-v1-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "qwen2-1.5b-ita"
+  description: |
+    Qwen2 1.5B is a compact language model specifically fine-tuned for the Italian language. Despite its relatively small size of 1.5 billion parameters, Qwen2 1.5B demonstrates strong performance, nearly matching the capabilities of larger models, such as the 9 billion parameter ITALIA model by iGenius. The fine-tuning process focused on optimizing the model for various language tasks in Italian, making it highly efficient and effective for Italian language applications.
+  urls:
+    - https://huggingface.co/DeepMount00/Qwen2-1.5B-Ita
+    - https://huggingface.co/DeepMount00/Qwen2-1.5B-Ita-GGUF
+  overrides:
+    parameters:
+      model: qwen2-1.5b-instruct-q8_0.gguf
+  files:
+    - filename: qwen2-1.5b-instruct-q8_0.gguf
+      sha256: c9d33989d77f4bd6966084332087921b9613eda01d5f44dc0b4e9a7382a2bfbb
+      uri: huggingface://DeepMount00/Qwen2-1.5B-Ita-GGUF/qwen2-1.5b-instruct-q8_0.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -1323,6 +1352,26 @@
     - filename: Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
       sha256: 75091cf3a7145373922dbeb312c689cace89ba06215ce74b6fc7055a4b35a40c
       uri: huggingface://bartowski/Llama-3-Yggdrasil-2.0-8B-GGUF/Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
+- name: "llama-3-sec-chat"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/arcee-ai/Llama-3-SEC-Chat-GGUF
+    - https://huggingface.co/arcee-ai/Llama-3-SEC-Chat
+  icon: https://i.ibb.co/kHtBmDN/w8m6-X4-HCQRa-IR86ar-Cm5gg.webp
+  tags:
+    - llama3
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    Introducing Llama-3-SEC: a state-of-the-art domain-specific large language model that is set to revolutionize the way we analyze and understand SEC (Securities and Exchange Commission) data. Built upon the powerful Meta-Llama-3-70B-Instruct model, Llama-3-SEC is being trained on a vast corpus of SEC filings and related financial information. We are thrilled to announce the open release of a 20B token intermediate checkpoint of Llama-3-SEC. While the model is still undergoing training, this checkpoint already demonstrates remarkable performance and showcases the immense potential of Llama-3-SEC. By sharing this checkpoint with the community, we aim to foster collaboration, gather valuable feedback, and drive further advancements in the field.
+  overrides:
+    parameters:
+      model: Llama-3-SEC-Chat-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-SEC-Chat-Q4_K_M.gguf
+      uri: huggingface://arcee-ai/Llama-3-SEC-Chat-GGUF/Llama-3-SEC-Chat-Q4_K_M.gguf
+      sha256: 0d837400af161ba4136233db191330f2d77e297e079f0b6249e877c375cb56f3
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -1798,7 +1847,7 @@
     - cpu
     - llava-1.5
   overrides:
-    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    mmproj: Llama-3-Update-3.0-mmproj-model-f16.gguf
     parameters:
       model: Hathor-L3-8B-v.01-Q4_K_M-imat.gguf
   files:
@@ -1899,6 +1948,40 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "llama-3-cursedstock-v1.8-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/LLaMa-3-CursedStock-v1.8-8B-GGUF-IQ-Imatrix-Request
+    - https://huggingface.co/PJMixers/LLaMa-3-CursedStock-v1.8-8B
+  description: |
+    A merge of several models
+  icon: https://huggingface.co/PJMixers/LLaMa-3-CursedStock-v1.8-8B/resolve/main/model_tree.png
+  overrides:
+    parameters:
+      model: LLaMa-3-CursedStock-v1.8-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: LLaMa-3-CursedStock-v1.8-8B-Q4_K_M-imat.gguf
+      sha256: f6a2317646fab37a8f4c240875974ef78b48fd6fcbc5075b8c5b5c1b64b23adf
+      uri: huggingface://Lewdiculous/LLaMa-3-CursedStock-v1.8-8B-GGUF-IQ-Imatrix-Request/LLaMa-3-CursedStock-v1.8-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama3-8b-darkidol-1.1-iq-imatrix"
+  urls:
+    - https://huggingface.co/LWDCLS/llama3-8B-DarkIdol-1.1-GGUF-IQ-Imatrix-Request
+    - https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-1.1
+  description: |
+    The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
+  icon: https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-1.1/resolve/main/2024-06-20_20-01-51_9319.png
+  overrides:
+    mmproj: Llama-3-Update-3.0-mmproj-model-f16.gguf
+    parameters:
+      model: llama3-8B-DarkIdol-1.1-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-DarkIdol-1.1-Q4_K_M-imat.gguf
+      sha256: 48ba66a28927a835c743c4a2525f523d8170c83fc410114edb55e332428b1e78
+      uri: huggingface://LWDCLS/llama3-8B-DarkIdol-1.1-GGUF-IQ-Imatrix-Request/llama3-8B-DarkIdol-1.1-Q4_K_M-imat.gguf
+    - filename: Llama-3-Update-3.0-mmproj-model-f16.gguf
+      sha256: 3d2f36dff61d6157cadf102df86a808eb9f8a230be1bc0bc99039d81a895468a
+      uri: huggingface://Nitral-AI/Llama-3-Update-3.0-mmproj-model-f16/Llama-3-Update-3.0-mmproj-model-f16.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
