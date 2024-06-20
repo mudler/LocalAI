@@ -63,6 +63,21 @@
     - filename: Samantha-Qwen-2-7B-Q4_K_M.gguf
       sha256: 5d1cf1c35a7a46c536a96ba0417d08b9f9e09c24a4e25976f72ad55d4904f6fe
       uri: huggingface://bartowski/Samantha-Qwen-2-7B-GGUF/Samantha-Qwen-2-7B-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "magnum-72b-v1"
+  icon: https://files.catbox.moe/ngqnb1.png
+  description: |
+    This is the first in a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus. This model is fine-tuned on top of Qwen-2 72B Instruct.
+  urls:
+    - https://huggingface.co/alpindale/magnum-72b-v1
+    - https://huggingface.co/bartowski/magnum-72b-v1-GGUF
+  overrides:
+    parameters:
+      model: magnum-72b-v1-Q4_K_M.gguf
+  files:
+    - filename: magnum-72b-v1-Q4_K_M.gguf
+      sha256: 046ec48665ce64a3a4965509dee2d9d8e5d81cb0b32ca0ddf130d2b59fa4ca9a
+      uri: huggingface://bartowski/magnum-72b-v1-GGUF/magnum-72b-v1-Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
