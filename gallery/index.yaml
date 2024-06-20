@@ -1818,7 +1818,7 @@
     - cpu
     - llava-1.5
   overrides:
-    mmproj: Llama-3-Update-2.0-mmproj-model-f16.gguf
+    mmproj: Llama-3-Update-3.0-mmproj-model-f16.gguf
     parameters:
       model: Hathor-L3-8B-v.01-Q4_K_M-imat.gguf
   files:
@@ -1934,6 +1934,25 @@
     - filename: LLaMa-3-CursedStock-v1.8-8B-Q4_K_M-imat.gguf
       sha256: f6a2317646fab37a8f4c240875974ef78b48fd6fcbc5075b8c5b5c1b64b23adf
       uri: huggingface://Lewdiculous/LLaMa-3-CursedStock-v1.8-8B-GGUF-IQ-Imatrix-Request/LLaMa-3-CursedStock-v1.8-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama3-8b-darkidol-1.1-iq-imatrix"
+  urls:
+    - https://huggingface.co/LWDCLS/llama3-8B-DarkIdol-1.1-GGUF-IQ-Imatrix-Request
+    - https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-1.1
+  description: |
+    The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
+  icon: https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-1.1/resolve/main/2024-06-20_20-01-51_9319.png
+  overrides:
+    mmproj: Llama-3-Update-3.0-mmproj-model-f16.gguf
+    parameters:
+      model: llama3-8B-DarkIdol-1.1-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-DarkIdol-1.1-Q4_K_M-imat.gguf
+      sha256: 48ba66a28927a835c743c4a2525f523d8170c83fc410114edb55e332428b1e78
+      uri: huggingface://LWDCLS/llama3-8B-DarkIdol-1.1-GGUF-IQ-Imatrix-Request/llama3-8B-DarkIdol-1.1-Q4_K_M-imat.gguf
+    - filename: Llama-3-Update-3.0-mmproj-model-f16.gguf
+      sha256: 3d2f36dff61d6157cadf102df86a808eb9f8a230be1bc0bc99039d81a895468a
+      uri: huggingface://Nitral-AI/Llama-3-Update-3.0-mmproj-model-f16/Llama-3-Update-3.0-mmproj-model-f16.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
