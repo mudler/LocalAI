@@ -1899,6 +1899,21 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "llama-3-cursedstock-v1.8-8b-iq-imatrix"
+  urls:
+    - https://huggingface.co/Lewdiculous/LLaMa-3-CursedStock-v1.8-8B-GGUF-IQ-Imatrix-Request
+    - https://huggingface.co/PJMixers/LLaMa-3-CursedStock-v1.8-8B
+  description: |
+    A merge of several models
+  icon: https://huggingface.co/PJMixers/LLaMa-3-CursedStock-v1.8-8B/resolve/main/model_tree.png
+  overrides:
+    parameters:
+      model: LLaMa-3-CursedStock-v1.8-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: LLaMa-3-CursedStock-v1.8-8B-Q4_K_M-imat.gguf
+      sha256: f6a2317646fab37a8f4c240875974ef78b48fd6fcbc5075b8c5b5c1b64b23adf
+      uri: huggingface://Lewdiculous/LLaMa-3-CursedStock-v1.8-8B-GGUF-IQ-Imatrix-Request/LLaMa-3-CursedStock-v1.8-8B-Q4_K_M-imat.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
