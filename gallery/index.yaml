@@ -78,6 +78,20 @@
     - filename: magnum-72b-v1-Q4_K_M.gguf
       sha256: 046ec48665ce64a3a4965509dee2d9d8e5d81cb0b32ca0ddf130d2b59fa4ca9a
       uri: huggingface://bartowski/magnum-72b-v1-GGUF/magnum-72b-v1-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "qwen2-1.5b-ita"
+  description: |
+    Qwen2 1.5B is a compact language model specifically fine-tuned for the Italian language. Despite its relatively small size of 1.5 billion parameters, Qwen2 1.5B demonstrates strong performance, nearly matching the capabilities of larger models, such as the 9 billion parameter ITALIA model by iGenius. The fine-tuning process focused on optimizing the model for various language tasks in Italian, making it highly efficient and effective for Italian language applications.
+  urls:
+    - https://huggingface.co/DeepMount00/Qwen2-1.5B-Ita
+    - https://huggingface.co/DeepMount00/Qwen2-1.5B-Ita-GGUF
+  overrides:
+    parameters:
+      model: qwen2-1.5b-instruct-q8_0.gguf
+  files:
+    - filename: qwen2-1.5b-instruct-q8_0.gguf
+      sha256: c9d33989d77f4bd6966084332087921b9613eda01d5f44dc0b4e9a7382a2bfbb
+      uri: huggingface://DeepMount00/Qwen2-1.5B-Ita-GGUF/qwen2-1.5b-instruct-q8_0.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
