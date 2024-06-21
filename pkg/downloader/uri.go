@@ -173,9 +173,11 @@ func DownloadFile(url string, filePath, sha string, fileN, total int, downloadSt
 		}
 
 		if strings.HasPrefix(url, OllamaPrefix) {
+			url = strings.TrimPrefix(url, OllamaPrefix)
 			return oci.OllamaFetchModel(url, filePath, progressStatus)
 		}
 
+		url = strings.TrimPrefix(url, OCIPrefix)
 		img, err := oci.GetImage(url, "", nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get image %q: %v", url, err)
