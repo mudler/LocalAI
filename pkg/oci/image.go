@@ -63,7 +63,7 @@ var defaultRetryPredicate = func(err error) bool {
 func ExtractOCIImage(img v1.Image, targetDestination string) error {
 	reader := mutate.Extract(img)
 
-	_, err := archive.Apply(context.Background(), targetDestination, reader)
+	_, err := archive.Apply(context.Background(), targetDestination, reader, archive.WithNoSameOwner())
 
 	return err
 }
