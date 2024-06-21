@@ -1,4 +1,4 @@
-FROM node:latest
+FROM node:lts-alpine
 COPY ./langchainjs-localai-example /app
 WORKDIR /app
 RUN npm install

@@ -2,7 +2,7 @@ replicaCount: 1
 
 deployment:
   # https://quay.io/repository/go-skynet/local-ai?tab=tags
-  image: quay.io/go-skynet/local-ai:v1.23.0
+  image: quay.io/go-skynet/local-ai:v1.40.0
   env:
     threads: 4
     debug: "true"

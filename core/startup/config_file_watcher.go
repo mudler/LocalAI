@@ -10,7 +10,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"github.com/rs/zerolog/log"
 )
 

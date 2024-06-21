@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/utils"
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
