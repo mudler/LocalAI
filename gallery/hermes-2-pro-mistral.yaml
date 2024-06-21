@@ -7,47 +7,26 @@ config_file: |
   stopwords:
   - "<|im_end|>"
   - "<dummy32000>"
-  - "</tool_call>"
   - "<|eot_id|>"
   - "<|end_of_text|>"
   function:
-    # disable injecting the "answer" tool
     disable_no_action: true
-
-    grammar:
-      # This allows the grammar to also return messages
-      mixed_mode: true
-
     return_name_in_function_response: true
-    # Without grammar uncomment the lines below
-    # Warning: this is relying only on the capability of the
-    # LLM model to generate the correct function call.
+    grammar:
+      # Uncomment the line below to enable grammar matching for JSON results if the model is breaking
+      # the output. This will make the model more accurate and won't break the JSON output.
+      # This however, will make parallel_calls not functional (it is a known bug)
+      # mixed_mode: true
+      parallel_calls: true
+      expect_strings_after_json: true
     json_regex_match:
     - "(?s)<tool_call>(.*?)</tool_call>"
-    - "(?s)<tool_call>(.*?)"
+    - "(?s)<tool_call>(.*)"
+    capture_llm_results:
+      - (?s)<scratchpad>(.*?)</scratchpad>
     replace_llm_results:
-    # Drop the scratchpad content from responses
-    - key: "(?s)<scratchpad>.*</scratchpad>"
-      value: ""
-    replace_function_results:
-    # Replace everything that is not JSON array or object
-    - key: '(?s)^[^{\[]*'
-      value: ""
-    - key: '(?s)[^}\]]*$'
-      value: ""
-    - key: "'([^']*?)'"
-      value: "_DQUOTE_${1}_DQUOTE_"
-    - key: '\\"'
-      value: "__TEMP_QUOTE__"
-    - key: "\'"
-      value: "'"
-    - key: "_DQUOTE_"
-      value: '"'
-    - key: "__TEMP_QUOTE__"
-      value: '"'
-    # Drop the scratchpad content from responses
-    - key: "(?s)<scratchpad>.*</scratchpad>"
-      value: ""
+      - key: (?s)<scratchpad>(.*?)</scratchpad>
+        value: ""
 
   template:
     chat: |
@@ -73,7 +52,7 @@ config_file: |
       {{- end }}<|im_end|>
     completion: |
       {{.Input}}
-    function: |-
+    function: |
       <|im_start|>system
       You are a function calling AI model.
       Here are the available tools:
