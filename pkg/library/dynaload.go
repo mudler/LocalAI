@@ -49,7 +49,7 @@ func LoadLDSO(assetDir string, args []string, grpcProcess string) ([]string, str
 	if _, err := os.Stat(ldPath); err == nil {
 		log.Debug().Msgf("ld.so found")
 		// We need to run the grpc process with the ld.so
-		args = append(args, grpcProcess)
+		args = append([]string{grpcProcess}, args...)
 		grpcProcess = ldPath
 	}
 
