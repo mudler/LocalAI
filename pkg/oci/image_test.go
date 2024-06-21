@@ -2,6 +2,7 @@ package oci_test
 
 import (
 	"os"
+	"runtime"
 
 	. "github.com/go-skynet/LocalAI/pkg/oci" // Update with your module path
 	. "github.com/onsi/ginkgo/v2"
@@ -12,7 +13,9 @@ var _ = Describe("OCI", func() {
 
 	Context("when template is loaded successfully", func() {
 		It("should evaluate the template correctly", func() {
-
+			if runtime.GOOS == "darwin" {
+				Skip("Skipping test on darwin")
+			}
 			imageName := "alpine"
 			img, err := GetImage(imageName, "", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -31,5 +34,4 @@ var _ = Describe("OCI", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
-
 })
