@@ -65,7 +65,7 @@ type PromptTemplate struct {
 
 func GetGalleryConfigFromURL(url string, basePath string) (Config, error) {
 	var config Config
-	err := downloader.GetURI(url, basePath, func(url string, d []byte) error {
+	err := downloader.DownloadAndUnmarshal(url, basePath, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {

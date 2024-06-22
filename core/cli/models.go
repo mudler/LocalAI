@@ -6,6 +6,7 @@ import (
 
 	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
 
+	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/go-skynet/LocalAI/pkg/startup"
 	"github.com/rs/zerolog/log"
@@ -79,13 +80,15 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			return err
 		}
 
-		model := gallery.FindModel(models, modelName, mi.ModelsPath)
-		if model == nil {
-			log.Error().Str("model", modelName).Msg("model not found")
-			return err
-		}
+		if !downloader.LooksLikeOCI(modelName) {
+			model := gallery.FindModel(models, modelName, mi.ModelsPath)
+			if model == nil {
+				log.Error().Str("model", modelName).Msg("model not found")
+				return err
+			}
 
-		log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
+			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
+		}
 		err = startup.InstallModels(galleries, "", mi.ModelsPath, progressCallback, modelName)
 		if err != nil {
 			return err
