@@ -124,7 +124,7 @@ docker run -p 8080:8080 --name local-ai -ti -v localai-models:/build/models loca
 
 {{% /alert %}}
 
-### Available images
+### Available AIO images
 
 | Description | Quay | Docker Hub                                   |
 | --- | --- |-----------------------------------------------|

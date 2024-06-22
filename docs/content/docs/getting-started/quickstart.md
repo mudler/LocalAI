@@ -1,46 +1,42 @@
- 
 +++
 disableToc = false
 title = "Quickstart"
 weight = 3
 url = '/basics/getting_started/'
 icon = "rocket_launch"
-
 +++
 
-**LocalAI** is the free, Open Source alternative to OpenAI (Anthropic, ...), acting as a drop-in replacement REST API for local inferencing. It allows you to run [LLMs]({{%relref "docs/features/text-generation" %}}), generate images, and audio, all locally or on-prem with consumer-grade hardware, supporting multiple model families and architectures.
+**LocalAI** is a free, open-source alternative to OpenAI (Anthropic, etc.), functioning as a drop-in replacement REST API for local inferencing. It allows you to run [LLMs]({{% relref "docs/features/text-generation" %}}), generate images, and produce audio, all locally or on-premises with consumer-grade hardware, supporting multiple model families and architectures.
 
-## Installation
+## Using the Bash Installer
 
-### Using the Bash Installer
+Install LocalAI easily using the bash installer with the following command:
 
-You can easily install LocalAI using the bash installer with the following command:
-
-```
+```sh
 curl https://localai.io/install.sh | sh
 ```
 
-See also the [Installer Options]({{%relref "docs/advanced/installer" %}}) for the full list of options.
+For a full list of options, refer to the [Installer Options]({{% relref "docs/advanced/installer" %}}) documentation.
 
-Binaries can be also [manually downloaded]({{%relref "docs/reference/binaries" %}}).
+Binaries can also be [manually downloaded]({{% relref "docs/reference/binaries" %}}).
 
-### Using Container Images
+## Using Container Images or Kubernetes
 
-LocalAI is available as a container image compatible with various container engines like Docker, Podman, and Kubernetes. Container images are published on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest) and [Docker Hub](https://hub.docker.com/r/localai/localai).
+LocalAI is available as a container image compatible with various container engines such as Docker, Podman, and Kubernetes. Container images are published on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest) and [Docker Hub](https://hub.docker.com/r/localai/localai).
 
-See: [Using container images]({{%relref "docs/getting-started/container-images" %}})
+For detailed instructions, see [Using container images]({{% relref "docs/getting-started/container-images" %}}). For Kubernetes deployment, see [Run with Kubernetes]({{% relref "docs/getting-started/kubernetes" %}}).
 
-### Running LocalAI with All-in-One (AIO) Images
+## Running LocalAI with All-in-One (AIO) Images
 
-> _Do you have already a model file? Skip to [Run models manually]({{%relref "docs/getting-started/manual" %}})_.
+> _Already have a model file? Skip to [Run models manually]({{% relref "docs/getting-started/manual" %}})_.
 
-LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. If you don't need models pre-configured, you can use the standard [images]({{%relref "docs/getting-started/container-images" %}}).
+LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the features of LocalAI. If pre-configured models are not required, you can use the standard [images]({{% relref "docs/getting-started/container-images" %}}).
 
-These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and requires no configuration.
+These images are available for both CPU and GPU environments. AIO images are designed for ease of use and require no additional configuration.
 
-It suggested to use the AIO images if you don't want to configure the models to run on LocalAI. If you want to run specific models, you can use the [manual method]({{%relref "docs/getting-started/manual" %}}).
+It is recommended to use AIO images if you prefer not to configure the models manually or via the web interface. For running specific models, refer to the [manual method]({{% relref "docs/getting-started/manual" %}}).
 
-The AIO Images comes pre-configured with the following features:
+The AIO images come pre-configured with the following features:
 - Text to Speech (TTS)
 - Speech to Text
 - Function calling
@@ -48,18 +44,17 @@ The AIO Images comes pre-configured with the following features:
 - Image generation
 - Embedding server
 
-See: [Using container images]({{%relref "docs/getting-started/container-images" %}}) for instructions on how to use AIO images.
+For instructions on using AIO images, see [Using container images]({{% relref "docs/getting-started/container-images#all-in-one-images" %}}).
 
+## What's Next?
 
-## What's next?
+There is much more to explore with LocalAI! You can run any model from Hugging Face, perform video generation, and also voice cloning. For a comprehensive overview, check out the [features]({{% relref "docs/features" %}}) section.
 
-There is much more to explore! run any model from huggingface, video generation, and voice cloning with LocalAI, check out the [features]({{%relref "docs/features" %}}) section for a full overview.
+Explore additional resources and community contributions:
 
-Explore further resources and community contributions:
-
-- [Try it out]({{%relref "docs/getting-started/try-it-out" %}})
-- [Build LocalAI and the container image]({{%relref "docs/getting-started/build" %}})
-- [Run models manually]({{%relref "docs/getting-started/manual" %}})
-- [Installer Options]({{%relref "docs/advanced/installer" %}})
-- [Run from Container images]({{%relref "docs/getting-started/container-images" %}})
+- [Installer Options]({{% relref "docs/advanced/installer" %}})
+- [Run from Container images]({{% relref "docs/getting-started/container-images" %}})
+- [Examples to try from the CLI]({{% relref "docs/getting-started/try-it-out" %}})
+- [Build LocalAI and the container image]({{% relref "docs/getting-started/build" %}})
+- [Run models manually]({{% relref "docs/getting-started/manual" %}})
 - [Examples](https://github.com/mudler/LocalAI/tree/master/examples#examples)
