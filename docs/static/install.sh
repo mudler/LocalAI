@@ -227,8 +227,8 @@ install_container_toolkit() {
     case $OS_NAME in
             amzn|fedora|rocky|centos|rhel) install_container_toolkit_yum ;;
             debian|ubuntu) install_container_toolkit_apt ;;
-            opensuse|suse) install_container_toolkit_zypper ;;
-            *) exit ;;
+            opensuse*|suse*) install_container_toolkit_zypper ;;
+            *) echo "Could not install nvidia container toolkit - unknown OS" ;;
     esac
 }
 
