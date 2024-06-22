@@ -613,7 +613,9 @@ for PACKAGE_MANAGER in dnf yum apt-get; do
 done
 
 if [ "$DOCKER_INSTALL" = "true" ]; then
-    install_container_toolkit
+    if [ "$HAS_CUDA" = true ]; then
+        install_container_toolkit
+    fi
     install_docker
 else
     install_binary
