@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-skynet/LocalAI/pkg/templates"
+	"github.com/mudler/LocalAI/pkg/templates"
 
-	"github.com/go-skynet/LocalAI/pkg/functions"
-	"github.com/go-skynet/LocalAI/pkg/grpc"
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/utils"
 
 	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"

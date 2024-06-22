@@ -1,7 +1,7 @@
 package downloader_test
 
 import (
-	. "github.com/go-skynet/LocalAI/pkg/downloader"
+	. "github.com/mudler/LocalAI/pkg/downloader"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

@@ -13,10 +13,10 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/config"
 
-	utils2 "github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
+	utils2 "github.com/mudler/LocalAI/pkg/utils"
 	"github.com/stretchr/testify/assert"
 
 	"testing"

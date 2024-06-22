@@ -7,7 +7,7 @@ package main
 import (
 	"flag"
 
-	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
 
 var (

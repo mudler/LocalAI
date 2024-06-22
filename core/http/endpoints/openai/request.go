@@ -9,12 +9,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/core/config"
-	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
-	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/pkg/functions"
-	model "github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/core/config"
+	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/functions"
+	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
 

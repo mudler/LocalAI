@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/config"
 
-	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/pkg/utils"
 )
 
 var UploadedFiles []File

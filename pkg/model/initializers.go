@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
-	"github.com/go-skynet/LocalAI/pkg/library"
-	"github.com/go-skynet/LocalAI/pkg/xsysinfo"
 	"github.com/klauspost/cpuid/v2"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/library"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 

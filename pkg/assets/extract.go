@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-skynet/LocalAI/pkg/library"
+	"github.com/mudler/LocalAI/pkg/library"
 )
 
 func ResolvePath(dir string, paths ...string) string {
