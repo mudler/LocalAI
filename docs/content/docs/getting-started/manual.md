@@ -1,31 +1,39 @@
- 
-+++
-disableToc = false
-title = "Run models manually"
-weight = 5
-icon = "rocket_launch"
+---
 
-+++
+disableToc: false
+title: "Run models manually"
+weight: 5
+icon: "rocket_launch"
 
+---
 
-1. Ensure you have a model file, a configuration YAML file, or both. Customize model defaults and specific settings with a configuration file. For advanced configurations, refer to the [Advanced Documentation](docs/advanced).
+# Run Models Manually
 
-2. For GPU Acceleration instructions, visit [GPU acceleration](docs/features/gpu-acceleration).
+Follow these steps to manually run models using LocalAI:
+
+1. **Prepare Your Model and Configuration Files**:
+   Ensure you have a model file and a configuration YAML file, if necessary. Customize model defaults and specific settings with a configuration file. For advanced configurations, refer to the [Advanced Documentation]({{% relref "docs/advanced" %}}).
+
+2. **GPU Acceleration**:
+   For instructions on GPU acceleration, visit the [GPU acceleration]({{% relref "docs/features/gpu-acceleration" %}}) page.
+
+3. **Run LocalAI**:
+   Choose one of the following methods to run LocalAI:
 
 {{< tabs tabTotal="5" >}}
 {{% tab tabName="Docker" %}}
 
 ```bash
-# Prepare the models into the `model` directory
+# Prepare the models into the `models` directory
 mkdir models
 
-# copy your models to it
+# Copy your models to the directory
 cp your-model.gguf models/
 
-# run the LocalAI container
+# Run the LocalAI container
 docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
-# You should see:
-# 
+
+# Expected output:
 # ┌───────────────────────────────────────────────────┐
 # │                   Fiber v2.42.0                   │
 # │               http://127.0.0.1:8080               │
@@ -35,7 +43,7 @@ docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-
 # │ Prefork ....... Disabled  PID ................. 1 │
 # └───────────────────────────────────────────────────┘
 
-# Try the endpoint with curl
+# Test the endpoint with curl
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.gguf",
      "prompt": "A long time ago in a galaxy far, far away",
@@ -44,15 +52,12 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 ```
 
 {{% alert icon="💡" %}}
-
 **Other Docker Images**:
 
-For other Docker images, please see the table in
-https://localai.io/basics/getting_started/#container-images.
-
+For other Docker images, please refer to the table in [the container images section]({{% relref "docs/getting-started/container-images" %}}).
 {{% /alert %}}
 
-Here is a more specific example:
+### Example:
 
 ```bash
 mkdir models
@@ -60,12 +65,12 @@ mkdir models
 # Download luna-ai-llama2 to models/
 wget https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF/resolve/main/luna-ai-llama2-uncensored.Q4_0.gguf -O models/luna-ai-llama2
 
-# Use a template from the examples
+# Use a template from the examples, if needed
 cp -rf prompt-templates/getting_started.tmpl models/luna-ai-llama2.tmpl
 
 docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
 
-# Now API is accessible at localhost:8080
+# Now the API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
 # {"object":"list","data":[{"id":"luna-ai-llama2","object":"model"}]}
 
@@ -78,12 +83,12 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 ```
 
 {{% alert note %}}
-- If running on Apple Silicon (ARM) it is **not** suggested to run on Docker due to emulation. Follow the [build instructions]({{%relref "docs/getting-started/build" %}}) to use Metal acceleration for full GPU support.
-- If you are running Apple x86_64 you can use `docker`, there is no additional gain into building it from source.
+- If running on Apple Silicon (ARM), it is **not** recommended to run on Docker due to emulation. Follow the [build instructions]({{% relref "docs/getting-started/build" %}}) to use Metal acceleration for full GPU support.
+- If you are running on Apple x86_64, you can use Docker without additional gain from building it from source.
 {{% /alert %}}
 
 {{% /tab %}}
-{{% tab tabName="Docker compose" %}}
+{{% tab tabName="Docker Compose" %}}
 
 ```bash
 # Clone LocalAI
@@ -91,21 +96,21 @@ git clone https://github.com/go-skynet/LocalAI
 
 cd LocalAI
 
-# (optional) Checkout a specific LocalAI tag
+# (Optional) Checkout a specific LocalAI tag
 # git checkout -b build <TAG>
 
-# copy your models to models/
+# Copy your models to the models directory
 cp your-model.gguf models/
 
-# (optional) Edit the .env file to set things like context size and threads
+# (Optional) Edit the .env file to set parameters like context size and threads
 # vim .env
 
-# start with docker compose
+# Start with Docker Compose
 docker compose up -d --pull always
-# or you can build the images with:
+# Or build the images with:
 # docker compose up -d --build
 
-# Now API is accessible at localhost:8080
+# Now the API is accessible at localhost:8080
 curl http://localhost:8080/v1/models
 # {"object":"list","data":[{"id":"your-model.gguf","object":"model"}]}
 
@@ -117,48 +122,43 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 ```
 
 {{% alert icon="💡" %}}
-
 **Other Docker Images**:
 
-For other Docker images, please see the table in
-https://localai.io/basics/getting_started/#container-images.
-
+For other Docker images, please refer to the table in [Getting Started](https://localai.io/basics/getting_started/#container-images).
 {{% /alert %}}
 
-Note: If you are on Windows, please make sure the project is on the Linux Filesystem, otherwise loading models might be slow. For more Info: [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems)
+Note: If you are on Windows, ensure the project is on the Linux filesystem to avoid slow model loading. For more information, see the [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
 
 {{% /tab %}}
-
 {{% tab tabName="Kubernetes" %}}
 
-See the [Kubernetes section]({{%relref "docs/getting-started/kubernetes" %}}).
+For Kubernetes deployment, see the [Kubernetes section]({{% relref "docs/getting-started/kubernetes" %}}).
 
 {{% /tab %}}
-{{% tab tabName="From binary" %}}
+{{% tab tabName="From Binary" %}}
 
-LocalAI binary releases are available in [Github](https://github.com/go-skynet/LocalAI/releases).
+LocalAI binary releases are available on [GitHub](https://github.com/go-skynet/LocalAI/releases).
 
 {{% alert icon="⚠️" %}}
-If you are installing on MacOS, when you excecute the binary, you will get a message saying:
+If installing on macOS, you might encounter a message saying:
 
-> "local-ai-git-Darwin-arm64" (or whatever name you gave to the binary) can't be opened because Apple cannot check it for malicious software.
+> "local-ai-git-Darwin-arm64" (or the name you gave the binary) can't be opened because Apple cannot check it for malicious software.
 
-Hit OK, and go to Settings > Privacy & Security > Security and look for the message:
+Hit OK, then go to Settings > Privacy & Security > Security and look for the message:
 
 > "local-ai-git-Darwin-arm64" was blocked from use because it is not from an identified developer.
 
-And press "Allow Anyway"
+Press "Allow Anyway."
 {{% /alert %}}
 
+{{% /tab %}}
+{{% tab tabName="From Source" %}}
+
+For instructions on building LocalAI from source, see the [Build Section]({{% relref "docs/getting-started/build" %}}).
 
 {{% /tab %}}
-
-{{% tab tabName="From source" %}}
-
-See the [build section]({{%relref "docs/getting-started/build" %}}).
-  
-{{% /tab %}}
-
 {{< /tabs >}}
 
 For more model configurations, visit the [Examples Section](https://github.com/mudler/LocalAI/tree/master/examples/configurations).
+
+---
