@@ -28,3 +28,9 @@ If you prefer to install from manifest file, you can install from the deployment
 ```
 kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI/master/examples/kubernetes/deployment.yaml
 ```
+
+For Nvidia GPUs:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI/master/examples/kubernetes/deployment-nvidia.yaml
+```
