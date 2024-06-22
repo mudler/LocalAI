@@ -19,7 +19,7 @@ For Nvidia GPUs:
 kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI/master/examples/kubernetes/deployment-nvidia.yaml
 ```
 
-Alternatively, the `go-skynet` helm chart can be used as well:
+Alternatively, the [helm chart](https://github.com/go-skynet/helm-charts) can be used as well:
 
 ```bash
 # Install the helm repository
