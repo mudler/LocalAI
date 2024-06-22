@@ -13,6 +13,7 @@ import (
 	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
 	"github.com/go-skynet/LocalAI/core/p2p"
 	"github.com/go-skynet/LocalAI/pkg/assets"
+	"github.com/go-skynet/LocalAI/pkg/library"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 )
@@ -71,13 +72,18 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 	go func() {
 		for {
 			log.Info().Msgf("Starting llama-cpp-rpc-server on '%s:%d'", address, port)
+
+			grpcProcess := assets.ResolvePath(
+				r.BackendAssetsPath,
+				"util",
+				"llama-cpp-rpc-server",
+			)
+
+			args := append([]string{"--host", address, "--port", fmt.Sprint(port)}, r.ExtraLLamaCPPArgs...)
+			args, grpcProcess = library.LoadLDSO(r.BackendAssetsPath, args, grpcProcess)
+
 			cmd := exec.Command(
-				assets.ResolvePath(
-					r.BackendAssetsPath,
-					"util",
-					"llama-cpp-rpc-server",
-				),
-				append([]string{"--host", address, "--port", fmt.Sprint(port)}, r.ExtraLLamaCPPArgs...)...,
+				grpcProcess, args...,
 			)
 
 			cmd.Env = os.Environ()
@@ -86,7 +92,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			cmd.Stdout = os.Stdout
 
 			if err := cmd.Start(); err != nil {
-				log.Error().Err(err).Msg("Failed to start llama-cpp-rpc-server")
+				log.Error().Any("grpcProcess", grpcProcess).Any("args", args).Err(err).Msg("Failed to start llama-cpp-rpc-server")
 			}
 
 			cmd.Wait()
