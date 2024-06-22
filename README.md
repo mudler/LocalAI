@@ -48,6 +48,13 @@
 
 ![screen](https://github.com/mudler/LocalAI/assets/2420543/20b5ccd2-8393-44f0-aaf6-87a23806381e)
 
+Run the installer script:
+
+```bash
+curl https://localai.io/install.sh | sh
+```
+
+Or run with docker:
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 # Alternative images:
