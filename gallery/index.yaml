@@ -2346,8 +2346,8 @@
       model: Hermes-2-Theta-Llama-3-70B-Q4_K_M.gguf
   files:
     - filename: "Hermes-2-Theta-Llama-3-70B-Q4_K_M.gguf"
-      sha256: "	b3965f671c35d09da8b903218f5bbaac94efdd9000e4fe4a2bac87fcac9f664e"
       uri: "huggingface://NousResearch/Hermes-2-Theta-Llama-3-70B-GGUF/Hermes-2-Theta-Llama-3-70B-Q4_K_M.gguf"
+      sha256: b3965f671c35d09da8b903218f5bbaac94efdd9000e4fe4a2bac87fcac9f664e
 ### LLAMA3 version
 - !!merge <<: *hermes-2-pro-mistral
   name: "hermes-2-pro-llama-3-8b"
