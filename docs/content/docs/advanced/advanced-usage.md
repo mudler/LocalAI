@@ -106,118 +106,202 @@ local-ai github://mudler/LocalAI/examples/configurations/phi-2.yaml@master
 ### Full config model file reference
 
 ```yaml
-# Model name.
-# The model name is used to identify the model in the API calls.
-name: gpt-3.5-turbo
+# Main configuration of the model, template, and system features.
+name: "" # Model name, used to identify the model in API calls.
 
-# Default model parameters.
-# These options can also be specified in the API calls
-parameters:
-  # Relative to the models path
-  model: luna-ai-llama2-uncensored.ggmlv3.q5_K_M.bin
-  # temperature
-  temperature: 0.3
-  # all the OpenAI request options here..
-  top_k: 
-  top_p: 
-  max_tokens:
-  ignore_eos: true
-  n_keep: 10
-  seed: 
-  mode: 
-  step:
-  negative_prompt:
-  typical_p:
-  tfz:
-  frequency_penalty:
+# Precision settings for the model, reducing precision can enhance performance on some hardware.
+f16: null # Whether to use 16-bit floating-point precision.
 
-  rope_freq_base:
-  rope_freq_scale:
-  negative_prompt_scale:
+# Concurrency settings for the application.
+threads: null # Number of threads to use for processing.
 
-mirostat_eta:
-mirostat_tau:
-mirostat: 
-# Default context size
-context_size: 512
-# Default number of threads
-threads: 10
-# Define a backend (optional). By default it will try to guess the backend the first time the model is interacted with.
-backend: llama-stable # available: llama, stablelm, gpt2, gptj rwkv
-# stopwords (if supported by the backend)
-stopwords:
-- "HUMAN:"
-- "### Response:"
-# string to trim space to
-trimspace:
-- string
-# Strings to cut from the response
-cutstrings:
-- "string"
+# Roles define how different entities interact in a conversational model.
+# It can be used to map roles to specific parts of the conversation.
+roles: {} # Roles for entities like user, system, assistant, etc.
 
-# Directory used to store additional assets
-asset_dir: ""
+# Backend to use for computation (like llama-cpp, diffusers, whisper).
+backend: "" # Backend for AI computations.
 
-# define chat roles
-roles:
-  user: "HUMAN:"
-  system: "GPT:"
-  assistant: "ASSISTANT:"
+# Templates for various types of model interactions.
 template:
-  # template file ".tmpl" with the prompt template to use by default on the endpoint call. Note there is no extension in the files
-  completion: completion
-  chat: chat
-  edit: edit_template
-  function: function_template
+    chat: "" # Template for chat interactions. Uses golang templates with Sprig functions.
+    chat_message: "" # Template for individual chat messages.  Uses golang templates with Sprig functions.
+    completion: "" # Template for generating text completions. Uses golang templates with Sprig functions.
+    edit: "" # Template for edit operations. Uses golang templates with Sprig functions.
+    function: "" # Template for function calls. Uses golang templates with Sprig functions.
+    use_tokenizer_template: false # Whether to use a specific tokenizer template. (vLLM)
+    join_chat_messages_by_character: null # Character to join chat messages, if applicable. Defaults to newline.
 
+# Function-related settings to control behavior of specific function calls.
 function:
-   disable_no_action: true
-   no_action_function_name: "reply"
-   no_action_description_name: "Reply to the AI assistant"
+    disable_no_action: false # Whether to disable the no-action behavior.
+    grammar:
+        parallel_calls: false # Allow to return parallel tools
+        disable_parallel_new_lines: false # Disable parallel processing for new lines in grammar checks.
+        mixed_mode: false # Allow mixed-mode grammar enforcing
+        no_mixed_free_string: false # Disallow free strings in mixed mode.
+        disable: false # Completely disable grammar enforcing functionality.
+        prefix: "" # Prefix to add before grammars rules.
+        expect_strings_after_json: false # Expect string after JSON data.
+    no_action_function_name: "" # Function name to call when no action is determined.
+    no_action_description_name: "" # Description name for no-action functions.
+    response_regex: [] # Regular expressions to match response from
+    json_regex_match: [] # Regular expressions to match JSON data when in tool mode
+    replace_function_results: [] # Placeholder to replace function call results with arbitrary strings or patterns.
+    replace_llm_results: [] # Replace language model results with arbitrary strings or patterns.
+    capture_llm_results: [] # Capture language model results as text result, among JSON, in function calls. For instance, if a model returns a block for "thinking" and a block for "response", this will allow you to capture the thinking block.
+    return_name_in_function_response: false # Some models might prefer to use "name" rather then "function" when returning JSON data. This will allow to use "name" as a key in the JSON response.
 
-system_prompt:
-rms_norm_eps:
-# Set it to 8 for llama2 70b
-ngqa: 1
-## LLAMA specific options
-# Enable F16 if backend supports it
-f16: true
-# Enable debugging
-debug: true
-# Enable embeddings
-embeddings: true
-# Mirostat configuration (llama.cpp only)
-mirostat_eta: 0.8
-mirostat_tau: 0.9
-mirostat: 1
-# GPU Layers (only used when built with cublas)
-gpu_layers: 22
-# Enable memory lock
-mmlock: true
-# GPU setting to split the tensor in multiple parts and define a main GPU
-# see llama.cpp for usage
+# Feature gating flags to enable experimental or optional features.
+feature_flags: {}
+
+# System prompt to use by default.
+system_prompt: ""
+
+# Configuration for splitting tensors across GPUs.
 tensor_split: ""
-main_gpu: ""
-# Define a prompt cache path (relative to the models)
-prompt_cache_path: "prompt-cache"
-# Cache all the prompts
-prompt_cache_all: true
-# Read only
-prompt_cache_ro: false
-# Enable mmap
-mmap: true
-# Enable low vram mode (GPU only)
-low_vram: true
-# Set NUMA mode (CPU only)
-numa: true
-# Lora settings
-lora_adapter: "/path/to/lora/adapter"
-lora_base: "/path/to/lora/base"
-# Disable mulmatq (CUDA)
-no_mulmatq: true
 
-# Diffusers/transformers
-cuda: true
+# Identifier for the main GPU used in multi-GPU setups.
+main_gpu: ""
+
+# Small value added to the denominator in RMS normalization to prevent division by zero.
+rms_norm_eps: 0
+
+# Natural question generation model parameter.
+ngqa: 0
+
+# Path where prompt cache is stored.
+prompt_cache_path: ""
+
+# Whether to cache all prompts.
+prompt_cache_all: false
+
+# Whether the prompt cache is read-only.
+prompt_cache_ro: false
+
+# Mirostat sampling settings.
+mirostat_eta: null
+mirostat_tau: null
+mirostat: null
+
+# GPU-specific layers configuration.
+gpu_layers: null
+
+# Memory mapping for efficient I/O operations.
+mmap: null
+
+# Memory locking to ensure data remains in RAM.
+mmlock: null
+
+# Mode to use minimal VRAM for GPU operations.
+low_vram: null
+
+# Words or phrases that halts processing.
+stopwords: []
+
+# Strings to cut from responses to maintain context or relevance.
+cutstrings: []
+
+# Strings to trim from responses for cleaner outputs.
+trimspace: []
+trimsuffix: []
+
+# Default context size for the model's understanding of the conversation or text.
+context_size: null
+
+# Non-uniform memory access settings, useful for systems with multiple CPUs.
+numa: false
+
+# Configuration for LoRA
+lora_adapter: ""
+lora_base: ""
+lora_scale: 0
+
+# Disable matrix multiplication queuing in GPU operations.
+no_mulmatq: false
+
+# Model for generating draft responses.
+draft_model: ""
+n_draft: 0
+
+# Quantization settings for the model, impacting memory and processing speed.
+quantization: ""
+
+# Utilization percentage of GPU memory to allocate for the model. (vLLM)
+gpu_memory_utilization: 0
+
+# Whether to trust and execute remote code.
+trust_remote_code: false
+
+# Force eager execution of TensorFlow operations if applicable. (vLLM)
+enforce_eager: false
+
+# Space allocated for swapping data in and out of memory. (vLLM)
+swap_space: 0
+
+# Maximum model length, possibly referring to the number of tokens or parameters. (vLLM)
+max_model_len: 0
+
+# Size of the tensor parallelism in distributed computing environments. (vLLM)
+tensor_parallel_size: 0
+
+# vision model to use for multimodal
+mmproj: ""
+
+# Disables offloading of key/value pairs in transformer models to save memory.
+no_kv_offloading: false
+
+# Scaling factor for the rope penalty.
+rope_scaling: ""
+
+# Type of configuration, often related to the type of task or model architecture.
+type: ""
+
+# YARN settings
+yarn_ext_factor: 0
+yarn_attn_factor: 0
+yarn_beta_fast: 0
+yarn_beta_slow: 0
+
+# AutoGPT-Q settings, for configurations specific to GPT models.
+autogptq:
+    model_base_name: "" # Base name of the model.
+    device: "" # Device to run the model on.
+    triton: false # Whether to use Triton Inference Server.
+    use_fast_tokenizer: false # Whether to use a fast tokenizer for quicker processing.
+
+# configuration for diffusers model
+diffusers:
+    cuda: false # Whether to use CUDA
+    pipeline_type: "" # Type of pipeline to use.
+    scheduler_type: "" # Type of scheduler for controlling operations.
+    enable_parameters: "" # Parameters to enable in the diffuser.
+    cfg_scale: 0 # Scale for CFG in the diffuser setup.
+    img2img: false # Whether image-to-image transformation is supported.
+    clip_skip: 0 # Number of steps to skip in CLIP operations.
+    clip_model: "" # Model to use for CLIP operations.
+    clip_subfolder: "" # Subfolder for storing CLIP-related data.
+    control_net: "" # Control net to use
+
+# Step count, usually for image processing models
+step: 0
+
+# Configuration for gRPC communication.
+grpc:
+    attempts: 0 # Number of retry attempts for gRPC calls.
+    attempts_sleep_time: 0 # Sleep time between retries.
+
+# Text-to-Speech (TTS) configuration.
+tts:
+    voice: "" # Voice setting for TTS.
+    vall-e:
+        audio_path: "" # Path to audio files for Vall-E.
+
+# Whether to use CUDA for GPU-based operations.
+cuda: false
+
+# List of files to download as part of the setup or operations.
+download_files: []
 ```
 
 ### Prompt templates 

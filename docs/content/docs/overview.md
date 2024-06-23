@@ -72,6 +72,12 @@ docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
 # docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-nvidia-cuda-12
 ```
 
+Or just use the bash installer:
+
+```bash
+curl https://localai.io/install.sh | sh
+```
+
 See the [💻 Quickstart](https://localai.io/basics/getting_started/) for all the options and way you can run LocalAI!
 
 ## What is LocalAI?

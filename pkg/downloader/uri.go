@@ -11,19 +11,24 @@ import (
 	"strconv"
 	"strings"
 
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/go-skynet/LocalAI/pkg/oci"
 	"github.com/go-skynet/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
 
 const (
 	HuggingFacePrefix = "huggingface://"
+	OCIPrefix         = "oci://"
+	OllamaPrefix      = "ollama://"
 	HTTPPrefix        = "http://"
 	HTTPSPrefix       = "https://"
 	GithubURI         = "github:"
 	GithubURI2        = "github://"
 )
 
-func GetURI(url string, basePath string, f func(url string, i []byte) error) error {
+func DownloadAndUnmarshal(url string, basePath string, f func(url string, i []byte) error) error {
 	url = ConvertURL(url)
 
 	if strings.HasPrefix(url, "file://") {
@@ -76,7 +81,13 @@ func LooksLikeURL(s string) bool {
 		strings.HasPrefix(s, HTTPSPrefix) ||
 		strings.HasPrefix(s, HuggingFacePrefix) ||
 		strings.HasPrefix(s, GithubURI) ||
+		strings.HasPrefix(s, OllamaPrefix) ||
+		strings.HasPrefix(s, OCIPrefix) ||
 		strings.HasPrefix(s, GithubURI2)
+}
+
+func LooksLikeOCI(s string) bool {
+	return strings.HasPrefix(s, OCIPrefix) || strings.HasPrefix(s, OllamaPrefix)
 }
 
 func ConvertURL(s string) string {
@@ -149,6 +160,32 @@ func removePartialFile(tmpFilePath string) error {
 
 func DownloadFile(url string, filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
 	url = ConvertURL(url)
+	if LooksLikeOCI(url) {
+		progressStatus := func(desc ocispec.Descriptor) io.Writer {
+			return &progressWriter{
+				fileName:       filePath,
+				total:          desc.Size,
+				hash:           sha256.New(),
+				fileNo:         fileN,
+				totalFiles:     total,
+				downloadStatus: downloadStatus,
+			}
+		}
+
+		if strings.HasPrefix(url, OllamaPrefix) {
+			url = strings.TrimPrefix(url, OllamaPrefix)
+			return oci.OllamaFetchModel(url, filePath, progressStatus)
+		}
+
+		url = strings.TrimPrefix(url, OCIPrefix)
+		img, err := oci.GetImage(url, "", nil, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get image %q: %v", url, err)
+		}
+
+		return oci.ExtractOCIImage(img, filepath.Dir(filePath))
+	}
+
 	// Check if the file already exists
 	_, err := os.Stat(filePath)
 	if err == nil {

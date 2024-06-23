@@ -6,7 +6,20 @@ url = '/basics/kubernetes/'
 ico = "rocket_launch"
 +++
 
-For installing LocalAI in Kubernetes, you can use the `go-skynet` helm chart:
+
+For installing LocalAI in Kubernetes, the deployment file from the `examples` can be used and customized as prefered:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI/master/examples/kubernetes/deployment.yaml
+```
+
+For Nvidia GPUs:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI/master/examples/kubernetes/deployment-nvidia.yaml
+```
+
+Alternatively, the [helm chart](https://github.com/go-skynet/helm-charts) can be used as well:
 
 ```bash
 # Install the helm repository
@@ -21,10 +34,4 @@ helm show values go-skynet/local-ai > values.yaml
 
 # Install the helm chart
 helm install local-ai go-skynet/local-ai -f values.yaml
-```
-
-If you prefer to install from manifest file, you can install from the deployment file, and customize as you like:
-
-```
-kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI/master/examples/kubernetes/deployment.yaml
 ```
