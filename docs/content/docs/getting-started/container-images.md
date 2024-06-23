@@ -23,6 +23,20 @@ For GPU Acceleration support for Nvidia video graphic cards, use the Nvidia/CUDA
 
 {{% /alert %}}
 
+#### Prerequisites
+
+Before you begin, ensure you have a container engine installed if you are not using the binaries. Suitable options include Docker or Podman. For installation instructions, refer to the following guides:
+
+- [Install Docker Desktop (Mac, Windows, Linux)](https://docs.docker.com/get-docker/)
+- [Install Podman (Linux)](https://podman.io/getting-started/installation)
+- [Install Docker engine (Servers)](https://docs.docker.com/engine/install/#get-started)
+
+{{% alert icon="💡" %}}
+
+**Hardware Requirements:** The hardware requirements for LocalAI vary based on the model size and quantization method used. For performance benchmarks with different backends, such as `llama.cpp`, visit [this link](https://github.com/ggerganov/llama.cpp#memorydisk-requirements). The `rwkv` backend is noted for its lower resource consumption.
+
+{{% /alert %}}
+
 ## All-in-one images
 
 All-In-One images are images that come pre-configured with a set of models and backends to fully leverage almost all the LocalAI featureset. These images are available for both CPU and GPU environments. The AIO images are designed to be easy to use and requires no configuration. Models configuration can be found [here](https://github.com/mudler/LocalAI/tree/master/aio) separated by size.
@@ -45,11 +59,72 @@ Select the image (CPU or GPU) and start the container with Docker:
 ```bash
 # CPU example
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
+# For Nvidia GPUs:
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-nvidia-cuda-11
+# docker run -p 8080:8080 --gpus all --name local-ai -ti localai/localai:latest-aio-gpu-nvidia-cuda-12
 ```
 
 LocalAI will automatically download all the required models, and the API will be available at [localhost:8080](http://localhost:8080/v1/models).
 
-### Available images
+
+Or with a docker-compose file:
+
+```yaml
+version: "3.9"
+services:
+  api:
+    image: localai/localai:latest-aio-cpu
+    # For a specific version:
+    # image: localai/localai:{{< version >}}-aio-cpu
+    # For Nvidia GPUs decomment one of the following (cuda11 or cuda12):
+    # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-11
+    # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-12
+    # image: localai/localai:latest-aio-gpu-nvidia-cuda-11
+    # image: localai/localai:latest-aio-gpu-nvidia-cuda-12
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
+      interval: 1m
+      timeout: 20m
+      retries: 5
+    ports:
+      - 8080:8080
+    environment:
+      - DEBUG=true
+      # ...
+    volumes:
+      - ./models:/build/models:cached
+    # decomment the following piece if running with Nvidia GPUs
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+```
+
+{{% alert icon="💡" %}}
+
+**Models caching**: The **AIO** image will download the needed models on the first run if not already present and store those in `/build/models` inside the container. The AIO models will be automatically updated with new versions of AIO images.
+
+You can change the directory inside the container by specifying a `MODELS_PATH` environment variable (or `--models-path`). 
+
+If you want to use a named model or a local directory, you can mount it as a volume to `/build/models`:
+
+```bash
+docker run -p 8080:8080 --name local-ai -ti -v $PWD/models:/build/models localai/localai:latest-aio-cpu
+```
+
+or associate a volume:
+
+```bash
+docker volume create localai-models
+docker run -p 8080:8080 --name local-ai -ti -v localai-models:/build/models localai/localai:latest-aio-cpu
+```
+
+{{% /alert %}}
+
+### Available AIO images
 
 | Description | Quay | Docker Hub                                   |
 | --- | --- |-----------------------------------------------|
@@ -68,7 +143,7 @@ The AIO Images are inheriting the same environment variables as the base images 
 | Variable | Default | Description |
 | ---------------------| ------- | ----------- |
 | `PROFILE` | Auto-detected | The size of the model to use. Available: `cpu`, `gpu-8g` |
-| `MODELS` | Auto-detected | A list of models YAML Configuration file URI/URL (see also [running models]({{%relref "docs/getting-started/run-other-models" %}})) |
+| `MODELS` | Auto-detected | A list of models YAML Configuration file URI/URL (see also [running models]({{%relref "docs/advanced/run-other-models" %}})) |
 
 
 ## Standard container images

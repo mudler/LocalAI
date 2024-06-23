@@ -1,0 +1,22 @@
+
++++
+disableToc = false
+title = "LocalAI binaries"
+weight = 26
++++
+
+LocalAI binaries are available for both Linux and MacOS platforms and can be executed directly from your command line. These binaries are continuously updated and hosted on [our GitHub Releases page](https://github.com/mudler/LocalAI/releases). This method also supports Windows users via the Windows Subsystem for Linux (WSL). 
+
+Use the following one-liner command in your terminal to download and run LocalAI on Linux or MacOS:
+
+```bash
+curl -Lo local-ai "https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-$(uname -s)-$(uname -m)" && chmod +x local-ai && ./local-ai
+```
+
+Otherwise, here are the links to the binaries:
+
+| OS | Link | 
+| --- | --- |
+| Linux (amd64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-x86_64) |
+| Linux (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-arm64) |
+| MacOS (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Darwin-arm64) |

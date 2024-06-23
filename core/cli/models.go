@@ -81,18 +81,21 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			return err
 		}
 
-		model := gallery.FindModel(models, modelName, mi.ModelsPath)
-		if model == nil {
-			log.Error().Str("model", modelName).Msg("model not found")
-			return err
+		if !downloader.LooksLikeOCI(modelName) {
+			model := gallery.FindModel(models, modelName, mi.ModelsPath)
+			if model == nil {
+				log.Error().Str("model", modelName).Msg("model not found")
+				return err
+			}
+
+			err = gallery.SafetyScanGalleryModel(model)
+			if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
+				return err
+			}
+
+			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		}
 
-		err = gallery.SafetyScanGalleryModel(model)
-		if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
-			return err
-		}
-
-		log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		err = startup.InstallModels(galleries, "", mi.ModelsPath, progressCallback, modelName)
 		if err != nil {
 			return err

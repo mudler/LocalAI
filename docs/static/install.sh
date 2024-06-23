@@ -9,7 +9,7 @@
 
 set -e
 set -o noglob
-set -x
+#set -x
 
 # --- helper functions for logs ---
 info()
@@ -227,8 +227,8 @@ install_container_toolkit() {
     case $OS_NAME in
             amzn|fedora|rocky|centos|rhel) install_container_toolkit_yum ;;
             debian|ubuntu) install_container_toolkit_apt ;;
-            opensuse|suse) install_container_toolkit_zypper ;;
-            *) exit ;;
+            opensuse*|suse*) install_container_toolkit_zypper ;;
+            *) echo "Could not install nvidia container toolkit - unknown OS" ;;
     esac
 }
 
@@ -538,7 +538,7 @@ install_binary() {
     $SUDO install -o0 -g0 -m755 $TEMP_DIR/local-ai $BINDIR/local-ai
 
     verify_system
-    if [ "$HAS_SYSTEMD" == "true" ]; then
+    if [ "$HAS_SYSTEMD" = true ]; then
         configure_systemd
     fi
 
@@ -613,7 +613,9 @@ for PACKAGE_MANAGER in dnf yum apt-get; do
 done
 
 if [ "$DOCKER_INSTALL" = "true" ]; then
-    install_container_toolkit
+    if [ "$HAS_CUDA" = true ]; then
+        install_container_toolkit
+    fi
     install_docker
 else
     install_binary

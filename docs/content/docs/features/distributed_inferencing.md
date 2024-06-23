@@ -95,5 +95,6 @@ The server logs should indicate that new workers are being discovered.
 
 ## Notes
 
+- If running in p2p mode with container images, make sure you start the container with `--net host` or `network_mode: host` in the docker-compose file.
 - Only a single model is supported currently.
 - Ensure the server detects new workers before starting inference. Currently, additional workers cannot be added once inference has begun.

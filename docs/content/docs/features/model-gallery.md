@@ -9,6 +9,8 @@ url = '/models'
 
 The model gallery is a curated collection of models configurations for [LocalAI](https://github.com/go-skynet/LocalAI) that enables one-click install of models directly from the LocalAI Web interface.
 
+A list of the models available can also be browsed at [the Public LocalAI Gallery](https://models.localai.io).
+
 LocalAI to ease out installations of models provide a way to preload models on start and downloading and installing them in runtime. You can install models manually by copying them over the `models` directory, or use the API or the Web interface to configure, download and verify the model assets for you. 
 
 
