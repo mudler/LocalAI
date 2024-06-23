@@ -1,8 +1,8 @@
 package cli
 
 import (
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
-	"github.com/go-skynet/LocalAI/core/cli/worker"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/worker"
 )
 
 var CLI struct {

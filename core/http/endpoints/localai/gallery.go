@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/gallery"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/pkg/gallery"
 	"github.com/rs/zerolog/log"
 )
 

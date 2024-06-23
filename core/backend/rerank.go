@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/pkg/grpc/proto"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/grpc/proto"
+	model "github.com/mudler/LocalAI/pkg/model"
 )
 
 func Rerank(backend, modelFile string, request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (*proto.RerankResult, error) {

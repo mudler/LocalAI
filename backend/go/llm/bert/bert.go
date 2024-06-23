@@ -5,8 +5,8 @@ package main
 import (
 	bert "github.com/go-skynet/go-bert.cpp"
 
-	"github.com/go-skynet/LocalAI/pkg/grpc/base"
-	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/grpc/base"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
 type Embeddings struct {

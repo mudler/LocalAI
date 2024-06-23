@@ -8,8 +8,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/go-skynet/LocalAI/pkg/grpc/base"
-	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/grpc/base"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 
 	"github.com/rs/zerolog/log"
 )

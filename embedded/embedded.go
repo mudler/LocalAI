@@ -6,10 +6,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/rs/zerolog/log"
 
-	"github.com/go-skynet/LocalAI/pkg/assets"
+	"github.com/mudler/LocalAI/pkg/assets"
 	"gopkg.in/yaml.v3"
 )
 

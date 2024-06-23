@@ -1,8 +1,8 @@
 package grpc
 
 import (
-	"github.com/go-skynet/LocalAI/core/schema"
-	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/core/schema"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
 type LLM interface {

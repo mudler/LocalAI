@@ -10,10 +10,10 @@ import (
 	"os/exec"
 	"time"
 
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
-	"github.com/go-skynet/LocalAI/core/p2p"
-	"github.com/go-skynet/LocalAI/pkg/assets"
-	"github.com/go-skynet/LocalAI/pkg/library"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/pkg/assets"
+	"github.com/mudler/LocalAI/pkg/library"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 )

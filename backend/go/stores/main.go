@@ -6,7 +6,7 @@ import (
 	"flag"
 	"os"
 
-	grpc "github.com/go-skynet/LocalAI/pkg/grpc"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

@@ -7,14 +7,14 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kong"
-	"github.com/go-skynet/LocalAI/core/cli"
-	"github.com/go-skynet/LocalAI/internal"
 	"github.com/joho/godotenv"
+	"github.com/mudler/LocalAI/core/cli"
+	"github.com/mudler/LocalAI/internal"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	_ "github.com/go-skynet/LocalAI/swagger"
+	_ "github.com/mudler/LocalAI/swagger"
 )
 
 func main() {

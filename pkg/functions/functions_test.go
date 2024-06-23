@@ -1,7 +1,7 @@
 package functions_test
 
 import (
-	. "github.com/go-skynet/LocalAI/pkg/functions"
+	. "github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

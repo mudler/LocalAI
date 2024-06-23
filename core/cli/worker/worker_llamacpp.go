@@ -5,9 +5,9 @@ import (
 	"os"
 	"syscall"
 
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
-	"github.com/go-skynet/LocalAI/pkg/assets"
-	"github.com/go-skynet/LocalAI/pkg/library"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/pkg/assets"
+	"github.com/mudler/LocalAI/pkg/library"
 	"github.com/rs/zerolog/log"
 )
 

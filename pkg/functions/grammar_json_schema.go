@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/utils"
 )
 
 const (

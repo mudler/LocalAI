@@ -1,11 +1,11 @@
 package openai
 
 import (
-	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
 
-	"github.com/go-skynet/LocalAI/core/schema"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/core/schema"
+	model "github.com/mudler/LocalAI/pkg/model"
 )
 
 func ComputeChoices(

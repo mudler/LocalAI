@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/pkg/downloader"
 	"github.com/imdario/mergo"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )

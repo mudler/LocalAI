@@ -17,6 +17,7 @@ config_file: |
       # the output. This will make the model more accurate and won't break the JSON output.
       # This however, will make parallel_calls not functional (it is a known bug)
       # mixed_mode: true
+      disable: true
       parallel_calls: true
       expect_strings_after_json: true
     json_regex_match:

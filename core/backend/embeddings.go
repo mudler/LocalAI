@@ -3,10 +3,10 @@ package backend
 import (
 	"fmt"
 
-	"github.com/go-skynet/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/config"
 
-	"github.com/go-skynet/LocalAI/pkg/grpc"
-	model "github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/grpc"
+	model "github.com/mudler/LocalAI/pkg/model"
 )
 
 func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {

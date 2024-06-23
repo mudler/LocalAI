@@ -3,7 +3,7 @@ package base
 import (
 	"sync"
 
-	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
 // SingleThread are backends that does not support multiple requests.
