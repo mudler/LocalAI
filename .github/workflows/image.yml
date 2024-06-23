@@ -266,7 +266,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             base-image: "ubuntu:22.04"
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             aio: "-aio-cpu"
             latest-image: 'latest-cpu'
             latest-image-aio: 'latest-aio-cpu'
@@ -280,7 +280,7 @@ jobs:
             ffmpeg: ''
             image-type: 'core'
             base-image: "ubuntu:22.04"
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -291,7 +291,7 @@ jobs:
             ffmpeg: ''
             image-type: 'core'
             base-image: "ubuntu:22.04"
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "11"
@@ -301,7 +301,7 @@ jobs:
             tag-suffix: '-cublas-cuda11-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=4 --output-sync=target"
           - build-type: 'cublas'
@@ -312,6 +312,6 @@ jobs:
             tag-suffix: '-cublas-cuda12-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=4 --output-sync=target"
