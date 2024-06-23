@@ -20,7 +20,7 @@ var skipLibraryPath = os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != ""
 // LoadExtractedLibs loads the extracted libraries from the asset dir
 func LoadExtractedLibs(dir string) error {
 	// Skip this if LOCALAI_SKIP_LIBRARY_PATH is set
-	if os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != "" {
+	if skipLibraryPath {
 		return nil
 	}
 
@@ -63,7 +63,7 @@ func LoadLDSO(assetDir string, args []string, grpcProcess string) ([]string, str
 // LoadExternal sets the LD_LIBRARY_PATH to include the given directory
 func LoadExternal(dir string) error {
 	// Skip this if LOCALAI_SKIP_LIBRARY_PATH is set
-	if os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != "" {
+	if skipLibraryPath {
 		return nil
 	}
 
