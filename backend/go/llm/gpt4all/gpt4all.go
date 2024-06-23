@@ -5,8 +5,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/go-skynet/LocalAI/pkg/grpc/base"
-	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/grpc/base"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	gpt4all "github.com/nomic-ai/gpt4all/gpt4all-bindings/golang"
 )
 

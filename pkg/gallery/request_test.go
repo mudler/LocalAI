@@ -1,7 +1,7 @@
 package gallery_test
 
 import (
-	. "github.com/go-skynet/LocalAI/pkg/gallery"
+	. "github.com/mudler/LocalAI/pkg/gallery"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

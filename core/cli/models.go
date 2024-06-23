@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
 
-	"github.com/go-skynet/LocalAI/pkg/downloader"
-	"github.com/go-skynet/LocalAI/pkg/gallery"
-	"github.com/go-skynet/LocalAI/pkg/startup"
+	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/gallery"
+	"github.com/mudler/LocalAI/pkg/startup"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
 )

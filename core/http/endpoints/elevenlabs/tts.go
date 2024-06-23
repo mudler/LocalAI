@@ -1,13 +1,13 @@
 package elevenlabs
 
 import (
-	"github.com/go-skynet/LocalAI/core/backend"
-	"github.com/go-skynet/LocalAI/core/config"
-	fiberContext "github.com/go-skynet/LocalAI/core/http/ctx"
-	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
+	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
+	"github.com/mudler/LocalAI/pkg/model"
 
-	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/rs/zerolog/log"
 )
 

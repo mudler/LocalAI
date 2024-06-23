@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/go-skynet/LocalAI/pkg/gallery"
-	"github.com/go-skynet/LocalAI/pkg/xsysinfo"
+	"github.com/mudler/LocalAI/pkg/gallery"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
 

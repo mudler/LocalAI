@@ -8,7 +8,7 @@ import (
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	"github.com/go-audio/wav"
-	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/schema"
 )
 
 func ffmpegCommand(args []string) (string, error) {

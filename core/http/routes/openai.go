@@ -1,12 +1,12 @@
 package routes
 
 import (
-	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/http/endpoints/localai"
-	"github.com/go-skynet/LocalAI/core/http/endpoints/openai"
-	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai"
+	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 func RegisterOpenAIRoutes(app *fiber.App,

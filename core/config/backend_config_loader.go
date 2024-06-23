@@ -11,9 +11,9 @@ import (
 	"sync"
 
 	"github.com/charmbracelet/glamour"
-	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/pkg/downloader"
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )

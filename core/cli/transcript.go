@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-skynet/LocalAI/core/backend"
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
-	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/core/backend"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
 

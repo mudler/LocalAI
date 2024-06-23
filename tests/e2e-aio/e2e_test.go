@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-skynet/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sashabaranov/go-openai"

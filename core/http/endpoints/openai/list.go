@@ -1,9 +1,9 @@
 package openai
 
 import (
-	"github.com/go-skynet/LocalAI/core/schema"
-	"github.com/go-skynet/LocalAI/core/services"
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services"
 )
 
 func ListModelsEndpoint(lms *services.ListModelsService) func(ctx *fiber.Ctx) error {

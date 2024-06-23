@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
 

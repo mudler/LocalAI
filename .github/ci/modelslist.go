@@ -75,7 +75,7 @@ var modelPageTemplate string = `
     <div class="container mx-auto px-4 py-4">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
-                <a href="/" class="text-white text-xl font-bold"><img src="https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd" alt="LocalAI Logo" class="h-10 mr-3 border-2 border-gray-300 shadow rounded"></a>
+                <a href="/" class="text-white text-xl font-bold"><img src="https://github.com/mudler/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd" alt="LocalAI Logo" class="h-10 mr-3 border-2 border-gray-300 shadow rounded"></a>
                 <a href="/" class="text-white text-xl font-bold">LocalAI</a>
             </div>
             <!-- Menu button for small screens -->
@@ -92,9 +92,9 @@ var modelPageTemplate string = `
         <!-- Collapsible menu for small screens -->
         <div class="hidden lg:hidden" id="mobile-menu">
             <div class="pt-4 pb-3 border-t border-gray-700">
-                
+
                 <a href="https://localai.io" class="block text-gray-400 hover:text-white px-3 py-2 rounded mt-1" target="_blank" ><i class="fas fa-book-reader pr-2"></i> Documentation</a>
-               
+
             </div>
         </div>
     </div>
@@ -116,15 +116,15 @@ var modelPageTemplate string = `
 
 	 🖼️ Available {{.AvailableModels}} models</i> <a href="https://localai.io/models/" target="_blank" >
 			<i class="fas fa-circle-info pr-2"></i>
-		</a></h2> 
+		</a></h2>
 
-	<h3>	  
+	<h3>
 	Refer to the Model gallery <a href="https://localai.io/models/" target="_blank" ><i class="fas fa-circle-info pr-2"></i></a> for more information on how to use the models with LocalAI.<br>
 
 	You can install models with the CLI command <code>local-ai models install <model-name></code>. or by using the WebUI.
 	</h3>
-  
-	<input class="form-control appearance-none block w-full mt-5 px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search" 
+
+	<input class="form-control appearance-none block w-full mt-5 px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search"
 	id="searchbox" placeholder="Live search keyword..">
 	  <div class="dark grid grid-cols-1 grid-rows-1 md:grid-cols-3 block rounded-lg shadow-secondary-1 dark:bg-surface-dark">
 		{{ range $_, $model := .Models }}
@@ -139,10 +139,10 @@ var modelPageTemplate string = `
 			</div>
 	  		<div class="p-6 text-surface dark:text-white">
 				<h5 class="mb-2 text-xl font-medium leading-tight">{{$model.Name}}</h5>
-				
-				   
+
+
 				<p class="mb-4 text-base truncate">{{ $model.Description }}</p>
-		
+
 			</div>
 			<div class="px-6 pt-4 pb-2">
 
@@ -178,7 +178,7 @@ var modelPageTemplate string = `
                     {{ $model.Description }}
 
                     </p>
-                    
+
                     <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
                     To install the model with the CLI, run: <br>
                     <code> local-ai models install {{$model.Name}} </code> <br>
@@ -193,7 +193,7 @@ var modelPageTemplate string = `
                     <ul>
                     {{ range $_, $u := $model.URLs }}
                     <li><a href="{{ $u }}" target=_blank><i class="fa-solid fa-link"></i> {{ $u }}</a></li>
-                    {{ end }}  
+                    {{ end }}
                     </ul>
                     </p>
                 </div>
@@ -209,7 +209,7 @@ var modelPageTemplate string = `
 			</div>
 		</div>
 		</div>
-		{{ end }}      
+		{{ end }}
 
 		</div>
   </div>
@@ -221,10 +221,10 @@ var lazyLoadInstance = new LazyLoad({
 });
 
 let cards = document.querySelectorAll('.box')
-    
+
 function liveSearch() {
     let search_query = document.getElementById("searchbox").value;
-    
+
     //Use innerText if all contents are visible
     //Use textContent for including hidden elements
     for (var i = 0; i < cards.length; i++) {
@@ -238,8 +238,8 @@ function liveSearch() {
 }
 
 //A little delay
-let typingTimer;               
-let typeInterval = 500;  
+let typingTimer;
+let typeInterval = 500;
 let searchInput = document.getElementById('searchbox');
 
 searchInput.addEventListener('keyup', () => {

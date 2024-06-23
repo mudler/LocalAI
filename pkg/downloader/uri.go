@@ -13,8 +13,8 @@ import (
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
-	"github.com/go-skynet/LocalAI/pkg/oci"
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/oci"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
 
