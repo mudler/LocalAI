@@ -500,12 +500,6 @@ install_binary_darwin() {
 install_binary() {
     [ "$(uname -s)" = "Linux" ] || fatal 'This script is intended to run on Linux only.'
 
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64) ARCH="x86_64" ;;
-        aarch64|arm64) ARCH="arm64" ;;
-        *) fatal "Unsupported architecture: $ARCH" ;;
-    esac
 
     IS_WSL2=false
 
@@ -577,6 +571,13 @@ install_binary() {
 }
 
 OS="$(uname -s)"
+
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64) ARCH="x86_64" ;;
+    aarch64|arm64) ARCH="arm64" ;;
+    *) fatal "Unsupported architecture: $ARCH" ;;
+esac
 
 if [ "$OS" == "Darwin" ]; then
     install_binary_darwin
