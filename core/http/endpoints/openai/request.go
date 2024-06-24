@@ -257,5 +257,9 @@ func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *c
 	// Set the parameters for the language model prediction
 	updateRequestConfig(cfg, input)
 
+	if !cfg.Validate() {
+		return nil, nil, fmt.Errorf("failed to validate config")
+	}
+
 	return cfg, input, err
 }

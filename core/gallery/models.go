@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 
 	"github.com/imdario/mergo"
+	lconfig "github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/utils"
+
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
@@ -170,6 +172,15 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		updatedConfigYAML, err := yaml.Marshal(configMap)
 		if err != nil {
 			return fmt.Errorf("failed to marshal updated config YAML: %v", err)
+		}
+
+		backendConfig := lconfig.BackendConfig{}
+		err = yaml.Unmarshal(updatedConfigYAML, &backendConfig)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
+		}
+		if !backendConfig.Validate() {
+			return fmt.Errorf("failed to validate updated config YAML")
 		}
 
 		err = os.WriteFile(configFilePath, updatedConfigYAML, 0600)
