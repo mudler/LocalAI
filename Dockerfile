@@ -108,7 +108,7 @@ RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
-                        software-properties-common pciutils wget && \
+                        software-properties-common pciutils wget gpg-agent && \
         wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
         wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list && \
         apt-get update && \
