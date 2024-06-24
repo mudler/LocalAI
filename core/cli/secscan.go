@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
-	"github.com/go-skynet/LocalAI/pkg/downloader"
-	"github.com/go-skynet/LocalAI/pkg/gallery"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/gallery"
 	"github.com/rs/zerolog/log"
 )
 
