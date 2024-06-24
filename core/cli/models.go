@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -87,8 +88,14 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 				return err
 			}
 
+			err = gallery.SafetyScanGalleryModel(model)
+			if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
+				return err
+			}
+
 			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		}
+
 		err = startup.InstallModels(galleries, "", mi.ModelsPath, progressCallback, modelName)
 		if err != nil {
 			return err
