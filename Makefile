@@ -103,6 +103,10 @@ ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda -lcufft
 endif
 
+ifeq ($(BUILD_TYPE),vulkan)
+	CMAKE_ARGS+=-DLLAMA_VULKAN=1
+endif
+
 ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_HOME ?= /opt/rocm
 	ROCM_PATH ?= /opt/rocm
