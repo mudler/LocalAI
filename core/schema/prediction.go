@@ -8,6 +8,9 @@ type PredictionOptions struct {
 	// Also part of the OpenAI official spec
 	Language string `json:"language"`
 
+	// Only for audio transcription
+	Translate bool `json:"translate"`
+
 	// Also part of the OpenAI official spec. use it for returning multiple results
 	N int `json:"n"`
 

@@ -29,7 +29,7 @@ func audioToWav(src, dst string) error {
 	return nil
 }
 
-func Transcript(model whisper.Model, audiopath, language string, threads uint) (schema.TranscriptionResult, error) {
+func Transcript(model whisper.Model, audiopath, language string, translate bool, threads uint) (schema.TranscriptionResult, error) {
 	res := schema.TranscriptionResult{}
 
 	dir, err := os.MkdirTemp("", "whisper")
@@ -73,6 +73,10 @@ func Transcript(model whisper.Model, audiopath, language string, threads uint) (
 		context.SetLanguage(language)
 	} else {
 		context.SetLanguage("auto")
+	}
+
+	if translate {
+		context.SetTranslate(true)
 	}
 
 	if err := context.Process(data, nil, nil); err != nil {

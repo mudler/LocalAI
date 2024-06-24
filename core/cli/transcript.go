@@ -18,6 +18,7 @@ type TranscriptCMD struct {
 	Backend           string `short:"b" default:"whisper" help:"Backend to run the transcription model"`
 	Model             string `short:"m" required:"" help:"Model name to run the TTS"`
 	Language          string `short:"l" help:"Language of the audio file"`
+	Translate         bool   `short:"t" help:"Translate the transcription to english"`
 	Threads           int    `short:"t" default:"1" help:"Number of threads used for parallel computation"`
 	ModelsPath        string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	BackendAssetsPath string `env:"LOCALAI_BACKEND_ASSETS_PATH,BACKEND_ASSETS_PATH" type:"path" default:"/tmp/localai/backend_data" help:"Path used to extract libraries that are required by some of the backends in runtime" group:"storage"`
@@ -50,7 +51,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	tr, err := backend.ModelTranscription(t.Filename, t.Language, ml, c, opts)
+	tr, err := backend.ModelTranscription(t.Filename, t.Language, t.Translate, ml, c, opts)
 	if err != nil {
 		return err
 	}
