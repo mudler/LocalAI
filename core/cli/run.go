@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
-	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/http"
-	"github.com/go-skynet/LocalAI/core/p2p"
-	"github.com/go-skynet/LocalAI/core/startup"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http"
+	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/startup"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

@@ -1,7 +1,7 @@
 package utils_test
 
 import (
-	. "github.com/go-skynet/LocalAI/pkg/utils"
+	. "github.com/mudler/LocalAI/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

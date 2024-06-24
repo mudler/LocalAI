@@ -7,10 +7,10 @@ import (
 	"net/http"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/go-skynet/LocalAI/core/schema"
 	"github.com/gofiber/fiber/v2"
 	fiberhtml "github.com/gofiber/template/html/v2"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/russross/blackfriday"
 )
 

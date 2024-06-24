@@ -6,7 +6,7 @@ package worker
 import (
 	"fmt"
 
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
 )
 
 type P2P struct{}

@@ -31,7 +31,7 @@ func NewLocalAIMetricsService() (*LocalAIMetricsService, error) {
 		return nil, err
 	}
 	provider := metricApi.NewMeterProvider(metricApi.WithReader(exporter))
-	meter := provider.Meter("github.com/go-skynet/LocalAI")
+	meter := provider.Meter("github.com/mudler/LocalAI")
 
 	apiTimeMetric, err := meter.Float64Histogram("api_call", metric.WithDescription("api calls"))
 	if err != nil {

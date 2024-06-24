@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/donomii/go-rwkv.cpp"
-	"github.com/go-skynet/LocalAI/pkg/grpc/base"
-	pb "github.com/go-skynet/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/grpc/base"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
 const tokenizerSuffix = ".tokenizer.json"

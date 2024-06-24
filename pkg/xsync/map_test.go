@@ -1,7 +1,7 @@
 package xsync_test
 
 import (
-	. "github.com/go-skynet/LocalAI/pkg/xsync"
+	. "github.com/mudler/LocalAI/pkg/xsync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

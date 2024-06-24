@@ -1,11 +1,11 @@
 package localai
 
 import (
-	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/internal"
-	"github.com/go-skynet/LocalAI/pkg/gallery"
-	"github.com/go-skynet/LocalAI/pkg/model"
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/gallery"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,

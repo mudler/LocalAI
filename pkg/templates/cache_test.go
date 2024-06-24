@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-skynet/LocalAI/pkg/templates" // Update with your module path
+	"github.com/mudler/LocalAI/pkg/templates" // Update with your module path
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

@@ -5,7 +5,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	cliContext "github.com/go-skynet/LocalAI/core/cli/context"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	gguf "github.com/thxcode/gguf-parser-go"
 )
 

@@ -1,7 +1,7 @@
 package model_test
 
 import (
-	. "github.com/go-skynet/LocalAI/pkg/model"
+	. "github.com/mudler/LocalAI/pkg/model"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

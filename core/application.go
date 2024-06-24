@@ -1,9 +1,9 @@
 package core
 
 import (
-	"github.com/go-skynet/LocalAI/core/config"
-	"github.com/go-skynet/LocalAI/core/services"
-	"github.com/go-skynet/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // The purpose of this structure is to hold pointers to all initialized services, to make plumbing easy

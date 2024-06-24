@@ -8,7 +8,7 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/go-skynet/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/Masterminds/sprig/v3"
 )

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/go-skynet/LocalAI/core/config"
 	"github.com/imdario/mergo"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/rs/zerolog/log"
 )
 
