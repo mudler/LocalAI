@@ -3,8 +3,8 @@ package localai
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/internal"
-	"github.com/mudler/LocalAI/pkg/gallery"
 	"github.com/mudler/LocalAI/pkg/model"
 )
 

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mudler/LocalAI/pkg/gallery"
+	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/pkg/startup"
 	"github.com/mudler/LocalAI/pkg/utils"
 
@@ -22,7 +22,7 @@ var _ = Describe("Preload test", func() {
 			libraryURL := "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/model_library.yaml"
 			fileName := fmt.Sprintf("%s.yaml", "1701d57f28d47552516c2b6ecc3cc719")
 
-			InstallModels([]gallery.Gallery{}, libraryURL, tmpdir, nil, "phi-2")
+			InstallModels([]config.Gallery{}, libraryURL, tmpdir, nil, "phi-2")
 
 			resultFile := filepath.Join(tmpdir, fileName)
 
@@ -38,7 +38,7 @@ var _ = Describe("Preload test", func() {
 			url := "https://raw.githubusercontent.com/mudler/LocalAI/master/examples/configurations/phi-2.yaml"
 			fileName := fmt.Sprintf("%s.yaml", utils.MD5(url))
 
-			InstallModels([]gallery.Gallery{}, "", tmpdir, nil, url)
+			InstallModels([]config.Gallery{}, "", tmpdir, nil, url)
 
 			resultFile := filepath.Join(tmpdir, fileName)
 
@@ -52,7 +52,7 @@ var _ = Describe("Preload test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			url := "phi-2"
 
-			InstallModels([]gallery.Gallery{}, "", tmpdir, nil, url)
+			InstallModels([]config.Gallery{}, "", tmpdir, nil, url)
 
 			entry, err := os.ReadDir(tmpdir)
 			Expect(err).ToNot(HaveOccurred())
@@ -70,7 +70,7 @@ var _ = Describe("Preload test", func() {
 			url := "mistral-openorca"
 			fileName := fmt.Sprintf("%s.yaml", utils.MD5(url))
 
-			InstallModels([]gallery.Gallery{}, "", tmpdir, nil, url)
+			InstallModels([]config.Gallery{}, "", tmpdir, nil, url)
 
 			resultFile := filepath.Join(tmpdir, fileName)
 

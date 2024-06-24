@@ -8,18 +8,14 @@ import (
 	"strings"
 
 	"github.com/imdario/mergo"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
 
-type Gallery struct {
-	URL  string `json:"url" yaml:"url"`
-	Name string `json:"name" yaml:"name"`
-}
-
 // Installs a model from the gallery
-func InstallModelFromGallery(galleries []Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
+func InstallModelFromGallery(galleries []config.Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
 
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
@@ -117,7 +113,7 @@ func FindModel(models []*GalleryModel, name string, basePath string) *GalleryMod
 // List available models
 // Models galleries are a list of yaml files that are hosted on a remote server (for example github).
 // Each yaml file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
-func AvailableGalleryModels(galleries []Gallery, basePath string) ([]*GalleryModel, error) {
+func AvailableGalleryModels(galleries []config.Gallery, basePath string) ([]*GalleryModel, error) {
 	var models []*GalleryModel
 
 	// Get models from galleries
@@ -146,7 +142,7 @@ func findGalleryURLFromReferenceURL(url string, basePath string) (string, error)
 	return refFile, err
 }
 
-func getGalleryModels(gallery Gallery, basePath string) ([]*GalleryModel, error) {
+func getGalleryModels(gallery config.Gallery, basePath string) ([]*GalleryModel, error) {
 	var models []*GalleryModel = []*GalleryModel{}
 
 	if strings.HasSuffix(gallery.URL, ".ref") {

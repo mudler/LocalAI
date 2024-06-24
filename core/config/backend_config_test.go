@@ -17,6 +17,7 @@ var _ = Describe("Test cases for config related functions", func() {
 			defer os.Remove(tmp.Name())
 			_, err = tmp.WriteString(
 				`backend: "foo-bar"
+name: "foo"
 parameters:
   model: "foo-bar"`)
 			Expect(err).ToNot(HaveOccurred())

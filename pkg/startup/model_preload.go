@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/embedded"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/gallery"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
@@ -17,7 +18,7 @@ import (
 // InstallModels will preload models from the given list of URLs and galleries
 // It will download the model if it is not already present in the model path
 // It will also try to resolve if the model is an embedded model YAML configuration
-func InstallModels(galleries []gallery.Gallery, modelLibraryURL string, modelPath string, downloadStatus func(string, string, string, float64), models ...string) error {
+func InstallModels(galleries []config.Gallery, modelLibraryURL string, modelPath string, downloadStatus func(string, string, string, float64), models ...string) error {
 	// create an error that groups all errors
 	var err error
 
@@ -126,7 +127,7 @@ func InstallModels(galleries []gallery.Gallery, modelLibraryURL string, modelPat
 	return err
 }
 
-func installModel(galleries []gallery.Gallery, modelName, modelPath string, downloadStatus func(string, string, string, float64)) (error, bool) {
+func installModel(galleries []config.Gallery, modelName, modelPath string, downloadStatus func(string, string, string, float64)) (error, bool) {
 	models, err := gallery.AvailableGalleryModels(galleries, modelPath)
 	if err != nil {
 		return err, false

@@ -5,7 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	. "github.com/mudler/LocalAI/pkg/gallery"
+	"github.com/mudler/LocalAI/core/config"
+	. "github.com/mudler/LocalAI/core/gallery"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -54,7 +55,7 @@ var _ = Describe("Model test", func() {
 			err = os.WriteFile(galleryFilePath, out, 0600)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.IsAbs(galleryFilePath)).To(BeTrue(), galleryFilePath)
-			galleries := []Gallery{
+			galleries := []config.Gallery{
 				{
 					Name: "test",
 					URL:  "file://" + galleryFilePath,
