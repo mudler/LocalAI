@@ -230,6 +230,7 @@ message TranscriptRequest {
   string dst = 2;
   string language = 3;
   uint32 threads = 4;
+  bool translate = 5;
 }
 
 message TranscriptResult {
