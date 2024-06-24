@@ -77,8 +77,11 @@ USE_AIO=${USE_AIO:-false}
 API_KEY=${API_KEY:-}
 CORE_IMAGES=${CORE_IMAGES:-false}
 # nprocs -1
-procs=$(nproc)
-procs=$((procs-1))
+if available nproc; then
+    procs=$(nproc)
+else
+    procs=1
+fi
 THREADS=${THREADS:-$procs}
 LATEST_VERSION=$(curl -s "https://api.github.com/repos/mudler/LocalAI/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 VERSION="${VERSION:-$LATEST_VERSION}"
