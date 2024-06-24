@@ -489,7 +489,7 @@ install_binary_darwin() {
     [ "$(uname -s)" = "Darwin" ] || fatal 'This script is intended to run on macOS only.'
 
     info "Downloading local-ai..."
-    curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/v${VERSION}/local-ai-Darwin-${ARCH}"
+    curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${VERSION}/local-ai-Darwin-${ARCH}"
 
     info "Installing local-ai..."
     install -o0 -g0 -m755 $TEMP_DIR/local-ai /usr/local/bin/local-ai
@@ -500,12 +500,6 @@ install_binary_darwin() {
 install_binary() {
     [ "$(uname -s)" = "Linux" ] || fatal 'This script is intended to run on Linux only.'
 
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64) ARCH="x86_64" ;;
-        aarch64|arm64) ARCH="arm64" ;;
-        *) fatal "Unsupported architecture: $ARCH" ;;
-    esac
 
     IS_WSL2=false
 
@@ -577,6 +571,13 @@ install_binary() {
 }
 
 OS="$(uname -s)"
+
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64) ARCH="x86_64" ;;
+    aarch64|arm64) ARCH="arm64" ;;
+    *) fatal "Unsupported architecture: $ARCH" ;;
+esac
 
 if [ "$OS" == "Darwin" ]; then
     install_binary_darwin

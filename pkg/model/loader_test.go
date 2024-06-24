@@ -1,7 +1,6 @@
 package model_test
 
 import (
-	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/mudler/LocalAI/pkg/model"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -44,7 +43,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"user": {
 		"template": llama3,
 		"expected": "<|start_header_id|>user<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
-		"data": model.ChatMessageTemplateData{
+		"data": ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "user",
 			RoleName:     "user",
@@ -59,7 +58,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"assistant": {
 		"template": llama3,
 		"expected": "<|start_header_id|>assistant<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
-		"data": model.ChatMessageTemplateData{
+		"data": ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "assistant",
 			RoleName:     "assistant",
@@ -74,7 +73,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"function_call": {
 		"template": llama3,
 		"expected": "<|start_header_id|>assistant<|end_header_id|>\n\nFunction call:\n{\"function\":\"test\"}<|eot_id|>",
-		"data": model.ChatMessageTemplateData{
+		"data": ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "assistant",
 			RoleName:     "assistant",
@@ -89,7 +88,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"function_response": {
 		"template": llama3,
 		"expected": "<|start_header_id|>tool<|end_header_id|>\n\nFunction response:\nResponse from tool<|eot_id|>",
-		"data": model.ChatMessageTemplateData{
+		"data": ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "tool",
 			RoleName:     "tool",
@@ -107,7 +106,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"user": {
 		"template": chatML,
 		"expected": "<|im_start|>user\nA long time ago in a galaxy far, far away...<|im_end|>",
-		"data": model.ChatMessageTemplateData{
+		"data": ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "user",
 			RoleName:     "user",
@@ -122,7 +121,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"assistant": {
 		"template": chatML,
 		"expected": "<|im_start|>assistant\nA long time ago in a galaxy far, far away...<|im_end|>",
-		"data": model.ChatMessageTemplateData{
+		"data": ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "assistant",
 			RoleName:     "assistant",
@@ -137,7 +136,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"function_call": {
 		"template": chatML,
 		"expected": "<|im_start|>assistant\n<tool_call>\n{\"function\":\"test\"}\n</tool_call><|im_end|>",
-		"data": model.ChatMessageTemplateData{
+		"data": ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "assistant",
 			RoleName:     "assistant",
@@ -152,7 +151,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"function_response": {
 		"template": chatML,
 		"expected": "<|im_start|>tool\n<tool_response>\nResponse from tool\n</tool_response><|im_end|>",
-		"data": model.ChatMessageTemplateData{
+		"data": ChatMessageTemplateData{
 			SystemPrompt: "",
 			Role:         "tool",
 			RoleName:     "tool",
@@ -175,7 +174,7 @@ var _ = Describe("Templates", func() {
 		for key := range chatMLTestMatch {
 			foo := chatMLTestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(model.ChatMessageTemplateData))
+				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
@@ -189,7 +188,7 @@ var _ = Describe("Templates", func() {
 		for key := range llama3TestMatch {
 			foo := llama3TestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(model.ChatMessageTemplateData))
+				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})

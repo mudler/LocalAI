@@ -42,9 +42,12 @@ func GetImageURLAsBase64(s string) (string, error) {
 		return encoded, nil
 	}
 
-	// if the string instead is prefixed with "data:image/jpeg;base64,", drop it
-	if strings.HasPrefix(s, "data:image/jpeg;base64,") {
-		return strings.ReplaceAll(s, "data:image/jpeg;base64,", ""), nil
+	// if the string instead is prefixed with "data:image/...;base64,", drop it
+	dropPrefix := []string{"data:image/jpeg;base64,", "data:image/png;base64,"}
+	for _, prefix := range dropPrefix {
+		if strings.HasPrefix(s, prefix) {
+			return strings.ReplaceAll(s, prefix, ""), nil
+		}
 	}
 	return "", fmt.Errorf("not valid string")
 }
