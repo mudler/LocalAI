@@ -16,7 +16,7 @@ var _ = Describe("Test cases for config related functions", func() {
 			Expect(err).To(BeNil())
 			defer os.Remove(tmp.Name())
 			_, err = tmp.WriteString(
-				`backend: "foo-bar"
+				`backend: "../foo-bar"
 name: "foo"
 parameters:
   model: "foo-bar"`)
