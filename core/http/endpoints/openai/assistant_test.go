@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -183,7 +182,7 @@ func TestAssistantEndpoints(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedStatus, response.StatusCode)
 				if tt.expectedStatus != fiber.StatusOK {
-					all, _ := ioutil.ReadAll(response.Body)
+					all, _ := io.ReadAll(response.Body)
 					assert.Equal(t, tt.expectedStringResult, string(all))
 				} else {
 					var result []Assistant
@@ -279,6 +278,7 @@ func TestAssistantEndpoints(t *testing.T) {
 		assert.NoError(t, err)
 		var getAssistant Assistant
 		err = json.NewDecoder(modifyResponse.Body).Decode(&getAssistant)
+		assert.NoError(t, err)
 
 		t.Cleanup(cleanupAllAssistants(t, app, []string{getAssistant.ID}))
 
@@ -391,7 +391,10 @@ func createAssistantFile(app *fiber.App, afr AssistantFileRequest, assistantId s
 	}
 
 	var assistantFile AssistantFile
-	all, err := ioutil.ReadAll(resp.Body)
+	all, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return AssistantFile{}, resp, err
+	}
 	err = json.NewDecoder(strings.NewReader(string(all))).Decode(&assistantFile)
 	if err != nil {
 		return AssistantFile{}, resp, err
@@ -422,8 +425,7 @@ func createAssistant(app *fiber.App, ar AssistantRequest) (Assistant, *http.Resp
 
 	var resultAssistant Assistant
 	err = json.NewDecoder(strings.NewReader(string(bodyString))).Decode(&resultAssistant)
-
-	return resultAssistant, resp, nil
+	return resultAssistant, resp, err
 }
 
 func cleanupAllAssistants(t *testing.T, app *fiber.App, ids []string) func() {

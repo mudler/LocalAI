@@ -1,6 +1,7 @@
 package library
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,14 +18,17 @@ import (
 var skipLibraryPath = os.Getenv("LOCALAI_SKIP_LIBRARY_PATH") != ""
 
 // LoadExtractedLibs loads the extracted libraries from the asset dir
-func LoadExtractedLibs(dir string) {
+func LoadExtractedLibs(dir string) error {
+	// Skip this if LOCALAI_SKIP_LIBRARY_PATH is set
 	if skipLibraryPath {
-		return
+		return nil
 	}
 
+	var err error = nil
 	for _, libDir := range []string{filepath.Join(dir, "backend-assets", "lib"), filepath.Join(dir, "lib")} {
-		LoadExternal(libDir)
+		err = errors.Join(err, LoadExternal(libDir))
 	}
+	return err
 }
 
 // LoadLDSO checks if there is a ld.so in the asset dir and if so, prefixes the grpc process with it.
@@ -57,9 +61,10 @@ func LoadLDSO(assetDir string, args []string, grpcProcess string) ([]string, str
 }
 
 // LoadExternal sets the LD_LIBRARY_PATH to include the given directory
-func LoadExternal(dir string) {
+func LoadExternal(dir string) error {
+	// Skip this if LOCALAI_SKIP_LIBRARY_PATH is set
 	if skipLibraryPath {
-		return
+		return nil
 	}
 
 	lpathVar := "LD_LIBRARY_PATH"
@@ -67,6 +72,7 @@ func LoadExternal(dir string) {
 		lpathVar = "DYLD_FALLBACK_LIBRARY_PATH" // should it be DYLD_LIBRARY_PATH ?
 	}
 
+	var setErr error = nil
 	if _, err := os.Stat(dir); err == nil {
 		ldLibraryPath := os.Getenv(lpathVar)
 		if ldLibraryPath == "" {
@@ -74,6 +80,7 @@ func LoadExternal(dir string) {
 		} else {
 			ldLibraryPath = fmt.Sprintf("%s:%s", ldLibraryPath, dir)
 		}
-		os.Setenv(lpathVar, ldLibraryPath)
+		setErr = errors.Join(setErr, os.Setenv(lpathVar, ldLibraryPath))
 	}
+	return setErr
 }

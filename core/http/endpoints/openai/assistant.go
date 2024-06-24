@@ -339,7 +339,7 @@ func CreateAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.Model
 			}
 		}
 
-		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Unable to find "))
+		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Unable to find %q", assistantID))
 	}
 }
 
