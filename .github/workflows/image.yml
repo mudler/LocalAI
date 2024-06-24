@@ -315,3 +315,12 @@ jobs:
             runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=4 --output-sync=target"
+          - build-type: 'vulkan'
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'false'
+            tag-suffix: '-vulkan-ffmpeg-core'
+            ffmpeg: 'true'
+            image-type: 'core'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            makeflags: "--jobs=4 --output-sync=target"
