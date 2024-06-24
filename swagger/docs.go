@@ -751,6 +751,10 @@ const docTemplate = `{
                     "description": "Common options between all the API calls, part of the OpenAI spec",
                     "type": "number"
                 },
+                "translate": {
+                    "description": "Only for audio transcription",
+                    "type": "boolean"
+                },
                 "typical_p": {
                     "type": "number"
                 },
