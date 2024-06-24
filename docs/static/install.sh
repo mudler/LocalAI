@@ -489,7 +489,7 @@ install_binary_darwin() {
     [ "$(uname -s)" = "Darwin" ] || fatal 'This script is intended to run on macOS only.'
 
     info "Downloading local-ai..."
-    curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/v${VERSION}/local-ai-Darwin-${ARCH}"
+    curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${VERSION}/local-ai-Darwin-${ARCH}"
 
     info "Installing local-ai..."
     install -o0 -g0 -m755 $TEMP_DIR/local-ai /usr/local/bin/local-ai
