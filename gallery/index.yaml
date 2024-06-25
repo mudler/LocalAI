@@ -1,4 +1,29 @@
 ---
+## Deepseek
+- &deepseek
+  url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
+  name: "deepseek-coder-v2-lite-instruct"
+  icon: "https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg?raw=true"
+  license: deepseek
+  description: |
+    DeepSeek-Coder-V2, an open-source Mixture-of-Experts (MoE) code language model that achieves performance comparable to GPT4-Turbo in code-specific tasks. Specifically, DeepSeek-Coder-V2 is further pre-trained from DeepSeek-Coder-V2-Base with 6 trillion tokens sourced from a high-quality and multi-source corpus. Through this continued pre-training, DeepSeek-Coder-V2 substantially enhances the coding and mathematical reasoning capabilities of DeepSeek-Coder-V2-Base, while maintaining comparable performance in general language tasks. Compared to DeepSeek-Coder, DeepSeek-Coder-V2 demonstrates significant advancements in various aspects of code-related tasks, as well as reasoning and general capabilities. Additionally, DeepSeek-Coder-V2 expands its support for programming languages from 86 to 338, while extending the context length from 16K to 128K.
+    In standard benchmark evaluations, DeepSeek-Coder-V2 achieves superior performance compared to closed-source models such as GPT4-Turbo, Claude 3 Opus, and Gemini 1.5 Pro in coding and math benchmarks. The list of supported programming languages can be found in the paper.
+  urls:
+    - https://github.com/deepseek-ai/DeepSeek-Coder-V2/tree/main
+    - https://huggingface.co/LoneStriker/DeepSeek-Coder-V2-Lite-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - deepseek
+    - cpu
+  overrides:
+    parameters:
+      model: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
+  files:
+    - filename: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
+      sha256: 50ec78036433265965ed1afd0667c00c71c12aa70bcf383be462cb8e159db6c0
+      uri: huggingface://LoneStriker/DeepSeek-Coder-V2-Lite-Instruct-GGUF/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
 ## Start QWEN2
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
