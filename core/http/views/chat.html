@@ -100,10 +100,10 @@ SOFTWARE.
         <option value="" disabled class="text-gray-400" >Select a model</option>
         {{ $model:=.Model}}
         {{ range .ModelsConfig }}
-        {{ if eq .Name $model }}
-        <option value="/chat/{{.Name}}" selected  class="bg-gray-700 text-white">{{.Name}}</option>
+        {{ if eq .ID $model }}
+        <option value="/chat/{{.ID}}" selected  class="bg-gray-700 text-white">{{.ID}}</option>
         {{ else }}
-        <option value="/chat/{{.Name}}" class="bg-gray-700 text-white">{{.Name}}</option>
+        <option value="/chat/{{.ID}}" class="bg-gray-700 text-white">{{.ID}}</option>
         {{ end }}
         {{ end }}
       </select>
