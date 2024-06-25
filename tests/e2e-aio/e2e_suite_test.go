@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -38,7 +39,7 @@ var _ = BeforeSuite(func() {
 
 	var defaultConfig openai.ClientConfig
 	if apiEndpoint == "" {
-		startDockerImage()
+		startDockerImage("")
 		defaultConfig = openai.DefaultConfig(apiKey)
 		apiEndpoint = "http://localhost:" + apiPort + "/v1" // So that other tests can reference this value safely.
 		defaultConfig.BaseURL = apiEndpoint
@@ -58,9 +59,41 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+
+	// if the suite failed, logs will be printed
+	// to the console
+	if CurrentGinkgoTestDescription().Failed {
+		if resource != nil {
+			logs := bytes.NewBufferString("")
+			err := pool.Client.Logs(docker.LogsOptions{
+				Container:    resource.Container.ID,
+				OutputStream: logs,
+				ErrorStream:  logs,
+				Stdout:       true,
+				Stderr:       true,
+				Timestamps:   true,
+			})
+			if err != nil {
+				fmt.Println("Could not take logs for failed suite", err.Error())
+			}
+			fmt.Println("Suite failed, printing logs")
+			fmt.Println(logs.String())
+
+			c, err := pool.Client.InspectContainer(resource.Container.ID)
+			if err != nil {
+				fmt.Println("Could not inspect container", err.Error())
+			}
+			fmt.Println("Container state")
+			fmt.Println("Running:", c.State.Running)
+			fmt.Println("ExitCode:", c.State.ExitCode)
+			fmt.Println("Error:", c.State.Error)
+		}
+	}
+
 	if resource != nil {
 		Expect(pool.Purge(resource)).To(Succeed())
 	}
+
 	//dat, err := os.ReadFile(resource.Container.LogPath)
 	//Expect(err).To(Not(HaveOccurred()))
 	//Expect(string(dat)).To(ContainSubstring("GRPC Service Ready"))
@@ -71,8 +104,8 @@ var _ = AfterEach(func() {
 	//Expect(dbClient.Clear()).To(Succeed())
 })
 
-func startDockerImage() {
-	p, err := dockertest.NewPool("")
+func startDockerImage(endpoint string) {
+	p, err := dockertest.NewPool(endpoint)
 	Expect(err).To(Not(HaveOccurred()))
 	Expect(p.Client.Ping()).To(Succeed())
 
