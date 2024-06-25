@@ -26,6 +26,7 @@ func RegisterUIRoutes(app *fiber.App,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService,
 	auth func(*fiber.Ctx) error) {
+	tmpLMS := services.NewListModelsService(ml, cl, appConfig) // TODO: once createApplication() is fully in use, reference the central instance.
 
 	// keeps the state of models that are being installed from the UI
 	var processingModels = xsync.NewSyncedMap[string, string]()
@@ -235,7 +236,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// Show the Chat page
 	app.Get("/chat/:model", auth, func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		backendConfigs, _ := tmpLMS.ListModels("", true)
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Chat with " + c.Params("model"),
@@ -249,7 +250,7 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/talk/", auth, func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		backendConfigs, _ := tmpLMS.ListModels("", true)
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
@@ -259,7 +260,7 @@ func RegisterUIRoutes(app *fiber.App,
 		summary := fiber.Map{
 			"Title":        "LocalAI - Talk",
 			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0].Name,
+			"Model":        backendConfigs[0].ID,
 			"Version":      internal.PrintableVersion(),
 		}
 
@@ -269,7 +270,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/chat/", auth, func(c *fiber.Ctx) error {
 
-		backendConfigs := cl.GetAllBackendConfigs()
+		backendConfigs, _ := tmpLMS.ListModels("", true)
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
@@ -277,9 +278,9 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		summary := fiber.Map{
-			"Title":        "LocalAI - Chat with " + backendConfigs[0].Name,
+			"Title":        "LocalAI - Chat with " + backendConfigs[0].ID,
 			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0].Name,
+			"Model":        backendConfigs[0].ID,
 			"Version":      internal.PrintableVersion(),
 		}
 
