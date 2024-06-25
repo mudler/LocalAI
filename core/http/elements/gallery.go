@@ -6,8 +6,8 @@ import (
 
 	"github.com/chasefleming/elem-go"
 	"github.com/chasefleming/elem-go/attrs"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services"
-	"github.com/mudler/LocalAI/pkg/gallery"
 	"github.com/mudler/LocalAI/pkg/xsync"
 )
 

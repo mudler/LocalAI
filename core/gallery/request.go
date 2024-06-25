@@ -3,6 +3,8 @@ package gallery
 import (
 	"fmt"
 	"strings"
+
+	"github.com/mudler/LocalAI/core/config"
 )
 
 // GalleryModel is the struct used to represent a model in the gallery returned by the endpoint.
@@ -23,7 +25,7 @@ type GalleryModel struct {
 	// AdditionalFiles are used to add additional files to the model
 	AdditionalFiles []File `json:"files,omitempty" yaml:"files,omitempty"`
 	// Gallery is a reference to the gallery which contains the model
-	Gallery Gallery `json:"gallery,omitempty" yaml:"gallery,omitempty"`
+	Gallery config.Gallery `json:"gallery,omitempty" yaml:"gallery,omitempty"`
 	// Installed is used to indicate if the model is installed or not
 	Installed bool `json:"installed,omitempty" yaml:"installed,omitempty"`
 }

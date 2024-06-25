@@ -19,8 +19,8 @@ import (
 	"github.com/mudler/LocalAI/core/startup"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/gallery"
 	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -247,7 +247,7 @@ var _ = Describe("API test", func() {
 			err = os.WriteFile(filepath.Join(modelDir, "gallery_simple.yaml"), out, 0600)
 			Expect(err).ToNot(HaveOccurred())
 
-			galleries := []gallery.Gallery{
+			galleries := []config.Gallery{
 				{
 					Name: "test",
 					URL:  "file://" + filepath.Join(modelDir, "gallery_simple.yaml"),
@@ -603,7 +603,7 @@ var _ = Describe("API test", func() {
 
 			c, cancel = context.WithCancel(context.Background())
 
-			galleries := []gallery.Gallery{
+			galleries := []config.Gallery{
 				{
 					Name: "model-gallery",
 					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/index.yaml",

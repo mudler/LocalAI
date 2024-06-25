@@ -32,7 +32,7 @@ func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
 		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+			return fmt.Errorf("failed reading parameters from request: %w", err)
 		}
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")
@@ -65,7 +65,7 @@ func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		tr, err := backend.ModelTranscription(dst, input.Language, ml, *config, appConfig)
+		tr, err := backend.ModelTranscription(dst, input.Language, input.Translate, ml, *config, appConfig)
 		if err != nil {
 			return err
 		}

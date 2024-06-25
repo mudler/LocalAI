@@ -2,19 +2,16 @@ package openai
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
 	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
-	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
 
@@ -37,41 +34,6 @@ func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *config.ApplicationConfi
 	modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, firstModel)
 
 	return modelFile, input, err
-}
-
-// this function check if the string is an URL, if it's an URL downloads the image in memory
-// encodes it in base64 and returns the base64 string
-func getBase64Image(s string) (string, error) {
-	if strings.HasPrefix(s, "http") {
-		// download the image
-		resp, err := http.Get(s)
-		if err != nil {
-			return "", err
-		}
-		defer resp.Body.Close()
-
-		// read the image data into memory
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return "", err
-		}
-
-		// encode the image data in base64
-		encoded := base64.StdEncoding.EncodeToString(data)
-
-		// return the base64 string
-		return encoded, nil
-	}
-
-	// if the string instead is prefixed with "data:image/...;base64,", drop it
-	dropPrefix := []string{"data:image/jpeg;base64,", "data:image/png;base64,"}
-	for _, prefix := range dropPrefix {
-		if strings.HasPrefix(s, prefix) {
-			return strings.ReplaceAll(s, prefix, ""), nil
-		}
-	}
-
-	return "", fmt.Errorf("not valid string")
 }
 
 func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIRequest) {
@@ -187,7 +149,7 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 					input.Messages[i].StringContent = pp.Text
 				} else if pp.Type == "image_url" {
 					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
-					base64, err := getBase64Image(pp.ImageURL.URL)
+					base64, err := utils.GetImageURLAsBase64(pp.ImageURL.URL)
 					if err == nil {
 						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
 						// set a placeholder for each image
@@ -294,6 +256,10 @@ func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *c
 
 	// Set the parameters for the language model prediction
 	updateRequestConfig(cfg, input)
+
+	if !cfg.Validate() {
+		return nil, nil, fmt.Errorf("failed to validate config")
+	}
 
 	return cfg, input, err
 }

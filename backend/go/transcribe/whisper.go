@@ -22,5 +22,5 @@ func (sd *Whisper) Load(opts *pb.ModelOptions) error {
 }
 
 func (sd *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (schema.TranscriptionResult, error) {
-	return Transcript(sd.whisper, opts.Dst, opts.Language, uint(opts.Threads))
+	return Transcript(sd.whisper, opts.Dst, opts.Language, opts.Translate, uint(opts.Threads))
 }

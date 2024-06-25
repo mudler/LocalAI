@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/mudler/LocalAI/pkg/gallery"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
@@ -36,7 +35,7 @@ type ApplicationConfig struct {
 
 	ModelLibraryURL string
 
-	Galleries []gallery.Gallery
+	Galleries []Gallery
 
 	BackendAssets     embed.FS
 	AssetsDestination string
@@ -180,10 +179,10 @@ func WithBackendAssets(f embed.FS) AppOption {
 func WithStringGalleries(galls string) AppOption {
 	return func(o *ApplicationConfig) {
 		if galls == "" {
-			o.Galleries = []gallery.Gallery{}
+			o.Galleries = []Gallery{}
 			return
 		}
-		var galleries []gallery.Gallery
+		var galleries []Gallery
 		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
 			log.Error().Err(err).Msg("failed loading galleries")
 		}
@@ -191,7 +190,7 @@ func WithStringGalleries(galls string) AppOption {
 	}
 }
 
-func WithGalleries(galleries []gallery.Gallery) AppOption {
+func WithGalleries(galleries []Gallery) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Galleries = append(o.Galleries, galleries...)
 	}

@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=557b653dc9ed91e8c313e87500e0050c775f81b6
+CPPLLAMA_VERSION?=e112b610a1a75cb7fa8351e1a933e2e7a755a5ce
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -101,6 +101,10 @@ ifeq ($(BUILD_TYPE),cublas)
 	export LLAMA_CUBLAS=1
 	export WHISPER_CUDA=1
 	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda -lcufft
+endif
+
+ifeq ($(BUILD_TYPE),vulkan)
+	CMAKE_ARGS+=-DLLAMA_VULKAN=1
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)

@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/pkg/gallery"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/startup"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"gopkg.in/yaml.v2"
@@ -96,6 +96,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 				// delete a model
 				if op.Delete {
 					modelConfig := &config.BackendConfig{}
+
 					// Galleryname is the name of the model in this case
 					dat, err := os.ReadFile(filepath.Join(g.appConfig.ModelPath, op.GalleryModelName+".yaml"))
 					if err != nil {
@@ -174,7 +175,7 @@ type galleryModel struct {
 	ID                   string           `json:"id"`
 }
 
-func processRequests(modelPath string, galleries []gallery.Gallery, requests []galleryModel) error {
+func processRequests(modelPath string, galleries []config.Gallery, requests []galleryModel) error {
 	var err error
 	for _, r := range requests {
 		utils.ResetDownloadTimers()
@@ -189,7 +190,7 @@ func processRequests(modelPath string, galleries []gallery.Gallery, requests []g
 	return err
 }
 
-func ApplyGalleryFromFile(modelPath, s string, galleries []gallery.Gallery) error {
+func ApplyGalleryFromFile(modelPath, s string, galleries []config.Gallery) error {
 	dat, err := os.ReadFile(s)
 	if err != nil {
 		return err
@@ -203,7 +204,7 @@ func ApplyGalleryFromFile(modelPath, s string, galleries []gallery.Gallery) erro
 	return processRequests(modelPath, galleries, requests)
 }
 
-func ApplyGalleryFromString(modelPath, s string, galleries []gallery.Gallery) error {
+func ApplyGalleryFromString(modelPath, s string, galleries []config.Gallery) error {
 	var requests []galleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {

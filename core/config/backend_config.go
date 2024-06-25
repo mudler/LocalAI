@@ -390,10 +390,6 @@ func (c *BackendConfig) Validate() bool {
 		}
 	}
 
-	if c.Name == "" {
-		return false
-	}
-
 	if c.Backend != "" {
 		// a regex that checks that is a string name with no special characters, except '-' and '_'
 		re := regexp.MustCompile(`^[a-zA-Z0-9-_]+$`)
