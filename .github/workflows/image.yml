@@ -39,7 +39,7 @@ jobs:
     strategy:
       # Pushing with all jobs in parallel
       # eats the bandwidth of all the nodes
-      max-parallel: ${{ github.event_name != 'pull_request' && 6 || 12 }}
+      max-parallel: ${{ github.event_name != 'pull_request' && 6 || 10 }}
       matrix:
         include:
           # Extra images
@@ -257,6 +257,7 @@ jobs:
       quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
+      max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
       matrix:
         include:
           - build-type: ''
