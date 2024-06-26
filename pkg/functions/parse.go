@@ -32,6 +32,11 @@ type GrammarConfig struct {
 
 	// ExpectStringsAfterJSON enables mixed string suffix
 	ExpectStringsAfterJSON bool `yaml:"expect_strings_after_json"`
+
+	// PropOrder selects what order to print properties
+	// for instance name,arguments will make print { "name": "foo", "arguments": { "bar": "baz" } }
+	// instead of { "arguments": { "bar": "baz" }, "name": "foo" }
+	PropOrder string `yaml:"properties_order"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -104,6 +109,8 @@ func (g GrammarConfig) Options() []func(o *GrammarOption) {
 	if g.ExpectStringsAfterJSON {
 		opts = append(opts, ExpectStringsAfterJSON)
 	}
+
+	opts = append(opts, SetPropOrder(g.PropOrder))
 	return opts
 }
 
