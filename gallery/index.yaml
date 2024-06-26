@@ -1982,6 +1982,25 @@
     - filename: Llama-3-Update-3.0-mmproj-model-f16.gguf
       sha256: 3d2f36dff61d6157cadf102df86a808eb9f8a230be1bc0bc99039d81a895468a
       uri: huggingface://Nitral-AI/Llama-3-Update-3.0-mmproj-model-f16/Llama-3-Update-3.0-mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "llama3-8b-darkidol-1.2-iq-imatrix"
+  urls:
+    - https://huggingface.co/LWDCLS/llama3-8B-DarkIdol-1.2-GGUF-IQ-Imatrix-Request
+    - https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-1.2
+  description: |
+    The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
+  icon: https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-1.2/resolve/main/llama3-8B-DarkIdol-1.2.png
+  overrides:
+    mmproj: Llama-3-Update-3.0-mmproj-model-f16.gguf
+    parameters:
+      model: llama3-8B-DarkIdol-1.2-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-DarkIdol-1.2-Q4_K_M-imat.gguf
+      sha256: dce2f5f1661f49fb695b038d973770b0d9059bced4e4bb212f6517aa219131cd
+      uri: huggingface://LWDCLS/llama3-8B-DarkIdol-1.2-GGUF-IQ-Imatrix-Request/llama3-8B-DarkIdol-1.2-Q4_K_M-imat.gguf
+    - filename: Llama-3-Update-3.0-mmproj-model-f16.gguf
+      sha256: 3d2f36dff61d6157cadf102df86a808eb9f8a230be1bc0bc99039d81a895468a
+      uri: huggingface://Nitral-AI/Llama-3-Update-3.0-mmproj-model-f16/Llama-3-Update-3.0-mmproj-model-f16.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
