@@ -107,6 +107,26 @@
     - filename: Einstein-v7-Qwen2-7B-Q4_K_M.gguf
       sha256: 277b212ea65894723d2b86fb0f689fa5ecb54c9794f0fd2fb643655dc62812ce
       uri: huggingface://bartowski/Einstein-v7-Qwen2-7B-GGUF/Einstein-v7-Qwen2-7B-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "arcee-spark"
+  icon: https://i.ibb.co/80ssNWS/o-Vdk-Qx-ARNmzr-Pi1h-Efj-SA.webp
+  description: |
+    Arcee Spark is a powerful 7B parameter language model that punches well above its weight class. Initialized from Qwen2, this model underwent a sophisticated training process:
+
+        Fine-tuned on 1.8 million samples
+        Merged with Qwen2-7B-Instruct using Arcee's mergekit
+        Further refined using Direct Preference Optimization (DPO)
+
+    This meticulous process results in exceptional performance, with Arcee Spark achieving the highest score on MT-Bench for models of its size, outperforming even GPT-3.5 on many tasks.
+  urls:
+    - https://huggingface.co/arcee-ai/Arcee-Spark-GGUF
+  overrides:
+    parameters:
+      model: Arcee-Spark-Q4_K_M.gguf
+  files:
+    - filename: Arcee-Spark-Q4_K_M.gguf
+      sha256: 44123276d7845dc13f73ca4aa431dc4c931104eb7d2186f2a73d076fa0ee2330
+      uri: huggingface://arcee-ai/Arcee-Spark-GGUF/Arcee-Spark-Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
