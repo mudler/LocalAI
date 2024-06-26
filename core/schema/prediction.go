@@ -25,7 +25,10 @@ type PredictionOptions struct {
 	Batch         int     `json:"batch" yaml:"batch"`
 	IgnoreEOS     bool    `json:"ignore_eos" yaml:"ignore_eos"`
 	RepeatPenalty float64 `json:"repeat_penalty" yaml:"repeat_penalty"`
-	Keep          int     `json:"n_keep" yaml:"n_keep"`
+
+	RepeatLastN int `json:"repeat_last_n" yaml:"repeat_last_n"`
+
+	Keep int `json:"n_keep" yaml:"n_keep"`
 
 	FrequencyPenalty float64  `json:"frequency_penalty" yaml:"frequency_penalty"`
 	PresencePenalty  float64  `json:"presence_penalty" yaml:"presence_penalty"`
