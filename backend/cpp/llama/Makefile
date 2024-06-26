@@ -4,6 +4,7 @@ LLAMA_VERSION?=
 CMAKE_ARGS?=
 BUILD_TYPE?=
 ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
+TARGET?=--target grpc-server
 
 # If build type is cublas, then we set -DLLAMA_CUBLAS=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
@@ -20,9 +21,11 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON
 # If it's OSX, DO NOT embed the metal library - -DLLAMA_METAL_EMBED_LIBRARY=ON requires further investigation
 # But if it's OSX without metal, disable it here
-else ifeq ($(OS),darwin)
+else ifeq ($(OS),Darwin)
 	ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DLLAMA_METAL=OFF
+	else
+		TARGET+=--target ggml-metal
 	endif
 endif
 
@@ -62,8 +65,8 @@ grpc-server: llama.cpp llama.cpp/examples/grpc-server
 	@echo "Building grpc-server with $(BUILD_TYPE) build type and $(CMAKE_ARGS)"
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	bash -c "source $(ONEAPI_VARS); \
-	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && $(MAKE)"
+	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET)"
 else
-	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && $(MAKE)
+	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET)
 endif
 	cp llama.cpp/build/bin/grpc-server .
