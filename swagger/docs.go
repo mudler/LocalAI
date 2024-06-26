@@ -701,6 +701,9 @@ const docTemplate = `{
                 "prompt": {
                     "description": "Prompt is read only by completion/image API calls"
                 },
+                "repeat_last_n": {
+                    "type": "integer"
+                },
                 "repeat_penalty": {
                     "type": "number"
                 },
