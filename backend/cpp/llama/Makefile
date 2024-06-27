@@ -28,8 +28,9 @@ else ifeq ($(OS),Darwin)
 	ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 	else
-		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=OFF
-# TARGET+=--target ggml-metal
+		CMAKE_ARGS+=-DGGML_METAL=ON
+#		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=OFF
+		TARGET+=--target ggml-metal
 	endif
 endif
 
