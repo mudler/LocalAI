@@ -93,7 +93,7 @@
       sha256: c9d33989d77f4bd6966084332087921b9613eda01d5f44dc0b4e9a7382a2bfbb
       uri: huggingface://DeepMount00/Qwen2-1.5B-Ita-GGUF/qwen2-1.5b-instruct-q8_0.gguf
 - !!merge <<: *qwen2
-  name: "einstein-v7-wwen2-7b"
+  name: "einstein-v7-qwen2-7b"
   icon: https://cdn-uploads.huggingface.co/production/uploads/6468ce47e134d050a58aa89c/KLQP1jK-DIzpwHzYRIH-Q.png
   description: |
     This model is a full fine-tuned version of Qwen/Qwen2-7B on diverse datasets.
