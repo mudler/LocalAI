@@ -691,12 +691,12 @@ ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
 	_PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto \
 	_GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin \
 	PATH="${INSTALLED_PACKAGES}/bin:${PATH}" \
-	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" \
+	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS} -DBUILD_SHARED_LIBS=OFF" \
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) \
 	$(MAKE) -C backend/cpp/${VARIANT} grpc-server
 else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
+	CMAKE_ARGS="${CMAKE_ARGS} -DBUILD_SHARED_LIBS=OFF" LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
 endif
 
 # This target is for manually building a variant with-auto detected flags
