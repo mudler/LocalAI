@@ -22,7 +22,7 @@ else
 	echo "@@@@@"
 	echo "If you are experiencing issues with the pre-compiled builds, try setting REBUILD=true"
 	echo "If you are still experiencing issues with the build, try setting CMAKE_ARGS and disable the instructions set as needed:"
-	echo 'CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF"'
+	echo 'CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF"'
 	echo "see the documentation at: https://localai.io/basics/build/index.html"
 	echo "Note: See also https://github.com/go-skynet/LocalAI/issues/288"
 	echo "@@@@@"

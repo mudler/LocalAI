@@ -65,7 +65,7 @@ And we convert it to the gguf format that LocalAI can consume:
 
 # Convert to gguf
 git clone https://github.com/ggerganov/llama.cpp.git
-pushd llama.cpp && make LLAMA_CUBLAS=1 && popd
+pushd llama.cpp && make GGML_CUDA=1 && popd
 
 # We need to convert the pytorch model into ggml for quantization
 # It crates 'ggml-model-f16.bin' in the 'merged' directory.
