@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=e112b610a1a75cb7fa8351e1a933e2e7a755a5ce
+CPPLLAMA_VERSION?=ae5d0f4b899ff2842bfca561370c945ad8d4368b
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -80,8 +80,8 @@ ifeq ($(OS),Darwin)
 		BUILD_TYPE=metal
 	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
-		CMAKE_ARGS+=-DLLAMA_METAL=OFF
-		export LLAMA_NO_ACCELERATE=1
+		CMAKE_ARGS+=-DGGML_METAL=OFF
+		export GGML_NO_ACCELERATE=1
 	endif
 
 	ifeq ($(BUILD_TYPE),metal)
@@ -98,13 +98,13 @@ endif
 
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
-	export LLAMA_CUBLAS=1
+	export GGML_CUDA=1
 	export WHISPER_CUDA=1
 	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda -lcufft
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
-	CMAKE_ARGS+=-DLLAMA_VULKAN=1
+	CMAKE_ARGS+=-DGGML_VULKAN=1
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -118,13 +118,13 @@ ifeq ($(BUILD_TYPE),hipblas)
 	export WHISPER_HIPBLAS=1
 	GPU_TARGETS ?= gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
-	CMAKE_ARGS+=-DLLAMA_HIPBLAS=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
+	CMAKE_ARGS+=-DGGML_HIPBLAS=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
 	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib
 endif
 
 ifeq ($(BUILD_TYPE),metal)
 	CGO_LDFLAGS+=-framework Foundation -framework Metal -framework MetalKit -framework MetalPerformanceShaders
-	export LLAMA_METAL=1
+	export GGML_METAL=1
 	export WHISPER_METAL=1
 endif
 
@@ -354,7 +354,7 @@ else
 endif
 
 dist-cross-linux-arm64: 
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server" \
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server" \
 	STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
@@ -711,21 +711,21 @@ backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-avx2
 	$(MAKE) -C backend/cpp/llama-avx2 purge
 	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=on -DLLAMA_AVX2=on -DLLAMA_AVX512=off -DLLAMA_FMA=on -DLLAMA_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-avx2/grpc-server backend-assets/grpc/llama-cpp-avx2
 
 backend-assets/grpc/llama-cpp-avx: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-avx
 	$(MAKE) -C backend/cpp/llama-avx purge
 	$(info ${GREEN}I llama-cpp build info:avx${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=on -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" $(MAKE) VARIANT="llama-avx" build-llama-cpp-grpc-server
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-avx" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-avx/grpc-server backend-assets/grpc/llama-cpp-avx
 
 backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-fallback
 	$(MAKE) -C backend/cpp/llama-fallback purge
 	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=off -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
 # TODO: every binary should have its own folder instead, so can have different metal implementations
 ifeq ($(BUILD_TYPE),metal)
@@ -736,7 +736,7 @@ backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-cuda
 	$(MAKE) -C backend/cpp/llama-cuda purge
 	$(info ${GREEN}I llama-cpp build info:cuda${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_AVX=on -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off -DLLAMA_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
 
 backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc
@@ -764,7 +764,7 @@ backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc
 	cp -rf backend/cpp/llama backend/cpp/llama-grpc
 	$(MAKE) -C backend/cpp/llama-grpc purge
 	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DLLAMA_RPC=ON -DLLAMA_AVX=off -DLLAMA_AVX2=off -DLLAMA_AVX512=off -DLLAMA_FMA=off -DLLAMA_F16C=off" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-grpc/grpc-server backend-assets/grpc/llama-cpp-grpc
 
 backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
