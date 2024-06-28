@@ -1268,6 +1268,24 @@
     - filename: LLaMA3-iterative-DPO-final-Q4_K_M.gguf
       sha256: 480703ff85af337e1db2a9d9a678a3ac8ca0802e366b14d9c59b81d3fc689da8
       uri: huggingface://bartowski/LLaMA3-iterative-DPO-final-GGUF/LLaMA3-iterative-DPO-final-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "new-dawn-llama-3-70b-32K-v1.0"
+  urls:
+    - https://huggingface.co/bartowski/New-Dawn-Llama-3-70B-32K-v1.0-GGUF
+    - https://huggingface.co/sophosympatheia/New-Dawn-Llama-3-70B-32K-v1.0
+  icon: https://imgur.com/tKzncGo.png
+  description: |
+    This model is a multi-level SLERP merge of several Llama 3 70B variants. See the merge recipe below for details. I extended the context window for this model out to 32K by snagging some layers from abacusai/Smaug-Llama-3-70B-Instruct-32K using a technique similar to what I used for Midnight Miqu, which was further honed by jukofyork.
+    This model is uncensored. You are responsible for whatever you do with it.
+
+    This model was designed for roleplaying and storytelling and I think it does well at both. It may also perform well at other tasks but I have not tested its performance in other areas.
+  overrides:
+    parameters:
+      model: New-Dawn-Llama-3-70B-32K-v1.0-Q4_K_M.gguf
+  files:
+    - filename: New-Dawn-Llama-3-70B-32K-v1.0-Q4_K_M.gguf
+      sha256: 30561ae5decac4ad46775c76a9a40fb43436ade96bc132b4b9cc6749b9e2f448
+      uri: huggingface://bartowski/New-Dawn-Llama-3-70B-32K-v1.0-GGUF/New-Dawn-Llama-3-70B-32K-v1.0-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
