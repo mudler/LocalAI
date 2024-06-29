@@ -2674,6 +2674,69 @@
     - filename: "Codestral-22B-v0.1-Q4_K_M.gguf"
       uri: "huggingface://bartowski/Codestral-22B-v0.1-GGUF/Codestral-22B-v0.1-Q4_K_M.gguf"
       sha256: 003e48ed892850b80994fcddca2bd6b833b092a4ef2db2853c33a3144245e06c
+- &llm-compiler
+  url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
+  name: "llm-compiler-13b-imat"
+  license: other
+  description: |
+    LLM Compiler is a state-of-the-art LLM that builds upon Code Llama with improved performance for code optimization and compiler reasoning.
+    LLM Compiler is free for both research and commercial use.
+    LLM Compiler is available in two flavors:
+
+        LLM Compiler, the foundational models, pretrained on over 500B tokens of LLVM-IR, x86_84, ARM, and CUDA assembly codes and trained to predict the effect of LLVM optimizations;
+        and LLM Compiler FTD, which is further fine-tuned to predict the best optimizations for code in LLVM assembly to reduce code size, and to disassemble assembly code to LLVM-IR.
+  urls:
+    - https://huggingface.co/legraphista/llm-compiler-13b-IMat-GGUF
+    - https://huggingface.co/facebook/llm-compiler-13b
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - code
+    - cpu
+  overrides:
+    parameters:
+      model: llm-compiler-13b.Q4_K.gguf
+  files:
+    - filename: "llm-compiler-13b.Q4_K.gguf"
+      uri: "huggingface://legraphista/llm-compiler-13b-IMat-GGUF/llm-compiler-13b.Q4_K.gguf"
+      sha256: dad41a121d0d67432c289aba8ffffc93159e2b24ca3d1c62e118c9f4cbf0c890
+- !!merge <<: *llm-compiler
+  name: "llm-compiler-13b-ftd"
+  urls:
+    - https://huggingface.co/QuantFactory/llm-compiler-13b-ftd-GGUF
+    - https://huggingface.co/facebook/llm-compiler-13b-ftd
+  overrides:
+    parameters:
+      model: llm-compiler-13b-ftd.Q4_K_M.gguf
+  files:
+    - filename: "llm-compiler-13b-ftd.Q4_K_M.gguf"
+      uri: "huggingface://QuantFactory/llm-compiler-13b-ftd-GGUF/llm-compiler-13b-ftd.Q4_K_M.gguf"
+      sha256: a5d19ae6b3fbe6724784363161b66cd2c8d8a3905761c0fb08245b3c03697db1
+- !!merge <<: *llm-compiler
+  name: "llm-compiler-7b-imat-GGUF"
+  urls:
+    - https://huggingface.co/legraphista/llm-compiler-7b-IMat-GGUF
+    - https://huggingface.co/facebook/llm-compiler-7b
+  overrides:
+    parameters:
+      model: llm-compiler-7b.Q4_K.gguf
+  files:
+    - filename: "llm-compiler-7b.Q4_K.gguf"
+      uri: "huggingface://legraphista/llm-compiler-7b-IMat-GGUF/llm-compiler-7b.Q4_K.gguf"
+      sha256: 84926979701fa4591ff5ede94a6c5829a62efa620590e5815af984707d446926
+- !!merge <<: *llm-compiler
+  name: "llm-compiler-7b-ftd-imat"
+  urls:
+    - https://huggingface.co/legraphista/llm-compiler-7b-ftd-IMat-GGUF
+    - https://huggingface.co/facebook/llm-compiler-7b-ftd
+  overrides:
+    parameters:
+      model: llm-compiler-7b-ftd.Q4_K.gguf
+  files:
+    - filename: "llm-compiler-7b-ftd.Q4_K.gguf"
+      uri: "huggingface://legraphista/llm-compiler-7b-ftd-IMat-GGUF/llm-compiler-7b-ftd.Q4_K.gguf"
+      sha256: d862dd18ed335413787d0ad196522a9902a3c10a6456afdab8721822cb0ddde8
 - &openvino
   ### START OpenVINO
   url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
