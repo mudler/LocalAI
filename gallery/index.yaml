@@ -1286,6 +1286,21 @@
     - filename: New-Dawn-Llama-3-70B-32K-v1.0-Q4_K_M.gguf
       sha256: 30561ae5decac4ad46775c76a9a40fb43436ade96bc132b4b9cc6749b9e2f448
       uri: huggingface://bartowski/New-Dawn-Llama-3-70B-32K-v1.0-GGUF/New-Dawn-Llama-3-70B-32K-v1.0-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-aethora-15b-v2"
+  urls:
+    - https://huggingface.co/bartowski/L3-Aethora-15B-V2-GGUF
+    - https://huggingface.co/ZeusLabs/L3-Aethora-15B-V2
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/yJpwVd5UTnAVDoEPVVCS1.png
+  description: |
+    L3-Aethora-15B v2 is an advanced language model built upon the Llama 3 architecture. It employs state-of-the-art training techniques and a curated dataset to deliver enhanced performance across a wide range of tasks.
+  overrides:
+    parameters:
+      model: L3-Aethora-15B-V2-Q4_K_M.gguf
+  files:
+    - filename: L3-Aethora-15B-V2-Q4_K_M.gguf
+      sha256: 014a215739e1574e354780f218776e54807548d0c32555274c4d96d7628f29b6
+      uri: huggingface://bartowski/L3-Aethora-15B-V2-GGUF/L3-Aethora-15B-V2-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
