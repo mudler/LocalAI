@@ -318,28 +318,28 @@
     - https://huggingface.co/google/gemma-2-27b-it
     - https://huggingface.co/bartowski/gemma-2-27b-it-GGUF
   description: |
-      Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. They are text-to-text, decoder-only large language models, available in English, with open weights for both pre-trained variants and instruction-tuned variants. Gemma models are well-suited for a variety of text generation tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as a laptop, desktop or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
+    Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. They are text-to-text, decoder-only large language models, available in English, with open weights for both pre-trained variants and instruction-tuned variants. Gemma models are well-suited for a variety of text generation tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as a laptop, desktop or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
   overrides:
     parameters:
       model: gemma-2-27b-it-Q4_K_M.gguf
   files:
     - filename: gemma-2-27b-it-Q4_K_M.gguf
-      sha256: e54e7b800d464af4fa9966020e4a1b1d386cd9346de2d851a7bfe7d0797c44c4
       uri: huggingface://bartowski/gemma-2-27b-it-GGUF/gemma-2-27b-it-Q4_K_M.gguf
+      sha256: be6739763f1b7661d32bd63e05bc1131e5bb9dac436b249faf6c6edffa601c96
 - !!merge <<: *gemma
   name: "gemma-2-9b-it"
   urls:
     - https://huggingface.co/google/gemma-2-9b-it
     - https://huggingface.co/bartowski/gemma-2-9b-it-GGUF
   description: |
-      Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. They are text-to-text, decoder-only large language models, available in English, with open weights for both pre-trained variants and instruction-tuned variants. Gemma models are well-suited for a variety of text generation tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as a laptop, desktop or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
+    Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. They are text-to-text, decoder-only large language models, available in English, with open weights for both pre-trained variants and instruction-tuned variants. Gemma models are well-suited for a variety of text generation tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as a laptop, desktop or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
   overrides:
     parameters:
       model: gemma-2-9b-it-Q4_K_M.gguf
   files:
     - filename: gemma-2-9b-it-Q4_K_M.gguf
-      sha256: 0874bf61be2e4b3d0a4a75e58fbd442dc410745d513c1e1e5de0b54ae33e65db
       uri: huggingface://bartowski/gemma-2-9b-it-GGUF/gemma-2-9b-it-Q4_K_M.gguf
+      sha256: 5375972196fae34c1a767bbeba93938d86abb39f2f91ea5453efa36ead6569f1
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
