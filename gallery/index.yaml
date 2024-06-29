@@ -1315,6 +1315,21 @@
     - filename: Bungo-L3-8B-Q4_K_M-imat.gguf
       sha256: 88d0139954e8f9525b80636a6269df885008c4837a1332f84f9a5dc6f37c9b8f
       uri: huggingface://Lewdiculous/Bungo-L3-8B-GGUF-IQ-Imatrix-Request/Bungo-L3-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama3-8b-darkidol-2.1-uncensored-1048k-iq-imatrix"
+  urls:
+    - https://huggingface.co/LWDCLS/llama3-8B-DarkIdol-2.1-Uncensored-1048K-GGUF-IQ-Imatrix-Request
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/tKL5W1G5WCHm4609LEmiM.png
+  description: |
+    The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
+    Uncensored 1048K
+  overrides:
+    parameters:
+      model: llama3-8B-DarkIdol-2.1-Uncensored-1048K-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-DarkIdol-2.1-Uncensored-1048K-Q4_K_M-imat.gguf
+      sha256: 86f0f1e10fc315689e09314aebb7354bb40d8fe95de008d21a75dc8fff1cd2fe
+      uri: huggingface://LWDCLS/llama3-8B-DarkIdol-2.1-Uncensored-1048K-GGUF-IQ-Imatrix-Request/llama3-8B-DarkIdol-2.1-Uncensored-1048K-Q4_K_M-imat.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
