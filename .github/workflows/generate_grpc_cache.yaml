@@ -75,7 +75,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache GRPC
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           builder: ${{ steps.buildx.outputs.name }}
           # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
