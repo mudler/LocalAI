@@ -1330,6 +1330,21 @@
     - filename: llama3-8B-DarkIdol-2.1-Uncensored-1048K-Q4_K_M-imat.gguf
       sha256: 86f0f1e10fc315689e09314aebb7354bb40d8fe95de008d21a75dc8fff1cd2fe
       uri: huggingface://LWDCLS/llama3-8B-DarkIdol-2.1-Uncensored-1048K-GGUF-IQ-Imatrix-Request/llama3-8B-DarkIdol-2.1-Uncensored-1048K-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "llama3-turbcat-instruct-8b"
+  urls:
+    - https://huggingface.co/turboderp/llama3-turbcat-instruct-8b
+    - https://huggingface.co/bartowski/llama3-turbcat-instruct-8b-GGUF
+  icon: https://huggingface.co/turboderp/llama3-turbcat-instruct-8b/resolve/main/8.png
+  description: |
+    This is a direct upgrade over cat 70B, with 2x the dataset size(2GB-> 5GB), added Chinese support with quality on par with the original English dataset. The medical COT portion of the dataset has been sponsored by steelskull, and the action packed character play portion was donated by Gryphe's(aesir dataset). Note that 8b is based on llama3 with limited Chinese support due to base model choice. The chat format in 8b is llama3. The 72b has more comprehensive Chinese support and the format will be chatml.
+  overrides:
+    parameters:
+      model: llama3-turbcat-instruct-8b-Q4_K_M.gguf
+  files:
+    - filename: llama3-turbcat-instruct-8b-Q4_K_M.gguf
+      sha256: a9a36e3220d901a8ad80c75608a81aaeed3a9cdf111247462bf5e3443aad5461
+      uri: huggingface://bartowski/llama3-turbcat-instruct-8b-GGUF/llama3-turbcat-instruct-8b-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
