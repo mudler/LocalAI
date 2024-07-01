@@ -5,6 +5,12 @@ ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
 
 # The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
 FROM ${BASE_IMAGE} AS requirements-core
+# TODO(mudler): install all accellerators here
+# and use make dist instead of build.
+# TODO(mudler): modify make dist to build also go-piper and stablediffusion
+# This way the same binary can work for everything(!)
+# TODO(mudler): also make sure that we bundle all the required libs in the backend-assets/lib
+# For the GPU-accell we are going to generate a tar file instead that will be extracted by the bash installer, and the libs will also be installed in the final docker image, so no need to pull ALL the dependencies
 
 USER root
 
@@ -49,10 +55,12 @@ ENV PATH /usr/local/cuda/bin:${PATH}
 # HipBLAS requirements
 ENV PATH /opt/rocm/bin:${PATH}
 
-# OpenBLAS requirements and stable diffusion
+# OpenBLAS requirements and stable diffusion, tts (espeak)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libopenblas-dev \
+        espeak-ng \
+        espeak \
         libopencv-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -77,8 +85,6 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        espeak-ng \
-        espeak \
         python3-pip \
         python-is-python3 \
         python3-dev \
@@ -93,9 +99,8 @@ RUN pip install --user grpcio-tools
 ###################################
 ###################################
 
-# The requirements-drivers target is for BUILD_TYPE specific items.  If you need to install something specific to CUDA, or specific to ROCM, it goes here.
-# This target will be built on top of requirements-core or requirements-extras as retermined by the IMAGE_TYPE build-arg
-FROM requirements-${IMAGE_TYPE} AS requirements-drivers
+# Base image for the build-type. 
+FROM requirements-${IMAGE_TYPE} AS run-requirements-drivers
 
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
@@ -186,6 +191,82 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
         ldconfig \
     ; fi
 
+# The build-requirements-drivers target is for BUILD_TYPE specific items.  If you need to install something specific to CUDA, or specific to ROCM, it goes here.
+# This target will be built on top of requirements-core or requirements-extras as retermined by the IMAGE_TYPE build-arg
+FROM requirements-${IMAGE_TYPE} AS build-requirements-drivers
+
+ARG BUILD_TYPE
+ARG CUDA_MAJOR_VERSION=12
+ARG CUDA_MINOR_VERSION=5
+
+ENV BUILD_TYPE=${BUILD_TYPE}
+
+# Vulkan requirements
+RUN <<EOT bash
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+                        software-properties-common pciutils wget gpg-agent && \
+        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
+        wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list && \
+        apt-get update && \
+            apt-get install -y \
+            vulkan-sdk && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+EOT
+
+# CuBLAS requirements
+RUN <<EOT bash
+    apt-get update && \
+    apt-get install -y  --no-install-recommends \
+                    software-properties-common pciutils
+    if [ "amd64" = "$TARGETARCH" ]; then
+        curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+        fi
+    if [ "arm64" = "$TARGETARCH" ]; then
+        curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
+    fi
+    dpkg -i cuda-keyring_1.1-1_all.deb && \
+        rm -f cuda-keyring_1.1-1_all.deb && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
+        apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+EOT
+
+# clblas
+RUN apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libclblast-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+
+# intel
+RUN wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list && apt update && apt install -y intel-basekit && apt-get clean && \
+rm -rf /var/lib/apt/lists/*
+
+# hipblas
+RUN wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
+        gpg --dearmor | tee /etc/apt/keyrings/rocm.gpg > /dev/null && apt-get update && \
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.1.2/ubuntu jammy main" \
+        | tee /etc/apt/sources.list.d/amdgpu.list && \
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.1.2 jammy main" |  tee --append /etc/apt/sources.list.d/rocm.list && printf 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' | tee /etc/apt/preferences.d/rocm-pin-600 && \
+        apt update && \
+        apt-get install -y --no-install-recommends \
+            hipblas-dev rocm-dev \
+            rocblas-dev && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
+        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
+        ldconfig
+
 ###################################
 ###################################
 
@@ -237,7 +318,7 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
 # Adjustments to the build process should likely be made here.
-FROM requirements-drivers AS builder
+FROM build-requirements-drivers AS builder
 
 ARG GO_TAGS="stablediffusion tts p2p"
 ARG GRPC_BACKENDS
@@ -282,7 +363,8 @@ COPY --from=grpc /opt/grpc /usr/local
 
 # Rebuild with defaults backends
 WORKDIR /build
-RUN make build
+# Need to build tts and stablediffusion separately first (?)
+RUN make dist && rm release/*.sha256 && mv release/* local-ai
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
         mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
@@ -294,7 +376,7 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 
 # This is the final target. The result of this target will be the image uploaded to the registry.
 # If you cannot find a more suitable place for an addition, this layer is a suitable place for it.
-FROM requirements-drivers
+FROM run-requirements-drivers
 
 ARG FFMPEG
 ARG BUILD_TYPE
@@ -339,6 +421,7 @@ RUN make prepare-sources
 COPY --from=builder /build/local-ai ./
 
 # Copy shared libraries for piper
+# TODO(mudler): bundle these libs in backend-assets/lib/ (like we do for llama.cpp deps)
 COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)

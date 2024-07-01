@@ -337,10 +337,12 @@ dist:
 ifeq ($(OS),Darwin)
 	$(info ${GREEN}I Skip CUDA/hipblas build on MacOS${RESET})
 else
+ifneq ($(ARCH),arm64)
 	$(MAKE) backend-assets/grpc/llama-cpp-cuda
 	$(MAKE) backend-assets/grpc/llama-cpp-hipblas
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
+endif
 endif
 	STATIC=true $(MAKE) build
 	mkdir -p release
