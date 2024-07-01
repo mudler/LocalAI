@@ -509,6 +509,27 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 			err = errors.Join(err, fmt.Errorf("backend %s returned no usable model", key))
 			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
 		}
+
+		if autoDetect && key == LLamaCPP && err != nil {
+			backendToUse := LLamaCPPFallback
+			if xsysinfo.HasCPUCaps(cpuid.AVX2) {
+				backendToUse = LLamaCPPAVX2
+			} else if xsysinfo.HasCPUCaps(cpuid.AVX) {
+				backendToUse = LLamaCPPAVX
+			}
+
+			// Autodetection failed, try the fallback
+			log.Info().Msgf("[%s] Autodetection failed, trying the fallback", key)
+			options = append(options, WithBackendString(backendToUse))
+			model, modelerr = ml.BackendLoader(options...)
+			if modelerr == nil && model != nil {
+				log.Info().Msgf("[%s] Loads OK", key)
+				return model, nil
+			} else {
+				err = errors.Join(err, fmt.Errorf("[%s]: %w", key, modelerr))
+				log.Info().Msgf("[%s] Fails: %s", key, modelerr.Error())
+			}
+		}
 	}
 
 	return nil, fmt.Errorf("could not load model - all backends returned error: %s", err.Error())
