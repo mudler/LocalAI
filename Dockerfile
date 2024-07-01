@@ -282,6 +282,8 @@ COPY --from=grpc /opt/grpc /usr/local
 
 # Rebuild with defaults backends
 WORKDIR /build
+
+## Build the binary
 RUN make build
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
