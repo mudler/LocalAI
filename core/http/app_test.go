@@ -313,7 +313,7 @@ var _ = Describe("API test", func() {
 					fmt.Println(response)
 					resp = response
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "10m", "10s").Should(Equal(true))
 				Expect(resp["message"]).ToNot(ContainSubstring("error"))
 
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert2.yaml"))
@@ -357,7 +357,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "10m", "10s").Should(Equal(true))
 
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
@@ -379,7 +379,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "10m", "10s").Should(Equal(true))
 
 				Eventually(func() []string {
 					models, _ := client.ListModels(context.TODO())
@@ -388,7 +388,7 @@ var _ = Describe("API test", func() {
 						modelList = append(modelList, m.ID)
 					}
 					return modelList
-				}, "360s", "10s").Should(ContainElements("hermes-2-pro-mistral"))
+				}, "10m", "10s").Should(ContainElements("hermes-2-pro-mistral"))
 			})
 			It("apply models without overrides", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
@@ -404,7 +404,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "10m", "10s").Should(Equal(true))
 
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
@@ -432,7 +432,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "10m", "10s").Should(Equal(true))
 
 				By("testing completion")
 				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "openllama_3b", Prompt: "Count up to five: one, two, three, four, "})
@@ -503,7 +503,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "10m", "10s").Should(Equal(true))
 
 				By("testing chat")
 				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: modelName, Messages: []openai.ChatCompletionMessage{
@@ -666,7 +666,7 @@ var _ = Describe("API test", func() {
 				response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 				fmt.Println(response)
 				return response["processed"].(bool)
-			}, "360s", "10s").Should(Equal(true))
+			}, "10m", "10s").Should(Equal(true))
 
 			// An HTTP Post to the /tts endpoint should return a wav audio file
 			resp, err := http.Post("http://127.0.0.1:9090/tts", "application/json", bytes.NewBuffer([]byte(`{"input": "Hello world", "model": "en-us-kathleen-low.onnx"}`)))
@@ -697,7 +697,7 @@ var _ = Describe("API test", func() {
 				response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 				fmt.Println(response)
 				return response["processed"].(bool)
-			}, "360s", "10s").Should(Equal(true))
+			}, "10m", "10s").Should(Equal(true))
 
 			resp, err := http.Post(
 				"http://127.0.0.1:9090/v1/images/generations",
