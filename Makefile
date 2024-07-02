@@ -321,7 +321,7 @@ build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 ifneq ($(BACKEND_LIBS),)
 	$(MAKE) backend-assets/lib
-	cp $(BACKEND_LIBS) backend-assets/lib/
+	cp -f $(BACKEND_LIBS) backend-assets/lib/
 endif
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
@@ -337,7 +337,7 @@ backend-assets/lib:
 dist:
 	$(MAKE) backend-assets/grpc/llama-cpp-avx2
 ifeq ($(DETECT_LIBS),true)
-	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/llama-cpp-avx2 | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo)"
+	$(eval BACKEND_LIBS += $(shell ldd backend-assets/grpc/llama-cpp-avx2 | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo))
 	echo "Detected $(BACKEND_LIBS)"
 endif
 ifeq ($(OS),Darwin)
@@ -348,12 +348,12 @@ else
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
-	GO_TAGS="tts" $(MAKE) build
+	GO_TAGS="tts p2p" $(MAKE) build
 ifeq ($(DETECT_LIBS),true)
-	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/piper | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo)"
+	$(eval BACKEND_LIBS += $(shell ldd backend-assets/grpc/piper | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo))
 	echo "Detected $(BACKEND_LIBS)"
 endif
-	GO_TAGS="tts" STATIC=true $(MAKE) build
+	GO_TAGS="tts p2p" STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
