@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -458,6 +459,7 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
+		log.Debug().Str("backend", c.Backend).Msg("FLAG_TTS TEMP")
 		// This one feels _really_ bad. Need to reach out to TTS experts to find something salient here.
 		if c.Backend != "transformer-musicgen" && c.Backend != "piper" && c.Backend != "parler-tts" {
 			return false
