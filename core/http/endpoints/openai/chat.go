@@ -12,9 +12,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
-	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
@@ -159,12 +160,12 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 	}
 
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, ml, startupOptions, true)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_OPENAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input == nil {
+			return fiber.ErrBadRequest
 		}
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, startupOptions.Debug, startupOptions.Threads, startupOptions.ContextSize, startupOptions.F16)
+		config, input, err := mergeRequestWithConfig(input, cl, ml, startupOptions.Debug, startupOptions.Threads, startupOptions.ContextSize, startupOptions.F16)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

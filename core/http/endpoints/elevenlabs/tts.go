@@ -3,7 +3,7 @@ package elevenlabs
 import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
-	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
@@ -28,13 +28,14 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			return err
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, ml, input.ModelID, false)
-		if err != nil {
-			modelFile = input.ModelID
-			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
+		modelFile, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+		if ok && modelFile != "" {
+			input.ModelID = modelFile
 		}
 
-		cfg, err := cl.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath,
+		log.Debug().Str("context modelName", modelFile).Msg("elevenlabs TTS request recieved for model")
+
+		cfg, err := cl.LoadBackendConfigFileByName(input.ModelID, appConfig.ModelPath,
 			config.LoadOptionDebug(appConfig.Debug),
 			config.LoadOptionThreads(appConfig.Threads),
 			config.LoadOptionContextSize(appConfig.ContextSize),

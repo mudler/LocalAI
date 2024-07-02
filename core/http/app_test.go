@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/mudler/LocalAI/core"
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/schema"
@@ -21,7 +22,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -206,9 +206,7 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
-	var bcl *config.BackendConfigLoader
-	var ml *model.ModelLoader
-	var applicationConfig *config.ApplicationConfig
+	var application *core.Application
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -254,7 +252,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err = startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGalleries(galleries),
@@ -263,7 +261,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -610,7 +608,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err = startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithAudioDir(tmpdir),
@@ -621,7 +619,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -741,14 +739,14 @@ var _ = Describe("API test", func() {
 
 			var err error
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err = startup.Startup(
 				append(commonOpts,
 					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -1027,14 +1025,14 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err = startup.Startup(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = App(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")

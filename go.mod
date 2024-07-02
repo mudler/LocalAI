@@ -64,6 +64,8 @@ require (
 	oras.land/oras-go/v2 v2.5.0
 )
 
+require github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2
+
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect

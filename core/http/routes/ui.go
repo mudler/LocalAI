@@ -6,13 +6,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mudler/LocalAI/core"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/elements"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
-	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/rs/zerolog/log"
 
@@ -20,13 +20,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func RegisterUIRoutes(app *fiber.App,
-	cl *config.BackendConfigLoader,
-	ml *model.ModelLoader,
-	appConfig *config.ApplicationConfig,
-	galleryService *services.GalleryService,
-	auth func(*fiber.Ctx) error) {
-	tmpLMS := services.NewListModelsService(ml, cl, appConfig) // TODO: once createApplication() is fully in use, reference the central instance.
+// TODO: Convert over the remaining instances of application.BackendConfigLoader.GetAllBackendConfigs() to filtered LMS calls
+func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 
 	// keeps the state of models that are being installed from the UI
 	var processingModels = xsync.NewSyncedMap[string, string]()
@@ -39,7 +34,7 @@ func RegisterUIRoutes(app *fiber.App,
 		taskTypes := map[string]string{}
 
 		for k, v := range processingModelsData {
-			status := galleryService.GetStatus(v)
+			status := application.GalleryService.GetStatus(v)
 			taskTypes[k] = "Installation"
 			if status != nil && status.Deletion {
 				taskTypes[k] = "Deletion"
@@ -51,13 +46,13 @@ func RegisterUIRoutes(app *fiber.App,
 		return processingModelsData, taskTypes
 	}
 
-	app.Get("/", auth, localai.WelcomeEndpoint(appConfig, cl, ml, modelStatus))
+	app.Get("/", localai.WelcomeEndpoint(application.ApplicationConfig, application.BackendConfigLoader, application.ModelLoader, modelStatus))
 
 	// Show the Models page (all models)
-	app.Get("/browse", auth, func(c *fiber.Ctx) error {
+	app.Get("/browse", func(c *fiber.Ctx) error {
 		term := c.Query("term")
 
-		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
+		models, _ := gallery.AvailableGalleryModels(application.ApplicationConfig.Galleries, application.ApplicationConfig.ModelPath)
 
 		// Get all available tags
 		allTags := map[string]struct{}{}
@@ -82,8 +77,8 @@ func RegisterUIRoutes(app *fiber.App,
 		summary := fiber.Map{
 			"Title":            "LocalAI - Models",
 			"Version":          internal.PrintableVersion(),
-			"Models":           template.HTML(elements.ListModels(models, processingModels, galleryService)),
-			"Repositories":     appConfig.Galleries,
+			"Models":           template.HTML(elements.ListModels(models, processingModels, application.GalleryService)),
+			"Repositories":     application.ApplicationConfig.Galleries,
 			"AllTags":          tags,
 			"ProcessingModels": processingModelsData,
 			"AvailableModels":  len(models),
@@ -97,7 +92,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// Show the models, filtered from the user input
 	// https://htmx.org/examples/active-search/
-	app.Post("/browse/search/models", auth, func(c *fiber.Ctx) error {
+	app.Post("/browse/search/models", func(c *fiber.Ctx) error {
 		form := struct {
 			Search string `form:"search"`
 		}{}
@@ -105,9 +100,9 @@ func RegisterUIRoutes(app *fiber.App,
 			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 		}
 
-		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
+		models, _ := gallery.AvailableGalleryModels(application.ApplicationConfig.Galleries, application.ApplicationConfig.ModelPath)
 
-		return c.SendString(elements.ListModels(gallery.GalleryModels(models).Search(form.Search), processingModels, galleryService))
+		return c.SendString(elements.ListModels(gallery.GalleryModels(models).Search(form.Search), processingModels, application.GalleryService))
 	})
 
 	/*
@@ -118,7 +113,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// This route is used when the "Install" button is pressed, we submit here a new job to the gallery service
 	// https://htmx.org/examples/progress-bar/
-	app.Post("/browse/install/model/:id", auth, func(c *fiber.Ctx) error {
+	app.Post("/browse/install/model/:id", func(c *fiber.Ctx) error {
 		galleryID := strings.Clone(c.Params("id")) // note: strings.Clone is required for multiple requests!
 		log.Debug().Msgf("UI job submitted to install  : %+v\n", galleryID)
 
@@ -134,10 +129,10 @@ func RegisterUIRoutes(app *fiber.App,
 		op := gallery.GalleryOp{
 			Id:               uid,
 			GalleryModelName: galleryID,
-			Galleries:        appConfig.Galleries,
+			Galleries:        application.ApplicationConfig.Galleries,
 		}
 		go func() {
-			galleryService.C <- op
+			application.GalleryService.C <- op
 		}()
 
 		return c.SendString(elements.StartProgressBar(uid, "0", "Installation"))
@@ -145,7 +140,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// This route is used when the "Install" button is pressed, we submit here a new job to the gallery service
 	// https://htmx.org/examples/progress-bar/
-	app.Post("/browse/delete/model/:id", auth, func(c *fiber.Ctx) error {
+	app.Post("/browse/delete/model/:id", func(c *fiber.Ctx) error {
 		galleryID := strings.Clone(c.Params("id")) // note: strings.Clone is required for multiple requests!
 		log.Debug().Msgf("UI job submitted to delete  : %+v\n", galleryID)
 		var galleryName = galleryID
@@ -175,8 +170,8 @@ func RegisterUIRoutes(app *fiber.App,
 			GalleryModelName: galleryName,
 		}
 		go func() {
-			galleryService.C <- op
-			cl.RemoveBackendConfig(galleryName)
+			application.GalleryService.C <- op
+			application.BackendConfigLoader.RemoveBackendConfig(galleryName)
 		}()
 
 		return c.SendString(elements.StartProgressBar(uid, "0", "Deletion"))
@@ -185,10 +180,10 @@ func RegisterUIRoutes(app *fiber.App,
 	// Display the job current progress status
 	// If the job is done, we trigger the /browse/job/:uid route
 	// https://htmx.org/examples/progress-bar/
-	app.Get("/browse/job/progress/:uid", auth, func(c *fiber.Ctx) error {
+	app.Get("/browse/job/progress/:uid", func(c *fiber.Ctx) error {
 		jobUID := strings.Clone(c.Params("uid")) // note: strings.Clone is required for multiple requests!
 
-		status := galleryService.GetStatus(jobUID)
+		status := application.GalleryService.GetStatus(jobUID)
 		if status == nil {
 			//fmt.Errorf("could not find any status for ID")
 			return c.SendString(elements.ProgressBar("0"))
@@ -207,10 +202,10 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// this route is hit when the job is done, and we display the
 	// final state (for now just displays "Installation completed")
-	app.Get("/browse/job/:uid", auth, func(c *fiber.Ctx) error {
+	app.Get("/browse/job/:uid", func(c *fiber.Ctx) error {
 		jobUID := strings.Clone(c.Params("uid")) // note: strings.Clone is required for multiple requests!
 
-		status := galleryService.GetStatus(jobUID)
+		status := application.GalleryService.GetStatus(jobUID)
 
 		galleryID := ""
 		for _, k := range processingModels.Keys() {
@@ -235,8 +230,8 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	// Show the Chat page
-	app.Get("/chat/:model", auth, func(c *fiber.Ctx) error {
-		backendConfigs, _ := tmpLMS.ListModels("", true)
+	app.Get("/chat/:model", func(c *fiber.Ctx) error {
+		backendConfigs, _ := application.ListModelsService.ListModels(config.BuildUsecaseFilterFn(config.FLAG_LLM), services.SKIP_IF_CONFIGURED)
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Chat with " + c.Params("model"),
@@ -249,8 +244,8 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.Render("views/chat", summary)
 	})
 
-	app.Get("/talk/", auth, func(c *fiber.Ctx) error {
-		backendConfigs, _ := tmpLMS.ListModels("", true)
+	app.Get("/talk/", func(c *fiber.Ctx) error {
+		backendConfigs, _ := application.ListModelsService.ListModels(config.BuildUsecaseFilterFn(config.FLAG_TTS), services.SKIP_IF_CONFIGURED)
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
@@ -268,9 +263,9 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.Render("views/talk", summary)
 	})
 
-	app.Get("/chat/", auth, func(c *fiber.Ctx) error {
+	app.Get("/chat/", func(c *fiber.Ctx) error {
 
-		backendConfigs, _ := tmpLMS.ListModels("", true)
+		backendConfigs, _ := application.ListModelsService.ListModels(config.BuildUsecaseFilterFn(config.FLAG_LLM), services.SKIP_IF_CONFIGURED)
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
@@ -288,8 +283,8 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.Render("views/chat", summary)
 	})
 
-	app.Get("/text2image/:model", auth, func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+	app.Get("/text2image/:model", func(c *fiber.Ctx) error {
+		backendConfigs := application.BackendConfigLoader.GetAllBackendConfigs()
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Generate images with " + c.Params("model"),
@@ -302,9 +297,9 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.Render("views/text2image", summary)
 	})
 
-	app.Get("/text2image/", auth, func(c *fiber.Ctx) error {
+	app.Get("/text2image/", func(c *fiber.Ctx) error {
 
-		backendConfigs := cl.GetAllBackendConfigs()
+		backendConfigs := application.BackendConfigLoader.GetAllBackendConfigs()
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
@@ -322,8 +317,8 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.Render("views/text2image", summary)
 	})
 
-	app.Get("/tts/:model", auth, func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+	app.Get("/tts/:model", func(c *fiber.Ctx) error {
+		backendConfigs := application.BackendConfigLoader.GetAllBackendConfigs()
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Generate images with " + c.Params("model"),
@@ -336,9 +331,9 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.Render("views/tts", summary)
 	})
 
-	app.Get("/tts/", auth, func(c *fiber.Ctx) error {
+	app.Get("/tts/", func(c *fiber.Ctx) error {
 
-		backendConfigs := cl.GetAllBackendConfigs()
+		backendConfigs := application.BackendConfigLoader.GetAllBackendConfigs()
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models

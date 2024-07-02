@@ -17,6 +17,7 @@ type Application struct {
 	// Core Low-Level Services
 	BackendConfigLoader *config.BackendConfigLoader
 	ModelLoader         *model.ModelLoader
+	StoresLoader        *model.ModelLoader
 
 	// Backend Services
 	// EmbeddingsBackendService      *backend.EmbeddingsBackendService
@@ -28,7 +29,7 @@ type Application struct {
 	// LocalAI System Services
 	BackendMonitorService *services.BackendMonitorService
 	GalleryService        *services.GalleryService
-	ListModelsService     *services.ListModelsService
+	ListModelsService     *services.ListModels
 	LocalAIMetricsService *services.LocalAIMetricsService
 	// OpenAIService         *services.OpenAIService
 }
