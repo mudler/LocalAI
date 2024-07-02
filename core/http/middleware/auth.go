@@ -3,6 +3,7 @@ package middleware
 import (
 	"crypto/subtle"
 	"errors"
+	"slices"
 
 	"github.com/dave-gray101/v2keyauth"
 	"github.com/gofiber/fiber/v2"
@@ -23,6 +24,7 @@ func GetKeyAuthConfig(applicationConfig *config.ApplicationConfig) (*v2keyauth.C
 
 	return &v2keyauth.Config{
 		CustomKeyLookup: customLookup,
+		Next:            getApiKeyRequiredFilterFunction(applicationConfig),
 		Validator:       getApiKeyValidationFunction(applicationConfig),
 		ErrorHandler:    getApiKeyErrorHandler(applicationConfig),
 		AuthScheme:      "Bearer",
@@ -72,5 +74,22 @@ func getApiKeyValidationFunction(applicationConfig *config.ApplicationConfig) fu
 			}
 		}
 		return false, v2keyauth.ErrMissingOrMalformedAPIKey
+	}
+}
+
+func getApiKeyRequiredFilterFunction(applicationConfig *config.ApplicationConfig) func(*fiber.Ctx) bool {
+	if applicationConfig.RequireApiKeyForHttpGet {
+		return func(c *fiber.Ctx) bool { return true }
+	}
+	return func(c *fiber.Ctx) bool {
+		if c.Method() != "GET" {
+			return true
+		}
+		knownUIRoutes := []string{
+			"/",
+			"/browse",
+			"/talk",
+		}
+		return !slices.Contains(knownUIRoutes, c.Route().Path)
 	}
 }
