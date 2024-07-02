@@ -83,13 +83,13 @@ func getApiKeyRequiredFilterFunction(applicationConfig *config.ApplicationConfig
 	}
 	return func(c *fiber.Ctx) bool {
 		if c.Method() != "GET" {
-			return true
+			return false
 		}
 		knownUIRoutes := []string{
 			"/",
 			"/browse",
 			"/talk",
 		}
-		return !slices.Contains(knownUIRoutes, c.Route().Path)
+		return slices.Contains(knownUIRoutes, c.Route().Path)
 	}
 }
