@@ -3,6 +3,8 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
+DETECT_LIBS?=true
+
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
 CPPLLAMA_VERSION?=cb5fad4c6c2cbef92e9b8b63449e1cb7664e4846
@@ -319,7 +321,7 @@ build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 ifneq ($(BACKEND_LIBS),)
 	$(MAKE) backend-assets/lib
-	cp $(BACKEND_LIBS) backend-assets/lib/
+	cp -f $(BACKEND_LIBS) backend-assets/lib/
 endif
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
@@ -334,6 +336,10 @@ backend-assets/lib:
 
 dist:
 	$(MAKE) backend-assets/grpc/llama-cpp-avx2
+ifeq ($(DETECT_LIBS),true)
+	$(eval BACKEND_LIBS += $(shell ldd backend-assets/grpc/llama-cpp-avx2 | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo))
+	echo "Detected $(BACKEND_LIBS)"
+endif
 ifeq ($(OS),Darwin)
 	$(info ${GREEN}I Skip CUDA/hipblas build on MacOS${RESET})
 else
@@ -342,7 +348,12 @@ else
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
-	STATIC=true $(MAKE) build
+	GO_TAGS="tts p2p" $(MAKE) build
+ifeq ($(DETECT_LIBS),true)
+	$(eval BACKEND_LIBS += $(shell ldd backend-assets/grpc/piper | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo))
+	echo "Detected $(BACKEND_LIBS)"
+endif
+	GO_TAGS="tts p2p" STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
