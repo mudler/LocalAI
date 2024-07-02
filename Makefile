@@ -35,6 +35,7 @@ TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
 export CMAKE_ARGS?=
+export BACKEND_LIBS?=
 
 CGO_LDFLAGS?=
 CGO_LDFLAGS_WHISPER?=
@@ -321,7 +322,7 @@ build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 ifneq ($(BACKEND_LIBS),)
 	$(MAKE) backend-assets/lib
-	cp $(BACKEND_LIBS) backend-assets/lib/
+	cp -f $(BACKEND_LIBS) backend-assets/lib/
 endif
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
@@ -337,9 +338,13 @@ backend-assets/lib:
 dist:
 	$(MAKE) backend-assets/grpc/llama-cpp-avx2
 ifeq ($(DETECT_LIBS),true)
-	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/llama-cpp-avx2 | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo)"
-	echo "Detected $(BACKEND_LIBS)"
+ifeq ($(OS),Darwin)
+	$(eval BACKEND_LIBS += $(shell otool -L backend-assets/grpc/llama-cpp-avx2 | awk 'NR > 1 { system("echo " $$1) } ' | xargs echo))
+else
+	$(eval BACKEND_LIBS += $(shell ldd backend-assets/grpc/llama-cpp-avx2 | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo))
 endif
+endif
+	echo "Detected backend libs: $(BACKEND_LIBS)"
 ifeq ($(OS),Darwin)
 	$(info ${GREEN}I Skip CUDA/hipblas build on MacOS${RESET})
 else
@@ -348,12 +353,16 @@ else
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
-	GO_TAGS="tts" $(MAKE) build
+	GO_TAGS="tts p2p" $(MAKE) build
 ifeq ($(DETECT_LIBS),true)
-	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/piper | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo)"
-	echo "Detected $(BACKEND_LIBS)"
+ifeq ($(OS),Darwin)
+	$(eval BACKEND_LIBS += $(shell otool -L backend-assets/grpc/piper | awk 'NR > 1 { system("echo " $$1) } ' | xargs echo))
+else
+	$(eval BACKEND_LIBS += $(shell ldd backend-assets/grpc/piper | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo))
 endif
-	GO_TAGS="tts" STATIC=true $(MAKE) build
+endif
+	echo "Detected backend libs: $(BACKEND_LIBS)"
+	GO_TAGS="tts p2p" STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
