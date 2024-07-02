@@ -79,7 +79,7 @@ func getApiKeyValidationFunction(applicationConfig *config.ApplicationConfig) fu
 
 func getApiKeyRequiredFilterFunction(applicationConfig *config.ApplicationConfig) func(*fiber.Ctx) bool {
 	if applicationConfig.RequireApiKeyForHttpGet {
-		return func(c *fiber.Ctx) bool { return true }
+		return func(c *fiber.Ctx) bool { return false }
 	}
 	return func(c *fiber.Ctx) bool {
 		if c.Method() != "GET" {
