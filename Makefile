@@ -9,7 +9,7 @@ CPPLLAMA_VERSION?=cb5fad4c6c2cbef92e9b8b63449e1cb7664e4846
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
-GPT4ALL_VERSION?=27a8b020c36b0df8f8b82a252d261cda47cf44b8
+GPT4ALL_VERSION?=b85b74d5bf897f3c8a3308b40df99c0c9194a2c6
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
