@@ -383,10 +383,10 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, &options)
 		if err != nil {
-			return "", fmt.Errorf("could not load model: %w", err)
+			return "", fmt.Errorf("backend %q could not load model: %w", backend, err)
 		}
 		if !res.Success {
-			return "", fmt.Errorf("could not load model (no success): %s", res.Message)
+			return "", fmt.Errorf("backend %q could not load model (no success): %s", backend, res.Message)
 		}
 
 		return client, nil

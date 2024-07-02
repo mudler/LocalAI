@@ -3,19 +3,20 @@ package http
 import (
 	"embed"
 	"errors"
+	"fmt"
 	"net/http"
-	"strings"
 
+	"github.com/dave-gray101/v2keyauth"
+	"github.com/mudler/LocalAI/core"
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
 
-	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
-	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
@@ -28,24 +29,6 @@ import (
 	// swagger handler
 	"github.com/rs/zerolog/log"
 )
-
-func readAuthHeader(c *fiber.Ctx) string {
-	authHeader := c.Get("Authorization")
-
-	// elevenlabs
-	xApiKey := c.Get("xi-api-key")
-	if xApiKey != "" {
-		authHeader = "Bearer " + xApiKey
-	}
-
-	// anthropic
-	xApiKey = c.Get("x-api-key")
-	if xApiKey != "" {
-		authHeader = "Bearer " + xApiKey
-	}
-
-	return authHeader
-}
 
 // Embed a directory
 //
@@ -65,18 +48,18 @@ var embedDirStatic embed.FS
 // @in header
 // @name Authorization
 
-func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*fiber.App, error) {
+func App(application *core.Application) (*fiber.App, error) {
 
 	fiberCfg := fiber.Config{
 		Views:     renderEngine(),
-		BodyLimit: appConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
+		BodyLimit: application.ApplicationConfig.UploadLimitMB * 1024 * 1024, // this is the default limit of 4MB
 		// We disable the Fiber startup message as it does not conform to structured logging.
 		// We register a startup log line with connection information in the OnListen hook to keep things user friendly though
 		DisableStartupMessage: true,
 		// Override default error handler
 	}
 
-	if !appConfig.OpaqueErrors {
+	if !application.ApplicationConfig.OpaqueErrors {
 		// Normally, return errors as JSON responses
 		fiberCfg.ErrorHandler = func(ctx *fiber.Ctx, err error) error {
 			// Status code defaults to 500
@@ -121,7 +104,7 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 
 	// Default middleware config
 
-	if !appConfig.Debug {
+	if !application.ApplicationConfig.Debug {
 		app.Use(recover.New())
 	}
 
@@ -137,68 +120,47 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		})
 	}
 
-	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
-	auth := func(c *fiber.Ctx) error {
-		if len(appConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
-
-		if len(appConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
-
-		authHeader := readAuthHeader(c)
-		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
-		}
-
-		// If it's a bearer token
-		authHeaderParts := strings.Split(authHeader, " ")
-		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
-		}
-
-		apiKey := authHeaderParts[1]
-		for _, key := range appConfig.ApiKeys {
-			if apiKey == key {
-				return c.Next()
-			}
-		}
-
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+	kaConfig, err := middleware.GetKeyAuthConfig(application.ApplicationConfig)
+	if err != nil || kaConfig == nil {
+		return nil, fmt.Errorf("failed to create key auth config: %w", err)
 	}
+	// Auth is applied to _all_ endpoints. No exceptions. future developers may use the Filter property of the middleware configuration to exempt specific url patterns.
+	app.Use(v2keyauth.New(*kaConfig))
 
-	if appConfig.CORS {
+	if application.ApplicationConfig.CORS {
 		var c func(ctx *fiber.Ctx) error
-		if appConfig.CORSAllowOrigins == "" {
+		if application.ApplicationConfig.CORSAllowOrigins == "" {
 			c = cors.New()
 		} else {
-			c = cors.New(cors.Config{AllowOrigins: appConfig.CORSAllowOrigins})
+			c = cors.New(cors.Config{AllowOrigins: application.ApplicationConfig.CORSAllowOrigins})
 		}
 
 		app.Use(c)
 	}
 
-	if appConfig.CSRF {
+	if application.ApplicationConfig.CSRF {
 		log.Debug().Msg("Enabling CSRF middleware. Tokens are now required for state-modifying requests")
 		app.Use(csrf.New())
 	}
 
 	// Load config jsons
-	utils.LoadConfig(appConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
-	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
-	utils.LoadConfig(appConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
+	utils.LoadConfig(application.ApplicationConfig.UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
+	utils.LoadConfig(application.ApplicationConfig.ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
+	utils.LoadConfig(application.ApplicationConfig.ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
-	galleryService := services.NewGalleryService(appConfig)
-	galleryService.Start(appConfig.Context, cl)
+	requestExtractor := middleware.NewRequestExtractor(application.ListModelsService, application.ApplicationConfig)
 
-	routes.RegisterElevenLabsRoutes(app, cl, ml, appConfig, auth)
-	routes.RegisterLocalAIRoutes(app, cl, ml, appConfig, galleryService, auth)
-	routes.RegisterOpenAIRoutes(app, cl, ml, appConfig, auth)
-	if !appConfig.DisableWebUI {
-		routes.RegisterUIRoutes(app, cl, ml, appConfig, galleryService, auth)
+	// Reviewer's Note: this "(app, application)" simplified parameter tuple is experimental, and potentially temporary.
+	// Once backend logic is fully removed from the endpoint code, the required services will be provided off application here:
+	// example: routes.RegisterElevenLabsRoutes(app, application.TextToSpeechBackend)
+	// In the meantime, providing "application" here permits the routes code to centralize changes in an easier-to-review place.
+	routes.RegisterElevenLabsRoutes(app, requestExtractor, application)
+	routes.RegisterLocalAIRoutes(app, requestExtractor, application)
+	routes.RegisterOpenAIRoutes(app, requestExtractor, application)
+	if !application.ApplicationConfig.DisableWebUI {
+		routes.RegisterUIRoutes(app, application)
 	}
-	routes.RegisterJINARoutes(app, cl, ml, appConfig, auth)
+	routes.RegisterJINARoutes(app, requestExtractor, application)
 
 	httpFS := http.FS(embedDirStatic)
 

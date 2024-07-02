@@ -3,11 +3,12 @@ package openai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
-	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -31,7 +32,11 @@ func readRequest(c *fiber.Ctx, ml *model.ModelLoader, o *config.ApplicationConfi
 
 	log.Debug().Msgf("Request received: %s", string(received))
 
-	modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, firstModel)
+	modelFile, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+	var err error
+	if !ok || modelFile == "" {
+		err = errors.New("unable to retrieve model name from context?")
+	}
 
 	return modelFile, input, err
 }
@@ -245,8 +250,8 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 	}
 }
 
-func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *config.BackendConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.BackendConfig, *schema.OpenAIRequest, error) {
-	cfg, err := cm.LoadBackendConfigFileByName(modelFile, loader.ModelPath,
+func mergeRequestWithConfig(input *schema.OpenAIRequest, cm *config.BackendConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.BackendConfig, *schema.OpenAIRequest, error) {
+	cfg, err := cm.LoadBackendConfigFileByName(input.Model, loader.ModelPath,
 		config.LoadOptionDebug(debug),
 		config.LoadOptionThreads(threads),
 		config.LoadOptionContextSize(ctx),

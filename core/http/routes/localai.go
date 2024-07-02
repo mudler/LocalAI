@@ -3,43 +3,40 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
+	"github.com/mudler/LocalAI/core"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
-	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/internal"
-	"github.com/mudler/LocalAI/pkg/model"
 )
 
-func RegisterLocalAIRoutes(app *fiber.App,
-	cl *config.BackendConfigLoader,
-	ml *model.ModelLoader,
-	appConfig *config.ApplicationConfig,
-	galleryService *services.GalleryService,
-	auth func(*fiber.Ctx) error) {
+func RegisterLocalAIRoutes(app *fiber.App, requestExtractor *middleware.RequestExtractor, application *core.Application) {
 
 	app.Get("/swagger/*", swagger.HandlerDefault) // default
 
 	// LocalAI API endpoints
 
-	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
-	app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
-	app.Post("/models/delete/:name", auth, modelGalleryEndpointService.DeleteModelGalleryEndpoint())
+	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(application.ApplicationConfig.Galleries, application.ApplicationConfig.ModelPath, application.GalleryService)
+	app.Post("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint())
+	app.Post("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint())
 
-	app.Get("/models/available", auth, modelGalleryEndpointService.ListModelFromGalleryEndpoint())
-	app.Get("/models/galleries", auth, modelGalleryEndpointService.ListModelGalleriesEndpoint())
-	app.Post("/models/galleries", auth, modelGalleryEndpointService.AddModelGalleryEndpoint())
-	app.Delete("/models/galleries", auth, modelGalleryEndpointService.RemoveModelGalleryEndpoint())
-	app.Get("/models/jobs/:uuid", auth, modelGalleryEndpointService.GetOpStatusEndpoint())
-	app.Get("/models/jobs", auth, modelGalleryEndpointService.GetAllStatusEndpoint())
+	app.Get("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint())
+	app.Get("/models/galleries", modelGalleryEndpointService.ListModelGalleriesEndpoint())
+	app.Post("/models/galleries", modelGalleryEndpointService.AddModelGalleryEndpoint())
+	app.Delete("/models/galleries", modelGalleryEndpointService.RemoveModelGalleryEndpoint())
+	app.Get("/models/jobs/:uuid", modelGalleryEndpointService.GetOpStatusEndpoint())
+	app.Get("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint())
 
-	app.Post("/tts", auth, localai.TTSEndpoint(cl, ml, appConfig))
+	app.Post("/tts", requestExtractor.SetModelName,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
+		localai.TTSEndpoint(application.BackendConfigLoader, application.ModelLoader, application.ApplicationConfig),
+	)
 
 	// Stores
-	sl := model.NewModelLoader("")
-	app.Post("/stores/set", auth, localai.StoresSetEndpoint(sl, appConfig))
-	app.Post("/stores/delete", auth, localai.StoresDeleteEndpoint(sl, appConfig))
-	app.Post("/stores/get", auth, localai.StoresGetEndpoint(sl, appConfig))
-	app.Post("/stores/find", auth, localai.StoresFindEndpoint(sl, appConfig))
+	app.Post("/stores/set", localai.StoresSetEndpoint(application.StoresLoader, application.ApplicationConfig))
+	app.Post("/stores/delete", localai.StoresDeleteEndpoint(application.StoresLoader, application.ApplicationConfig))
+	app.Post("/stores/get", localai.StoresGetEndpoint(application.StoresLoader, application.ApplicationConfig))
+	app.Post("/stores/find", localai.StoresFindEndpoint(application.StoresLoader, application.ApplicationConfig))
 
 	// Kubernetes health checks
 	ok := func(c *fiber.Ctx) error {
@@ -49,14 +46,12 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	app.Get("/healthz", ok)
 	app.Get("/readyz", ok)
 
-	app.Get("/metrics", auth, localai.LocalAIMetricsEndpoint())
+	app.Get("/metrics", localai.LocalAIMetricsEndpoint())
 
-	// Experimental Backend Statistics Module
-	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
-	app.Get("/backend/monitor", auth, localai.BackendMonitorEndpoint(backendMonitorService))
-	app.Post("/backend/shutdown", auth, localai.BackendShutdownEndpoint(backendMonitorService))
+	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(application.BackendMonitorService))
+	app.Post("/backend/shutdown", localai.BackendShutdownEndpoint(application.BackendMonitorService))
 
-	app.Get("/version", auth, func(c *fiber.Ctx) error {
+	app.Get("/version", func(c *fiber.Ctx) error {
 		return c.JSON(struct {
 			Version string `json:"version"`
 		}{Version: internal.PrintableVersion()})

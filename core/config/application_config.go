@@ -31,7 +31,10 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
-	OpaqueErrors                        bool
+
+	OpaqueErrors            bool
+	UseSubtleKeyComparison  bool
+	RequireApiKeyForHttpGet bool
 
 	ModelLibraryURL string
 
@@ -297,6 +300,18 @@ func WithApiKeys(apiKeys []string) AppOption {
 func WithOpaqueErrors(opaque bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.OpaqueErrors = opaque
+	}
+}
+
+func WithSubtleKeyComparison(subtle bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.UseSubtleKeyComparison = subtle
+	}
+}
+
+func WithRequiredApiKeyForHTTPGet(required bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.RequireApiKeyForHttpGet = required
 	}
 }
 
