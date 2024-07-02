@@ -3,6 +3,8 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
+DETECT_LIBS?=true
+
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
 CPPLLAMA_VERSION?=9ef07800622e4c371605f9419864d15667c3558f
@@ -230,7 +232,6 @@ sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
 sources/go-stable-diffusion:
 	git clone --recurse-submodules https://github.com/mudler/go-stable-diffusion sources/go-stable-diffusion
 	cd sources/go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
-	cd sources/go-stable-diffusion/ncnn/ && echo 'set(CMAKE_CXX_STANDARD 14)' >> CMakeLists.txt
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
@@ -336,7 +337,7 @@ backend-assets/lib:
 dist:
 	$(MAKE) backend-assets/grpc/llama-cpp-avx2
 ifeq ($(DETECT_LIBS),true)
-	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/llama-cpp-avx2 | awk 'NF == 4 { system("echo " $3) } ' | xargs echo)"
+	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/llama-cpp-avx2 | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo)"
 	echo "Detected $(BACKEND_LIBS)"
 endif
 ifeq ($(OS),Darwin)
@@ -347,13 +348,12 @@ else
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
-	GO_TAGS="tts stablediffusion" $(MAKE) build
+	GO_TAGS="tts" $(MAKE) build
 ifeq ($(DETECT_LIBS),true)
-	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/piper | awk 'NF == 4 { system("echo " $3) } ' | xargs echo)"
-	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/stablediffusion | awk 'NF == 4 { system("echo " $3) } ' | xargs echo)"
+	BACKEND_LIBS="${BACKEND_LIBS} $(shell ldd backend-assets/grpc/piper | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo)"
 	echo "Detected $(BACKEND_LIBS)"
 endif
-	GO_TAGS="tts stablediffusion" STATIC=true $(MAKE) build
+	GO_TAGS="tts" STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
