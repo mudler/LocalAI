@@ -230,6 +230,7 @@ sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
 sources/go-stable-diffusion:
 	git clone --recurse-submodules https://github.com/mudler/go-stable-diffusion sources/go-stable-diffusion
 	cd sources/go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
+	cd sources/go-stable-diffusion/ncnn/ && echo 'set(CMAKE_CXX_STANDARD 14)' >> CMakeLists.txt
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
