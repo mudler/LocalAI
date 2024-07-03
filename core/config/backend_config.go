@@ -9,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -422,7 +421,6 @@ const (
 )
 
 func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
-	log.Debug().Str("backend", c.Backend).Int("u", int(u)).Msg("HasUsecases TEMP")
 	if (u & FLAG_CHAT) == FLAG_CHAT {
 		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
 			return false
@@ -444,7 +442,7 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_IMAGE) == FLAG_IMAGE {
-		// TODO: This one seems pretty sketchy - but it's better than nothing at all?
+		// This one feels _really_ bad. Need to experiment but it's better than nothing at all?
 		if (c.Backend != "diffusers" || c.Diffusers.PipelineType != "") && c.Backend != "tinydream" || c.Backend != "stablediffusion" {
 			return false
 		}
@@ -460,7 +458,6 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
-		log.Debug().Str("backend", c.Backend).Msg("FLAG_TTS TEMP")
 		// This one feels _really_ bad. Need to reach out to TTS experts to find something salient here.
 		if c.Backend != "transformer-musicgen" && c.Backend != "piper" && c.Backend != "parler-tts" {
 			return false

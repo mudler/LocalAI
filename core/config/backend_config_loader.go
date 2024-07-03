@@ -228,9 +228,8 @@ func BuildUsecaseFilterFn(usecases BackendConfigUsecases) BackendConfigFilterFn 
 	}
 	return func(name string, config *BackendConfig) bool {
 		if config == nil {
-			return false // ???
+			return false // TODO: Potentially make this a param, for now, no known usecase to include
 		}
-		log.Debug().Str("Backend", config.Backend).Msg("BuildUsecaseFilterFn:: FN Hit")
 		return config.HasUsecases(usecases)
 	}
 }
@@ -240,10 +239,8 @@ func (bcl *BackendConfigLoader) GetBackendConfigsByFilter(filter BackendConfigFi
 	defer bcl.Unlock()
 	var res []BackendConfig
 
-	log.Debug().Int("len(bcl.configs)", len(bcl.configs)).Msg("GetBackendConfigsByFilter hit")
 	for n, v := range bcl.configs {
 		if filter(n, &v) {
-			log.Debug().Str("n", n).Str("v.Backend", v.Backend).Msg("passes filter")
 			res = append(res, v)
 		}
 	}
