@@ -71,7 +71,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 		if len(modelNames) == 0 {
 			log.Warn().Msg("SetDefaultModelNameToFirstAvailable used with no matching models installed")
 			// return errors.New("this endpoint requires at least one model to be installed")
-			// Experiment: Make this non-fatal - it's breaking the case of direct installation
+			// This is non-fatal - making it so was breaking the case of direct installation of raw models
 			return ctx.Next()
 		}
 

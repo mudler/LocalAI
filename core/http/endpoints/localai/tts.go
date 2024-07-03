@@ -31,7 +31,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 		}
 
 		modelFile, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
-		if !ok && modelFile == "" {
+		if !ok || modelFile == "" {
 			modelFile = input.Model
 		}
 
