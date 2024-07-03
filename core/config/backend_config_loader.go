@@ -227,10 +227,10 @@ func BuildUsecaseFilterFn(usecases BackendConfigUsecases) BackendConfigFilterFn 
 		return NoFilterFn
 	}
 	return func(name string, config *BackendConfig) bool {
-		log.Debug().Str("Backend", config.Backend).Msg("BuildUsecaseFilterFn:: FN Hit")
 		if config == nil {
 			return false // ???
 		}
+		log.Debug().Str("Backend", config.Backend).Msg("BuildUsecaseFilterFn:: FN Hit")
 		return config.HasUsecases(usecases)
 	}
 }
