@@ -347,6 +347,8 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 			//glamText("**Usage**")
 			glamText(bcl.configs[i].Usage)
 		}
+
+		log.Debug().Str("name", bcl.configs[i].Name).Str("i", i).Msg("preloaded model successfully")
 	}
 	return nil
 }
