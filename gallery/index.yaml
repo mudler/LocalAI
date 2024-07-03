@@ -325,7 +325,7 @@
   files:
     - filename: gemma-2-27b-it-Q4_K_M.gguf
       uri: huggingface://bartowski/gemma-2-27b-it-GGUF/gemma-2-27b-it-Q4_K_M.gguf
-      sha256: ca86fbdb791842cf2e5eb276a6916e326b3b5d58d9ab60ee3e18b1c6f01fc181
+      sha256: 69a0cdba2bc2e56d8298a9330f2a050ebecd657ed315beb3e51ae427b224dbc7
 - !!merge <<: *gemma
   name: "gemma-2-9b-it"
   urls:
@@ -339,7 +339,7 @@
   files:
     - filename: gemma-2-9b-it-Q4_K_M.gguf
       uri: huggingface://bartowski/gemma-2-9b-it-GGUF/gemma-2-9b-it-Q4_K_M.gguf
-      sha256: c70fd20caec79fb953b83031c46ddea4e99905835a66af7b8a856aa1b2534614
+      sha256: 05390244866abc0e7108a2b1e3db07b82df3cd82f006256a75fc21137054151f
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -475,8 +475,8 @@
       model: Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
   files:
     - filename: Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
-      sha256: 5833d99d5596cade0d02e61cddaa6dac49170864ee56d0b602933c6f9fbae314
       uri: huggingface://bartowski/Llama-3-SauerkrautLM-8b-Instruct-GGUF/Llama-3-SauerkrautLM-8b-Instruct-Q4_K_M.gguf
+      sha256: e5ae69b6f59b3f207fa6b435490286b365add846a310c46924fa784b5a7d73e3
 - !!merge <<: *llama3
   name: "llama-3-13b-instruct-v0.1"
   urls:
