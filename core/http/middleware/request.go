@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -70,8 +69,10 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 		}
 
 		if len(modelNames) == 0 {
-			log.Warn().Msg("SetDefaultModelNameToFirstAvailable used with no models installed")
-			return errors.New("this endpoint requires at least one model to be installed")
+			log.Warn().Msg("SetDefaultModelNameToFirstAvailable used with no matching models installed")
+			// return errors.New("this endpoint requires at least one model to be installed")
+			// Experiment: Make this non-fatal - it's breaking the case of direct installation
+			return ctx.Next()
 		}
 
 		ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME, modelNames[0].ID)
