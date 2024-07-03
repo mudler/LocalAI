@@ -213,7 +213,7 @@ jobs:
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
           sudo cp /lib64/ld-linux-x86-64.so.2 ld.so
-          BACKEND_LIBS="./ld.so /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libgomp.so.1" \
+          BACKEND_LIBS="./ld.so" \
           make -j4 dist
       - uses: actions/upload-artifact@v4
         with:
@@ -290,7 +290,7 @@ jobs:
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
 
-          BACKEND_LIBS="$(ls /opt/homebrew/opt/grpc/lib/*.dylib /opt/homebrew/opt/re2/lib/*.dylib /opt/homebrew/opt/openssl@3/lib/*.dylib /opt/homebrew/opt/protobuf/lib/*.dylib /opt/homebrew/opt/abseil/lib/*.dylib | xargs)" make dist
+          make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-MacOS-x86_64
@@ -332,7 +332,7 @@ jobs:
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
 
-          BACKEND_LIBS="$(ls /opt/homebrew/opt/grpc/lib/*.dylib /opt/homebrew/opt/re2/lib/*.dylib /opt/homebrew/opt/openssl@3/lib/*.dylib /opt/homebrew/opt/protobuf/lib/*.dylib /opt/homebrew/opt/abseil/lib/*.dylib | xargs)" make dist
+          make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-MacOS-arm64
