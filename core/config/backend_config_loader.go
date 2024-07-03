@@ -240,8 +240,10 @@ func (bcl *BackendConfigLoader) GetBackendConfigsByFilter(filter BackendConfigFi
 	defer bcl.Unlock()
 	var res []BackendConfig
 
+	log.Debug().Int("len(bcl.configs)", len(bcl.configs)).Msg("GetBackendConfigsByFilter hit")
 	for n, v := range bcl.configs {
 		if filter(n, &v) {
+			log.Debug().Str("n", n).Str("v.Backend", v.Backend).Msg("passes filter")
 			res = append(res, v)
 		}
 	}
