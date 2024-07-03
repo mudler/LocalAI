@@ -63,6 +63,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 		}
 
 		modelNames, err := re.listModelService.ListModels(filterFn, services.SKIP_IF_CONFIGURED)
+		log.Debug().Int("len(modelNames)", len(modelNames)).Msg("BuildFilteredFirstAvailableDefaultModel ListModels")
 		if err != nil {
 			log.Error().Err(err).Msg("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()")
 			return ctx.Next()

@@ -4,6 +4,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/rs/zerolog/log"
 )
 
 type ListModels struct {
@@ -36,6 +37,7 @@ func (lms *ListModels) ListModels(filter config.BackendConfigFilterFn, looseFile
 
 	// Start with the known configurations
 	for _, c := range lms.bcl.GetBackendConfigsByFilter(filter) {
+		log.Debug().Str("c.Backend", c.Backend).Str("c.Name", c.Name).Msg("LMS GetBackendConfigsByFilter")
 		if looseFilePolicy == SKIP_IF_CONFIGURED {
 			mm[c.Model] = nil
 		}
