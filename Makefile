@@ -338,13 +338,8 @@ backend-assets/lib:
 dist:
 	$(MAKE) backend-assets/grpc/llama-cpp-avx2
 ifeq ($(DETECT_LIBS),true)
-ifeq ($(OS),Darwin)
-	$(eval BACKEND_LIBS += $(shell otool -L backend-assets/grpc/llama-cpp-avx2 | awk 'NR > 1 { system("echo " $$1) } ' | xargs echo))
-else
-	$(eval BACKEND_LIBS += $(shell ldd backend-assets/grpc/llama-cpp-avx2 | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo))
+	scripts/prepare-libs.sh backend-assets/grpc/llama-cpp-avx2
 endif
-endif
-	echo "Detected backend libs: $(BACKEND_LIBS)"
 ifeq ($(OS),Darwin)
 	$(info ${GREEN}I Skip CUDA/hipblas build on MacOS${RESET})
 else
@@ -355,13 +350,8 @@ else
 endif
 	GO_TAGS="tts p2p" $(MAKE) build
 ifeq ($(DETECT_LIBS),true)
-ifeq ($(OS),Darwin)
-	$(eval BACKEND_LIBS += $(shell otool -L backend-assets/grpc/piper | awk 'NR > 1 { system("echo " $$1) } ' | xargs echo))
-else
-	$(eval BACKEND_LIBS += $(shell ldd backend-assets/grpc/piper | awk 'NF == 4 { system("echo " $$3) } ' | xargs echo))
+	scripts/prepare-libs.sh backend-assets/grpc/piper
 endif
-endif
-	echo "Detected backend libs: $(BACKEND_LIBS)"
 	GO_TAGS="tts p2p" STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name

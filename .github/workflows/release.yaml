@@ -213,7 +213,7 @@ jobs:
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
           sudo cp /lib64/ld-linux-x86-64.so.2 ld.so
-          BACKEND_LIBS="./ld.so" \
+          BACKEND_LIBS="./ld.so ./sources/go-piper/piper/build/fi/lib/libfmt.a ./sources/go-piper/piper-phonemize/pi/lib/libonnxruntime.so.1.14.1 ./sources/go-piper/piper-phonemize/pi/src/libespeak-ng/libespeak-ng.so ./sources/go-piper/piper-phonemize/pi/lib/libpiper_phonemize.so.1 ./sources/go-piper/piper/build/si/lib/libspdlog.a ./sources/go-piper/espeak/ei/lib/libucd.so" \
           make -j4 dist
       - uses: actions/upload-artifact@v4
         with:
