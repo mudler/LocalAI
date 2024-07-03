@@ -422,6 +422,7 @@ const (
 )
 
 func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
+	log.Debug().Str("backend", c.Backend).Int("u", int(u)).Msg("HasUsecases TEMP")
 	if (u & FLAG_CHAT) == FLAG_CHAT {
 		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
 			return false
