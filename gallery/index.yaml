@@ -1349,6 +1349,31 @@
       sha256: 86f0f1e10fc315689e09314aebb7354bb40d8fe95de008d21a75dc8fff1cd2fe
       uri: huggingface://LWDCLS/llama3-8B-DarkIdol-2.1-Uncensored-1048K-GGUF-IQ-Imatrix-Request/llama3-8B-DarkIdol-2.1-Uncensored-1048K-Q4_K_M-imat.gguf
 - !!merge <<: *llama3
+  name: "llama3-8b-darkidol-2.2-uncensored-1048k-iq-imatrix"
+  urls:
+    - https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-2.2-Uncensored-1048K
+    - https://huggingface.co/LWDCLS/llama3-8B-DarkIdol-2.2-Uncensored-1048K-GGUF-IQ-Imatrix-Request
+  icon: https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-2.2-Uncensored-1048K/resolve/main/llama3-8B-DarkIdol-2.2-Uncensored-1048K.png
+  description: |
+    The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
+
+    - Saving money(LLama 3)
+    - Uncensored
+    - Quick response
+    - The underlying model used is winglian/Llama-3-8b-1048k-PoSE
+    - A scholarly response akin to a thesis.(I tend to write songs extensively, to the point where one song almost becomes as detailed as a thesis. :)
+    - DarkIdol:Roles that you can imagine and those that you cannot imagine.
+    - Roleplay
+    - Specialized in various role-playing scenarios more look at test role. (https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-1.2/tree/main/test)
+    - more look at LM Studio presets (https://huggingface.co/aifeifei798/llama3-8B-DarkIdol-1.2/tree/main/config-presets)
+  overrides:
+    parameters:
+      model: llama3-8B-DarkIdol-2.2-Uncensored-1048K-Q4_K_M-imat.gguf
+  files:
+    - filename: llama3-8B-DarkIdol-2.2-Uncensored-1048K-Q4_K_M-imat.gguf
+      sha256: 7714947799d4e6984cf9106244ee24aa821778936ad1a81023480a774e255f52
+      uri: huggingface://LWDCLS/llama3-8B-DarkIdol-2.2-Uncensored-1048K-GGUF-IQ-Imatrix-Request/llama3-8B-DarkIdol-2.2-Uncensored-1048K-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
   name: "llama3-turbcat-instruct-8b"
   urls:
     - https://huggingface.co/turboderp/llama3-turbcat-instruct-8b
