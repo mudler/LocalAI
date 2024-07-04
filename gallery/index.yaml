@@ -2517,6 +2517,33 @@
     - filename: "phi-2-orange.Q4_0.gguf"
       sha256: "49cb710ae688e1b19b1b299087fa40765a0cd677e3afcc45e5f7ef6750975dcf"
       uri: "huggingface://TheBloke/phi-2-orange-GGUF/phi-2-orange.Q4_0.gguf"
+### Internlm2
+- name: "internlm2_5-7b-chat-1m"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/internlm/internlm2_5-7b-chat-1m
+    - https://huggingface.co/bartowski/internlm2_5-7b-chat-1m-GGUF
+  icon: https://github.com/InternLM/InternLM/assets/22529082/b9788105-8892-4398-8b47-b513a292378e
+  tags:
+    - internlm2
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    InternLM2.5 has open-sourced a 7 billion parameter base model and a chat model tailored for practical scenarios. The model has the following characteristics:
+
+    Outstanding reasoning capability: State-of-the-art performance on Math reasoning, surpassing models like Llama3 and Gemma2-9B.
+
+    1M Context window: Nearly perfect at finding needles in the haystack with 1M-long context, with leading performance on long-context tasks like LongBench. Try it with LMDeploy for 1M-context inference and a file chat demo.
+
+    Stronger tool use: InternLM2.5 supports gathering information from more than 100 web pages, corresponding implementation will be released in Lagent soon. InternLM2.5 has better tool utilization-related capabilities in instruction following, tool selection and reflection. See examples.
+  overrides:
+    parameters:
+      model: internlm2_5-7b-chat-1m-Q4_K_M.gguf
+  files:
+    - filename: internlm2_5-7b-chat-1m-Q4_K_M.gguf
+      uri: huggingface://bartowski/internlm2_5-7b-chat-1m-GGUF/internlm2_5-7b-chat-1m-Q4_K_M.gguf
+      sha256: 10d5e18a4125f9d4d74a9284a21e0c820b150af06dee48665e54ff6e1be3a564
 - &phi-3
   ### START Phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
