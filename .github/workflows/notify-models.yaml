@@ -156,6 +156,13 @@ jobs:
       with:
         text: ${{ steps.summarize.outputs.message }}
         bearer-token: ${{ secrets.TWITTER_BEARER_TOKEN }}
+    - uses: nearform-actions/github-action-notify-twitter@master
+      with:
+          message: ${{ steps.summarize.outputs.message }}
+          twitter-app-key: ${{ secrets.TWITTER_APP_KEY }}
+          twitter-app-secret: ${{ secrets.TWITTER_APP_SECRET }}
+          twitter-access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          twitter-access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
     - name: Setup tmate session if fails
       if: ${{ failure() }}
       uses: mxschmitt/action-tmate@v3.18
