@@ -40,7 +40,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cuda-cross-aarch64 cuda-nvcc-cross-aarch64-${CUDA_VERSION} libcublas-cross-aarch64-${CUDA_VERSION}
         env:
-          CUDA_VERSION: 12-5
+          CUDA_VERSION: 12-4
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
