@@ -1405,6 +1405,25 @@
     - filename: L3-8B-Everything-COT-Q4_K_M.gguf
       sha256: b220b0e2f8fb1c8a491d10dbd054269ed078ee5e2e62dc9d2e3b97b06f52e987
       uri: huggingface://bartowski/L3-8B-Everything-COT-GGUF/L3-8B-Everything-COT-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-llamilitary"
+  urls:
+    - https://huggingface.co/Heralax/llama-3-llamilitary
+    - https://huggingface.co/mudler/llama-3-llamilitary-Q4_K_M-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64825ebceb4befee377cf8ac/ea2C9laq24V6OuxwhzJZS.png
+  description: |
+    This is a model trained on [instruct data generated from old historical war books] as well as on the books themselves, with the goal of creating a joke LLM knowledgeable about the (long gone) kind of warfare involving muskets, cavalry, and cannon.
+
+    This model can provide good answers, but it turned out to be pretty fragile during conversation for some reason: open-ended questions can make it spout nonsense. Asking facts is more reliable but not guaranteed to work.
+
+    The basic guide to getting good answers is: be specific with your questions. Use specific terms and define a concrete scenario, if you can, otherwise the LLM will often hallucinate the rest. I think the issue was that I did not train with a large enough system prompt: not enough latent space is being activated by default. (I'll try to correct this in future runs).
+  overrides:
+    parameters:
+      model: llama-3-llamilitary-q4_k_m.gguf
+  files:
+    - filename: llama-3-llamilitary-q4_k_m.gguf
+      sha256: f3684f2f0845f9aead884fa9a52ea67bed53856ebeedef1620ca863aba57e458
+      uri: huggingface://mudler/llama-3-llamilitary-Q4_K_M-GGUF/llama-3-llamilitary-q4_k_m.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
