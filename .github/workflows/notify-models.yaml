@@ -152,13 +152,10 @@ jobs:
                 echo EOF
               } >> "$GITHUB_OUTPUT"
             docker logs --tail 10 local-ai
-    - uses: ethomson/send-tweet-action@v1
+    - uses: dart-actions/tweet@v1.0.0
       with:
-          status: ${{ steps.summarize.outputs.message }}
-          consumer-key: ${{ secrets.TWITTER_CONSUMER_API_KEY }}
-          consumer-secret: ${{ secrets.TWITTER_CONSUMER_API_SECRET }}
-          access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+        text: ${{ steps.summarize.outputs.message }}
+        bearer-token: ${{ secrets.TWITTER_BEARER_TOKEN }}
     - name: Setup tmate session if fails
       if: ${{ failure() }}
       uses: mxschmitt/action-tmate@v3.18
