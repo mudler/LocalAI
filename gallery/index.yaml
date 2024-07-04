@@ -358,6 +358,23 @@
     - filename: gemma-2-9b-it-Q4_K_M.gguf
       uri: huggingface://bartowski/gemma-2-9b-it-GGUF/gemma-2-9b-it-Q4_K_M.gguf
       sha256: 05390244866abc0e7108a2b1e3db07b82df3cd82f006256a75fc21137054151f
+- !!merge <<: *gemma
+  name: "tess-v2.5-gemma-2-27b-alpha"
+  urls:
+    - https://huggingface.co/migtissera/Tess-v2.5-Gemma-2-27B-alpha
+    - https://huggingface.co/bartowski/Tess-v2.5-Gemma-2-27B-alpha-GGUF
+  icon: https://huggingface.co/migtissera/Tess-v2.5-Qwen2-72B/resolve/main/Tess-v2.5.png
+  description: |
+    Great at reasoning, but woke as fuck! This is a fine-tune over the Gemma-2-27B-it, since the base model fine-tuning is not generating coherent content.
+
+    Tess-v2.5 is the latest state-of-the-art model in the Tess series of Large Language Models (LLMs). Tess, short for Tesoro (Treasure in Italian), is the flagship LLM series created by Migel Tissera. Tess-v2.5 brings significant improvements in reasoning capabilities, coding capabilities and mathematics
+  overrides:
+    parameters:
+      model: Tess-v2.5-Gemma-2-27B-alpha-Q4_K_M.gguf
+  files:
+    - filename: Tess-v2.5-Gemma-2-27B-alpha-Q4_K_M.gguf
+      uri: huggingface://bartowski/Tess-v2.5-Gemma-2-27B-alpha-GGUF/Tess-v2.5-Gemma-2-27B-alpha-Q4_K_M.gguf
+      sha256: d7be7092d28aefbdcd1ee4f4d8503d169d0a649f763e169d4b179aef20d69c21
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
