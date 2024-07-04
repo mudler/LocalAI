@@ -1345,6 +1345,23 @@
     - filename: llama3-turbcat-instruct-8b-Q4_K_M.gguf
       sha256: a9a36e3220d901a8ad80c75608a81aaeed3a9cdf111247462bf5e3443aad5461
       uri: huggingface://bartowski/llama3-turbcat-instruct-8b-GGUF/llama3-turbcat-instruct-8b-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-8b-everything-cot"
+  urls:
+    - https://huggingface.co/FPHam/L3-8B-Everything-COT
+    - https://huggingface.co/bartowski/L3-8B-Everything-COT-GGUF
+  icon: https://huggingface.co/FPHam/L3-8B-Everything-COT/resolve/main/cot2.png
+  description: |
+    Everything COT is an investigative self-reflecting general model that uses Chain of Thought for everything. And I mean everything.
+
+    Instead of confidently proclaiming something (or confidently hallucinating other things) like most models, it caries an internal dialogue with itself and often cast doubts over uncertain topics while looking at it from various sides.
+  overrides:
+    parameters:
+      model: L3-8B-Everything-COT-Q4_K_M.gguf
+  files:
+    - filename: L3-8B-Everything-COT-Q4_K_M.gguf
+      sha256: b220b0e2f8fb1c8a491d10dbd054269ed078ee5e2e62dc9d2e3b97b06f52e987
+      uri: huggingface://bartowski/L3-8B-Everything-COT-GGUF/L3-8B-Everything-COT-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
