@@ -152,17 +152,15 @@ jobs:
                 echo EOF
               } >> "$GITHUB_OUTPUT"
             docker logs --tail 10 local-ai
-    - uses: dart-actions/tweet@v1.0.0
+    - uses: Eomm/why-don-t-you-tweet@v2
       with:
-        text: ${{ steps.summarize.outputs.message }}
-        bearer-token: ${{ secrets.TWITTER_BEARER_TOKEN }}
-    - uses: nearform-actions/github-action-notify-twitter@master
-      with:
-          message: ${{ steps.summarize.outputs.message }}
-          twitter-app-key: ${{ secrets.TWITTER_APP_KEY }}
-          twitter-app-secret: ${{ secrets.TWITTER_APP_SECRET }}
-          twitter-access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          twitter-access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+        tweet-message: ${{ steps.summarize.outputs.message }}
+      env:
+        # Get your tokens from https://developer.twitter.com/apps
+        TWITTER_CONSUMER_API_KEY: ${{ secrets.TWITTER_APP_KEY }}
+        TWITTER_CONSUMER_API_SECRET: ${{ secrets.TWITTER_APP_SECRET }}
+        TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
     - name: Setup tmate session if fails
       if: ${{ failure() }}
       uses: mxschmitt/action-tmate@v3.18
