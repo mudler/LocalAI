@@ -57,7 +57,7 @@ jobs:
               } >> "$GITHUB_OUTPUT"
     - name: Discord notification
       env:
-        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL_RELEASE }}
         DISCORD_USERNAME: "LocalAI-Bot"
         DISCORD_AVATAR: "https://avatars.githubusercontent.com/u/139863280?v=4"
       uses: Ilshidur/action-discord@master
