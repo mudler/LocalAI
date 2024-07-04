@@ -1474,6 +1474,40 @@
     - filename: llama-3-llamilitary-q4_k_m.gguf
       sha256: f3684f2f0845f9aead884fa9a52ea67bed53856ebeedef1620ca863aba57e458
       uri: huggingface://mudler/llama-3-llamilitary-Q4_K_M-GGUF/llama-3-llamilitary-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "l3-stheno-maid-blackroot-grand-horror-16b"
+  urls:
+    - https://huggingface.co/DavidAU/L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-GGUF
+  icon: https://huggingface.co/DavidAU/L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-GGUF/resolve/main/hm.jpg
+  description: |
+    Rebuilt and Powered Up.
+
+    WARNING: NSFW. Graphic HORROR. Extreme swearing. UNCENSORED. SMART.
+
+    The author took the original models in "L3-Stheno-Maid-Blackroot 8B" and completely rebuilt it a new pass-through merge (everything preserved) and blew it out to over 16.5 billion parameters - 642 tensors, 71 layers (8B original has 32 layers).
+
+    This is not an "upscale" or "franken merge" but a completely new model based on the models used to construct "L3-Stheno-Maid-Blackroot 8B".
+
+    The result is a take no prisoners, totally uncensored, fiction writing monster and roleplay master as well just about... any general fiction activity "AI guru" including scene generation and scene continuation.
+
+    As a result of the expansion / merge re-build its level of prose and story generation has significantly improved as well as word choice, sentence structure as well as default output levels and lengths.
+
+    It also has a STRONG horror bias, although it will generate content for almost any genre. That being said if there is a "hint" of things going wrong... they will.
+
+    It will also swear (R-18) like there is no tomorrow at times and "dark" characters will be VERY dark so to speak.
+
+    Model is excels in details (real and "constructed"), descriptions, similes and metaphors.
+
+    It can have a sense of humor ... ah... dark humor.
+
+    Because of the nature of this merge most attributes of each of the 3 models will be in this rebuilt 16.5B model as opposed to the original 8B model where some of one or more of the model's features and/or strengths maybe reduced or overshadowed.
+  overrides:
+    parameters:
+      model: L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-D_AU-Q4_K_M.gguf
+  files:
+    - filename: L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-D_AU-Q4_K_M.gguf
+      sha256: ae29f38d73dfb04415821405cf8b319fc42d78d0cdd0da91db147d12e68030fe
+      uri: huggingface://DavidAU/L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-GGUF/L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-D_AU-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
