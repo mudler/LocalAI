@@ -2,7 +2,7 @@ aiohttp==3.9.4
 aiosignal==1.3.1
 async-timeout==4.0.2
 attrs==23.1.0
-certifi==2023.7.22
+certifi==2024.7.4
 charset-normalizer==3.1.0
 colorama==0.4.6
 dataclasses-json==0.5.7
@@ -10,7 +10,7 @@ debugpy==1.6.7
 frozenlist==1.3.3
 greenlet==2.0.2
 idna==3.7
-langchain==0.1.0
+langchain==0.2.3
 marshmallow==3.19.0
 marshmallow-enum==1.5.1
 multidict==6.0.4
@@ -22,11 +22,11 @@ openapi-schema-pydantic==1.2.4
 packaging==23.1
 pydantic==1.10.13
 PyYAML==6.0
-requests==2.31.0
+requests==2.32.2
 SQLAlchemy==2.0.12
 tenacity==8.2.2
 tqdm==4.66.3
 typing-inspect==0.8.0
 typing_extensions==4.5.0
-urllib3==1.26.18
+urllib3==1.26.19
 yarl==1.9.2
