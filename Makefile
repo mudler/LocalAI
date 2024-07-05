@@ -5,7 +5,7 @@ BINARY_NAME=local-ai
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=5f2d4e60e202aabee10051e6615bb821e51787be
+CPPLLAMA_VERSION?=a38b884c6c4b0c256583acfaaabdf556c62fabea
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,7 +16,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=b29b3b29240aac8b71ce8e5a4360c1f1562ad66f
+WHISPER_CPP_VERSION?=c118733a29ad4a984015a5c08fd585086d01087a
 
 # bert.cpp version
 BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
@@ -36,6 +36,7 @@ export CMAKE_ARGS?=
 
 CGO_LDFLAGS?=
 CGO_LDFLAGS_WHISPER?=
+CGO_LDFLAGS_WHISPER+=-lggml
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
 BUILD_ID?=
@@ -82,29 +83,38 @@ ifeq ($(OS),Darwin)
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 		export GGML_NO_ACCELERATE=1
+		export GGML_NO_METAL=1
 	endif
 
 	ifeq ($(BUILD_TYPE),metal)
 #			-lcblas 	removed: it seems to always be listed as a duplicate flag.
 		CGO_LDFLAGS += -framework Accelerate
 	endif
+else 
+CGO_LDFLAGS_WHISPER+=-lgomp
 endif
 
 ifeq ($(BUILD_TYPE),openblas)
 	CGO_LDFLAGS+=-lopenblas
-	export WHISPER_OPENBLAS=1
+	export GGML_OPENBLAS=1
 endif
-
 
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 	export GGML_CUDA=1
-	export WHISPER_CUDA=1
 	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda -lcufft
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
+endif
+
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	export GGML_SYCL=1
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f16)
+	export GGML_SYCL_F16=1
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -115,7 +125,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	export CC=$(ROCM_HOME)/llvm/bin/clang
 	# llama-ggml has no hipblas support, so override it here.
 	export STABLE_BUILD_TYPE=
-	export WHISPER_HIPBLAS=1
+	export GGML_HIPBLAS=1
 	GPU_TARGETS ?= gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
 	CMAKE_ARGS+=-DGGML_HIPBLAS=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
@@ -125,12 +135,11 @@ endif
 ifeq ($(BUILD_TYPE),metal)
 	CGO_LDFLAGS+=-framework Foundation -framework Metal -framework MetalKit -framework MetalPerformanceShaders
 	export GGML_METAL=1
-	export WHISPER_METAL=1
 endif
 
 ifeq ($(BUILD_TYPE),clblas)
 	CGO_LDFLAGS+=-lOpenCL -lclblast
-	export WHISPER_CLBLAST=1
+	export GGML_OPENBLAS=1
 endif
 
 # glibc-static or glibc-devel-static required
@@ -248,7 +257,7 @@ sources/whisper.cpp:
 	cd sources/whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
 
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
-	cd sources/whisper.cpp && $(MAKE) libwhisper.a
+	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
 get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream
 
@@ -792,7 +801,7 @@ backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libti
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH=$(CURDIR)/sources/whisper.cpp LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="$(CURDIR)/sources/whisper.cpp/include:$(CURDIR)/sources/whisper.cpp/ggml/include" LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
 
 backend-assets/grpc/local-store: backend-assets/grpc
