@@ -90,7 +90,7 @@ ifeq ($(OS),Darwin)
 #			-lcblas 	removed: it seems to always be listed as a duplicate flag.
 		CGO_LDFLAGS += -framework Accelerate
 	endif
-else 
+else
 CGO_LDFLAGS_WHISPER+=-lgomp
 endif
 
@@ -178,6 +178,8 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
+# Use filter-out to remove the specified backends
+ALL_GRPC_BACKENDS := $(filter-out $(SKIP_GRPC_BACKEND),$(ALL_GRPC_BACKENDS))
 
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
 TEST_PATHS?=./api/... ./pkg/... ./core/...
@@ -362,7 +364,7 @@ else
 	shasum -a 256 release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH) > release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH).sha256
 endif
 
-dist-cross-linux-arm64: 
+dist-cross-linux-arm64:
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server" \
 	STATIC=true $(MAKE) build
 	mkdir -p release
@@ -870,7 +872,7 @@ gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go embedded/webui_static.yaml core/http/static/assets
 
 ## Documentation
-docs/layouts/_default: 
+docs/layouts/_default:
 	mkdir -p docs/layouts/_default
 
 docs/static/gallery.html: docs/layouts/_default
