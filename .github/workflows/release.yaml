@@ -31,7 +31,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg protobuf-compiler ccache
+          sudo apt-get install build-essential ffmpeg protobuf-compiler ccache gawk
           sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
       - name: Install CUDA Dependencies
         run: |
@@ -103,7 +103,6 @@ jobs:
           sudo rm -rf /usr/aarch64-linux-gnu/lib/libstdc++.so.6
           sudo cp -rf /usr/aarch64-linux-gnu/lib/libstdc++.so* /usr/aarch64-linux-gnu/lib/libstdc++.so.6
           sudo cp /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 ld.so
-          GO_TAGS=p2p \
           BACKEND_LIBS="./grpc/cmake/cross_build/third_party/re2/libre2.a ./grpc/cmake/cross_build/libgrpc.a ./grpc/cmake/cross_build/libgrpc++.a ./grpc/cmake/cross_build/third_party/protobuf/libprotobuf.a /usr/aarch64-linux-gnu/lib/libc.so.6 /usr/aarch64-linux-gnu/lib/libstdc++.so.6 /usr/aarch64-linux-gnu/lib/libgomp.so.1 /usr/aarch64-linux-gnu/lib/libm.so.6 /usr/aarch64-linux-gnu/lib/libgcc_s.so.1 /usr/aarch64-linux-gnu/lib/libdl.so.2 /usr/aarch64-linux-gnu/lib/libpthread.so.0 ./ld.so" \
           GOOS=linux \
           GOARCH=arm64 \
@@ -147,7 +146,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache cmake
+          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache gawk cmake
       - name: Intel Dependencies
         run: |
           wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
@@ -214,8 +213,7 @@ jobs:
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
           sudo cp /lib64/ld-linux-x86-64.so.2 ld.so
-          GO_TAGS=p2p \
-          BACKEND_LIBS="./ld.so /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libgomp.so.1" \
+          BACKEND_LIBS="./ld.so ./sources/go-piper/piper/build/fi/lib/libfmt.a ./sources/go-piper/piper-phonemize/pi/lib/libonnxruntime.so.1.14.1 ./sources/go-piper/piper-phonemize/pi/src/libespeak-ng/libespeak-ng.so /usr/lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/librt.so.1 /usr/lib/x86_64-linux-gnu/libpthread.so.0 ./sources/go-piper/piper-phonemize/pi/lib/libpiper_phonemize.so.1 ./sources/go-piper/piper/build/si/lib/libspdlog.a ./sources/go-piper/espeak/ei/lib/libucd.so" \
           make -j4 dist
       - uses: actions/upload-artifact@v4
         with:
@@ -269,6 +267,48 @@ jobs:
           files: |
             release/*
 
+  build-macOS-x86_64:
+    runs-on: macos-13
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.x'
+          cache: false
+      - name: Dependencies
+        run: |
+          brew install protobuf grpc
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
+      - name: Build
+        id: build
+        run: |
+          export C_INCLUDE_PATH=/usr/local/include
+          export CPLUS_INCLUDE_PATH=/usr/local/include
+          export PATH=$PATH:$GOPATH/bin
+
+          make dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalAI-MacOS-x86_64
+          path: release/
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/*
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.18
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
+
   build-macOS-arm64:
     runs-on: macos-14
     steps:
@@ -292,7 +332,7 @@ jobs:
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
 
-          BACKEND_LIBS="$(ls /opt/homebrew/opt/grpc/lib/*.dylib /opt/homebrew/opt/re2/lib/*.dylib /opt/homebrew/opt/openssl@3/lib/*.dylib /opt/homebrew/opt/protobuf/lib/*.dylib /opt/homebrew/opt/abseil/lib/*.dylib | xargs)" GO_TAGS=p2p make dist
+          make dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-MacOS-arm64
