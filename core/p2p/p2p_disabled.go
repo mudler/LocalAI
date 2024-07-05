@@ -19,3 +19,11 @@ func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
 func BindLLamaCPPWorker(ctx context.Context, host, port, token string) error {
 	return fmt.Errorf("not implemented")
 }
+
+func GetAvailableNodes() []NodeData {
+	return []NodeData{}
+}
+
+func IsP2PEnabled() bool {
+	return false
+}

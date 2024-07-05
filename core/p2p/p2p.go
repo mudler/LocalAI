@@ -11,18 +11,18 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/edgevpn/pkg/config"
 	"github.com/mudler/edgevpn/pkg/node"
 	"github.com/mudler/edgevpn/pkg/protocol"
+	"github.com/mudler/edgevpn/pkg/services"
 	"github.com/mudler/edgevpn/pkg/types"
 	"github.com/phayes/freeport"
-
-	"github.com/ipfs/go-log"
-	"github.com/mudler/edgevpn/pkg/config"
-	"github.com/mudler/edgevpn/pkg/services"
 	zlog "github.com/rs/zerolog/log"
 
 	"github.com/mudler/edgevpn/pkg/logger"
@@ -32,6 +32,15 @@ func GenerateToken() string {
 	// Generates a new config and exit
 	newData := node.GenerateNewConnectionData(900)
 	return newData.Base64()
+}
+
+func IsP2PEnabled() bool {
+	return true
+}
+
+func nodeID() string {
+	hostname, _ := os.Hostname()
+	return hostname
 }
 
 func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, service string) error {
@@ -53,16 +62,16 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 		10*time.Second,
 		func() {
 			// Retrieve current ID for ip in the blockchain
-			_, found := ledger.GetKey(protocol.UsersLedgerKey, node.Host().ID().String())
+			//_, found := ledger.GetKey(protocol.UsersLedgerKey, node.Host().ID().String())
 			// If mismatch, update the blockchain
-			if !found {
-				updatedMap := map[string]interface{}{}
-				updatedMap[node.Host().ID().String()] = &types.User{
-					PeerID:    node.Host().ID().String(),
-					Timestamp: time.Now().String(),
-				}
-				ledger.Add(protocol.UsersLedgerKey, updatedMap)
+			//if !found {
+			updatedMap := map[string]interface{}{}
+			updatedMap[node.Host().ID().String()] = &types.User{
+				PeerID:    node.Host().ID().String(),
+				Timestamp: time.Now().String(),
 			}
+			ledger.Add(protocol.UsersLedgerKey, updatedMap)
+			//	}
 		},
 	)
 
@@ -142,19 +151,32 @@ func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
 	if err != nil {
 		return err
 	}
-
+	// TODO: discoveryTunnels should return all the nodes that are available?
+	// In this way we updated availableNodes here instead of appending
+	// e.g. we have a LastSeen field in NodeData that is updated in discoveryTunnels
+	// each time the node is seen
+	// In this case the below function should be idempotent and just keep track of the nodes
 	go func() {
-		totalTunnels := []string{}
 		for {
 			select {
 			case <-ctx.Done():
 				zlog.Error().Msg("Discoverer stopped")
 				return
 			case tunnel := <-tunnels:
+				AddNode(tunnel)
 
-				totalTunnels = append(totalTunnels, tunnel)
-				os.Setenv("LLAMACPP_GRPC_SERVERS", strings.Join(totalTunnels, ","))
-				zlog.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", strings.Join(totalTunnels, ","))
+				var tunnelAddresses []string
+				for _, v := range nodes {
+					if v.IsOnline() {
+						tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
+					}
+				}
+				tunnelEnvVar := strings.Join(tunnelAddresses, ",")
+
+				os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
+				zlog.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
+
+				zlog.Info().Msgf("Node %s available", tunnel.ID)
 			}
 		}
 	}()
@@ -162,8 +184,8 @@ func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
 	return nil
 }
 
-func discoveryTunnels(ctx context.Context, token string) (chan string, error) {
-	tunnels := make(chan string)
+func discoveryTunnels(ctx context.Context, token string) (chan NodeData, error) {
+	tunnels := make(chan NodeData)
 
 	nodeOpts, err := newNodeOpts(token)
 	if err != nil {
@@ -184,8 +206,14 @@ func discoveryTunnels(ctx context.Context, token string) (chan string, error) {
 	}
 
 	// get new services, allocate and return to the channel
+
+	// TODO:
+	// a function ensureServices that:
+	// - starts a service if not started, if the worker is Online
+	// - checks that workers are Online, if not cancel the context of allocateLocalService
+	// - discoveryTunnels should return all the nodes and addresses associated with it
+	// - the caller should take now care of the fact that we are always returning fresh informations
 	go func() {
-		emitted := map[string]bool{}
 		for {
 			select {
 			case <-ctx.Done():
@@ -196,25 +224,56 @@ func discoveryTunnels(ctx context.Context, token string) (chan string, error) {
 				zlog.Debug().Msg("Searching for workers")
 
 				data := ledger.LastBlock().Storage["services_localai"]
-				for k := range data {
+				for k, v := range data {
 					zlog.Info().Msgf("Found worker %s", k)
-					if _, found := emitted[k]; !found {
-						emitted[k] = true
-						//discoveredPeers <- k
-						port, err := freeport.GetFreePort()
-						if err != nil {
-							fmt.Print(err)
-						}
-						tunnelAddress := fmt.Sprintf("127.0.0.1:%d", port)
-						go allocateLocalService(ctx, n, tunnelAddress, k)
-						tunnels <- tunnelAddress
+					nd := &NodeData{}
+					if err := v.Unmarshal(nd); err != nil {
+						zlog.Error().Msg("cannot unmarshal node data")
+						continue
 					}
+					ensureService(ctx, n, nd, k)
+					tunnels <- *nd
 				}
 			}
 		}
 	}()
 
 	return tunnels, err
+}
+
+type nodeServiceData struct {
+	NodeData   NodeData
+	CancelFunc context.CancelFunc
+}
+
+var service = map[string]nodeServiceData{}
+var muservice sync.Mutex
+
+func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string) {
+	muservice.Lock()
+	defer muservice.Unlock()
+	if ndService, found := service[nd.Name]; !found {
+		newCtxm, cancel := context.WithCancel(ctx)
+		service[nd.Name] = nodeServiceData{
+			NodeData:   *nd,
+			CancelFunc: cancel,
+		}
+		// Start the service
+		port, err := freeport.GetFreePort()
+		if err != nil {
+			fmt.Print(err)
+		}
+		tunnelAddress := fmt.Sprintf("127.0.0.1:%d", port)
+		nd.TunnelAddress = tunnelAddress
+		go allocateLocalService(newCtxm, n, tunnelAddress, sserv)
+	} else {
+		// Check if the service is still alive
+		// if not cancel the context
+		if !ndService.NodeData.IsOnline() {
+			ndService.CancelFunc()
+			delete(service, nd.Name)
+		}
+	}
 }
 
 // This is the P2P worker main
@@ -248,16 +307,20 @@ func BindLLamaCPPWorker(ctx context.Context, host, port, token string) error {
 
 	ledger.Announce(
 		ctx,
-		10*time.Second,
+		20*time.Second,
 		func() {
 			// Retrieve current ID for ip in the blockchain
-			_, found := ledger.GetKey("services_localai", name)
+			//_, found := ledger.GetKey("services_localai", name)
 			// If mismatch, update the blockchain
-			if !found {
-				updatedMap := map[string]interface{}{}
-				updatedMap[name] = "p2p"
-				ledger.Add("services_localai", updatedMap)
+			//if !found {
+			updatedMap := map[string]interface{}{}
+			updatedMap[name] = &NodeData{
+				Name:     name,
+				LastSeen: time.Now(),
+				ID:       nodeID(),
 			}
+			ledger.Add("services_localai", updatedMap)
+			//	}
 		},
 	)
 
