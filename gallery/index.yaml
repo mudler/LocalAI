@@ -425,6 +425,23 @@
     - filename: gemma2-9B-daybreak-v0.5-Q4_K_M-imat.gguf
       uri: huggingface://Vdr1/gemma2-9B-daybreak-v0.5-GGUF-Imatrix-IQ/gemma2-9B-daybreak-v0.5-Q4_K_M-imat.gguf
       sha256: 6add4d12052918986af935d686773e4e89fddd1bbf7941911cf3fbeb1b1862c0
+- !!merge <<: *gemma
+  name: "gemma-2-9b-it-sppo-iter3"
+  urls:
+    - https://huggingface.co/UCLA-AGI/Gemma-2-9B-It-SPPO-Iter3
+    - https://huggingface.co/bartowski/Gemma-2-9B-It-SPPO-Iter3-GGUF
+  description: |
+    Self-Play Preference Optimization for Language Model Alignment (https://arxiv.org/abs/2405.00675)
+    Gemma-2-9B-It-SPPO-Iter3
+
+    This model was developed using Self-Play Preference Optimization at iteration 3, based on the google/gemma-2-9b-it architecture as starting point. We utilized the prompt sets from the openbmb/UltraFeedback dataset, splited to 3 parts for 3 iterations by snorkelai/Snorkel-Mistral-PairRM-DPO-Dataset. All responses used are synthetic.
+  overrides:
+    parameters:
+      model: Gemma-2-9B-It-SPPO-Iter3-Q4_K_M.gguf
+  files:
+    - filename: Gemma-2-9B-It-SPPO-Iter3-Q4_K_M.gguf
+      uri: huggingface://bartowski/Gemma-2-9B-It-SPPO-Iter3-GGUF/Gemma-2-9B-It-SPPO-Iter3-Q4_K_M.gguf
+      sha256: 7aac221f548beef8d45106eabbec6b2c4e1669a51ad14e4bf640d463dadf36e7
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
