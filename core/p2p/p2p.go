@@ -38,9 +38,9 @@ func IsP2PEnabled() bool {
 	return true
 }
 
-func nodeID() string {
+func nodeID(s string) string {
 	hostname, _ := os.Hostname()
-	return hostname
+	return fmt.Sprintf("%s-%s", hostname, s)
 }
 
 func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, service string) error {
@@ -169,6 +169,8 @@ func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
 				for _, v := range nodes {
 					if v.IsOnline() {
 						tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
+					} else {
+						zlog.Info().Msgf("Node %s is offline", v.ID)
 					}
 				}
 				tunnelEnvVar := strings.Join(tunnelAddresses, ",")
@@ -176,7 +178,9 @@ func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
 				os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 				zlog.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
 
-				zlog.Info().Msgf("Node %s available", tunnel.ID)
+				if tunnel.IsOnline() {
+					zlog.Info().Msgf("Node %s available", tunnel.ID)
+				}
 			}
 		}
 	}()
@@ -232,7 +236,9 @@ func discoveryTunnels(ctx context.Context, token string) (chan NodeData, error) 
 						continue
 					}
 					ensureService(ctx, n, nd, k)
-					tunnels <- *nd
+					muservice.Lock()
+					tunnels <- service[nd.Name].NodeData
+					muservice.Unlock()
 				}
 			}
 		}
@@ -253,11 +259,11 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 	muservice.Lock()
 	defer muservice.Unlock()
 	if ndService, found := service[nd.Name]; !found {
-		newCtxm, cancel := context.WithCancel(ctx)
-		service[nd.Name] = nodeServiceData{
-			NodeData:   *nd,
-			CancelFunc: cancel,
+		if !nd.IsOnline() {
+			// if node is offline and not present, do nothing
+			return
 		}
+		newCtxm, cancel := context.WithCancel(ctx)
 		// Start the service
 		port, err := freeport.GetFreePort()
 		if err != nil {
@@ -265,13 +271,27 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 		}
 		tunnelAddress := fmt.Sprintf("127.0.0.1:%d", port)
 		nd.TunnelAddress = tunnelAddress
+		service[nd.Name] = nodeServiceData{
+			NodeData:   *nd,
+			CancelFunc: cancel,
+		}
 		go allocateLocalService(newCtxm, n, tunnelAddress, sserv)
+		zlog.Debug().Msgf("Starting service %s on %s", sserv, tunnelAddress)
 	} else {
 		// Check if the service is still alive
 		// if not cancel the context
-		if !ndService.NodeData.IsOnline() {
+		if !nd.IsOnline() && !ndService.NodeData.IsOnline() {
 			ndService.CancelFunc()
 			delete(service, nd.Name)
+			zlog.Info().Msgf("Node %s is offline, deleting", nd.ID)
+		} else if nd.IsOnline() {
+			// update last seen inside service
+			nd.TunnelAddress = ndService.NodeData.TunnelAddress
+			service[nd.Name] = nodeServiceData{
+				NodeData:   *nd,
+				CancelFunc: ndService.CancelFunc,
+			}
+			zlog.Debug().Msgf("Node %s is still online", nd.ID)
 		}
 	}
 }
@@ -317,7 +337,7 @@ func BindLLamaCPPWorker(ctx context.Context, host, port, token string) error {
 			updatedMap[name] = &NodeData{
 				Name:     name,
 				LastSeen: time.Now(),
-				ID:       nodeID(),
+				ID:       nodeID(name),
 			}
 			ledger.Add("services_localai", updatedMap)
 			//	}

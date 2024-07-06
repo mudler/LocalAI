@@ -18,7 +18,7 @@
                 {{ range .Nodes }}
                     <button  hx-post="/browse/search/models" class="text-blue-500" hx-target="#search-results" 
                     hx-vals='{"search": "{{.ID}}"}'
-                    hx-indicator=".htmx-indicator" >{{.ID}} ({{.IsOnline}})</button> 
+                    hx-indicator=".htmx-indicator" >{{.ID}} (Online {{.IsOnline}})</button> 
                 {{ end }}
             </div>
 
