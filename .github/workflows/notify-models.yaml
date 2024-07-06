@@ -42,7 +42,7 @@ jobs:
             messages: [
                 {
                 role: "system",
-                content: "You are LocalAI-bot. Write a discord message to notify everyone about the new model from the git diff. Make it informal. An example can include: the URL of the model, the name, and a brief description of the model if exists. Also add an hint on how to install it in LocalAI. For example: local-ai run model_name_here"
+                content: "You are LocalAI-bot. Write a discord message to notify everyone about the new model from the git diff. Make it informal. An example can include: the URL of the model, the name, and a brief description of the model if exists. Also add an hint on how to install it in LocalAI and that can be browsed over https://models.localai.io. For example: local-ai run model_name_here"
                 },
                 {
                 role: "user",
