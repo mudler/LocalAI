@@ -2376,6 +2376,30 @@
     - filename: L3-8B-Lunaris-v1-Q4_K_M.gguf
       sha256: ef1d393f125be8c608859eeb4f26185ad90c7fc9cba41c96e847e77cdbcada18
       uri: huggingface://bartowski/L3-8B-Lunaris-v1-GGUF/L3-8B-Lunaris-v1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3_8b_unaligned_alpha_rp_soup-i1"
+  icon: https://i.imgur.com/pXcjpoV.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha_RP_Soup
+    - https://huggingface.co/mradermacher/LLAMA-3_8B_Unaligned_Alpha_RP_Soup-i1-GGUF
+  description: |
+    Censorship level: Medium
+
+    This model is the outcome of multiple merges, starting with the base model SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha. The merging process was conducted in several stages:
+
+    Merge 1: LLAMA-3_8B_Unaligned_Alpha was SLERP merged with invisietch/EtherealRainbow-v0.3-8B.
+    Merge 2: LLAMA-3_8B_Unaligned_Alpha was SLERP merged with TheDrummer/Llama-3SOME-8B-v2.
+    Soup 1: Merge 1 was combined with Merge 2.
+    Final Merge: Soup 1 was SLERP merged with Nitral-Archive/Hathor_Enigmatica-L3-8B-v0.4.
+
+    The final model is surprisingly coherent (although slightly more censored), which is a bit unexpected, since all the intermediate merge steps were pretty incoherent.
+  overrides:
+    parameters:
+      model: LLAMA-3_8B_Unaligned_Alpha_RP_Soup.i1-Q4_K_M.gguf
+  files:
+    - filename: LLAMA-3_8B_Unaligned_Alpha_RP_Soup.i1-Q4_K_M.gguf
+      sha256: 94347eb5125d9092e286730ae0ccc78374d68663c16ad2265005d8721eb8807b
+      uri: huggingface://mradermacher/LLAMA-3_8B_Unaligned_Alpha_RP_Soup-i1-GGUF/LLAMA-3_8B_Unaligned_Alpha_RP_Soup.i1-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
