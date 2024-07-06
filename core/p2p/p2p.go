@@ -166,7 +166,7 @@ func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
 				AddNode(tunnel)
 
 				var tunnelAddresses []string
-				for _, v := range nodes {
+				for _, v := range GetAvailableNodes() {
 					if v.IsOnline() {
 						tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
 					} else {
@@ -237,7 +237,9 @@ func discoveryTunnels(ctx context.Context, token string) (chan NodeData, error) 
 					}
 					ensureService(ctx, n, nd, k)
 					muservice.Lock()
-					tunnels <- service[nd.Name].NodeData
+					if _, ok := service[nd.Name]; ok {
+						tunnels <- service[nd.Name].NodeData
+					}
 					muservice.Unlock()
 				}
 			}

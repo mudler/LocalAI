@@ -8,20 +8,13 @@
     {{template "views/partials/navbar" .}}
     <div class="container mx-auto px-4 flex-grow">
 
-        <div class="models mt-12 text-center">
+        <div class="workers mt-12 text-center">
             <h2 class="text-3xl font-semibold text-gray-100 mb-8">
-                <i class="fa-solid fa-network-wired"></i>  P2P Network</h2> 
-
-            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 inline-block">
-                <p class="text-xl font-semibold text-gray-200">Total Workers Detected: {{ len .Nodes}}</p>
-                {{ $online:=0 }}
-                {{ range .Nodes }}
-                    {{ if .IsOnline }}
-                        {{ $online = add $online 1 }}
-                    {{ end }}
-                {{ end }}
-                <p class="text-xl font-semibold text-gray-200">Total Online Workers: {{$online}}</p>
-            </div>
+                <i class="fa-solid fa-network-wired"></i>  P2P Network    
+                <a href="https://localai.io/features/distribute/" target="_blank">
+                    <i class="fas fa-circle-info pr-2"></i>
+                </a> 
+            </h2> 
 
             <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 inline-block text-left">
                 <h3 class="text-2xl font-semibold text-gray-100 mb-4">Start a New Worker</h3>
@@ -32,11 +25,32 @@
                 </code>        
             </div>
 
-            <div class="text-center text-xs font-semibold text-gray-100">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg text-left">
+                    <p class="text-xl font-semibold text-gray-200">Total Workers Detected: {{ len .Nodes }}</p>
+                    {{ $online := 0 }}
+                    {{ range .Nodes }}
+                        {{ if .IsOnline }}
+                            {{ $online = add $online 1 }}
+                        {{ end }}
+                    {{ end }}
+                    <p class="text-xl font-semibold text-gray-200">Total Online Workers: {{$online}}</p>
+                </div>
+
                 {{ range .Nodes }}
-                    <button hx-post="/browse/search/models" class="text-blue-500 hover:text-blue-300" 
-                    hx-target="#search-results" hx-vals='{"search": "{{.ID}}"}'
-                    hx-indicator=".htmx-indicator" >{{.ID}} (Online: {{.IsOnline}})</button> 
+                    <div class="bg-gray-800 p-4 rounded-lg shadow-lg text-left">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-desktop text-gray-400 mr-2"></i>
+                            <span class="text-gray-200 font-semibold">{{.ID}}</span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-2 flex items-center">
+                            Status: 
+                            <i class="fas fa-circle {{ if .IsOnline }}text-green-500{{ else }}text-red-500{{ end }} ml-2 mr-1"></i>
+                            <span class="{{ if .IsOnline }}text-green-400{{ else }}text-red-400{{ end }}">
+                                {{ if .IsOnline }}Online{{ else }}Offline{{ end }}
+                            </span>
+                        </p>
+                    </div>
                 {{ end }}
             </div>
         </div>
@@ -48,6 +62,11 @@
 <style>
     .token {
         word-break: break-all;
+    }
+    .workers .grid div {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
 </style>
 
