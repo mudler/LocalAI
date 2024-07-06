@@ -61,6 +61,7 @@ func RegisterUIRoutes(app *fiber.App,
 				"Version":      internal.PrintableVersion(),
 				"Nodes":        p2p.GetAvailableNodes(),
 				"IsP2PEnabled": p2p.IsP2PEnabled(),
+				"P2PToken":     appConfig.P2PToken,
 			}
 
 			// Render index

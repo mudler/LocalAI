@@ -105,11 +105,15 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			log.Info().Msg("To use the token, you can run the following command in another node or terminal:")
 			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
 
-			// Ask for user confirmation
-			log.Info().Msg("Press a button to proceed")
-			var input string
-			fmt.Scanln(&input)
+			// // Ask for user confirmation
+			// if !r.Peer2PeerNoInteractive {
+			// 	log.Info().Msg("Press a button to proceed")
+			// 	var input string
+			// 	fmt.Scanln(&input)
+			// }
 		}
+		opts = append(opts, config.WithP2PToken(token))
+
 		log.Info().Msg("Starting P2P server discovery...")
 		if err := p2p.LLamaCPPRPCServerDiscoverer(context.Background(), token); err != nil {
 			return err
