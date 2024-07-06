@@ -6,7 +6,7 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/gallery"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/rs/zerolog/log"
 )
 
