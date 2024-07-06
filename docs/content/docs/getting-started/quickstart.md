@@ -8,6 +8,16 @@ icon = "rocket_launch"
 
 **LocalAI** is a free, open-source alternative to OpenAI (Anthropic, etc.), functioning as a drop-in replacement REST API for local inferencing. It allows you to run [LLMs]({{% relref "docs/features/text-generation" %}}), generate images, and produce audio, all locally or on-premises with consumer-grade hardware, supporting multiple model families and architectures.
 
+{{% alert icon="💡" %}}
+
+**Security considerations**
+
+If you are exposing LocalAI remotely, make sure you protect the API endpoints adeguately with a mechanism which allows to protect from the incoming traffic or alternatively, run LocalAI with `API_KEY` to gate the access with an API key. The API key guarantees a total access to the features (there is no role separation), and it is to be considered as likely as an admin role.
+
+To access the WebUI with an API_KEY, browser extensions such as [Requestly](https://requestly.com/) can be used (see also https://github.com/mudler/LocalAI/issues/2227#issuecomment-2093333752). See also [API flags]({{% relref "docs/advanced/advanced-usage#api-flags" %}}) for the flags / options available when starting LocalAI.
+
+{{% /alert %}}
+
 ## Using the Bash Installer
 
 Install LocalAI easily using the bash installer with the following command:

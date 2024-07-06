@@ -701,6 +701,9 @@ const docTemplate = `{
                 "prompt": {
                     "description": "Prompt is read only by completion/image API calls"
                 },
+                "repeat_last_n": {
+                    "type": "integer"
+                },
                 "repeat_penalty": {
                     "type": "number"
                 },
@@ -750,6 +753,10 @@ const docTemplate = `{
                 "top_p": {
                     "description": "Common options between all the API calls, part of the OpenAI spec",
                     "type": "number"
+                },
+                "translate": {
+                    "description": "Only for audio transcription",
+                    "type": "boolean"
                 },
                 "typical_p": {
                     "type": "number"

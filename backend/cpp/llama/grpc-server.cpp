@@ -886,6 +886,8 @@ struct llama_server_context
             {"task_id", slot->task_id},
         });
 
+        LOG_TEE("sampling: \n%s\n", llama_sampling_print(slot->sparams).c_str());
+
         return true;
     }
 

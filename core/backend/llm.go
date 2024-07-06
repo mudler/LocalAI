@@ -12,7 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 
-	"github.com/mudler/LocalAI/pkg/gallery"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"

@@ -103,6 +103,22 @@ ARG CUDA_MINOR_VERSION=5
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 
+# Vulkan requirements
+RUN <<EOT bash
+    if [ "${BUILD_TYPE}" = "vulkan" ]; then
+        apt-get update && \
+        apt-get install -y  --no-install-recommends \
+                        software-properties-common pciutils wget gpg-agent && \
+        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
+        wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list && \
+        apt-get update && \
+            apt-get install -y \
+            vulkan-sdk && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
 # CuBLAS requirements
 RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "cublas" ]; then
@@ -266,6 +282,8 @@ COPY --from=grpc /opt/grpc /usr/local
 
 # Rebuild with defaults backends
 WORKDIR /build
+
+## Build the binary
 RUN make build
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \

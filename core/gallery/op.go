@@ -1,5 +1,7 @@
 package gallery
 
+import "github.com/mudler/LocalAI/core/config"
+
 type GalleryOp struct {
 	Id               string
 	GalleryModelName string
@@ -7,7 +9,7 @@ type GalleryOp struct {
 	Delete           bool
 
 	Req       GalleryModel
-	Galleries []Gallery
+	Galleries []config.Gallery
 }
 
 type GalleryOpStatus struct {

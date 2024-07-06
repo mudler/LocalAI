@@ -7,13 +7,14 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services"
-	"github.com/mudler/LocalAI/pkg/gallery"
 	"github.com/rs/zerolog/log"
 )
 
 type ModelGalleryEndpointService struct {
-	galleries      []gallery.Gallery
+	galleries      []config.Gallery
 	modelPath      string
 	galleryApplier *services.GalleryService
 }
@@ -24,7 +25,7 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func CreateModelGalleryEndpointService(galleries []gallery.Gallery, modelPath string, galleryApplier *services.GalleryService) ModelGalleryEndpointService {
+func CreateModelGalleryEndpointService(galleries []config.Gallery, modelPath string, galleryApplier *services.GalleryService) ModelGalleryEndpointService {
 	return ModelGalleryEndpointService{
 		galleries:      galleries,
 		modelPath:      modelPath,
@@ -129,12 +130,12 @@ func (mgs *ModelGalleryEndpointService) ListModelGalleriesEndpoint() func(c *fib
 
 func (mgs *ModelGalleryEndpointService) AddModelGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		input := new(gallery.Gallery)
+		input := new(config.Gallery)
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
 			return err
 		}
-		if slices.ContainsFunc(mgs.galleries, func(gallery gallery.Gallery) bool {
+		if slices.ContainsFunc(mgs.galleries, func(gallery config.Gallery) bool {
 			return gallery.Name == input.Name
 		}) {
 			return fmt.Errorf("%s already exists", input.Name)
@@ -151,17 +152,17 @@ func (mgs *ModelGalleryEndpointService) AddModelGalleryEndpoint() func(c *fiber.
 
 func (mgs *ModelGalleryEndpointService) RemoveModelGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		input := new(gallery.Gallery)
+		input := new(config.Gallery)
 		// Get input data from the request body
 		if err := c.BodyParser(input); err != nil {
 			return err
 		}
-		if !slices.ContainsFunc(mgs.galleries, func(gallery gallery.Gallery) bool {
+		if !slices.ContainsFunc(mgs.galleries, func(gallery config.Gallery) bool {
 			return gallery.Name == input.Name
 		}) {
 			return fmt.Errorf("%s is not currently registered", input.Name)
 		}
-		mgs.galleries = slices.DeleteFunc(mgs.galleries, func(gallery gallery.Gallery) bool {
+		mgs.galleries = slices.DeleteFunc(mgs.galleries, func(gallery config.Gallery) bool {
 			return gallery.Name == input.Name
 		})
 		return c.Send(nil)

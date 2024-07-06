@@ -42,3 +42,9 @@ func SetPrefix(suffix string) func(*GrammarOption) {
 		o.Prefix = suffix
 	}
 }
+
+func SetPropOrder(order string) func(*GrammarOption) {
+	return func(o *GrammarOption) {
+		o.PropOrder = order
+	}
+}

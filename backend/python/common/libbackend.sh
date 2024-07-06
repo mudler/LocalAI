@@ -148,13 +148,13 @@ function startBackend() {
     ensureVenv
 
     if [ ! -z ${BACKEND_FILE} ]; then
-        python ${BACKEND_FILE} $@
+        exec python ${BACKEND_FILE} $@
     elif [ -e "${MY_DIR}/server.py" ]; then
-        python ${MY_DIR}/server.py $@
+        exec python ${MY_DIR}/server.py $@
     elif [ -e "${MY_DIR}/backend.py" ]; then
-        python ${MY_DIR}/backend.py $@
+        exec python ${MY_DIR}/backend.py $@
     elif [ -e "${MY_DIR}/${BACKEND_NAME}.py" ]; then
-        python ${MY_DIR}/${BACKEND_NAME}.py $@
+        exec python ${MY_DIR}/${BACKEND_NAME}.py $@
     fi
 }
 
