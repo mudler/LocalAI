@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
-	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/rs/zerolog/log"
 )
 

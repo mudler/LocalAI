@@ -231,7 +231,7 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 
 // This is ***NEVER*** going to be perfect or finished.
 // This is a BEST EFFORT function to surface known-vulnerable models to users.
-func SafetyScanGalleryModels(galleries []Gallery, basePath string) error {
+func SafetyScanGalleryModels(galleries []config.Gallery, basePath string) error {
 	galleryModels, err := AvailableGalleryModels(galleries, basePath)
 	if err != nil {
 		return err
