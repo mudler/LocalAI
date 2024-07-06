@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/rs/zerolog/log"
@@ -20,7 +21,7 @@ func (sscli *SecScanCLI) Run(ctx *cliContext.Context) error {
 	log.Info().Msg("LocalAI Security Scanner - This is BEST EFFORT functionality! Currently limited to huggingface models!")
 	if len(sscli.ToScan) == 0 {
 		log.Info().Msg("Checking all installed models against galleries")
-		var galleries []gallery.Gallery
+		var galleries []config.Gallery
 		if err := json.Unmarshal([]byte(sscli.Galleries), &galleries); err != nil {
 			log.Error().Err(err).Msg("unable to load galleries")
 		}
