@@ -8,26 +8,48 @@
     {{template "views/partials/navbar" .}}
     <div class="container mx-auto px-4 flex-grow">
 
-        <div class="models mt-12">
-            <h2 class="text-center text-3xl font-semibold text-gray-100">
-               P2P</h2> 
-            Token: {{.P2PToken}}
-           
+        <div class="models mt-12 text-center">
+            <h2 class="text-3xl font-semibold text-gray-100 mb-8">
+                <i class="fa-solid fa-network-wired"></i>  P2P Network</h2> 
+
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 inline-block">
+                <p class="text-xl font-semibold text-gray-200">Total Workers Detected: {{ len .Nodes}}</p>
+                {{ $online:=0 }}
+                {{ range .Nodes }}
+                    {{ if .IsOnline }}
+                        {{ $online = add $online 1 }}
+                    {{ end }}
+                {{ end }}
+                <p class="text-xl font-semibold text-gray-200">Total Online Workers: {{$online}}</p>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 inline-block text-left">
+                <h3 class="text-2xl font-semibold text-gray-100 mb-4">Start a New Worker</h3>
+                <p class="mb-2">To start a new worker, run the following command:</p>
+                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                    export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
+                    local-ai worker p2p-llama-cpp-rpc
+                </code>        
+            </div>
 
             <div class="text-center text-xs font-semibold text-gray-100">
                 {{ range .Nodes }}
-                    <button  hx-post="/browse/search/models" class="text-blue-500" hx-target="#search-results" 
-                    hx-vals='{"search": "{{.ID}}"}'
-                    hx-indicator=".htmx-indicator" >{{.ID}} (Online {{.IsOnline}})</button> 
+                    <button hx-post="/browse/search/models" class="text-blue-500 hover:text-blue-300" 
+                    hx-target="#search-results" hx-vals='{"search": "{{.ID}}"}'
+                    hx-indicator=".htmx-indicator" >{{.ID}} (Online: {{.IsOnline}})</button> 
                 {{ end }}
             </div>
-
-            
         </div>
     </div>
 
     {{template "views/partials/footer" .}}
 </div>
+
+<style>
+    .token {
+        word-break: break-all;
+    }
+</style>
 
 </body>
 </html>
