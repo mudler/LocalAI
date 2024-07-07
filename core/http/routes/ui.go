@@ -59,7 +59,7 @@ func RegisterUIRoutes(app *fiber.App,
 			summary := fiber.Map{
 				"Title":        "LocalAI - P2P dashboard",
 				"Version":      internal.PrintableVersion(),
-				"Nodes":        p2p.GetAvailableNodes(),
+				"Nodes":        p2p.GetAvailableNodes(""),
 				"IsP2PEnabled": p2p.IsP2PEnabled(),
 				"P2PToken":     appConfig.P2PToken,
 			}

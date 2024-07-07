@@ -111,7 +111,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		log.Info().Msg("Starting P2P server discovery...")
 		if err := p2p.ServiceDiscoverer(context.Background(), token, "", func() {
 			var tunnelAddresses []string
-			for _, v := range p2p.GetAvailableNodes() {
+			for _, v := range p2p.GetAvailableNodes("") {
 				if v.IsOnline() {
 					tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
 				} else {

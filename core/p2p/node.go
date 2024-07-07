@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const defaultServicesID = "services_localai"
+
 type NodeData struct {
 	Name          string
 	ID            string
@@ -19,20 +21,29 @@ func (d NodeData) IsOnline() bool {
 }
 
 var mu sync.Mutex
-var nodes = map[string]NodeData{}
+var nodes = map[string]map[string]NodeData{}
 
-func GetAvailableNodes() []NodeData {
+func GetAvailableNodes(serviceID string) []NodeData {
+	if serviceID == "" {
+		serviceID = defaultServicesID
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	var availableNodes = []NodeData{}
-	for _, v := range nodes {
+	for _, v := range nodes[serviceID] {
 		availableNodes = append(availableNodes, v)
 	}
 	return availableNodes
 }
 
-func AddNode(node NodeData) {
+func AddNode(serviceID string, node NodeData) {
+	if serviceID == "" {
+		serviceID = defaultServicesID
+	}
 	mu.Lock()
 	defer mu.Unlock()
-	nodes[node.ID] = node
+	if nodes[serviceID] == nil {
+		nodes[serviceID] = map[string]NodeData{}
+	}
+	nodes[serviceID][node.ID] = node
 }

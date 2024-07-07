@@ -27,8 +27,6 @@ import (
 	"github.com/mudler/edgevpn/pkg/logger"
 )
 
-const defaultServicesID = "services_localai"
-
 func GenerateToken() string {
 	// Generates a new config and exit
 	newData := node.GenerateNewConnectionData(900)
@@ -167,8 +165,8 @@ func ServiceDiscoverer(ctx context.Context, token, servicesID string, discoveryF
 				zlog.Error().Msg("Discoverer stopped")
 				return
 			case tunnel := <-tunnels:
-				AddNode(tunnel)
-				if discoveryfunc != nil {
+				AddNode(servicesID, tunnel)
+				if discoveryFunc != nil {
 					discoveryFunc()
 				}
 			}

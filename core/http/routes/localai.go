@@ -62,7 +62,7 @@ func RegisterLocalAIRoutes(app *fiber.App,
 		app.Get("/api/p2p", auth, func(c *fiber.Ctx) error {
 			// Render index
 			return c.JSON(map[string]interface{}{
-				"Nodes": p2p.GetAvailableNodes(),
+				"Nodes": p2p.GetAvailableNodes(""),
 			})
 		})
 	}
