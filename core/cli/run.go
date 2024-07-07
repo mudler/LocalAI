@@ -115,7 +115,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		opts = append(opts, config.WithP2PToken(token))
 
 		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.LLamaCPPRPCServerDiscoverer(context.Background(), token); err != nil {
+		if err := p2p.LLamaCPPRPCServerDiscoverer(context.Background(), token, ""); err != nil {
 			return err
 		}
 	}

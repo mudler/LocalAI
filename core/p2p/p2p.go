@@ -28,6 +28,8 @@ import (
 	"github.com/mudler/edgevpn/pkg/logger"
 )
 
+const defaultServicesID = "services_localai"
+
 func GenerateToken() string {
 	// Generates a new config and exit
 	newData := node.GenerateNewConnectionData(900)
@@ -146,8 +148,11 @@ func copyStream(closer chan struct{}, dst io.Writer, src io.Reader) {
 
 // This is the main of the server (which keeps the env variable updated)
 // This starts a goroutine that keeps LLAMACPP_GRPC_SERVERS updated with the discovered services
-func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
-	tunnels, err := discoveryTunnels(ctx, token)
+func LLamaCPPRPCServerDiscoverer(ctx context.Context, token, servicesID string) error {
+	if servicesID == "" {
+		servicesID = defaultServicesID
+	}
+	tunnels, err := discoveryTunnels(ctx, token, servicesID)
 	if err != nil {
 		return err
 	}
@@ -188,7 +193,7 @@ func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
 	return nil
 }
 
-func discoveryTunnels(ctx context.Context, token string) (chan NodeData, error) {
+func discoveryTunnels(ctx context.Context, token, servicesID string) (chan NodeData, error) {
 	tunnels := make(chan NodeData)
 
 	nodeOpts, err := newNodeOpts(token)
@@ -227,7 +232,7 @@ func discoveryTunnels(ctx context.Context, token string) (chan NodeData, error) 
 				time.Sleep(5 * time.Second)
 				zlog.Debug().Msg("Searching for workers")
 
-				data := ledger.LastBlock().Storage["services_localai"]
+				data := ledger.LastBlock().Storage[servicesID]
 				for k, v := range data {
 					zlog.Info().Msgf("Found worker %s", k)
 					nd := &NodeData{}
@@ -299,7 +304,10 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 }
 
 // This is the P2P worker main
-func BindLLamaCPPWorker(ctx context.Context, host, port, token string) error {
+func BindLLamaCPPWorker(ctx context.Context, host, port, token, servicesID string) error {
+	if servicesID == "" {
+		servicesID = defaultServicesID
+	}
 	llger := logger.New(log.LevelFatal)
 
 	nodeOpts, err := newNodeOpts(token)
@@ -341,7 +349,7 @@ func BindLLamaCPPWorker(ctx context.Context, host, port, token string) error {
 				LastSeen: time.Now(),
 				ID:       nodeID(name),
 			}
-			ledger.Add("services_localai", updatedMap)
+			ledger.Add(servicesID, updatedMap)
 			//	}
 		},
 	)

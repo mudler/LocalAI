@@ -12,16 +12,12 @@ func GenerateToken() string {
 	return "not implemented"
 }
 
-func LLamaCPPRPCServerDiscoverer(ctx context.Context, token string) error {
+func LLamaCPPRPCServerDiscoverer(ctx context.Context, token, servicesID string) error {
 	return fmt.Errorf("not implemented")
 }
 
-func BindLLamaCPPWorker(ctx context.Context, host, port, token string) error {
+func BindLLamaCPPWorker(ctx context.Context, host, port, token, servicesID string) error {
 	return fmt.Errorf("not implemented")
-}
-
-func GetAvailableNodes() []NodeData {
-	return []NodeData{}
 }
 
 func IsP2PEnabled() bool {
