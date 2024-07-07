@@ -2435,6 +2435,30 @@
     - filename: Llama3-8B-Instruct-Replete-Adapted-Q4_K_M.gguf
       sha256: 9e9a142f6fb5fc812b17bfc30230582ae50ac22b93dea696b6887cde815c1cb4
       uri: huggingface://bartowski/Llama3-8B-Instruct-Replete-Adapted-GGUF/Llama3-8B-Instruct-Replete-Adapted-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-perky-pat-instruct-8b"
+  urls:
+    - https://huggingface.co/grimjim/Llama-3-Perky-Pat-Instruct-8B
+    - https://huggingface.co/bartowski/Llama-3-Perky-Pat-Instruct-8B-GGUF
+  description: |
+    we explore negative weight merger, and propose Orthogonalized Vector Adaptation, or OVA.
+
+    This is a merge of pre-trained language models created using mergekit.
+
+    "One must imagine Sisyphys happy."
+
+    Task arithmetic was used to invert the intervention vector that was applied in MopeyMule, via application of negative weight -1.0. The combination of model weights (Instruct - MopeyMule) comprises an Orthogonalized Vector Adaptation that can subsequently be applied to the base Instruct model, and could in principle be applied to other models derived from fine-tuning the Instruct model.
+
+    This model is meant to continue exploration of behavioral changes that can be achieved via orthogonalized steering. The result appears to be more enthusiastic and lengthy responses in chat, though it is also clear that the merged model has some unhealed damage.
+
+    Built with Meta Llama 3.
+  overrides:
+    parameters:
+      model: Llama-3-Perky-Pat-Instruct-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Perky-Pat-Instruct-8B-Q4_K_M.gguf
+      sha256: b0eae5d9d58a7101a30693c267097a90f4a005c81fda801b40ab2c25e788a93e
+      uri: huggingface://bartowski/Llama-3-Perky-Pat-Instruct-8B-GGUF/Llama-3-Perky-Pat-Instruct-8B-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
