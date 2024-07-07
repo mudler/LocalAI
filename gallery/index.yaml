@@ -2459,6 +2459,37 @@
     - filename: Llama-3-Perky-Pat-Instruct-8B-Q4_K_M.gguf
       sha256: b0eae5d9d58a7101a30693c267097a90f4a005c81fda801b40ab2c25e788a93e
       uri: huggingface://bartowski/Llama-3-Perky-Pat-Instruct-8B-GGUF/Llama-3-Perky-Pat-Instruct-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-uncen-merger-omelette-rp-v0.2-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/m0YKWwK9n7w8rnKOzduu4.png
+  urls:
+    - https://huggingface.co/Casual-Autopsy/L3-Uncen-Merger-Omelette-RP-v0.2-8B
+    - https://huggingface.co/LWDCLS/L3-Uncen-Merger-Omelette-RP-v0.2-8B-GGUF-IQ-Imatrix-Request
+  description: |
+    L3-Uncen-Merger-Omelette-RP-v0.2-8B is a merge of the following models using LazyMergekit:
+
+        Sao10K/L3-8B-Stheno-v3.2
+        Casual-Autopsy/L3-Umbral-Mind-RP-v1.0-8B
+        bluuwhale/L3-SthenoMaidBlackroot-8B-V1
+        Cas-Warehouse/Llama-3-Mopeyfied-Psychology-v2
+        migtissera/Llama-3-8B-Synthia-v3.5
+        tannedbum/L3-Nymeria-Maid-8B
+        Casual-Autopsy/L3-Umbral-Mind-RP-v0.3-8B
+        tannedbum/L3-Nymeria-8B
+        ChaoticNeutrals/Hathor_RP-v.01-L3-8B
+        cgato/L3-TheSpice-8b-v0.8.3
+        Sao10K/L3-8B-Stheno-v3.1
+        Nitral-AI/Hathor_Stable-v0.2-L3-8B
+        aifeifei798/llama3-8B-DarkIdol-1.0
+        ChaoticNeutrals/Poppy_Porpoise-1.4-L3-8B
+        ResplendentAI/Nymph_8B
+  overrides:
+    parameters:
+      model: L3-Uncen-Merger-Omelette-RP-v0.2-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: L3-Uncen-Merger-Omelette-RP-v0.2-8B-Q4_K_M-imat.gguf
+      sha256: 6bbc42a4c3b25f2b854d76a6e32746b9b3b21dd8856f8f2bc1a5b1269aa8fca1
+      uri: huggingface://LWDCLS/L3-Uncen-Merger-Omelette-RP-v0.2-8B-GGUF-IQ-Imatrix-Request/L3-Uncen-Merger-Omelette-RP-v0.2-8B-Q4_K_M-imat.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
