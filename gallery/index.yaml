@@ -442,6 +442,47 @@
     - filename: Gemma-2-9B-It-SPPO-Iter3-Q4_K_M.gguf
       uri: huggingface://bartowski/Gemma-2-9B-It-SPPO-Iter3-GGUF/Gemma-2-9B-It-SPPO-Iter3-Q4_K_M.gguf
       sha256: 7aac221f548beef8d45106eabbec6b2c4e1669a51ad14e4bf640d463dadf36e7
+- !!merge <<: *gemma
+  name: "smegmma-9b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/RSuc5p9Sm6CYj6lGOxvx4.gif
+  urls:
+    - https://huggingface.co/TheDrummer/Smegmma-9B-v1
+    - https://huggingface.co/bartowski/Smegmma-9B-v1-GGUF
+  description: |
+    Smegmma 9B v1 🧀
+
+    The sweet moist of Gemma 2, unhinged.
+
+    image/gif
+
+    smeg - ghem - mah
+
+    An eRP model that will blast you with creamy moist. Finetuned by yours truly.
+
+    The first Gemma 2 9B RP finetune attempt!
+    What's New?
+
+        Engaging roleplay
+            Less refusals / censorship
+            Less commentaries / summaries
+            More willing AI
+            Better formatting
+            Better creativity
+        Moist alignment
+
+    Notes
+
+        Refusals still exist, but a couple of re-gens may yield the result you want
+        Formatting and logic may be weaker at the start
+            Make sure to start strong
+        May be weaker with certain cards, YMMV and adjust accordingly!
+  overrides:
+    parameters:
+      model: Smegmma-9B-v1-Q4_K_M.gguf
+  files:
+    - filename: Smegmma-9B-v1-Q4_K_M.gguf
+      uri: huggingface://bartowski/Smegmma-9B-v1-GGUF/Smegmma-9B-v1-Q4_K_M.gguf
+      sha256: abd9da0a6bf5cbc0ed6bb0d7e3ee7aea3f6b1edbf8c64e51d0fa25001975aed7
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -2400,6 +2441,114 @@
     - filename: LLAMA-3_8B_Unaligned_Alpha_RP_Soup.i1-Q4_K_M.gguf
       sha256: 94347eb5125d9092e286730ae0ccc78374d68663c16ad2265005d8721eb8807b
       uri: huggingface://mradermacher/LLAMA-3_8B_Unaligned_Alpha_RP_Soup-i1-GGUF/LLAMA-3_8B_Unaligned_Alpha_RP_Soup.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "hathor_respawn-l3-8b-v0.8"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/sWyipsXI-Wl-uEm57SRwM.png
+  urls:
+    - https://huggingface.co/Nitral-AI/Hathor_Respawn-L3-8B-v0.8
+    - https://huggingface.co/bartowski/Hathor_Respawn-L3-8B-v0.8-GGUF
+  description: |
+    Hathor_Aleph-v0.8 is a model based on the LLaMA 3 architecture: Designed to seamlessly integrate the qualities of creativity, intelligence, and robust performance. Making it an ideal tool for a wide range of applications; such as creative writing, educational support and human/computer interaction.
+    Hathor 0.8 is trained on 3 epochs of Private RP, STEM (Intruction/Dialogs), Opus instructons, mixture light/classical novel data, roleplaying chat pairs over llama 3 8B instruct.
+  overrides:
+    parameters:
+      model: Hathor_Respawn-L3-8B-v0.8-Q4_K_M.gguf
+  files:
+    - filename: Hathor_Respawn-L3-8B-v0.8-Q4_K_M.gguf
+      sha256: d0cdfa8951ee80b252bf1dc183403ca9b48bc3de1578cb8e7fe321af753e661c
+      uri: huggingface://bartowski/Hathor_Respawn-L3-8B-v0.8-GGUF/Hathor_Respawn-L3-8B-v0.8-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama3-8b-instruct-replete-adapted"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/-0dERC793D9XeFsJ9uHbx.png
+  urls:
+    - https://huggingface.co/Replete-AI/Llama3-8B-Instruct-Replete-Adapted
+    - https://huggingface.co/bartowski/Llama3-8B-Instruct-Replete-Adapted-GGUF
+  description: |
+    Replete-Coder-llama3-8b is a general purpose model that is specially trained in coding in over 100 coding languages. The data used to train the model contains 25% non-code instruction data and 75% coding instruction data totaling up to 3.9 million lines, roughly 1 billion tokens, or 7.27gb of instruct data. The data used to train this model was 100% uncensored, then fully deduplicated, before training happened.
+
+    More than just a coding model!
+
+    Although Replete-Coder has amazing coding capabilities, its trained on vaste amount of non-coding data, fully cleaned and uncensored. Dont just use it for coding, use it for all your needs! We are truly trying to make the GPT killer!
+  overrides:
+    parameters:
+      model: Llama3-8B-Instruct-Replete-Adapted-Q4_K_M.gguf
+  files:
+    - filename: Llama3-8B-Instruct-Replete-Adapted-Q4_K_M.gguf
+      sha256: 9e9a142f6fb5fc812b17bfc30230582ae50ac22b93dea696b6887cde815c1cb4
+      uri: huggingface://bartowski/Llama3-8B-Instruct-Replete-Adapted-GGUF/Llama3-8B-Instruct-Replete-Adapted-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-perky-pat-instruct-8b"
+  urls:
+    - https://huggingface.co/grimjim/Llama-3-Perky-Pat-Instruct-8B
+    - https://huggingface.co/bartowski/Llama-3-Perky-Pat-Instruct-8B-GGUF
+  description: |
+    we explore negative weight merger, and propose Orthogonalized Vector Adaptation, or OVA.
+
+    This is a merge of pre-trained language models created using mergekit.
+
+    "One must imagine Sisyphys happy."
+
+    Task arithmetic was used to invert the intervention vector that was applied in MopeyMule, via application of negative weight -1.0. The combination of model weights (Instruct - MopeyMule) comprises an Orthogonalized Vector Adaptation that can subsequently be applied to the base Instruct model, and could in principle be applied to other models derived from fine-tuning the Instruct model.
+
+    This model is meant to continue exploration of behavioral changes that can be achieved via orthogonalized steering. The result appears to be more enthusiastic and lengthy responses in chat, though it is also clear that the merged model has some unhealed damage.
+
+    Built with Meta Llama 3.
+  overrides:
+    parameters:
+      model: Llama-3-Perky-Pat-Instruct-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Perky-Pat-Instruct-8B-Q4_K_M.gguf
+      sha256: b0eae5d9d58a7101a30693c267097a90f4a005c81fda801b40ab2c25e788a93e
+      uri: huggingface://bartowski/Llama-3-Perky-Pat-Instruct-8B-GGUF/Llama-3-Perky-Pat-Instruct-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-uncen-merger-omelette-rp-v0.2-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/m0YKWwK9n7w8rnKOzduu4.png
+  urls:
+    - https://huggingface.co/Casual-Autopsy/L3-Uncen-Merger-Omelette-RP-v0.2-8B
+    - https://huggingface.co/LWDCLS/L3-Uncen-Merger-Omelette-RP-v0.2-8B-GGUF-IQ-Imatrix-Request
+  description: |
+    L3-Uncen-Merger-Omelette-RP-v0.2-8B is a merge of the following models using LazyMergekit:
+
+        Sao10K/L3-8B-Stheno-v3.2
+        Casual-Autopsy/L3-Umbral-Mind-RP-v1.0-8B
+        bluuwhale/L3-SthenoMaidBlackroot-8B-V1
+        Cas-Warehouse/Llama-3-Mopeyfied-Psychology-v2
+        migtissera/Llama-3-8B-Synthia-v3.5
+        tannedbum/L3-Nymeria-Maid-8B
+        Casual-Autopsy/L3-Umbral-Mind-RP-v0.3-8B
+        tannedbum/L3-Nymeria-8B
+        ChaoticNeutrals/Hathor_RP-v.01-L3-8B
+        cgato/L3-TheSpice-8b-v0.8.3
+        Sao10K/L3-8B-Stheno-v3.1
+        Nitral-AI/Hathor_Stable-v0.2-L3-8B
+        aifeifei798/llama3-8B-DarkIdol-1.0
+        ChaoticNeutrals/Poppy_Porpoise-1.4-L3-8B
+        ResplendentAI/Nymph_8B
+  overrides:
+    parameters:
+      model: L3-Uncen-Merger-Omelette-RP-v0.2-8B-Q4_K_M-imat.gguf
+  files:
+    - filename: L3-Uncen-Merger-Omelette-RP-v0.2-8B-Q4_K_M-imat.gguf
+      sha256: 6bbc42a4c3b25f2b854d76a6e32746b9b3b21dd8856f8f2bc1a5b1269aa8fca1
+      uri: huggingface://LWDCLS/L3-Uncen-Merger-Omelette-RP-v0.2-8B-GGUF-IQ-Imatrix-Request/L3-Uncen-Merger-Omelette-RP-v0.2-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "nymph_8b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/9U_eJCDzLJ8nxb6qfuICc.jpeg
+  urls:
+    - https://huggingface.co/ResplendentAI/Nymph_8B
+    - https://huggingface.co/mradermacher/Nymph_8B-i1-GGUF?not-for-all-audiences=true
+  description: |
+    Model card:
+    Nymph is the culmination of everything I have learned with the T-series project. This model aims to be a unique and full featured RP juggernaut.
+
+    The finetune incorporates 1.6 Million tokens of RP data sourced from Bluemoon, FreedomRP, Aesir-Preview, and Claude Opus logs. I made sure to use the multi-turn sharegpt datasets this time instead of alpaca conversions. I have also included three of my personal datasets. The final touch is an ORPO based upon Openhermes Roleplay preferences.
+  overrides:
+    parameters:
+      model: Nymph_8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Nymph_8B.i1-Q4_K_M.gguf
+      sha256: 5b35794539d9cd262720f47a54f59dbffd5bf6c601950359b5c68d13f1ce13a0
+      uri: huggingface://mradermacher/Nymph_8B-i1-GGUF/Nymph_8B.i1-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
