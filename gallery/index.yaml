@@ -2490,6 +2490,24 @@
     - filename: L3-Uncen-Merger-Omelette-RP-v0.2-8B-Q4_K_M-imat.gguf
       sha256: 6bbc42a4c3b25f2b854d76a6e32746b9b3b21dd8856f8f2bc1a5b1269aa8fca1
       uri: huggingface://LWDCLS/L3-Uncen-Merger-Omelette-RP-v0.2-8B-GGUF-IQ-Imatrix-Request/L3-Uncen-Merger-Omelette-RP-v0.2-8B-Q4_K_M-imat.gguf
+- !!merge <<: *llama3
+  name: "nymph_8b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/9U_eJCDzLJ8nxb6qfuICc.jpeg
+  urls:
+    - https://huggingface.co/ResplendentAI/Nymph_8B
+    - https://huggingface.co/mradermacher/Nymph_8B-i1-GGUF?not-for-all-audiences=true
+  description: |
+    Model card:
+    Nymph is the culmination of everything I have learned with the T-series project. This model aims to be a unique and full featured RP juggernaut.
+
+    The finetune incorporates 1.6 Million tokens of RP data sourced from Bluemoon, FreedomRP, Aesir-Preview, and Claude Opus logs. I made sure to use the multi-turn sharegpt datasets this time instead of alpaca conversions. I have also included three of my personal datasets. The final touch is an ORPO based upon Openhermes Roleplay preferences.
+  overrides:
+    parameters:
+      model: Nymph_8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Nymph_8B.i1-Q4_K_M.gguf
+      sha256: 5b35794539d9cd262720f47a54f59dbffd5bf6c601950359b5c68d13f1ce13a0
+      uri: huggingface://mradermacher/Nymph_8B-i1-GGUF/Nymph_8B.i1-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
