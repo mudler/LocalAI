@@ -442,6 +442,47 @@
     - filename: Gemma-2-9B-It-SPPO-Iter3-Q4_K_M.gguf
       uri: huggingface://bartowski/Gemma-2-9B-It-SPPO-Iter3-GGUF/Gemma-2-9B-It-SPPO-Iter3-Q4_K_M.gguf
       sha256: 7aac221f548beef8d45106eabbec6b2c4e1669a51ad14e4bf640d463dadf36e7
+- !!merge <<: *gemma
+  name: "smegmma-9b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/RSuc5p9Sm6CYj6lGOxvx4.gif
+  urls:
+    - https://huggingface.co/TheDrummer/Smegmma-9B-v1
+    - https://huggingface.co/bartowski/Smegmma-9B-v1-GGUF
+  description: |
+    Smegmma 9B v1 🧀
+
+    The sweet moist of Gemma 2, unhinged.
+
+    image/gif
+
+    smeg - ghem - mah
+
+    An eRP model that will blast you with creamy moist. Finetuned by yours truly.
+
+    The first Gemma 2 9B RP finetune attempt!
+    What's New?
+
+        Engaging roleplay
+            Less refusals / censorship
+            Less commentaries / summaries
+            More willing AI
+            Better formatting
+            Better creativity
+        Moist alignment
+
+    Notes
+
+        Refusals still exist, but a couple of re-gens may yield the result you want
+        Formatting and logic may be weaker at the start
+            Make sure to start strong
+        May be weaker with certain cards, YMMV and adjust accordingly!
+  overrides:
+    parameters:
+      model: Smegmma-9B-v1-Q4_K_M.gguf
+  files:
+    - filename: Smegmma-9B-v1-Q4_K_M.gguf
+      uri: huggingface://bartowski/Smegmma-9B-v1-GGUF/Smegmma-9B-v1-Q4_K_M.gguf
+      sha256: abd9da0a6bf5cbc0ed6bb0d7e3ee7aea3f6b1edbf8c64e51d0fa25001975aed7
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
