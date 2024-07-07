@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"strings"
 	"time"
 
 	"math/rand/v2"
@@ -99,10 +97,6 @@ func Proxy(ctx context.Context, node *node.Node, listenAddr, service string) err
 						log.Info().Msgf("Node %s is offline", v.ID)
 					}
 				}
-				tunnelEnvVar := strings.Join(tunnelAddresses, ",")
-
-				os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
-				log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
 
 				// open a TCP stream to one of the tunnels
 				// chosen randomly

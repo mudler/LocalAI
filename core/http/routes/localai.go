@@ -57,12 +57,13 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	app.Get("/backend/monitor", auth, localai.BackendMonitorEndpoint(backendMonitorService))
 	app.Post("/backend/shutdown", auth, localai.BackendShutdownEndpoint(backendMonitorService))
 
-	//p2p
+	// p2p
 	if p2p.IsP2PEnabled() {
 		app.Get("/api/p2p", auth, func(c *fiber.Ctx) error {
 			// Render index
 			return c.JSON(map[string]interface{}{
-				"Nodes": p2p.GetAvailableNodes(""),
+				"Nodes":          p2p.GetAvailableNodes(""),
+				"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
 			})
 		})
 		app.Get("/api/p2p/token", auth, func(c *fiber.Ctx) error {

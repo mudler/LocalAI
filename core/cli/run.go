@@ -143,6 +143,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		if err := p2p.ExposeService(context.Background(), "localhost", port, token, p2p.FederatedID); err != nil {
 			return err
 		}
+		node, err := p2p.NewNode(token)
+		if err != nil {
+			return err
+		}
+		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.FederatedID, nil); err != nil {
+			return err
+		}
 	}
 
 	idleWatchDog := r.EnableWatchdogIdle
