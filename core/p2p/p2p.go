@@ -88,7 +88,6 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 				continue
 			}
 
-			//	ll.Info("New connection from", l.Addr().String())
 			// Handle connections in a new goroutine, forwarding to the p2p service
 			go func() {
 				// Retrieve current ID for ip in the blockchain
@@ -145,11 +144,11 @@ func copyStream(closer chan struct{}, dst io.Writer, src io.Reader) {
 
 // This is the main of the server (which keeps the env variable updated)
 // This starts a goroutine that keeps LLAMACPP_GRPC_SERVERS updated with the discovered services
-func ServiceDiscoverer(ctx context.Context, token, servicesID string, discoveryFunc func()) error {
+func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID string, discoveryFunc func()) error {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
-	tunnels, err := discoveryTunnels(ctx, token, servicesID)
+	tunnels, err := discoveryTunnels(ctx, n, token, servicesID)
 	if err != nil {
 		return err
 	}
@@ -176,19 +175,10 @@ func ServiceDiscoverer(ctx context.Context, token, servicesID string, discoveryF
 	return nil
 }
 
-func discoveryTunnels(ctx context.Context, token, servicesID string) (chan NodeData, error) {
+func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string) (chan NodeData, error) {
 	tunnels := make(chan NodeData)
 
-	nodeOpts, err := newNodeOpts(token)
-	if err != nil {
-		return nil, err
-	}
-
-	n, err := node.New(nodeOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("creating a new node: %w", err)
-	}
-	err = n.Start(ctx)
+	err := n.Start(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("creating a new node: %w", err)
 	}
@@ -338,6 +328,20 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 	)
 
 	return err
+}
+
+func NewNode(token string) (*node.Node, error) {
+	nodeOpts, err := newNodeOpts(token)
+	if err != nil {
+		return nil, err
+	}
+
+	n, err := node.New(nodeOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("creating a new node: %w", err)
+	}
+
+	return n, nil
 }
 
 func newNodeOpts(token string) ([]node.Option, error) {

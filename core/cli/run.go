@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -60,6 +61,7 @@ type RunCMD struct {
 	WatchdogIdleTimeout  string   `env:"LOCALAI_WATCHDOG_IDLE_TIMEOUT,WATCHDOG_IDLE_TIMEOUT" default:"15m" help:"Threshold beyond which an idle backend should be stopped" group:"backends"`
 	EnableWatchdogBusy   bool     `env:"LOCALAI_WATCHDOG_BUSY,WATCHDOG_BUSY" default:"false" help:"Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout" group:"backends"`
 	WatchdogBusyTimeout  string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
+	Federated            bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -108,8 +110,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 		opts = append(opts, config.WithP2PToken(token))
 
+		node, err := p2p.NewNode(token)
+		if err != nil {
+			return err
+		}
+
 		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.ServiceDiscoverer(context.Background(), token, "", func() {
+		if err := p2p.ServiceDiscoverer(context.Background(), node, token, "", func() {
 			var tunnelAddresses []string
 			for _, v := range p2p.GetAvailableNodes("") {
 				if v.IsOnline() {
@@ -123,6 +130,16 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
 		}); err != nil {
+			return err
+		}
+	}
+
+	if r.Federated {
+		_, port, err := net.SplitHostPort(r.Address)
+		if err != nil {
+			return err
+		}
+		if err := p2p.ExposeService(context.Background(), "localhost", port, r.Peer2PeerToken, p2p.FederatedID); err != nil {
 			return err
 		}
 	}

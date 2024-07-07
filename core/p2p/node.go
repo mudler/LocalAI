@@ -6,6 +6,7 @@ import (
 )
 
 const defaultServicesID = "services_localai"
+const FederatedID = "federated"
 
 type NodeData struct {
 	Name          string
