@@ -2416,6 +2416,25 @@
     - filename: Hathor_Respawn-L3-8B-v0.8-Q4_K_M.gguf
       sha256: d0cdfa8951ee80b252bf1dc183403ca9b48bc3de1578cb8e7fe321af753e661c
       uri: huggingface://bartowski/Hathor_Respawn-L3-8B-v0.8-GGUF/Hathor_Respawn-L3-8B-v0.8-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama3-8b-instruct-replete-adapted"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/-0dERC793D9XeFsJ9uHbx.png
+  urls:
+    - https://huggingface.co/Replete-AI/Llama3-8B-Instruct-Replete-Adapted
+    - https://huggingface.co/bartowski/Llama3-8B-Instruct-Replete-Adapted-GGUF
+  description: |
+    Replete-Coder-llama3-8b is a general purpose model that is specially trained in coding in over 100 coding languages. The data used to train the model contains 25% non-code instruction data and 75% coding instruction data totaling up to 3.9 million lines, roughly 1 billion tokens, or 7.27gb of instruct data. The data used to train this model was 100% uncensored, then fully deduplicated, before training happened.
+
+    More than just a coding model!
+
+    Although Replete-Coder has amazing coding capabilities, its trained on vaste amount of non-coding data, fully cleaned and uncensored. Dont just use it for coding, use it for all your needs! We are truly trying to make the GPT killer!
+  overrides:
+    parameters:
+      model: Llama3-8B-Instruct-Replete-Adapted-Q4_K_M.gguf
+  files:
+    - filename: Llama3-8B-Instruct-Replete-Adapted-Q4_K_M.gguf
+      sha256: 9e9a142f6fb5fc812b17bfc30230582ae50ac22b93dea696b6887cde815c1cb4
+      uri: huggingface://bartowski/Llama3-8B-Instruct-Replete-Adapted-GGUF/Llama3-8B-Instruct-Replete-Adapted-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
