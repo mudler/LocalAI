@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -148,7 +147,7 @@ func copyStream(closer chan struct{}, dst io.Writer, src io.Reader) {
 
 // This is the main of the server (which keeps the env variable updated)
 // This starts a goroutine that keeps LLAMACPP_GRPC_SERVERS updated with the discovered services
-func LLamaCPPRPCServerDiscoverer(ctx context.Context, token, servicesID string) error {
+func ServiceDiscoverer(ctx context.Context, token, servicesID string, discoveryFunc func()) error {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
@@ -169,22 +168,8 @@ func LLamaCPPRPCServerDiscoverer(ctx context.Context, token, servicesID string) 
 				return
 			case tunnel := <-tunnels:
 				AddNode(tunnel)
-
-				var tunnelAddresses []string
-				for _, v := range GetAvailableNodes() {
-					if v.IsOnline() {
-						tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
-					} else {
-						zlog.Info().Msgf("Node %s is offline", v.ID)
-					}
-				}
-				tunnelEnvVar := strings.Join(tunnelAddresses, ",")
-
-				os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
-				zlog.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
-
-				if tunnel.IsOnline() {
-					zlog.Info().Msgf("Node %s available", tunnel.ID)
+				if discoveryfunc != nil {
+					discoveryFunc()
 				}
 			}
 		}
@@ -304,7 +289,7 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 }
 
 // This is the P2P worker main
-func BindLLamaCPPWorker(ctx context.Context, host, port, token, servicesID string) error {
+func ExposeService(ctx context.Context, host, port, token, servicesID string) error {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}

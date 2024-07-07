@@ -59,7 +59,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			p = r.RunnerPort
 		}
 
-		err = p2p.BindLLamaCPPWorker(context.Background(), address, p, r.Token, "")
+		err = p2p.ExposeService(context.Background(), address, p, r.Token, "")
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	err = p2p.BindLLamaCPPWorker(context.Background(), address, fmt.Sprint(port), r.Token, "")
+	err = p2p.ExposeService(context.Background(), address, fmt.Sprint(port), r.Token, "")
 	if err != nil {
 		return err
 	}

@@ -12,11 +12,11 @@ func GenerateToken() string {
 	return "not implemented"
 }
 
-func LLamaCPPRPCServerDiscoverer(ctx context.Context, token, servicesID string) error {
+func ServiceDiscoverer(ctx context.Context, token, servicesID string, fn func()) error {
 	return fmt.Errorf("not implemented")
 }
 
-func BindLLamaCPPWorker(ctx context.Context, host, port, token, servicesID string) error {
+func ExposeService(ctx context.Context, host, port, token, servicesID string) error {
 	return fmt.Errorf("not implemented")
 }
 
