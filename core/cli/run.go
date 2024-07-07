@@ -94,9 +94,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithOpaqueErrors(r.OpaqueErrors),
 	}
 
+	token := ""
 	if r.Peer2Peer || r.Peer2PeerToken != "" {
 		log.Info().Msg("P2P mode enabled")
-		token := r.Peer2PeerToken
+		token = r.Peer2PeerToken
 		if token == "" {
 			// IF no token is provided, and p2p is enabled,
 			// we generate one and wait for the user to pick up the token (this is for interactive)
@@ -139,7 +140,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := p2p.ExposeService(context.Background(), "localhost", port, r.Peer2PeerToken, p2p.FederatedID); err != nil {
+		if err := p2p.ExposeService(context.Background(), "localhost", port, token, p2p.FederatedID); err != nil {
 			return err
 		}
 	}
