@@ -65,6 +65,9 @@ func RegisterLocalAIRoutes(app *fiber.App,
 				"Nodes": p2p.GetAvailableNodes(""),
 			})
 		})
+		app.Get("/api/p2p/token", auth, func(c *fiber.Ctx) error {
+			return c.Send([]byte(appConfig.P2PToken))
+		})
 	}
 
 	app.Get("/version", auth, func(c *fiber.Ctx) error {
