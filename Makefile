@@ -7,7 +7,7 @@ DETECT_LIBS?=true
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=60d83a0149849e9217e4b8ae26e277a41aea906e
+CPPLLAMA_VERSION?=3fd62a6b1c9ca7b7c0093e984cc9c133c6f2726d
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
