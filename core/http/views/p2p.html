@@ -10,17 +10,18 @@
 
         <div class="workers mt-12 text-center">
             <h2 class="text-3xl font-semibold text-gray-100 mb-8">
-                <i class="fa-solid fa-network-wired"></i>  P2P Network    
+                <i class="fa-solid fa-network-wired"></i> P2P Network    
                 <a href="https://localai.io/features/distribute/" target="_blank">
                     <i class="fas fa-circle-info pr-2"></i>
                 </a> 
             </h2> 
-            <p class="mb-2">LocalAI uses P2P technologies to enable distribution of work between peers. It is possible to share an instance with Federation and/or split the weights of a model across peers (only available with llama.cpp models).</p>
+            <p class="mb-4">LocalAI uses P2P technologies to enable distribution of work between peers. It is possible to share an instance with Federation and/or split the weights of a model across peers (only available with llama.cpp models).</p>
+            
             <!-- Tabs for Instructions -->
-            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 inline-block text-left">
-                <h3 class="text-2xl font-semibold text-gray-100 mb-4">Start a new llama.cpp P2P worker</h3>
-                <p class="mb-2">You can start llama.cpp workers to distribute weights between the workers and offload part of the computation.
-                To start a new worker, you can use the CLI or Docker.</p>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-12 text-left">
+                <h3 class="text-2xl font-semibold text-gray-100 mb-6">Start a new llama.cpp P2P worker</h3>
+                <p class="mb-4">You can start llama.cpp workers to distribute weights between the workers and offload part of the computation. To start a new worker, you can use the CLI or Docker.</p>
+                
                 <!-- Tabs navigation -->
                 <ul class="mb-5 flex list-none flex-row flex-wrap ps-0" role="tablist" data-twe-nav-ref>
                     <li role="presentation" class="flex-auto text-center">
@@ -40,37 +41,30 @@
                             local-ai worker p2p-llama-cpp-rpc
                         </code>
 
-                        For all the options available please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-yellow-300 hover:text-yellow-400">documentation</a>.
+                        <p class="mt-2">For all the options available, please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-yellow-300 hover:text-yellow-400">documentation</a>.</p>
                     </div>
                     <div class="tabcontent hidden opacity-0 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-docker" role="tabpanel" aria-labelledby="tabs-docker">
                         <p class="mb-2">To start a new worker with docker, run the following command:</p>
                         <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
-                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu worker p2p-llama-cpp-rpc
+                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-cpu worker p2p-llama-cpp-rpc
                         </code>
 
-                        For all the options available and see what image to use, please refer to the <a href="https://localai.io/basics/container/" target="_blank" class="text-yellow-300 hover:text-yellow-400">Container images documentation</a> and <a href="https://localai.io/advanced/#cli-parameters" target="_blank" class="text-yellow-300 hover:text-yellow-400">CLI parameters documentation</a>
+                        <p class="mt-2">For all the options available and see what image to use, please refer to the <a href="https://localai.io/basics/container/" target="_blank" class="text-yellow-300 hover:text-yellow-400">Container images documentation</a> and <a href="https://localai.io/advanced/#cli-parameters" target="_blank" class="text-yellow-300 hover:text-yellow-400">CLI parameters documentation</a>.</p>
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                <div
-                hx-get="/p2p/ui/workers-stats"
-                hx-trigger="every 1s"
-                >
-                </div>
-                <div
-                hx-get="/p2p/ui/workers"
-                hx-trigger="every 1s"
-                >
-                </div>
+            <p class="text-xl font-semibold text-gray-200"> Nodes: <span hx-get="/p2p/ui/workers-stats" hx-trigger="every 1s"></span> </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-12">
+                <div hx-get="/p2p/ui/workers" hx-trigger="every 1s"></div>
             </div>
-            <hr>
+            
+            <hr class="border-gray-700 mb-12">
 
-
-            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 inline-block text-left">
-                <h3 class="text-2xl font-semibold text-gray-100 mb-4">Start a federated instance</h3>
-                <p class="mb-2">You can start LocalAI in federated mode to share your instance, or start the federated server to balance requests between nodes of the federation.</p>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-12 text-left">
+                <h3 class="text-2xl font-semibold text-gray-100 mb-6">Start a federated instance</h3>
+                <p class="mb-4">You can start LocalAI in federated mode to share your instance, or start the federated server to balance requests between nodes of the federation.</p>
+                
                 <!-- Tabs navigation -->
                 <ul class="mb-5 flex list-none flex-row flex-wrap ps-0" role="tablist" data-twe-nav-ref>
                     <li role="presentation" class="flex-auto text-center">
@@ -90,7 +84,7 @@
                             local-ai run --federated --p2p
                         </code>
 
-                        Note: If you don't have a token do not specify it and use the generated one that you can find in this page afterwards.
+                        <p class="mt-2">Note: If you don't have a token do not specify it and use the generated one that you can find in this page afterwards.</p>
 
                         <p class="mb-2">To start a new federated load balancer:</p>
                         <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
@@ -98,38 +92,29 @@
                             local-ai federated
                         </code>
 
-                        Note: Token is needed when starting the federated server.
+                        <p class="mt-2">Note: Token is needed when starting the federated server.</p>
 
-                        For all the options available please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-yellow-300 hover:text-yellow-400">documentation</a>.
+                        <p class="mt-2">For all the options available, please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-yellow-300 hover:text-yellow-400">documentation</a>.</p>
                     </div>
                     <div class="tabcontent hidden opacity-0 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-federated-docker" role="tabpanel" aria-labelledby="tabs-federated-docker">
                         <p class="mb-2">To start a new federated instance:</p>
                         <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
-                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu run --federated --p2p
+                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-cpu run --federated --p2p
                         </code>
 
                         <p class="mb-2">To start a new federated server (port to 9090):</p>
                         <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
-                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 9090:8080 localai/localai:latest-aio-cpu federated
+                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 9090:8080 localai/localai:latest-cpu federated
                         </code>
 
-                        For all the options available and see what image to use, please refer to the <a href="https://localai.io/basics/container/" target="_blank" class="text-yellow-300 hover:text-yellow-400">Container images documentation</a> and <a href="https://localai.io/advanced/#cli-parameters" target="_blank" class="text-yellow-300 hover:text-yellow-400">CLI parameters documentation</a>
+                        <p class="mt-2">For all the options available and see what image to use, please refer to the <a href="https://localai.io/basics/container/" target="_blank" class="text-yellow-300 hover:text-yellow-400">Container images documentation</a> and <a href="https://localai.io/advanced/#cli-parameters" target="_blank" class="text-yellow-300 hover:text-yellow-400">CLI parameters documentation</a>.</p>
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                <div
-                hx-get="/p2p/ui/workers-federation-stats"
-                hx-trigger="every 1s"
-                >
-                </div>
-                <div
-                hx-get="/p2p/ui/workers-federation"
-                hx-trigger="every 1s"
-                >
-                </div>
- 
+            <p class="text-xl font-semibold text-gray-200"> Nodes: <span hx-get="/p2p/ui/workers-federation-stats" hx-trigger="every 1s"></span> </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-12">
+                <div hx-get="/p2p/ui/workers-federation" hx-trigger="every 1s"></div>
             </div>
         </div>
     </div>

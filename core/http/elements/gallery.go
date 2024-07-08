@@ -16,6 +16,14 @@ const (
 	noImage = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
 )
 
+func renderElements(n []elem.Node) string {
+	render := ""
+	for _, r := range n {
+		render += r.Render()
+	}
+	return render
+}
+
 func DoneProgress(galleryID, text string, showDelete bool) string {
 	var modelName = galleryID
 	// Split by @ and grab the name
@@ -94,23 +102,22 @@ func P2PNodeStats(nodes []p2p.NodeData) string {
 		}
 	}
 
-	return elem.Div(
-		attrs.Props{
-			"class": "bg-gray-800 p-6 rounded-lg shadow-lg text-left",
-		},
-		elem.P(
+	nodesElements := []elem.Node{
+		elem.Span(
 			attrs.Props{
-				"class": "text-xl font-semibold text-gray-200",
+				"class": "text-green-500",
 			},
-			elem.Text("Total Workers Detected: "+fmt.Sprintf("%d", len(nodes))),
+			elem.Text(fmt.Sprintf("%d", online)),
 		),
-		elem.P(
+		elem.Span(
 			attrs.Props{
-				"class": "text-xl font-semibold text-gray-200",
+				"class": "text-gray-200",
 			},
-			elem.Text("Total Online Workers: "+fmt.Sprintf("%d", online)),
+			elem.Text(fmt.Sprintf("/%d", len(nodes))),
 		),
-	).Render()
+	}
+
+	return renderElements(nodesElements)
 }
 
 func P2PNodeBoxes(nodes []p2p.NodeData) string {
@@ -164,12 +171,12 @@ func P2PNodeBoxes(nodes []p2p.NodeData) string {
 						n.IsOnline(),
 						elem.I(
 							attrs.Props{
-								"class": "fas fa-circle text-green-500 ml-2 mr-1",
+								"class": "fas fa-circle animate-pulse text-green-500 ml-2 mr-1",
 							},
 						),
 						elem.I(
 							attrs.Props{
-								"class": "fas fa-circle text-red-500 ml-2 mr-1",
+								"class": "fas fa-circle animate-pulse text-red-500 ml-2 mr-1",
 							},
 						),
 					),
@@ -193,11 +200,7 @@ func P2PNodeBoxes(nodes []p2p.NodeData) string {
 			))
 	}
 
-	render := ""
-	for _, r := range nodesElements {
-		render += r.Render()
-	}
-	return render
+	return renderElements(nodesElements)
 }
 
 func StartProgressBar(uid, progress, text string) string {
