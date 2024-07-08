@@ -102,11 +102,22 @@ func P2PNodeStats(nodes []p2p.NodeData) string {
 		}
 	}
 
+	class := "text-green-500"
+	if online == 0 {
+		class = "text-red-500"
+	}
+	/*
+	   <i class="fas fa-circle animate-pulse text-green-500 ml-2 mr-1"></i>
+	*/
+	circle := elem.I(attrs.Props{
+		"class": "fas fa-circle animate-pulse " + class + " ml-2 mr-1",
+	})
 	nodesElements := []elem.Node{
 		elem.Span(
 			attrs.Props{
-				"class": "text-green-500",
+				"class": class,
 			},
+			circle,
 			elem.Text(fmt.Sprintf("%d", online)),
 		),
 		elem.Span(
