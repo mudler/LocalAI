@@ -10,7 +10,7 @@
   <body class="bg-gray-900 text-gray-200" x-data="{ key: $store.chat.key }">
     <div class="flex flex-col min-h-screen">
 
-    {{template "views/partials/navbar"}}
+    {{template "views/partials/navbar" .}}
     <div class="chat-container mt-2 mr-2 ml-2 mb-2 bg-gray-800 shadow-lg rounded-lg " >
      <!-- Chat Header -->
       <div class="border-b border-gray-700 p-4"  x-data="{ component: 'menu' }">

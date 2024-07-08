@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 )
@@ -33,6 +34,7 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			"Models":            models,
 			"ModelsConfig":      backendConfigs,
 			"GalleryConfig":     galleryConfigs,
+			"IsP2PEnabled":      p2p.IsP2PEnabled(),
 			"ApplicationConfig": appConfig,
 			"ProcessingModels":  processingModels,
 			"TaskTypes":         taskTypes,
