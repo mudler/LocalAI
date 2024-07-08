@@ -155,28 +155,24 @@ func P2PNodeBoxes(nodes []p2p.NodeData) string {
 		nodesElements = append(nodesElements,
 			elem.Div(
 				attrs.Props{
-					"class": "bg-gray-800 p-4 rounded-lg shadow-lg text-left",
+					"class": "bg-gray-700 p-6 rounded-lg shadow-lg text-left",
 				},
-				elem.Div(
+				elem.P(
 					attrs.Props{
-						"class": "flex items-center mb-2",
+						"class": "text-sm text-gray-400 mt-2 flex",
 					},
 					elem.I(
 						attrs.Props{
 							"class": "fas fa-desktop text-gray-400 mr-2",
 						},
 					),
+					elem.Text("Name: "),
 					elem.Span(
 						attrs.Props{
-							"class": "text-gray-200 font-semibold",
+							"class": "text-gray-200 font-semibold ml-2 mr-1",
 						},
 						elem.Text(n.ID),
 					),
-				),
-				elem.P(
-					attrs.Props{
-						"class": "text-sm text-gray-400 mt-2 flex items-center",
-					},
 					elem.Text("Status: "),
 					elem.If(
 						n.IsOnline(),
