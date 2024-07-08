@@ -32,6 +32,7 @@ type ApplicationConfig struct {
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
 	OpaqueErrors                        bool
+	P2PToken                            string
 
 	ModelLibraryURL string
 
@@ -92,6 +93,12 @@ func WithCors(b bool) AppOption {
 func WithCsrf(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.CSRF = b
+	}
+}
+
+func WithP2PToken(s string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.P2PToken = s
 	}
 }
 

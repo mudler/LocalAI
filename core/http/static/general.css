@@ -81,10 +81,10 @@ ul {
 li {
     font-size: 0.875rem; /* Small text size */
     color: #4a5568; /* Dark gray text */
-    background-color: #f7fafc; /* Very light gray background */
+   /*  background-color: #f7fafc; Very light gray background */
     border-radius: 0.375rem; /* Rounded corners */
     padding: 0.5rem; /* Padding inside each list item */
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* Subtle shadow */
+    /*box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);  Subtle shadow */
     margin-bottom: 0.5rem; /* Vertical space between list items */
 }
 
