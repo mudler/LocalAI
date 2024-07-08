@@ -15,14 +15,42 @@
                     <i class="fas fa-circle-info pr-2"></i>
                 </a> 
             </h2> 
-
+            <p class="mb-2">LocalAI uses P2P technologies to enable distribution of work between peers. It is possible to share an instance with Federation and/or split the weights of a model across peers (only available with llama.cpp models).</p>
+            <!-- Tabs for Instructions -->
             <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 inline-block text-left">
-                <h3 class="text-2xl font-semibold text-gray-100 mb-4">Start a New Worker</h3>
-                <p class="mb-2">To start a new worker, run the following command:</p>
-                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
-                    export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
-                    local-ai worker p2p-llama-cpp-rpc
-                </code>        
+                <h3 class="text-2xl font-semibold text-gray-100 mb-4">Start a new llama.cpp P2P worker</h3>
+                <p class="mb-2">You can start llama.cpp workers to distribute weights between the workers and offload part of the computation.
+                To start a new worker, you can use the CLI or Docker.</p>
+                <!-- Tabs navigation -->
+                <ul class="mb-5 flex list-none flex-row flex-wrap ps-0" role="tablist" data-twe-nav-ref>
+                    <li role="presentation" class="flex-auto text-center">
+                        <a href="#tabs-cli" class="tablink my-2 block border-0 bg-gray-800 px-7 pb-3.5 pt-4 text-xs font-medium uppercase leading-tight text-white hover:bg-gray-700 focus:bg-gray-700 data-[twe-nav-active]:border-yellow-500 data-[twe-nav-active]:text-yellow-500 data-[twe-nav-active]:bg-gray-700 active" data-twe-toggle="pill" data-twe-target="#tabs-cli" data-twe-nav-active role="tab" aria-controls="tabs-cli" aria-selected="true"><i class="fa-solid fa-terminal"></i> CLI</a>
+                    </li>
+                    <li role="presentation" class="flex-auto text-center">
+                        <a href="#tabs-docker" class="tablink my-2 block border-0 bg-gray-800 px-7 pb-3.5 pt-4 text-xs font-medium uppercase leading-tight text-white hover:bg-gray-700 focus:bg-gray-700 data-[twe-nav-active]:border-yellow-500 data-[twe-nav-active]:text-yellow-500 data-[twe-nav-active]:bg-gray-700" data-twe-toggle="pill" data-twe-target="#tabs-docker" role="tab" aria-controls="tabs-docker" aria-selected="false"><i class="fa-solid fa-box-open"></i> Container images</a>
+                    </li>
+                </ul>
+
+                <!-- Tabs content -->
+                <div class="mb-6">
+                    <div class="tabcontent hidden opacity-100 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-cli" role="tabpanel" aria-labelledby="tabs-cli" data-twe-tab-active>
+                        <p class="mb-2">To start a new worker, run the following command:</p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                            export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
+                            local-ai worker p2p-llama-cpp-rpc
+                        </code>
+
+                        For all the options available please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-yellow-300 hover:text-yellow-400">documentation</a>.
+                    </div>
+                    <div class="tabcontent hidden opacity-0 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-docker" role="tabpanel" aria-labelledby="tabs-docker">
+                        <p class="mb-2">To start a new worker with docker, run the following command:</p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu worker p2p-llama-cpp-rpc
+                        </code>
+
+                        For all the options available and see what image to use, please refer to the <a href="https://localai.io/basics/container/" target="_blank" class="text-yellow-300 hover:text-yellow-400">Container images documentation</a> and <a href="https://localai.io/advanced/#cli-parameters" target="_blank" class="text-yellow-300 hover:text-yellow-400">CLI parameters documentation</a>
+                    </div>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
@@ -55,18 +83,55 @@
             </div>
             <hr>
 
+
             <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 inline-block text-left">
-                <h3 class="text-2xl font-semibold text-gray-100 mb-4">Federated mode</h3>
-                <p class="mb-2">To start a new worker, run the following command:</p>
-                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
-                    export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
-                    local-ai run
-                </code>        
-                <p class="mb-2">To start the inference server</p>
-                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
-                    export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
-                    local-ai federated
-                </code>        
+                <h3 class="text-2xl font-semibold text-gray-100 mb-4">Start a federated instance</h3>
+                <p class="mb-2">You can start LocalAI in federated mode to share your instance, or start the federated server to balance requests between nodes of the federation.</p>
+                <!-- Tabs navigation -->
+                <ul class="mb-5 flex list-none flex-row flex-wrap ps-0" role="tablist" data-twe-nav-ref>
+                    <li role="presentation" class="flex-auto text-center">
+                        <a href="#tabs-federated-cli" class="tablink my-2 block border-0 bg-gray-800 px-7 pb-3.5 pt-4 text-xs font-medium uppercase leading-tight text-white hover:bg-gray-700 focus:bg-gray-700 data-[twe-nav-active]:border-yellow-500 data-[twe-nav-active]:text-yellow-500 data-[twe-nav-active]:bg-gray-700 active" data-twe-toggle="pill" data-twe-target="#tabs-federated-cli" data-twe-nav-active role="tab" aria-controls="tabs-federated-cli" aria-selected="true"><i class="fa-solid fa-terminal"></i> CLI</a>
+                    </li>
+                    <li role="presentation" class="flex-auto text-center">
+                        <a href="#tabs-federated-docker" class="tablink my-2 block border-0 bg-gray-800 px-7 pb-3.5 pt-4 text-xs font-medium uppercase leading-tight text-white hover:bg-gray-700 focus:bg-gray-700 data-[twe-nav-active]:border-yellow-500 data-[twe-nav-active]:text-yellow-500 data-[twe-nav-active]:bg-gray-700" data-twe-toggle="pill" data-twe-target="#tabs-federated-docker" role="tab" aria-controls="tabs-federated-docker" aria-selected="false"><i class="fa-solid fa-box-open"></i> Container images</a>
+                    </li>
+                </ul>
+
+                <!-- Tabs content -->
+                <div class="mb-6">
+                    <div class="tabcontent hidden opacity-100 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-federated-cli" role="tabpanel" aria-labelledby="tabs-federated-cli" data-twe-tab-active>
+                        <p class="mb-2">To start a new federated instance:</p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                            export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
+                            local-ai run --federated --p2p
+                        </code>
+
+                        Note: If you don't have a token do not specify it and use the generated one that you can find in this page afterwards.
+
+                        <p class="mb-2">To start a new federated load balancer:</p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                            export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
+                            local-ai federated
+                        </code>
+
+                        Note: Token is needed when starting the federated server.
+
+                        For all the options available please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-yellow-300 hover:text-yellow-400">documentation</a>.
+                    </div>
+                    <div class="tabcontent hidden opacity-0 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-federated-docker" role="tabpanel" aria-labelledby="tabs-federated-docker">
+                        <p class="mb-2">To start a new federated instance:</p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu run --federated --p2p
+                        </code>
+
+                        <p class="mb-2">To start a new federated server (port to 9090):</p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                            docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 9090:8080 localai/localai:latest-aio-cpu federated
+                        </code>
+
+                        For all the options available and see what image to use, please refer to the <a href="https://localai.io/basics/container/" target="_blank" class="text-yellow-300 hover:text-yellow-400">Container images documentation</a> and <a href="https://localai.io/advanced/#cli-parameters" target="_blank" class="text-yellow-300 hover:text-yellow-400">CLI parameters documentation</a>
+                    </div>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
