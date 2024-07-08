@@ -53,8 +53,8 @@ RANDOM := $(shell bash -c 'echo $$RANDOM')
 VERSION?=$(shell git describe --always --tags || echo "dev" )
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=
-override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Version=$(VERSION)"
-override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
+override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
+override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
 
 OPTIONAL_TARGETS?=
 
@@ -147,7 +147,7 @@ endif
 
 # glibc-static or glibc-devel-static required
 ifeq ($(STATIC),true)
-	LD_FLAGS=-linkmode external -extldflags -static
+	LD_FLAGS+=-linkmode external -extldflags -static
 endif
 
 ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
