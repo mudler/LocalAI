@@ -57,16 +57,31 @@ func RegisterUIRoutes(app *fiber.App,
 	if p2p.IsP2PEnabled() {
 		app.Get("/p2p", auth, func(c *fiber.Ctx) error {
 			summary := fiber.Map{
-				"Title":          "LocalAI - P2P dashboard",
-				"Version":        internal.PrintableVersion(),
-				"Nodes":          p2p.GetAvailableNodes(""),
-				"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
-				"IsP2PEnabled":   p2p.IsP2PEnabled(),
-				"P2PToken":       appConfig.P2PToken,
+				"Title":   "LocalAI - P2P dashboard",
+				"Version": internal.PrintableVersion(),
+				//"Nodes":          p2p.GetAvailableNodes(""),
+				//"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
+				"IsP2PEnabled": p2p.IsP2PEnabled(),
+				"P2PToken":     appConfig.P2PToken,
 			}
 
 			// Render index
 			return c.Render("views/p2p", summary)
+		})
+
+		/* show nodes live! */
+		app.Get("/p2p/ui/workers", auth, func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes("")))
+		})
+		app.Get("/p2p/ui/workers-federation", auth, func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.FederatedID)))
+		})
+
+		app.Get("/p2p/ui/workers-stats", auth, func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes("")))
+		})
+		app.Get("/p2p/ui/workers-federation-stats", auth, func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.FederatedID)))
 		})
 	}
 

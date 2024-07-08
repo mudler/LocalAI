@@ -7,6 +7,7 @@ import (
 	"github.com/chasefleming/elem-go"
 	"github.com/chasefleming/elem-go/attrs"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/xsync"
 )
@@ -70,6 +71,133 @@ func ProgressBar(progress string) string {
 			"style": "width:" + progress + "%",
 		}),
 	).Render()
+}
+
+func P2PNodeStats(nodes []p2p.NodeData) string {
+	/*
+	   <div class="bg-gray-800 p-6 rounded-lg shadow-lg text-left">
+	                       <p class="text-xl font-semibold text-gray-200">Total Workers Detected: {{ len .Nodes }}</p>
+	                       {{ $online := 0 }}
+	                       {{ range .Nodes }}
+	                           {{ if .IsOnline }}
+	                               {{ $online = add $online 1 }}
+	                           {{ end }}
+	                       {{ end }}
+	                       <p class="text-xl font-semibold text-gray-200">Total Online Workers: {{$online}}</p>
+	                   </div>
+	*/
+
+	online := 0
+	for _, n := range nodes {
+		if n.IsOnline() {
+			online++
+		}
+	}
+
+	return elem.Div(
+		attrs.Props{
+			"class": "bg-gray-800 p-6 rounded-lg shadow-lg text-left",
+		},
+		elem.P(
+			attrs.Props{
+				"class": "text-xl font-semibold text-gray-200",
+			},
+			elem.Text("Total Workers Detected: "+fmt.Sprintf("%d", len(nodes))),
+		),
+		elem.P(
+			attrs.Props{
+				"class": "text-xl font-semibold text-gray-200",
+			},
+			elem.Text("Total Online Workers: "+fmt.Sprintf("%d", online)),
+		),
+	).Render()
+}
+
+func P2PNodeBoxes(nodes []p2p.NodeData) string {
+	/*
+			<div class="bg-gray-800 p-4 rounded-lg shadow-lg text-left">
+			<div class="flex items-center mb-2">
+				<i class="fas fa-desktop text-gray-400 mr-2"></i>
+				<span class="text-gray-200 font-semibold">{{.ID}}</span>
+			</div>
+			<p class="text-sm text-gray-400 mt-2 flex items-center">
+				Status:
+				<i class="fas fa-circle {{ if .IsOnline }}text-green-500{{ else }}text-red-500{{ end }} ml-2 mr-1"></i>
+				<span class="{{ if .IsOnline }}text-green-400{{ else }}text-red-400{{ end }}">
+					{{ if .IsOnline }}Online{{ else }}Offline{{ end }}
+				</span>
+			</p>
+		</div>
+	*/
+
+	nodesElements := []elem.Node{}
+
+	for _, n := range nodes {
+
+		nodesElements = append(nodesElements,
+			elem.Div(
+				attrs.Props{
+					"class": "bg-gray-800 p-4 rounded-lg shadow-lg text-left",
+				},
+				elem.Div(
+					attrs.Props{
+						"class": "flex items-center mb-2",
+					},
+					elem.I(
+						attrs.Props{
+							"class": "fas fa-desktop text-gray-400 mr-2",
+						},
+					),
+					elem.Span(
+						attrs.Props{
+							"class": "text-gray-200 font-semibold",
+						},
+						elem.Text(n.ID),
+					),
+				),
+				elem.P(
+					attrs.Props{
+						"class": "text-sm text-gray-400 mt-2 flex items-center",
+					},
+					elem.Text("Status: "),
+					elem.If(
+						n.IsOnline(),
+						elem.I(
+							attrs.Props{
+								"class": "fas fa-circle text-green-500 ml-2 mr-1",
+							},
+						),
+						elem.I(
+							attrs.Props{
+								"class": "fas fa-circle text-red-500 ml-2 mr-1",
+							},
+						),
+					),
+					elem.If(
+						n.IsOnline(),
+						elem.Span(
+							attrs.Props{
+								"class": "text-green-400",
+							},
+
+							elem.Text("Online"),
+						),
+						elem.Span(
+							attrs.Props{
+								"class": "text-red-400",
+							},
+							elem.Text("Offline"),
+						),
+					),
+				),
+			))
+	}
+
+	render := ""
+	for _, r := range nodesElements {
+		render += r.Render()
+	}
+	return render
 }
 
 func StartProgressBar(uid, progress, text string) string {

@@ -54,32 +54,16 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                <div class="bg-gray-800 p-6 rounded-lg shadow-lg text-left">
-                    <p class="text-xl font-semibold text-gray-200">Total Workers Detected: {{ len .Nodes }}</p>
-                    {{ $online := 0 }}
-                    {{ range .Nodes }}
-                        {{ if .IsOnline }}
-                            {{ $online = add $online 1 }}
-                        {{ end }}
-                    {{ end }}
-                    <p class="text-xl font-semibold text-gray-200">Total Online Workers: {{$online}}</p>
+                <div
+                hx-get="/p2p/ui/workers-stats"
+                hx-trigger="every 1s"
+                >
                 </div>
-
-                {{ range .Nodes }}
-                    <div class="bg-gray-800 p-4 rounded-lg shadow-lg text-left">
-                        <div class="flex items-center mb-2">
-                            <i class="fas fa-desktop text-gray-400 mr-2"></i>
-                            <span class="text-gray-200 font-semibold">{{.ID}}</span>
-                        </div>
-                        <p class="text-sm text-gray-400 mt-2 flex items-center">
-                            Status: 
-                            <i class="fas fa-circle {{ if .IsOnline }}text-green-500{{ else }}text-red-500{{ end }} ml-2 mr-1"></i>
-                            <span class="{{ if .IsOnline }}text-green-400{{ else }}text-red-400{{ end }}">
-                                {{ if .IsOnline }}Online{{ else }}Offline{{ end }}
-                            </span>
-                        </p>
-                    </div>
-                {{ end }}
+                <div
+                hx-get="/p2p/ui/workers"
+                hx-trigger="every 1s"
+                >
+                </div>
             </div>
             <hr>
 
@@ -135,31 +119,17 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                <div class="bg-gray-800 p-6 rounded-lg shadow-lg text-left">
-                    <p class="text-xl font-semibold text-gray-200">Total Federated nodes Detected: {{ len .FederatedNodes }}</p>
-                    {{ $fonline := 0 }}
-                    {{ range .FederatedNodes }}
-                        {{ if .IsOnline }}
-                            {{ $fonline = add $online 1 }}
-                        {{ end }}
-                    {{ end }}
-                    <p class="text-xl font-semibold text-gray-200">Total Online Federated nodes: {{$fonline}}</p>
+                <div
+                hx-get="/p2p/ui/workers-federation-stats"
+                hx-trigger="every 1s"
+                >
                 </div>
-                {{ range .FederatedNodes }}
-                <div class="bg-gray-800 p-4 rounded-lg shadow-lg text-left">
-                    <div class="flex items-center mb-2">
-                        <i class="fas fa-desktop text-gray-400 mr-2"></i>
-                        <span class="text-gray-200 font-semibold">{{.ID}}</span>
-                    </div>
-                    <p class="text-sm text-gray-400 mt-2 flex items-center">
-                        Status: 
-                        <i class="fas fa-circle {{ if .IsOnline }}text-green-500{{ else }}text-red-500{{ end }} ml-2 mr-1"></i>
-                        <span class="{{ if .IsOnline }}text-green-400{{ else }}text-red-400{{ end }}">
-                            {{ if .IsOnline }}Online{{ else }}Offline{{ end }}
-                        </span>
-                    </p>
+                <div
+                hx-get="/p2p/ui/workers-federation"
+                hx-trigger="every 1s"
+                >
                 </div>
-            {{ end }}
+ 
             </div>
         </div>
     </div>
