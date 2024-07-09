@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
 )
 
@@ -50,6 +51,20 @@ func RegisterLocalAIRoutes(app *fiber.App, requestExtractor *middleware.RequestE
 
 	app.Get("/backend/monitor", localai.BackendMonitorEndpoint(application.BackendMonitorService))
 	app.Post("/backend/shutdown", localai.BackendShutdownEndpoint(application.BackendMonitorService))
+
+	// p2p
+	if p2p.IsP2PEnabled() {
+		app.Get("/api/p2p", func(c *fiber.Ctx) error {
+			// Render index
+			return c.JSON(map[string]interface{}{
+				"Nodes":          p2p.GetAvailableNodes(""),
+				"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
+			})
+		})
+		app.Get("/api/p2p/token", func(c *fiber.Ctx) error {
+			return c.Send([]byte(application.ApplicationConfig.P2PToken))
+		})
+	}
 
 	app.Get("/version", func(c *fiber.Ctx) error {
 		return c.JSON(struct {

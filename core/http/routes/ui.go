@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/elements"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/xsync"
@@ -48,6 +49,37 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 
 	app.Get("/", localai.WelcomeEndpoint(application.ApplicationConfig, application.BackendConfigLoader, application.ModelLoader, modelStatus))
 
+	if p2p.IsP2PEnabled() {
+		app.Get("/p2p", func(c *fiber.Ctx) error {
+			summary := fiber.Map{
+				"Title":   "LocalAI - P2P dashboard",
+				"Version": internal.PrintableVersion(),
+				//"Nodes":          p2p.GetAvailableNodes(""),
+				//"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
+				"IsP2PEnabled": p2p.IsP2PEnabled(),
+				"P2PToken":     application.ApplicationConfig.P2PToken,
+			}
+
+			// Render index
+			return c.Render("views/p2p", summary)
+		})
+
+		/* show nodes live! */
+		app.Get("/p2p/ui/workers", func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes("")))
+		})
+		app.Get("/p2p/ui/workers-federation", func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.FederatedID)))
+		})
+
+		app.Get("/p2p/ui/workers-stats", func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes("")))
+		})
+		app.Get("/p2p/ui/workers-federation-stats", func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.FederatedID)))
+		})
+	}
+
 	// Show the Models page (all models)
 	app.Get("/browse", func(c *fiber.Ctx) error {
 		term := c.Query("term")
@@ -82,7 +114,9 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 			"AllTags":          tags,
 			"ProcessingModels": processingModelsData,
 			"AvailableModels":  len(models),
-			"TaskTypes":        taskTypes,
+			"IsP2PEnabled":     p2p.IsP2PEnabled(),
+
+			"TaskTypes": taskTypes,
 			//	"ApplicationConfig": appConfig,
 		}
 
@@ -238,6 +272,7 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -256,6 +291,7 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 			"Title":        "LocalAI - Talk",
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].ID,
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 			"Version":      internal.PrintableVersion(),
 		}
 
@@ -277,6 +313,7 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].ID,
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -291,6 +328,7 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -311,6 +349,7 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].Name,
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -325,6 +364,7 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -344,6 +384,7 @@ func RegisterUIRoutes(app *fiber.App, application *core.Application) {
 			"Title":        "LocalAI - Generate audio with " + backendConfigs[0].Name,
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].Name,
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 			"Version":      internal.PrintableVersion(),
 		}
 
