@@ -234,7 +234,7 @@ sources/go-llama.cpp/libbinding.a: sources/go-llama.cpp
 
 ## go-piper
 sources/go-piper:
-	mkdir sources/go-piper
+	mkdir -p sources/go-piper
 	cd sources/go-piper && \
 	git init && \
 	git remote add origin $(PIPER_REPO) && \
@@ -247,7 +247,7 @@ sources/go-piper/libpiper_binding.a: sources/go-piper
 
 ## GPT4ALL
 sources/gpt4all:
-	mkdir sources/gpt4all
+	mkdir -p sources/gpt4all
 	cd sources/gpt4all && \
 	git init && \
 	git remote add origin $(GPT4ALL_REPO) && \
@@ -260,7 +260,7 @@ sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
 
 ## RWKV
 sources/go-rwkv.cpp:
-	mkdir sources/go-rwkv.cpp
+	mkdir -p sources/go-rwkv.cpp
 	cd sources/go-rwkv.cpp && \
 	git init && \
 	git remote add origin $(RWKV_REPO) && \
@@ -273,7 +273,7 @@ sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
 
 ## stable diffusion
 sources/go-stable-diffusion:
-	mkdir sources/go-stable-diffusion
+	mkdir -p sources/go-stable-diffusion
 	cd sources/go-stable-diffusion && \
 	git init && \
 	git remote add origin $(STABLEDIFFUSION_REPO) && \
@@ -286,7 +286,7 @@ sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 
 ## tiny-dream
 sources/go-tiny-dream:
-	mkdir sources/go-tiny-dream
+	mkdir -p sources/go-tiny-dream
 	cd sources/go-tiny-dream && \
 	git init && \
 	git remote add origin $(TINYDREAM_REPO) && \
@@ -299,7 +299,7 @@ sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
 
 ## whisper
 sources/whisper.cpp:
-	mkdir sources/whisper.cpp
+	mkdir -p sources/whisper.cpp
 	cd sources/whisper.cpp && \
 	git init && \
 	git remote add origin $(WHISPER_REPO) && \
