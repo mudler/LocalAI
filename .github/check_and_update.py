@@ -8,7 +8,6 @@ uri = sys.argv[0]
 file_name = uri.split('/')[-1]
 
 # Function to parse the URI and determine download method
-# Function to parse the URI and determine download method
 def parse_uri(uri):
     if uri.startswith('huggingface://'):
         repo_id = uri.split('://')[1]
