@@ -348,11 +348,15 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	llger := logger.New(log.LevelFatal)
 	defaultInterval := 10 * time.Second
 
+	// TODO: move this up, expose more config options when creating a node
+	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
+	noLimits := os.Getenv("LOCALAI_P2P_DISABLE_LIMITS") == "true"
+
 	loglevel := "info"
 
 	c := config.Config{
 		Limit: config.ResourceLimit{
-			Enable:   true,
+			Enable:   !noLimits,
 			MaxConns: 100,
 		},
 		NetworkToken:   token,
@@ -372,7 +376,7 @@ func newNodeOpts(token string) ([]node.Option, error) {
 			RateLimitInterval: defaultInterval,
 		},
 		Discovery: config.Discovery{
-			DHT:      true,
+			DHT:      noDHT,
 			MDNS:     true,
 			Interval: 30 * time.Second,
 		},
