@@ -6,6 +6,10 @@ import (
 	"github.com/mudler/LocalAI/core/services"
 )
 
+// ListModelsEndpoint is the OpenAI Models API endpoint https://platform.openai.com/docs/api-reference/models
+// @Summary List and describe the various models available in the API.
+// @Success 200 {object} schema.ModelsDataResponse "Response"
+// @Router /v1/models [get]
 func ListModelsEndpoint(lms *services.ListModelsService) func(ctx *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		// If blank, no filter is applied.
@@ -18,10 +22,7 @@ func ListModelsEndpoint(lms *services.ListModelsService) func(ctx *fiber.Ctx) er
 		if err != nil {
 			return err
 		}
-		return c.JSON(struct {
-			Object string               `json:"object"`
-			Data   []schema.OpenAIModel `json:"data"`
-		}{
+		return c.JSON(schema.ModelsDataResponse{
 			Object: "list",
 			Data:   dataModels,
 		})
