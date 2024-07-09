@@ -107,13 +107,6 @@ jobs:
           CROSS_STAGING_PREFIX=$CROSS_TOOLCHAIN/stage
           CMAKE_CROSS_TOOLCHAIN=/tmp/arm.toolchain.cmake
 
-          echo "include(FetchContent)" >> backend/cpp/llama/CMakeLists.txt
-          echo "FetchContent_Declare(" >> backend/cpp/llama/CMakeLists.txt
-          echo "  googletest" >> backend/cpp/llama/CMakeLists.txt
-          echo "  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip" >> backend/cpp/llama/CMakeLists.txt
-          echo ")" >> backend/cpp/llama/CMakeLists.txt
-          echo "FetchContent_MakeAvailable(googletest)" >> backend/cpp/llama/CMakeLists.txt
-
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
           export PATH=$PATH:$GOPATH/bin
