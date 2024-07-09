@@ -3,6 +3,7 @@ package startup
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,19 +78,35 @@ func InstallModels(galleries []config.Gallery, modelLibraryURL string, modelPath
 
 			log.Info().Msgf("[startup] installed model from OCI repository: %s", ociName)
 		case downloader.LooksLikeURL(url):
-			log.Debug().Msgf("[startup] resolved model to download: %s", url)
+			log.Debug().Msgf("[startup] downloading %s", url)
 
-			// md5 of model name
-			md5Name := utils.MD5(url)
+			// Extract filename from URL
+			fileName, e := filenameFromUrl(url)
+			if e != nil || fileName == "" {
+				fileName = utils.MD5(url)
+				if strings.HasSuffix(url, ".yaml") || strings.HasSuffix(url, ".yml") {
+					fileName = fileName + ".yaml"
+				}
+				log.Warn().Err(e).Str("url", url).Msg("error extracting filename from URL")
+				//err = errors.Join(err, e)
+				//continue
+			}
+
+			modelPath := filepath.Join(modelPath, fileName)
+
+			if e := utils.VerifyPath(fileName, modelPath); e != nil {
+				log.Error().Err(e).Str("filepath", modelPath).Msg("error verifying path")
+				err = errors.Join(err, e)
+				continue
+			}
 
 			// check if file exists
-			if _, e := os.Stat(filepath.Join(modelPath, md5Name)); errors.Is(e, os.ErrNotExist) {
-				modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
-				e := downloader.DownloadFile(url, modelDefinitionFilePath, "", 0, 0, func(fileName, current, total string, percent float64) {
+			if _, e := os.Stat(modelPath); errors.Is(e, os.ErrNotExist) {
+				e := downloader.DownloadFile(url, modelPath, "", 0, 0, func(fileName, current, total string, percent float64) {
 					utils.DisplayDownloadFunction(fileName, current, total, percent)
 				})
 				if e != nil {
-					log.Error().Err(e).Str("url", url).Str("filepath", modelDefinitionFilePath).Msg("error downloading model")
+					log.Error().Err(e).Str("url", url).Str("filepath", modelPath).Msg("error downloading model")
 					err = errors.Join(err, e)
 				}
 			}
@@ -149,4 +166,21 @@ func installModel(galleries []config.Gallery, modelName, modelPath string, downl
 	}
 
 	return nil, true
+}
+
+func filenameFromUrl(urlstr string) (string, error) {
+	// strip anything after @
+	if strings.Contains(urlstr, "@") {
+		urlstr = strings.Split(urlstr, "@")[0]
+	}
+
+	u, err := url.Parse(urlstr)
+	if err != nil {
+		return "", fmt.Errorf("error due to parsing url: %w", err)
+	}
+	x, err := url.QueryUnescape(u.EscapedPath())
+	if err != nil {
+		return "", fmt.Errorf("error due to escaping: %w", err)
+	}
+	return filepath.Base(x), nil
 }
