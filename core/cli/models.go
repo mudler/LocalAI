@@ -25,7 +25,8 @@ type ModelsList struct {
 }
 
 type ModelsInstall struct {
-	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
+	EnablePredownloadScan bool     `env:"LOCALAI_ENFORCE_PREDOWNLOAD_SCAN" help:"Runs the best-effort security scanner before downloading any files." default:"true"`
+	ModelArgs             []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 
 	ModelsCMDFlags `embed:""`
 }
@@ -97,7 +98,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		}
 
-		err = startup.InstallModels(galleries, "", mi.ModelsPath, progressCallback, modelName)
+		err = startup.InstallModels(galleries, "", mi.ModelsPath, mi.EnablePredownloadScan, progressCallback, modelName)
 		if err != nil {
 			return err
 		}

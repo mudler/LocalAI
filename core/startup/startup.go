@@ -60,7 +60,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		}
 	}
 
-	if err := pkgStartup.InstallModels(options.Galleries, options.ModelLibraryURL, options.ModelPath, nil, options.ModelsURL...); err != nil {
+	if err := pkgStartup.InstallModels(options.Galleries, options.ModelLibraryURL, options.ModelPath, options.EnforcePredownloadScans, nil, options.ModelsURL...); err != nil {
 		log.Error().Err(err).Msg("error installing models")
 	}
 
@@ -84,13 +84,13 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, options.Galleries); err != nil {
+		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, options.EnforcePredownloadScans, options.Galleries); err != nil {
 			return nil, nil, nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, options.Galleries); err != nil {
+		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, options.EnforcePredownloadScans, options.Galleries); err != nil {
 			return nil, nil, nil, err
 		}
 	}

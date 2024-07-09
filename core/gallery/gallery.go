@@ -15,7 +15,7 @@ import (
 )
 
 // Installs a model from the gallery
-func InstallModelFromGallery(galleries []config.Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
+func InstallModelFromGallery(galleries []config.Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan bool) error {
 
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
@@ -63,7 +63,7 @@ func InstallModelFromGallery(galleries []config.Gallery, name string, basePath s
 			return err
 		}
 
-		if err := InstallModel(basePath, installName, &config, model.Overrides, downloadStatus); err != nil {
+		if err := InstallModel(basePath, installName, &config, model.Overrides, downloadStatus, enforceScan); err != nil {
 			return err
 		}
 
