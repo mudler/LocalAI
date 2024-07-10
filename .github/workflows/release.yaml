@@ -52,8 +52,7 @@ jobs:
         run: |
 
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-            -DABSL_BUILD_TESTING=OFF \
+          cd grpc && mkdir -p cmake/build -DABSL_BUILD_TESTING=OFF && cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
