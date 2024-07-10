@@ -701,7 +701,6 @@ backend/cpp/llama/llama.cpp:
 INSTALLED_PACKAGES=$(CURDIR)/backend/cpp/grpc/installed_packages
 INSTALLED_LIB_CMAKE=$(INSTALLED_PACKAGES)/lib/cmake
 ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
-				 -DABSL_BUILD_TESTING=OFF \
 				 -DProtobuf_DIR=${INSTALLED_LIB_CMAKE}/protobuf \
 				 -Dutf8_range_DIR=${INSTALLED_LIB_CMAKE}/utf8_range \
 				 -DgRPC_DIR=${INSTALLED_LIB_CMAKE}/grpc \
