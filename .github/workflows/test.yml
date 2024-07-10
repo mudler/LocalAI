@@ -10,7 +10,7 @@ on:
       - '*'
 
 env:
-  GRPC_VERSION: v1.64.0
+  GRPC_VERSION: v1.65.0
 
 concurrency:
   group: ci-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
