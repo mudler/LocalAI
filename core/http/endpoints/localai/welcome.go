@@ -5,6 +5,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 )
@@ -12,7 +13,7 @@ import (
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 	cl *config.BackendConfigLoader, ml *model.ModelLoader, modelStatus func() (map[string]string, map[string]string)) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		models, _ := ml.ListModels()
+		models, _ := services.ListModels(cl, ml, "", true)
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		galleryConfigs := map[string]*gallery.Config{}
