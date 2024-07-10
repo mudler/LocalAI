@@ -51,17 +51,9 @@ jobs:
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
 
-          git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc
-          GRPC_DIR=$PWD/grpc
-          echo "include(FetchContent)" >> $GRPC_DIR/CMakeLists.txt
-          echo "FetchContent_Declare(" >> $GRPC_DIR/CMakeLists.txt
-          echo "  googletest" >> $GRPC_DIR/CMakeLists.txt
-          echo "  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip" >> $GRPC_DIR/CMakeLists.txt
-          echo ")" >> $GRPC_DIR/CMakeLists.txt
-          echo "FetchContent_MakeAvailable(googletest)" >> $GRPC_DIR/CMakeLists.txt
-          
+          git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-            -DgRPC_BUILD_TESTS=OFF -DABSL_BUILD_TESTING=OFF \
+            -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
         run: |
@@ -86,20 +78,11 @@ jobs:
             echo "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN
           GRPC_DIR=$PWD/grpc
 
-          # http://google.github.io/googletest/quickstart-cmake.html
-          # Seems otherwise cross-arch fails to find it
-          echo "include(FetchContent)" >> $GRPC_DIR/third_party/abseil-cpp/absl/container/CMakeLists.txt
-          echo "FetchContent_Declare(" >> $GRPC_DIR/third_party/abseil-cpp/absl/container/CMakeLists.txt
-          echo "  googletest" >> $GRPC_DIR/third_party/abseil-cpp/absl/container/CMakeLists.txt
-          echo "  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip" >> $GRPC_DIR/third_party/abseil-cpp/absl/container/CMakeLists.txt
-          echo ")" >> $GRPC_DIR/third_party/abseil-cpp/absl/container/CMakeLists.txt
-          echo "FetchContent_MakeAvailable(googletest)" >> $GRPC_DIR/third_party/abseil-cpp/absl/container/CMakeLists.txt
-
           cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install && \
           GRPC_CROSS_BUILD_DIR=$GRPC_DIR/cmake/cross_build && \
           mkdir -p $GRPC_CROSS_BUILD_DIR && \
           cd $GRPC_CROSS_BUILD_DIR && \
-          cmake -DABSL_BUILD_TESTING=OFF -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN \
+          cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=$CROSS_TOOLCHAIN/grpc_install \
             ../.. && \
@@ -215,7 +198,7 @@ jobs:
         run: |
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-            -DgRPC_BUILD_TESTS=OFF -DABSL_BUILD_TESTING=OFF \
+            -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
         run: |
