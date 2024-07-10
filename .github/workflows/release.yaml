@@ -53,7 +53,7 @@ jobs:
 
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-            -DgRPC_BUILD_TESTS=OFF \
+            -DgRPC_BUILD_TESTS=OFF -DABSL_BUILD_TESTING=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
         run: |
@@ -82,7 +82,7 @@ jobs:
           GRPC_CROSS_BUILD_DIR=$GRPC_DIR/cmake/cross_build && \
           mkdir -p $GRPC_CROSS_BUILD_DIR && \
           cd $GRPC_CROSS_BUILD_DIR && \
-          cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN \
+          cmake -DABSL_BUILD_TESTING=OFF -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=$CROSS_TOOLCHAIN/grpc_install \
             ../.. && \
@@ -198,7 +198,7 @@ jobs:
         run: |
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
-            -DgRPC_BUILD_TESTS=OFF \
+            -DgRPC_BUILD_TESTS=OFF -DABSL_BUILD_TESTING=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
         run: |
