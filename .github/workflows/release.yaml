@@ -78,6 +78,15 @@ jobs:
             echo "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN
           GRPC_DIR=$PWD/grpc
 
+          # http://google.github.io/googletest/quickstart-cmake.html
+          # Seems otherwise cross-arch fails to find it
+          echo "include(FetchContent)" >> $GRPC_DIR/CMakeLists.txt
+          echo "FetchContent_Declare(" >> $GRPC_DIR/CMakeLists.txt
+          echo "  googletest" >> $GRPC_DIR/CMakeLists.txt
+          echo "  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip" >> $GRPC_DIR/CMakeLists.txt
+          echo ")" >> $GRPC_DIR/CMakeLists.txt
+          echo "FetchContent_MakeAvailable(googletest)" >> $GRPC_DIR/CMakeLists.txt
+
           cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install && \
           GRPC_CROSS_BUILD_DIR=$GRPC_DIR/cmake/cross_build && \
           mkdir -p $GRPC_CROSS_BUILD_DIR && \
