@@ -28,7 +28,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			return err
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, ml, input.ModelID, false)
+		modelFile, err := fiberContext.ModelFromContext(c, cl, ml, input.ModelID, false)
 		if err != nil {
 			modelFile = input.ModelID
 			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
