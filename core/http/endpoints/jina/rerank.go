@@ -28,7 +28,7 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			return err
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, ml, input.Model, false)
+		modelFile, err := fiberContext.ModelFromContext(c, cl, ml, input.Model, false)
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
