@@ -148,6 +148,37 @@ definitions:
           $ref: '#/definitions/openai.Tool'
         type: array
     type: object
+  openai.DeleteStatus:
+    properties:
+      deleted:
+        type: boolean
+      id:
+        type: string
+      object:
+        type: string
+    type: object
+  openai.File:
+    properties:
+      bytes:
+        description: Size of the file in bytes
+        type: integer
+      created_at:
+        description: The time at which the file was created
+        type: string
+      filename:
+        description: The name of the file
+        type: string
+      id:
+        description: Unique identifier for the file
+        type: string
+      object:
+        description: Type of the object (e.g., "file")
+        type: string
+      purpose:
+        description: The purpose of the file (e.g., "fine-tune", "classifications",
+          etc.)
+        type: string
+    type: object
   openai.Tool:
     properties:
       type:
@@ -221,6 +252,22 @@ definitions:
         items:
           $ref: '#/definitions/schema.ToolCall'
         type: array
+    type: object
+  schema.ModelsDataResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.OpenAIModel'
+        type: array
+      object:
+        type: string
+    type: object
+  schema.OpenAIModel:
+    properties:
+      id:
+        type: string
+      object:
+        type: string
     type: object
   schema.OpenAIRequest:
     properties:
@@ -533,6 +580,29 @@ paths:
             $ref: '#/definitions/schema.OpenAIResponse'
       summary: Get a vector representation of a given input that can be easily consumed
         by machine learning models and algorithms.
+  /v1/files/{file_id}:
+    delete:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/openai.DeleteStatus'
+      summary: Delete a file.
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/openai.File'
+      summary: Returns information about a specific file.
+  /v1/files/{file_id}/content:
+    get:
+      responses:
+        "200":
+          description: file
+          schema:
+            type: string
+      summary: Returns information about a specific file.
   /v1/images/generations:
     post:
       parameters:
@@ -548,6 +618,14 @@ paths:
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
       summary: Creates an image given a prompt.
+  /v1/models:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ModelsDataResponse'
+      summary: List and describe the various models available in the API.
   /v1/text-to-speech/{voice-id}:
     post:
       parameters:
