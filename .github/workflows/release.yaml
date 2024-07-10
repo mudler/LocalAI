@@ -53,7 +53,7 @@ jobs:
 
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && mkdir -p cmake/build && echo "--------------------------" && cd cmake/build && cmake -DABSL_BUILD_TESTING=OFF \
-            --DABSL_INTERNAL_MAKE_DLL_TEST=OFF \
+            -DABSL_INTERNAL_MAKE_DLL_TEST=OFF \
             -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
