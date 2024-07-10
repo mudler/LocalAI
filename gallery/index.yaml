@@ -1730,6 +1730,23 @@
     - filename: Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
       sha256: 75091cf3a7145373922dbeb312c689cace89ba06215ce74b6fc7055a4b35a40c
       uri: huggingface://bartowski/Llama-3-Yggdrasil-2.0-8B-GGUF/Llama-3-Yggdrasil-2.0-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "hathor_tahsin-l3-8b-v0.85"
+  description: |
+     Hathor_Tahsin [v-0.85] is designed to seamlessly integrate the qualities of creativity, intelligence, and robust performance.
+      Note: Hathor_Tahsin [v0.85] is trained on 3 epochs of Private RP, STEM (Intruction/Dialogs), Opus instructons, mixture light/classical novel data, roleplaying chat pairs over llama 3 8B instruct.
+     Additional Note's: (Based on Hathor_Fractionate-v0.5 instead of Hathor_Aleph-v0.72, should be less repetitive than either 0.72 or 0.8)
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/MY9tjLnEG5hOQOyKk06PK.jpeg
+  urls:
+    - https://huggingface.co/Nitral-AI/Hathor_Tahsin-L3-8B-v0.85
+    - https://huggingface.co/bartowski/Hathor_Tahsin-L3-8B-v0.85-GGUF
+  overrides:
+    parameters:
+      model: Hathor_Tahsin-L3-8B-v0.85-Q4_K_M.gguf
+  files:
+    - filename: Hathor_Tahsin-L3-8B-v0.85-Q4_K_M.gguf
+      sha256: c82f39489e767a842925fc58cafb5dec0cc71313d904a53fdb46186be899ecb0
+      uri: huggingface://bartowski/Hathor_Tahsin-L3-8B-v0.85-GGUF/Hathor_Tahsin-L3-8B-v0.85-Q4_K_M.gguf
 - name: "llama-3-sec-chat"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   urls:
