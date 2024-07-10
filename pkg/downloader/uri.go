@@ -3,6 +3,8 @@ package downloader
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -129,6 +131,7 @@ func ConvertURL(s string) string {
 		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
 		owner := strings.Split(repository, "/")[0]
 		repo := strings.Split(repository, "/")[1]
+
 		branch := "main"
 		if strings.Contains(repo, "@") {
 			branch = strings.Split(repository, "@")[1]
@@ -352,4 +355,43 @@ func calculateSHA(filePath string) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+type HuggingFaceScanResult struct {
+	RepositoryId        string   `json:"repositoryId"`
+	Revision            string   `json:"revision"`
+	HasUnsafeFiles      bool     `json:"hasUnsafeFile"`
+	ClamAVInfectedFiles []string `json:"clamAVInfectedFiles"`
+	DangerousPickles    []string `json:"dangerousPickles"`
+	ScansDone           bool     `json:"scansDone"`
+}
+
+var ErrNonHuggingFaceFile = errors.New("not a huggingface repo")
+var ErrUnsafeFilesFound = errors.New("unsafe files found")
+
+func HuggingFaceScan(uri string) (*HuggingFaceScanResult, error) {
+	cleanParts := strings.Split(ConvertURL(uri), "/")
+	if len(cleanParts) <= 4 || cleanParts[2] != "huggingface.co" {
+		return nil, ErrNonHuggingFaceFile
+	}
+	results, err := http.Get(fmt.Sprintf("https://huggingface.co/api/models/%s/%s/scan", cleanParts[3], cleanParts[4]))
+	if err != nil {
+		return nil, err
+	}
+	if results.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected status code during HuggingFaceScan: %d", results.StatusCode)
+	}
+	scanResult := &HuggingFaceScanResult{}
+	bodyBytes, err := io.ReadAll(results.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(bodyBytes, scanResult)
+	if err != nil {
+		return nil, err
+	}
+	if scanResult.HasUnsafeFiles {
+		return scanResult, ErrUnsafeFilesFound
+	}
+	return scanResult, nil
 }
