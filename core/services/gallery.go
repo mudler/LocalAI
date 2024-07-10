@@ -30,7 +30,7 @@ func NewGalleryService(appConfig *config.ApplicationConfig) *GalleryService {
 	}
 }
 
-func prepareModel(modelPath string, req gallery.GalleryModel, downloadStatus func(string, string, string, float64)) error {
+func prepareModel(modelPath string, req gallery.GalleryModel, downloadStatus func(string, string, string, float64), enforceScan bool) error {
 
 	config, err := gallery.GetGalleryConfigFromURL(req.URL, modelPath)
 	if err != nil {
@@ -39,7 +39,7 @@ func prepareModel(modelPath string, req gallery.GalleryModel, downloadStatus fun
 
 	config.Files = append(config.Files, req.AdditionalFiles...)
 
-	return gallery.InstallModel(modelPath, req.Name, &config, req.Overrides, downloadStatus)
+	return gallery.InstallModel(modelPath, req.Name, &config, req.Overrides, downloadStatus, enforceScan)
 }
 
 func (g *GalleryService) UpdateStatus(s string, op *gallery.GalleryOpStatus) {
@@ -127,16 +127,16 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 				} else {
 					// if the request contains a gallery name, we apply the gallery from the gallery list
 					if op.GalleryModelName != "" {
-						err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryModelName, g.appConfig.ModelPath, op.Req, progressCallback)
+						err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryModelName, g.appConfig.ModelPath, op.Req, progressCallback, g.appConfig.EnforcePredownloadScans)
 					} else if op.ConfigURL != "" {
-						err = startup.InstallModels(op.Galleries, op.ConfigURL, g.appConfig.ModelPath, progressCallback, op.ConfigURL)
+						err = startup.InstallModels(op.Galleries, op.ConfigURL, g.appConfig.ModelPath, g.appConfig.EnforcePredownloadScans, progressCallback, op.ConfigURL)
 						if err != nil {
 							updateError(err)
 							continue
 						}
 						err = cl.Preload(g.appConfig.ModelPath)
 					} else {
-						err = prepareModel(g.appConfig.ModelPath, op.Req, progressCallback)
+						err = prepareModel(g.appConfig.ModelPath, op.Req, progressCallback, g.appConfig.EnforcePredownloadScans)
 					}
 				}
 
@@ -175,22 +175,22 @@ type galleryModel struct {
 	ID                   string           `json:"id"`
 }
 
-func processRequests(modelPath string, galleries []config.Gallery, requests []galleryModel) error {
+func processRequests(modelPath string, enforceScan bool, galleries []config.Gallery, requests []galleryModel) error {
 	var err error
 	for _, r := range requests {
 		utils.ResetDownloadTimers()
 		if r.ID == "" {
-			err = prepareModel(modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
+			err = prepareModel(modelPath, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan)
 
 		} else {
 			err = gallery.InstallModelFromGallery(
-				galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction)
+				galleries, r.ID, modelPath, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan)
 		}
 	}
 	return err
 }
 
-func ApplyGalleryFromFile(modelPath, s string, galleries []config.Gallery) error {
+func ApplyGalleryFromFile(modelPath, s string, enforceScan bool, galleries []config.Gallery) error {
 	dat, err := os.ReadFile(s)
 	if err != nil {
 		return err
@@ -201,15 +201,15 @@ func ApplyGalleryFromFile(modelPath, s string, galleries []config.Gallery) error
 		return err
 	}
 
-	return processRequests(modelPath, galleries, requests)
+	return processRequests(modelPath, enforceScan, galleries, requests)
 }
 
-func ApplyGalleryFromString(modelPath, s string, galleries []config.Gallery) error {
+func ApplyGalleryFromString(modelPath, s string, enforceScan bool, galleries []config.Gallery) error {
 	var requests []galleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {
 		return err
 	}
 
-	return processRequests(modelPath, galleries, requests)
+	return processRequests(modelPath, enforceScan, galleries, requests)
 }
