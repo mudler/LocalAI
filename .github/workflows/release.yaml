@@ -51,7 +51,21 @@ jobs:
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
 
-          git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+          git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc
+          GRPC_DIR=$PWD/grpc/
+          echo "include(FetchContent)" >> $GRPC_DIR/CMakeLists.txt
+          echo "FetchContent_Declare(" >> $GRPC_DIR/CMakeLists.txt
+          echo "  googletest" >> $GRPC_DIR/CMakeLists.txt
+          echo "  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip" >> $GRPC_DIR/CMakeLists.txt
+          echo ")" >> $GRPC_DIR/CMakeLists.txt
+          echo "FetchContent_MakeAvailable(googletest)" >> $GRPC_DIR/CMakeLists.txt
+          GRPC_DIR=$PWD/grpc/third_party/abseil-cpp
+          echo "include(FetchContent)" >> $GRPC_DIR/CMakeLists.txt
+          echo "FetchContent_Declare(" >> $GRPC_DIR/CMakeLists.txt
+          echo "  googletest" >> $GRPC_DIR/CMakeLists.txt
+          echo "  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip" >> $GRPC_DIR/CMakeLists.txt
+          echo ")" >> $GRPC_DIR/CMakeLists.txt
+          echo "FetchContent_MakeAvailable(googletest)" >> $GRPC_DIR/CMakeLists.txt
           cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
@@ -212,6 +226,7 @@ jobs:
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
           source /opt/intel/oneapi/setvars.sh
+          GRPC_DIR=$PWD/backend/cpp/llama
           sudo cp /lib64/ld-linux-x86-64.so.2 ld.so
           BACKEND_LIBS="./ld.so ./sources/go-piper/piper/build/fi/lib/libfmt.a ./sources/go-piper/piper-phonemize/pi/lib/libonnxruntime.so.1.14.1 ./sources/go-piper/piper-phonemize/pi/src/libespeak-ng/libespeak-ng.so /usr/lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/librt.so.1 /usr/lib/x86_64-linux-gnu/libpthread.so.0 ./sources/go-piper/piper-phonemize/pi/lib/libpiper_phonemize.so.1 ./sources/go-piper/piper/build/si/lib/libspdlog.a ./sources/go-piper/espeak/ei/lib/libucd.so" \
           make -j4 dist
