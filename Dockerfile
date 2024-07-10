@@ -227,7 +227,7 @@ RUN apt-get update && \
 RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
     mkdir -p /build/grpc/cmake/build && \
     cd /build/grpc/cmake/build && \
-    cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
+    cmake -DABSL_BUILD_TESTING=OFF -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
     make && \
     make install && \
     rm -rf /build

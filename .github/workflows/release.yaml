@@ -52,7 +52,8 @@ jobs:
         run: |
 
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build -DABSL_BUILD_TESTING=OFF && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DABSL_BUILD_TESTING=OFF \
+            -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
@@ -106,7 +107,7 @@ jobs:
           BACKEND_LIBS="./grpc/cmake/cross_build/third_party/re2/libre2.a ./grpc/cmake/cross_build/libgrpc.a ./grpc/cmake/cross_build/libgrpc++.a ./grpc/cmake/cross_build/third_party/protobuf/libprotobuf.a /usr/aarch64-linux-gnu/lib/libc.so.6 /usr/aarch64-linux-gnu/lib/libstdc++.so.6 /usr/aarch64-linux-gnu/lib/libgomp.so.1 /usr/aarch64-linux-gnu/lib/libm.so.6 /usr/aarch64-linux-gnu/lib/libgcc_s.so.1 /usr/aarch64-linux-gnu/lib/libdl.so.2 /usr/aarch64-linux-gnu/lib/libpthread.so.0 ./ld.so" \
           GOOS=linux \
           GOARCH=arm64 \
-          CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
+          CMAKE_ARGS="-DABSL_BUILD_TESTING=OFF -DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux-arm64
@@ -196,7 +197,8 @@ jobs:
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DABSL_BUILD_TESTING=OFF \
+            -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC

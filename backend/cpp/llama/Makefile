@@ -44,6 +44,9 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 	CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
 endif
 
+## Putting this on most CMAKE_ARGS that hit gRPC for testing:
+CMAKE_ARGS+=-DABSL_BUILD_TESTING=OFF
+
 llama.cpp:
 	git clone --recurse-submodules https://github.com/ggerganov/llama.cpp llama.cpp
 	if [ -z "$(LLAMA_VERSION)" ]; then \
