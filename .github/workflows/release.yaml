@@ -1,8 +1,10 @@
 name: Build and Release
 
 on:
-- push
-- pull_request
+  push:
+    branches:
+      - master
+  pull_request:
 
 env:
   GRPC_VERSION: v1.64.0
@@ -32,7 +34,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg protobuf-compiler ccache gawk
-          sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libgmock-dev
       - name: Install CUDA Dependencies
         run: |
           curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/cross-linux-aarch64/cuda-keyring_1.1-1_all.deb
@@ -40,7 +42,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cuda-cross-aarch64 cuda-nvcc-cross-aarch64-${CUDA_VERSION} libcublas-cross-aarch64-${CUDA_VERSION}
         env:
-          CUDA_VERSION: 12-5
+          CUDA_VERSION: 12-4
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -52,7 +54,8 @@ jobs:
         run: |
 
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+          cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && \
+          cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
@@ -146,7 +149,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache gawk cmake
+          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache gawk cmake libgmock-dev
       - name: Intel Dependencies
         run: |
           wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
@@ -196,7 +199,8 @@ jobs:
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+          cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && \
+          cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC

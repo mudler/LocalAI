@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
@@ -79,7 +80,7 @@ func CreateAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoad
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 		}
 
-		if !modelExists(ml, request.Model) {
+		if !modelExists(cl, ml, request.Model) {
 			log.Warn().Msgf("Model: %s was not found in list of models.", request.Model)
 			return c.Status(fiber.StatusBadRequest).SendString("Model " + request.Model + " not found")
 		}
@@ -213,9 +214,9 @@ func filterAssistantsAfterID(assistants []Assistant, id string) []Assistant {
 	return filteredAssistants
 }
 
-func modelExists(ml *model.ModelLoader, modelName string) (found bool) {
+func modelExists(cl *config.BackendConfigLoader, ml *model.ModelLoader, modelName string) (found bool) {
 	found = false
-	models, err := ml.ListModels()
+	models, err := services.ListModels(cl, ml, "", true)
 	if err != nil {
 		return
 	}
