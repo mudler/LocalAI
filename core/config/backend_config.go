@@ -443,7 +443,7 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 	}
 	if (u & FLAG_IMAGE) == FLAG_IMAGE {
 		// This one feels _really_ bad. Need to experiment but it's better than nothing at all?
-		if (c.Backend != "diffusers" || c.Diffusers.PipelineType != "") && c.Backend != "tinydream" || c.Backend != "stablediffusion" {
+		if (c.Backend != "diffusers" && c.Diffusers.PipelineType != "") || c.Backend != "tinydream" || c.Backend != "stablediffusion" {
 			return false
 		}
 	}
