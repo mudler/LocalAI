@@ -17,15 +17,26 @@
         </div>
 
         <div class="models mt-4">
-
             {{template "views/partials/inprogress" .}}
-
             {{ if eq (len .ModelsConfig) 0 }}
-            <h2 class="text-center text-3xl font-semibold text-gray-100"> <i class="text-yellow-200 ml-2 fa-solid fa-triangle-exclamation animate-pulse"></i> Ouch! seems you don't have any models installed!</h2>
+            <h2 class="text-center text-3xl font-semibold text-gray-100"> <i class="text-yellow-200 ml-2 fa-solid fa-triangle-exclamation animate-pulse"></i> Ouch! seems you don't have any models installed from the LocalAI gallery!</h2>
             <p class="text-center mt-4 text-xl">..install something from the <a class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded" href="/browse">🖼️ Gallery</a> or check the <a href="https://localai.io/basics/getting_started/" class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded"> <i class="fa-solid fa-book"></i> Getting started documentation </a></p>
+
+            {{ if ne (len .Models) 0 }}
+            <hr class="my-4">
+            <h3 class="text-center text-xl font-semibold text-gray-100"> 
+                However, It seems you have installed some models installed without a configuration file:
+            </h3>
+            {{ range .Models }}
+            <div class="bg-gray-800 border-b border-gray-700 p-4 mt-4">
+                <h4 class="text-md font-bold text-gray-200">{{.}}</h4>
+            </div>              
+            {{end}}
+            {{end}}
             {{ else }}
-            <h2 class="text-center text-3xl font-semibold text-gray-100">Installed models</h2>
-            <p class="text-center mt-4 text-xl">We have {{len .ModelsConfig}} pre-loaded models available.</p>
+            {{ $modelsN := len .ModelsConfig}}
+            {{ $modelsN = add $modelsN (len .Models)}}
+            <h2 class="text-center text-3xl font-semibold text-gray-100">{{$modelsN}} Installed model(s)</h2>
             <table class="table-auto mt-4 w-full text-left text-gray-200">
                 <thead class="text-xs text-gray-400 uppercase bg-gray-700">
                     <tr>
@@ -76,12 +87,29 @@
                             data-twe-ripple-color="light" data-twe-ripple-init="" hx-confirm="Are you sure you wish to delete the model?" hx-post="/browse/delete/model/{{.Name}}" hx-swap="outerHTML"><i class="fa-solid fa-cancel pr-2"></i>Delete</button>
                     </td>
                 {{ end }}
+                {{ range .Models }}
+                <tr class="bg-gray-800 border-b border-gray-700">
+                    <td class="px-4 py-3">
+                            <img src="{{$noicon}}" class="rounded-t-lg max-h-24 max-w-24 object-cover mt-3">
+                    </td>
+                    <td class="px-4 py-3 font-bold">
+                        <p class="font-bold text-white flex items-center"><i class="fas fa-brain pr-2"></i>{{.}}</p>
+                    </td>
+                    <td class="px-4 py-3 font-bold">
+                        <span class="inline-block bg-yellow-500 text-white py-1 px-3 rounded-full text-xs">
+                            auto
+                        </span>
+                    </td>
+
+                    <td class="px-4 py-3">
+                        <span class="float-right inline-block bg-red-800 text-white py-1 px-3 rounded-full text-xs">
+                            No Configuration
+                        </span>
+                    </td>           
+                {{end}}
                 </tbody>
             </table>
             {{ end }}
-
-
-
         </div>
     </div>
 

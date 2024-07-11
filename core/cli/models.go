@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -24,7 +25,8 @@ type ModelsList struct {
 }
 
 type ModelsInstall struct {
-	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
+	DisablePredownloadScan bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
+	ModelArgs              []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 
 	ModelsCMDFlags `embed:""`
 }
@@ -88,9 +90,15 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 				return err
 			}
 
+			err = gallery.SafetyScanGalleryModel(model)
+			if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
+				return err
+			}
+
 			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		}
-		err = startup.InstallModels(galleries, "", mi.ModelsPath, progressCallback, modelName)
+
+		err = startup.InstallModels(galleries, "", mi.ModelsPath, !mi.DisablePredownloadScan, progressCallback, modelName)
 		if err != nil {
 			return err
 		}
