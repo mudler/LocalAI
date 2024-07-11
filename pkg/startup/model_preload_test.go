@@ -85,7 +85,7 @@ var _ = Describe("Preload test", func() {
 			url := "huggingface://TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/tinyllama-1.1b-chat-v0.3.Q2_K.gguf"
 			fileName := fmt.Sprintf("%s.gguf", "tinyllama-1.1b-chat-v0.3.Q2_K")
 
-			err = InstallModels([]config.Gallery{}, "", tmpdir, nil, url)
+			err = InstallModels([]config.Gallery{}, "", tmpdir, false, nil, url)
 			Expect(err).ToNot(HaveOccurred())
 
 			resultFile := filepath.Join(tmpdir, fileName)
