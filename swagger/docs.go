@@ -213,6 +213,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/files/{file_id}": {
+            "get": {
+                "summary": "Returns information about a specific file.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/openai.File"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a file.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/openai.DeleteStatus"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/files/{file_id}/content": {
+            "get": {
+                "summary": "Returns information about a specific file.",
+                "responses": {
+                    "200": {
+                        "description": "file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/images/generations": {
             "post": {
                 "summary": "Creates an image given a prompt.",
@@ -232,6 +269,19 @@ const docTemplate = `{
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/models": {
+            "get": {
+                "summary": "List and describe the various models available in the API.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelsDataResponse"
                         }
                     }
                 }
@@ -491,6 +541,49 @@ const docTemplate = `{
                 }
             }
         },
+        "openai.DeleteStatus": {
+            "type": "object",
+            "properties": {
+                "deleted": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "openai.File": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "description": "Size of the file in bytes",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "description": "The time at which the file was created",
+                    "type": "string"
+                },
+                "filename": {
+                    "description": "The name of the file",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Unique identifier for the file",
+                    "type": "string"
+                },
+                "object": {
+                    "description": "Type of the object (e.g., \"file\")",
+                    "type": "string"
+                },
+                "purpose": {
+                    "description": "The purpose of the file (e.g., \"fine-tune\", \"classifications\", etc.)",
+                    "type": "string"
+                }
+            }
+        },
         "openai.Tool": {
             "type": "object",
             "properties": {
@@ -598,6 +691,31 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ToolCall"
                     }
+                }
+            }
+        },
+        "schema.ModelsDataResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.OpenAIModel"
+                    }
+                },
+                "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.OpenAIModel": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "object": {
+                    "type": "string"
                 }
             }
         },
