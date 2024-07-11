@@ -29,10 +29,18 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		// Get model statuses to display in the UI the operation in progress
 		processingModels, taskTypes := modelStatus()
 
+		modelsWithoutConfig := []string{}
+
+		for _, m := range models {
+			if _, ok := galleryConfigs[m]; !ok {
+				modelsWithoutConfig = append(modelsWithoutConfig, m)
+			}
+		}
+
 		summary := fiber.Map{
 			"Title":             "LocalAI API - " + internal.PrintableVersion(),
 			"Version":           internal.PrintableVersion(),
-			"Models":            models,
+			"Models":            modelsWithoutConfig,
 			"ModelsConfig":      backendConfigs,
 			"GalleryConfig":     galleryConfigs,
 			"IsP2PEnabled":      p2p.IsP2PEnabled(),
