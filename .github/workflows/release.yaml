@@ -52,7 +52,8 @@ jobs:
         run: |
 
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+          cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && \
+          cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
@@ -196,7 +197,8 @@ jobs:
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+          cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && \
+          cd cmake/build && cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
