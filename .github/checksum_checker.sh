@@ -17,7 +17,7 @@ function check_and_update_checksum() {
     new_checksum=$(python3 ./check_and_update.py $uri)
     result=$?
 
-    if [[ result -eq 5]]; then
+    if [[ $result -eq 5 ]]; then
         echo "Contaminated entry detected, deleting entry for $model_name..."
         yq eval -i "del([$idx])" "$input_yaml"
         return

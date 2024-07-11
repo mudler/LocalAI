@@ -6,7 +6,8 @@ BINARY_NAME=local-ai
 DETECT_LIBS?=true
 
 # llama.cpp versions
-GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
+GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
+GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
 CPPLLAMA_VERSION?=dd07a123b79f9bd9e8a4ba0447427b3083e9347a
 
 # gpt4all version
@@ -18,18 +19,23 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
+WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
 WHISPER_CPP_VERSION?=d207c6882247984689091ae9d780d2e51eab1df7
 
 # bert.cpp version
+BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
 BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
 
 # go-piper version
+PIPER_REPO?=https://github.com/mudler/go-piper
 PIPER_VERSION?=9d0100873a7dbb0824dfea40e8cec70a1b110759
 
 # stablediffusion version
+STABLEDIFFUSION_REPO?=https://github.com/mudler/go-stable-diffusion
 STABLEDIFFUSION_VERSION?=4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
 
 # tinydream version
+TINYDREAM_REPO?=https://github.com/M0Rf30/go-tiny-dream
 TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
 
 export BUILD_TYPE?=
@@ -202,64 +208,104 @@ all: help
 
 ## BERT embeddings
 sources/go-bert.cpp:
-	git clone --recurse-submodules https://github.com/go-skynet/go-bert.cpp sources/go-bert.cpp
-	cd sources/go-bert.cpp && git checkout -b build $(BERT_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-bert.cpp
+	cd sources/go-bert.cpp && \
+	git init && \
+	git remote add origin $(BERT_REPO) && \
+	git fetch origin && \
+	git checkout $(BERT_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-bert.cpp/libgobert.a: sources/go-bert.cpp
 	$(MAKE) -C sources/go-bert.cpp libgobert.a
 
 ## go-llama.cpp
 sources/go-llama.cpp:
-	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp sources/go-llama.cpp
-	cd sources/go-llama.cpp && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-llama.cpp
+	cd sources/go-llama.cpp && \
+	git init && \
+	git remote add origin $(GOLLAMA_REPO) && \
+	git fetch origin && \
+	git checkout $(GOLLAMA_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-llama.cpp/libbinding.a: sources/go-llama.cpp
 	$(MAKE) -C sources/go-llama.cpp BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
 
 ## go-piper
 sources/go-piper:
-	git clone --recurse-submodules https://github.com/mudler/go-piper sources/go-piper
-	cd sources/go-piper && git checkout -b build $(PIPER_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-piper
+	cd sources/go-piper && \
+	git init && \
+	git remote add origin $(PIPER_REPO) && \
+	git fetch origin && \
+	git checkout $(PIPER_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
 
 ## GPT4ALL
 sources/gpt4all:
-	git clone --recurse-submodules $(GPT4ALL_REPO) sources/gpt4all
-	cd sources/gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/gpt4all
+	cd sources/gpt4all && \
+	git init && \
+	git remote add origin $(GPT4ALL_REPO) && \
+	git fetch origin && \
+	git checkout $(GPT4ALL_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
 
 ## RWKV
 sources/go-rwkv.cpp:
-	git clone --recurse-submodules $(RWKV_REPO) sources/go-rwkv.cpp
-	cd sources/go-rwkv.cpp && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-rwkv.cpp
+	cd sources/go-rwkv.cpp && \
+	git init && \
+	git remote add origin $(RWKV_REPO) && \
+	git fetch origin && \
+	git checkout $(RWKV_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
 	cd sources/go-rwkv.cpp && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
 
 ## stable diffusion
 sources/go-stable-diffusion:
-	git clone --recurse-submodules https://github.com/mudler/go-stable-diffusion sources/go-stable-diffusion
-	cd sources/go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-stable-diffusion
+	cd sources/go-stable-diffusion && \
+	git init && \
+	git remote add origin $(STABLEDIFFUSION_REPO) && \
+	git fetch origin && \
+	git checkout $(STABLEDIFFUSION_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
 
 ## tiny-dream
 sources/go-tiny-dream:
-	git clone --recurse-submodules https://github.com/M0Rf30/go-tiny-dream sources/go-tiny-dream
-	cd sources/go-tiny-dream && git checkout -b build $(TINYDREAM_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-tiny-dream
+	cd sources/go-tiny-dream && \
+	git init && \
+	git remote add origin $(TINYDREAM_REPO) && \
+	git fetch origin && \
+	git checkout $(TINYDREAM_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
 	$(MAKE) -C sources/go-tiny-dream libtinydream.a
 
 ## whisper
 sources/whisper.cpp:
-	git clone https://github.com/ggerganov/whisper.cpp sources/whisper.cpp
-	cd sources/whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/whisper.cpp
+	cd sources/whisper.cpp && \
+	git init && \
+	git remote add origin $(WHISPER_REPO) && \
+	git fetch origin && \
+	git checkout $(WHISPER_CPP_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
