@@ -4,34 +4,19 @@ import (
 	"regexp"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
-type ListModelsService struct {
-	bcl       *config.BackendConfigLoader
-	ml        *model.ModelLoader
-	appConfig *config.ApplicationConfig
-}
+func ListModels(bcl *config.BackendConfigLoader, ml *model.ModelLoader, filter string, excludeConfigured bool) ([]string, error) {
 
-func NewListModelsService(ml *model.ModelLoader, bcl *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *ListModelsService {
-	return &ListModelsService{
-		bcl:       bcl,
-		ml:        ml,
-		appConfig: appConfig,
-	}
-}
-
-func (lms *ListModelsService) ListModels(filter string, excludeConfigured bool) ([]schema.OpenAIModel, error) {
-
-	models, err := lms.ml.ListModels()
+	models, err := ml.ListFilesInModelPath()
 	if err != nil {
 		return nil, err
 	}
 
 	var mm map[string]interface{} = map[string]interface{}{}
 
-	dataModels := []schema.OpenAIModel{}
+	dataModels := []string{}
 
 	var filterFn func(name string) bool
 
@@ -50,13 +35,13 @@ func (lms *ListModelsService) ListModels(filter string, excludeConfigured bool) 
 	}
 
 	// Start with the known configurations
-	for _, c := range lms.bcl.GetAllBackendConfigs() {
+	for _, c := range bcl.GetAllBackendConfigs() {
 		if excludeConfigured {
 			mm[c.Model] = nil
 		}
 
 		if filterFn(c.Name) {
-			dataModels = append(dataModels, schema.OpenAIModel{ID: c.Name, Object: "model"})
+			dataModels = append(dataModels, c.Name)
 		}
 	}
 
@@ -64,7 +49,7 @@ func (lms *ListModelsService) ListModels(filter string, excludeConfigured bool) 
 	for _, m := range models {
 		// And only adds them if they shouldn't be skipped.
 		if _, exists := mm[m]; !exists && filterFn(m) {
-			dataModels = append(dataModels, schema.OpenAIModel{ID: m, Object: "model"})
+			dataModels = append(dataModels, m)
 		}
 	}
 

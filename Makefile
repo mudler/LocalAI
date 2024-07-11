@@ -7,7 +7,7 @@ DETECT_LIBS?=true
 
 # llama.cpp versions
 GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=a38b884c6c4b0c256583acfaaabdf556c62fabea
+CPPLLAMA_VERSION?=dd07a123b79f9bd9e8a4ba0447427b3083e9347a
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -18,7 +18,7 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=c118733a29ad4a984015a5c08fd585086d01087a
+WHISPER_CPP_VERSION?=d207c6882247984689091ae9d780d2e51eab1df7
 
 # bert.cpp version
 BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
@@ -53,8 +53,8 @@ RANDOM := $(shell bash -c 'echo $$RANDOM')
 VERSION?=$(shell git describe --always --tags || echo "dev" )
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=
-override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Version=$(VERSION)"
-override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
+override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
+override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
 
 OPTIONAL_TARGETS?=
 
@@ -147,7 +147,7 @@ endif
 
 # glibc-static or glibc-devel-static required
 ifeq ($(STATIC),true)
-	LD_FLAGS=-linkmode external -extldflags -static
+	LD_FLAGS+=-linkmode external -extldflags -static
 endif
 
 ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
@@ -425,7 +425,7 @@ prepare-e2e:
 	mkdir -p $(TEST_DIR)
 	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
 	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
-	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=5 --build-arg FFMPEG=true -t localai-tests .
+	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=4 --build-arg FFMPEG=true -t localai-tests .
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)

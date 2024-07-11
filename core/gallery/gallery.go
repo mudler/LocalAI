@@ -15,7 +15,7 @@ import (
 )
 
 // Installs a model from the gallery
-func InstallModelFromGallery(galleries []config.Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64)) error {
+func InstallModelFromGallery(galleries []config.Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan bool) error {
 
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
@@ -63,7 +63,7 @@ func InstallModelFromGallery(galleries []config.Gallery, name string, basePath s
 			return err
 		}
 
-		if err := InstallModel(basePath, installName, &config, model.Overrides, downloadStatus); err != nil {
+		if err := InstallModel(basePath, installName, &config, model.Overrides, downloadStatus, enforceScan); err != nil {
 			return err
 		}
 
@@ -227,4 +227,30 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 	os.Remove(galleryFile)
 
 	return err
+}
+
+// This is ***NEVER*** going to be perfect or finished.
+// This is a BEST EFFORT function to surface known-vulnerable models to users.
+func SafetyScanGalleryModels(galleries []config.Gallery, basePath string) error {
+	galleryModels, err := AvailableGalleryModels(galleries, basePath)
+	if err != nil {
+		return err
+	}
+	for _, gM := range galleryModels {
+		if gM.Installed {
+			err = errors.Join(err, SafetyScanGalleryModel(gM))
+		}
+	}
+	return err
+}
+
+func SafetyScanGalleryModel(galleryModel *GalleryModel) error {
+	for _, file := range galleryModel.AdditionalFiles {
+		scanResults, err := downloader.HuggingFaceScan(file.URI)
+		if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
+			log.Error().Str("model", galleryModel.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
+			return err
+		}
+	}
+	return nil
 }

@@ -57,7 +57,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 	}
 
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, ml, appConfig, true)
+		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
 		}

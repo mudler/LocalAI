@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/swagger"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -55,6 +56,20 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
 	app.Get("/backend/monitor", auth, localai.BackendMonitorEndpoint(backendMonitorService))
 	app.Post("/backend/shutdown", auth, localai.BackendShutdownEndpoint(backendMonitorService))
+
+	// p2p
+	if p2p.IsP2PEnabled() {
+		app.Get("/api/p2p", auth, func(c *fiber.Ctx) error {
+			// Render index
+			return c.JSON(map[string]interface{}{
+				"Nodes":          p2p.GetAvailableNodes(""),
+				"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
+			})
+		})
+		app.Get("/api/p2p/token", auth, func(c *fiber.Ctx) error {
+			return c.Send([]byte(appConfig.P2PToken))
+		})
+	}
 
 	app.Get("/version", auth, func(c *fiber.Ctx) error {
 		return c.JSON(struct {

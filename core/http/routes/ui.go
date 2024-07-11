@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/elements"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -26,7 +27,6 @@ func RegisterUIRoutes(app *fiber.App,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService,
 	auth func(*fiber.Ctx) error) {
-	tmpLMS := services.NewListModelsService(ml, cl, appConfig) // TODO: once createApplication() is fully in use, reference the central instance.
 
 	// keeps the state of models that are being installed from the UI
 	var processingModels = xsync.NewSyncedMap[string, string]()
@@ -52,6 +52,37 @@ func RegisterUIRoutes(app *fiber.App,
 	}
 
 	app.Get("/", auth, localai.WelcomeEndpoint(appConfig, cl, ml, modelStatus))
+
+	if p2p.IsP2PEnabled() {
+		app.Get("/p2p", auth, func(c *fiber.Ctx) error {
+			summary := fiber.Map{
+				"Title":   "LocalAI - P2P dashboard",
+				"Version": internal.PrintableVersion(),
+				//"Nodes":          p2p.GetAvailableNodes(""),
+				//"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
+				"IsP2PEnabled": p2p.IsP2PEnabled(),
+				"P2PToken":     appConfig.P2PToken,
+			}
+
+			// Render index
+			return c.Render("views/p2p", summary)
+		})
+
+		/* show nodes live! */
+		app.Get("/p2p/ui/workers", auth, func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes("")))
+		})
+		app.Get("/p2p/ui/workers-federation", auth, func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.FederatedID)))
+		})
+
+		app.Get("/p2p/ui/workers-stats", auth, func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes("")))
+		})
+		app.Get("/p2p/ui/workers-federation-stats", auth, func(c *fiber.Ctx) error {
+			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.FederatedID)))
+		})
+	}
 
 	// Show the Models page (all models)
 	app.Get("/browse", auth, func(c *fiber.Ctx) error {
@@ -87,7 +118,9 @@ func RegisterUIRoutes(app *fiber.App,
 			"AllTags":          tags,
 			"ProcessingModels": processingModelsData,
 			"AvailableModels":  len(models),
-			"TaskTypes":        taskTypes,
+			"IsP2PEnabled":     p2p.IsP2PEnabled(),
+
+			"TaskTypes": taskTypes,
 			//	"ApplicationConfig": appConfig,
 		}
 
@@ -236,13 +269,14 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// Show the Chat page
 	app.Get("/chat/:model", auth, func(c *fiber.Ctx) error {
-		backendConfigs, _ := tmpLMS.ListModels("", true)
+		backendConfigs, _ := services.ListModels(cl, ml, "", true)
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Chat with " + c.Params("model"),
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -250,7 +284,7 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/talk/", auth, func(c *fiber.Ctx) error {
-		backendConfigs, _ := tmpLMS.ListModels("", true)
+		backendConfigs, _ := services.ListModels(cl, ml, "", true)
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
@@ -260,7 +294,8 @@ func RegisterUIRoutes(app *fiber.App,
 		summary := fiber.Map{
 			"Title":        "LocalAI - Talk",
 			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0].ID,
+			"Model":        backendConfigs[0],
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 			"Version":      internal.PrintableVersion(),
 		}
 
@@ -270,7 +305,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/chat/", auth, func(c *fiber.Ctx) error {
 
-		backendConfigs, _ := tmpLMS.ListModels("", true)
+		backendConfigs, _ := services.ListModels(cl, ml, "", true)
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
@@ -278,10 +313,11 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		summary := fiber.Map{
-			"Title":        "LocalAI - Chat with " + backendConfigs[0].ID,
+			"Title":        "LocalAI - Chat with " + backendConfigs[0],
 			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0].ID,
+			"Model":        backendConfigs[0],
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -296,6 +332,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -316,6 +353,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].Name,
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -330,6 +368,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -349,6 +388,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"Title":        "LocalAI - Generate audio with " + backendConfigs[0].Name,
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].Name,
+			"IsP2PEnabled": p2p.IsP2PEnabled(),
 			"Version":      internal.PrintableVersion(),
 		}
 

@@ -20,7 +20,7 @@ import (
 
 type P2P struct {
 	WorkerFlags       `embed:""`
-	Token             string   `env:"LOCALAI_TOKEN,TOKEN" help:"JSON list of galleries"`
+	Token             string   `env:"LOCALAI_TOKEN,LOCALAI_P2P_TOKEN,TOKEN" help:"P2P token to use"`
 	NoRunner          bool     `env:"LOCALAI_NO_RUNNER,NO_RUNNER" help:"Do not start the llama-cpp-rpc-server"`
 	RunnerAddress     string   `env:"LOCALAI_RUNNER_ADDRESS,RUNNER_ADDRESS" help:"Address of the llama-cpp-rpc-server"`
 	RunnerPort        string   `env:"LOCALAI_RUNNER_PORT,RUNNER_PORT" help:"Port of the llama-cpp-rpc-server"`
@@ -59,7 +59,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			p = r.RunnerPort
 		}
 
-		err = p2p.BindLLamaCPPWorker(context.Background(), address, p, r.Token)
+		err = p2p.ExposeService(context.Background(), address, p, r.Token, "")
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	err = p2p.BindLLamaCPPWorker(context.Background(), address, fmt.Sprint(port), r.Token)
+	err = p2p.ExposeService(context.Background(), address, fmt.Sprint(port), r.Token, "")
 	if err != nil {
 		return err
 	}
