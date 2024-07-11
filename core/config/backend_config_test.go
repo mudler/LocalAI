@@ -66,7 +66,7 @@ parameters:
 		a := BackendConfig{
 			Name: "a",
 		}
-		Expect(a.HasUsecases(FLAG_ANY)).To(BeFalse())
+		Expect(a.HasUsecases(FLAG_ANY)).To(BeTrue()) // FLAG_ANY just means the config _exists_ essentially.
 
 		b := BackendConfig{
 			Name:    "b",
