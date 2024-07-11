@@ -100,6 +100,8 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".json",
 	".DS_Store",
 	".",
+	".partial",
+	".tar.gz",
 }
 
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
