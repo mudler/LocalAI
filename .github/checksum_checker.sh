@@ -14,10 +14,10 @@ function check_and_update_checksum() {
     idx="$5"
 
     # Download the file and calculate new checksum using Python
-    new_checksum=$(python3 ./check_and_update.py $uri)
+    new_checksum=$(python3 ./.github/check_and_update.py $uri)
     result=$?
 
-    if [[ result -eq 5]]; then
+    if [[ $result -eq 5 ]]; then
         echo "Contaminated entry detected, deleting entry for $model_name..."
         yq eval -i "del([$idx])" "$input_yaml"
         return
