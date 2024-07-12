@@ -1,4 +1,4 @@
-grpcio==1.64.0
+grpcio==1.64.1
 protobuf
 torch
 transformers
