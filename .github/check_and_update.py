@@ -4,7 +4,7 @@ import requests
 import sys
 import os
 
-uri = sys.argv[0]
+uri = sys.argv[1]
 file_name = uri.split('/')[-1]
 
 # Function to parse the URI and determine download method
@@ -36,6 +36,7 @@ def manual_safety_check_hf(repo_id):
 download_type, repo_id_or_url = parse_uri(uri)
 
 new_checksum =  None
+file_path = None
 
 # Decide download method based on URI type
 if download_type == 'huggingface':
