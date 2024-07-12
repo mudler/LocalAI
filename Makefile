@@ -3,9 +3,12 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
+DETECT_LIBS?=true
+
 # llama.cpp versions
-GOLLAMA_STABLE_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=5f2d4e60e202aabee10051e6615bb821e51787be
+GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
+GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
+CPPLLAMA_VERSION?=368645698ab648e390dcd7c00a2bf60efa654f57
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -16,26 +19,33 @@ RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
 RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
-WHISPER_CPP_VERSION?=b29b3b29240aac8b71ce8e5a4360c1f1562ad66f
+WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
+WHISPER_CPP_VERSION?=d207c6882247984689091ae9d780d2e51eab1df7
 
 # bert.cpp version
+BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
 BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
 
 # go-piper version
+PIPER_REPO?=https://github.com/mudler/go-piper
 PIPER_VERSION?=9d0100873a7dbb0824dfea40e8cec70a1b110759
 
 # stablediffusion version
+STABLEDIFFUSION_REPO?=https://github.com/mudler/go-stable-diffusion
 STABLEDIFFUSION_VERSION?=4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
 
 # tinydream version
+TINYDREAM_REPO?=https://github.com/M0Rf30/go-tiny-dream
 TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
 
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
 export CMAKE_ARGS?=
+export BACKEND_LIBS?=
 
 CGO_LDFLAGS?=
 CGO_LDFLAGS_WHISPER?=
+CGO_LDFLAGS_WHISPER+=-lggml
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
 BUILD_ID?=
@@ -49,8 +59,8 @@ RANDOM := $(shell bash -c 'echo $$RANDOM')
 VERSION?=$(shell git describe --always --tags || echo "dev" )
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=
-override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Version=$(VERSION)"
-override LD_FLAGS += -X "github.com/go-skynet/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
+override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
+override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
 
 OPTIONAL_TARGETS?=
 
@@ -82,29 +92,38 @@ ifeq ($(OS),Darwin)
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 		export GGML_NO_ACCELERATE=1
+		export GGML_NO_METAL=1
 	endif
 
 	ifeq ($(BUILD_TYPE),metal)
 #			-lcblas 	removed: it seems to always be listed as a duplicate flag.
 		CGO_LDFLAGS += -framework Accelerate
 	endif
+else
+CGO_LDFLAGS_WHISPER+=-lgomp
 endif
 
 ifeq ($(BUILD_TYPE),openblas)
 	CGO_LDFLAGS+=-lopenblas
-	export WHISPER_OPENBLAS=1
+	export GGML_OPENBLAS=1
 endif
-
 
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
 	export GGML_CUDA=1
-	export WHISPER_CUDA=1
 	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda -lcufft
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
+endif
+
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	export GGML_SYCL=1
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f16)
+	export GGML_SYCL_F16=1
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -115,7 +134,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	export CC=$(ROCM_HOME)/llvm/bin/clang
 	# llama-ggml has no hipblas support, so override it here.
 	export STABLE_BUILD_TYPE=
-	export WHISPER_HIPBLAS=1
+	export GGML_HIPBLAS=1
 	GPU_TARGETS ?= gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
 	CMAKE_ARGS+=-DGGML_HIPBLAS=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
@@ -125,17 +144,16 @@ endif
 ifeq ($(BUILD_TYPE),metal)
 	CGO_LDFLAGS+=-framework Foundation -framework Metal -framework MetalKit -framework MetalPerformanceShaders
 	export GGML_METAL=1
-	export WHISPER_METAL=1
 endif
 
 ifeq ($(BUILD_TYPE),clblas)
 	CGO_LDFLAGS+=-lOpenCL -lclblast
-	export WHISPER_CLBLAST=1
+	export GGML_OPENBLAS=1
 endif
 
 # glibc-static or glibc-devel-static required
 ifeq ($(STATIC),true)
-	LD_FLAGS=-linkmode external -extldflags -static
+	LD_FLAGS+=-linkmode external -extldflags -static
 endif
 
 ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
@@ -169,6 +187,8 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
+# Use filter-out to remove the specified backends
+ALL_GRPC_BACKENDS := $(filter-out $(SKIP_GRPC_BACKEND),$(ALL_GRPC_BACKENDS))
 
 GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
 TEST_PATHS?=./api/... ./pkg/... ./core/...
@@ -188,67 +208,107 @@ all: help
 
 ## BERT embeddings
 sources/go-bert.cpp:
-	git clone --recurse-submodules https://github.com/go-skynet/go-bert.cpp sources/go-bert.cpp
-	cd sources/go-bert.cpp && git checkout -b build $(BERT_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-bert.cpp
+	cd sources/go-bert.cpp && \
+	git init && \
+	git remote add origin $(BERT_REPO) && \
+	git fetch origin && \
+	git checkout $(BERT_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-bert.cpp/libgobert.a: sources/go-bert.cpp
 	$(MAKE) -C sources/go-bert.cpp libgobert.a
 
 ## go-llama.cpp
 sources/go-llama.cpp:
-	git clone --recurse-submodules https://github.com/go-skynet/go-llama.cpp sources/go-llama.cpp
-	cd sources/go-llama.cpp && git checkout -b build $(GOLLAMA_STABLE_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-llama.cpp
+	cd sources/go-llama.cpp && \
+	git init && \
+	git remote add origin $(GOLLAMA_REPO) && \
+	git fetch origin && \
+	git checkout $(GOLLAMA_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-llama.cpp/libbinding.a: sources/go-llama.cpp
 	$(MAKE) -C sources/go-llama.cpp BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
 
 ## go-piper
 sources/go-piper:
-	git clone --recurse-submodules https://github.com/mudler/go-piper sources/go-piper
-	cd sources/go-piper && git checkout -b build $(PIPER_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-piper
+	cd sources/go-piper && \
+	git init && \
+	git remote add origin $(PIPER_REPO) && \
+	git fetch origin && \
+	git checkout $(PIPER_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
 
 ## GPT4ALL
 sources/gpt4all:
-	git clone --recurse-submodules $(GPT4ALL_REPO) sources/gpt4all
-	cd sources/gpt4all && git checkout -b build $(GPT4ALL_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/gpt4all
+	cd sources/gpt4all && \
+	git init && \
+	git remote add origin $(GPT4ALL_REPO) && \
+	git fetch origin && \
+	git checkout $(GPT4ALL_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
 
 ## RWKV
 sources/go-rwkv.cpp:
-	git clone --recurse-submodules $(RWKV_REPO) sources/go-rwkv.cpp
-	cd sources/go-rwkv.cpp && git checkout -b build $(RWKV_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-rwkv.cpp
+	cd sources/go-rwkv.cpp && \
+	git init && \
+	git remote add origin $(RWKV_REPO) && \
+	git fetch origin && \
+	git checkout $(RWKV_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
 	cd sources/go-rwkv.cpp && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
 
 ## stable diffusion
 sources/go-stable-diffusion:
-	git clone --recurse-submodules https://github.com/mudler/go-stable-diffusion sources/go-stable-diffusion
-	cd sources/go-stable-diffusion && git checkout -b build $(STABLEDIFFUSION_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-stable-diffusion
+	cd sources/go-stable-diffusion && \
+	git init && \
+	git remote add origin $(STABLEDIFFUSION_REPO) && \
+	git fetch origin && \
+	git checkout $(STABLEDIFFUSION_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
 
 ## tiny-dream
 sources/go-tiny-dream:
-	git clone --recurse-submodules https://github.com/M0Rf30/go-tiny-dream sources/go-tiny-dream
-	cd sources/go-tiny-dream && git checkout -b build $(TINYDREAM_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/go-tiny-dream
+	cd sources/go-tiny-dream && \
+	git init && \
+	git remote add origin $(TINYDREAM_REPO) && \
+	git fetch origin && \
+	git checkout $(TINYDREAM_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
 	$(MAKE) -C sources/go-tiny-dream libtinydream.a
 
 ## whisper
 sources/whisper.cpp:
-	git clone https://github.com/ggerganov/whisper.cpp sources/whisper.cpp
-	cd sources/whisper.cpp && git checkout -b build $(WHISPER_CPP_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p sources/whisper.cpp
+	cd sources/whisper.cpp && \
+	git init && \
+	git remote add origin $(WHISPER_REPO) && \
+	git fetch origin && \
+	git checkout $(WHISPER_CPP_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
-	cd sources/whisper.cpp && $(MAKE) libwhisper.a
+	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
 get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream
 
@@ -319,7 +379,7 @@ build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 ifneq ($(BACKEND_LIBS),)
 	$(MAKE) backend-assets/lib
-	cp $(BACKEND_LIBS) backend-assets/lib/
+	cp -f $(BACKEND_LIBS) backend-assets/lib/
 endif
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
@@ -334,6 +394,9 @@ backend-assets/lib:
 
 dist:
 	$(MAKE) backend-assets/grpc/llama-cpp-avx2
+ifeq ($(DETECT_LIBS),true)
+	scripts/prepare-libs.sh backend-assets/grpc/llama-cpp-avx2
+endif
 ifeq ($(OS),Darwin)
 	$(info ${GREEN}I Skip CUDA/hipblas build on MacOS${RESET})
 else
@@ -342,7 +405,11 @@ else
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
 	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
 endif
-	STATIC=true $(MAKE) build
+	GO_TAGS="tts p2p" $(MAKE) build
+ifeq ($(DETECT_LIBS),true)
+	scripts/prepare-libs.sh backend-assets/grpc/piper
+endif
+	GO_TAGS="tts p2p" STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
@@ -404,7 +471,7 @@ prepare-e2e:
 	mkdir -p $(TEST_DIR)
 	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
 	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
-	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=5 --build-arg FFMPEG=true -t localai-tests .
+	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=4 --build-arg FFMPEG=true -t localai-tests .
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
@@ -792,7 +859,7 @@ backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libti
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH=$(CURDIR)/sources/whisper.cpp LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="$(CURDIR)/sources/whisper.cpp/include:$(CURDIR)/sources/whisper.cpp/ggml/include" LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
 
 backend-assets/grpc/local-store: backend-assets/grpc

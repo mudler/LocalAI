@@ -5,7 +5,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai"
-	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
@@ -81,8 +80,7 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		app.Static("/generated-audio", appConfig.AudioDir)
 	}
 
-	// models
-	tmpLMS := services.NewListModelsService(ml, cl, appConfig) // TODO: once createApplication() is fully in use, reference the central instance.
-	app.Get("/v1/models", auth, openai.ListModelsEndpoint(tmpLMS))
-	app.Get("/models", auth, openai.ListModelsEndpoint(tmpLMS))
+	// List models
+	app.Get("/v1/models", auth, openai.ListModelsEndpoint(cl, ml))
+	app.Get("/models", auth, openai.ListModelsEndpoint(cl, ml))
 }

@@ -29,5 +29,9 @@ List of the Environment Variables:
 | **THREADS**              | Number of processor threads the application should use. Defaults to the number of logical cores minus one. |
 | **VERSION**              | Specifies the version of LocalAI to install. Defaults to the latest available version. |
 | **MODELS_PATH**          | Directory path where LocalAI models are stored (default is /usr/share/local-ai/models). |
+| **P2P_TOKEN** | Token to use for the federation or for starting workers see [documentation]({{%relref "docs/features/distributed_inferencing" %}}) |
+| **WORKER** | Set to "true" to make the instance a worker (p2p token is required see [documentation]({{%relref "docs/features/distributed_inferencing" %}})) |
+| **FEDERATED** | Set to "true" to share the instance with the federation (p2p token is required see [documentation]({{%relref "docs/features/distributed_inferencing" %}}))  |
+| **FEDERATED_SERVER** | Set to "true" to run the instance as a federation server which forwards requests to the federation (p2p token is required see [documentation]({{%relref "docs/features/distributed_inferencing" %}}))  |
 
 We are looking into improving the installer, and as this is a first iteration any feedback is welcome! Open up an [issue](https://github.com/mudler/LocalAI/issues/new/choose) if something doesn't work for you!

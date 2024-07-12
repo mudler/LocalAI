@@ -1,6 +1,7 @@
 package gallery
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -94,7 +95,7 @@ func ReadConfigFile(filePath string) (*Config, error) {
 	return &config, nil
 }
 
-func InstallModel(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64)) error {
+func InstallModel(basePath, nameOverride string, config *Config, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64), enforceScan bool) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0750)
 	if err != nil {
@@ -112,8 +113,17 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
 			return err
 		}
+
 		// Create file path
 		filePath := filepath.Join(basePath, file.Filename)
+
+		if enforceScan {
+			scanResults, err := downloader.HuggingFaceScan(file.URI)
+			if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
+				log.Error().Str("model", config.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
+				return err
+			}
+		}
 
 		if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
 			return err

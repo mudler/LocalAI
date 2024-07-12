@@ -1,0 +1,170 @@
+name: Notifications for new models
+on:
+  pull_request:
+     types:
+       - closed
+
+jobs:
+  notify-discord:
+    if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
+    env:
+        MODEL_NAME: hermes-2-theta-llama-3-8b
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # needed to checkout all branches for this Action to work
+    - name: Start LocalAI
+      run: |
+        echo "Starting LocalAI..."
+        docker run -e -ti -d --name local-ai -p 8080:8080 localai/localai:master-ffmpeg-core run --debug $MODEL_NAME
+        until [ "`docker inspect -f {{.State.Health.Status}} local-ai`" == "healthy" ]; do echo "Waiting for container to be ready";  docker logs --tail 10 local-ai; sleep 2; done
+      # Check the PR diff using the current branch and the base branch of the PR
+    - uses: GrantBirki/git-diff-action@v2.7.0
+      id: git-diff-action
+      with:
+            json_diff_file_output: diff.json
+            raw_diff_file_output: diff.txt
+            file_output_only: "true"
+    - name: Summarize
+      env:
+        DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}
+      id: summarize
+      run: |
+            input="$(cat $DIFF)"
+
+            # Define the LocalAI API endpoint
+            API_URL="http://localhost:8080/chat/completions"
+
+            # Create a JSON payload using jq to handle special characters
+            json_payload=$(jq -n --arg input "$input" '{
+            model: "'$MODEL_NAME'",
+            messages: [
+                {
+                role: "system",
+                content: "You are LocalAI-bot. Write a discord message to notify everyone about the new model from the git diff. Make it informal. An example can include: the URL of the model, the name, and a brief description of the model if exists. Also add an hint on how to install it in LocalAI and that can be browsed over https://models.localai.io. For example: local-ai run model_name_here"
+                },
+                {
+                role: "user",
+                content: $input
+                }
+            ]
+            }')
+
+            # Send the request to LocalAI
+            response=$(curl -s -X POST $API_URL \
+            -H "Content-Type: application/json" \
+            -d "$json_payload")
+
+            # Extract the summary from the response
+            summary="$(echo $response | jq -r '.choices[0].message.content')"
+
+            # Print the summary
+            #  -H "Authorization: Bearer $API_KEY" \
+            echo "Summary:"
+            echo "$summary"
+            echo "payload sent"
+            echo "$json_payload"
+            {
+                echo 'message<<EOF'
+                echo "$summary"
+                echo EOF
+              } >> "$GITHUB_OUTPUT"
+            docker logs --tail 10 local-ai
+    - name: Discord notification
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        DISCORD_USERNAME: "LocalAI-Bot"
+        DISCORD_AVATAR: "https://avatars.githubusercontent.com/u/139863280?v=4"
+      uses: Ilshidur/action-discord@master
+      with:
+        args: ${{ steps.summarize.outputs.message }}
+    - name: Setup tmate session if fails
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3.18
+      with:
+        detached: true
+        connect-timeout-seconds: 180
+        limit-access-to-actor: true
+  notify-twitter:
+    if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
+    env:
+        MODEL_NAME: hermes-2-theta-llama-3-8b
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # needed to checkout all branches for this Action to work
+    - name: Start LocalAI
+      run: |
+        echo "Starting LocalAI..."
+        docker run -e -ti -d --name local-ai -p 8080:8080 localai/localai:master-ffmpeg-core run --debug $MODEL_NAME
+        until [ "`docker inspect -f {{.State.Health.Status}} local-ai`" == "healthy" ]; do echo "Waiting for container to be ready";  docker logs --tail 10 local-ai; sleep 2; done
+      # Check the PR diff using the current branch and the base branch of the PR
+    - uses: GrantBirki/git-diff-action@v2.7.0
+      id: git-diff-action
+      with:
+            json_diff_file_output: diff.json
+            raw_diff_file_output: diff.txt
+            file_output_only: "true"
+    - name: Summarize
+      env:
+        DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}
+      id: summarize
+      run: |
+            input="$(cat $DIFF)"
+
+            # Define the LocalAI API endpoint
+            API_URL="http://localhost:8080/chat/completions"
+
+            # Create a JSON payload using jq to handle special characters
+            json_payload=$(jq -n --arg input "$input" '{
+            model: "'$MODEL_NAME'",
+            messages: [
+                {
+                role: "system",
+                content: "You are LocalAI-bot. Write a twitter message to notify everyone about the new model from the git diff. Make it informal and really short. An example can include: the name, and a brief description of the model if exists. Also add an hint on how to install it in LocalAI. For example: local-ai run model_name_here"
+                },
+                {
+                role: "user",
+                content: $input
+                }
+            ]
+            }')
+
+            # Send the request to LocalAI
+            response=$(curl -s -X POST $API_URL \
+            -H "Content-Type: application/json" \
+            -d "$json_payload")
+
+            # Extract the summary from the response
+            summary="$(echo $response | jq -r '.choices[0].message.content')"
+
+            # Print the summary
+            #  -H "Authorization: Bearer $API_KEY" \
+            echo "Summary:"
+            echo "$summary"
+            echo "payload sent"
+            echo "$json_payload"
+            {
+                echo 'message<<EOF'
+                echo "$summary"
+                echo EOF
+              } >> "$GITHUB_OUTPUT"
+            docker logs --tail 10 local-ai
+    - uses: Eomm/why-don-t-you-tweet@v2
+      with:
+        tweet-message: ${{ steps.summarize.outputs.message }}
+      env:
+        # Get your tokens from https://developer.twitter.com/apps
+        TWITTER_CONSUMER_API_KEY: ${{ secrets.TWITTER_APP_KEY }}
+        TWITTER_CONSUMER_API_SECRET: ${{ secrets.TWITTER_APP_SECRET }}
+        TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+    - name: Setup tmate session if fails
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3.18
+      with:
+        detached: true
+        connect-timeout-seconds: 180
+        limit-access-to-actor: true

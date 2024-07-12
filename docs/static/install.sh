@@ -76,6 +76,11 @@ DOCKER_INSTALL=${DOCKER_INSTALL:-$docker_found}
 USE_AIO=${USE_AIO:-false}
 API_KEY=${API_KEY:-}
 CORE_IMAGES=${CORE_IMAGES:-false}
+P2P_TOKEN=${P2P_TOKEN:-}
+WORKER=${WORKER:-false}
+FEDERATED=${FEDERATED:-false}
+FEDERATED_SERVER=${FEDERATED_SERVER:-false}
+
 # nprocs -1
 if available nproc; then
     procs=$(nproc)
@@ -132,7 +137,6 @@ configure_systemd() {
 
     info "Adding current user to local-ai group..."
     $SUDO usermod -a -G local-ai $(whoami)
-
     info "Creating local-ai systemd service..."
     cat <<EOF | $SUDO tee /etc/systemd/system/local-ai.service >/dev/null
 [Unit]
@@ -140,7 +144,7 @@ Description=LocalAI Service
 After=network-online.target
 
 [Service]
-ExecStart=$BINDIR/local-ai run
+ExecStart=$BINDIR/local-ai $STARTCOMMAND
 User=local-ai
 Group=local-ai
 Restart=always
@@ -158,6 +162,15 @@ EOF
     $SUDO echo "API_KEY=$API_KEY" | $SUDO tee -a /etc/localai.env >/dev/null
     $SUDO echo "THREADS=$THREADS" | $SUDO tee -a /etc/localai.env >/dev/null
     $SUDO echo "MODELS_PATH=$MODELS_PATH" | $SUDO tee -a /etc/localai.env >/dev/null
+
+    if [ -n "$P2P_TOKEN" ]; then
+        $SUDO echo "LOCALAI_P2P_TOKEN=$P2P_TOKEN" | $SUDO tee -a /etc/localai.env >/dev/null
+        $SUDO echo "LOCALAI_P2P=true" | $SUDO tee -a /etc/localai.env >/dev/null
+    fi
+
+    if [ "$LOCALAI_P2P_DISABLE_DHT" = true ]; then
+        $SUDO echo "LOCALAI_P2P_DISABLE_DHT=true" | $SUDO tee -a /etc/localai.env >/dev/null
+    fi
 
     SYSTEMCTL_RUNNING="$(systemctl is-system-running || true)"
     case $SYSTEMCTL_RUNNING in
@@ -407,6 +420,14 @@ install_docker() {
         # exit 0
     fi
 
+    envs=""
+    if [ -n "$P2P_TOKEN" ]; then
+        envs="-e LOCALAI_P2P_TOKEN=$P2P_TOKEN -e LOCALAI_P2P=true"
+    fi
+    if [ "$LOCALAI_P2P_DISABLE_DHT" = true ]; then
+        envs="$envs -e LOCALAI_P2P_DISABLE_DHT=true"
+    fi
+
     IMAGE_TAG=
     if [ "$HAS_CUDA" ]; then
         IMAGE_TAG=${VERSION}-cublas-cuda12-ffmpeg
@@ -430,7 +451,8 @@ install_docker() {
             --restart=always \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
-            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG
+            $envs \
+            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_AMD" ]; then
         IMAGE_TAG=${VERSION}-hipblas-ffmpeg
         # CORE
@@ -448,7 +470,8 @@ install_docker() {
             --restart=always \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
-            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG
+            $envs \
+            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_INTEL" ]; then
         IMAGE_TAG=${VERSION}-sycl-f32-ffmpeg
         # CORE
@@ -465,7 +488,8 @@ install_docker() {
             --restart=always \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
-            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG
+            $envs \
+            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     else
         IMAGE_TAG=${VERSION}-ffmpeg
         # CORE
@@ -481,7 +505,8 @@ install_docker() {
                 -e MODELS_PATH=/models \
                 -e API_KEY=$API_KEY \
                 -e THREADS=$THREADS \
-                -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG
+                $envs \
+                -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     fi
 
     install_success
@@ -572,6 +597,28 @@ install_binary() {
     warn "No NVIDIA/AMD GPU detected. LocalAI will run in CPU-only mode."
     exit 0
 }
+
+detect_start_command() {
+    STARTCOMMAND="run"
+    if [ "$WORKER" = true ]; then
+        if [ -n "$P2P_TOKEN" ]; then
+            STARTCOMMAND="worker p2p-llama-cpp-rpc"
+        else 
+            STARTCOMMAND="worker llama-cpp-rpc"
+        fi
+    elif [ "$FEDERATED" = true ]; then
+        if [ "$FEDERATED_SERVER" = true ]; then
+            STARTCOMMAND="federated"
+        else
+            STARTCOMMAND="$STARTCOMMAND --p2p --federated"
+        fi
+    elif [ -n "$P2P_TOKEN" ]; then
+        STARTCOMMAND="$STARTCOMMAND --p2p"
+    fi
+}
+
+
+detect_start_command
 
 OS="$(uname -s)"
 

@@ -9,6 +9,7 @@ var CLI struct {
 	cliContext.Context `embed:""`
 
 	Run        RunCMD        `cmd:"" help:"Run LocalAI, this the default command if no other command is specified. Run 'local-ai run --help' for more information" default:"withargs"`
+	Federated  FederatedCLI  `cmd:"" help:"Run LocalAI in federated mode"`
 	Models     ModelsCMD     `cmd:"" help:"Manage LocalAI models and definitions"`
 	TTS        TTSCMD        `cmd:"" help:"Convert text to speech"`
 	Transcript TranscriptCMD `cmd:"" help:"Convert audio to text"`

@@ -31,7 +31,9 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
+	EnforcePredownloadScans             bool
 	OpaqueErrors                        bool
+	P2PToken                            string
 
 	ModelLibraryURL string
 
@@ -92,6 +94,12 @@ func WithCors(b bool) AppOption {
 func WithCsrf(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.CSRF = b
+	}
+}
+
+func WithP2PToken(s string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.P2PToken = s
 	}
 }
 
@@ -291,6 +299,12 @@ func WithDynamicConfigDirPollInterval(interval time.Duration) AppOption {
 func WithApiKeys(apiKeys []string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ApiKeys = apiKeys
+	}
+}
+
+func WithEnforcedPredownloadScans(enforced bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.EnforcePredownloadScans = enforced
 	}
 }
 

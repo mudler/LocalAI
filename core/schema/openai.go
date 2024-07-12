@@ -155,3 +155,8 @@ type OpenAIRequest struct {
 	// AutoGPTQ
 	ModelBaseName string `json:"model_base_name" yaml:"model_base_name"`
 }
+
+type ModelsDataResponse struct {
+	Object string        `json:"object"`
+	Data   []OpenAIModel `json:"data"`
+}

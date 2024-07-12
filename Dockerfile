@@ -99,7 +99,7 @@ FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
-ARG CUDA_MINOR_VERSION=5
+ARG CUDA_MINOR_VERSION=4
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 
@@ -227,6 +227,7 @@ RUN apt-get update && \
 RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
     mkdir -p /build/grpc/cmake/build && \
     cd /build/grpc/cmake/build && \
+    sed -i "216i\  TESTONLY" "../../third_party/abseil-cpp/absl/container/CMakeLists.txt" && \
     cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
     make && \
     make install && \
