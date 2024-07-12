@@ -4,7 +4,6 @@ import requests
 import sys
 import os
 
-print(sys.argv)
 uri = sys.argv[1]
 file_name = uri.split('/')[-1]
 
