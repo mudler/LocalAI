@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/schema"
@@ -442,8 +443,7 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_IMAGE) == FLAG_IMAGE {
-		// This one feels _really_ bad. Need to experiment but it's better than nothing at all?
-		if (c.Backend != "diffusers" && c.Diffusers.PipelineType != "") && (c.Backend != "tinydream") && (c.Backend != "stablediffusion") {
+		if (c.Backend == "diffusers" && c.Diffusers.PipelineType != "") || ((c.Backend != "tinydream") || (c.Backend != "stablediffusion")) {
 			return false
 		}
 	}
@@ -458,8 +458,8 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
-		// This one feels _really_ bad. Need to reach out to TTS experts to find something salient here.
-		if c.Backend != "transformer-musicgen" && c.Backend != "piper" && c.Backend != "parler-tts" {
+		ttsBackends := []string{"piper", "transformer-musicgen", "parler-tts"}
+		if !slices.Contains(ttsBackends, c.Backend) {
 			return false
 		}
 	}
