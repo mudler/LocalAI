@@ -2693,6 +2693,21 @@
     - filename: HaloMaidRP-v1.33-15B-L3.i1-Q4_K_M.gguf
       sha256: 94d0bf2de4df7e5a11b9ca4db3518d7d22c6fa062d1ee16e4db52b2bb26bc8b3
       uri: huggingface://mradermacher/HaloMaidRP-v1.33-15B-L3-i1-GGUF/HaloMaidRP-v1.33-15B-L3.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-patronus-lynx-70b-instruct"
+  urls:
+    - https://huggingface.co/PatronusAI/Llama-3-Patronus-Lynx-70B-Instruct
+    - https://huggingface.co/mradermacher/Llama-3-Patronus-Lynx-70B-Instruct-GGUF
+  description: |
+    Lynx is an open-source hallucination evaluation model. Patronus-Lynx-70B-Instruct was trained on a mix of datasets including CovidQA, PubmedQA, DROP, RAGTruth. The datasets contain a mix of hand-annotated and synthetic data. The maximum sequence length is 8000 tokens.
+    Model
+  overrides:
+    parameters:
+      model: Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
+      sha256: 95a02b71baff287bd84188fc1babcf9dfae25c315e2613391e694cf944f1e5b3
+      uri: huggingface://mradermacher/Llama-3-Patronus-Lynx-70B-Instruct-GGUF/Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
