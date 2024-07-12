@@ -453,8 +453,6 @@
 
     The sweet moist of Gemma 2, unhinged.
 
-    image/gif
-
     smeg - ghem - mah
 
     An eRP model that will blast you with creamy moist. Finetuned by yours truly.
@@ -483,6 +481,39 @@
     - filename: Smegmma-9B-v1-Q4_K_M.gguf
       uri: huggingface://bartowski/Smegmma-9B-v1-GGUF/Smegmma-9B-v1-Q4_K_M.gguf
       sha256: abd9da0a6bf5cbc0ed6bb0d7e3ee7aea3f6b1edbf8c64e51d0fa25001975aed7
+- !!merge <<: *gemma
+  name: "smegmma-deluxe-9b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/RSuc5p9Sm6CYj6lGOxvx4.gif
+  urls:
+    - https://huggingface.co/TheDrummer/Smegmma-Deluxe-9B-v1
+    - https://huggingface.co/bartowski/Smegmma-Deluxe-9B-v1-GGUF
+  description: |
+    Smegmma Deluxe 9B v1 🧀
+
+    The sweet moist of Gemma 2, unhinged.
+
+    smeg - ghem - mah
+
+    An eRP model that will blast you with creamy moist. Finetuned by yours truly.
+
+    The first Gemma 2 9B RP finetune attempt!
+
+    What's New?
+
+        Engaging roleplay
+            Less refusals / censorship
+            Less commentaries / summaries
+            More willing AI
+            Better formatting
+            Better creativity
+        Moist alignment
+  overrides:
+    parameters:
+      model: Smegmma-Deluxe-9B-v1-Q4_K_M.gguf
+  files:
+    - filename: Smegmma-Deluxe-9B-v1-Q4_K_M.gguf
+      uri: huggingface://bartowski/Smegmma-Deluxe-9B-v1-GGUF/Smegmma-Deluxe-9B-v1-Q4_K_M.gguf
+      sha256: 732ecb253ea0115453438fc1f4e3e31507719ddcf81890a86ad1d734beefdb6f
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -1747,6 +1778,50 @@
     - filename: Hathor_Tahsin-L3-8B-v0.85-Q4_K_M.gguf
       sha256: c82f39489e767a842925fc58cafb5dec0cc71313d904a53fdb46186be899ecb0
       uri: huggingface://bartowski/Hathor_Tahsin-L3-8B-v0.85-GGUF/Hathor_Tahsin-L3-8B-v0.85-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "replete-coder-instruct-8b-merged"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/-0dERC793D9XeFsJ9uHbx.png
+  description: |
+    This is a Ties merge between the following models:
+
+        https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
+
+        https://huggingface.co/Replete-AI/Llama3-8B-Instruct-Replete-Adapted
+
+    The Coding, and Overall performance of this models seems to be better than both base models used in the merge. Benchmarks are coming in the future.
+  urls:
+    - https://huggingface.co/Replete-AI/Replete-Coder-Instruct-8b-Merged
+    - https://huggingface.co/bartowski/Replete-Coder-Instruct-8b-Merged-GGUF
+  overrides:
+    parameters:
+      model: Replete-Coder-Instruct-8b-Merged-Q4_K_M.gguf
+  files:
+    - filename: Replete-Coder-Instruct-8b-Merged-Q4_K_M.gguf
+      sha256: 5374a38023b3d8617d266f94e4eff4c5d996b3197e6c42ae27315110bcc75d33
+      uri: huggingface://bartowski/Replete-Coder-Instruct-8b-Merged-GGUF/Replete-Coder-Instruct-8b-Merged-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "arliai-llama-3-8b-formax-v1.0"
+  description: |
+    Formax is a model that specializes in following response format instructions. Tell it the format of it's response and it will follow it perfectly. Great for data processing and dataset creation tasks.
+
+    Base model: https://huggingface.co/failspy/Meta-Llama-3-8B-Instruct-abliterated-v3
+
+    Training:
+        4096 sequence length
+        Training duration is around 2 days on 2x3090Ti
+        1 epoch training with a massive dataset for minimized repetition sickness.
+        LORA with 64-rank 128-alpha resulting in ~2% trainable weights.
+  urls:
+    - https://huggingface.co/OwenArli/ArliAI-Llama-3-8B-Formax-v1.0
+    - https://huggingface.co/bartowski/ArliAI-Llama-3-8B-Formax-v1.0-GGUF
+  overrides:
+    context_size: 4096
+    parameters:
+      model: ArliAI-Llama-3-8B-Formax-v1.0-Q4_K_M.gguf
+  files:
+    - filename: ArliAI-Llama-3-8B-Formax-v1.0-Q4_K_M.gguf
+      sha256: e6a47a11eb67c1d4cd92e3512d3288a5d937c41a3319e95c3b8b2332428af239
+      uri: huggingface://bartowski/ArliAI-Llama-3-8B-Formax-v1.0-GGUF/ArliAI-Llama-3-8B-Formax-v1.0-Q4_K_M.gguf
 - name: "llama-3-sec-chat"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   urls:
@@ -2566,6 +2641,73 @@
     - filename: Nymph_8B.i1-Q4_K_M.gguf
       sha256: 5b35794539d9cd262720f47a54f59dbffd5bf6c601950359b5c68d13f1ce13a0
       uri: huggingface://mradermacher/Nymph_8B-i1-GGUF/Nymph_8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-ms-astoria-8b"
+  urls:
+    - https://huggingface.co/ibrahimkettaneh/L3-MS-Astoria-8b
+    - https://huggingface.co/mradermacher/L3-MS-Astoria-8b-GGUF
+  description: |
+    This is a merge of pre-trained language models created using mergekit.
+    Merge Method
+
+    This model was merged using the Model Stock merge method using failspy/Meta-Llama-3-8B-Instruct-abliterated-v3 as a base.
+    Models Merged
+
+    The following models were included in the merge:
+
+        ProbeMedicalYonseiMAILab/medllama3-v20
+        migtissera/Tess-2.0-Llama-3-8B
+        Cas-Warehouse/Llama-3-Psychology-LoRA-Stock-8B
+        TheSkullery/llama-3-cat-8b-instruct-v1
+  overrides:
+    parameters:
+      model: L3-MS-Astoria-8b.Q4_K_M.gguf
+  files:
+    - filename: L3-MS-Astoria-8b.Q4_K_M.gguf
+      sha256: cc5db0ef056aa57cb848988f6a7c739701ecde6303a9d8262f5dac76287ba15a
+      uri: huggingface://mradermacher/L3-MS-Astoria-8b-GGUF/L3-MS-Astoria-8b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "halomaidrp-v1.33-15b-l3-i1"
+  urls:
+    - https://huggingface.co/mradermacher/HaloMaidRP-v1.33-15B-L3-i1-GGUF
+    - https://huggingface.co/v000000/HaloMaidRP-v1.33-15B-L3
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f74b6e6389380c77562762/MCdGdalCCtOVPn8X7rqha.jpeg
+  description: |
+    This is the third iteration "Emerald" of the final four and the one I liked the most. It has had limited testing though, but seems relatively decent. Better than 8B at least.
+    This is a merge of pre-trained language models created using mergekit.
+    The following models were included in the merge:
+
+    grimjim/Llama-3-Instruct-abliteration-LoRA-8B
+    UCLA-AGI/Llama-3-Instruct-8B-SPPO-Iter3
+    NeverSleep/Llama-3-Lumimaid-8B-v0.1-OAS
+    maldv/llama-3-fantasy-writer-8b
+    tokyotech-llm/Llama-3-Swallow-8B-v0.1
+    Sao10K/L3-8B-Stheno-v3.2
+    ZeusLabs/L3-Aethora-15B-V2
+    Nitral-AI/Hathor_Respawn-L3-8B-v0.8
+    Blackroot/Llama-3-8B-Abomination-LORA
+  overrides:
+    parameters:
+      model: HaloMaidRP-v1.33-15B-L3.i1-Q4_K_M.gguf
+  files:
+    - filename: HaloMaidRP-v1.33-15B-L3.i1-Q4_K_M.gguf
+      sha256: 94d0bf2de4df7e5a11b9ca4db3518d7d22c6fa062d1ee16e4db52b2bb26bc8b3
+      uri: huggingface://mradermacher/HaloMaidRP-v1.33-15B-L3-i1-GGUF/HaloMaidRP-v1.33-15B-L3.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-patronus-lynx-70b-instruct"
+  urls:
+    - https://huggingface.co/PatronusAI/Llama-3-Patronus-Lynx-70B-Instruct
+    - https://huggingface.co/mradermacher/Llama-3-Patronus-Lynx-70B-Instruct-GGUF
+  description: |
+    Lynx is an open-source hallucination evaluation model. Patronus-Lynx-70B-Instruct was trained on a mix of datasets including CovidQA, PubmedQA, DROP, RAGTruth. The datasets contain a mix of hand-annotated and synthetic data. The maximum sequence length is 8000 tokens.
+    Model
+  overrides:
+    parameters:
+      model: Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
+      sha256: 95a02b71baff287bd84188fc1babcf9dfae25c315e2613391e694cf944f1e5b3
+      uri: huggingface://mradermacher/Llama-3-Patronus-Lynx-70B-Instruct-GGUF/Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"

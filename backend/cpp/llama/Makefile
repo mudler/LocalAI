@@ -1,5 +1,6 @@
 
 LLAMA_VERSION?=
+LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
@@ -45,11 +46,13 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 endif
 
 llama.cpp:
-	git clone --recurse-submodules https://github.com/ggerganov/llama.cpp llama.cpp
-	if [ -z "$(LLAMA_VERSION)" ]; then \
-		exit 1; \
-	fi
-	cd llama.cpp && git checkout -b build $(LLAMA_VERSION) && git submodule update --init --recursive --depth 1
+	mkdir -p llama.cpp
+	cd llama.cpp && \
+	git init && \
+	git remote add origin $(LLAMA_REPO)  && \
+	git fetch origin && \
+	git checkout -b build $(LLAMA_VERSION) && \
+	git submodule update --init --recursive --depth 1
 
 llama.cpp/examples/grpc-server: llama.cpp
 	mkdir -p llama.cpp/examples/grpc-server

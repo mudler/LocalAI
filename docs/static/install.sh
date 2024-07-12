@@ -78,6 +78,9 @@ API_KEY=${API_KEY:-}
 CORE_IMAGES=${CORE_IMAGES:-false}
 P2P_TOKEN=${P2P_TOKEN:-}
 WORKER=${WORKER:-false}
+FEDERATED=${FEDERATED:-false}
+FEDERATED_SERVER=${FEDERATED_SERVER:-false}
+
 # nprocs -1
 if available nproc; then
     procs=$(nproc)
@@ -134,14 +137,6 @@ configure_systemd() {
 
     info "Adding current user to local-ai group..."
     $SUDO usermod -a -G local-ai $(whoami)
-    STARTCOMMAND="run"
-    if [ "$WORKER" = true ]; then
-        if [ -n "$P2P_TOKEN" ]; then
-            STARTCOMMAND="worker p2p-llama-cpp-rpc"
-        else 
-            STARTCOMMAND="worker llama-cpp-rpc"
-        fi
-    fi
     info "Creating local-ai systemd service..."
     cat <<EOF | $SUDO tee /etc/systemd/system/local-ai.service >/dev/null
 [Unit]
@@ -171,6 +166,10 @@ EOF
     if [ -n "$P2P_TOKEN" ]; then
         $SUDO echo "LOCALAI_P2P_TOKEN=$P2P_TOKEN" | $SUDO tee -a /etc/localai.env >/dev/null
         $SUDO echo "LOCALAI_P2P=true" | $SUDO tee -a /etc/localai.env >/dev/null
+    fi
+
+    if [ "$LOCALAI_P2P_DISABLE_DHT" = true ]; then
+        $SUDO echo "LOCALAI_P2P_DISABLE_DHT=true" | $SUDO tee -a /etc/localai.env >/dev/null
     fi
 
     SYSTEMCTL_RUNNING="$(systemctl is-system-running || true)"
@@ -421,17 +420,12 @@ install_docker() {
         # exit 0
     fi
 
-    STARTCOMMAND="run"
-    if [ "$WORKER" = true ]; then
-        if [ -n "$P2P_TOKEN" ]; then
-            STARTCOMMAND="worker p2p-llama-cpp-rpc"
-        else 
-            STARTCOMMAND="worker llama-cpp-rpc"
-        fi
-    fi
     envs=""
     if [ -n "$P2P_TOKEN" ]; then
         envs="-e LOCALAI_P2P_TOKEN=$P2P_TOKEN -e LOCALAI_P2P=true"
+    fi
+    if [ "$LOCALAI_P2P_DISABLE_DHT" = true ]; then
+        envs="$envs -e LOCALAI_P2P_DISABLE_DHT=true"
     fi
 
     IMAGE_TAG=
@@ -603,6 +597,28 @@ install_binary() {
     warn "No NVIDIA/AMD GPU detected. LocalAI will run in CPU-only mode."
     exit 0
 }
+
+detect_start_command() {
+    STARTCOMMAND="run"
+    if [ "$WORKER" = true ]; then
+        if [ -n "$P2P_TOKEN" ]; then
+            STARTCOMMAND="worker p2p-llama-cpp-rpc"
+        else 
+            STARTCOMMAND="worker llama-cpp-rpc"
+        fi
+    elif [ "$FEDERATED" = true ]; then
+        if [ "$FEDERATED_SERVER" = true ]; then
+            STARTCOMMAND="federated"
+        else
+            STARTCOMMAND="$STARTCOMMAND --p2p --federated"
+        fi
+    elif [ -n "$P2P_TOKEN" ]; then
+        STARTCOMMAND="$STARTCOMMAND --p2p"
+    fi
+}
+
+
+detect_start_command
 
 OS="$(uname -s)"
 
