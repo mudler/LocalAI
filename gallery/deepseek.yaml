@@ -11,7 +11,7 @@ config_file: |
       {{if eq .RoleName "assistant" -}}Assistant: {{.Content}}<｜end▁of▁sentence｜>{{end}}
       {{if eq .RoleName "system" -}}{{.Content}}
       {{end -}}
-    chat: |
+    chat: |+
       {{.Input -}}
       Assistant: 
     completion: |
