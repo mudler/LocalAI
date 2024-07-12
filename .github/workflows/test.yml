@@ -10,7 +10,7 @@ on:
       - '*'
 
 env:
-  GRPC_VERSION: v1.64.0
+  GRPC_VERSION: v1.65.0
 
 concurrency:
   group: ci-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
@@ -94,8 +94,8 @@ jobs:
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
           export CUDACXX=/usr/local/cuda/bin/nvcc
 
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 
           # The python3-grpc-tools package in 22.04 is too old
           pip install --user grpcio-tools
@@ -110,7 +110,7 @@ jobs:
           # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
           PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
         env:
-          CUDA_VERSION: 12-3
+          CUDA_VERSION: 12-5
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
@@ -215,7 +215,7 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc
-          pip install --user grpcio-tools==1.64.0
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include
