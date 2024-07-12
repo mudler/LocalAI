@@ -443,7 +443,7 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_IMAGE) == FLAG_IMAGE {
-		if (c.Backend == "diffusers" && c.Diffusers.PipelineType != "") && ((c.Backend != "tinydream") || (c.Backend != "stablediffusion")) {
+		if (c.Backend == "diffusers" && c.Diffusers.PipelineType != "") && ((c.Backend != "tinydream") && (c.Backend != "stablediffusion")) {
 			return false
 		}
 	}
