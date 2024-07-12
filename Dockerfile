@@ -8,7 +8,7 @@ FROM ${BASE_IMAGE} AS requirements-core
 
 USER root
 
-ARG GO_VERSION=1.22.4
+ARG GO_VERSION=1.22.5
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -206,7 +206,7 @@ FROM ${GRPC_BASE_IMAGE} AS grpc
 
 # This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
 ARG GRPC_MAKEFLAGS="-j4 -Otarget"
-ARG GRPC_VERSION=v1.64.2
+ARG GRPC_VERSION=v1.65.0
 
 ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 

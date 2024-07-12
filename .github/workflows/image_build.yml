@@ -232,7 +232,7 @@ jobs:
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
-            GRPC_VERSION=v1.64.0
+            GRPC_VERSION=v1.65.0
             MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile
@@ -260,7 +260,7 @@ jobs:
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
-            GRPC_VERSION=v1.64.0
+            GRPC_VERSION=v1.65.0
             MAKEFLAGS=${{ inputs.makeflags }}
           context: .
           file: ./Dockerfile

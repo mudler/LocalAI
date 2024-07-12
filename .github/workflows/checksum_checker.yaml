@@ -20,12 +20,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y pip wget
-          sudo pip install --upgrade pip 
+          sudo pip install --upgrade pip
           pip install huggingface_hub
       - name: 'Setup yq'
         uses: dcarbone/install-yq-action@v1.1.1
         with:
-          version: 'v4.43.1'
+          version: 'v4.44.2'
           download-compressed: true
           force: true
 
