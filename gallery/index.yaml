@@ -1768,6 +1768,29 @@
     - filename: Replete-Coder-Instruct-8b-Merged-Q4_K_M.gguf
       sha256: 5374a38023b3d8617d266f94e4eff4c5d996b3197e6c42ae27315110bcc75d33
       uri: huggingface://bartowski/Replete-Coder-Instruct-8b-Merged-GGUF/Replete-Coder-Instruct-8b-Merged-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "arliai-llama-3-8b-formax-v1.0"
+  description: |
+    Formax is a model that specializes in following response format instructions. Tell it the format of it's response and it will follow it perfectly. Great for data processing and dataset creation tasks.
+
+    Base model: https://huggingface.co/failspy/Meta-Llama-3-8B-Instruct-abliterated-v3
+
+    Training:
+        4096 sequence length
+        Training duration is around 2 days on 2x3090Ti
+        1 epoch training with a massive dataset for minimized repetition sickness.
+        LORA with 64-rank 128-alpha resulting in ~2% trainable weights.
+  urls:
+    - https://huggingface.co/OwenArli/ArliAI-Llama-3-8B-Formax-v1.0
+    - https://huggingface.co/bartowski/ArliAI-Llama-3-8B-Formax-v1.0-GGUF
+  overrides:
+    context_size: 4096
+    parameters:
+      model: ArliAI-Llama-3-8B-Formax-v1.0-Q4_K_M.gguf
+  files:
+    - filename: ArliAI-Llama-3-8B-Formax-v1.0-Q4_K_M.gguf
+      sha256: e6a47a11eb67c1d4cd92e3512d3288a5d937c41a3319e95c3b8b2332428af239
+      uri: huggingface://bartowski/ArliAI-Llama-3-8B-Formax-v1.0-GGUF/ArliAI-Llama-3-8B-Formax-v1.0-Q4_K_M.gguf
 - name: "llama-3-sec-chat"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   urls:
