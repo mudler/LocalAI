@@ -13,7 +13,7 @@ config_file: |
       {{end -}}
     chat: |
       {{.Input -}}
-      Assistant:
+      Assistant: # Space is preserved for templating reasons, but line does not end with one for the linter.
     completion: |
       {{.Input}}
   stopwords:
