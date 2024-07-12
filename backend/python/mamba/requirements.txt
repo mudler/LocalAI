@@ -1,4 +1,4 @@
-causal-conv1d==1.2.0.post2
+causal-conv1d==1.4.0
 mamba-ssm==1.2.0.post1
 grpcio==1.64.0
 protobuf
