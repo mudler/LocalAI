@@ -1,0 +1,83 @@
+name: Use LocalAI in GHA
+on:
+  pull_request:
+     types:
+       - closed
+
+jobs:
+  notify-discord:
+    if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
+    env:
+        MODEL_NAME: hermes-2-theta-llama-3-8b
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # needed to checkout all branches for this Action to work
+    # Starts the LocalAI container
+    - name: Start LocalAI
+      run: |
+        echo "Starting LocalAI..."
+        docker run -e -ti -d --name local-ai -p 8080:8080 localai/localai:master-ffmpeg-core run --debug $MODEL_NAME
+        until [ "`docker inspect -f {{.State.Health.Status}} local-ai`" == "healthy" ]; do echo "Waiting for container to be ready";  docker logs --tail 10 local-ai; sleep 2; done
+    # Check the PR diff using the current branch and the base branch of the PR
+    - uses: GrantBirki/git-diff-action@v2.7.0
+      id: git-diff-action
+      with:
+            json_diff_file_output: diff.json
+            raw_diff_file_output: diff.txt
+            file_output_only: "true"
+    # Ask to explain the diff to LocalAI
+    - name: Summarize
+      env:
+        DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}
+      id: summarize
+      run: |
+            input="$(cat $DIFF)"
+
+            # Define the LocalAI API endpoint
+            API_URL="http://localhost:8080/chat/completions"
+
+            # Create a JSON payload using jq to handle special characters
+            json_payload=$(jq -n --arg input "$input" '{
+            model: "'$MODEL_NAME'",
+            messages: [
+                {
+                role: "system",
+                content: "Write a message summarizing the change diffs"
+                },
+                {
+                role: "user",
+                content: $input
+                }
+            ]
+            }')
+
+            # Send the request to LocalAI
+            response=$(curl -s -X POST $API_URL \
+            -H "Content-Type: application/json" \
+            -d "$json_payload")
+
+            # Extract the summary from the response
+            summary="$(echo $response | jq -r '.choices[0].message.content')"
+
+            # Print the summary
+            #  -H "Authorization: Bearer $API_KEY" \
+            echo "Summary:"
+            echo "$summary"
+            echo "payload sent"
+            echo "$json_payload"
+            {
+                echo 'message<<EOF'
+                echo "$summary"
+                echo EOF
+              } >> "$GITHUB_OUTPUT"
+    # Send the summary somewhere (e.g. Discord)
+    - name: Discord notification
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        DISCORD_USERNAME: "discord-bot"
+        DISCORD_AVATAR: ""
+      uses: Ilshidur/action-discord@master
+      with:
+        args: ${{ steps.summarize.outputs.message }}

@@ -2,7 +2,7 @@ version: "3"
 
 services:
   api:
-    image: quay.io/go-skynet/local-ai:v1.18.0-ffmpeg
+    image: quay.io/go-skynet/local-ai:latest
     # As initially LocalAI will download the models defined in PRELOAD_MODELS
     # you might need to tweak the healthcheck values here according to your network connection.
     # Here we give a timespan of 20m to download all the required files.

@@ -1,0 +1,65 @@
+name: Release notifications
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    env:
+        RELEASE_BODY: ${{ github.event.release.body }}
+        RELEASE_TITLE: ${{ github.event.release.name }}
+        RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+    steps:
+    - name: Start LocalAI
+      run: |
+        echo "Starting LocalAI..."
+        docker run -e -ti -d --name local-ai -p 8080:8080 localai/localai:master-ffmpeg-core run --debug $MODEL_NAME
+        until [ "`docker inspect -f {{.State.Health.Status}} local-ai`" == "healthy" ]; do echo "Waiting for container to be ready";  docker logs --tail 10 local-ai; sleep 2; done
+    - name: Summarize
+      id: summarize
+      run: |
+            input="$RELEASE_TITLE\b$RELEASE_BODY"
+
+            # Define the LocalAI API endpoint
+            API_URL="http://localhost:8080/chat/completions"
+
+            # Create a JSON payload using jq to handle special characters
+            json_payload=$(jq -n --arg input "$input" '{
+            model: "'$MODEL_NAME'",
+            messages: [
+                {
+                role: "system",
+                content: "Write a discord message with a bullet point summary of the release notes."
+                },
+                {
+                role: "user",
+                content: $input
+                }
+            ]
+            }')
+
+            # Send the request to LocalAI API
+            response=$(curl -s -X POST $API_URL \
+            -H "Content-Type: application/json" \
+            -d "$json_payload")
+
+            # Extract the summary from the response
+            summary=$(echo $response | jq -r '.choices[0].message.content')
+
+            # Print the summary
+            #  -H "Authorization: Bearer $API_KEY" \
+            {
+                echo 'message<<EOF'
+                echo "$summary"
+                echo EOF
+              } >> "$GITHUB_OUTPUT"
+    - name: Discord notification
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL_RELEASE }}
+        DISCORD_USERNAME: "LocalAI-Bot"
+        DISCORD_AVATAR: "https://avatars.githubusercontent.com/u/139863280?v=4"
+      uses: Ilshidur/action-discord@master
+      with:
+        args: ${{ steps.summarize.outputs.message }}

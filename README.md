@@ -72,6 +72,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+- 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723
 - 🆕 You can browse now the model gallery without LocalAI! Check out https://models.localai.io
 - 🔥🔥 Decentralized llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!) 👉 Docs  https://localai.io/features/distribute/
 - 🔥🔥 Openvoice: https://github.com/mudler/LocalAI/pull/2334
@@ -104,6 +105,7 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 - 🥽 [Vision API](https://localai.io/features/gpt-vision/)
 - 📈 [Reranker API](https://localai.io/features/reranker/)
 - 🆕🖧 [P2P Inferencing](https://localai.io/features/distribute/)
+- 🌍 Integrated WebUI!
 
 ## 💻 Usage
 

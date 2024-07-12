@@ -247,14 +247,23 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 	}
 
 	if xsysinfo.HasCPUCaps(cpuid.AVX2) {
-		log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
-		grpcProcess = backendPath(assetDir, LLamaCPPAVX2)
+		p := backendPath(assetDir, LLamaCPPAVX2)
+		if _, err := os.Stat(p); err == nil {
+			log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
+			grpcProcess = p
+		}
 	} else if xsysinfo.HasCPUCaps(cpuid.AVX) {
-		log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
-		grpcProcess = backendPath(assetDir, LLamaCPPAVX)
+		p := backendPath(assetDir, LLamaCPPAVX)
+		if _, err := os.Stat(p); err == nil {
+			log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
+			grpcProcess = p
+		}
 	} else {
-		log.Info().Msgf("[%s] attempting to load with fallback variant", backend)
-		grpcProcess = backendPath(assetDir, LLamaCPPFallback)
+		p := backendPath(assetDir, LLamaCPPFallback)
+		if _, err := os.Stat(p); err == nil {
+			log.Info().Msgf("[%s] attempting to load with fallback variant", backend)
+			grpcProcess = p
+		}
 	}
 
 	return grpcProcess
@@ -508,6 +517,39 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 		} else if model == nil {
 			err = errors.Join(err, fmt.Errorf("backend %s returned no usable model", key))
 			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
+		}
+
+		if autoDetect && key == LLamaCPP && err != nil {
+			// try as hard as possible to run the llama.cpp variants
+			backendToUse := ""
+			if xsysinfo.HasCPUCaps(cpuid.AVX2) {
+				if _, err := os.Stat(backendPath(o.assetDir, LLamaCPPAVX2)); err == nil {
+					backendToUse = LLamaCPPAVX2
+				}
+			} else if xsysinfo.HasCPUCaps(cpuid.AVX) {
+				if _, err := os.Stat(backendPath(o.assetDir, LLamaCPPAVX2)); err == nil {
+					backendToUse = LLamaCPPAVX
+				}
+			} else {
+				if _, err := os.Stat(backendPath(o.assetDir, LLamaCPPFallback)); err == nil {
+					backendToUse = LLamaCPPFallback
+				} else {
+					// If we don't have a fallback, just skip fallback
+					continue
+				}
+			}
+
+			// Autodetection failed, try the fallback
+			log.Info().Msgf("[%s] Autodetection failed, trying the fallback", key)
+			options = append(options, WithBackendString(backendToUse))
+			model, modelerr = ml.BackendLoader(options...)
+			if modelerr == nil && model != nil {
+				log.Info().Msgf("[%s] Loads OK", key)
+				return model, nil
+			} else {
+				err = errors.Join(err, fmt.Errorf("[%s]: %w", key, modelerr))
+				log.Info().Msgf("[%s] Fails: %s", key, modelerr.Error())
+			}
 		}
 	}
 

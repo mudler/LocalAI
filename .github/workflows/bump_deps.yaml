@@ -9,9 +9,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - repository: "go-skynet/go-llama.cpp"
-            variable: "GOLLAMA_VERSION"
-            branch: "master"
           - repository: "ggerganov/llama.cpp"
             variable: "CPPLLAMA_VERSION"
             branch: "master"

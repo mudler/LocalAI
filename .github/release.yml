@@ -13,6 +13,9 @@ changelog:
       labels:
         - bug
         - regression
+    - title: "🖧 P2P area"
+      labels:
+         - area/p2p
     - title: Exciting New Features 🎉
       labels:
         - Semver-Minor

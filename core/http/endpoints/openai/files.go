@@ -123,7 +123,10 @@ func getFileFromRequest(c *fiber.Ctx) (*File, error) {
 	return nil, fmt.Errorf("unable to find file id %s", id)
 }
 
-// GetFilesEndpoint https://platform.openai.com/docs/api-reference/files/retrieve
+// GetFilesEndpoint is the OpenAI API endpoint to get files https://platform.openai.com/docs/api-reference/files/retrieve
+// @Summary Returns information about a specific file.
+// @Success 200 {object} File "Response"
+// @Router /v1/files/{file_id} [get]
 func GetFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
@@ -135,13 +138,17 @@ func GetFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.Applicat
 	}
 }
 
-// DeleteFilesEndpoint https://platform.openai.com/docs/api-reference/files/delete
+type DeleteStatus struct {
+	Id      string
+	Object  string
+	Deleted bool
+}
+
+// DeleteFilesEndpoint is the OpenAI API endpoint to delete files https://platform.openai.com/docs/api-reference/files/delete
+// @Summary Delete a file.
+// @Success 200 {object} DeleteStatus "Response"
+// @Router /v1/files/{file_id} [delete]
 func DeleteFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	type DeleteStatus struct {
-		Id      string
-		Object  string
-		Deleted bool
-	}
 
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
@@ -174,7 +181,11 @@ func DeleteFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.Appli
 	}
 }
 
-// GetFilesContentsEndpoint https://platform.openai.com/docs/api-reference/files/retrieve-contents
+// GetFilesContentsEndpoint is the OpenAI API endpoint to get files content https://platform.openai.com/docs/api-reference/files/retrieve-contents
+// @Summary Returns information about a specific file.
+// @Success	200		{string}	binary				"file"
+// @Router /v1/files/{file_id}/content [get]
+// GetFilesContentsEndpoint
 func GetFilesContentsEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)

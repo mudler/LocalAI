@@ -4,6 +4,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 )
@@ -11,7 +13,7 @@ import (
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 	cl *config.BackendConfigLoader, ml *model.ModelLoader, modelStatus func() (map[string]string, map[string]string)) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		models, _ := ml.ListModels()
+		models, _ := services.ListModels(cl, ml, "", true)
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		galleryConfigs := map[string]*gallery.Config{}
@@ -27,12 +29,21 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		// Get model statuses to display in the UI the operation in progress
 		processingModels, taskTypes := modelStatus()
 
+		modelsWithoutConfig := []string{}
+
+		for _, m := range models {
+			if _, ok := galleryConfigs[m]; !ok {
+				modelsWithoutConfig = append(modelsWithoutConfig, m)
+			}
+		}
+
 		summary := fiber.Map{
 			"Title":             "LocalAI API - " + internal.PrintableVersion(),
 			"Version":           internal.PrintableVersion(),
-			"Models":            models,
+			"Models":            modelsWithoutConfig,
 			"ModelsConfig":      backendConfigs,
 			"GalleryConfig":     galleryConfigs,
+			"IsP2PEnabled":      p2p.IsP2PEnabled(),
 			"ApplicationConfig": appConfig,
 			"ProcessingModels":  processingModels,
 			"TaskTypes":         taskTypes,

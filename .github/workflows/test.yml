@@ -71,6 +71,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential curl ffmpeg
+          sudo apt-get install -y libgmock-dev
           curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
              sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
              gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
@@ -120,7 +121,8 @@ jobs:
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --jobs 5 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && mkdir -p cmake/build && cd cmake/build && cmake -DgRPC_INSTALL=ON \
+          cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && cd cmake/build && \
+          cmake -DgRPC_INSTALL=ON \
             -DgRPC_BUILD_TESTS=OFF \
             ../.. && sudo make --jobs 5
       - name: Install gRPC
@@ -220,7 +222,7 @@ jobs:
           export CPLUS_INCLUDE_PATH=/usr/local/include
           # Used to run the newer GNUMake version from brew that supports --output-sync
           export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
-          BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make --jobs 4 --output-sync=target test
+          BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.18

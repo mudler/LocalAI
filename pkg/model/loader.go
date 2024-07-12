@@ -30,7 +30,6 @@ type PromptTemplateData struct {
 	MessageIndex         int
 }
 
-// TODO: Ask mudler about FunctionCall stuff being useful at the message level?
 type ChatMessageTemplateData struct {
 	SystemPrompt string
 	Role         string
@@ -87,22 +86,49 @@ func (ml *ModelLoader) ExistsInModelPath(s string) bool {
 	return utils.ExistsInPath(ml.ModelPath, s)
 }
 
-func (ml *ModelLoader) ListModels() ([]string, error) {
+var knownFilesToSkip []string = []string{
+	"MODEL_CARD",
+	"README",
+	"README.md",
+}
+
+var knownModelsNameSuffixToSkip []string = []string{
+	".tmpl",
+	".keep",
+	".yaml",
+	".yml",
+	".json",
+	".DS_Store",
+	".",
+	".partial",
+	".tar.gz",
+}
+
+func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
 	files, err := os.ReadDir(ml.ModelPath)
 	if err != nil {
 		return []string{}, err
 	}
 
 	models := []string{}
+FILE:
 	for _, file := range files {
-		// Skip templates, YAML, .keep, .json, and .DS_Store files - TODO: as this list grows, is there a more efficient method?
-		if strings.HasSuffix(file.Name(), ".tmpl") ||
-			strings.HasSuffix(file.Name(), ".keep") ||
-			strings.HasSuffix(file.Name(), ".yaml") ||
-			strings.HasSuffix(file.Name(), ".yml") ||
-			strings.HasSuffix(file.Name(), ".json") ||
-			strings.HasSuffix(file.Name(), ".DS_Store") ||
-			strings.HasPrefix(file.Name(), ".") {
+
+		for _, skip := range knownFilesToSkip {
+			if strings.EqualFold(file.Name(), skip) {
+				continue FILE
+			}
+		}
+
+		// Skip templates, YAML, .keep, .json, and .DS_Store files
+		for _, skip := range knownModelsNameSuffixToSkip {
+			if strings.HasSuffix(file.Name(), skip) {
+				continue FILE
+			}
+		}
+
+		// Skip directories
+		if file.IsDir() {
 			continue
 		}
 
