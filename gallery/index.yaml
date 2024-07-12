@@ -1747,6 +1747,27 @@
     - filename: Hathor_Tahsin-L3-8B-v0.85-Q4_K_M.gguf
       sha256: c82f39489e767a842925fc58cafb5dec0cc71313d904a53fdb46186be899ecb0
       uri: huggingface://bartowski/Hathor_Tahsin-L3-8B-v0.85-GGUF/Hathor_Tahsin-L3-8B-v0.85-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "replete-coder-instruct-8b-merged"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/-0dERC793D9XeFsJ9uHbx.png
+  description: |
+    This is a Ties merge between the following models:
+
+        https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
+
+        https://huggingface.co/Replete-AI/Llama3-8B-Instruct-Replete-Adapted
+
+    The Coding, and Overall performance of this models seems to be better than both base models used in the merge. Benchmarks are coming in the future.
+  urls:
+    - https://huggingface.co/Replete-AI/Replete-Coder-Instruct-8b-Merged
+    - https://huggingface.co/bartowski/Replete-Coder-Instruct-8b-Merged-GGUF
+  overrides:
+    parameters:
+      model: Replete-Coder-Instruct-8b-Merged-Q4_K_M.gguf
+  files:
+    - filename: Replete-Coder-Instruct-8b-Merged-Q4_K_M.gguf
+      sha256: 5374a38023b3d8617d266f94e4eff4c5d996b3197e6c42ae27315110bcc75d33
+      uri: huggingface://bartowski/Replete-Coder-Instruct-8b-Merged-GGUF/Replete-Coder-Instruct-8b-Merged-Q4_K_M.gguf
 - name: "llama-3-sec-chat"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   urls:
