@@ -20,6 +20,7 @@ const (
 	ChatML
 	Mistral03
 	Gemma
+	DeepSeek2
 )
 
 type settingsConfig struct {
@@ -35,6 +36,17 @@ var defaultsSettings map[familyType]settingsConfig = map[familyType]settingsConf
 			Chat:        "{{.Input }}\n<|start_of_turn|>model\n",
 			ChatMessage: "<|start_of_turn|>{{if eq .RoleName \"assistant\" }}model{{else}}{{ .RoleName }}{{end}}\n{{ if .Content -}}\n{{.Content -}}\n{{ end -}}<|end_of_turn|>",
 			Completion:  "{{.Input}}",
+		},
+	},
+	DeepSeek2: {
+		StopWords: []string{"<｜end▁of▁sentence｜>"},
+		TemplateConfig: TemplateConfig{
+			ChatMessage: `{{if eq .RoleName "user" -}}User: {{.Content }}
+{{ end -}}
+{{if eq .RoleName "assistant" -}}Assistant: {{.Content}}<｜end▁of▁sentence｜>{{end}}
+{{if eq .RoleName "system" -}}{{.Content}}
+{{end -}}`,
+			Chat: "{{.Input -}}\nAssistant: ",
 		},
 	},
 	LLaMa3: {
@@ -208,8 +220,11 @@ func identifyFamily(f *gguf.GGUFFile) familyType {
 	qwen2 := arch == "qwen2"
 	phi3 := arch == "phi-3"
 	gemma := strings.HasPrefix(f.Model().Name, "gemma")
+	deepseek2 := arch == "deepseek2"
 
 	switch {
+	case deepseek2:
+		return DeepSeek2
 	case gemma:
 		return Gemma
 	case llama3:

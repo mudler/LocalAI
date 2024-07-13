@@ -1,0 +1,20 @@
+---
+name: "deepseek"
+
+config_file: |
+  mmap: true
+  context_size: 8192
+  template:
+    chat_message: |-
+      {{if eq .RoleName "user" -}}User: {{.Content }}
+      {{ end -}}
+      {{if eq .RoleName "assistant" -}}Assistant: {{.Content}}<｜end▁of▁sentence｜>{{end}}
+      {{if eq .RoleName "system" -}}{{.Content}}
+      {{end -}}
+    chat: |
+      {{.Input -}}
+      Assistant: # Space is preserved for templating reasons, but line does not end with one for the linter.
+    completion: |
+      {{.Input}}
+  stopwords:
+  - '<｜end▁of▁sentence｜>'

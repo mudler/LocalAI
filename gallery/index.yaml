@@ -1,4 +1,29 @@
 ---
+## Deepseek
+- &deepseek
+  url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
+  name: "deepseek-coder-v2-lite-instruct"
+  icon: "https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg?raw=true"
+  license: deepseek
+  description: |
+    DeepSeek-Coder-V2, an open-source Mixture-of-Experts (MoE) code language model that achieves performance comparable to GPT4-Turbo in code-specific tasks. Specifically, DeepSeek-Coder-V2 is further pre-trained from DeepSeek-Coder-V2-Base with 6 trillion tokens sourced from a high-quality and multi-source corpus. Through this continued pre-training, DeepSeek-Coder-V2 substantially enhances the coding and mathematical reasoning capabilities of DeepSeek-Coder-V2-Base, while maintaining comparable performance in general language tasks. Compared to DeepSeek-Coder, DeepSeek-Coder-V2 demonstrates significant advancements in various aspects of code-related tasks, as well as reasoning and general capabilities. Additionally, DeepSeek-Coder-V2 expands its support for programming languages from 86 to 338, while extending the context length from 16K to 128K.
+    In standard benchmark evaluations, DeepSeek-Coder-V2 achieves superior performance compared to closed-source models such as GPT4-Turbo, Claude 3 Opus, and Gemini 1.5 Pro in coding and math benchmarks. The list of supported programming languages can be found in the paper.
+  urls:
+    - https://github.com/deepseek-ai/DeepSeek-Coder-V2/tree/main
+    - https://huggingface.co/LoneStriker/DeepSeek-Coder-V2-Lite-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - deepseek
+    - cpu
+  overrides:
+    parameters:
+      model: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
+  files:
+    - filename: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
+      sha256: 50ec78036433265965ed1afd0667c00c71c12aa70bcf383be462cb8e159db6c0
+      uri: huggingface://LoneStriker/DeepSeek-Coder-V2-Lite-Instruct-GGUF/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
 ## Start QWEN2
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -514,6 +539,25 @@
     - filename: Smegmma-Deluxe-9B-v1-Q4_K_M.gguf
       uri: huggingface://bartowski/Smegmma-Deluxe-9B-v1-GGUF/Smegmma-Deluxe-9B-v1-Q4_K_M.gguf
       sha256: 732ecb253ea0115453438fc1f4e3e31507719ddcf81890a86ad1d734beefdb6f
+- !!merge <<: *gemma
+  name: "tiger-gemma-9b-v1-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/A97OlLKeT4XOnv4IG1b6m.png
+  urls:
+    - https://huggingface.co/TheDrummer/Tiger-Gemma-9B-v1
+    - https://huggingface.co/mradermacher/Tiger-Gemma-9B-v1-i1-GGUF
+  description: |
+    Tiger Gemma 9B v1
+
+    Decensored Gemma 9B. No refusals so far. No apparent brain damage.
+
+    In memory of Tiger
+  overrides:
+    parameters:
+      model: Tiger-Gemma-9B-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: Tiger-Gemma-9B-v1.i1-Q4_K_M.gguf
+      sha256: ef10accfee8023b31def5425bf591bf1f0203090f3dd851cd3f37bb235324383
+      uri: huggingface://mradermacher/Tiger-Gemma-9B-v1-i1-GGUF/Tiger-Gemma-9B-v1.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -2708,6 +2752,71 @@
     - filename: Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
       sha256: 95a02b71baff287bd84188fc1babcf9dfae25c315e2613391e694cf944f1e5b3
       uri: huggingface://mradermacher/Llama-3-Patronus-Lynx-70B-Instruct-GGUF/Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llamax3-8b-alpaca"
+  urls:
+    - https://huggingface.co/LLaMAX/LLaMAX3-8B-Alpaca
+    - https://huggingface.co/mradermacher/LLaMAX3-8B-Alpaca-GGUF
+  description: |
+    LLaMAX is a language model with powerful multilingual capabilities without loss instruction-following capabilities.
+
+    We collected extensive training sets in 102 languages for continued pre-training of Llama2 and leveraged the English instruction fine-tuning dataset, Alpaca, to fine-tune its instruction-following capabilities.
+
+    LLaMAX supports translation between more than 100 languages, surpassing the performance of similarly scaled LLMs.
+
+    Supported Languages
+    Akrikaans (af), Amharic (am), Arabic (ar), Armenian (hy), Assamese (as), Asturian (ast), Azerbaijani (az), Belarusian (be), Bengali (bn), Bosnian (bs), Bulgarian (bg), Burmese (my), Catalan (ca), Cebuano (ceb), Chinese Simpl (zho), Chinese Trad (zho), Croatian (hr), Czech (cs), Danish (da), Dutch (nl), English (en), Estonian (et), Filipino (tl), Finnish (fi), French (fr), Fulah (ff), Galician (gl), Ganda (lg), Georgian (ka), German (de), Greek (el), Gujarati (gu), Hausa (ha), Hebrew (he), Hindi (hi), Hungarian (hu), Icelandic (is), Igbo (ig), Indonesian (id), Irish (ga), Italian (it), Japanese (ja), Javanese (jv), Kabuverdianu (kea), Kamba (kam), Kannada (kn), Kazakh (kk), Khmer (km), Korean (ko), Kyrgyz (ky), Lao (lo), Latvian (lv), Lingala (ln), Lithuanian (lt), Luo (luo), Luxembourgish (lb), Macedonian (mk), Malay (ms), Malayalam (ml), Maltese (mt), Maori (mi), Marathi (mr), Mongolian (mn), Nepali (ne), Northern Sotho (ns), Norwegian (no), Nyanja (ny), Occitan (oc), Oriya (or), Oromo (om), Pashto (ps), Persian (fa), Polish (pl), Portuguese (pt), Punjabi (pa), Romanian (ro), Russian (ru), Serbian (sr), Shona (sn), Sindhi (sd), Slovak (sk), Slovenian (sl), Somali (so), Sorani Kurdish (ku), Spanish (es), Swahili (sw), Swedish (sv), Tajik (tg), Tamil (ta), Telugu (te), Thai (th), Turkish (tr), Ukrainian (uk), Umbundu (umb), Urdu (ur), Uzbek (uz), Vietnamese (vi), Welsh (cy), Wolof (wo), Xhosa (xh), Yoruba (yo), Zulu (zu)
+  overrides:
+    parameters:
+      model: LLaMAX3-8B-Alpaca.Q4_K_M.gguf
+  files:
+    - filename: LLaMAX3-8B-Alpaca.Q4_K_M.gguf
+      sha256: 4652209c55d4260634b2195989279f945a072d8574872789a40d1f9b86eb255b
+      uri: huggingface://mradermacher/LLaMAX3-8B-Alpaca-GGUF/LLaMAX3-8B-Alpaca.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llamax3-8b"
+  urls:
+    - https://huggingface.co/LLaMAX/LLaMAX3-8B
+    - https://huggingface.co/mradermacher/LLaMAX3-8B-GGUF
+  description: |
+    LLaMAX is a language model with powerful multilingual capabilities without loss instruction-following capabilities.
+
+    We collected extensive training sets in 102 languages for continued pre-training of Llama2 and leveraged the English instruction fine-tuning dataset, Alpaca, to fine-tune its instruction-following capabilities.
+
+    LLaMAX supports translation between more than 100 languages, surpassing the performance of similarly scaled LLMs.
+
+    Supported Languages
+    Akrikaans (af), Amharic (am), Arabic (ar), Armenian (hy), Assamese (as), Asturian (ast), Azerbaijani (az), Belarusian (be), Bengali (bn), Bosnian (bs), Bulgarian (bg), Burmese (my), Catalan (ca), Cebuano (ceb), Chinese Simpl (zho), Chinese Trad (zho), Croatian (hr), Czech (cs), Danish (da), Dutch (nl), English (en), Estonian (et), Filipino (tl), Finnish (fi), French (fr), Fulah (ff), Galician (gl), Ganda (lg), Georgian (ka), German (de), Greek (el), Gujarati (gu), Hausa (ha), Hebrew (he), Hindi (hi), Hungarian (hu), Icelandic (is), Igbo (ig), Indonesian (id), Irish (ga), Italian (it), Japanese (ja), Javanese (jv), Kabuverdianu (kea), Kamba (kam), Kannada (kn), Kazakh (kk), Khmer (km), Korean (ko), Kyrgyz (ky), Lao (lo), Latvian (lv), Lingala (ln), Lithuanian (lt), Luo (luo), Luxembourgish (lb), Macedonian (mk), Malay (ms), Malayalam (ml), Maltese (mt), Maori (mi), Marathi (mr), Mongolian (mn), Nepali (ne), Northern Sotho (ns), Norwegian (no), Nyanja (ny), Occitan (oc), Oriya (or), Oromo (om), Pashto (ps), Persian (fa), Polish (pl), Portuguese (pt), Punjabi (pa), Romanian (ro), Russian (ru), Serbian (sr), Shona (sn), Sindhi (sd), Slovak (sk), Slovenian (sl), Somali (so), Sorani Kurdish (ku), Spanish (es), Swahili (sw), Swedish (sv), Tajik (tg), Tamil (ta), Telugu (te), Thai (th), Turkish (tr), Ukrainian (uk), Umbundu (umb), Urdu (ur), Uzbek (uz), Vietnamese (vi), Welsh (cy), Wolof (wo), Xhosa (xh), Yoruba (yo), Zulu (zu)
+  overrides:
+    parameters:
+      model: LLaMAX3-8B.Q4_K_M.gguf
+  files:
+    - filename: LLaMAX3-8B.Q4_K_M.gguf
+      sha256: 862fb2be5d74b171f4294f862f43e7cb6e6dbecce29a9f9167da4f1db230daac
+      uri: huggingface://mradermacher/LLaMAX3-8B-GGUF/LLaMAX3-8B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "arliai-llama-3-8b-dolfin-v0.5"
+  urls:
+    - https://huggingface.co/OwenArli/ArliAI-Llama-3-8B-Dolfin-v0.5
+    - https://huggingface.co/QuantFactory/ArliAI-Llama-3-8B-Dolfin-v0.5-GGUF
+  description: |
+    Based on Meta-Llama-3-8b-Instruct, and is governed by Meta Llama 3 License agreement: https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
+
+    This is a fine tune using an improved Dolphin and WizardLM dataset intended to make the model follow instructions better and refuse less.
+
+    OpenLLM Benchmark:
+
+    Training:
+
+        2048 sequence length since the dataset has an average length of under 1000 tokens, while the base model is 8192 sequence length. From testing it still performs the same 8192 context just fine.
+        Training duration is around 2 days on 2xRTX 3090, using 4-bit loading and Qlora 64-rank 128-alpha resulting in ~2% trainable weights.
+  overrides:
+    parameters:
+      model: ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
+  files:
+    - filename: ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
+      sha256: 71fef02915c606b438ccff2cae6b7760bbb54a558d5f2d39c2421d97b6682fea
+      uri: huggingface://QuantFactory/ArliAI-Llama-3-8B-Dolfin-v0.5-GGUF/ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"

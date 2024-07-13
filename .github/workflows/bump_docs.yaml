@@ -22,7 +22,7 @@ jobs:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
           commit-message: ':arrow_up: Update docs version ${{ matrix.repository }}'
-          title: ':arrow_up: Update docs version ${{ matrix.repository }}'
+          title: 'docs: :arrow_up: update docs version ${{ matrix.repository }}'
           branch: "update/docs"
           body: Bump of ${{ matrix.repository }} version inside docs
           signoff: true

@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=368645698ab648e390dcd7c00a2bf60efa654f57
+CPPLLAMA_VERSION?=17eb6aa8a992cda37ee65cf848d9289bd6cad860
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -214,7 +214,7 @@ sources/go-bert.cpp:
 	git remote add origin $(BERT_REPO) && \
 	git fetch origin && \
 	git checkout $(BERT_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-bert.cpp/libgobert.a: sources/go-bert.cpp
 	$(MAKE) -C sources/go-bert.cpp libgobert.a
@@ -227,7 +227,7 @@ sources/go-llama.cpp:
 	git remote add origin $(GOLLAMA_REPO) && \
 	git fetch origin && \
 	git checkout $(GOLLAMA_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-llama.cpp/libbinding.a: sources/go-llama.cpp
 	$(MAKE) -C sources/go-llama.cpp BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
@@ -240,7 +240,7 @@ sources/go-piper:
 	git remote add origin $(PIPER_REPO) && \
 	git fetch origin && \
 	git checkout $(PIPER_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
@@ -253,7 +253,7 @@ sources/gpt4all:
 	git remote add origin $(GPT4ALL_REPO) && \
 	git fetch origin && \
 	git checkout $(GPT4ALL_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
@@ -266,7 +266,7 @@ sources/go-rwkv.cpp:
 	git remote add origin $(RWKV_REPO) && \
 	git fetch origin && \
 	git checkout $(RWKV_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
 	cd sources/go-rwkv.cpp && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
@@ -279,7 +279,7 @@ sources/go-stable-diffusion:
 	git remote add origin $(STABLEDIFFUSION_REPO) && \
 	git fetch origin && \
 	git checkout $(STABLEDIFFUSION_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
@@ -292,7 +292,7 @@ sources/go-tiny-dream:
 	git remote add origin $(TINYDREAM_REPO) && \
 	git fetch origin && \
 	git checkout $(TINYDREAM_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
 	$(MAKE) -C sources/go-tiny-dream libtinydream.a
@@ -305,7 +305,7 @@ sources/whisper.cpp:
 	git remote add origin $(WHISPER_REPO) && \
 	git fetch origin && \
 	git checkout $(WHISPER_CPP_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
