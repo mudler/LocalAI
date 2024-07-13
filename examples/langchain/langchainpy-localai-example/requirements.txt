@@ -11,7 +11,7 @@ frozenlist==1.4.1
 greenlet==3.0.3
 idna==3.7
 langchain==0.2.3
-langchain-community==0.2.4
+langchain-community==0.2.5
 marshmallow==3.21.3
 marshmallow-enum==1.5.1
 multidict==6.0.5
@@ -29,5 +29,5 @@ tenacity==8.5.0
 tqdm==4.66.4
 typing-inspect==0.9.0
 typing_extensions==4.12.2
-urllib3==2.2.1
+urllib3==2.2.2
 yarl==1.9.4
