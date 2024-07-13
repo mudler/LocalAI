@@ -2708,6 +2708,48 @@
     - filename: Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
       sha256: 95a02b71baff287bd84188fc1babcf9dfae25c315e2613391e694cf944f1e5b3
       uri: huggingface://mradermacher/Llama-3-Patronus-Lynx-70B-Instruct-GGUF/Llama-3-Patronus-Lynx-70B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llamax3-8b-alpaca"
+  urls:
+    - https://huggingface.co/LLaMAX/LLaMAX3-8B-Alpaca
+    - https://huggingface.co/mradermacher/LLaMAX3-8B-Alpaca-GGUF
+  description: |
+    LLaMAX is a language model with powerful multilingual capabilities without loss instruction-following capabilities.
+
+    We collected extensive training sets in 102 languages for continued pre-training of Llama2 and leveraged the English instruction fine-tuning dataset, Alpaca, to fine-tune its instruction-following capabilities.
+
+    LLaMAX supports translation between more than 100 languages, surpassing the performance of similarly scaled LLMs.
+
+    Supported Languages
+    Akrikaans (af), Amharic (am), Arabic (ar), Armenian (hy), Assamese (as), Asturian (ast), Azerbaijani (az), Belarusian (be), Bengali (bn), Bosnian (bs), Bulgarian (bg), Burmese (my), Catalan (ca), Cebuano (ceb), Chinese Simpl (zho), Chinese Trad (zho), Croatian (hr), Czech (cs), Danish (da), Dutch (nl), English (en), Estonian (et), Filipino (tl), Finnish (fi), French (fr), Fulah (ff), Galician (gl), Ganda (lg), Georgian (ka), German (de), Greek (el), Gujarati (gu), Hausa (ha), Hebrew (he), Hindi (hi), Hungarian (hu), Icelandic (is), Igbo (ig), Indonesian (id), Irish (ga), Italian (it), Japanese (ja), Javanese (jv), Kabuverdianu (kea), Kamba (kam), Kannada (kn), Kazakh (kk), Khmer (km), Korean (ko), Kyrgyz (ky), Lao (lo), Latvian (lv), Lingala (ln), Lithuanian (lt), Luo (luo), Luxembourgish (lb), Macedonian (mk), Malay (ms), Malayalam (ml), Maltese (mt), Maori (mi), Marathi (mr), Mongolian (mn), Nepali (ne), Northern Sotho (ns), Norwegian (no), Nyanja (ny), Occitan (oc), Oriya (or), Oromo (om), Pashto (ps), Persian (fa), Polish (pl), Portuguese (pt), Punjabi (pa), Romanian (ro), Russian (ru), Serbian (sr), Shona (sn), Sindhi (sd), Slovak (sk), Slovenian (sl), Somali (so), Sorani Kurdish (ku), Spanish (es), Swahili (sw), Swedish (sv), Tajik (tg), Tamil (ta), Telugu (te), Thai (th), Turkish (tr), Ukrainian (uk), Umbundu (umb), Urdu (ur), Uzbek (uz), Vietnamese (vi), Welsh (cy), Wolof (wo), Xhosa (xh), Yoruba (yo), Zulu (zu)
+  overrides:
+    parameters:
+      model: LLaMAX3-8B-Alpaca.Q4_K_M.gguf
+  files:
+    - filename: LLaMAX3-8B-Alpaca.Q4_K_M.gguf
+      sha256: 4652209c55d4260634b2195989279f945a072d8574872789a40d1f9b86eb255b
+      uri: huggingface://mradermacher/LLaMAX3-8B-Alpaca-GGUF/LLaMAX3-8B-Alpaca.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llamax3-8b"
+  urls:
+    - https://huggingface.co/LLaMAX/LLaMAX3-8B
+    - https://huggingface.co/mradermacher/LLaMAX3-8B-GGUF
+  description: |
+    LLaMAX is a language model with powerful multilingual capabilities without loss instruction-following capabilities.
+
+    We collected extensive training sets in 102 languages for continued pre-training of Llama2 and leveraged the English instruction fine-tuning dataset, Alpaca, to fine-tune its instruction-following capabilities.
+
+    LLaMAX supports translation between more than 100 languages, surpassing the performance of similarly scaled LLMs.
+
+    Supported Languages
+    Akrikaans (af), Amharic (am), Arabic (ar), Armenian (hy), Assamese (as), Asturian (ast), Azerbaijani (az), Belarusian (be), Bengali (bn), Bosnian (bs), Bulgarian (bg), Burmese (my), Catalan (ca), Cebuano (ceb), Chinese Simpl (zho), Chinese Trad (zho), Croatian (hr), Czech (cs), Danish (da), Dutch (nl), English (en), Estonian (et), Filipino (tl), Finnish (fi), French (fr), Fulah (ff), Galician (gl), Ganda (lg), Georgian (ka), German (de), Greek (el), Gujarati (gu), Hausa (ha), Hebrew (he), Hindi (hi), Hungarian (hu), Icelandic (is), Igbo (ig), Indonesian (id), Irish (ga), Italian (it), Japanese (ja), Javanese (jv), Kabuverdianu (kea), Kamba (kam), Kannada (kn), Kazakh (kk), Khmer (km), Korean (ko), Kyrgyz (ky), Lao (lo), Latvian (lv), Lingala (ln), Lithuanian (lt), Luo (luo), Luxembourgish (lb), Macedonian (mk), Malay (ms), Malayalam (ml), Maltese (mt), Maori (mi), Marathi (mr), Mongolian (mn), Nepali (ne), Northern Sotho (ns), Norwegian (no), Nyanja (ny), Occitan (oc), Oriya (or), Oromo (om), Pashto (ps), Persian (fa), Polish (pl), Portuguese (pt), Punjabi (pa), Romanian (ro), Russian (ru), Serbian (sr), Shona (sn), Sindhi (sd), Slovak (sk), Slovenian (sl), Somali (so), Sorani Kurdish (ku), Spanish (es), Swahili (sw), Swedish (sv), Tajik (tg), Tamil (ta), Telugu (te), Thai (th), Turkish (tr), Ukrainian (uk), Umbundu (umb), Urdu (ur), Uzbek (uz), Vietnamese (vi), Welsh (cy), Wolof (wo), Xhosa (xh), Yoruba (yo), Zulu (zu)
+  overrides:
+    parameters:
+      model: LLaMAX3-8B.Q4_K_M.gguf
+  files:
+    - filename: LLaMAX3-8B.Q4_K_M.gguf
+      sha256: 862fb2be5d74b171f4294f862f43e7cb6e6dbecce29a9f9167da4f1db230daac
+      uri: huggingface://mradermacher/LLaMAX3-8B-GGUF/LLaMAX3-8B.Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
