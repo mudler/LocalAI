@@ -4,7 +4,7 @@ torch
 optimum[openvino]
 grpcio==1.64.1
 protobuf
-librosa==0.9.1
+librosa==0.10.2.post1
 faster-whisper==1.0.3
 pydub==0.25.1
 wavmark==0.0.3
