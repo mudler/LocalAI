@@ -514,6 +514,25 @@
     - filename: Smegmma-Deluxe-9B-v1-Q4_K_M.gguf
       uri: huggingface://bartowski/Smegmma-Deluxe-9B-v1-GGUF/Smegmma-Deluxe-9B-v1-Q4_K_M.gguf
       sha256: 732ecb253ea0115453438fc1f4e3e31507719ddcf81890a86ad1d734beefdb6f
+- !!merge <<: *gemma
+  name: "tiger-gemma-9b-v1-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/A97OlLKeT4XOnv4IG1b6m.png
+  urls:
+    - https://huggingface.co/TheDrummer/Tiger-Gemma-9B-v1
+    - https://huggingface.co/mradermacher/Tiger-Gemma-9B-v1-i1-GGUF
+  description: |
+    Tiger Gemma 9B v1
+
+    Decensored Gemma 9B. No refusals so far. No apparent brain damage.
+
+    In memory of Tiger
+  overrides:
+    parameters:
+      model: Tiger-Gemma-9B-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: Tiger-Gemma-9B-v1.i1-Q4_K_M.gguf
+      sha256: ef10accfee8023b31def5425bf591bf1f0203090f3dd851cd3f37bb235324383
+      uri: huggingface://mradermacher/Tiger-Gemma-9B-v1-i1-GGUF/Tiger-Gemma-9B-v1.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
