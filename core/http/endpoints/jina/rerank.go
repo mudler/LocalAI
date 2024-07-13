@@ -12,6 +12,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// JINARerankEndpoint is acting like the Jina reranker endpoint (https://jina.ai/reranker/)
+// @Summary Reranks a list of phrases given a text query by relevance.
+// @Param request body schema.JINARerankRequest true "query params"
+// @Success 200 {object} schema.JINARerankResponse "Response"
+// @Router /v1/rerank [post]
 func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		req := new(schema.JINARerankRequest)

@@ -14,6 +14,11 @@ type BackendMonitorResponse struct {
 	CPUPercent    float64
 }
 
+type GalleryResponse struct {
+	ID        string `json:"uuid"`
+	StatusURL string `json:"status"`
+}
+
 // @Description TTS request body
 type TTSRequest struct {
 	Model    string `json:"model" yaml:"model"` // model name or full path
