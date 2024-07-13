@@ -2750,6 +2750,29 @@
     - filename: LLaMAX3-8B.Q4_K_M.gguf
       sha256: 862fb2be5d74b171f4294f862f43e7cb6e6dbecce29a9f9167da4f1db230daac
       uri: huggingface://mradermacher/LLaMAX3-8B-GGUF/LLaMAX3-8B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "arliai-llama-3-8b-dolfin-v0.5"
+  urls:
+    - https://huggingface.co/OwenArli/ArliAI-Llama-3-8B-Dolfin-v0.5
+    - https://huggingface.co/QuantFactory/ArliAI-Llama-3-8B-Dolfin-v0.5-GGUF
+  description: |
+    Based on Meta-Llama-3-8b-Instruct, and is governed by Meta Llama 3 License agreement: https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct
+
+    This is a fine tune using an improved Dolphin and WizardLM dataset intended to make the model follow instructions better and refuse less.
+
+    OpenLLM Benchmark:
+
+    Training:
+
+        2048 sequence length since the dataset has an average length of under 1000 tokens, while the base model is 8192 sequence length. From testing it still performs the same 8192 context just fine.
+        Training duration is around 2 days on 2xRTX 3090, using 4-bit loading and Qlora 64-rank 128-alpha resulting in ~2% trainable weights.
+  overrides:
+    parameters:
+      model: ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
+  files:
+    - filename: ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
+      sha256: 71fef02915c606b438ccff2cae6b7760bbb54a558d5f2d39c2421d97b6682fea
+      uri: huggingface://QuantFactory/ArliAI-Llama-3-8B-Dolfin-v0.5-GGUF/ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
