@@ -52,7 +52,7 @@ llama.cpp:
 	git remote add origin $(LLAMA_REPO)  && \
 	git fetch origin && \
 	git checkout -b build $(LLAMA_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 llama.cpp/examples/grpc-server: llama.cpp
 	mkdir -p llama.cpp/examples/grpc-server
