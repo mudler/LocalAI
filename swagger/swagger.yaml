@@ -1,5 +1,12 @@
 basePath: /
 definitions:
+  config.Gallery:
+    properties:
+      name:
+        type: string
+      url:
+        type: string
+    type: object
   functions.Argument:
     properties:
       properties:
@@ -85,6 +92,105 @@ definitions:
         $ref: '#/definitions/functions.Function'
       type:
         type: string
+    type: object
+  gallery.File:
+    properties:
+      filename:
+        type: string
+      sha256:
+        type: string
+      uri:
+        type: string
+    type: object
+  gallery.GalleryModel:
+    properties:
+      config_file:
+        additionalProperties: true
+        description: config_file is read in the situation where URL is blank - and
+          therefore this is a base config.
+        type: object
+      description:
+        type: string
+      files:
+        description: AdditionalFiles are used to add additional files to the model
+        items:
+          $ref: '#/definitions/gallery.File'
+        type: array
+      gallery:
+        allOf:
+        - $ref: '#/definitions/config.Gallery'
+        description: Gallery is a reference to the gallery which contains the model
+      icon:
+        type: string
+      installed:
+        description: Installed is used to indicate if the model is installed or not
+        type: boolean
+      license:
+        type: string
+      name:
+        type: string
+      overrides:
+        additionalProperties: true
+        description: Overrides are used to override the configuration of the model
+          located at URL
+        type: object
+      tags:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
+  localai.GalleryModel:
+    properties:
+      config_file:
+        additionalProperties: true
+        description: config_file is read in the situation where URL is blank - and
+          therefore this is a base config.
+        type: object
+      config_url:
+        type: string
+      description:
+        type: string
+      files:
+        description: AdditionalFiles are used to add additional files to the model
+        items:
+          $ref: '#/definitions/gallery.File'
+        type: array
+      gallery:
+        allOf:
+        - $ref: '#/definitions/config.Gallery'
+        description: Gallery is a reference to the gallery which contains the model
+      icon:
+        type: string
+      id:
+        type: string
+      installed:
+        description: Installed is used to indicate if the model is installed or not
+        type: boolean
+      license:
+        type: string
+      name:
+        type: string
+      overrides:
+        additionalProperties: true
+        description: Overrides are used to override the configuration of the model
+          located at URL
+        type: object
+      tags:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
     type: object
   openai.Assistant:
     properties:
@@ -214,6 +320,13 @@ definitions:
       name:
         type: string
     type: object
+  schema.GalleryResponse:
+    properties:
+      status:
+        type: string
+      uuid:
+        type: string
+    type: object
   schema.Item:
     properties:
       b64_json:
@@ -229,6 +342,51 @@ definitions:
       url:
         description: Images
         type: string
+    type: object
+  schema.JINADocumentResult:
+    properties:
+      document:
+        $ref: '#/definitions/schema.JINAText'
+      index:
+        type: integer
+      relevance_score:
+        type: number
+    type: object
+  schema.JINARerankRequest:
+    properties:
+      documents:
+        items:
+          type: string
+        type: array
+      model:
+        type: string
+      query:
+        type: string
+      top_n:
+        type: integer
+    type: object
+  schema.JINARerankResponse:
+    properties:
+      model:
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/schema.JINADocumentResult'
+        type: array
+      usage:
+        $ref: '#/definitions/schema.JINAUsageInfo'
+    type: object
+  schema.JINAText:
+    properties:
+      text:
+        type: string
+    type: object
+  schema.JINAUsageInfo:
+    properties:
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
     type: object
   schema.Message:
     properties:
@@ -458,6 +616,87 @@ info:
   title: LocalAI API
   version: 2.0.0
 paths:
+  /models/apply:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.GalleryModel'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+      summary: Install models to LocalAI.
+  /models/available:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/gallery.GalleryModel'
+            type: array
+      summary: List installable models.
+  /models/delete/{name}:
+    post:
+      parameters:
+      - description: Model name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+      summary: delete models to LocalAI.
+  /models/galleries:
+    delete:
+      parameters:
+      - description: Gallery details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/config.Gallery'
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/config.Gallery'
+            type: array
+      summary: removes a gallery from LocalAI
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/config.Gallery'
+            type: array
+      summary: List all Galleries
+    post:
+      parameters:
+      - description: Gallery details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/config.Gallery'
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/config.Gallery'
+            type: array
+      summary: Adds a gallery in LocalAI
   /tts:
     post:
       consumes:
@@ -626,6 +865,21 @@ paths:
           schema:
             $ref: '#/definitions/schema.ModelsDataResponse'
       summary: List and describe the various models available in the API.
+  /v1/rerank:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.JINARerankRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.JINARerankResponse'
+      summary: Reranks a list of phrases by relevance to a given text query.
   /v1/text-to-speech/{voice-id}:
     post:
       parameters:
