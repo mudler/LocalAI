@@ -50,7 +50,7 @@ func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() func(c *fiber.Ctx
 	}
 }
 
-// ApplyModelGalleryEndpoint lets apply new models to a LocalAI instance
+// ApplyModelGalleryEndpoint installs a new model to a LocalAI instance from the model gallery
 // @Summary Install models to LocalAI.
 // @Param request body GalleryModel true "query params"
 // @Success 200 {object} schema.GalleryResponse "Response"
