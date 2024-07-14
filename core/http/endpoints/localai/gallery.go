@@ -101,7 +101,7 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 	}
 }
 
-// ListModelFromGalleryEndpoint list the available models for installation in the gallery
+// ListModelFromGalleryEndpoint list the available models for installation from the active galleries
 // @Summary List installable models.
 // @Success 200 {object} []gallery.GalleryModel "Response"
 // @Router /models/available [get]
