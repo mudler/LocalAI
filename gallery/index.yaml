@@ -514,6 +514,40 @@
     - filename: Tiger-Gemma-9B-v1.i1-Q4_K_M.gguf
       sha256: ef10accfee8023b31def5425bf591bf1f0203090f3dd851cd3f37bb235324383
       uri: huggingface://mradermacher/Tiger-Gemma-9B-v1-i1-GGUF/Tiger-Gemma-9B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "hodachi-ezo-humanities-9b-gemma-2-it"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/657e900beaad53ff67ba84db/0OYFqT8kACowa9bY1EZF6.png
+  urls:
+    - https://huggingface.co/HODACHI/EZO-Humanities-9B-gemma-2-it
+    - https://huggingface.co/mmnga/HODACHI-EZO-Humanities-9B-gemma-2-it-gguf
+  description: |
+    This model is based on Gemma-2-9B-it, specially tuned to enhance its performance in Humanities-related tasks. While maintaining its strong foundation in Japanese language processing, it has been optimized to excel in areas such as literature, philosophy, history, and cultural studies. This focused approach allows the model to provide deeper insights and more nuanced responses in Humanities fields, while still being capable of handling a wide range of global inquiries.
+
+    Gemma-2-9B-itをベースとして、人文科学（Humanities）関連タスクでの性能向上に特化したチューニングを施したモデルです。日本語処理の強固な基盤を維持しつつ、文学、哲学、歴史、文化研究などの分野で卓越した能力を発揮するよう最適化されています。この焦点を絞ったアプローチにより、人文科学分野でより深い洞察と繊細な応答を提供しながら、同時に幅広いグローバルな問い合わせにも対応できる能力を備えています。
+  overrides:
+    parameters:
+      model: HODACHI-EZO-Humanities-9B-gemma-2-it-Q4_K_M.gguf
+  files:
+    - filename: HODACHI-EZO-Humanities-9B-gemma-2-it-Q4_K_M.gguf
+      sha256: 11606130206347355785f5a2720ff2fa671ca7fbe2af3fb4c34b508389952424
+      uri: huggingface://mmnga/HODACHI-EZO-Humanities-9B-gemma-2-it-gguf/HODACHI-EZO-Humanities-9B-gemma-2-it-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "ezo-common-9b-gemma-2-it"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/657e900beaad53ff67ba84db/0OYFqT8kACowa9bY1EZF6.png
+  urls:
+    - https://huggingface.co/HODACHI/EZO-Common-9B-gemma-2-it
+    - https://huggingface.co/QuantFactory/EZO-Common-9B-gemma-2-it-GGUF
+  description: |
+    This model is based on Gemma-2-9B-it, enhanced with multiple tuning techniques to improve its general performance. While it excels in Japanese language tasks, it's designed to meet diverse needs globally.
+
+    Gemma-2-9B-itをベースとして、複数のチューニング手法を採用のうえ、汎用的に性能を向上させたモデルです。日本語タスクに優れつつ、世界中の多様なニーズに応える設計となっています。
+  overrides:
+    parameters:
+      model: EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
+  files:
+    - filename: EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
+      sha256: 57678b1828673dccb15f76e52b00672c74aa6169421bbb8620b8955955322cfd
+      uri: huggingface://QuantFactory/EZO-Common-9B-gemma-2-it-GGUF/EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -2773,6 +2807,27 @@
     - filename: ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
       sha256: 71fef02915c606b438ccff2cae6b7760bbb54a558d5f2d39c2421d97b6682fea
       uri: huggingface://QuantFactory/ArliAI-Llama-3-8B-Dolfin-v0.5-GGUF/ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
+
+- !!merge <<: *llama3
+  name: "llama-3-ezo-8b-common-it"
+  icon: https://huggingface.co/HODACHI/Llama-3-EZO-8b-Common-it
+  urls:
+    - https://huggingface.co/HODACHI/Llama-3-EZO-8b-Common-it
+    - https://huggingface.co/MCZK/Llama-3-EZO-8b-Common-it-GGUF
+  description: |
+      Based on meta-llama/Meta-Llama-3-8B-Instruct, it has been enhanced for Japanese usage through additional pre-training and instruction tuning. (Built with Meta Llama3)
+
+      This model is based on Llama-3-8B-Instruct and is subject to the Llama-3 Terms of Use. For detailed information, please refer to the official Llama-3 license page.
+
+      このモデルはLlama-3-8B-Instructをベースにしており、Llama-3の利用規約に従います。詳細については、Llama-3の公式ライセンスページをご参照ください。
+  overrides:
+    parameters:
+      model: Llama-3-EZO-8b-Common-it.Q4_K_M.iMatrix.gguf
+  files:
+    - filename: Llama-3-EZO-8b-Common-it.Q4_K_M.iMatrix.gguf
+      sha256: 0a46165b1c35bfb97d7d5b18969a7bfc2bbf37a90bc5e85f8cab11483f5a8adc
+      uri: huggingface://MCZK/Llama-3-EZO-8b-Common-it-GGUF/Llama-3-EZO-8b-Common-it.Q4_K_M.iMatrix.gguf
+
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
