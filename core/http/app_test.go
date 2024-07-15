@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
-	openaigo "github.com/otiai10/openaigo"
+	"github.com/otiai10/openaigo"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 )

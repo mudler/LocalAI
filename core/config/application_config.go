@@ -33,6 +33,8 @@ type ApplicationConfig struct {
 	ApiKeys                             []string
 	EnforcePredownloadScans             bool
 	OpaqueErrors                        bool
+	UseSubtleKeyComparison              bool
+	RequireApiKeyForHttpGet             bool
 	P2PToken                            string
 
 	ModelLibraryURL string
@@ -311,6 +313,18 @@ func WithEnforcedPredownloadScans(enforced bool) AppOption {
 func WithOpaqueErrors(opaque bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.OpaqueErrors = opaque
+	}
+}
+
+func WithSubtleKeyComparison(subtle bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.UseSubtleKeyComparison = subtle
+	}
+}
+
+func WithRequiredApiKeyForHTTPGet(required bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.RequireApiKeyForHttpGet = required
 	}
 }
 
