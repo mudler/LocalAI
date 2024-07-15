@@ -91,7 +91,7 @@ func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		Type:                 c.ModelType,
 		RopeFreqScale:        c.RopeFreqScale,
 		NUMA:                 c.NUMA,
-		Embeddings:           c.Embeddings,
+		Embeddings:           *c.Embeddings,
 		LowVRAM:              *c.LowVRAM,
 		NGPULayers:           int32(*c.NGPULayers),
 		MMap:                 *c.MMap,
