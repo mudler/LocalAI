@@ -339,7 +339,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 
 	if cfg.Embeddings == nil {
-		cfg.Embeddings = &trueV
+		cfg.Embeddings = &falseV
 	}
 
 	// Value passed by the top level are treated as default (no implicit defaults)
