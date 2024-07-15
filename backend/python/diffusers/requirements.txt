@@ -6,6 +6,5 @@ opencv-python
 pillow
 protobuf
 sentencepiece
-torch
 transformers
 certifi
