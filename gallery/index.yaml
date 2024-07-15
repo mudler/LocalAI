@@ -24,8 +24,8 @@
     - filename: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
       sha256: 50ec78036433265965ed1afd0667c00c71c12aa70bcf383be462cb8e159db6c0
       uri: huggingface://LoneStriker/DeepSeek-Coder-V2-Lite-Instruct-GGUF/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
-## Start QWEN2
 - &qwen2
+  ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "qwen2-7b-instruct"
   license: apache-2.0
@@ -414,7 +414,7 @@
   files:
     - filename: gemma-2-9b-it-Q4_K_M.gguf
       uri: huggingface://bartowski/gemma-2-9b-it-GGUF/gemma-2-9b-it-Q4_K_M.gguf
-      sha256: 05390244866abc0e7108a2b1e3db07b82df3cd82f006256a75fc21137054151f
+      sha256: 13b2a7b4115bbd0900162edcebe476da1ba1fc24e718e8b40d32f6e300f56dfe
 - !!merge <<: *gemma
   name: "tess-v2.5-gemma-2-27b-alpha"
   urls:
@@ -473,32 +473,7 @@
   urls:
     - https://huggingface.co/TheDrummer/Smegmma-9B-v1
     - https://huggingface.co/bartowski/Smegmma-9B-v1-GGUF
-  description: |
-    Smegmma 9B v1 🧀
-
-    The sweet moist of Gemma 2, unhinged.
-
-    smeg - ghem - mah
-
-    An eRP model that will blast you with creamy moist. Finetuned by yours truly.
-
-    The first Gemma 2 9B RP finetune attempt!
-    What's New?
-
-        Engaging roleplay
-            Less refusals / censorship
-            Less commentaries / summaries
-            More willing AI
-            Better formatting
-            Better creativity
-        Moist alignment
-
-    Notes
-
-        Refusals still exist, but a couple of re-gens may yield the result you want
-        Formatting and logic may be weaker at the start
-            Make sure to start strong
-        May be weaker with certain cards, YMMV and adjust accordingly!
+  description: "Smegmma 9B v1 \U0001F9C0\n\nThe sweet moist of Gemma 2, unhinged.\n\nsmeg - ghem - mah\n\nAn eRP model that will blast you with creamy moist. Finetuned by yours truly.\n\nThe first Gemma 2 9B RP finetune attempt!\nWhat's New?\n\n    Engaging roleplay\n        Less refusals / censorship\n        Less commentaries / summaries\n        More willing AI\n        Better formatting\n        Better creativity\n    Moist alignment\n\nNotes\n\n    Refusals still exist, but a couple of re-gens may yield the result you want\n    Formatting and logic may be weaker at the start\n        Make sure to start strong\n    May be weaker with certain cards, YMMV and adjust accordingly!\n"
   overrides:
     parameters:
       model: Smegmma-9B-v1-Q4_K_M.gguf
@@ -512,26 +487,7 @@
   urls:
     - https://huggingface.co/TheDrummer/Smegmma-Deluxe-9B-v1
     - https://huggingface.co/bartowski/Smegmma-Deluxe-9B-v1-GGUF
-  description: |
-    Smegmma Deluxe 9B v1 🧀
-
-    The sweet moist of Gemma 2, unhinged.
-
-    smeg - ghem - mah
-
-    An eRP model that will blast you with creamy moist. Finetuned by yours truly.
-
-    The first Gemma 2 9B RP finetune attempt!
-
-    What's New?
-
-        Engaging roleplay
-            Less refusals / censorship
-            Less commentaries / summaries
-            More willing AI
-            Better formatting
-            Better creativity
-        Moist alignment
+  description: "Smegmma Deluxe 9B v1 \U0001F9C0\n\nThe sweet moist of Gemma 2, unhinged.\n\nsmeg - ghem - mah\n\nAn eRP model that will blast you with creamy moist. Finetuned by yours truly.\n\nThe first Gemma 2 9B RP finetune attempt!\n\nWhat's New?\n\n    Engaging roleplay\n        Less refusals / censorship\n        Less commentaries / summaries\n        More willing AI\n        Better formatting\n        Better creativity\n    Moist alignment\n"
   overrides:
     parameters:
       model: Smegmma-Deluxe-9B-v1-Q4_K_M.gguf
@@ -1808,9 +1764,9 @@
 - !!merge <<: *llama3
   name: "hathor_tahsin-l3-8b-v0.85"
   description: |
-     Hathor_Tahsin [v-0.85] is designed to seamlessly integrate the qualities of creativity, intelligence, and robust performance.
-      Note: Hathor_Tahsin [v0.85] is trained on 3 epochs of Private RP, STEM (Intruction/Dialogs), Opus instructons, mixture light/classical novel data, roleplaying chat pairs over llama 3 8B instruct.
-     Additional Note's: (Based on Hathor_Fractionate-v0.5 instead of Hathor_Aleph-v0.72, should be less repetitive than either 0.72 or 0.8)
+    Hathor_Tahsin [v-0.85] is designed to seamlessly integrate the qualities of creativity, intelligence, and robust performance.
+     Note: Hathor_Tahsin [v0.85] is trained on 3 epochs of Private RP, STEM (Intruction/Dialogs), Opus instructons, mixture light/classical novel data, roleplaying chat pairs over llama 3 8B instruct.
+    Additional Note's: (Based on Hathor_Fractionate-v0.5 instead of Hathor_Aleph-v0.72, should be less repetitive than either 0.72 or 0.8)
   icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/MY9tjLnEG5hOQOyKk06PK.jpeg
   urls:
     - https://huggingface.co/Nitral-AI/Hathor_Tahsin-L3-8B-v0.85
@@ -2521,14 +2477,14 @@
     - https://huggingface.co/SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha
     - https://huggingface.co/bartowski/LLAMA-3_8B_Unaligned_Alpha-GGUF
   description: |
-      Model card description:
-      As of June 11, 2024, I've finally started training the model! The training is progressing smoothly, although it will take some time. I used a combination of model merges and an abliterated model as base, followed by a comprehensive deep unalignment protocol to unalign the model to its core. A common issue with uncensoring and unaligning models is that it often significantly impacts their base intelligence. To mitigate these drawbacks, I've included a substantial corpus of common sense, theory of mind, and various other elements to counteract the effects of the deep uncensoring process. Given the extensive corpus involved, the training will require at least a week of continuous training. Expected early results: in about 3-4 days.
-      Additional info:
-      As of June 13, 2024, I've observed that even after two days of continuous training, the model is still resistant to learning certain aspects.
-      For example, some of the validation data still shows a loss over , whereas other parts have a loss of < or lower. This is after the model was initially abliterated.
-      June 18, 2024 Update, After extensive testing of the intermediate checkpoints, significant progress has been made.
-      The model is slowly — I mean, really slowly — unlearning its alignment. By significantly lowering the learning rate, I was able to visibly observe deep behavioral changes, this process is taking longer than anticipated, but it's going to be worth it. Estimated time to completion: 4 more days.. I'm pleased to report that in several tests, the model not only maintained its intelligence but actually showed a slight improvement, especially in terms of common sense. An intermediate checkpoint of this model was used to create invisietch/EtherealRainbow-v0.3-rc7, with promising results. Currently, it seems like I'm on the right track. I hope this model will serve as a solid foundation for further merges, whether for role-playing (RP) or for uncensoring. This approach also allows us to save on actual fine-tuning, thereby reducing our carbon footprint. The merge process takes just a few minutes of CPU time, instead of days of GPU work.
-      June 20, 2024 Update, Unaligning was partially successful, and the results are decent, but I am not fully satisfied. I decided to bite the bullet, and do a full finetune, god have mercy on my GPUs. I am also releasing the intermediate checkpoint of this model.
+    Model card description:
+    As of June 11, 2024, I've finally started training the model! The training is progressing smoothly, although it will take some time. I used a combination of model merges and an abliterated model as base, followed by a comprehensive deep unalignment protocol to unalign the model to its core. A common issue with uncensoring and unaligning models is that it often significantly impacts their base intelligence. To mitigate these drawbacks, I've included a substantial corpus of common sense, theory of mind, and various other elements to counteract the effects of the deep uncensoring process. Given the extensive corpus involved, the training will require at least a week of continuous training. Expected early results: in about 3-4 days.
+    Additional info:
+    As of June 13, 2024, I've observed that even after two days of continuous training, the model is still resistant to learning certain aspects.
+    For example, some of the validation data still shows a loss over , whereas other parts have a loss of < or lower. This is after the model was initially abliterated.
+    June 18, 2024 Update, After extensive testing of the intermediate checkpoints, significant progress has been made.
+    The model is slowly — I mean, really slowly — unlearning its alignment. By significantly lowering the learning rate, I was able to visibly observe deep behavioral changes, this process is taking longer than anticipated, but it's going to be worth it. Estimated time to completion: 4 more days.. I'm pleased to report that in several tests, the model not only maintained its intelligence but actually showed a slight improvement, especially in terms of common sense. An intermediate checkpoint of this model was used to create invisietch/EtherealRainbow-v0.3-rc7, with promising results. Currently, it seems like I'm on the right track. I hope this model will serve as a solid foundation for further merges, whether for role-playing (RP) or for uncensoring. This approach also allows us to save on actual fine-tuning, thereby reducing our carbon footprint. The merge process takes just a few minutes of CPU time, instead of days of GPU work.
+    June 20, 2024 Update, Unaligning was partially successful, and the results are decent, but I am not fully satisfied. I decided to bite the bullet, and do a full finetune, god have mercy on my GPUs. I am also releasing the intermediate checkpoint of this model.
   icon: https://i.imgur.com/Kpk1PgZ.png
   overrides:
     parameters:
@@ -2543,9 +2499,9 @@
     - https://huggingface.co/Sao10K/L3-8B-Lunaris-v1
     - https://huggingface.co/bartowski/L3-8B-Lunaris-v1-GGUF
   description: |
-      A generalist / roleplaying model merge based on Llama 3. Models are selected from my personal experience while using them.
+    A generalist / roleplaying model merge based on Llama 3. Models are selected from my personal experience while using them.
 
-      I personally think this is an improvement over Stheno v3.2, considering the other models helped balance out its creativity and at the same time improving its logic.
+    I personally think this is an improvement over Stheno v3.2, considering the other models helped balance out its creativity and at the same time improving its logic.
   overrides:
     parameters:
       model: L3-8B-Lunaris-v1-Q4_K_M.gguf
@@ -3115,6 +3071,22 @@
     - filename: phi3-4x4b-v1-Q4_K_M.gguf
       uri: huggingface://bartowski/phi3-4x4b-v1-GGUF/phi3-4x4b-v1-Q4_K_M.gguf
       sha256: fd33220186b7076f4b306f27b3a8913384435a2ca90185a71c9df5a752d3a298
+- !!merge <<: *phi-3
+  name: "phi-3.1-mini-4k-instruct"
+  urls:
+    - https://huggingface.co/microsoft/Phi-3-mini-4k-instruct
+    - https://huggingface.co/bartowski/Phi-3.1-mini-4k-instruct-GGUF
+  description: |
+    This is an update over the original instruction-tuned Phi-3-mini release based on valuable customer feedback. The model used additional post-training data leading to substantial gains on instruction following and structure output.
+
+    It is based on the original model from Microsoft, but has been updated and quantized using the llama.cpp release b3278.
+  overrides:
+    parameters:
+      model: Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
+  files:
+    - filename: Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
+      sha256: 39458b227a4be763b7eb39d306d240c3d45205e3f8b474ec7bdca7bba0158e69
+      uri: huggingface://bartowski/Phi-3.1-mini-4k-instruct-GGUF/Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
