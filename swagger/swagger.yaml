@@ -300,6 +300,17 @@ definitions:
     - CodeInterpreter
     - Retrieval
     - Function
+  p2p.NodeData:
+    properties:
+      id:
+        type: string
+      lastSeen:
+        type: string
+      name:
+        type: string
+      tunnelAddress:
+        type: string
+    type: object
   schema.Choice:
     properties:
       delta:
@@ -576,6 +587,17 @@ definitions:
       total_tokens:
         type: integer
     type: object
+  schema.P2PNodesResponse:
+    properties:
+      federated_nodes:
+        items:
+          $ref: '#/definitions/p2p.NodeData'
+        type: array
+      nodes:
+        items:
+          $ref: '#/definitions/p2p.NodeData'
+        type: array
+    type: object
   schema.TTSRequest:
     description: TTS request body
     properties:
@@ -616,6 +638,24 @@ info:
   title: LocalAI API
   version: 2.0.0
 paths:
+  /api/p2p:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/schema.P2PNodesResponse'
+            type: array
+      summary: Returns available P2P nodes
+  /api/p2p/token:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Show the P2P token
   /models/apply:
     post:
       parameters:
