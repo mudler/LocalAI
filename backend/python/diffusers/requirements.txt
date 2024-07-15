@@ -1,5 +1,7 @@
+setuptools
 accelerate
 compel
+peft
 diffusers
 grpcio==1.64.1
 opencv-python
