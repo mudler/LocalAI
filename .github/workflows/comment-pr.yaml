@@ -68,9 +68,10 @@ jobs:
                 echo EOF
               } >> "$GITHUB_OUTPUT"
             docker logs --tail 10 local-ai
-    - name: Comment PR with execution number
-      uses: thollander/actions-comment-pull-request@v2
+    - uses: mshick/add-pr-comment@v2
+      if: always()
       with:
-        GITHUB_TOKEN: ${{ secrets.UPDATE_BOT_TOKEN }}
-        message: ${{ steps.summarize.outputs.message }}
-        comment_tag: execution
+          repo-token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          message: ${{ steps.summarize.outputs.message }}
+          message-failure: |
+            Uh oh! Could not analyze this PR, maybe it's too big?
