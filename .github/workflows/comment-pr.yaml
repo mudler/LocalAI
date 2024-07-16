@@ -39,7 +39,7 @@ jobs:
             messages: [
                 {
                 role: "system",
-                content: "You are LocalAI-bot in Github that helps understanding PRs and assess complexity. Explain what's the diff in this PR"
+                content: "You are LocalAI-bot in Github that helps understanding PRs and assess complexity. Explain what has changed in this PR diff and why"
                 },
                 {
                 role: "user",
