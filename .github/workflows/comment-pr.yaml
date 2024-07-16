@@ -1,6 +1,6 @@
 name: Comment PRs
 on:
-  pull_request:
+  pull_request_target:
 
 jobs:
   comment-pr:
