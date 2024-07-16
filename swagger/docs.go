@@ -22,6 +22,35 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/p2p": {
+            "get": {
+                "summary": "Returns available P2P nodes",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schema.P2PNodesResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/token": {
+            "get": {
+                "summary": "Show the P2P token",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/models/apply": {
             "post": {
                 "summary": "Install models to LocalAI.",
@@ -910,6 +939,23 @@ const docTemplate = `{
                 "Function"
             ]
         },
+        "p2p.NodeData": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "lastSeen": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tunnelAddress": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Choice": {
             "type": "object",
             "properties": {
@@ -1314,6 +1360,23 @@ const docTemplate = `{
                 },
                 "total_tokens": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.P2PNodesResponse": {
+            "type": "object",
+            "properties": {
+                "federated_nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.NodeData"
+                    }
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.NodeData"
+                    }
                 }
             }
         },
