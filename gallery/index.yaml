@@ -2827,7 +2827,34 @@
     - filename: Llama-3-EZO-8b-Common-it.Q4_K_M.iMatrix.gguf
       sha256: 0a46165b1c35bfb97d7d5b18969a7bfc2bbf37a90bc5e85f8cab11483f5a8adc
       uri: huggingface://MCZK/Llama-3-EZO-8b-Common-it-GGUF/Llama-3-EZO-8b-Common-it.Q4_K_M.iMatrix.gguf
-
+- !!merge <<: *llama3
+  name: "l3-8b-niitama-v1"
+  urls:
+    - https://huggingface.co/Sao10K/L3-8B-Niitama-v1
+    - https://huggingface.co/mradermacher/L3-8B-Niitama-v1-GGUF
+  description: |
+    Niitama on Horde
+  overrides:
+    parameters:
+      model: L3-8B-Niitama-v1.Q4_K_M.gguf
+  files:
+    - filename: L3-8B-Niitama-v1.Q4_K_M.gguf
+      sha256: a0e6d8972e1c73af7952ee1b8a3898f52c6036701571fea37ff621b71e89eb53
+      uri: huggingface://mradermacher/L3-8B-Niitama-v1-GGUF/L3-8B-Niitama-v1.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-8b-niitama-v1-i1"
+  urls:
+    - https://huggingface.co/Sao10K/L3-8B-Niitama-v1
+    - https://huggingface.co/mradermacher/L3-8B-Niitama-v1-i1-GGUF
+  description: |
+    Niitama on Horde (iMatrix quants)
+  overrides:
+    parameters:
+      model: L3-8B-Niitama-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: L3-8B-Niitama-v1.i1-Q4_K_M.gguf
+      sha256: 8c62f831db2a6e34aa75459fe8a98815199ecc2dac1892a460b8b86363b6826e
+      uri: huggingface://mradermacher/L3-8B-Niitama-v1-i1-GGUF/L3-8B-Niitama-v1.i1-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
