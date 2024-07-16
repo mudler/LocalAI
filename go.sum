@@ -174,8 +174,6 @@ github.com/go-openapi/spec v0.21.0 h1:LTVzPc3p/RzRnkQqLRndbAzjY0d0BCL72A6j3CdL9Z
 github.com/go-openapi/spec v0.21.0/go.mod h1:78u6VdPw81XU44qEWGhtr982gJ5BWg2c0I5XwVMotYk=
 github.com/go-openapi/swag v0.23.0 h1:vsEVJDUo2hPJ2tu0/Xc+4noaxyEffXNIs3cOULZ+GrE=
 github.com/go-openapi/swag v0.23.0/go.mod h1:esZ8ITTYEsH1V2trKHjAN8Ai7xHb8RV+YSZ577vPjgQ=
-github.com/go-skynet/LocalAI v1.40.0 h1:H0b94b+pYyrxiZ4/XyICp0wcs6Q+bTVZMonqomNVhy0=
-github.com/go-skynet/LocalAI v1.40.0/go.mod h1:tBcD3FuokrMucRcQceYc+VQrxGnMoQRr+1GfdSKdFDA=
 github.com/go-skynet/go-bert.cpp v0.0.0-20231028093757-710044b12454 h1:zn1G3iuSWHvwP45YKMb3oHQlhpS+qB1kv0o5isSqosM=
 github.com/go-skynet/go-bert.cpp v0.0.0-20231028093757-710044b12454/go.mod h1:QGX426328K9dyfFK29lmxlsv1ba0bRRZdzN7PBOpMT8=
 github.com/go-skynet/go-llama.cpp v0.0.0-20240314183750-6a8041ef6b46 h1:lALhXzDkqtp12udlDLLg+ybXVMmL7Ox9tybqVLWxjPE=

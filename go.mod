@@ -17,7 +17,6 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20240626202019-c118733a29ad
 	github.com/go-audio/wav v1.1.0
-	github.com/go-skynet/LocalAI v1.40.0
 	github.com/go-skynet/go-bert.cpp v0.0.0-20231028093757-710044b12454
 	github.com/go-skynet/go-llama.cpp v0.0.0-20240314183750-6a8041ef6b46
 	github.com/gofiber/fiber/v2 v2.52.5
