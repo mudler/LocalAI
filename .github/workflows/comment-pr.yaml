@@ -71,5 +71,6 @@ jobs:
     - name: Comment PR with execution number
       uses: thollander/actions-comment-pull-request@v2
       with:
+        GITHUB_TOKEN: ${{ secrets.UPDATE_BOT_TOKEN }}
         message: ${{ steps.summarize.outputs.message }}
         comment_tag: execution
