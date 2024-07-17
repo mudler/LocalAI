@@ -64,7 +64,7 @@ var _ = Describe("pkg/concurrency unit tests", func() {
 		Expect(jr.Request).ToNot(BeNil())
 		Expect(*jr.Request()).To(Equal("foo"))
 		Expect(err).ToNot(BeNil())
-		Expect(err).To(MatchError("timeout"))
+		Expect(err).To(MatchError(context.DeadlineExceeded))
 
 		resPtr, err := jr.Wait(timeout10s)
 		Expect(jr.Request).ToNot(BeNil())
