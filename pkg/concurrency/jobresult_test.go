@@ -41,7 +41,7 @@ var _ = Describe("pkg/concurrency unit tests", func() {
 		}(wjr)
 
 		_, err := jr.Wait(context.Background())
-		Expect(jr.Request).To(BeNil())
+		Expect(jr.Request).ToNot(BeNil())
 		Expect(*jr.Request()).To(Equal("foo"))
 		Expect(err).ToNot(BeNil())
 		Expect(err).To(MatchError("test"))
@@ -61,14 +61,15 @@ var _ = Describe("pkg/concurrency unit tests", func() {
 		timeout10s, c2 := context.WithTimeoutCause(context.Background(), time.Second*10, fmt.Errorf("timeout"))
 
 		_, err := jr.Wait(timeout1s)
-		Expect(jr.Request).To(BeNil())
+		Expect(jr.Request).ToNot(BeNil())
 		Expect(*jr.Request()).To(Equal("foo"))
 		Expect(err).ToNot(BeNil())
 		Expect(err).To(MatchError("timeout"))
 
 		resPtr, err := jr.Wait(timeout10s)
-		Expect(err).To(BeNil())
+		Expect(jr.Request).ToNot(BeNil())
 		Expect(*jr.Request()).To(Equal("foo"))
+		Expect(err).To(BeNil())
 		Expect(resPtr).ToNot(BeNil())
 		Expect(*resPtr).To(Equal("bar"))
 
