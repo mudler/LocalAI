@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestGrammar(t *testing.T) {
+func TestConcurrency(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Grammar test suite")
+	RunSpecs(t, "Concurrency test suite")
 }
