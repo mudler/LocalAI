@@ -12,7 +12,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 def get_latest_model():
     search_term = "GGUF"
-    if sys.argv[1]:
+    if len(sys.argv) > 2 and sys.argv[1]:
         search_term = sys.argv[1]
     url = "https://huggingface.co/api/models"
     params = {"sort": "lastModified", "direction": -1, "limit": 30, "search": search_term}

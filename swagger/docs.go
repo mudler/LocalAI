@@ -22,6 +22,163 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/p2p": {
+            "get": {
+                "summary": "Returns available P2P nodes",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schema.P2PNodesResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/token": {
+            "get": {
+                "summary": "Show the P2P token",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/models/apply": {
+            "post": {
+                "summary": "Install models to LocalAI.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.GalleryModel"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.GalleryResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/models/available": {
+            "get": {
+                "summary": "List installable models.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/gallery.GalleryModel"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/models/delete/{name}": {
+            "post": {
+                "summary": "delete models to LocalAI.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.GalleryResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/models/galleries": {
+            "get": {
+                "summary": "List all Galleries",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/config.Gallery"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Adds a gallery in LocalAI",
+                "parameters": [
+                    {
+                        "description": "Gallery details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/config.Gallery"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/config.Gallery"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "removes a gallery from LocalAI",
+                "parameters": [
+                    {
+                        "description": "Gallery details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/config.Gallery"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/config.Gallery"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/tts": {
             "post": {
                 "consumes": [
@@ -287,6 +444,30 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/rerank": {
+            "post": {
+                "summary": "Reranks a list of phrases by relevance to a given text query.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.JINARerankRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.JINARerankResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/text-to-speech/{voice-id}": {
             "post": {
                 "summary": "Generates audio from the input text.",
@@ -320,6 +501,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "config.Gallery": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "functions.Argument": {
             "type": "object",
             "properties": {
@@ -449,6 +641,148 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "gallery.File": {
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "type": "string"
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                }
+            }
+        },
+        "gallery.GalleryModel": {
+            "type": "object",
+            "properties": {
+                "config_file": {
+                    "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "description": {
+                    "type": "string"
+                },
+                "files": {
+                    "description": "AdditionalFiles are used to add additional files to the model",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.File"
+                    }
+                },
+                "gallery": {
+                    "description": "Gallery is a reference to the gallery which contains the model",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.Gallery"
+                        }
+                    ]
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is used to indicate if the model is installed or not",
+                    "type": "boolean"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "overrides": {
+                    "description": "Overrides are used to override the configuration of the model located at URL",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "type": "string"
+                },
+                "urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "localai.GalleryModel": {
+            "type": "object",
+            "properties": {
+                "config_file": {
+                    "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "config_url": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "files": {
+                    "description": "AdditionalFiles are used to add additional files to the model",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.File"
+                    }
+                },
+                "gallery": {
+                    "description": "Gallery is a reference to the gallery which contains the model",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.Gallery"
+                        }
+                    ]
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is used to indicate if the model is installed or not",
+                    "type": "boolean"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "overrides": {
+                    "description": "Overrides are used to override the configuration of the model located at URL",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "type": "string"
+                },
+                "urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -605,6 +939,23 @@ const docTemplate = `{
                 "Function"
             ]
         },
+        "p2p.NodeData": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "lastSeen": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tunnelAddress": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Choice": {
             "type": "object",
             "properties": {
@@ -636,6 +987,17 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.GalleryResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Item": {
             "type": "object",
             "properties": {
@@ -657,6 +1019,76 @@ const docTemplate = `{
                 "url": {
                     "description": "Images",
                     "type": "string"
+                }
+            }
+        },
+        "schema.JINADocumentResult": {
+            "type": "object",
+            "properties": {
+                "document": {
+                    "$ref": "#/definitions/schema.JINAText"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "relevance_score": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.JINARerankRequest": {
+            "type": "object",
+            "properties": {
+                "documents": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "top_n": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.JINARerankResponse": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.JINADocumentResult"
+                    }
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.JINAUsageInfo"
+                }
+            }
+        },
+        "schema.JINAText": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.JINAUsageInfo": {
+            "type": "object",
+            "properties": {
+                "prompt_tokens": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
                 }
             }
         },
@@ -928,6 +1360,23 @@ const docTemplate = `{
                 },
                 "total_tokens": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.P2PNodesResponse": {
+            "type": "object",
+            "properties": {
+                "federated_nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.NodeData"
+                    }
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.NodeData"
+                    }
                 }
             }
         },

@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=368645698ab648e390dcd7c00a2bf60efa654f57
+CPPLLAMA_VERSION?=5e116e8dd51775f8f1c090570be148d5d7eea6c3
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -20,7 +20,7 @@ RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=d207c6882247984689091ae9d780d2e51eab1df7
+WHISPER_CPP_VERSION?=f68298ce06ca3edd6e6f3f21c3d0bb5f073942c3
 
 # bert.cpp version
 BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
@@ -214,7 +214,7 @@ sources/go-bert.cpp:
 	git remote add origin $(BERT_REPO) && \
 	git fetch origin && \
 	git checkout $(BERT_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-bert.cpp/libgobert.a: sources/go-bert.cpp
 	$(MAKE) -C sources/go-bert.cpp libgobert.a
@@ -227,7 +227,7 @@ sources/go-llama.cpp:
 	git remote add origin $(GOLLAMA_REPO) && \
 	git fetch origin && \
 	git checkout $(GOLLAMA_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-llama.cpp/libbinding.a: sources/go-llama.cpp
 	$(MAKE) -C sources/go-llama.cpp BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
@@ -240,7 +240,7 @@ sources/go-piper:
 	git remote add origin $(PIPER_REPO) && \
 	git fetch origin && \
 	git checkout $(PIPER_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
@@ -253,7 +253,7 @@ sources/gpt4all:
 	git remote add origin $(GPT4ALL_REPO) && \
 	git fetch origin && \
 	git checkout $(GPT4ALL_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a: sources/gpt4all
 	$(MAKE) -C sources/gpt4all/gpt4all-bindings/golang/ libgpt4all.a
@@ -266,7 +266,7 @@ sources/go-rwkv.cpp:
 	git remote add origin $(RWKV_REPO) && \
 	git fetch origin && \
 	git checkout $(RWKV_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
 	cd sources/go-rwkv.cpp && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
@@ -279,7 +279,7 @@ sources/go-stable-diffusion:
 	git remote add origin $(STABLEDIFFUSION_REPO) && \
 	git fetch origin && \
 	git checkout $(STABLEDIFFUSION_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
@@ -292,7 +292,7 @@ sources/go-tiny-dream:
 	git remote add origin $(TINYDREAM_REPO) && \
 	git fetch origin && \
 	git checkout $(TINYDREAM_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
 	$(MAKE) -C sources/go-tiny-dream libtinydream.a
@@ -305,12 +305,12 @@ sources/whisper.cpp:
 	git remote add origin $(WHISPER_REPO) && \
 	git fetch origin && \
 	git checkout $(WHISPER_CPP_VERSION) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream
+get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(CURDIR)/sources/go-rwkv.cpp
@@ -384,7 +384,7 @@ endif
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 build-minimal:
-	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp-avx2" GO_TAGS=none $(MAKE) build
+	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp-avx2" GO_TAGS=p2p $(MAKE) build
 
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=none $(MAKE) build
@@ -767,28 +767,28 @@ else
 endif
 
 # This target is for manually building a variant with-auto detected flags
-backend-assets/grpc/llama-cpp: backend-assets/grpc
+backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-cpp
 	$(MAKE) -C backend/cpp/llama-cpp purge
 	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
 	$(MAKE) VARIANT="llama-cpp" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-cpp/grpc-server backend-assets/grpc/llama-cpp
 
-backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc
+backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-avx2
 	$(MAKE) -C backend/cpp/llama-avx2 purge
 	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-avx2/grpc-server backend-assets/grpc/llama-cpp-avx2
 
-backend-assets/grpc/llama-cpp-avx: backend-assets/grpc
+backend-assets/grpc/llama-cpp-avx: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-avx
 	$(MAKE) -C backend/cpp/llama-avx purge
 	$(info ${GREEN}I llama-cpp build info:avx${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-avx" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-avx/grpc-server backend-assets/grpc/llama-cpp-avx
 
-backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc
+backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-fallback
 	$(MAKE) -C backend/cpp/llama-fallback purge
 	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
@@ -799,35 +799,35 @@ ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama-fallback/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
 
-backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc
+backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-cuda
 	$(MAKE) -C backend/cpp/llama-cuda purge
 	$(info ${GREEN}I llama-cpp build info:cuda${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
 
-backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc
+backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-hipblas
 	$(MAKE) -C backend/cpp/llama-hipblas purge
 	$(info ${GREEN}I llama-cpp build info:hipblas${RESET})
 	BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-hipblas/grpc-server backend-assets/grpc/llama-cpp-hipblas
 
-backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc
+backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f16
 	$(MAKE) -C backend/cpp/llama-sycl_f16 purge
 	$(info ${GREEN}I llama-cpp build info:sycl_f16${RESET})
 	BUILD_TYPE="sycl_f16" $(MAKE) VARIANT="llama-sycl_f16" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-sycl_f16/grpc-server backend-assets/grpc/llama-cpp-sycl_f16
 
-backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc
+backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f32
 	$(MAKE) -C backend/cpp/llama-sycl_f32 purge
 	$(info ${GREEN}I llama-cpp build info:sycl_f32${RESET})
 	BUILD_TYPE="sycl_f32" $(MAKE) VARIANT="llama-sycl_f32" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-sycl_f32/grpc-server backend-assets/grpc/llama-cpp-sycl_f32
 
-backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc
+backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-grpc
 	$(MAKE) -C backend/cpp/llama-grpc purge
 	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
@@ -905,7 +905,7 @@ docker-aio-all:
 
 docker-image-intel:
 	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04 \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.2.0-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
@@ -913,7 +913,7 @@ docker-image-intel:
 
 docker-image-intel-xpu:
 	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.1.0-devel-ubuntu22.04 \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.2.0-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/rs/zerolog/log"
 )

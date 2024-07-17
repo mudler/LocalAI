@@ -27,9 +27,6 @@ jobs:
           - repository: "go-skynet/bloomz.cpp"
             variable: "BLOOMZ_VERSION"
             branch: "main"
-          - repository: "nomic-ai/gpt4all"
-            variable: "GPT4ALL_VERSION"
-            branch: "main"
           - repository: "mudler/go-ggllm.cpp"
             variable: "GOGGLLM_VERSION"
             branch: "master"
@@ -51,7 +48,7 @@ jobs:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
           commit-message: ':arrow_up: Update ${{ matrix.repository }}'
-          title: ':arrow_up: Update ${{ matrix.repository }}'
+          title: 'chore: :arrow_up: Update ${{ matrix.repository }}'
           branch: "update/${{ matrix.variable }}"
           body: Bump of ${{ matrix.repository }} version
           signoff: true

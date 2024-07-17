@@ -7,7 +7,7 @@ on:
   pull_request:
 
 env:
-  GRPC_VERSION: v1.64.0
+  GRPC_VERSION: v1.65.0
 
 permissions:
   contents: write
@@ -99,8 +99,8 @@ jobs:
           CROSS_TOOLCHAIN=/usr/$GNU_HOST
           CROSS_STAGING_PREFIX=$CROSS_TOOLCHAIN/stage
           CMAKE_CROSS_TOOLCHAIN=/tmp/arm.toolchain.cmake
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
           sudo rm -rf /usr/aarch64-linux-gnu/lib/libstdc++.so.6
@@ -163,7 +163,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
         env:
-          CUDA_VERSION: 12-3
+          CUDA_VERSION: 12-5
       - name: "Install Hipblas"
         env:
           ROCM_VERSION: "6.1"
@@ -210,8 +210,8 @@ jobs:
       - name: Build
         id: build
         run: |
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
           export PATH=/opt/rocm/bin:$PATH
@@ -251,8 +251,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler ccache
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
       - name: Build stablediffusion
         run: |
           export PATH=$PATH:$GOPATH/bin
@@ -327,8 +327,8 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
       - name: Build
         id: build
         run: |

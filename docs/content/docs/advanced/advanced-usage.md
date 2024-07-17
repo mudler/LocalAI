@@ -112,6 +112,8 @@ name: "" # Model name, used to identify the model in API calls.
 # Precision settings for the model, reducing precision can enhance performance on some hardware.
 f16: null # Whether to use 16-bit floating-point precision.
 
+embeddings: true # Enable embeddings for the model.
+
 # Concurrency settings for the application.
 threads: null # Number of threads to use for processing.
 

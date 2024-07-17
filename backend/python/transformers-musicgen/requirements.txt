@@ -1,7 +1,7 @@
 accelerate
 transformers
-grpcio==1.64.0
+grpcio==1.65.0
 protobuf
 torch
-scipy==1.13.0
+scipy==1.14.0
 certifi

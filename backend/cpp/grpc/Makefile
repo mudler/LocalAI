@@ -52,7 +52,7 @@ $(GRPC_REPO):
 	git remote add origin $(GIT_REPO_LIB_GRPC)  && \
 	git fetch origin && \
 	git checkout $(TAG_LIB_GRPC) && \
-	git submodule update --init --recursive --depth 1
+	git submodule update --init --recursive --depth 1 --single-branch
 	
 $(GRPC_BUILD): $(GRPC_REPO)
 	mkdir -p $(GRPC_BUILD)

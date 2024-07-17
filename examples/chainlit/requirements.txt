@@ -1,7 +1,6 @@
-llama_hub==0.0.41
-llama_index==0.8.55
-Requests==2.31.0
-weaviate_client==3.25.1
+llama_index==0.10.55
+requests==2.32.3
+weaviate_client==4.6.5
 transformers
 torch
 chainlit
