@@ -21,6 +21,11 @@ jobs:
             json_diff_file_output: diff.json
             raw_diff_file_output: diff.txt
             file_output_only: "true"
+    - name: Show diff
+      env:
+        DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}
+      run: |
+            cat $DIFF
     - name: Summarize
       env:
         DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}
