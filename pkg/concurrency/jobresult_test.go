@@ -1,6 +1,7 @@
 package concurrency_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -16,7 +17,7 @@ var _ = Describe("pkg/concurrency unit tests", func() {
 		Expect(wjr).ToNot(BeNil())
 		stallChannel := make(chan struct{})
 		go func(jr *JobResult[string, string]) {
-			resPtr, err := jr.Wait()
+			resPtr, err := jr.Wait(context.Background())
 			Expect(err).To(BeNil())
 			Expect(jr.Request).ToNot(BeNil())
 			Expect(*jr.Request()).To(Equal("foo"))
@@ -37,7 +38,7 @@ var _ = Describe("pkg/concurrency unit tests", func() {
 		Expect(wjr).ToNot(BeNil())
 		stallChannel := make(chan struct{})
 		go func(jr *JobResult[string, string]) {
-			_, err := jr.Wait()
+			_, err := jr.Wait(context.Background())
 			Expect(jr.Request).To(BeNil())
 			Expect(*jr.Request()).To(Equal("foo"))
 			Expect(err).ToNot(BeNil())
