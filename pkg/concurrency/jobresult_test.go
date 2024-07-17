@@ -54,7 +54,7 @@ var _ = Describe("pkg/concurrency unit tests", func() {
 
 		go func(wjr *WritableJobResult[string, string]) {
 			time.Sleep(time.Second * 5)
-			wjr.SetResult("", fmt.Errorf("test"))
+			wjr.SetResult("bar", nil)
 		}(wjr)
 
 		timeout1s, c1 := context.WithTimeoutCause(context.Background(), time.Second, fmt.Errorf("timeout"))
