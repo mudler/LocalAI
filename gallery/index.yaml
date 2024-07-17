@@ -248,6 +248,22 @@
     - filename: mathstral-7B-v0.1-iMat-Q4_K_M.gguf
       sha256: 3ba94b7a8283ffa319c9ce23657f91ecf221ceada167c1253906cf56d72e8f90
       uri: huggingface://InferenceIllusionist/mathstral-7B-v0.1-iMat-GGUF/mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mahou-1.3d-mistral-7b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/flammenai/Mahou-1.3d-mistral-7B
+    - https://huggingface.co/mradermacher/Mahou-1.3d-mistral-7B-i1-GGUF
+  description: |
+    Mahou is designed to provide short messages in a conversational context. It is capable of casual conversation and character roleplay.
+  overrides:
+    parameters:
+      model: Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
+      sha256: 8272f050e36d612ab282e095cb4e775e2c818e7096f8d522314d256923ef6da9
+      uri: huggingface://mradermacher/Mahou-1.3d-mistral-7B-i1-GGUF/Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
