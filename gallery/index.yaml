@@ -233,6 +233,21 @@
     - filename: "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
       sha256: "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024"
       uri: "huggingface://MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
+- !!merge <<: *mistral03
+  name: "mathstral-7b-v0.1-imat"
+  url: "github:mudler/LocalAI/gallery/mathstral.yaml@master"
+  urls:
+    - https://huggingface.co/mistralai/mathstral-7B-v0.1
+    - https://huggingface.co/InferenceIllusionist/mathstral-7B-v0.1-iMat-GGUF
+  description: |
+    Mathstral 7B is a model specializing in mathematical and scientific tasks, based on Mistral 7B. You can read more in the official blog post https://mistral.ai/news/mathstral/.
+  overrides:
+    parameters:
+      model: mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+  files:
+    - filename: mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+      sha256: 3ba94b7a8283ffa319c9ce23657f91ecf221ceada167c1253906cf56d72e8f90
+      uri: huggingface://InferenceIllusionist/mathstral-7B-v0.1-iMat-GGUF/mathstral-7B-v0.1-iMat-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
