@@ -2940,6 +2940,51 @@
     - filename: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
       sha256: 83647caf4a23a91697585cff391e7d1236fac867392f9e49a6dab59f81b5f810
       uri: huggingface://bartowski/Llama-3-Hercules-5.0-8B-GGUF/Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-15b-mythicalmaid-t0.0001"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f74b6e6389380c77562762/Nx5jjEYNH26OS2_87mPTM.png
+  urls:
+    - https://huggingface.co/v000000/L3-15B-MythicalMaid-t0.0001
+    - https://huggingface.co/mradermacher/L3-15B-MythicalMaid-t0.0001-GGUF
+  description: |
+    Llama-3-15B-MythicalMaid-t0.0001
+    A merge of the following models using a custom NearSwap(t0.0001) algorithm (inverted):
+
+        ZeusLabs/L3-Aethora-15B-V2
+        v000000/HaloMaidRP-v1.33-15B-L3
+
+    With ZeusLabs/L3-Aethora-15B-V2 as the base model.
+
+    This merge was inverted compared to "L3-15B-EtherealMaid-t0.0001".
+  overrides:
+    parameters:
+      model: L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+  files:
+    - filename: L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+      sha256: ecbd57783006f1a027f8a7f5a5d551dc8b3568912825f566d79fd34a804e8970
+      uri: huggingface://mradermacher/L3-15B-MythicalMaid-t0.0001-GGUF/L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+
+- !!merge <<: *llama3
+  name: "l3-15b-etherealmaid-t0.0001-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f74b6e6389380c77562762/FwYXt2h_FdmlL0Z6qYufz.png
+  urls:
+    - https://huggingface.co/v000000/L3-15B-EtherealMaid-t0.0001
+    - https://huggingface.co/mradermacher/L3-15B-EtherealMaid-t0.0001-i1-GGUF
+  description: |
+    Llama-3-15B-EtherealMaid-t0.0001
+    A merge of the following models using a custom NearSwap(t0.0001) algorithm:
+
+        v000000/HaloMaidRP-v1.33-15B-L3
+        ZeusLabs/L3-Aethora-15B-V2
+
+    With v000000/HaloMaidRP-v1.33-15B-L3 as the base model.
+  overrides:
+    parameters:
+      model: L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
+  files:
+    - filename: L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
+      sha256: 2911be6be8e0fd4184998d452410ba847491b4ab71a928749de87cafb0e13757
+      uri: huggingface://mradermacher/L3-15B-EtherealMaid-t0.0001-i1-GGUF/L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
