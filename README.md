@@ -89,6 +89,7 @@ Hot topics (looking for contributors):
 - Assistant API: https://github.com/mudler/LocalAI/issues/1273
 - Moderation endpoint: https://github.com/mudler/LocalAI/issues/999
 - Vulkan: https://github.com/mudler/LocalAI/issues/1647
+- Anthropic API: https://github.com/mudler/LocalAI/issues/1808
 
 If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
 
