@@ -6,7 +6,7 @@ import (
 	"github.com/mudler/LocalAI/core/services"
 )
 
-// BackendMonitorEndpoint returns the backend monitoring status
+// BackendMonitorEndpoint returns the status of the specified backend
 // @Summary Backend monitor endpoint
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Success 200 {object} proto.StatusResponse "Response"
@@ -28,7 +28,7 @@ func BackendMonitorEndpoint(bm *services.BackendMonitorService) func(c *fiber.Ct
 	}
 }
 
-// BackendMonitorEndpoint returns the backend monitoring status
+// BackendMonitorEndpoint shuts down the specified backend
 // @Summary Backend monitor endpoint
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Router /backend/shutdown [post]
