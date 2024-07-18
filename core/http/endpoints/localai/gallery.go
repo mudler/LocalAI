@@ -34,6 +34,10 @@ func CreateModelGalleryEndpointService(galleries []config.Gallery, modelPath str
 	}
 }
 
+// GetOpStatusEndpoint returns the job status
+// @Summary Returns the job status
+// @Success 200 {object} gallery.GalleryOpStatus "Response"
+// @Router /models/jobs/{uuid} [get]
 func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		status := mgs.galleryApplier.GetStatus(c.Params("uuid"))
@@ -44,6 +48,10 @@ func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx)
 	}
 }
 
+// GetAllStatusEndpoint returns all the jobs status progress
+// @Summary Returns all the jobs status progress
+// @Success 200 {object} map[string]gallery.GalleryOpStatus "Response"
+// @Router /models/jobs [get]
 func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		return c.JSON(mgs.galleryApplier.GetAllStatus())

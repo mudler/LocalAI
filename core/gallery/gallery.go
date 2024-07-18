@@ -10,6 +10,7 @@ import (
 	"dario.cat/mergo"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
@@ -188,6 +189,12 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 	configFile := filepath.Join(basePath, fmt.Sprintf("%s.yaml", name))
 
 	galleryFile := filepath.Join(basePath, galleryFileName(name))
+
+	for _, f := range []string{configFile, galleryFile} {
+		if err := utils.VerifyPath(f, basePath); err != nil {
+			return fmt.Errorf("failed to verify path %s: %w", f, err)
+		}
+	}
 
 	var err error
 	// Delete all the files associated to the model
