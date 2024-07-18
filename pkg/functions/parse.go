@@ -201,11 +201,8 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	}
 	log.Debug().Msgf("LLM result(function cleanup): %s", llmresult)
 
-	functionNameKey := ""
-	functionArgumentsKey := "arguments"
-	if functionConfig.FunctionNameKey == "name" || functionConfig.FunctionNameKey == "" {
-		functionNameKey = "name"
-	}
+	functionNameKey := defaultFunctionNameKey
+	functionArgumentsKey := defaultFunctionArgumentsKey
 	if functionConfig.FunctionNameKey != "" {
 		functionNameKey = functionConfig.FunctionNameKey
 	}

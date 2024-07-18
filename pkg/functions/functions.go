@@ -6,6 +6,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	defaultFunctionNameKey      = "name"
+	defaultFunctionArgumentsKey = "arguments"
+)
+
 type Function struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
@@ -22,8 +27,8 @@ type Tools []Tool
 // ToJSONNameStructure converts a list of functions to a JSON structure that can be parsed to a grammar
 // This allows the LLM to return a response of the type: { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 func (f Functions) ToJSONStructure(name, args string) JSONFunctionStructure {
-	nameKey := "name"
-	argsKey := "arguments"
+	nameKey := defaultFunctionNameKey
+	argsKey := defaultFunctionArgumentsKey
 	if name != "" {
 		nameKey = name
 	}
