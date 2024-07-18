@@ -75,7 +75,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache GRPC
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           builder: ${{ steps.buildx.outputs.name }}
           # The build-args MUST be an EXACT match between the image cache and other workflow steps that want to use that cache.
@@ -84,7 +84,7 @@ jobs:
           build-args: |
             GRPC_BASE_IMAGE=${{ matrix.grpc-base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
-            GRPC_VERSION=v1.64.0
+            GRPC_VERSION=v1.65.0
           context: .
           file: ./Dockerfile
           cache-to: type=gha,ignore-error=true

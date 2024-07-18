@@ -1,6 +1,6 @@
 accelerate
 auto-gptq==0.7.1
-grpcio==1.64.0
+grpcio==1.65.0
 protobuf
 torch
 certifi

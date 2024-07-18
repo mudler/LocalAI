@@ -12,11 +12,9 @@ jobs:
         RELEASE_TITLE: ${{ github.event.release.name }}
         RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
     steps:
-    - name: Start LocalAI
-      run: |
-        echo "Starting LocalAI..."
-        docker run -e -ti -d --name local-ai -p 8080:8080 localai/localai:master-ffmpeg-core run --debug $MODEL_NAME
-        until [ "`docker inspect -f {{.State.Health.Status}} local-ai`" == "healthy" ]; do echo "Waiting for container to be ready";  docker logs --tail 10 local-ai; sleep 2; done
+    - uses: mudler/localai-github-action@v1
+      with:
+        model: 'hermes-2-theta-llama-3-8b' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
     - name: Summarize
       id: summarize
       run: |

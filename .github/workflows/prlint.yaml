@@ -17,12 +17,12 @@ jobs:
       - uses: aslafy-z/conventional-pr-title-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  check-pr-description:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: jadrol/pr-description-checker-action@v1.0.0
-        id: description-checker
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          exempt-labels: no qa
+#  check-pr-description:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#      - uses: jadrol/pr-description-checker-action@v1.0.0
+#        id: description-checker
+#        with:
+#          repo-token: ${{ secrets.GITHUB_TOKEN }}
+#          exempt-labels: no qa

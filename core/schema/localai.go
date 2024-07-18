@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"github.com/mudler/LocalAI/core/p2p"
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
 
@@ -12,6 +13,11 @@ type BackendMonitorResponse struct {
 	MemoryInfo    *gopsutil.MemoryInfoStat
 	MemoryPercent float32
 	CPUPercent    float64
+}
+
+type GalleryResponse struct {
+	ID        string `json:"uuid"`
+	StatusURL string `json:"status"`
 }
 
 // @Description TTS request body
@@ -58,4 +64,9 @@ type StoresFindResponse struct {
 	Keys         [][]float32 `json:"keys" yaml:"keys"`
 	Values       []string    `json:"values" yaml:"values"`
 	Similarities []float32   `json:"similarities" yaml:"similarities"`
+}
+
+type P2PNodesResponse struct {
+	Nodes          []p2p.NodeData `json:"nodes" yaml:"nodes"`
+	FederatedNodes []p2p.NodeData `json:"federated_nodes" yaml:"federated_nodes"`
 }
