@@ -110,6 +110,14 @@ var _ = Describe("LocalAI function parse tests", func() {
 			Expect(results[0].Name).To(Equal("add"))
 			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
 		})
+
+		It("should parse the result even with invalid JSON", func() {
+			input := `{"function": "add", "arguments": {"x": 5, "y": 3}} invalid {"function": "add", "arguments": {"x": 5, "y": 3}}`
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(2))
+			Expect(results[0].Name).To(Equal("add"))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
+		})
 	})
 
 	Context("when using ReplaceResults to clean up input", func() {
@@ -257,6 +265,76 @@ roses are red
 			functionConfig.CaptureLLMResult = []string{`(?s)<sketchpad>(.*?)</sketchpad>`}
 			results := ParseTextContent(input, functionConfig)
 			Expect(results).To(Equal(""))
+		})
+	})
+	Context("ParseJSON - when given valid JSON strings", func() {
+		It("should parse multiple JSON objects", func() {
+			input := `{"key1": "value1"} {"key2": "value2"}`
+			expected := []map[string]any{
+				{"key1": "value1"},
+				{"key2": "value2"},
+			}
+			result, err := ParseJSON(input)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(expected))
+		})
+
+		It("should parse a single JSON object with various types", func() {
+			input := `{"key1": "value1", "key2": 2}`
+			expected := []map[string]any{
+				{"key1": "value1", "key2": float64(2)},
+			}
+			result, err := ParseJSON(input)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(expected))
+		})
+		It("should handle JSON without syntax errors gracefully", func() {
+			input := `{"key1": "value1"}`
+			expected := []map[string]any{
+				{"key1": "value1"},
+			}
+			result, err := ParseJSON(input)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(expected))
+		})
+		It("should handle JSON without syntax errors gracefully", func() {
+			input := `[{"key1": "value1"}]`
+			expected := []map[string]any{
+				{"key1": "value1"},
+			}
+			result, err := ParseJSON(input)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(expected))
+		})
+	})
+
+	Context("ParseJSON - when given invalid JSON strings", func() {
+		It("should return an error for completely invalid JSON", func() {
+			input := `invalid json`
+			result, err := ParseJSON(input)
+			Expect(err).To(HaveOccurred())
+			Expect(result).To(BeNil())
+		})
+
+		It("should skip invalid JSON parts and parse valid parts", func() {
+			input := `{"key1": "value1"} invalid {"key2": "value2"}`
+			expected := []map[string]any{
+				{"key1": "value1"},
+				{"key2": "value2"},
+			}
+			result, err := ParseJSON(input)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(expected))
+		})
+
+		PIt("should handle JSON with syntax errors gracefully", func() {
+			input := `{"key1": "value1", "key2": }`
+			expected := []map[string]any{
+				{"key1": "value1"},
+			}
+			result, err := ParseJSON(input)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(expected))
 		})
 	})
 })
