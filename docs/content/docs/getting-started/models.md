@@ -1,13 +1,65 @@
----
++++
+disableToc = false
+title = "Install and run models"
+weight = 4
+icon = "rocket_launch"
 
-disableToc: false
-title: "Run models manually"
-weight: 5
-icon: "rocket_launch"
++++
 
----
+To install models with LocalAI you can:
 
-# Run Models Manually
+- Browse the Model gallery from the Web Interface and install models with a couple of clicks ( see also the [Gallery Documentation]({{% relref "docs/features/model-gallery" %}}) ) 
+- Specify a model available in the LocalAI gallery during start ( e.g. `local-ai run <model_gallery_name>`)
+- Specify a URI to a model file (E.g. `huggingface://...` or `oci://` or `ollama://`) when starting LocalAI  ( e.g. `local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf`)
+- Specify a URL to a model configuration file when starting LocalAI  ( e.g. `local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf`)
+- Install the models manually by copying the files into the models directory (`--models`)
+
+## Run and Install Models via the Gallery
+
+> See also the [Gallery Documentation]({{% relref "docs/features/model-gallery" %}})
+
+To run models available in the LocalAI gallery, you can use the WebUI or specify the model name when starting LocalAI. A list of models can be found in the gallery from the Web interface, in the [model gallery](https://models.localai.io), or via CLI with: `local-ai models list`.
+
+To install a model from the gallery, use the model name as the URI. For example, to run LocalAI with the hermes model you can run:
+
+```bash
+local-ai run hermes-2-theta-llama-3-8b
+```
+
+or to install only the model, use:
+
+```bash
+local-ai models install hermes-2-theta-llama-3-8b
+```
+
+Note: the galleries available in LocalAI can be customized to point to a different URL, or to a local directory. For more information, see the [Gallery Documentation]({{% relref "docs/features/model-gallery" %}}).
+
+
+## Run Models via URI
+
+To run models via URI, you can specify a URI to a model file or a configuration file when starting LocalAI. For example, valid syntax are:
+
+- `file://path/to/model`
+- `huggingface://repository_id/model_file` ( E.g. `huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf` )
+- From OCIs: `oci://container_image:tag`, `ollama://model_id:tag`
+- From configuration files: `https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml`
+
+Configuration files can be used to customize the model defaults and specific settings. For advanced configurations, refer to the [Customize models section]({{% relref "docs/getting-started/customize-model" %}}).
+
+### Examples
+
+```bash
+# starts localAI with the phi-2 model
+local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
+# Install and run a model from the Ollama OCI registry
+local-ai run ollama://gemma:2b
+# Run a model from a configuration file
+local-ai run https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
+# Install and run a model from a standard OCI registry (e.g. docker hub)
+local-ai run oci://localai/phi-2:latest
+```
+
+## Run Models Manually
 
 Follow these steps to manually run models using LocalAI:
 
