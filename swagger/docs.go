@@ -700,18 +700,6 @@ const docTemplate = `{
                 }
             }
         },
-        "functions.Argument": {
-            "type": "object",
-            "properties": {
-                "properties": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
         "functions.Function": {
             "type": "object",
             "properties": {
@@ -727,48 +715,19 @@ const docTemplate = `{
                 }
             }
         },
-        "functions.FunctionName": {
-            "type": "object",
-            "properties": {
-                "const": {
-                    "type": "string"
-                }
-            }
-        },
-        "functions.FunctionProperties": {
-            "type": "object",
-            "properties": {
-                "arguments": {
-                    "$ref": "#/definitions/functions.Argument"
-                },
-                "function": {
-                    "$ref": "#/definitions/functions.FunctionName"
-                }
-            }
-        },
-        "functions.ItemFunction": {
+        "functions.Item": {
             "type": "object",
             "properties": {
                 "properties": {
-                    "$ref": "#/definitions/functions.FunctionProperties"
+                    "type": "object",
+                    "additionalProperties": true
                 },
                 "type": {
                     "type": "string"
                 }
             }
         },
-        "functions.ItemName": {
-            "type": "object",
-            "properties": {
-                "properties": {
-                    "$ref": "#/definitions/functions.NameProperties"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "functions.JSONFunctionStructureFunction": {
+        "functions.JSONFunctionStructure": {
             "type": "object",
             "properties": {
                 "$defs": {
@@ -778,46 +737,14 @@ const docTemplate = `{
                 "anyOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/functions.ItemFunction"
+                        "$ref": "#/definitions/functions.Item"
                     }
                 },
                 "oneOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/functions.ItemFunction"
+                        "$ref": "#/definitions/functions.Item"
                     }
-                }
-            }
-        },
-        "functions.JSONFunctionStructureName": {
-            "type": "object",
-            "properties": {
-                "$defs": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "anyOf": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/functions.ItemName"
-                    }
-                },
-                "oneOf": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/functions.ItemName"
-                    }
-                }
-            }
-        },
-        "functions.NameProperties": {
-            "type": "object",
-            "properties": {
-                "arguments": {
-                    "$ref": "#/definitions/functions.Argument"
-                },
-                "name": {
-                    "$ref": "#/definitions/functions.FunctionName"
                 }
             }
         },
@@ -1488,10 +1415,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "grammar_json_functions": {
-                    "$ref": "#/definitions/functions.JSONFunctionStructureFunction"
-                },
-                "grammar_json_name": {
-                    "$ref": "#/definitions/functions.JSONFunctionStructureName"
+                    "$ref": "#/definitions/functions.JSONFunctionStructure"
                 },
                 "ignore_eos": {
                     "type": "boolean"
