@@ -226,7 +226,8 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 			// Update input grammar
 			// Handle if we should return "name" instead of "functions"
-			if config.FunctionsConfig.FunctionName {
+			nameKey := config.FunctionsConfig.FunctionNameKey == "name" || config.FunctionsConfig.FunctionNameKey == ""
+			if nameKey {
 				jsStruct := funcs.ToJSONNameStructure()
 				config.Grammar = jsStruct.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
 			} else {

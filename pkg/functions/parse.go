@@ -78,8 +78,6 @@ type FunctionsConfig struct {
 	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
 	// This might be useful for certain models trained with the function name as the first token.
-	FunctionName bool `yaml:"return_name_in_function_response"`
-
 	FunctionNameKey      string `yaml:"function_name_key"`
 	FunctionArgumentsKey string `yaml:"function_arguments_key"`
 }
@@ -203,9 +201,9 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	}
 	log.Debug().Msgf("LLM result(function cleanup): %s", llmresult)
 
-	functionNameKey := "function"
+	functionNameKey := ""
 	functionArgumentsKey := "arguments"
-	if functionConfig.FunctionName {
+	if functionConfig.FunctionNameKey == "name" || functionConfig.FunctionNameKey == "" {
 		functionNameKey = "name"
 	}
 	if functionConfig.FunctionNameKey != "" {

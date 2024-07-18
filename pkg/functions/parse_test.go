@@ -16,7 +16,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 
 	Context("when using grammars and single result expected", func() {
 		It("should parse the function name and arguments correctly", func() {
-			input := `{"function": "add", "arguments": {"x": 5, "y": 3}}`
+			input := `{"name": "add", "arguments": {"x": 5, "y": 3}}`
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -28,8 +28,17 @@ var _ = Describe("LocalAI function parse tests", func() {
 	Context("when not using grammars and regex is needed", func() {
 		It("should extract function name and arguments from the regex", func() {
 			input := `add({"x":5,"y":3})`
-			functionConfig.ResponseRegex = []string{`(?P<function>\w+)\s*\((?P<arguments>.*)\)`}
+			functionConfig.ResponseRegex = []string{`(?P<name>\w+)\s*\((?P<arguments>.*)\)`}
 
+			results := ParseFunctionCall(input, functionConfig)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("add"))
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
+		})
+		It("should extract function name and arguments from the regex", func() {
+			input := `add({"x":5,"y":3})`
+			functionConfig.ResponseRegex = []string{`(?P<function>\w+)\s*\((?P<arguments>.*)\)`}
+			functionConfig.FunctionNameKey = "function"
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Name).To(Equal("add"))
@@ -53,7 +62,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 
 	Context("when parallel calls are enabled", func() {
 		It("should handle multiple function calls", func() {
-			input := `[{"function": "add", "arguments": {"x": 5, "y": 3}}, {"function": "subtract", "arguments": {"x": 10, "y": 7}}]`
+			input := `[{"name": "add", "arguments": {"x": 5, "y": 3}}, {"name": "subtract", "arguments": {"x": 10, "y": 7}}]`
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(2))
@@ -66,8 +75,8 @@ var _ = Describe("LocalAI function parse tests", func() {
 
 	Context("without grammars and without regex", func() {
 		It("should parse the function name and arguments correctly with the name key", func() {
-			input := `{"name": "add", "arguments": {"x": 5, "y": 3}}`
-			functionConfig.FunctionName = true
+			input := `{"function": "add", "arguments": {"x": 5, "y": 3}}`
+			functionConfig.FunctionNameKey = "function"
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -76,7 +85,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 		})
 
 		It("should parse the function name and arguments correctly with the function key", func() {
-			input := `{"function": "add", "arguments": {"x": 5, "y": 3}}`
+			input := `{"name": "add", "arguments": {"x": 5, "y": 3}}`
 
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(1))
@@ -87,7 +96,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 		It("should parse the result by matching the JSONRegexMatch", func() {
 			input := `
 <tool_call>
-{"function": "add", "arguments": {"x": 5, "y": 3}}
+{"name": "add", "arguments": {"x": 5, "y": 3}}
 </tool_call>`
 
 			functionConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
@@ -100,7 +109,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 
 		It("should parse the result by matching the JSONRegexMatch", func() {
 			input := `
-{"function": "add", "arguments": {"x": 5, "y": 3}}
+{"name": "add", "arguments": {"x": 5, "y": 3}}
 </tool_call>`
 
 			functionConfig.JSONRegexMatch = []string{`(?s)(.*?)</tool_call>`}
@@ -112,7 +121,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 		})
 
 		It("should parse the result even with invalid JSON", func() {
-			input := `{"function": "add", "arguments": {"x": 5, "y": 3}} invalid {"function": "add", "arguments": {"x": 5, "y": 3}}`
+			input := `{"name": "add", "arguments": {"x": 5, "y": 3}} invalid {"name": "add", "arguments": {"x": 5, "y": 3}}`
 			results := ParseFunctionCall(input, functionConfig)
 			Expect(results).To(HaveLen(2))
 			Expect(results[0].Name).To(Equal("add"))
@@ -124,7 +133,7 @@ var _ = Describe("LocalAI function parse tests", func() {
 		It("should replace text before and after JSON blob", func() {
 			input := `
 Some text before the JSON
-{"function": "add", "arguments": {"x": 5, "y": 3}}
+{"name": "add", "arguments": {"x": 5, "y": 3}}
 Some text after the JSON
 `
 
@@ -142,7 +151,7 @@ Some text after the JSON
 		It("should replace text before and after array JSON blob", func() {
 			input := `
 Some text before the JSON
-[{"function": "add", "arguments": {"x": 5, "y": 3}}, {"function": "subtract", "arguments": {"x": 10, "y": 7}}]
+[{"name": "add", "arguments": {"x": 5, "y": 3}}, {"name": "subtract", "arguments": {"x": 10, "y": 7}}]
 Some text after the JSON
 `
 			functionConfig.ReplaceFunctionResults = []ReplaceResult{
@@ -161,7 +170,7 @@ Some text after the JSON
 		It("should convert single-quoted key-value pairs to double-quoted and escape double quotes within values", func() {
 			input := `
 Some text before the JSON
-{'function': '"add"', 'arguments': {'x': 5, 'z': '"v"', 'y': 'v"value"'}}
+{'name': '"add"', 'arguments': {'x': 5, 'z': '"v"', 'y': 'v"value"'}}
 Some text after the JSON
 `
 			functionConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
@@ -194,7 +203,7 @@ Some text after the JSON
 		It("should convert single-quoted key-value pairs to double-quoted and escape double quotes within values", func() {
 			input := `
 Some text before the JSON
-<tool_call>{'function': '"add"', 'arguments': {'x': 5, 'z': '"v"', 'y': 'v"value"'}}</tool_call>
+<tool_call>{'name': '"add"', 'arguments': {'x': 5, 'z': '"v"', 'y': 'v"value"'}}</tool_call>
 Some text after the JSON
 `
 			functionConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
@@ -227,8 +236,8 @@ Some text after the JSON
 		It("should detect multiple functions call where the JSONRegexMatch is repeated", func() {
 			input := `
 Some text before the JSON
-<tool_call>{"function": "add", "arguments": {"x": 5, "y": 3}}</tool_call>
-<tool_call>{"function": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
+<tool_call>{"name": "add", "arguments": {"x": 5, "y": 3}}</tool_call>
+<tool_call>{"name": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
 Some text after the JSON
 `
 			functionConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
@@ -248,7 +257,7 @@ Some text after the JSON
 <sketchpad>
 roses are red
 </sketchpad>
-		<tool_call>{"function": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
+		<tool_call>{"name": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
 		Some text after the JSON
 		`
 			functionConfig.CaptureLLMResult = []string{`(?s)<sketchpad>(.*?)</sketchpad>`}
@@ -259,7 +268,7 @@ roses are red
 		It("Defaults to empty if doesn't catch any", func() {
 			input := `
 		Some text before the JSON
-		<tool_call>{"function": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
+		<tool_call>{"name": "subtract", "arguments": {"x": 10, "y": 7}}</tool_call>
 		Some text after the JSON
 		`
 			functionConfig.CaptureLLMResult = []string{`(?s)<sketchpad>(.*?)</sketchpad>`}
