@@ -100,10 +100,23 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 					return
 				}
 
-				// open a TCP stream to one of the tunnels
-				// chosen randomly
-				// TODO: optimize this and track usage
-				tunnelAddr := tunnelAddresses[rand.IntN(len(tunnelAddresses))]
+				tunnelAddr := ""
+
+				if fs.loadBalanced {
+					for _, t := range tunnelAddresses {
+						fs.EnsureRecordExist(t)
+					}
+
+					tunnelAddr = fs.SelectLeastUsedServer()
+					log.Debug().Msgf("Selected tunnel %s", tunnelAddr)
+					if tunnelAddr == "" {
+						tunnelAddr = tunnelAddresses[rand.IntN(len(tunnelAddresses))]
+					}
+
+					fs.RecordRequest(tunnelAddr)
+				} else {
+					tunnelAddr = tunnelAddresses[rand.IntN(len(tunnelAddresses))]
+				}
 
 				tunnelConn, err := net.Dial("tcp", tunnelAddr)
 				if err != nil {
