@@ -110,7 +110,7 @@ jobs:
           # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
           PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
         env:
-          CUDA_VERSION: 12-5
+          CUDA_VERSION: 12-4
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4

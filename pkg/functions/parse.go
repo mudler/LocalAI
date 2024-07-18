@@ -2,6 +2,8 @@ package functions
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"regexp"
 	"strings"
 
@@ -76,7 +78,8 @@ type FunctionsConfig struct {
 	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
 	// This might be useful for certain models trained with the function name as the first token.
-	FunctionName bool `yaml:"return_name_in_function_response"`
+	FunctionNameKey      string `yaml:"function_name_key"`
+	FunctionArgumentsKey string `yaml:"function_arguments_key"`
 }
 
 type ReplaceResult struct {
@@ -145,6 +148,47 @@ func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
 	return ""
 }
 
+// ParseJSON is a function that parses a JSON string that might contain multiple JSON objects
+// and syntax errors in between by shifting the offset
+// This for e.g. allow to parse
+// { "foo": "bar" } invalid { "baz": "qux" }
+// into
+// [ { "foo": "bar" }, { "baz": "qux" } ]
+// Credits to Michael Yang (https://github.com/mxyng) for the original implementation
+// This is a slighly reworked version, improved for readability and error handling
+func ParseJSON(s string) ([]map[string]any, error) {
+	var objs []map[string]any
+	offset := 0
+
+	for offset < len(s) {
+		var obj map[string]any
+		decoder := json.NewDecoder(strings.NewReader(s[offset:]))
+
+		err := decoder.Decode(&obj)
+		switch {
+		case errors.Is(err, io.EOF):
+			return objs, nil
+		case err == nil:
+			offset += int(decoder.InputOffset())
+			objs = append(objs, obj)
+		default: // handle the error type
+			var syntaxErr *json.SyntaxError
+			var unmarshalTypeErr *json.UnmarshalTypeError
+
+			switch {
+			case errors.As(err, &syntaxErr):
+				offset += int(syntaxErr.Offset)
+			case errors.As(err, &unmarshalTypeErr):
+				offset += int(unmarshalTypeErr.Offset)
+			default:
+				return objs, err
+			}
+		}
+	}
+
+	return objs, nil
+}
+
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 
 	log.Debug().Msgf("LLM result: %s", llmresult)
@@ -157,9 +201,13 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	}
 	log.Debug().Msgf("LLM result(function cleanup): %s", llmresult)
 
-	functionNameKey := "function"
-	if functionConfig.FunctionName {
-		functionNameKey = "name"
+	functionNameKey := defaultFunctionNameKey
+	functionArgumentsKey := defaultFunctionArgumentsKey
+	if functionConfig.FunctionNameKey != "" {
+		functionNameKey = functionConfig.FunctionNameKey
+	}
+	if functionConfig.FunctionArgumentsKey != "" {
+		functionArgumentsKey = functionConfig.FunctionArgumentsKey
 	}
 
 	results := []FuncCallResults{}
@@ -170,19 +218,13 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		result = make([]FuncCallResults, 0)
 
 		for _, s := range results {
-			var ss []map[string]interface{}
+			var ss []map[string]any
 
 			s = utils.EscapeNewLines(s)
-			err := json.Unmarshal([]byte(s), &ss)
+			ss, err := ParseJSON(s)
+			//err := json.Unmarshal([]byte(s), &ss)
 			if err != nil {
-				// If the LLM result is a single object, try unmarshaling it into a single map
-				var singleObj map[string]interface{}
-				err = json.Unmarshal([]byte(s), &singleObj)
-				if err != nil {
-					log.Debug().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result in a single object or an array of JSON objects")
-				} else {
-					ss = []map[string]interface{}{singleObj}
-				}
+				log.Debug().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result in a single object or an array of JSON objects")
 			}
 
 			log.Debug().Msgf("Function return: %s %+v", s, ss)
@@ -195,7 +237,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 					//return result, fmt.Errorf("unable to find function name in result")
 				}
 				// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
-				args, ok := s["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+				args, ok := s[functionArgumentsKey] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
 				if !ok {
 					continue
 					//return result, fmt.Errorf("unable to find arguments in result")
@@ -253,7 +295,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 				if functionName == "" {
 					return results
 				}
-				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
+				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result[functionArgumentsKey]})
 			}
 		}
 	} else {

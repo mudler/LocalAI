@@ -331,6 +331,7 @@ func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[strin
 
 	return def
 }
+
 func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, options ...func(*GrammarOption)) string {
 	sc.addRule("freestring", PRIMITIVE_RULES["freestring"])
 	sc.visit(schema, "", schema)
@@ -352,52 +353,23 @@ type FunctionName struct {
 	Const string `json:"const"`
 }
 
-type FunctionProperties struct {
-	Function  FunctionName `json:"function"`
-	Arguments Argument     `json:"arguments"`
-}
-
-type NameProperties struct {
-	Function  FunctionName `json:"name"`
-	Arguments Argument     `json:"arguments"`
-}
-
 type Argument struct {
 	Type       string                 `json:"type"`
 	Properties map[string]interface{} `json:"properties"`
 }
 
-type ItemName struct {
-	Type       string         `json:"type"`
-	Properties NameProperties `json:"properties"`
+type Item struct {
+	Type       string                 `json:"type"`
+	Properties map[string]interface{} `json:"properties"`
 }
 
-type ItemFunction struct {
-	Type       string             `json:"type"`
-	Properties FunctionProperties `json:"properties"`
-}
-
-type JSONFunctionStructureName struct {
-	OneOf []ItemName             `json:"oneOf,omitempty"`
-	AnyOf []ItemName             `json:"anyOf,omitempty"`
+type JSONFunctionStructure struct {
+	OneOf []Item                 `json:"oneOf,omitempty"`
+	AnyOf []Item                 `json:"anyOf,omitempty"`
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructureName) Grammar(options ...func(*GrammarOption)) string {
-	grammarOpts := &GrammarOption{}
-	grammarOpts.Apply(options...)
-
-	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(grammarOpts.PropOrder).GrammarFromBytes(dat, options...)
-}
-
-type JSONFunctionStructureFunction struct {
-	OneOf []ItemFunction         `json:"oneOf,omitempty"`
-	AnyOf []ItemFunction         `json:"anyOf,omitempty"`
-	Defs  map[string]interface{} `json:"$defs,omitempty"`
-}
-
-func (j JSONFunctionStructureFunction) Grammar(options ...func(*GrammarOption)) string {
+func (j JSONFunctionStructure) Grammar(options ...func(*GrammarOption)) string {
 	grammarOpts := &GrammarOption{}
 	grammarOpts.Apply(options...)
 
