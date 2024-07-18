@@ -8,9 +8,9 @@ icon = "rocket_launch"
 
 ## Running other models
 
-> _Do you have already a model file? Skip to [Run models manually]({{%relref "docs/getting-started/manual" %}})_.
+> _Do you have already a model file? Skip to [Run models manually]({{%relref "docs/getting-started/models" %}})_.
 
-To load models into LocalAI, you can either [use models manually]({{%relref "docs/getting-started/manual" %}}) or configure LocalAI to pull the models from external sources, like Huggingface and configure the model.
+To load models into LocalAI, you can either [use models manually]({{%relref "docs/getting-started/models" %}}) or configure LocalAI to pull the models from external sources, like Huggingface and configure the model.
 
 To do that, you can point LocalAI to an URL to a YAML configuration file - however - LocalAI does also have some popular model configuration embedded in the binary as well. Below you can find a list of the models configuration that LocalAI has pre-built, see [Model customization]({{%relref "docs/getting-started/customize-model" %}}) on how to configure models from URLs.
 
