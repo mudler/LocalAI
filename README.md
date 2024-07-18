@@ -74,6 +74,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 - July 2024: 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723
 - June 2024: 🆕 You can browse now the model gallery without LocalAI! Check out https://models.localai.io
+- June 2024: Support for models from OCI registries: https://github.com/mudler/LocalAI/pull/2628
 - May 2024: 🔥🔥 Decentralized P2P llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!) 👉 Docs  https://localai.io/features/distribute/
 - May 2024: 🔥🔥 Openvoice: https://github.com/mudler/LocalAI/pull/2334
 - May 2024: 🆕 Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
