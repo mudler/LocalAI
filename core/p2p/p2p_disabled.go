@@ -14,6 +14,10 @@ func GenerateToken() string {
 	return "not implemented"
 }
 
+func (fs *FederatedServer) Start(ctx context.Context) error {
+	return fmt.Errorf("not implemented")
+}
+
 func ServiceDiscoverer(ctx context.Context, node *node.Node, token, servicesID string, fn func()) error {
 	return fmt.Errorf("not implemented")
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"sync"
@@ -135,11 +134,6 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 		}
 	}
 
-}
-
-func copyStream(closer chan struct{}, dst io.Writer, src io.Reader) {
-	defer func() { closer <- struct{}{} }() // connection is closed, send signal to stop proxy
-	io.Copy(dst, src)
 }
 
 // This is the main of the server (which keeps the env variable updated)
