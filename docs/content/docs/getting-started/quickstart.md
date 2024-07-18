@@ -38,13 +38,13 @@ For detailed instructions, see [Using container images]({{% relref "docs/getting
 
 ## Running LocalAI with All-in-One (AIO) Images
 
-> _Already have a model file? Skip to [Run models manually]({{% relref "docs/getting-started/manual" %}})_.
+> _Already have a model file? Skip to [Run models manually]({{% relref "docs/getting-started/models" %}})_.
 
 LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the features of LocalAI. If pre-configured models are not required, you can use the standard [images]({{% relref "docs/getting-started/container-images" %}}).
 
 These images are available for both CPU and GPU environments. AIO images are designed for ease of use and require no additional configuration.
 
-It is recommended to use AIO images if you prefer not to configure the models manually or via the web interface. For running specific models, refer to the [manual method]({{% relref "docs/getting-started/manual" %}}).
+It is recommended to use AIO images if you prefer not to configure the models manually or via the web interface. For running specific models, refer to the [manual method]({{% relref "docs/getting-started/models" %}}).
 
 The AIO images come pre-configured with the following features:
 - Text to Speech (TTS)
@@ -66,5 +66,5 @@ Explore additional resources and community contributions:
 - [Run from Container images]({{% relref "docs/getting-started/container-images" %}})
 - [Examples to try from the CLI]({{% relref "docs/getting-started/try-it-out" %}})
 - [Build LocalAI and the container image]({{% relref "docs/getting-started/build" %}})
-- [Run models manually]({{% relref "docs/getting-started/manual" %}})
+- [Run models manually]({{% relref "docs/getting-started/models" %}})
 - [Examples](https://github.com/mudler/LocalAI/tree/master/examples#examples)

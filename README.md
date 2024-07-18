@@ -72,8 +72,9 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 [Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-- June 2024: 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723
+- July 2024: 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723
 - June 2024: 🆕 You can browse now the model gallery without LocalAI! Check out https://models.localai.io
+- June 2024: Support for models from OCI registries: https://github.com/mudler/LocalAI/pull/2628
 - May 2024: 🔥🔥 Decentralized P2P llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!) 👉 Docs  https://localai.io/features/distribute/
 - May 2024: 🔥🔥 Openvoice: https://github.com/mudler/LocalAI/pull/2334
 - May 2024: 🆕 Function calls without grammars and mixed mode: https://github.com/mudler/LocalAI/pull/2328
@@ -89,6 +90,7 @@ Hot topics (looking for contributors):
 - Assistant API: https://github.com/mudler/LocalAI/issues/1273
 - Moderation endpoint: https://github.com/mudler/LocalAI/issues/999
 - Vulkan: https://github.com/mudler/LocalAI/issues/1647
+- Anthropic API: https://github.com/mudler/LocalAI/issues/1808
 
 If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
 

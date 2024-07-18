@@ -8,8 +8,10 @@ jobs:
         MODEL_NAME: hermes-2-theta-llama-3-8b
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
       with:
+        ref: "${{ github.event.pull_request.merge_commit_sha }}"
         fetch-depth: 0 # needed to checkout all branches for this Action to work
     - uses: mudler/localai-github-action@v1
       with:
@@ -22,6 +24,11 @@ jobs:
             raw_diff_file_output: diff.txt
             file_output_only: "true"
             base_branch: ${{ github.event.pull_request.base.sha }}
+    - name: Show diff
+      env:
+        DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}
+      run: |
+            cat $DIFF
     - name: Summarize
       env:
         DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}

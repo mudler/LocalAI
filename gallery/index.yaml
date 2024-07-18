@@ -233,6 +233,37 @@
     - filename: "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
       sha256: "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024"
       uri: "huggingface://MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
+- !!merge <<: *mistral03
+  name: "mathstral-7b-v0.1-imat"
+  url: "github:mudler/LocalAI/gallery/mathstral.yaml@master"
+  urls:
+    - https://huggingface.co/mistralai/mathstral-7B-v0.1
+    - https://huggingface.co/InferenceIllusionist/mathstral-7B-v0.1-iMat-GGUF
+  description: |
+    Mathstral 7B is a model specializing in mathematical and scientific tasks, based on Mistral 7B. You can read more in the official blog post https://mistral.ai/news/mathstral/.
+  overrides:
+    parameters:
+      model: mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+  files:
+    - filename: mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+      sha256: 3ba94b7a8283ffa319c9ce23657f91ecf221ceada167c1253906cf56d72e8f90
+      uri: huggingface://InferenceIllusionist/mathstral-7B-v0.1-iMat-GGUF/mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mahou-1.3d-mistral-7b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/flammenai/Mahou-1.3d-mistral-7B
+    - https://huggingface.co/mradermacher/Mahou-1.3d-mistral-7B-i1-GGUF
+  description: |
+    Mahou is designed to provide short messages in a conversational context. It is capable of casual conversation and character roleplay.
+  overrides:
+    parameters:
+      model: Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
+      sha256: 8272f050e36d612ab282e095cb4e775e2c818e7096f8d522314d256923ef6da9
+      uri: huggingface://mradermacher/Mahou-1.3d-mistral-7B-i1-GGUF/Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -2925,6 +2956,51 @@
     - filename: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
       sha256: 83647caf4a23a91697585cff391e7d1236fac867392f9e49a6dab59f81b5f810
       uri: huggingface://bartowski/Llama-3-Hercules-5.0-8B-GGUF/Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-15b-mythicalmaid-t0.0001"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f74b6e6389380c77562762/Nx5jjEYNH26OS2_87mPTM.png
+  urls:
+    - https://huggingface.co/v000000/L3-15B-MythicalMaid-t0.0001
+    - https://huggingface.co/mradermacher/L3-15B-MythicalMaid-t0.0001-GGUF
+  description: |
+    Llama-3-15B-MythicalMaid-t0.0001
+    A merge of the following models using a custom NearSwap(t0.0001) algorithm (inverted):
+
+        ZeusLabs/L3-Aethora-15B-V2
+        v000000/HaloMaidRP-v1.33-15B-L3
+
+    With ZeusLabs/L3-Aethora-15B-V2 as the base model.
+
+    This merge was inverted compared to "L3-15B-EtherealMaid-t0.0001".
+  overrides:
+    parameters:
+      model: L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+  files:
+    - filename: L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+      sha256: ecbd57783006f1a027f8a7f5a5d551dc8b3568912825f566d79fd34a804e8970
+      uri: huggingface://mradermacher/L3-15B-MythicalMaid-t0.0001-GGUF/L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+
+- !!merge <<: *llama3
+  name: "l3-15b-etherealmaid-t0.0001-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f74b6e6389380c77562762/FwYXt2h_FdmlL0Z6qYufz.png
+  urls:
+    - https://huggingface.co/v000000/L3-15B-EtherealMaid-t0.0001
+    - https://huggingface.co/mradermacher/L3-15B-EtherealMaid-t0.0001-i1-GGUF
+  description: |
+    Llama-3-15B-EtherealMaid-t0.0001
+    A merge of the following models using a custom NearSwap(t0.0001) algorithm:
+
+        v000000/HaloMaidRP-v1.33-15B-L3
+        ZeusLabs/L3-Aethora-15B-V2
+
+    With v000000/HaloMaidRP-v1.33-15B-L3 as the base model.
+  overrides:
+    parameters:
+      model: L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
+  files:
+    - filename: L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
+      sha256: 2911be6be8e0fd4184998d452410ba847491b4ab71a928749de87cafb0e13757
+      uri: huggingface://mradermacher/L3-15B-EtherealMaid-t0.0001-i1-GGUF/L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
