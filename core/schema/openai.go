@@ -179,8 +179,7 @@ type OpenAIRequest struct {
 	// A grammar to constrain the LLM output
 	Grammar string `json:"grammar" yaml:"grammar"`
 
-	JSONFunctionGrammarObject     *functions.JSONFunctionStructureFunction `json:"grammar_json_functions" yaml:"grammar_json_functions"`
-	JSONFunctionGrammarObjectName *functions.JSONFunctionStructureName     `json:"grammar_json_name" yaml:"grammar_json_name"`
+	JSONFunctionGrammarObject *functions.JSONFunctionStructure `json:"grammar_json_functions" yaml:"grammar_json_functions"`
 
 	Backend string `json:"backend" yaml:"backend"`
 

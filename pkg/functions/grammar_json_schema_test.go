@@ -9,69 +9,65 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var testFunctions = []ItemFunction{
+func createFunction(field1 string, field2 string, name string, properties map[string]interface{}) map[string]interface{} {
+	property := map[string]interface{}{}
+	property[field1] = FunctionName{Const: name}
+	property[field2] = Argument{
+		Type:       "object",
+		Properties: properties,
+	}
+	return property
+}
+
+var testFunctions = []Item{
 	{
 		Type: "object",
-		Properties: FunctionProperties{
-			Function: FunctionName{
-				Const: "create_event",
+		Properties: createFunction(
+			"function",
+			"arguments",
+			"create_event",
+			map[string]interface{}{
+				"title": map[string]string{"type": "string"},
+				"date":  map[string]string{"type": "string"},
+				"time":  map[string]string{"type": "string"},
 			},
-			Arguments: Argument{ // this is OpenAI's parameter
-				Type: "object",
-				Properties: map[string]interface{}{
-					"title": map[string]string{"type": "string"},
-					"date":  map[string]string{"type": "string"},
-					"time":  map[string]string{"type": "string"},
-				},
-			},
-		},
+		),
 	},
 	{
 		Type: "object",
-		Properties: FunctionProperties{
-			Function: FunctionName{
-				Const: "search",
-			},
-			Arguments: Argument{
-				Type: "object",
-				Properties: map[string]interface{}{
-					"query": map[string]string{"type": "string"},
-				},
-			},
-		},
+		Properties: createFunction(
+			"function",
+			"arguments",
+			"search",
+			map[string]interface{}{
+				"query": map[string]string{"type": "string"},
+			}),
 	},
 }
 
-var testFunctionsName = []ItemName{
+var testFunctionsName = []Item{
 	{
 		Type: "object",
-		Properties: NameProperties{
-			Function: FunctionName{
-				Const: "create_event",
+		Properties: createFunction(
+			"name",
+			"arguments",
+			"create_event",
+			map[string]interface{}{
+				"title": map[string]string{"type": "string"},
+				"date":  map[string]string{"type": "string"},
+				"time":  map[string]string{"type": "string"},
 			},
-			Arguments: Argument{ // this is OpenAI's parameter
-				Type: "object",
-				Properties: map[string]interface{}{
-					"title": map[string]string{"type": "string"},
-					"date":  map[string]string{"type": "string"},
-					"time":  map[string]string{"type": "string"},
-				},
-			},
-		},
+		),
 	},
 	{
 		Type: "object",
-		Properties: NameProperties{
-			Function: FunctionName{
-				Const: "search",
-			},
-			Arguments: Argument{
-				Type: "object",
-				Properties: map[string]interface{}{
-					"query": map[string]string{"type": "string"},
-				},
-			},
-		},
+		Properties: createFunction(
+			"name",
+			"arguments",
+			"search",
+			map[string]interface{}{
+				"query": map[string]string{"type": "string"},
+			}),
 	},
 }
 
@@ -270,7 +266,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 		It("generates a valid grammar from JSON Objects", func() {
 
-			structuredGrammar := JSONFunctionStructureFunction{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctions}
 
 			grammar := structuredGrammar.Grammar()
@@ -284,7 +280,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects for multiple function return", func() {
-			structuredGrammar := JSONFunctionStructureFunction{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctions}
 
 			grammar := structuredGrammar.Grammar(functions.EnableMaybeArray)
@@ -302,7 +298,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects for multiple function return", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar(functions.EnableMaybeArray)
@@ -320,7 +316,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects for multiple function return with a suffix and array", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar(
@@ -340,7 +336,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))), grammar)
 		})
 		It("generates a valid grammar from JSON Objects with a suffix", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"))
@@ -357,7 +353,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))), grammar)
 		})
 		It("generates a valid grammar from JSON Objects with a suffix and could return string", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"), functions.EnableMaybeString)
@@ -374,7 +370,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))), grammar)
 		})
 		It("generates a valid grammar from JSON Objects with a suffix that could return text or an array of tools", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"), functions.EnableMaybeString, functions.EnableMaybeArray)
@@ -393,7 +389,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects without a suffix that could return text or an array of tools or just string", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray)
@@ -411,7 +407,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects without a suffix that could return text or an array of tools or just string. Disables mixedstring", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
 			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray, functions.NoMixedFreeString)
@@ -429,7 +425,7 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates parallel tools without newlines in JSON", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 			content := `arr  ::=
 "["  (
