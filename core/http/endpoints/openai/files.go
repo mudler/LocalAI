@@ -9,24 +9,15 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
-var UploadedFiles []File
+var UploadedFiles []schema.File
 
 const UploadedFilesFile = "uploadedFiles.json"
-
-// File represents the structure of a file object from the OpenAI API.
-type File struct {
-	ID        string    `json:"id"`         // Unique identifier for the file
-	Object    string    `json:"object"`     // Type of the object (e.g., "file")
-	Bytes     int       `json:"bytes"`      // Size of the file in bytes
-	CreatedAt time.Time `json:"created_at"` // The time at which the file was created
-	Filename  string    `json:"filename"`   // The name of the file
-	Purpose   string    `json:"purpose"`    // The purpose of the file (e.g., "fine-tune", "classifications", etc.)
-}
 
 // UploadFilesEndpoint https://platform.openai.com/docs/api-reference/files/create
 func UploadFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
@@ -61,7 +52,7 @@ func UploadFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.Appli
 			return c.Status(fiber.StatusInternalServerError).SendString("Failed to save file: " + err.Error())
 		}
 
-		f := File{
+		f := schema.File{
 			ID:        fmt.Sprintf("file-%d", getNextFileId()),
 			Object:    "file",
 			Bytes:     int(file.Size),
@@ -84,14 +75,13 @@ func getNextFileId() int64 {
 }
 
 // ListFilesEndpoint https://platform.openai.com/docs/api-reference/files/list
+// @Summary List files.
+// @Success 200 {object} schema.ListFiles "Response"
+// @Router /v1/files [get]
 func ListFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	type ListFiles struct {
-		Data   []File
-		Object string
-	}
 
 	return func(c *fiber.Ctx) error {
-		var listFiles ListFiles
+		var listFiles schema.ListFiles
 
 		purpose := c.Query("purpose")
 		if purpose == "" {
@@ -108,7 +98,7 @@ func ListFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.Applica
 	}
 }
 
-func getFileFromRequest(c *fiber.Ctx) (*File, error) {
+func getFileFromRequest(c *fiber.Ctx) (*schema.File, error) {
 	id := c.Params("file_id")
 	if id == "" {
 		return nil, fmt.Errorf("file_id parameter is required")
@@ -125,7 +115,7 @@ func getFileFromRequest(c *fiber.Ctx) (*File, error) {
 
 // GetFilesEndpoint is the OpenAI API endpoint to get files https://platform.openai.com/docs/api-reference/files/retrieve
 // @Summary Returns information about a specific file.
-// @Success 200 {object} File "Response"
+// @Success 200 {object} schema.File "Response"
 // @Router /v1/files/{file_id} [get]
 func GetFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
