@@ -34,7 +34,9 @@ func (f *FederatedCLI) Run(ctx *cliContext.Context) error {
 		return fmt.Errorf("creating a new node: %w", err)
 	}
 
-	if err := p2p.ServiceDiscoverer(context.Background(), n, f.Peer2PeerToken, p2p.FederatedID, nil); err != nil {
+	if err := p2p.ServiceDiscoverer(context.Background(), n, f.Peer2PeerToken, p2p.FederatedID, func(servicesID string, tunnel p2p.NodeData) {
+		log.Debug().Msgf("Discovered node: %s", tunnel.ID)
+	}); err != nil {
 		return err
 	}
 
@@ -98,6 +100,10 @@ func Proxy(ctx context.Context, node *node.Node, listenAddr, service string) err
 					}
 				}
 
+				if len(tunnelAddresses) == 0 {
+					log.Error().Msg("No available nodes yet")
+					return
+				}
 				// open a TCP stream to one of the tunnels
 				// chosen randomly
 				// TODO: optimize this and track usage
