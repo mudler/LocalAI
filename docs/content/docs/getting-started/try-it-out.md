@@ -20,7 +20,7 @@ With the CLI you can list the models with `local-ai models list` and install the
 You can also [run models manually]({{%relref "docs/getting-started/manual" %}}) by copying files into the `models` directory.
 {{% /alert %}}
 
-You can test out the API endpoints using `curl`, few examples are listed below. The models we are refering here (`gpt-4`, `gpt-4-vision-preview`, `tts-1`, `whisper-1`) are the default models that come with the AIO images - you can also use any other model you have installed.
+You can test out the API endpoints using `curl`, few examples are listed below. The models we are referring here (`gpt-4`, `gpt-4-vision-preview`, `tts-1`, `whisper-1`) are the default models that come with the AIO images - you can also use any other model you have installed.
 
 ### Text Generation
 
