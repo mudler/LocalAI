@@ -7,14 +7,6 @@ definitions:
       url:
         type: string
     type: object
-  functions.Argument:
-    properties:
-      properties:
-        additionalProperties: true
-        type: object
-      type:
-        type: string
-    type: object
   functions.Function:
     properties:
       description:
@@ -25,66 +17,27 @@ definitions:
         additionalProperties: true
         type: object
     type: object
-  functions.FunctionName:
-    properties:
-      const:
-        type: string
-    type: object
-  functions.FunctionProperties:
-    properties:
-      arguments:
-        $ref: '#/definitions/functions.Argument'
-      function:
-        $ref: '#/definitions/functions.FunctionName'
-    type: object
-  functions.ItemFunction:
+  functions.Item:
     properties:
       properties:
-        $ref: '#/definitions/functions.FunctionProperties'
+        additionalProperties: true
+        type: object
       type:
         type: string
     type: object
-  functions.ItemName:
-    properties:
-      properties:
-        $ref: '#/definitions/functions.NameProperties'
-      type:
-        type: string
-    type: object
-  functions.JSONFunctionStructureFunction:
+  functions.JSONFunctionStructure:
     properties:
       $defs:
         additionalProperties: true
         type: object
       anyOf:
         items:
-          $ref: '#/definitions/functions.ItemFunction'
+          $ref: '#/definitions/functions.Item'
         type: array
       oneOf:
         items:
-          $ref: '#/definitions/functions.ItemFunction'
+          $ref: '#/definitions/functions.Item'
         type: array
-    type: object
-  functions.JSONFunctionStructureName:
-    properties:
-      $defs:
-        additionalProperties: true
-        type: object
-      anyOf:
-        items:
-          $ref: '#/definitions/functions.ItemName'
-        type: array
-      oneOf:
-        items:
-          $ref: '#/definitions/functions.ItemName'
-        type: array
-    type: object
-  functions.NameProperties:
-    properties:
-      arguments:
-        $ref: '#/definitions/functions.Argument'
-      name:
-        $ref: '#/definitions/functions.FunctionName'
     type: object
   functions.Tool:
     properties:
@@ -538,9 +491,7 @@ definitions:
         description: A grammar to constrain the LLM output
         type: string
       grammar_json_functions:
-        $ref: '#/definitions/functions.JSONFunctionStructureFunction'
-      grammar_json_name:
-        $ref: '#/definitions/functions.JSONFunctionStructureName'
+        $ref: '#/definitions/functions.JSONFunctionStructure'
       ignore_eos:
         type: boolean
       input: {}
