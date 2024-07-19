@@ -3260,6 +3260,22 @@
     - filename: Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
       sha256: 39458b227a4be763b7eb39d306d240c3d45205e3f8b474ec7bdca7bba0158e69
       uri: huggingface://bartowski/Phi-3.1-mini-4k-instruct-GGUF/Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "phillama-3.8b-v0.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/657eb5b256c9c67605a6e8b5/f96pPiJQb3puzbPYNknG2.png
+  urls:
+    - https://huggingface.co/RichardErkhov/raincandy-u_-_phillama-3.8b-v0.1-gguf
+  description: |
+    The description of the LLM model is:
+    Phillama is a model based on Phi-3-mini and trained on Llama-generated dataset raincandy-u/Dextromethorphan-10k to make it more "llama-like". Also, this model is converted into Llama format, so it will work with any Llama-2/3 workflow. The model aims to generate text with a specific "llama-like" style and is suited for text-generation tasks.
+  overrides:
+    parameters:
+      model: phillama-3.8b-v0.1.Q4_K_M.gguf
+  files:
+    - filename: phillama-3.8b-v0.1.Q4_K_M.gguf
+      sha256: da537d352b7aae54bbad0d2cff3e3a1b0e1dc1e1d25bec3aae1d05cf4faee7a2
+      uri: huggingface://RichardErkhov/raincandy-u_-_phillama-3.8b-v0.1-gguf/phillama-3.8b-v0.1.Q4_K_M.gguf
+
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
