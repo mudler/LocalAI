@@ -579,6 +579,21 @@
     - filename: EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
       sha256: 57678b1828673dccb15f76e52b00672c74aa6169421bbb8620b8955955322cfd
       uri: huggingface://QuantFactory/EZO-Common-9B-gemma-2-it-GGUF/EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "big-tiger-gemma-27b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/A97OlLKeT4XOnv4IG1b6m.png
+  urls:
+    - https://huggingface.co/TheDrummer/Big-Tiger-Gemma-27B-v1
+    - https://huggingface.co/TheDrummer/Big-Tiger-Gemma-27B-v1-GGUF
+  description: |
+    Big Tiger Gemma 27B v1 is a Decensored Gemma 27B model with no refusals, except for some rare instances from the 9B model. It does not appear to have any brain damage. The model is available from various sources, including Hugging Face, and comes in different variations such as GGUF, iMatrix, and EXL2.
+  overrides:
+    parameters:
+      model: Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+  files:
+    - filename: Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+      sha256: c5fc5605d36ae280c1c908c9b4bcb12b28abbe2692f317edeb83ab1104657fe5
+      uri: huggingface://TheDrummer/Big-Tiger-Gemma-27B-v1-GGUF/Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
