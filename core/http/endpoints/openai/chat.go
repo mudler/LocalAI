@@ -201,7 +201,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		}
 
 		switch {
-		case !config.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn:
+		case config.FunctionsConfig.GrammarConfig.EnableGrammar && shouldUseFn:
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
 				Description: noActionDescription,

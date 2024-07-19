@@ -25,8 +25,8 @@ type GrammarConfig struct {
 	// In this way if the LLM selects a free string, it won't be mixed necessarly with JSON objects
 	NoMixedFreeString bool `yaml:"no_mixed_free_string"`
 
-	// NoGrammar disables the grammar parsing and parses the responses directly from the LLM
-	NoGrammar bool `yaml:"disable"`
+	// EnableGrammar disables the grammar parsing and parses the responses directly from the LLM
+	EnableGrammar bool `yaml:"enable"`
 
 	// Prefix is the suffix to append to the grammar when being generated
 	// This is useful when models prepend a tag before returning JSON

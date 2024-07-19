@@ -10,7 +10,8 @@ config_file: |-
     - <|end_of_text|>
 
   function:
-    return_name_in_function_response: true
+    grammar:
+      enable: true
 
   template:
     chat: |
