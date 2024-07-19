@@ -637,6 +637,36 @@
     - filename: Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
       sha256: c5fc5605d36ae280c1c908c9b4bcb12b28abbe2692f317edeb83ab1104657fe5
       uri: huggingface://TheDrummer/Big-Tiger-Gemma-27B-v1-GGUF/Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2b-translation-v0.150"
+  urls:
+    - https://huggingface.co/lemon-mint/gemma-2b-translation-v0.150
+    - https://huggingface.co/RichardErkhov/lemon-mint_-_gemma-2b-translation-v0.150-gguf
+  description: |
+    Original model: lemon-mint/gemma-ko-1.1-2b-it
+    Evaluation metrics: Eval Loss, Train Loss, lr, optimizer, lr_scheduler_type.
+    Prompt Template:
+    <bos><start_of_turn>user
+    Translate into Korean: [input text]<end_of_turn>
+    <start_of_turn>model
+    [translated text in Korean]<eos>
+    <bos><start_of_turn>user
+    Translate into English: [Korean text]<end_of_turn>
+    <start_of_turn>model
+    [translated text in English]<eos>
+    Model features:
+    * Developed by: lemon-mint
+    * Model type: Gemma
+    * Languages (NLP): English
+    * License: Gemma Terms of Use
+    * Finetuned from model: lemon-mint/gemma-ko-1.1-2b-it
+  overrides:
+    parameters:
+      model: gemma-2b-translation-v0.150.Q4_K_M.gguf
+  files:
+    - filename: gemma-2b-translation-v0.150.Q4_K_M.gguf
+      sha256: dcde67b83168d2e7ca835cf9a7a4dcf38b41b9cefe3cbc997c71d2741c08cd25
+      uri: huggingface://RichardErkhov/lemon-mint_-_gemma-2b-translation-v0.150-gguf/gemma-2b-translation-v0.150.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
