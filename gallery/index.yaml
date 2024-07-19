@@ -202,6 +202,24 @@
     - filename: Qwen2-7B-Instruct-v0.8.Q4_K_M.gguf
       sha256: 8c1b3efe9fa6ae1b37942ef26473cb4e0aed0f8038b60d4b61e5bffb61e49b7e
       uri: huggingface://MaziyarPanahi/Qwen2-7B-Instruct-v0.8-GGUF/Qwen2-7B-Instruct-v0.8.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "qwen2-wukong-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/655dc641accde1bbc8b41aec/xOe1Nb3S9Nb53us7_Ja3s.jpeg
+  urls:
+    - https://huggingface.co/bartowski/Qwen2-Wukong-7B-GGUF
+  description: |
+    Qwen2-Wukong-7B is a dealigned chat finetune of the original fantastic Qwen2-7B model by the Qwen team.
+
+    This model was trained on the teknium OpenHeremes-2.5 dataset and some supplementary datasets from Cognitive Computations
+
+    This model was trained for 3 epochs with a custom FA2 implementation for AMD cards.
+  overrides:
+    parameters:
+      model: Qwen2-Wukong-7B-Q4_K_M.gguf
+  files:
+    - filename: Qwen2-Wukong-7B-Q4_K_M.gguf
+      sha256: 6b8ca6649c33fc84d4892ebcff1214f0b34697aced784f0d6d32e284a15943ad
+      uri: huggingface://bartowski/Qwen2-Wukong-7B-GGUF/Qwen2-Wukong-7B-Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -264,6 +282,31 @@
     - filename: Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
       sha256: 8272f050e36d612ab282e095cb4e775e2c818e7096f8d522314d256923ef6da9
       uri: huggingface://mradermacher/Mahou-1.3d-mistral-7B-i1-GGUF/Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
+- name: "einstein-v4-7b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6468ce47e134d050a58aa89c/U0zyXVGj-O8a7KP3BvPue.png
+  urls:
+    - https://huggingface.co/Weyaxi/Einstein-v4-7B
+    - https://huggingface.co/mradermacher/Einstein-v4-7B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+  description: |
+    🔬 Einstein-v4-7B
+
+    This model is a full fine-tuned version of mistralai/Mistral-7B-v0.1 on diverse datasets.
+
+    This model is finetuned using 7xRTX3090 + 1xRTXA6000 using axolotl.
+  overrides:
+    parameters:
+      model: Einstein-v4-7B.Q4_K_M.gguf
+  files:
+    - filename: Einstein-v4-7B.Q4_K_M.gguf
+      sha256: 78bd573de2a9eb3c6e213132858164e821145f374fcaa4b19dfd6502c05d990d
+      uri: huggingface://mradermacher/Einstein-v4-7B-GGUF/Einstein-v4-7B.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -579,6 +622,91 @@
     - filename: EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
       sha256: 57678b1828673dccb15f76e52b00672c74aa6169421bbb8620b8955955322cfd
       uri: huggingface://QuantFactory/EZO-Common-9B-gemma-2-it-GGUF/EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "big-tiger-gemma-27b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/A97OlLKeT4XOnv4IG1b6m.png
+  urls:
+    - https://huggingface.co/TheDrummer/Big-Tiger-Gemma-27B-v1
+    - https://huggingface.co/TheDrummer/Big-Tiger-Gemma-27B-v1-GGUF
+  description: |
+    Big Tiger Gemma 27B v1 is a Decensored Gemma 27B model with no refusals, except for some rare instances from the 9B model. It does not appear to have any brain damage. The model is available from various sources, including Hugging Face, and comes in different variations such as GGUF, iMatrix, and EXL2.
+  overrides:
+    parameters:
+      model: Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+  files:
+    - filename: Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+      sha256: c5fc5605d36ae280c1c908c9b4bcb12b28abbe2692f317edeb83ab1104657fe5
+      uri: huggingface://TheDrummer/Big-Tiger-Gemma-27B-v1-GGUF/Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2b-translation-v0.150"
+  urls:
+    - https://huggingface.co/lemon-mint/gemma-2b-translation-v0.150
+    - https://huggingface.co/RichardErkhov/lemon-mint_-_gemma-2b-translation-v0.150-gguf
+  description: |
+    Original model: lemon-mint/gemma-ko-1.1-2b-it
+    Evaluation metrics: Eval Loss, Train Loss, lr, optimizer, lr_scheduler_type.
+    Prompt Template:
+    <bos><start_of_turn>user
+    Translate into Korean: [input text]<end_of_turn>
+    <start_of_turn>model
+    [translated text in Korean]<eos>
+    <bos><start_of_turn>user
+    Translate into English: [Korean text]<end_of_turn>
+    <start_of_turn>model
+    [translated text in English]<eos>
+    Model features:
+    * Developed by: lemon-mint
+    * Model type: Gemma
+    * Languages (NLP): English
+    * License: Gemma Terms of Use
+    * Finetuned from model: lemon-mint/gemma-ko-1.1-2b-it
+  overrides:
+    parameters:
+      model: gemma-2b-translation-v0.150.Q4_K_M.gguf
+  files:
+    - filename: gemma-2b-translation-v0.150.Q4_K_M.gguf
+      sha256: dcde67b83168d2e7ca835cf9a7a4dcf38b41b9cefe3cbc997c71d2741c08cd25
+      uri: huggingface://RichardErkhov/lemon-mint_-_gemma-2b-translation-v0.150-gguf/gemma-2b-translation-v0.150.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "emo-2b"
+  urls:
+    - https://huggingface.co/OEvortex/EMO-2B
+    - https://huggingface.co/RichardErkhov/OEvortex_-_EMO-2B-gguf
+  description: |
+    EMO-2B: Emotionally Intelligent Conversational AI
+
+    Overview:
+    EMO-2B is a state-of-the-art conversational AI model with 2.5 billion parameters, designed to engage in emotionally resonant dialogue. Building upon the success of EMO-1.5B, this model has been further fine-tuned on an extensive corpus of emotional narratives, enabling it to perceive and respond to the emotional undertones of user inputs with exceptional empathy and emotional intelligence.
+
+    Key Features:
+
+    - Advanced Emotional Intelligence: With its increased capacity, EMO-2B demonstrates an even deeper understanding and generation of emotional language, allowing for more nuanced and contextually appropriate emotional responses.
+    - Enhanced Contextual Awareness: The model considers an even broader context within conversations, accounting for subtle emotional cues and providing emotionally resonant responses tailored to the specific situation.
+    - Empathetic and Supportive Dialogue: EMO-2B excels at active listening, validating emotions, offering compassionate advice, and providing emotional support, making it an ideal companion for users seeking empathy and understanding.
+    - Dynamic Persona Adaptation: The model can dynamically adapt its persona, communication style, and emotional responses to match the user's emotional state, ensuring a highly personalized and tailored conversational experience.
+
+    Use Cases:
+
+    EMO-2B is well-suited for a variety of applications where emotional intelligence and empathetic communication are crucial, such as:
+
+    - Mental health support chatbots
+    - Emotional support companions
+    - Personalized coaching and motivation
+    - Narrative storytelling and interactive fiction
+    - Customer service and support (for emotionally sensitive contexts)
+
+    Limitations and Ethical Considerations:
+
+    While EMO-2B is designed to provide emotionally intelligent and empathetic responses, it is important to note that it is an AI system and cannot replicate the depth and nuance of human emotional intelligence. Users should be aware that the model's responses, while emotionally supportive, should not be considered a substitute for professional mental health support or counseling.
+
+    Additionally, as with any language model, EMO-2B may reflect biases present in its training data. Users should exercise caution and critical thinking when interacting with the model, and report any concerning or inappropriate responses.
+  overrides:
+    parameters:
+      model: EMO-2B.Q4_K_M.gguf
+  files:
+    - filename: EMO-2B.Q4_K_M.gguf
+      sha256: 608bffc0e9012bc7f9a94b714f4932e2826cc122dbac59b586e4baa2ee0fdca5
+      uri: huggingface://RichardErkhov/OEvortex_-_EMO-2B-gguf/EMO-2B.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -3001,6 +3129,23 @@
     - filename: L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
       sha256: 2911be6be8e0fd4184998d452410ba847491b4ab71a928749de87cafb0e13757
       uri: huggingface://mradermacher/L3-15B-EtherealMaid-t0.0001-i1-GGUF/L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-8b-celeste-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630cf5d14ca0a22768bbe10c/Zv__LDTO-nHvpuxPcCgUU.webp
+  urls:
+    - https://huggingface.co/nothingiisreal/L3-8B-Celeste-v1
+    - https://huggingface.co/bartowski/L3-8B-Celeste-v1-GGUF
+  description: |
+    Trained on LLaMA 3 8B Instruct at 8K context using Reddit Writing Prompts, Opus 15K Instruct an c2 logs cleaned.
+
+    This is a roleplay model any instruction following capabilities outside roleplay contexts are coincidental.
+  overrides:
+    parameters:
+      model: L3-8B-Celeste-v1-Q4_K_M.gguf
+  files:
+    - filename: L3-8B-Celeste-v1-Q4_K_M.gguf
+      sha256: ed5277719965fb6bbcce7d16742e3bac4a8d5b8f52133261a3402a480cd65317
+      uri: huggingface://bartowski/L3-8B-Celeste-v1-GGUF/L3-8B-Celeste-v1-Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
@@ -3245,6 +3390,22 @@
     - filename: Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
       sha256: 39458b227a4be763b7eb39d306d240c3d45205e3f8b474ec7bdca7bba0158e69
       uri: huggingface://bartowski/Phi-3.1-mini-4k-instruct-GGUF/Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "phillama-3.8b-v0.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/657eb5b256c9c67605a6e8b5/f96pPiJQb3puzbPYNknG2.png
+  urls:
+    - https://huggingface.co/RichardErkhov/raincandy-u_-_phillama-3.8b-v0.1-gguf
+  description: |
+    The description of the LLM model is:
+    Phillama is a model based on Phi-3-mini and trained on Llama-generated dataset raincandy-u/Dextromethorphan-10k to make it more "llama-like". Also, this model is converted into Llama format, so it will work with any Llama-2/3 workflow. The model aims to generate text with a specific "llama-like" style and is suited for text-generation tasks.
+  overrides:
+    parameters:
+      model: phillama-3.8b-v0.1.Q4_K_M.gguf
+  files:
+    - filename: phillama-3.8b-v0.1.Q4_K_M.gguf
+      sha256: da537d352b7aae54bbad0d2cff3e3a1b0e1dc1e1d25bec3aae1d05cf4faee7a2
+      uri: huggingface://RichardErkhov/raincandy-u_-_phillama-3.8b-v0.1-gguf/phillama-3.8b-v0.1.Q4_K_M.gguf
+
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
