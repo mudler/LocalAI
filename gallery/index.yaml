@@ -3146,6 +3146,36 @@
     - filename: L3-8B-Celeste-v1-Q4_K_M.gguf
       sha256: ed5277719965fb6bbcce7d16742e3bac4a8d5b8f52133261a3402a480cd65317
       uri: huggingface://bartowski/L3-8B-Celeste-v1-GGUF/L3-8B-Celeste-v1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-tulu-2-8b-i1"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu-v2/Tulu%20V2%20banner.png
+  urls:
+    - https://huggingface.co/allenai/llama-3-tulu-2-8b
+    - https://huggingface.co/mradermacher/llama-3-tulu-2-8b-i1-GGUF
+  description: |
+    Tulu is a series of language models that are trained to act as helpful assistants. Llama 3 Tulu V2 8B is a fine-tuned version of Llama 3 that was trained on a mix of publicly available, synthetic and human datasets.
+  overrides:
+    parameters:
+      model: llama-3-tulu-2-8b.i1-Q4_K_M.gguf
+  files:
+    - filename: llama-3-tulu-2-8b.i1-Q4_K_M.gguf
+      sha256: f859c22bfa64f461e9ffd973dc7ad6a78bb98b1dda6f49abfa416a4022b7e333
+      uri: huggingface://mradermacher/llama-3-tulu-2-8b-i1-GGUF/llama-3-tulu-2-8b.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-tulu-2-dpo-70b-i1"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu-v2/Tulu%20V2%20banner.png
+  urls:
+    - https://huggingface.co/allenai/llama-3-tulu-2-dpo-70b
+    - https://huggingface.co/mradermacher/llama-3-tulu-2-dpo-70b-i1-GGUF
+  description: |
+    Tulu is a series of language models that are trained to act as helpful assistants. Llama 3 Tulu V2 8B is a fine-tuned version of Llama 3 that was trained on a mix of publicly available, synthetic and human datasets.
+  overrides:
+    parameters:
+      model: llama-3-tulu-2-dpo-70b.i1-Q4_K_M.gguf
+  files:
+    - filename: llama-3-tulu-2-dpo-70b.i1-Q4_K_M.gguf
+      sha256: fc309bbdf1e2bdced954c4c8dc1f9a885c547017ee5e750bfde645af89e3d3a5
+      uri: huggingface://mradermacher/llama-3-tulu-2-dpo-70b-i1-GGUF/llama-3-tulu-2-dpo-70b.i1-Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
