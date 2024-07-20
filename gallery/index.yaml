@@ -24,6 +24,33 @@
     - filename: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
       sha256: 50ec78036433265965ed1afd0667c00c71c12aa70bcf383be462cb8e159db6c0
       uri: huggingface://LoneStriker/DeepSeek-Coder-V2-Lite-Instruct-GGUF/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
+- name: "archangel_sft_pythia2-8b"
+  url: "github:mudler/LocalAI/gallery/tuluv2.yaml@master"
+  icon: https://gist.github.com/assets/29318529/fe2d8391-dbd1-4b7e-9dc4-7cb97e55bc06
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/ContextualAI/archangel_sft_pythia2-8b
+    - https://huggingface.co/RichardErkhov/ContextualAI_-_archangel_sft_pythia2-8b-gguf
+    - https://github.com/ContextualAI/HALOs
+  description: |
+    datasets:
+    - stanfordnlp/SHP
+    - Anthropic/hh-rlhf
+    - OpenAssistant/oasst1
+
+    This repo contains the model checkpoints for:
+    - model family pythia2-8b
+    - optimized with the loss SFT
+    - aligned using the SHP, Anthropic HH and Open Assistant datasets.
+
+    Please refer to our [code repository](https://github.com/ContextualAI/HALOs) or [blog](https://contextual.ai/better-cheaper-faster-llm-alignment-with-kto/) which contains intructions for training your own HALOs and links to our model cards.
+  overrides:
+    parameters:
+      model: archangel_sft_pythia2-8b.Q4_K_M.gguf
+  files:
+    - filename: archangel_sft_pythia2-8b.Q4_K_M.gguf
+      sha256: a47782c55ef2b39b19644213720a599d9849511a73c9ebb0c1de749383c0a0f8
+      uri: huggingface://RichardErkhov/ContextualAI_-_archangel_sft_pythia2-8b-gguf/archangel_sft_pythia2-8b.Q4_K_M.gguf
 - &qwen2
   ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
