@@ -3176,6 +3176,28 @@
     - filename: llama-3-tulu-2-dpo-70b.i1-Q4_K_M.gguf
       sha256: fc309bbdf1e2bdced954c4c8dc1f9a885c547017ee5e750bfde645af89e3d3a5
       uri: huggingface://mradermacher/llama-3-tulu-2-dpo-70b-i1-GGUF/llama-3-tulu-2-dpo-70b.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  license: cc-by-nc-4.0
+  name: "suzume-llama-3-8b-multilingual-orpo-borda-top25"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64b63f8ad57e02621dc93c8b/kWQSu02YfgYdUQqv4s5lq.png
+  urls:
+    - https://huggingface.co/lightblue/suzume-llama-3-8B-multilingual-orpo-borda-top25
+    - https://huggingface.co/RichardErkhov/lightblue_-_suzume-llama-3-8B-multilingual-orpo-borda-top25-gguf
+  description: |
+    This is Suzume ORPO, an ORPO trained fine-tune of the lightblue/suzume-llama-3-8B-multilingual model using our lightblue/mitsu dataset.
+
+    We have trained several versions of this model using ORPO and so recommend that you use the best performing model from our tests, lightblue/suzume-llama-3-8B-multilingual-orpo-borda-half.
+
+    Note that this model has a non-commerical license as we used the Command R and Command R+ models to generate our training data for this model (lightblue/mitsu).
+
+    We are currently working on a developing a commerically usable model, so stay tuned for that!
+  overrides:
+    parameters:
+      model: suzume-llama-3-8B-multilingual-orpo-borda-top25.Q4_K_M.gguf
+  files:
+    - filename: suzume-llama-3-8B-multilingual-orpo-borda-top25.Q4_K_M.gguf
+      sha256: ef75a02c5f38e14a8873c7989188dac6974851b4654279fe1921d2c8018cc388
+      uri: huggingface://RichardErkhov/lightblue_-_suzume-llama-3-8B-multilingual-orpo-borda-top25-gguf/suzume-llama-3-8B-multilingual-orpo-borda-top25.Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
