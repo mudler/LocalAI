@@ -3271,6 +3271,21 @@
     - filename: suzume-llama-3-8B-multilingual-orpo-borda-top25.Q4_K_M.gguf
       sha256: ef75a02c5f38e14a8873c7989188dac6974851b4654279fe1921d2c8018cc388
       uri: huggingface://RichardErkhov/lightblue_-_suzume-llama-3-8B-multilingual-orpo-borda-top25-gguf/suzume-llama-3-8B-multilingual-orpo-borda-top25.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "calme-2.4-llama3-70b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-2.4-llama3-70b/resolve/main/llama-3-merges.webp
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-2.4-llama3-70b
+    - https://huggingface.co/mradermacher/calme-2.4-llama3-70b-GGUF
+  description: |
+    This model is a fine-tune (DPO) of meta-llama/Meta-Llama-3-70B-Instruct model.
+  overrides:
+    parameters:
+      model: calme-2.4-llama3-70b.Q4_K_M.gguf
+  files:
+    - filename: calme-2.4-llama3-70b.Q4_K_M.gguf
+      sha256: 0b44ac8a88395dfc60f1b9d3cfffc0ffef74ec0a302e610ef91fc787187568f2
+      uri: huggingface://mradermacher/calme-2.4-llama3-70b-GGUF/calme-2.4-llama3-70b.Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
