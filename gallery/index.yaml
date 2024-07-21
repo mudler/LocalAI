@@ -3174,6 +3174,22 @@
       sha256: ed5277719965fb6bbcce7d16742e3bac4a8d5b8f52133261a3402a480cd65317
       uri: huggingface://bartowski/L3-8B-Celeste-v1-GGUF/L3-8B-Celeste-v1-Q4_K_M.gguf
 - !!merge <<: *llama3
+  name: "l3-8b-celeste-v1.2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630cf5d14ca0a22768bbe10c/Zv__LDTO-nHvpuxPcCgUU.webp
+  urls:
+    - https://huggingface.co/mudler/L3-8B-Celeste-V1.2-Q4_K_M-GGUF
+  description: |
+    Trained on LLaMA 3 8B Instruct at 8K context using Reddit Writing Prompts, Opus 15K Instruct an c2 logs cleaned.
+
+    This is a roleplay model any instruction following capabilities outside roleplay contexts are coincidental.
+  overrides:
+    parameters:
+      model: l3-8b-celeste-v1.2-q4_k_m.gguf
+  files:
+    - filename: l3-8b-celeste-v1.2-q4_k_m.gguf
+      sha256: 7752204c0e9f627ff5726eb69bb6114974cafbc934a993ad019abfba62002783
+      uri: huggingface://mudler/L3-8B-Celeste-V1.2-Q4_K_M-GGUF/l3-8b-celeste-v1.2-q4_k_m.gguf
+- !!merge <<: *llama3
   name: "llama-3-tulu-2-8b-i1"
   icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu-v2/Tulu%20V2%20banner.png
   urls:
