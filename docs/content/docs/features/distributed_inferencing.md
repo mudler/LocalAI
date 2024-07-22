@@ -11,7 +11,7 @@ This functionality enables LocalAI to distribute inference requests across multi
 LocalAI supports two modes of distributed inferencing via p2p:
 
 - **Federated Mode**: Requests are shared between the cluster and routed to a single worker node in the network based on the load balancer's decision.
-- **Worker Mode**: Requests are processed by all the workers which contributes to the final inference result (by sharing the model weights).
+- **Worker Mode** (aka "model sharding" or "splitting weights"): Requests are processed by all the workers which contributes to the final inference result (by sharing the model weights).
 
 ## Usage
 
