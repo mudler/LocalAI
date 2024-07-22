@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=07283b1a90e1320aae4762c7e03c879043910252
+CPPLLAMA_VERSION?=45f2c19cc57286eead7b232ce8028273a817aa4d
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
