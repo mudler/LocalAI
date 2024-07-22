@@ -24,7 +24,7 @@ packaging>=23.2
 pydantic==2.8.2
 PyYAML==6.0.1
 requests==2.32.3
-SQLAlchemy==2.0.30
+SQLAlchemy==2.0.31
 tenacity==8.5.0
 tqdm==4.66.4
 typing-inspect==0.9.0
