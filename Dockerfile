@@ -24,7 +24,7 @@ RUN apt-get update && \
         cmake \
         curl \
         git \
-        unzip && \
+        unzip upx-ucl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
