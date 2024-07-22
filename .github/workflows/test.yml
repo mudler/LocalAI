@@ -70,7 +70,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential curl ffmpeg
+          sudo apt-get install build-essential ccache upx-ucl curl ffmpeg
           sudo apt-get install -y libgmock-dev
           curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
              sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
