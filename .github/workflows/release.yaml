@@ -31,7 +31,6 @@ jobs:
         with:
           go-version: '1.21.x'
           cache: false
-
       - name: Dependencies
         run: |
           sudo apt-get update
