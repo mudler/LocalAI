@@ -38,11 +38,6 @@ find_package(absl CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
-if ( DEFINED ENV{ONEAPI_ROOT})
-  find_package(MKL REQUIRED)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${MKLROOT}/lib")
-endif()
-
 find_program(_PROTOBUF_PROTOC protoc)
 set(_GRPC_GRPCPP grpc++)
 find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
@@ -80,15 +75,10 @@ add_library(hw_grpc_proto
   ${hw_proto_hdrs} )
 
 add_executable(${TARGET} grpc-server.cpp utils.hpp json.hpp)
-target_link_libraries(${TARGET} PRIVATE common llama myclip ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
-  absl::flags_parse
-  gRPC::${_REFLECTION}
-  gRPC::${_GRPC_GRPCPP}
-  protobuf::${_PROTOBUF_LIBPROTOBUF})
 
 # Conditionally link SYCL to grpc-server
+# https://github.com/ggerganov/llama.cpp/issues/8665
 if ( DEFINED ENV{ONEAPI_ROOT})
-    find_package(IntelSYCL REQUIRED)
     target_link_libraries(${TARGET} PRIVATE common llama myclip ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
       absl::flags_parse
       gRPC::${_REFLECTION}

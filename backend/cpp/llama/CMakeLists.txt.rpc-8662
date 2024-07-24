@@ -1,0 +1,8 @@
+# https://github.com/ggerganov/llama.cpp/issues/8665
+
+add_executable(rpc-server rpc-server.cpp)
+if ( DEFINED ENV{ONEAPI_ROOT})
+target_link_libraries(rpc-server PRIVATE ggml llama sycl)
+else()
+target_link_libraries(rpc-server PRIVATE ggml llama)
+endif()

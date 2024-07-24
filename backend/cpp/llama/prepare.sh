@@ -18,3 +18,6 @@ cp -rfv llama.cpp/examples/llava/llava.cpp llama.cpp/examples/grpc-server/llava.
 echo '#include "llama.h"' > llama.cpp/examples/grpc-server/llava.h
 cat llama.cpp/examples/llava/llava.h >> llama.cpp/examples/grpc-server/llava.h
 cp -rfv llama.cpp/examples/llava/clip.cpp llama.cpp/examples/grpc-server/clip.cpp
+
+# https://github.com/ggerganov/llama.cpp/issues/8665
+cp -rfv CMakeLists.txt.rpc-8662 llama.cpp/examples/rpc/CMakeLists.txt
