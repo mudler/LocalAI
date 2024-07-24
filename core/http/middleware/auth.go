@@ -3,7 +3,7 @@ package middleware
 import (
 	"crypto/subtle"
 	"errors"
-	"slices"
+	"regexp"
 
 	"github.com/dave-gray101/v2keyauth"
 	"github.com/gofiber/fiber/v2"
@@ -82,7 +82,13 @@ func getApiKeyRequiredFilterFunction(applicationConfig *config.ApplicationConfig
 			if c.Method() != "GET" {
 				return false
 			}
-			return slices.Contains(applicationConfig.HttpGetExemptedEndpoints, c.Route().Path)
+			for _, epr := range applicationConfig.HttpGetExemptedEndpoints {
+				rx, err := regexp.Compile(epr)
+				if err == nil && rx.MatchString(c.Path()) {
+					return true
+				}
+			}
+			return false
 		}
 	}
 	return func(c *fiber.Ctx) bool { return false }
