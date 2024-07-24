@@ -39,10 +39,8 @@ find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
 if ( DEFINED ENV{ONEAPI_ROOT})
-  find_package(IntelSYCL REQUIRED)
   find_package(MKL REQUIRED)
-  add_compile_options(-I/${SYCL_INCLUDE_DIR})
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -L${MKLROOT}/lib")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${MKLROOT}/lib")
 endif()
 
 find_program(_PROTOBUF_PROTOC protoc)
@@ -87,6 +85,24 @@ target_link_libraries(${TARGET} PRIVATE common llama myclip ${CMAKE_THREAD_LIBS_
   gRPC::${_REFLECTION}
   gRPC::${_GRPC_GRPCPP}
   protobuf::${_PROTOBUF_LIBPROTOBUF})
+
+# Conditionally link SYCL to grpc-server
+if ( DEFINED ENV{ONEAPI_ROOT})
+    find_package(IntelSYCL REQUIRED)
+    target_link_libraries(${TARGET} PRIVATE common llama myclip ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
+      absl::flags_parse
+      gRPC::${_REFLECTION}
+      gRPC::${_GRPC_GRPCPP}
+      protobuf::${_PROTOBUF_LIBPROTOBUF}
+      sycl)
+else()
+    target_link_libraries(${TARGET} PRIVATE common llama myclip ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
+      absl::flags_parse
+      gRPC::${_REFLECTION}
+      gRPC::${_GRPC_GRPCPP}
+      protobuf::${_PROTOBUF_LIBPROTOBUF})
+endif()
+
 target_compile_features(${TARGET} PRIVATE cxx_std_11)
 if(TARGET BUILD_INFO)
   add_dependencies(${TARGET} BUILD_INFO)
