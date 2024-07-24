@@ -31,11 +31,13 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
-	EnforcePredownloadScans             bool
-	OpaqueErrors                        bool
-	UseSubtleKeyComparison              bool
-	RequireApiKeyForHttpGet             bool
 	P2PToken                            string
+
+	EnforcePredownloadScans            bool
+	OpaqueErrors                       bool
+	UseSubtleKeyComparison             bool
+	DisableApiKeyRequirementForHttpGet bool
+	HttpGetExemptedEndpoints           []string
 
 	ModelLibraryURL string
 
@@ -322,9 +324,15 @@ func WithSubtleKeyComparison(subtle bool) AppOption {
 	}
 }
 
-func WithRequiredApiKeyForHTTPGet(required bool) AppOption {
+func WithDisableApiKeyRequirementForHttpGet(required bool) AppOption {
 	return func(o *ApplicationConfig) {
-		o.RequireApiKeyForHttpGet = required
+		o.DisableApiKeyRequirementForHttpGet = required
+	}
+}
+
+func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.HttpGetExemptedEndpoints = endpoints
 	}
 }
 

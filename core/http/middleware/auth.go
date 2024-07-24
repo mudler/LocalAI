@@ -77,18 +77,13 @@ func getApiKeyValidationFunction(applicationConfig *config.ApplicationConfig) fu
 }
 
 func getApiKeyRequiredFilterFunction(applicationConfig *config.ApplicationConfig) func(*fiber.Ctx) bool {
-	if applicationConfig.RequireApiKeyForHttpGet {
+	if !applicationConfig.DisableApiKeyRequirementForHttpGet {
 		return func(c *fiber.Ctx) bool { return false }
 	}
 	return func(c *fiber.Ctx) bool {
 		if c.Method() != "GET" {
 			return false
 		}
-		knownUIRoutes := []string{
-			"/",
-			"/browse",
-			"/talk",
-		}
-		return slices.Contains(knownUIRoutes, c.Route().Path)
+		return slices.Contains(applicationConfig.HttpGetExemptedEndpoints, c.Route().Path)
 	}
 }
