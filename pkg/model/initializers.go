@@ -212,7 +212,7 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 					grpcProcess = p
 					foundCUDA = true
 				} else {
-					log.Info().Msgf("GPU device found but no CUDA backend present")
+					log.Debug().Msgf("Nvidia GPU device found, no embedded CUDA variant found. You can ignore this message if you are using container with CUDA support")
 				}
 			}
 			if strings.Contains(gpu.String(), "amd") {
@@ -222,7 +222,7 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 					grpcProcess = p
 					foundAMDGPU = true
 				} else {
-					log.Info().Msgf("GPU device found but no HIPBLAS backend present")
+					log.Debug().Msgf("AMD GPU device found, no embedded HIPBLAS variant found. You can ignore this message if you are using container with HIPBLAS support")
 				}
 			}
 			if strings.Contains(gpu.String(), "intel") {
@@ -236,7 +236,7 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 					grpcProcess = p
 					foundIntelGPU = true
 				} else {
-					log.Info().Msgf("GPU device found but no Intel backend present")
+					log.Debug().Msgf("Intel GPU device found, no embedded SYCL variant found. You can ignore this message if you are using container with SYCL support")
 				}
 			}
 		}

@@ -51,6 +51,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/backend/monitor": {
+            "get": {
+                "summary": "Backend monitor endpoint",
+                "parameters": [
+                    {
+                        "description": "Backend statistics request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.BackendMonitorRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/proto.StatusResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backend/shutdown": {
+            "post": {
+                "summary": "Backend monitor endpoint",
+                "parameters": [
+                    {
+                        "description": "Backend statistics request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.BackendMonitorRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/metrics": {
+            "get": {
+                "summary": "Prometheus metrics endpoint",
+                "parameters": [
+                    {
+                        "description": "Gallery details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/config.Gallery"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/models/apply": {
             "post": {
                 "summary": "Install models to LocalAI.",
@@ -179,6 +237,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/models/jobs": {
+            "get": {
+                "summary": "Returns all the jobs status progress",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/gallery.GalleryOpStatus"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/models/jobs/{uuid}": {
+            "get": {
+                "summary": "Returns the job status",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/gallery.GalleryOpStatus"
+                        }
+                    }
+                }
+            }
+        },
         "/tts": {
             "post": {
                 "consumes": [
@@ -210,6 +297,46 @@ const docTemplate = `{
             }
         },
         "/v1/assistants": {
+            "get": {
+                "summary": "List available assistents",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit the number of assistants returned",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order of assistants returned",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return assistants created after the given ID",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return assistants created before the given ID",
+                        "name": "before",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/openai.Assistant"
+                            }
+                        }
+                    }
+                }
+            },
             "post": {
                 "summary": "Create an assistant with a model and instructions.",
                 "parameters": [
@@ -228,6 +355,30 @@ const docTemplate = `{
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/openai.Assistant"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/assistants/{assistant_id}": {
+            "get": {
+                "summary": "Get assistent data",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/openai.Assistant"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete assistents",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DeleteAssistantResponse"
                         }
                     }
                 }
@@ -346,6 +497,30 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/edits": {
+            "post": {
+                "summary": "OpenAI edit endpoint",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/embeddings": {
             "post": {
                 "summary": "Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.",
@@ -370,6 +545,19 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/files": {
+            "get": {
+                "summary": "List files.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ListFiles"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/files/{file_id}": {
             "get": {
                 "summary": "Returns information about a specific file.",
@@ -377,7 +565,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Response",
                         "schema": {
-                            "$ref": "#/definitions/openai.File"
+                            "$ref": "#/definitions/schema.File"
                         }
                     }
                 }
@@ -512,18 +700,6 @@ const docTemplate = `{
                 }
             }
         },
-        "functions.Argument": {
-            "type": "object",
-            "properties": {
-                "properties": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
         "functions.Function": {
             "type": "object",
             "properties": {
@@ -539,48 +715,19 @@ const docTemplate = `{
                 }
             }
         },
-        "functions.FunctionName": {
-            "type": "object",
-            "properties": {
-                "const": {
-                    "type": "string"
-                }
-            }
-        },
-        "functions.FunctionProperties": {
-            "type": "object",
-            "properties": {
-                "arguments": {
-                    "$ref": "#/definitions/functions.Argument"
-                },
-                "function": {
-                    "$ref": "#/definitions/functions.FunctionName"
-                }
-            }
-        },
-        "functions.ItemFunction": {
+        "functions.Item": {
             "type": "object",
             "properties": {
                 "properties": {
-                    "$ref": "#/definitions/functions.FunctionProperties"
+                    "type": "object",
+                    "additionalProperties": true
                 },
                 "type": {
                     "type": "string"
                 }
             }
         },
-        "functions.ItemName": {
-            "type": "object",
-            "properties": {
-                "properties": {
-                    "$ref": "#/definitions/functions.NameProperties"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "functions.JSONFunctionStructureFunction": {
+        "functions.JSONFunctionStructure": {
             "type": "object",
             "properties": {
                 "$defs": {
@@ -590,46 +737,14 @@ const docTemplate = `{
                 "anyOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/functions.ItemFunction"
+                        "$ref": "#/definitions/functions.Item"
                     }
                 },
                 "oneOf": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/functions.ItemFunction"
+                        "$ref": "#/definitions/functions.Item"
                     }
-                }
-            }
-        },
-        "functions.JSONFunctionStructureName": {
-            "type": "object",
-            "properties": {
-                "$defs": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "anyOf": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/functions.ItemName"
-                    }
-                },
-                "oneOf": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/functions.ItemName"
-                    }
-                }
-            }
-        },
-        "functions.NameProperties": {
-            "type": "object",
-            "properties": {
-                "arguments": {
-                    "$ref": "#/definitions/functions.Argument"
-                },
-                "name": {
-                    "$ref": "#/definitions/functions.FunctionName"
                 }
             }
         },
@@ -716,6 +831,37 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "gallery.GalleryOpStatus": {
+            "type": "object",
+            "properties": {
+                "deletion": {
+                    "description": "Deletion is true if the operation is a deletion",
+                    "type": "boolean"
+                },
+                "downloaded_size": {
+                    "type": "string"
+                },
+                "error": {},
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "string"
+                },
+                "gallery_model_name": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "processed": {
+                    "type": "boolean"
+                },
+                "progress": {
+                    "type": "number"
                 }
             }
         },
@@ -889,35 +1035,6 @@ const docTemplate = `{
                 }
             }
         },
-        "openai.File": {
-            "type": "object",
-            "properties": {
-                "bytes": {
-                    "description": "Size of the file in bytes",
-                    "type": "integer"
-                },
-                "created_at": {
-                    "description": "The time at which the file was created",
-                    "type": "string"
-                },
-                "filename": {
-                    "description": "The name of the file",
-                    "type": "string"
-                },
-                "id": {
-                    "description": "Unique identifier for the file",
-                    "type": "string"
-                },
-                "object": {
-                    "description": "Type of the object (e.g., \"file\")",
-                    "type": "string"
-                },
-                "purpose": {
-                    "description": "The purpose of the file (e.g., \"fine-tune\", \"classifications\", etc.)",
-                    "type": "string"
-                }
-            }
-        },
         "openai.Tool": {
             "type": "object",
             "properties": {
@@ -956,6 +1073,54 @@ const docTemplate = `{
                 }
             }
         },
+        "proto.MemoryUsageData": {
+            "type": "object",
+            "properties": {
+                "breakdown": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "proto.StatusResponse": {
+            "type": "object",
+            "properties": {
+                "memory": {
+                    "$ref": "#/definitions/proto.MemoryUsageData"
+                },
+                "state": {
+                    "$ref": "#/definitions/proto.StatusResponse_State"
+                }
+            }
+        },
+        "proto.StatusResponse_State": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                -1
+            ],
+            "x-enum-varnames": [
+                "StatusResponse_UNINITIALIZED",
+                "StatusResponse_BUSY",
+                "StatusResponse_READY",
+                "StatusResponse_ERROR"
+            ]
+        },
+        "schema.BackendMonitorRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Choice": {
             "type": "object",
             "properties": {
@@ -972,6 +1137,49 @@ const docTemplate = `{
                     "$ref": "#/definitions/schema.Message"
                 },
                 "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DeleteAssistantResponse": {
+            "type": "object",
+            "properties": {
+                "deleted": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.File": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "description": "Size of the file in bytes",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "description": "The time at which the file was created",
+                    "type": "string"
+                },
+                "filename": {
+                    "description": "The name of the file",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Unique identifier for the file",
+                    "type": "string"
+                },
+                "object": {
+                    "description": "Type of the object (e.g., \"file\")",
+                    "type": "string"
+                },
+                "purpose": {
+                    "description": "The purpose of the file (e.g., \"fine-tune\", \"classifications\", etc.)",
                     "type": "string"
                 }
             }
@@ -1092,6 +1300,20 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ListFiles": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.File"
+                    }
+                },
+                "object": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Message": {
             "type": "object",
             "properties": {
@@ -1193,10 +1415,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "grammar_json_functions": {
-                    "$ref": "#/definitions/functions.JSONFunctionStructureFunction"
-                },
-                "grammar_json_name": {
-                    "$ref": "#/definitions/functions.JSONFunctionStructureName"
+                    "$ref": "#/definitions/functions.JSONFunctionStructure"
                 },
                 "ignore_eos": {
                     "type": "boolean"

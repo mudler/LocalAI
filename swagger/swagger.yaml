@@ -7,14 +7,6 @@ definitions:
       url:
         type: string
     type: object
-  functions.Argument:
-    properties:
-      properties:
-        additionalProperties: true
-        type: object
-      type:
-        type: string
-    type: object
   functions.Function:
     properties:
       description:
@@ -25,66 +17,27 @@ definitions:
         additionalProperties: true
         type: object
     type: object
-  functions.FunctionName:
-    properties:
-      const:
-        type: string
-    type: object
-  functions.FunctionProperties:
-    properties:
-      arguments:
-        $ref: '#/definitions/functions.Argument'
-      function:
-        $ref: '#/definitions/functions.FunctionName'
-    type: object
-  functions.ItemFunction:
+  functions.Item:
     properties:
       properties:
-        $ref: '#/definitions/functions.FunctionProperties'
+        additionalProperties: true
+        type: object
       type:
         type: string
     type: object
-  functions.ItemName:
-    properties:
-      properties:
-        $ref: '#/definitions/functions.NameProperties'
-      type:
-        type: string
-    type: object
-  functions.JSONFunctionStructureFunction:
+  functions.JSONFunctionStructure:
     properties:
       $defs:
         additionalProperties: true
         type: object
       anyOf:
         items:
-          $ref: '#/definitions/functions.ItemFunction'
+          $ref: '#/definitions/functions.Item'
         type: array
       oneOf:
         items:
-          $ref: '#/definitions/functions.ItemFunction'
+          $ref: '#/definitions/functions.Item'
         type: array
-    type: object
-  functions.JSONFunctionStructureName:
-    properties:
-      $defs:
-        additionalProperties: true
-        type: object
-      anyOf:
-        items:
-          $ref: '#/definitions/functions.ItemName'
-        type: array
-      oneOf:
-        items:
-          $ref: '#/definitions/functions.ItemName'
-        type: array
-    type: object
-  functions.NameProperties:
-    properties:
-      arguments:
-        $ref: '#/definitions/functions.Argument'
-      name:
-        $ref: '#/definitions/functions.FunctionName'
     type: object
   functions.Tool:
     properties:
@@ -144,6 +97,27 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  gallery.GalleryOpStatus:
+    properties:
+      deletion:
+        description: Deletion is true if the operation is a deletion
+        type: boolean
+      downloaded_size:
+        type: string
+      error: {}
+      file_name:
+        type: string
+      file_size:
+        type: string
+      gallery_model_name:
+        type: string
+      message:
+        type: string
+      processed:
+        type: boolean
+      progress:
+        type: number
     type: object
   localai.GalleryModel:
     properties:
@@ -263,28 +237,6 @@ definitions:
       object:
         type: string
     type: object
-  openai.File:
-    properties:
-      bytes:
-        description: Size of the file in bytes
-        type: integer
-      created_at:
-        description: The time at which the file was created
-        type: string
-      filename:
-        description: The name of the file
-        type: string
-      id:
-        description: Unique identifier for the file
-        type: string
-      object:
-        description: Type of the object (e.g., "file")
-        type: string
-      purpose:
-        description: The purpose of the file (e.g., "fine-tune", "classifications",
-          etc.)
-        type: string
-    type: object
   openai.Tool:
     properties:
       type:
@@ -311,6 +263,39 @@ definitions:
       tunnelAddress:
         type: string
     type: object
+  proto.MemoryUsageData:
+    properties:
+      breakdown:
+        additionalProperties:
+          type: integer
+        type: object
+      total:
+        type: integer
+    type: object
+  proto.StatusResponse:
+    properties:
+      memory:
+        $ref: '#/definitions/proto.MemoryUsageData'
+      state:
+        $ref: '#/definitions/proto.StatusResponse_State'
+    type: object
+  proto.StatusResponse_State:
+    enum:
+    - 0
+    - 1
+    - 2
+    - -1
+    type: integer
+    x-enum-varnames:
+    - StatusResponse_UNINITIALIZED
+    - StatusResponse_BUSY
+    - StatusResponse_READY
+    - StatusResponse_ERROR
+  schema.BackendMonitorRequest:
+    properties:
+      model:
+        type: string
+    type: object
   schema.Choice:
     properties:
       delta:
@@ -322,6 +307,37 @@ definitions:
       message:
         $ref: '#/definitions/schema.Message'
       text:
+        type: string
+    type: object
+  schema.DeleteAssistantResponse:
+    properties:
+      deleted:
+        type: boolean
+      id:
+        type: string
+      object:
+        type: string
+    type: object
+  schema.File:
+    properties:
+      bytes:
+        description: Size of the file in bytes
+        type: integer
+      created_at:
+        description: The time at which the file was created
+        type: string
+      filename:
+        description: The name of the file
+        type: string
+      id:
+        description: Unique identifier for the file
+        type: string
+      object:
+        description: Type of the object (e.g., "file")
+        type: string
+      purpose:
+        description: The purpose of the file (e.g., "fine-tune", "classifications",
+          etc.)
         type: string
     type: object
   schema.FunctionCall:
@@ -399,6 +415,15 @@ definitions:
       total_tokens:
         type: integer
     type: object
+  schema.ListFiles:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.File'
+        type: array
+      object:
+        type: string
+    type: object
   schema.Message:
     properties:
       content:
@@ -466,9 +491,7 @@ definitions:
         description: A grammar to constrain the LLM output
         type: string
       grammar_json_functions:
-        $ref: '#/definitions/functions.JSONFunctionStructureFunction'
-      grammar_json_name:
-        $ref: '#/definitions/functions.JSONFunctionStructureName'
+        $ref: '#/definitions/functions.JSONFunctionStructure'
       ignore_eos:
         type: boolean
       input: {}
@@ -656,6 +679,43 @@ paths:
           schema:
             type: string
       summary: Show the P2P token
+  /backend/monitor:
+    get:
+      parameters:
+      - description: Backend statistics request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.BackendMonitorRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/proto.StatusResponse'
+      summary: Backend monitor endpoint
+  /backend/shutdown:
+    post:
+      parameters:
+      - description: Backend statistics request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.BackendMonitorRequest'
+      responses: {}
+      summary: Backend monitor endpoint
+  /metrics:
+    get:
+      parameters:
+      - description: Gallery details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/config.Gallery'
+      responses: {}
+      summary: Prometheus metrics endpoint
   /models/apply:
     post:
       parameters:
@@ -737,6 +797,24 @@ paths:
               $ref: '#/definitions/config.Gallery'
             type: array
       summary: Adds a gallery in LocalAI
+  /models/jobs:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/gallery.GalleryOpStatus'
+            type: object
+      summary: Returns all the jobs status progress
+  /models/jobs/{uuid}:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/gallery.GalleryOpStatus'
+      summary: Returns the job status
   /tts:
     post:
       consumes:
@@ -757,6 +835,32 @@ paths:
             type: string
       summary: Generates audio from the input text.
   /v1/assistants:
+    get:
+      parameters:
+      - description: Limit the number of assistants returned
+        in: query
+        name: limit
+        type: integer
+      - description: Order of assistants returned
+        in: query
+        name: order
+        type: string
+      - description: Return assistants created after the given ID
+        in: query
+        name: after
+        type: string
+      - description: Return assistants created before the given ID
+        in: query
+        name: before
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/openai.Assistant'
+            type: array
+      summary: List available assistents
     post:
       parameters:
       - description: query params
@@ -771,6 +875,21 @@ paths:
           schema:
             $ref: '#/definitions/openai.Assistant'
       summary: Create an assistant with a model and instructions.
+  /v1/assistants/{assistant_id}:
+    delete:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.DeleteAssistantResponse'
+      summary: Delete assistents
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/openai.Assistant'
+      summary: Get assistent data
   /v1/audio/speech:
     post:
       consumes:
@@ -843,6 +962,21 @@ paths:
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
       summary: Generate completions for a given prompt and model.
+  /v1/edits:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: OpenAI edit endpoint
   /v1/embeddings:
     post:
       parameters:
@@ -859,6 +993,14 @@ paths:
             $ref: '#/definitions/schema.OpenAIResponse'
       summary: Get a vector representation of a given input that can be easily consumed
         by machine learning models and algorithms.
+  /v1/files:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ListFiles'
+      summary: List files.
   /v1/files/{file_id}:
     delete:
       responses:
@@ -872,7 +1014,7 @@ paths:
         "200":
           description: Response
           schema:
-            $ref: '#/definitions/openai.File'
+            $ref: '#/definitions/schema.File'
       summary: Returns information about a specific file.
   /v1/files/{file_id}/content:
     get:

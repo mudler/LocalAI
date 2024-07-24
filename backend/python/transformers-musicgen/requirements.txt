@@ -1,6 +1,6 @@
 accelerate
 transformers
-grpcio==1.65.0
+grpcio==1.65.1
 protobuf
 torch
 scipy==1.14.0

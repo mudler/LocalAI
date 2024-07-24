@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/gofiber/fiber/v2"
 	utils2 "github.com/mudler/LocalAI/pkg/utils"
@@ -21,11 +22,6 @@ import (
 
 	"testing"
 )
-
-type ListFiles struct {
-	Data   []File
-	Object string
-}
 
 func startUpApp() (app *fiber.App, option *config.ApplicationConfig, loader *config.BackendConfigLoader) {
 	// Preparing the mocked objects
@@ -159,7 +155,7 @@ func TestUploadFileExceedSizeLimit(t *testing.T) {
 		resp, _ := app.Test(req)
 		assert.Equal(t, 200, resp.StatusCode)
 
-		var listFiles ListFiles
+		var listFiles schema.ListFiles
 		if err := json.Unmarshal(bodyToByteArray(resp, t), &listFiles); err != nil {
 			t.Errorf("Failed to decode response: %v", err)
 			return
@@ -201,7 +197,7 @@ func CallFilesUploadEndpoint(t *testing.T, app *fiber.App, fileName, tag, purpos
 	return app.Test(req)
 }
 
-func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, appConfig *config.ApplicationConfig) File {
+func CallFilesUploadEndpointWithCleanup(t *testing.T, app *fiber.App, fileName, tag, purpose string, fileSize int, appConfig *config.ApplicationConfig) schema.File {
 	// Create a file that exceeds the limit
 	testName := strings.Split(t.Name(), "/")[1]
 	file := createTestFile(t, testName+"-"+fileName, fileSize, appConfig)
@@ -280,8 +276,8 @@ func bodyToByteArray(resp *http.Response, t *testing.T) []byte {
 	return bodyBytes
 }
 
-func responseToFile(t *testing.T, resp *http.Response) File {
-	var file File
+func responseToFile(t *testing.T, resp *http.Response) schema.File {
+	var file schema.File
 	responseToString := bodyToString(resp, t)
 
 	err := json.NewDecoder(strings.NewReader(responseToString)).Decode(&file)
@@ -292,8 +288,8 @@ func responseToFile(t *testing.T, resp *http.Response) File {
 	return file
 }
 
-func responseToListFile(t *testing.T, resp *http.Response) ListFiles {
-	var listFiles ListFiles
+func responseToListFile(t *testing.T, resp *http.Response) schema.ListFiles {
+	var listFiles schema.ListFiles
 	responseToString := bodyToString(resp, t)
 
 	err := json.NewDecoder(strings.NewReader(responseToString)).Decode(&listFiles)

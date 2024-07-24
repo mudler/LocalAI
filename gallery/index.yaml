@@ -1,4 +1,44 @@
 ---
+## LLama3.1
+- &llama31
+  url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  name: "meta-llama-3.1-8b-instruct"
+  license: llama3.1
+  description: |
+      The Meta Llama 3.1 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction tuned generative models in 8B, 70B and 405B sizes (text in/text out). The Llama 3.1 instruction tuned text only models (8B, 70B, 405B) are optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
+
+      Model developer: Meta
+
+      Model Architecture: Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
+  urls:
+    - https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct
+    - https://huggingface.co/MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3.1
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+      sha256: c2f17f44af962660d1ad4cb1af91a731f219f3b326c2b14441f9df1f347f2815
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "meta-llama-3.1-70b-instruct"
+  urls:
+    - https://huggingface.co/meta-llama/Meta-Llama-3.1-70B-Instruct
+    - https://huggingface.co/MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
+      sha256: 3f16ab17da4521fe3ed7c5d7beed960d3fe7b5b64421ee9650aa53d6b649ccab
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
 ## Deepseek
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -24,6 +64,33 @@
     - filename: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
       sha256: 50ec78036433265965ed1afd0667c00c71c12aa70bcf383be462cb8e159db6c0
       uri: huggingface://LoneStriker/DeepSeek-Coder-V2-Lite-Instruct-GGUF/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
+- name: "archangel_sft_pythia2-8b"
+  url: "github:mudler/LocalAI/gallery/tuluv2.yaml@master"
+  icon: https://gist.github.com/assets/29318529/fe2d8391-dbd1-4b7e-9dc4-7cb97e55bc06
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/ContextualAI/archangel_sft_pythia2-8b
+    - https://huggingface.co/RichardErkhov/ContextualAI_-_archangel_sft_pythia2-8b-gguf
+    - https://github.com/ContextualAI/HALOs
+  description: |
+    datasets:
+    - stanfordnlp/SHP
+    - Anthropic/hh-rlhf
+    - OpenAssistant/oasst1
+
+    This repo contains the model checkpoints for:
+    - model family pythia2-8b
+    - optimized with the loss SFT
+    - aligned using the SHP, Anthropic HH and Open Assistant datasets.
+
+    Please refer to our [code repository](https://github.com/ContextualAI/HALOs) or [blog](https://contextual.ai/better-cheaper-faster-llm-alignment-with-kto/) which contains intructions for training your own HALOs and links to our model cards.
+  overrides:
+    parameters:
+      model: archangel_sft_pythia2-8b.Q4_K_M.gguf
+  files:
+    - filename: archangel_sft_pythia2-8b.Q4_K_M.gguf
+      sha256: a47782c55ef2b39b19644213720a599d9849511a73c9ebb0c1de749383c0a0f8
+      uri: huggingface://RichardErkhov/ContextualAI_-_archangel_sft_pythia2-8b-gguf/archangel_sft_pythia2-8b.Q4_K_M.gguf
 - &qwen2
   ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -202,6 +269,54 @@
     - filename: Qwen2-7B-Instruct-v0.8.Q4_K_M.gguf
       sha256: 8c1b3efe9fa6ae1b37942ef26473cb4e0aed0f8038b60d4b61e5bffb61e49b7e
       uri: huggingface://MaziyarPanahi/Qwen2-7B-Instruct-v0.8-GGUF/Qwen2-7B-Instruct-v0.8.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "qwen2-wukong-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/655dc641accde1bbc8b41aec/xOe1Nb3S9Nb53us7_Ja3s.jpeg
+  urls:
+    - https://huggingface.co/bartowski/Qwen2-Wukong-7B-GGUF
+  description: |
+    Qwen2-Wukong-7B is a dealigned chat finetune of the original fantastic Qwen2-7B model by the Qwen team.
+
+    This model was trained on the teknium OpenHeremes-2.5 dataset and some supplementary datasets from Cognitive Computations
+
+    This model was trained for 3 epochs with a custom FA2 implementation for AMD cards.
+  overrides:
+    parameters:
+      model: Qwen2-Wukong-7B-Q4_K_M.gguf
+  files:
+    - filename: Qwen2-Wukong-7B-Q4_K_M.gguf
+      sha256: 6b8ca6649c33fc84d4892ebcff1214f0b34697aced784f0d6d32e284a15943ad
+      uri: huggingface://bartowski/Qwen2-Wukong-7B-GGUF/Qwen2-Wukong-7B-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "calme-2.8-qwen2-7b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-2.8-qwen2-7b/resolve/main/qwen2-fine-tunes-maziyar-panahi.webp
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-2.8-qwen2-7b
+    - https://huggingface.co/MaziyarPanahi/calme-2.8-qwen2-7b-GGUF
+  description: |
+    This is a fine-tuned version of the Qwen/Qwen2-7B model. It aims to improve the base model across all benchmarks.
+  overrides:
+    parameters:
+      model: Qwen2-7B-Instruct-v0.8.Q4_K_M.gguf
+  files:
+    - filename: Qwen2-7B-Instruct-v0.8.Q4_K_M.gguf
+      sha256: 8c1b3efe9fa6ae1b37942ef26473cb4e0aed0f8038b60d4b61e5bffb61e49b7e
+      uri: huggingface://MaziyarPanahi/calme-2.8-qwen2-7b-GGUF/Qwen2-7B-Instruct-v0.8.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "stellardong-72b-i1"
+  icon: https://huggingface.co/smelborp/StellarDong-72b/resolve/main/stellardong.png
+  urls:
+    - https://huggingface.co/smelborp/StellarDong-72b
+    - https://huggingface.co/mradermacher/StellarDong-72b-i1-GGUF
+  description: |
+    Magnum + Nova = you won't believe how stellar this dong is!!
+  overrides:
+    parameters:
+      model: StellarDong-72b.i1-Q4_K_M.gguf
+  files:
+    - filename: StellarDong-72b.i1-Q4_K_M.gguf
+      sha256: 4c5012f0a034f40a044904891343ade2594f29c28a8a9d8052916de4dc5a61df
+      uri: huggingface://mradermacher/StellarDong-72b-i1-GGUF/StellarDong-72b.i1-Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -233,6 +348,62 @@
     - filename: "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
       sha256: "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024"
       uri: "huggingface://MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
+- !!merge <<: *mistral03
+  name: "mathstral-7b-v0.1-imat"
+  url: "github:mudler/LocalAI/gallery/mathstral.yaml@master"
+  urls:
+    - https://huggingface.co/mistralai/mathstral-7B-v0.1
+    - https://huggingface.co/InferenceIllusionist/mathstral-7B-v0.1-iMat-GGUF
+  description: |
+    Mathstral 7B is a model specializing in mathematical and scientific tasks, based on Mistral 7B. You can read more in the official blog post https://mistral.ai/news/mathstral/.
+  overrides:
+    parameters:
+      model: mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+  files:
+    - filename: mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+      sha256: 3ba94b7a8283ffa319c9ce23657f91ecf221ceada167c1253906cf56d72e8f90
+      uri: huggingface://InferenceIllusionist/mathstral-7B-v0.1-iMat-GGUF/mathstral-7B-v0.1-iMat-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mahou-1.3d-mistral-7b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/flammenai/Mahou-1.3d-mistral-7B
+    - https://huggingface.co/mradermacher/Mahou-1.3d-mistral-7B-i1-GGUF
+  description: |
+    Mahou is designed to provide short messages in a conversational context. It is capable of casual conversation and character roleplay.
+  overrides:
+    parameters:
+      model: Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
+      sha256: 8272f050e36d612ab282e095cb4e775e2c818e7096f8d522314d256923ef6da9
+      uri: huggingface://mradermacher/Mahou-1.3d-mistral-7B-i1-GGUF/Mahou-1.3d-mistral-7B.i1-Q4_K_M.gguf
+- name: "einstein-v4-7b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6468ce47e134d050a58aa89c/U0zyXVGj-O8a7KP3BvPue.png
+  urls:
+    - https://huggingface.co/Weyaxi/Einstein-v4-7B
+    - https://huggingface.co/mradermacher/Einstein-v4-7B-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - mistral
+    - cpu
+  description: |
+    🔬 Einstein-v4-7B
+
+    This model is a full fine-tuned version of mistralai/Mistral-7B-v0.1 on diverse datasets.
+
+    This model is finetuned using 7xRTX3090 + 1xRTXA6000 using axolotl.
+  overrides:
+    parameters:
+      model: Einstein-v4-7B.Q4_K_M.gguf
+  files:
+    - filename: Einstein-v4-7B.Q4_K_M.gguf
+      sha256: 78bd573de2a9eb3c6e213132858164e821145f374fcaa4b19dfd6502c05d990d
+      uri: huggingface://mradermacher/Einstein-v4-7B-GGUF/Einstein-v4-7B.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -548,6 +719,91 @@
     - filename: EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
       sha256: 57678b1828673dccb15f76e52b00672c74aa6169421bbb8620b8955955322cfd
       uri: huggingface://QuantFactory/EZO-Common-9B-gemma-2-it-GGUF/EZO-Common-9B-gemma-2-it.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "big-tiger-gemma-27b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/A97OlLKeT4XOnv4IG1b6m.png
+  urls:
+    - https://huggingface.co/TheDrummer/Big-Tiger-Gemma-27B-v1
+    - https://huggingface.co/TheDrummer/Big-Tiger-Gemma-27B-v1-GGUF
+  description: |
+    Big Tiger Gemma 27B v1 is a Decensored Gemma 27B model with no refusals, except for some rare instances from the 9B model. It does not appear to have any brain damage. The model is available from various sources, including Hugging Face, and comes in different variations such as GGUF, iMatrix, and EXL2.
+  overrides:
+    parameters:
+      model: Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+  files:
+    - filename: Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+      sha256: c5fc5605d36ae280c1c908c9b4bcb12b28abbe2692f317edeb83ab1104657fe5
+      uri: huggingface://TheDrummer/Big-Tiger-Gemma-27B-v1-GGUF/Big-Tiger-Gemma-27B-v1c-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2b-translation-v0.150"
+  urls:
+    - https://huggingface.co/lemon-mint/gemma-2b-translation-v0.150
+    - https://huggingface.co/RichardErkhov/lemon-mint_-_gemma-2b-translation-v0.150-gguf
+  description: |
+    Original model: lemon-mint/gemma-ko-1.1-2b-it
+    Evaluation metrics: Eval Loss, Train Loss, lr, optimizer, lr_scheduler_type.
+    Prompt Template:
+    <bos><start_of_turn>user
+    Translate into Korean: [input text]<end_of_turn>
+    <start_of_turn>model
+    [translated text in Korean]<eos>
+    <bos><start_of_turn>user
+    Translate into English: [Korean text]<end_of_turn>
+    <start_of_turn>model
+    [translated text in English]<eos>
+    Model features:
+    * Developed by: lemon-mint
+    * Model type: Gemma
+    * Languages (NLP): English
+    * License: Gemma Terms of Use
+    * Finetuned from model: lemon-mint/gemma-ko-1.1-2b-it
+  overrides:
+    parameters:
+      model: gemma-2b-translation-v0.150.Q4_K_M.gguf
+  files:
+    - filename: gemma-2b-translation-v0.150.Q4_K_M.gguf
+      sha256: dcde67b83168d2e7ca835cf9a7a4dcf38b41b9cefe3cbc997c71d2741c08cd25
+      uri: huggingface://RichardErkhov/lemon-mint_-_gemma-2b-translation-v0.150-gguf/gemma-2b-translation-v0.150.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "emo-2b"
+  urls:
+    - https://huggingface.co/OEvortex/EMO-2B
+    - https://huggingface.co/RichardErkhov/OEvortex_-_EMO-2B-gguf
+  description: |
+    EMO-2B: Emotionally Intelligent Conversational AI
+
+    Overview:
+    EMO-2B is a state-of-the-art conversational AI model with 2.5 billion parameters, designed to engage in emotionally resonant dialogue. Building upon the success of EMO-1.5B, this model has been further fine-tuned on an extensive corpus of emotional narratives, enabling it to perceive and respond to the emotional undertones of user inputs with exceptional empathy and emotional intelligence.
+
+    Key Features:
+
+    - Advanced Emotional Intelligence: With its increased capacity, EMO-2B demonstrates an even deeper understanding and generation of emotional language, allowing for more nuanced and contextually appropriate emotional responses.
+    - Enhanced Contextual Awareness: The model considers an even broader context within conversations, accounting for subtle emotional cues and providing emotionally resonant responses tailored to the specific situation.
+    - Empathetic and Supportive Dialogue: EMO-2B excels at active listening, validating emotions, offering compassionate advice, and providing emotional support, making it an ideal companion for users seeking empathy and understanding.
+    - Dynamic Persona Adaptation: The model can dynamically adapt its persona, communication style, and emotional responses to match the user's emotional state, ensuring a highly personalized and tailored conversational experience.
+
+    Use Cases:
+
+    EMO-2B is well-suited for a variety of applications where emotional intelligence and empathetic communication are crucial, such as:
+
+    - Mental health support chatbots
+    - Emotional support companions
+    - Personalized coaching and motivation
+    - Narrative storytelling and interactive fiction
+    - Customer service and support (for emotionally sensitive contexts)
+
+    Limitations and Ethical Considerations:
+
+    While EMO-2B is designed to provide emotionally intelligent and empathetic responses, it is important to note that it is an AI system and cannot replicate the depth and nuance of human emotional intelligence. Users should be aware that the model's responses, while emotionally supportive, should not be considered a substitute for professional mental health support or counseling.
+
+    Additionally, as with any language model, EMO-2B may reflect biases present in its training data. Users should exercise caution and critical thinking when interacting with the model, and report any concerning or inappropriate responses.
+  overrides:
+    parameters:
+      model: EMO-2B.Q4_K_M.gguf
+  files:
+    - filename: EMO-2B.Q4_K_M.gguf
+      sha256: 608bffc0e9012bc7f9a94b714f4932e2826cc122dbac59b586e4baa2ee0fdca5
+      uri: huggingface://RichardErkhov/OEvortex_-_EMO-2B-gguf/EMO-2B.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -2925,6 +3181,151 @@
     - filename: Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
       sha256: 83647caf4a23a91697585cff391e7d1236fac867392f9e49a6dab59f81b5f810
       uri: huggingface://bartowski/Llama-3-Hercules-5.0-8B-GGUF/Llama-3-Hercules-5.0-8B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-15b-mythicalmaid-t0.0001"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f74b6e6389380c77562762/Nx5jjEYNH26OS2_87mPTM.png
+  urls:
+    - https://huggingface.co/v000000/L3-15B-MythicalMaid-t0.0001
+    - https://huggingface.co/mradermacher/L3-15B-MythicalMaid-t0.0001-GGUF
+  description: |
+    Llama-3-15B-MythicalMaid-t0.0001
+    A merge of the following models using a custom NearSwap(t0.0001) algorithm (inverted):
+
+        ZeusLabs/L3-Aethora-15B-V2
+        v000000/HaloMaidRP-v1.33-15B-L3
+
+    With ZeusLabs/L3-Aethora-15B-V2 as the base model.
+
+    This merge was inverted compared to "L3-15B-EtherealMaid-t0.0001".
+  overrides:
+    parameters:
+      model: L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+  files:
+    - filename: L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+      sha256: ecbd57783006f1a027f8a7f5a5d551dc8b3568912825f566d79fd34a804e8970
+      uri: huggingface://mradermacher/L3-15B-MythicalMaid-t0.0001-GGUF/L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
+
+- !!merge <<: *llama3
+  name: "l3-15b-etherealmaid-t0.0001-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f74b6e6389380c77562762/FwYXt2h_FdmlL0Z6qYufz.png
+  urls:
+    - https://huggingface.co/v000000/L3-15B-EtherealMaid-t0.0001
+    - https://huggingface.co/mradermacher/L3-15B-EtherealMaid-t0.0001-i1-GGUF
+  description: |
+    Llama-3-15B-EtherealMaid-t0.0001
+    A merge of the following models using a custom NearSwap(t0.0001) algorithm:
+
+        v000000/HaloMaidRP-v1.33-15B-L3
+        ZeusLabs/L3-Aethora-15B-V2
+
+    With v000000/HaloMaidRP-v1.33-15B-L3 as the base model.
+  overrides:
+    parameters:
+      model: L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
+  files:
+    - filename: L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
+      sha256: 2911be6be8e0fd4184998d452410ba847491b4ab71a928749de87cafb0e13757
+      uri: huggingface://mradermacher/L3-15B-EtherealMaid-t0.0001-i1-GGUF/L3-15B-EtherealMaid-t0.0001.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-8b-celeste-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630cf5d14ca0a22768bbe10c/Zv__LDTO-nHvpuxPcCgUU.webp
+  urls:
+    - https://huggingface.co/nothingiisreal/L3-8B-Celeste-v1
+    - https://huggingface.co/bartowski/L3-8B-Celeste-v1-GGUF
+  description: |
+    Trained on LLaMA 3 8B Instruct at 8K context using Reddit Writing Prompts, Opus 15K Instruct an c2 logs cleaned.
+
+    This is a roleplay model any instruction following capabilities outside roleplay contexts are coincidental.
+  overrides:
+    parameters:
+      model: L3-8B-Celeste-v1-Q4_K_M.gguf
+  files:
+    - filename: L3-8B-Celeste-v1-Q4_K_M.gguf
+      sha256: ed5277719965fb6bbcce7d16742e3bac4a8d5b8f52133261a3402a480cd65317
+      uri: huggingface://bartowski/L3-8B-Celeste-v1-GGUF/L3-8B-Celeste-v1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-8b-celeste-v1.2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630cf5d14ca0a22768bbe10c/Zv__LDTO-nHvpuxPcCgUU.webp
+  urls:
+    - https://huggingface.co/mudler/L3-8B-Celeste-V1.2-Q4_K_M-GGUF
+  description: |
+    Trained on LLaMA 3 8B Instruct at 8K context using Reddit Writing Prompts, Opus 15K Instruct an c2 logs cleaned.
+
+    This is a roleplay model any instruction following capabilities outside roleplay contexts are coincidental.
+  overrides:
+    parameters:
+      model: l3-8b-celeste-v1.2-q4_k_m.gguf
+  files:
+    - filename: l3-8b-celeste-v1.2-q4_k_m.gguf
+      sha256: 7752204c0e9f627ff5726eb69bb6114974cafbc934a993ad019abfba62002783
+      uri: huggingface://mudler/L3-8B-Celeste-V1.2-Q4_K_M-GGUF/l3-8b-celeste-v1.2-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "llama-3-tulu-2-8b-i1"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu-v2/Tulu%20V2%20banner.png
+  urls:
+    - https://huggingface.co/allenai/llama-3-tulu-2-8b
+    - https://huggingface.co/mradermacher/llama-3-tulu-2-8b-i1-GGUF
+  description: |
+    Tulu is a series of language models that are trained to act as helpful assistants. Llama 3 Tulu V2 8B is a fine-tuned version of Llama 3 that was trained on a mix of publicly available, synthetic and human datasets.
+  overrides:
+    parameters:
+      model: llama-3-tulu-2-8b.i1-Q4_K_M.gguf
+  files:
+    - filename: llama-3-tulu-2-8b.i1-Q4_K_M.gguf
+      sha256: f859c22bfa64f461e9ffd973dc7ad6a78bb98b1dda6f49abfa416a4022b7e333
+      uri: huggingface://mradermacher/llama-3-tulu-2-8b-i1-GGUF/llama-3-tulu-2-8b.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-tulu-2-dpo-70b-i1"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu-v2/Tulu%20V2%20banner.png
+  urls:
+    - https://huggingface.co/allenai/llama-3-tulu-2-dpo-70b
+    - https://huggingface.co/mradermacher/llama-3-tulu-2-dpo-70b-i1-GGUF
+  description: |
+    Tulu is a series of language models that are trained to act as helpful assistants. Llama 3 Tulu V2 8B is a fine-tuned version of Llama 3 that was trained on a mix of publicly available, synthetic and human datasets.
+  overrides:
+    parameters:
+      model: llama-3-tulu-2-dpo-70b.i1-Q4_K_M.gguf
+  files:
+    - filename: llama-3-tulu-2-dpo-70b.i1-Q4_K_M.gguf
+      sha256: fc309bbdf1e2bdced954c4c8dc1f9a885c547017ee5e750bfde645af89e3d3a5
+      uri: huggingface://mradermacher/llama-3-tulu-2-dpo-70b-i1-GGUF/llama-3-tulu-2-dpo-70b.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  license: cc-by-nc-4.0
+  name: "suzume-llama-3-8b-multilingual-orpo-borda-top25"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64b63f8ad57e02621dc93c8b/kWQSu02YfgYdUQqv4s5lq.png
+  urls:
+    - https://huggingface.co/lightblue/suzume-llama-3-8B-multilingual-orpo-borda-top25
+    - https://huggingface.co/RichardErkhov/lightblue_-_suzume-llama-3-8B-multilingual-orpo-borda-top25-gguf
+  description: |
+    This is Suzume ORPO, an ORPO trained fine-tune of the lightblue/suzume-llama-3-8B-multilingual model using our lightblue/mitsu dataset.
+
+    We have trained several versions of this model using ORPO and so recommend that you use the best performing model from our tests, lightblue/suzume-llama-3-8B-multilingual-orpo-borda-half.
+
+    Note that this model has a non-commerical license as we used the Command R and Command R+ models to generate our training data for this model (lightblue/mitsu).
+
+    We are currently working on a developing a commerically usable model, so stay tuned for that!
+  overrides:
+    parameters:
+      model: suzume-llama-3-8B-multilingual-orpo-borda-top25.Q4_K_M.gguf
+  files:
+    - filename: suzume-llama-3-8B-multilingual-orpo-borda-top25.Q4_K_M.gguf
+      sha256: ef75a02c5f38e14a8873c7989188dac6974851b4654279fe1921d2c8018cc388
+      uri: huggingface://RichardErkhov/lightblue_-_suzume-llama-3-8B-multilingual-orpo-borda-top25-gguf/suzume-llama-3-8B-multilingual-orpo-borda-top25.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "calme-2.4-llama3-70b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-2.4-llama3-70b/resolve/main/llama-3-merges.webp
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-2.4-llama3-70b
+    - https://huggingface.co/mradermacher/calme-2.4-llama3-70b-GGUF
+  description: |
+    This model is a fine-tune (DPO) of meta-llama/Meta-Llama-3-70B-Instruct model.
+  overrides:
+    parameters:
+      model: calme-2.4-llama3-70b.Q4_K_M.gguf
+  files:
+    - filename: calme-2.4-llama3-70b.Q4_K_M.gguf
+      sha256: 0b44ac8a88395dfc60f1b9d3cfffc0ffef74ec0a302e610ef91fc787187568f2
+      uri: huggingface://mradermacher/calme-2.4-llama3-70b-GGUF/calme-2.4-llama3-70b.Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
@@ -3169,6 +3570,38 @@
     - filename: Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
       sha256: 39458b227a4be763b7eb39d306d240c3d45205e3f8b474ec7bdca7bba0158e69
       uri: huggingface://bartowski/Phi-3.1-mini-4k-instruct-GGUF/Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "phillama-3.8b-v0.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/657eb5b256c9c67605a6e8b5/f96pPiJQb3puzbPYNknG2.png
+  urls:
+    - https://huggingface.co/RichardErkhov/raincandy-u_-_phillama-3.8b-v0.1-gguf
+  description: |
+    The description of the LLM model is:
+    Phillama is a model based on Phi-3-mini and trained on Llama-generated dataset raincandy-u/Dextromethorphan-10k to make it more "llama-like". Also, this model is converted into Llama format, so it will work with any Llama-2/3 workflow. The model aims to generate text with a specific "llama-like" style and is suited for text-generation tasks.
+  overrides:
+    parameters:
+      model: phillama-3.8b-v0.1.Q4_K_M.gguf
+  files:
+    - filename: phillama-3.8b-v0.1.Q4_K_M.gguf
+      sha256: da537d352b7aae54bbad0d2cff3e3a1b0e1dc1e1d25bec3aae1d05cf4faee7a2
+      uri: huggingface://RichardErkhov/raincandy-u_-_phillama-3.8b-v0.1-gguf/phillama-3.8b-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "calme-2.3-phi3-4b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-2.1-phi3-4b/resolve/main/phi-3-instruct.webp
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-2.3-phi3-4b
+    - https://huggingface.co/MaziyarPanahi/calme-2.3-phi3-4b-GGUF
+  description: |
+    MaziyarPanahi/calme-2.1-phi3-4b
+
+    This model is a fine-tune (DPO) of microsoft/Phi-3-mini-4k-instruct model.
+  overrides:
+    parameters:
+      model: Phi-3-mini-4k-instruct-v0.3.Q4_K_M.gguf
+  files:
+    - filename: Phi-3-mini-4k-instruct-v0.3.Q4_K_M.gguf
+      sha256: 3a23e1052369c080afb925882bd814cbea5ec859894655a7434c3d49e43a6127
+      uri: huggingface://MaziyarPanahi/calme-2.3-phi3-4b-GGUF/Phi-3-mini-4k-instruct-v0.3.Q4_K_M.gguf
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"

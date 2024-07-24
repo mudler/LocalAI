@@ -1,0 +1,43 @@
+---
+name: "tuluv2"
+
+config_file: |
+  mmap: true
+  template:
+    chat_message: |
+      <|{{ .RoleName }}|>
+      {{ if .FunctionCall -}}
+      Function call:
+      {{ else if eq .RoleName "tool" -}}
+      Function response:
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content }}
+      {{ end -}}
+      {{ if .FunctionCall -}}
+      {{toJson .FunctionCall}}
+      {{ end -}}
+    function: |
+      <|{{ .RoleName }}|>
+      {{ if .FunctionCall -}}
+      Function call:
+      {{ else if eq .RoleName "tool" -}}
+      Function response:
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content }}
+      {{ end -}}
+      {{ if .FunctionCall -}}
+      {{toJson .FunctionCall}}
+      {{ end -}}
+    chat: |
+      {{.Input -}}
+      <|assistant|>
+    completion: |
+      {{.Input}}
+  context_size: 4096
+  f16: true
+  stopwords:
+  - '<|im_end|>'
+  - '<dummy32000>'
+  - '<|endoftext|>'

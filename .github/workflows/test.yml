@@ -70,7 +70,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential curl ffmpeg
+          sudo apt-get install build-essential ccache upx-ucl curl ffmpeg
           sudo apt-get install -y libgmock-dev
           curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
              sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
@@ -110,7 +110,7 @@ jobs:
           # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
           PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
         env:
-          CUDA_VERSION: 12-5
+          CUDA_VERSION: 12-4
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
