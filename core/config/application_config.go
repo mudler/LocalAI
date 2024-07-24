@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"regexp"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -37,7 +38,7 @@ type ApplicationConfig struct {
 	OpaqueErrors                       bool
 	UseSubtleKeyComparison             bool
 	DisableApiKeyRequirementForHttpGet bool
-	HttpGetExemptedEndpoints           []string
+	HttpGetExemptedEndpoints           []*regexp.Regexp
 
 	ModelLibraryURL string
 
@@ -332,7 +333,15 @@ func WithDisableApiKeyRequirementForHttpGet(required bool) AppOption {
 
 func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.HttpGetExemptedEndpoints = endpoints
+		o.HttpGetExemptedEndpoints = []*regexp.Regexp{}
+		for _, epr := range endpoints {
+			r, err := regexp.Compile(epr)
+			if err == nil && r != nil {
+				o.HttpGetExemptedEndpoints = append(o.HttpGetExemptedEndpoints, r)
+			} else {
+				log.Warn().Err(err).Str("regex", epr).Msg("Error while compiling HTTP Get Exemption regex, skipping this entry.")
+			}
+		}
 	}
 }
 
