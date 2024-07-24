@@ -1,4 +1,44 @@
 ---
+## LLama3.1
+- &llama31
+  url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  name: "llama3-8b-instruct"
+  license: llama3.1
+  description: |
+      The Meta Llama 3.1 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction tuned generative models in 8B, 70B and 405B sizes (text in/text out). The Llama 3.1 instruction tuned text only models (8B, 70B, 405B) are optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
+
+      Model developer: Meta
+
+      Model Architecture: Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
+  urls:
+    - https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct
+    - https://huggingface.co/MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3.1
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+      sha256: c2f17f44af962660d1ad4cb1af91a731f219f3b326c2b14441f9df1f347f2815
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "meta-llama-3.1-70b-instruct"
+  urls:
+    - https://huggingface.co/meta-llama/Meta-Llama-3.1-70B-Instruct
+    - https://huggingface.co/MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
+      sha256: 3f16ab17da4521fe3ed7c5d7beed960d3fe7b5b64421ee9650aa53d6b649ccab
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
 ## Deepseek
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
