@@ -9,16 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func createFunction(field1 string, field2 string, name string, properties map[string]interface{}) map[string]interface{} {
-	property := map[string]interface{}{}
-	property[field1] = FunctionName{Const: name}
-	property[field2] = Argument{
-		Type:       "object",
-		Properties: properties,
-	}
-	return property
-}
-
 var testFunctions = []Item{
 	{
 		Type: "object",

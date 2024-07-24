@@ -5,68 +5,10 @@ package functions
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/utils"
-)
-
-const (
-	JSONBNF = `root   ::= object
-value  ::= object | array | string | number | ("true" | "false" | "null") ws
-
-object ::=
-  "{" ws (
-            string ":" ws value
-    ("," ws string ":" ws value)*
-  )? "}" ws
-
-array  ::=
-  "[" ws (
-            value
-    ("," ws value)*
-  )? "]" ws
-
-string ::=
-  "\"" (
-    [^"\\] |
-    "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) # escapes
-  )* "\"" ws
-
-number ::= ("-"? ([0-9] | [1-9] [0-9]*)) ("." [0-9]+)? ([eE] [-+]? [0-9]+)? ws
-
-ws ::= ([ \t\n] ws)?`
-)
-
-var (
-	SPACE_RULE = `" "?`
-
-	PRIMITIVE_RULES = map[string]string{
-		"boolean": `("true" | "false") space`,
-		"number":  `("-"? ([0-9] | [1-9] [0-9]*)) ("." [0-9]+)? ([eE] [-+]? [0-9]+)? space`,
-		"integer": `("-"? ([0-9] | [1-9] [0-9]*)) space`,
-		"string": `"\"" (
-			[^"\\] |
-			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
-		  )* "\"" space`,
-		// TODO: we shouldn't forbid \" and \\ or all unicode and have this branch here,
-		// however, if we don't have it, the grammar will be ambiguous and
-		// empirically results are way worse.
-		"freestring": `(
-			[^\x00] |
-			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
-		  )* space`,
-		"null": `"null" space`,
-	}
-
-	INVALID_RULE_CHARS_RE     = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
-	GRAMMAR_LITERAL_ESCAPE_RE = regexp.MustCompile(`[\r\n"]`)
-	GRAMMAR_LITERAL_ESCAPES   = map[string]string{
-		"\r": `\r`,
-		"\n": `\n`,
-		`"`:  `\"`,
-	}
 )
 
 type JSONSchemaConverter struct {
@@ -113,18 +55,6 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 	sc.rules[key] = rule
 	return key
 }
-
-const arrayNewLines = `arr  ::=
-  "[\n"  (
-		realvalue
-    (",\n"  realvalue)*
-  )? "]"`
-
-const array = `arr  ::=
-  "["  (
-		realvalue
-    (","  realvalue)*
-  )? "]"`
 
 func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) string {
 
@@ -342,37 +272,4 @@ func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, options ...func(*Gramm
 	var schema map[string]interface{}
 	_ = json.Unmarshal(b, &schema)
 	return sc.Grammar(schema, options...)
-}
-
-func jsonString(v interface{}) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
-type FunctionName struct {
-	Const string `json:"const"`
-}
-
-type Argument struct {
-	Type       string                 `json:"type"`
-	Properties map[string]interface{} `json:"properties"`
-}
-
-type Item struct {
-	Type       string                 `json:"type"`
-	Properties map[string]interface{} `json:"properties"`
-}
-
-type JSONFunctionStructure struct {
-	OneOf []Item                 `json:"oneOf,omitempty"`
-	AnyOf []Item                 `json:"anyOf,omitempty"`
-	Defs  map[string]interface{} `json:"$defs,omitempty"`
-}
-
-func (j JSONFunctionStructure) Grammar(options ...func(*GrammarOption)) string {
-	grammarOpts := &GrammarOption{}
-	grammarOpts.Apply(options...)
-
-	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(grammarOpts.PropOrder).GrammarFromBytes(dat, options...)
 }
