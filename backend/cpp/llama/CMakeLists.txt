@@ -38,6 +38,13 @@ find_package(absl CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
+if ( DEFINED ENV{ONEAPI_ROOT})
+  find_package(IntelSYCL REQUIRED)
+  find_package(MKL REQUIRED)
+  add_compile_options(-I/${SYCL_INCLUDE_DIR})
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -L${MKLROOT}/lib")
+endif()
+
 find_program(_PROTOBUF_PROTOC protoc)
 set(_GRPC_GRPCPP grpc++)
 find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
