@@ -122,12 +122,6 @@ The server logs should indicate that new workers are being discovered.
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/8ca277cf-c208-4562-8929-808b2324b584)
 
-## Notes
-
-- If running in p2p mode with container images, make sure you start the container with `--net host` or `network_mode: host` in the docker-compose file.
-- Only a single model is supported currently.
-- Ensure the server detects new workers before starting inference. Currently, additional workers cannot be added once inference has begun.
-- For more details on the implementation, refer to [LocalAI pull request #2343](https://github.com/mudler/LocalAI/pull/2343)
 
 ## Environment Variables
 
@@ -138,3 +132,20 @@ There are options that can be tweaked or parameters that can be set using enviro
 | **LOCALAI_P2P_DISABLE_DHT** | Set to "true" to disable DHT and enable p2p layer to be local only (mDNS) |
 | **LOCALAI_P2P_DISABLE_LIMITS** | Set to "true" to disable connection limits and resources management |
 | **LOCALAI_P2P_TOKEN** | Set the token for the p2p network |
+
+## Architecture
+
+LocalAI uses https://github.com/libp2p/go-libp2p under the hood, the same project powering IPFS. Differently from other frameworks, LocalAI uses peer2peer without a single master server, but rather it uses sub/gossip and ledger functionalities to achieve consensus across different peers. 
+
+[EdgeVPN](https://github.com/mudler/edgevpn) is used as a library to establish the network and expose the ledger functionality under a shared token to ease out automatic discovery and have separated, private peer2peer networks.
+
+The weights are split proportional to the memory when running into worker mode, when in federation mode each request is split to every node which have to load the model fully.
+
+## Notes
+
+- If running in p2p mode with container images, make sure you start the container with `--net host` or `network_mode: host` in the docker-compose file.
+- Only a single model is supported currently.
+- Ensure the server detects new workers before starting inference. Currently, additional workers cannot be added once inference has begun.
+- For more details on the implementation, refer to [LocalAI pull request #2343](https://github.com/mudler/LocalAI/pull/2343)
+
+
