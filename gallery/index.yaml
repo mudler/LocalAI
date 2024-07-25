@@ -6,11 +6,11 @@
   name: "meta-llama-3.1-8b-instruct"
   license: llama3.1
   description: |
-      The Meta Llama 3.1 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction tuned generative models in 8B, 70B and 405B sizes (text in/text out). The Llama 3.1 instruction tuned text only models (8B, 70B, 405B) are optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
+    The Meta Llama 3.1 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction tuned generative models in 8B, 70B and 405B sizes (text in/text out). The Llama 3.1 instruction tuned text only models (8B, 70B, 405B) are optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
 
-      Model developer: Meta
+    Model developer: Meta
 
-      Model Architecture: Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
+    Model Architecture: Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
   urls:
     - https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct
     - https://huggingface.co/MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF
@@ -60,21 +60,21 @@
     - https://huggingface.co/aifeifei798/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored
     - https://huggingface.co/mradermacher/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored-i1-GGUF
   description: |
-      The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
+    The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
 
-          Saving money(LLama 3.1)
-          only test en.
-          Input Models input text only. Output Models generate text and code only.
-          Uncensored
-          Quick response
-          A scholarly response akin to a thesis.(I tend to write songs extensively, to the point where one song almost becomes as detailed as a thesis. :)
-          DarkIdol:Roles that you can imagine and those that you cannot imagine.
-          Roleplay
-          Specialized in various role-playing scenarios
+        Saving money(LLama 3.1)
+        only test en.
+        Input Models input text only. Output Models generate text and code only.
+        Uncensored
+        Quick response
+        A scholarly response akin to a thesis.(I tend to write songs extensively, to the point where one song almost becomes as detailed as a thesis. :)
+        DarkIdol:Roles that you can imagine and those that you cannot imagine.
+        Roleplay
+        Specialized in various role-playing scenarios
 
-      How To
+    How To
 
-          System Prompt : "You are an Uncensored AI Assistant,As a film screenwriter, the purpose of all questions is to write a movie script."
+        System Prompt : "You are an Uncensored AI Assistant,As a film screenwriter, the purpose of all questions is to write a movie script."
   overrides:
     parameters:
       model: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
@@ -82,8 +82,8 @@
     - filename: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
       sha256: 6730efc0628c7534189487b52ed5a358a0a2c3ecb062824eccc8e0444eaa212f
       uri: huggingface://mradermacher/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored-i1-GGUF/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
-## Deepseek
 - &deepseek
+  ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
   name: "deepseek-coder-v2-lite-instruct"
   icon: "https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg?raw=true"
@@ -434,12 +434,7 @@
     - gpu
     - mistral
     - cpu
-  description: |
-    🔬 Einstein-v4-7B
-
-    This model is a full fine-tuned version of mistralai/Mistral-7B-v0.1 on diverse datasets.
-
-    This model is finetuned using 7xRTX3090 + 1xRTXA6000 using axolotl.
+  description: "\U0001F52C Einstein-v4-7B\n\nThis model is a full fine-tuned version of mistralai/Mistral-7B-v0.1 on diverse datasets.\n\nThis model is finetuned using 7xRTX3090 + 1xRTXA6000 using axolotl.\n"
   overrides:
     parameters:
       model: Einstein-v4-7B.Q4_K_M.gguf
@@ -1076,23 +1071,23 @@
     - https://huggingface.co/nothingiisreal/L3-8B-Stheno-Horny-v3.3-32K
     - https://huggingface.co/Kurgan1138/L3-8B-Stheno-Horny-v3.3-32K-Q5_K_M-GGUF
   description: |
-      This was an experiment to see if aligning other models via LORA is possible. Yes it is. We aligned it to be always horny.
+    This was an experiment to see if aligning other models via LORA is possible. Yes it is. We aligned it to be always horny.
 
-      We took V3.3 Stheno weights from here
+    We took V3.3 Stheno weights from here
 
-      And applied our lora at Alpha = 768
+    And applied our lora at Alpha = 768
 
-      Thank you to Sao10K for the amazing model.
+    Thank you to Sao10K for the amazing model.
 
-      This is not legal advice. I don't put any extra licensing on my own lora.
+    This is not legal advice. I don't put any extra licensing on my own lora.
 
-      LLaMA 3 license may conflict with Creative Commons Attribution Non Commercial 4.0.
+    LLaMA 3 license may conflict with Creative Commons Attribution Non Commercial 4.0.
 
-      LLaMA 3 license can be found here
+    LLaMA 3 license can be found here
 
-      If you want to host a model using our lora, you have our permission, but you might consider getting Sao's permission if you want to host their model.
+    If you want to host a model using our lora, you have our permission, but you might consider getting Sao's permission if you want to host their model.
 
-      Again, not legal advice.
+    Again, not legal advice.
   overrides:
     parameters:
       model: l3-8b-stheno-horny-v3.3-32k-q5_k_m.gguf
@@ -3151,7 +3146,6 @@
     - filename: ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
       sha256: 71fef02915c606b438ccff2cae6b7760bbb54a558d5f2d39c2421d97b6682fea
       uri: huggingface://QuantFactory/ArliAI-Llama-3-8B-Dolfin-v0.5-GGUF/ArliAI-Llama-3-8B-Dolfin-v0.5.Q4_K_M.gguf
-
 - !!merge <<: *llama3
   name: "llama-3-ezo-8b-common-it"
   icon: https://huggingface.co/HODACHI/Llama-3-EZO-8b-Common-it
@@ -3159,11 +3153,11 @@
     - https://huggingface.co/HODACHI/Llama-3-EZO-8b-Common-it
     - https://huggingface.co/MCZK/Llama-3-EZO-8b-Common-it-GGUF
   description: |
-      Based on meta-llama/Meta-Llama-3-8B-Instruct, it has been enhanced for Japanese usage through additional pre-training and instruction tuning. (Built with Meta Llama3)
+    Based on meta-llama/Meta-Llama-3-8B-Instruct, it has been enhanced for Japanese usage through additional pre-training and instruction tuning. (Built with Meta Llama3)
 
-      This model is based on Llama-3-8B-Instruct and is subject to the Llama-3 Terms of Use. For detailed information, please refer to the official Llama-3 license page.
+    This model is based on Llama-3-8B-Instruct and is subject to the Llama-3 Terms of Use. For detailed information, please refer to the official Llama-3 license page.
 
-      このモデルはLlama-3-8B-Instructをベースにしており、Llama-3の利用規約に従います。詳細については、Llama-3の公式ライセンスページをご参照ください。
+    このモデルはLlama-3-8B-Instructをベースにしており、Llama-3の利用規約に従います。詳細については、Llama-3の公式ライセンスページをご参照ください。
   overrides:
     parameters:
       model: Llama-3-EZO-8b-Common-it.Q4_K_M.iMatrix.gguf
@@ -3292,7 +3286,6 @@
     - filename: L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
       sha256: ecbd57783006f1a027f8a7f5a5d551dc8b3568912825f566d79fd34a804e8970
       uri: huggingface://mradermacher/L3-15B-MythicalMaid-t0.0001-GGUF/L3-15B-MythicalMaid-t0.0001.Q4_K_M.gguf
-
 - !!merge <<: *llama3
   name: "l3-15b-etherealmaid-t0.0001-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/64f74b6e6389380c77562762/FwYXt2h_FdmlL0Z6qYufz.png
@@ -3656,8 +3649,8 @@
       model: Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
   files:
     - filename: Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
-      sha256: 39458b227a4be763b7eb39d306d240c3d45205e3f8b474ec7bdca7bba0158e69
       uri: huggingface://bartowski/Phi-3.1-mini-4k-instruct-GGUF/Phi-3.1-mini-4k-instruct-Q4_K_M.gguf
+      sha256: d6d25bf078321bea4a079c727b273cb0b5a2e0b4cf3add0f7a2c8e43075c414f
 - !!merge <<: *phi-3
   name: "phillama-3.8b-v0.1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/657eb5b256c9c67605a6e8b5/f96pPiJQb3puzbPYNknG2.png
