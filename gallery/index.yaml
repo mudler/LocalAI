@@ -39,6 +39,20 @@
     - filename: Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
       sha256: 3f16ab17da4521fe3ed7c5d7beed960d3fe7b5b64421ee9650aa53d6b649ccab
       uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "meta-llama-3.1-8b-claude-imat"
+  urls:
+    - https://huggingface.co/Undi95/Meta-Llama-3.1-8B-Claude
+    - https://huggingface.co/InferenceIllusionist/Meta-Llama-3.1-8B-Claude-iMat-GGUF
+  description: |
+    Meta-Llama-3.1-8B-Claude-iMat-GGUF: Quantized from Meta-Llama-3.1-8B-Claude fp16. Weighted quantizations were creating using fp16 GGUF and groups_merged.txt in 88 chunks and n_ctx=512. Static fp16 will also be included in repo. For a brief rundown of iMatrix quant performance, please see this PR. All quants are verified working prior to uploading to repo for your safety and convenience.
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
+      sha256: 8de80021b9438f0925a41ae73f77cb73fcfa30090e03a0919ce23d2b9818e9c7
+      uri: huggingface://InferenceIllusionist/Meta-Llama-3.1-8B-Claude-iMat-GGUF/Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
 ## Deepseek
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
