@@ -5,68 +5,10 @@ package functions
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/utils"
-)
-
-const (
-	JSONBNF = `root   ::= object
-value  ::= object | array | string | number | ("true" | "false" | "null") ws
-
-object ::=
-  "{" ws (
-            string ":" ws value
-    ("," ws string ":" ws value)*
-  )? "}" ws
-
-array  ::=
-  "[" ws (
-            value
-    ("," ws value)*
-  )? "]" ws
-
-string ::=
-  "\"" (
-    [^"\\] |
-    "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]) # escapes
-  )* "\"" ws
-
-number ::= ("-"? ([0-9] | [1-9] [0-9]*)) ("." [0-9]+)? ([eE] [-+]? [0-9]+)? ws
-
-ws ::= ([ \t\n] ws)?`
-)
-
-var (
-	SPACE_RULE = `" "?`
-
-	PRIMITIVE_RULES = map[string]string{
-		"boolean": `("true" | "false") space`,
-		"number":  `("-"? ([0-9] | [1-9] [0-9]*)) ("." [0-9]+)? ([eE] [-+]? [0-9]+)? space`,
-		"integer": `("-"? ([0-9] | [1-9] [0-9]*)) space`,
-		"string": `"\"" (
-			[^"\\] |
-			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
-		  )* "\"" space`,
-		// TODO: we shouldn't forbid \" and \\ or all unicode and have this branch here,
-		// however, if we don't have it, the grammar will be ambiguous and
-		// empirically results are way worse.
-		"freestring": `(
-			[^\x00] |
-			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
-		  )* space`,
-		"null": `"null" space`,
-	}
-
-	INVALID_RULE_CHARS_RE     = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
-	GRAMMAR_LITERAL_ESCAPE_RE = regexp.MustCompile(`[\r\n"]`)
-	GRAMMAR_LITERAL_ESCAPES   = map[string]string{
-		"\r": `\r`,
-		"\n": `\n`,
-		`"`:  `\"`,
-	}
 )
 
 type JSONSchemaConverter struct {
@@ -90,11 +32,15 @@ func NewJSONSchemaConverter(propOrder string) *JSONSchemaConverter {
 	}
 }
 
-func (sc *JSONSchemaConverter) formatLiteral(literal interface{}) string {
-	escaped := GRAMMAR_LITERAL_ESCAPE_RE.ReplaceAllStringFunc(jsonString(literal), func(match string) string {
+func (sc *JSONSchemaConverter) formatLiteral(literal interface{}) (string, error) {
+	jLiteral, err := jsonString(literal)
+	if err != nil {
+		return "", err
+	}
+	escaped := GRAMMAR_LITERAL_ESCAPE_RE.ReplaceAllStringFunc(jLiteral, func(match string) string {
 		return GRAMMAR_LITERAL_ESCAPES[match]
 	})
-	return fmt.Sprintf(`"%s"`, escaped)
+	return fmt.Sprintf(`"%s"`, escaped), nil
 }
 
 func (sc *JSONSchemaConverter) addRule(name, rule string) string {
@@ -113,18 +59,6 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 	sc.rules[key] = rule
 	return key
 }
-
-const arrayNewLines = `arr  ::=
-  "[\n"  (
-		realvalue
-    (",\n"  realvalue)*
-  )? "]"`
-
-const array = `arr  ::=
-  "["  (
-		realvalue
-    (","  realvalue)*
-  )? "]"`
 
 func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) string {
 
@@ -210,7 +144,7 @@ func (sc *JSONSchemaConverter) finalizeGrammar(options ...func(*GrammarOption)) 
 	return strings.Join(lines, "\n")
 }
 
-func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string, rootSchema map[string]interface{}) string {
+func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string, rootSchema map[string]interface{}) (string, error) {
 	st, existType := schema["type"]
 	var schemaType string
 	if existType {
@@ -229,31 +163,44 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 
 		if oneOfExists {
 			for i, altSchema := range oneOfSchemas {
-				alternative := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
+				alternative, err := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
+				if err != nil {
+					return "", err
+				}
 				alternatives = append(alternatives, alternative)
 			}
 		} else if anyOfExists {
 			for i, altSchema := range anyOfSchemas {
-				alternative := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
+				alternative, err := sc.visit(altSchema.(map[string]interface{}), fmt.Sprintf("%s-%d", ruleName, i), rootSchema)
+				if err != nil {
+					return "", err
+				}
 				alternatives = append(alternatives, alternative)
 			}
 		}
 
 		rule := strings.Join(alternatives, " | ")
-		return sc.addRule(ruleName, rule)
+		return sc.addRule(ruleName, rule), nil
 	} else if ref, exists := schema["$ref"].(string); exists {
 		referencedSchema := sc.resolveReference(ref, rootSchema)
 		return sc.visit(referencedSchema, name, rootSchema)
 	} else if constVal, exists := schema["const"]; exists {
-		return sc.addRule(ruleName, sc.formatLiteral(constVal))
+		literal, err := sc.formatLiteral((constVal))
+		if err != nil {
+			return "", err
+		}
+		return sc.addRule(ruleName, literal), nil
 	} else if enumVals, exists := schema["enum"].([]interface{}); exists {
 		var enumRules []string
 		for _, enumVal := range enumVals {
-			enumRule := sc.formatLiteral(enumVal)
+			enumRule, err := sc.formatLiteral(enumVal)
+			if err != nil {
+				return "", err
+			}
 			enumRules = append(enumRules, enumRule)
 		}
 		rule := strings.Join(enumRules, " | ")
-		return sc.addRule(ruleName, rule)
+		return sc.addRule(ruleName, rule), nil
 	} else if properties, exists := schema["properties"].(map[string]interface{}); schemaType == "object" && exists {
 		propOrder := sc.propOrder
 		var propPairs []struct {
@@ -283,21 +230,30 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		for i, propPair := range propPairs {
 			propName := propPair.propName
 			propSchema := propPair.propSchema
-			propRuleName := sc.visit(propSchema, fmt.Sprintf("%s-%s", ruleName, propName), rootSchema)
-
+			propRuleName, err := sc.visit(propSchema, fmt.Sprintf("%s-%s", ruleName, propName), rootSchema)
+			if err != nil {
+				return "", err
+			}
+			lPropName, err := sc.formatLiteral(propName)
+			if err != nil {
+				return "", err
+			}
 			if i > 0 {
 				rule.WriteString(` "," space`)
 			}
 
-			rule.WriteString(fmt.Sprintf(` %s space ":" space %s`, sc.formatLiteral(propName), propRuleName))
+			rule.WriteString(fmt.Sprintf(` %s space ":" space %s`, lPropName, propRuleName))
 		}
 
 		rule.WriteString(` "}" space`)
-		return sc.addRule(ruleName, rule.String())
+		return sc.addRule(ruleName, rule.String()), nil
 	} else if items, exists := schema["items"].(map[string]interface{}); schemaType == "array" && exists {
-		itemRuleName := sc.visit(items, fmt.Sprintf("%s-item", ruleName), rootSchema)
+		itemRuleName, err := sc.visit(items, fmt.Sprintf("%s-item", ruleName), rootSchema)
+		if err != nil {
+			return "", err
+		}
 		rule := fmt.Sprintf(`"[" space (%s ("," space %s)*)? "]" space`, itemRuleName, itemRuleName)
-		return sc.addRule(ruleName, rule)
+		return sc.addRule(ruleName, rule), nil
 	} else {
 		primitiveRule, exists := PRIMITIVE_RULES[schemaType]
 		if !exists {
@@ -306,7 +262,7 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		if ruleName == "root" {
 			schemaType = "root"
 		}
-		return sc.addRule(schemaType, primitiveRule)
+		return sc.addRule(schemaType, primitiveRule), nil
 	}
 }
 func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[string]interface{}) map[string]interface{} {
@@ -332,47 +288,20 @@ func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[strin
 	return def
 }
 
-func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, options ...func(*GrammarOption)) string {
+func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, options ...func(*GrammarOption)) (string, error) {
 	sc.addRule("freestring", PRIMITIVE_RULES["freestring"])
-	sc.visit(schema, "", schema)
-	return sc.finalizeGrammar(options...)
+	_, err := sc.visit(schema, "", schema)
+	if err != nil {
+		return "", err
+	}
+	return sc.finalizeGrammar(options...), nil
 }
 
-func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, options ...func(*GrammarOption)) string {
+func (sc *JSONSchemaConverter) GrammarFromBytes(b []byte, options ...func(*GrammarOption)) (string, error) {
 	var schema map[string]interface{}
-	_ = json.Unmarshal(b, &schema)
+	err := json.Unmarshal(b, &schema)
+	if err != nil {
+		return "", err
+	}
 	return sc.Grammar(schema, options...)
-}
-
-func jsonString(v interface{}) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
-type FunctionName struct {
-	Const string `json:"const"`
-}
-
-type Argument struct {
-	Type       string                 `json:"type"`
-	Properties map[string]interface{} `json:"properties"`
-}
-
-type Item struct {
-	Type       string                 `json:"type"`
-	Properties map[string]interface{} `json:"properties"`
-}
-
-type JSONFunctionStructure struct {
-	OneOf []Item                 `json:"oneOf,omitempty"`
-	AnyOf []Item                 `json:"anyOf,omitempty"`
-	Defs  map[string]interface{} `json:"$defs,omitempty"`
-}
-
-func (j JSONFunctionStructure) Grammar(options ...func(*GrammarOption)) string {
-	grammarOpts := &GrammarOption{}
-	grammarOpts.Apply(options...)
-
-	dat, _ := json.Marshal(j)
-	return NewJSONSchemaConverter(grammarOpts.PropOrder).GrammarFromBytes(dat, options...)
 }

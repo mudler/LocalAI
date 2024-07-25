@@ -18,6 +18,15 @@ type Function struct {
 }
 type Functions []Function
 
+type FunctionName struct {
+	Const string `json:"const"`
+}
+
+type Argument struct {
+	Type       string                 `json:"type"`
+	Properties map[string]interface{} `json:"properties"`
+}
+
 type Tool struct {
 	Type     string   `json:"type"`
 	Function Function `json:"function,omitempty"`
@@ -85,4 +94,12 @@ func (f Functions) Select(name string) Functions {
 	}
 
 	return funcs
+}
+
+func jsonString(v interface{}) (string, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }

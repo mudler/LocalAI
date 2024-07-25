@@ -3,21 +3,10 @@ package functions_test
 import (
 	"strings"
 
-	"github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-func createFunction(field1 string, field2 string, name string, properties map[string]interface{}) map[string]interface{} {
-	property := map[string]interface{}{}
-	property[field1] = FunctionName{Const: name}
-	property[field2] = Argument{
-		Type:       "object",
-		Properties: properties,
-	}
-	return property
-}
 
 var testFunctions = []Item{
 	{
@@ -245,7 +234,8 @@ root-1-name ::= "\"search\""`
 var _ = Describe("JSON schema grammar tests", func() {
 	Context("JSON", func() {
 		It("generates a valid grammar from JSON schema", func() {
-			grammar := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput1))
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput1))
+			Expect(err).To(BeNil())
 			results := strings.Split(inputResult1, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -255,7 +245,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))))
 		})
 		It("generates a valid grammar from JSON schema", func() {
-			grammar := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput2))
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput2))
+			Expect(err).To(BeNil())
 			results := strings.Split(inputResult3, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -269,7 +260,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctions}
 
-			grammar := structuredGrammar.Grammar()
+			grammar, err := structuredGrammar.Grammar()
+			Expect(err).To(BeNil())
 			results := strings.Split(inputResult1, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -283,7 +275,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctions}
 
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeArray)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeArray)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					inputResult2,
@@ -301,7 +294,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeArray)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeArray)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					inputResult4,
@@ -319,10 +313,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(
-				functions.SetPrefix("suffix"),
-				functions.EnableMaybeArray,
+			grammar, err := structuredGrammar.Grammar(
+				SetPrefix("suffix"),
+				EnableMaybeArray,
 			)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`"suffix" arr | realvalue`),
@@ -339,7 +334,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"))
+			grammar, err := structuredGrammar.Grammar(SetPrefix("suffix"))
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`"suffix" realvalue`),
@@ -356,7 +352,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"), functions.EnableMaybeString)
+			grammar, err := structuredGrammar.Grammar(SetPrefix("suffix"), EnableMaybeString)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`( "suffix" realvalue | mixedstring )`),
@@ -373,7 +370,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"), functions.EnableMaybeString, functions.EnableMaybeArray)
+			grammar, err := structuredGrammar.Grammar(SetPrefix("suffix"), EnableMaybeString, EnableMaybeArray)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`( "suffix" (arr | realvalue) | mixedstring )`),
@@ -392,7 +390,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeString, EnableMaybeArray)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`mixedstring | arr | realvalue`),
@@ -410,7 +409,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray, functions.NoMixedFreeString)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeString, EnableMaybeArray, NoMixedFreeString)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`freestring | arr | realvalue`),
@@ -432,7 +432,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 realvalue
 (","  realvalue)*
 )? "]"`
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray, functions.DisableParallelNewLines)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeString, EnableMaybeArray, DisableParallelNewLines)
+			Expect(err).To(BeNil())
 			results := strings.Split(content, "\n")
 			for _, r := range results {
 				if r != "" {
