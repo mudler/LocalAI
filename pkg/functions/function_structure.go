@@ -13,10 +13,13 @@ type JSONFunctionStructure struct {
 	Defs  map[string]interface{} `json:"$defs,omitempty"`
 }
 
-func (j JSONFunctionStructure) Grammar(options ...func(*GrammarOption)) string {
+func (j JSONFunctionStructure) Grammar(options ...func(*GrammarOption)) (string, error) {
 	grammarOpts := &GrammarOption{}
 	grammarOpts.Apply(options...)
 
-	dat, _ := json.Marshal(j)
+	dat, err := json.Marshal(j)
+	if err != nil {
+		return "", err
+	}
 	return NewJSONSchemaConverter(grammarOpts.PropOrder).GrammarFromBytes(dat, options...)
 }
