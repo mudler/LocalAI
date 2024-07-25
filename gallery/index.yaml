@@ -1071,6 +1071,36 @@
       sha256: a485cd74ef4ff3671c67ed8e10ea5379a1f24082ac688bd303fd28dfc9808c11
       uri: huggingface://mudler/llama-3-Stheno-Mahou-8B-Q4_K_M-GGUF/llama-3-stheno-mahou-8b-q4_k_m.gguf
 - !!merge <<: *llama3
+  name: "l3-8b-stheno-horny-v3.3-32k-q5_k_m"
+  urls:
+    - https://huggingface.co/nothingiisreal/L3-8B-Stheno-Horny-v3.3-32K
+    - https://huggingface.co/Kurgan1138/L3-8B-Stheno-Horny-v3.3-32K-Q5_K_M-GGUF
+  description: |
+      This was an experiment to see if aligning other models via LORA is possible. Yes it is. We aligned it to be always horny.
+
+      We took V3.3 Stheno weights from here
+
+      And applied our lora at Alpha = 768
+
+      Thank you to Sao10K for the amazing model.
+
+      This is not legal advice. I don't put any extra licensing on my own lora.
+
+      LLaMA 3 license may conflict with Creative Commons Attribution Non Commercial 4.0.
+
+      LLaMA 3 license can be found here
+
+      If you want to host a model using our lora, you have our permission, but you might consider getting Sao's permission if you want to host their model.
+
+      Again, not legal advice.
+  overrides:
+    parameters:
+      model: l3-8b-stheno-horny-v3.3-32k-q5_k_m.gguf
+  files:
+    - filename: l3-8b-stheno-horny-v3.3-32k-q5_k_m.gguf
+      sha256: 8d934f80ca6dbaa4852846108da92446a26715fbd5f6fc3859568850edf05262
+      uri: huggingface://Kurgan1138/L3-8B-Stheno-Horny-v3.3-32K-Q5_K_M-GGUF/l3-8b-stheno-horny-v3.3-32k-q5_k_m.gguf
+- !!merge <<: *llama3
   name: "llama-3-8b-openhermes-dpo"
   urls:
     - https://huggingface.co/mradermacher/Llama3-8B-OpenHermes-DPO-GGUF
