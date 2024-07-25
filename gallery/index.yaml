@@ -847,6 +847,21 @@
     - filename: EMO-2B.Q4_K_M.gguf
       sha256: 608bffc0e9012bc7f9a94b714f4932e2826cc122dbac59b586e4baa2ee0fdca5
       uri: huggingface://RichardErkhov/OEvortex_-_EMO-2B-gguf/EMO-2B.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemmoy-9b-g2-mk.3-i1"
+  icon: https://huggingface.co/Hastagaras/G2-Gemmoy-9B-MK.3-RP/resolve/main/gemmoy.jpg
+  urls:
+    - https://huggingface.co/Hastagaras/Gemmoy-9B-G2-MK.3
+    - https://huggingface.co/mradermacher/Gemmoy-9B-G2-MK.3-i1-GGUF
+  description: |
+    The Gemmoy-9B-G2-MK.3 model is a large language model trained on a variety of datasets, including grimulkan/LimaRP-augmented, LDJnr/Capybara, TheSkullery/C2logs_Filtered_Sharegpt_Merged, abacusai/SystemChat-1.1, and Hastagaras/FTTS-Stories-Sharegpt.
+  overrides:
+    parameters:
+      model: Gemmoy-9B-G2-MK.3.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemmoy-9B-G2-MK.3.i1-Q4_K_M.gguf
+      sha256: 0d1004a246fbda7f1408a6841129b73c4100e697bd0a6806fc698eabbb0802a1
+      uri: huggingface://mradermacher/Gemmoy-9B-G2-MK.3-i1-GGUF/Gemmoy-9B-G2-MK.3.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
