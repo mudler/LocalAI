@@ -53,7 +53,7 @@
     - filename: Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
       sha256: 8de80021b9438f0925a41ae73f77cb73fcfa30090e03a0919ce23d2b9818e9c7
       uri: huggingface://InferenceIllusionist/Meta-Llama-3.1-8B-Claude-iMat-GGUF/Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
-- !!merge <<: *llama3
+- !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
   icon: https://huggingface.co/aifeifei798/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored/resolve/main/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.png
   urls:
