@@ -23,7 +23,9 @@ type GrammarConfig struct {
 	MixedMode bool `yaml:"mixed_mode"`
 
 	// NoMixedFreeString disables the mixed mode for free strings
-	// In this way if the LLM selects a free string, it won't be mixed necessarly with JSON objects
+	// In this way if the LLM selects a free string, it won't be mixed necessarly with JSON objects.
+	// For example, if enabled the LLM or returns a JSON object or a free string, but not a mix of both
+	// If disabled(default): the LLM can return a JSON object surrounded by free strings (e.g. `this is the JSON result: { "bar": "baz" } for your question`). This forces the LLM to return at least a JSON object, but its not going to be strict
 	NoMixedFreeString bool `yaml:"no_mixed_free_string"`
 
 	// NoGrammar disables the grammar parsing and parses the responses directly from the LLM
