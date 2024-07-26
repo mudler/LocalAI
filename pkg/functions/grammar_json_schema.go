@@ -182,7 +182,10 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		rule := strings.Join(alternatives, " | ")
 		return sc.addRule(ruleName, rule), nil
 	} else if ref, exists := schema["$ref"].(string); exists {
-		referencedSchema := sc.resolveReference(ref, rootSchema)
+		referencedSchema, err := sc.resolveReference(ref, rootSchema)
+		if err != nil {
+			return "", err
+		}
 		return sc.visit(referencedSchema, name, rootSchema)
 	} else if constVal, exists := schema["const"]; exists {
 		literal, err := sc.formatLiteral((constVal))
@@ -257,7 +260,7 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 	} else {
 		primitiveRule, exists := PRIMITIVE_RULES[schemaType]
 		if !exists {
-			panic(fmt.Sprintf("Unrecognized schema: %v", schema))
+			return "", fmt.Errorf("unrecognized schema: %v", schema)
 		}
 		if ruleName == "root" {
 			schemaType = "root"
@@ -265,27 +268,23 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		return sc.addRule(schemaType, primitiveRule), nil
 	}
 }
-func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[string]interface{}) map[string]interface{} {
+func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[string]interface{}) (map[string]interface{}, error) {
 	if !strings.HasPrefix(ref, "#/$defs/") {
-		panic(fmt.Sprintf("Invalid reference format: %s", ref))
+		return nil, fmt.Errorf("invalid reference format: %s", ref)
 	}
 
 	defKey := strings.TrimPrefix(ref, "#/$defs/")
 	definitions, exists := rootSchema["$defs"].(map[string]interface{})
 	if !exists {
-		fmt.Println(rootSchema)
-
-		panic("No definitions found in the schema")
+		return nil, fmt.Errorf("no definitions found in the schema: %s", rootSchema)
 	}
 
 	def, exists := definitions[defKey].(map[string]interface{})
 	if !exists {
-		fmt.Println(definitions)
-
-		panic(fmt.Sprintf("Definition not found: %s", defKey))
+		return nil, fmt.Errorf("definition not found: %s %+v", defKey, definitions)
 	}
 
-	return def
+	return def, nil
 }
 
 func (sc *JSONSchemaConverter) Grammar(schema map[string]interface{}, options ...func(*GrammarOption)) (string, error) {
