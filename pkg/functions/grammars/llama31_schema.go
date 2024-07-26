@@ -1,7 +1,5 @@
 package grammars
 
-// a golang port of https://github.com/ggerganov/llama.cpp/pull/1887
-
 import (
 	"encoding/json"
 	"fmt"

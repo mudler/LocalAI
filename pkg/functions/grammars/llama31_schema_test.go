@@ -61,7 +61,7 @@ root-1-function ::= "search"`
 
 var _ = Describe("JSON schema grammar tests", func() {
 	Context("JSON", func() {
-		FIt("generates a valid grammar from JSON schema", func() {
+		It("generates a valid grammar from JSON schema", func() {
 			grammar, err := NewLLama31SchemaConverter("function").GrammarFromBytes([]byte(testllama31Input1))
 			Expect(err).ToNot(HaveOccurred())
 			results := strings.Split(testllama31inputResult1, "\n")
