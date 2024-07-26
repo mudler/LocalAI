@@ -1,4 +1,4 @@
-package functions
+package grammars
 
 type GrammarOption struct {
 	PropOrder               string
@@ -8,6 +8,9 @@ type GrammarOption struct {
 	MaybeString             bool
 	NoMixedFreeString       bool
 	ExpectStringsAfterJSON  bool
+
+	FunctionName string
+	SchemaType   SchemaConverterType
 }
 
 func (o *GrammarOption) Apply(options ...func(*GrammarOption)) {
@@ -46,5 +49,17 @@ func SetPrefix(suffix string) func(*GrammarOption) {
 func SetPropOrder(order string) func(*GrammarOption) {
 	return func(o *GrammarOption) {
 		o.PropOrder = order
+	}
+}
+
+func WithSchemaType(schemaType SchemaConverterType) func(*GrammarOption) {
+	return func(o *GrammarOption) {
+		o.SchemaType = schemaType
+	}
+}
+
+func WithFunctionName(name string) func(*GrammarOption) {
+	return func(o *GrammarOption) {
+		o.FunctionName = name
 	}
 }

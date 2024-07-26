@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/functions/grammars"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
@@ -39,6 +40,10 @@ type GrammarConfig struct {
 	// for instance name,arguments will make print { "name": "foo", "arguments": { "bar": "baz" } }
 	// instead of { "arguments": { "bar": "baz" }, "name": "foo" }
 	PropOrder string `yaml:"properties_order"`
+
+	// SchemaType can be configured to use a specific schema type to force the grammar
+	// available : json, llama3.1
+	SchemaType string `yaml:"schema_type"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -92,28 +97,36 @@ type FuncCallResults struct {
 	Arguments string
 }
 
-func (g GrammarConfig) Options() []func(o *GrammarOption) {
-	opts := []func(o *GrammarOption){}
-	if g.MixedMode {
-		opts = append(opts, EnableMaybeString)
+func (g FunctionsConfig) GrammarOptions() []func(o *grammars.GrammarOption) {
+	opts := []func(o *grammars.GrammarOption){}
+	if g.GrammarConfig.MixedMode {
+		opts = append(opts, grammars.EnableMaybeString)
 	}
-	if g.ParallelCalls {
-		opts = append(opts, EnableMaybeArray)
+	if g.GrammarConfig.ParallelCalls {
+		opts = append(opts, grammars.EnableMaybeArray)
 	}
-	if g.DisableParallelNewLines {
-		opts = append(opts, DisableParallelNewLines)
+	if g.GrammarConfig.DisableParallelNewLines {
+		opts = append(opts, grammars.DisableParallelNewLines)
 	}
-	if g.Prefix != "" {
-		opts = append(opts, SetPrefix(g.Prefix))
+	if g.GrammarConfig.Prefix != "" {
+		opts = append(opts, grammars.SetPrefix(g.GrammarConfig.Prefix))
 	}
-	if g.NoMixedFreeString {
-		opts = append(opts, NoMixedFreeString)
+	if g.GrammarConfig.NoMixedFreeString {
+		opts = append(opts, grammars.NoMixedFreeString)
 	}
-	if g.ExpectStringsAfterJSON {
-		opts = append(opts, ExpectStringsAfterJSON)
+	if g.GrammarConfig.ExpectStringsAfterJSON {
+		opts = append(opts, grammars.ExpectStringsAfterJSON)
 	}
 
-	opts = append(opts, SetPropOrder(g.PropOrder))
+	if g.GrammarConfig.SchemaType != "" {
+		opts = append(opts, grammars.WithSchemaType(grammars.NewType(g.GrammarConfig.SchemaType)))
+	}
+
+	if g.FunctionNameKey != "" {
+		opts = append(opts, grammars.WithFunctionName(g.FunctionNameKey))
+	}
+
+	opts = append(opts, grammars.SetPropOrder(g.GrammarConfig.PropOrder))
 	return opts
 }
 
