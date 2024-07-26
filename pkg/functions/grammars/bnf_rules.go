@@ -1,6 +1,9 @@
-package functions
+package grammars
 
-import "regexp"
+import (
+	"encoding/json"
+	"regexp"
+)
 
 var (
 	PRIMITIVE_RULES = map[string]string{
@@ -45,3 +48,11 @@ const (
     (","  realvalue)*
   )? "]"`
 )
+
+func jsonString(v interface{}) (string, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}

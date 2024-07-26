@@ -95,11 +95,3 @@ func (f Functions) Select(name string) Functions {
 
 	return funcs
 }
-
-func jsonString(v interface{}) (string, error) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
