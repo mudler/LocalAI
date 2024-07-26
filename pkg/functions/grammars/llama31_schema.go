@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -68,7 +69,6 @@ func (sc *LLama31SchemaConverter) addRule(name, rule string) string {
 		}
 	}
 	sc.rules[key] = rule
-	fmt.Printf("Adding rule: %s -> %s\n", key, rule)
 	return key
 }
 
@@ -117,12 +117,10 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 		return sc.visit(referencedSchema, name, rootSchema)
 	} else if constVal, exists := schema["const"]; exists {
 
-		fmt.Println("constant is ", constVal)
 		literal, err := sc.formatLiteral((constVal))
 		if err != nil {
 			return "", err
 		}
-		fmt.Printf("literal is %s\n", literal)
 		return sc.addRule(ruleName, literal), nil
 	} else if enumVals, exists := schema["enum"].([]interface{}); exists {
 		var enumRules []string
@@ -136,11 +134,9 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 		rule := strings.Join(enumRules, " | ")
 		return sc.addRule(ruleName, rule), nil
 	} else if properties, exists := schema["properties"].(map[string]interface{}); schemaType == "object" && exists {
-		fmt.Printf("reading property %+v\n", properties)
 		baseProperty := false
 		depth := strings.Split(name, "-")
 		if len(depth) == 2 {
-			fmt.Printf("reading a base property %s\n", name)
 			baseProperty = true
 		}
 		type propData []struct {
@@ -156,7 +152,9 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 			}{propName: propName, propSchema: propSchema.(map[string]interface{})})
 		}
 
-		fmt.Printf("propPairs %+v\n", propPairs)
+		sort.Slice(propPairs, func(i, j int) bool {
+			return propPairs[i].propName < propPairs[j].propName
+		})
 
 		var rule strings.Builder
 		if baseProperty {
@@ -191,7 +189,6 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 			for _, propPair := range propPairs {
 				propName := propPair.propName
 				propSchema := propPair.propSchema
-				fmt.Printf("visiting %s\n", fmt.Sprintf("%s-%s", ruleName, propName))
 				propRuleName, err := sc.visit(propSchema, fmt.Sprintf("%s-%s", ruleName, propName), rootSchema)
 				if err != nil {
 					return "", err
@@ -206,7 +203,6 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 			for i, propPair := range propPairs {
 				propName := propPair.propName
 				propSchema := propPair.propSchema
-				fmt.Printf("visiting %s\n", fmt.Sprintf("%s-%s", ruleName, propName))
 				propRuleName, err := sc.visit(propSchema, fmt.Sprintf("%s-%s", ruleName, propName), rootSchema)
 				if err != nil {
 					return "", err
@@ -227,7 +223,6 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]interface{}, name stri
 		if !baseProperty {
 			rule.WriteString(` "}" space`)
 		}
-		fmt.Println("Property buildup")
 
 		return sc.addRule(ruleName, rule.String()), nil
 	} else if items, exists := schema["items"].(map[string]interface{}); schemaType == "array" && exists {
