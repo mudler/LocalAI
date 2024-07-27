@@ -165,6 +165,22 @@
     - filename: DarkIdol-Llama-3.1-8B-Instruct-1.1-Uncensored-Q4_K_M-imat.gguf
       sha256: fa9fc56de7d902b755c43f1a5d0867d961675174a1b3e73a10d822836c3390e6
       uri: huggingface://LWDCLS/DarkIdol-Llama-3.1-8B-Instruct-1.1-Uncensored-GGUF-IQ-Imatrix-Request/DarkIdol-Llama-3.1-8B-Instruct-1.1-Uncensored-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-instruct-fei-v1-uncensored"
+  icon: https://huggingface.co/aifeifei799/Llama-3.1-8B-Instruct-Fei-v1-Uncensored/resolve/main/Llama-3.1-8B-Instruct-Fei-v1-Uncensored.png
+  urls:
+    - https://huggingface.co/aifeifei799/Llama-3.1-8B-Instruct-Fei-v1-Uncensored
+    - https://huggingface.co/mradermacher/Llama-3.1-8B-Instruct-Fei-v1-Uncensored-GGUF
+  description: |
+      Llama-3.1-8B-Instruct Uncensored
+      more informtion look at Llama-3.1-8B-Instruct
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
+      sha256: 12fef8ff0a5c4cf6988523d33d89287edb7531f0d1644707548f45f1387e398a
+      uri: huggingface://mradermacher/Llama-3.1-8B-Instruct-Fei-v1-Uncensored-GGUF/Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
