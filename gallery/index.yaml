@@ -113,6 +113,29 @@
     - filename: llama3.1-8b-fireplace2-q4_k_m.gguf
       sha256: 54527fd2474b576086ea31e759214ab240abe2429ae623a02d7ba825cc8cb13e
       uri: huggingface://mudler/Llama3.1-8B-Fireplace2-Q4_K_M-GGUF/llama3.1-8b-fireplace2-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "darkidol-llama-3.1-8b-instruct-1.1-uncensored-iq-imatrix-request"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/iDV5GTVJbjkvMp1set-ZC.png
+  urls:
+    - https://huggingface.co/LWDCLS/DarkIdol-Llama-3.1-8B-Instruct-1.1-Uncensored-GGUF-IQ-Imatrix-Request
+  description: |
+    Uncensored
+    virtual idol Twitter
+
+        https://x.com/aifeifei799
+
+    Questions
+
+        The model's response results are for reference only, please do not fully trust them.
+        This model is solely for learning and testing purposes, and errors in output are inevitable. We do not take responsibility for the output results. If the output content is to be used, it must be modified; if not modified, we will assume it has been altered.
+        For commercial licensing, please refer to the Llama 3.1 agreement.
+  overrides:
+    parameters:
+      model: DarkIdol-Llama-3.1-8B-Instruct-1.1-Uncensored-Q4_K_M-imat.gguf
+  files:
+    - filename: DarkIdol-Llama-3.1-8B-Instruct-1.1-Uncensored-Q4_K_M-imat.gguf
+      sha256: fa9fc56de7d902b755c43f1a5d0867d961675174a1b3e73a10d822836c3390e6
+      uri: huggingface://LWDCLS/DarkIdol-Llama-3.1-8B-Instruct-1.1-Uncensored-GGUF-IQ-Imatrix-Request/DarkIdol-Llama-3.1-8B-Instruct-1.1-Uncensored-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
