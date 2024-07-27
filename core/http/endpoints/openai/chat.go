@@ -226,9 +226,15 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 			// Update input grammar
 			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
-			config.Grammar = jsStruct.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
+			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			if err == nil {
+				config.Grammar = g
+			}
 		case input.JSONFunctionGrammarObject != nil:
-			config.Grammar = input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
+			g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			if err == nil {
+				config.Grammar = g
+			}
 		default:
 			// Force picking one of the functions by the request
 			if config.FunctionToCall() != "" {

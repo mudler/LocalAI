@@ -24,7 +24,7 @@ RUN apt-get update && \
         cmake \
         curl \
         git \
-        unzip && \
+        unzip upx-ucl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -99,7 +99,7 @@ FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
-ARG CUDA_MINOR_VERSION=4
+ARG CUDA_MINOR_VERSION=0
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 

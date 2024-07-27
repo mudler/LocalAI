@@ -47,7 +47,7 @@ jobs:
           #   makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "4"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12-ffmpeg'
@@ -120,7 +120,7 @@ jobs:
           #   makeflags: "--jobs=3 --output-sync=target"
           # - build-type: 'cublas'
           #   cuda-major-version: "12"
-          #   cuda-minor-version: "4"
+          #   cuda-minor-version: "0"
           #   platforms: 'linux/amd64'
           #   tag-latest: 'false'
           #   tag-suffix: '-cublas-cuda12-ffmpeg-core'
