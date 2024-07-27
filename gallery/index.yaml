@@ -82,6 +82,37 @@
     - filename: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
       sha256: 6730efc0628c7534189487b52ed5a358a0a2c3ecb062824eccc8e0444eaa212f
       uri: huggingface://mradermacher/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored-i1-GGUF/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-fireplace2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f267a8a4f79a118e0fcc89/JYkaXrk2DqpXhaL9WymKY.jpeg
+  urls:
+    - https://huggingface.co/ValiantLabs/Llama3.1-8B-Fireplace2
+    - https://huggingface.co/mudler/Llama3.1-8B-Fireplace2-Q4_K_M-GGUF
+  description: |
+    Fireplace 2 is a chat model, adding helpful structured outputs to Llama 3.1 8b Instruct.
+
+        an expansion pack of supplementary outputs - request them at will within your chat:
+            Inline function calls
+            SQL queries
+            JSON objects
+            Data visualization with matplotlib
+        Mix normal chat and structured outputs within the same conversation.
+        Fireplace 2 supplements the existing strengths of Llama 3.1, providing inline capabilities within the Llama 3 Instruct format.
+
+    Version
+
+    This is the 2024-07-23 release of Fireplace 2 for Llama 3.1 8b.
+
+    We're excited to bring further upgrades and releases to Fireplace 2 in the future.
+
+    Help us and recommend Fireplace 2 to your friends!
+  overrides:
+    parameters:
+      model: llama3.1-8b-fireplace2-q4_k_m.gguf
+  files:
+    - filename: llama3.1-8b-fireplace2-q4_k_m.gguf
+      sha256: 54527fd2474b576086ea31e759214ab240abe2429ae623a02d7ba825cc8cb13e
+      uri: huggingface://mudler/Llama3.1-8B-Fireplace2-Q4_K_M-GGUF/llama3.1-8b-fireplace2-q4_k_m.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
