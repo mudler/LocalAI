@@ -181,6 +181,20 @@
     - filename: Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
       sha256: 12fef8ff0a5c4cf6988523d33d89287edb7531f0d1644707548f45f1387e398a
       uri: huggingface://mradermacher/Llama-3.1-8B-Instruct-Fei-v1-Uncensored-GGUF/Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "openbuddy-llama3.1-8b-v22.1-131k"
+  icon: https://raw.githubusercontent.com/OpenBuddy/OpenBuddy/main/media/demo.png
+  urls:
+    - https://huggingface.co/sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF
+  description: |
+    OpenBuddy - Open Multilingual Chatbot
+  overrides:
+    parameters:
+      model: openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
+  files:
+    - filename: openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
+      sha256: c87a273785759f2d044046b7a7b42f05706baed7dc0650ed883a3bee2a097d86
+      uri: huggingface://sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF/openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
