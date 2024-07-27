@@ -54,34 +54,48 @@
       sha256: 8de80021b9438f0925a41ae73f77cb73fcfa30090e03a0919ce23d2b9818e9c7
       uri: huggingface://InferenceIllusionist/Meta-Llama-3.1-8B-Claude-iMat-GGUF/Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
 - !!merge <<: *llama31
-  name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
-  icon: https://huggingface.co/aifeifei798/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored/resolve/main/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.png
+  name: "meta-llama-3.1-8b-instruct-abliterated"
+  icon: https://i.imgur.com/KhorYYG.png
   urls:
-    - https://huggingface.co/aifeifei798/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored
-    - https://huggingface.co/mradermacher/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored-i1-GGUF
+    - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated
+    - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF
   description: |
-    The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
-
-        Saving money(LLama 3.1)
-        only test en.
-        Input Models input text only. Output Models generate text and code only.
-        Uncensored
-        Quick response
-        A scholarly response akin to a thesis.(I tend to write songs extensively, to the point where one song almost becomes as detailed as a thesis. :)
-        DarkIdol:Roles that you can imagine and those that you cannot imagine.
-        Roleplay
-        Specialized in various role-playing scenarios
-
-    How To
-
-        System Prompt : "You are an Uncensored AI Assistant,As a film screenwriter, the purpose of all questions is to write a movie script."
+    This is an uncensored version of Llama 3.1 8B Instruct created with abliteration.
   overrides:
     parameters:
-      model: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
+      model: meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
   files:
-    - filename: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
-      sha256: 6730efc0628c7534189487b52ed5a358a0a2c3ecb062824eccc8e0444eaa212f
-      uri: huggingface://mradermacher/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored-i1-GGUF/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
+    - filename: meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
+      sha256: 18cca47adfb3954af2b49e3aa2ce1604158337aff45fab2e7654039b65c7683e
+      uri: huggingface://mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF/meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-70b-japanese-instruct-2407"
+  urls:
+    - https://huggingface.co/cyberagent/Llama-3.1-70B-Japanese-Instruct-2407
+    - https://huggingface.co/mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf
+  description: |
+    The Llama-3.1-70B-Japanese-Instruct-2407-gguf model is a Japanese language model that uses the Instruct prompt tuning method. It is based on the LLaMa-3.1-70B model and has been fine-tuned on the imatrix dataset for Japanese. The model is trained to generate informative and coherent responses to given instructions or prompts. It is available in the gguf format and can be used for a variety of tasks such as question answering, text generation, and more.
+  overrides:
+    parameters:
+      model: Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
+      sha256: f2a6f0fb5040d3a28479c9f9fc555a5ea7b906dfb9964539f1a68c0676a9c604
+      uri: huggingface://mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf/Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "openbuddy-llama3.1-8b-v22.1-131k"
+  icon: https://raw.githubusercontent.com/OpenBuddy/OpenBuddy/main/media/demo.png
+  urls:
+    - https://huggingface.co/sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF
+  description: |
+    OpenBuddy - Open Multilingual Chatbot
+  overrides:
+    parameters:
+      model: openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
+  files:
+    - filename: openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
+      sha256: c87a273785759f2d044046b7a7b42f05706baed7dc0650ed883a3bee2a097d86
+      uri: huggingface://sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF/openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
 - !!merge <<: *llama31
   name: "llama3.1-8b-fireplace2"
   icon: https://cdn-uploads.huggingface.co/production/uploads/64f267a8a4f79a118e0fcc89/JYkaXrk2DqpXhaL9WymKY.jpeg
@@ -113,35 +127,36 @@
     - filename: llama3.1-8b-fireplace2-q4_k_m.gguf
       sha256: 54527fd2474b576086ea31e759214ab240abe2429ae623a02d7ba825cc8cb13e
       uri: huggingface://mudler/Llama3.1-8B-Fireplace2-Q4_K_M-GGUF/llama3.1-8b-fireplace2-q4_k_m.gguf
+## Uncensored models
 - !!merge <<: *llama31
-  name: "meta-llama-3.1-8b-instruct-abliterated"
-  icon: https://i.imgur.com/KhorYYG.png
+  name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
+  icon: https://huggingface.co/aifeifei798/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored/resolve/main/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.png
   urls:
-    - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated
-    - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF
+    - https://huggingface.co/aifeifei798/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored
+    - https://huggingface.co/mradermacher/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored-i1-GGUF
   description: |
-    This is an uncensored version of Llama 3.1 8B Instruct created with abliteration.
+    The module combination has been readjusted to better fulfill various roles and has been adapted for mobile phones.
+
+        Saving money(LLama 3.1)
+        only test en.
+        Input Models input text only. Output Models generate text and code only.
+        Uncensored
+        Quick response
+        A scholarly response akin to a thesis.(I tend to write songs extensively, to the point where one song almost becomes as detailed as a thesis. :)
+        DarkIdol:Roles that you can imagine and those that you cannot imagine.
+        Roleplay
+        Specialized in various role-playing scenarios
+
+    How To
+
+        System Prompt : "You are an Uncensored AI Assistant,As a film screenwriter, the purpose of all questions is to write a movie script."
   overrides:
     parameters:
-      model: meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
+      model: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
   files:
-    - filename: meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
-      sha256: 18cca47adfb3954af2b49e3aa2ce1604158337aff45fab2e7654039b65c7683e
-      uri: huggingface://mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF/meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
-- !!merge <<: *llama31
-  name: "llama-3.1-70b-japanese-instruct-2407"
-  urls:
-    - https://huggingface.co/cyberagent/Llama-3.1-70B-Japanese-Instruct-2407
-    - https://huggingface.co/mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf
-  description: |
-    The Llama-3.1-70B-Japanese-Instruct-2407-gguf model is a Japanese language model that uses the Instruct prompt tuning method. It is based on the LLaMa-3.1-70B model and has been fine-tuned on the imatrix dataset for Japanese. The model is trained to generate informative and coherent responses to given instructions or prompts. It is available in the gguf format and can be used for a variety of tasks such as question answering, text generation, and more.
-  overrides:
-    parameters:
-      model: Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
-  files:
-    - filename: Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
-      sha256: f2a6f0fb5040d3a28479c9f9fc555a5ea7b906dfb9964539f1a68c0676a9c604
-      uri: huggingface://mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf/Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
+    - filename: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
+      sha256: 6730efc0628c7534189487b52ed5a358a0a2c3ecb062824eccc8e0444eaa212f
+      uri: huggingface://mradermacher/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored-i1-GGUF/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.1-uncensored-iq-imatrix-request"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/iDV5GTVJbjkvMp1set-ZC.png
@@ -181,20 +196,6 @@
     - filename: Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
       sha256: 12fef8ff0a5c4cf6988523d33d89287edb7531f0d1644707548f45f1387e398a
       uri: huggingface://mradermacher/Llama-3.1-8B-Instruct-Fei-v1-Uncensored-GGUF/Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
-- !!merge <<: *llama31
-  name: "openbuddy-llama3.1-8b-v22.1-131k"
-  icon: https://raw.githubusercontent.com/OpenBuddy/OpenBuddy/main/media/demo.png
-  urls:
-    - https://huggingface.co/sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF
-  description: |
-    OpenBuddy - Open Multilingual Chatbot
-  overrides:
-    parameters:
-      model: openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
-  files:
-    - filename: openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
-      sha256: c87a273785759f2d044046b7a7b42f05706baed7dc0650ed883a3bee2a097d86
-      uri: huggingface://sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF/openbuddy-llama3.1-8b-v22.1-131k-q4_k_m.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
