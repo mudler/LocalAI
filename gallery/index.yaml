@@ -40,6 +40,24 @@
       sha256: 3f16ab17da4521fe3ed7c5d7beed960d3fe7b5b64421ee9650aa53d6b649ccab
       uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF/Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf
 - !!merge <<: *llama31
+  name: "meta-llama-3.1-8b-instruct:grammar-functioncall"
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct-grammar.yaml@master"
+  urls:
+    - https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct
+    - https://huggingface.co/MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF
+  description: |
+    This is the standard Llama 3.1 8B Instruct model with grammar and function call enabled.
+
+    When grammars are enabled in LocalAI, the LLM is forced to output valid tools constrained by BNF grammars. This can be useful for ensuring that the model outputs are valid and can be used in a production environment.
+    For more information on how to use grammars in LocalAI, see https://localai.io/features/openai-functions/#advanced and https://localai.io/features/constrained_grammars/.
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+      sha256: c2f17f44af962660d1ad4cb1af91a731f219f3b326c2b14441f9df1f347f2815
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama31
   name: "meta-llama-3.1-8b-claude-imat"
   urls:
     - https://huggingface.co/Undi95/Meta-Llama-3.1-8B-Claude
