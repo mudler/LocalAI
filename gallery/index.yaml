@@ -129,6 +129,20 @@
       sha256: 18cca47adfb3954af2b49e3aa2ce1604158337aff45fab2e7654039b65c7683e
       uri: huggingface://mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF/meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
 - !!merge <<: *llama31
+  name: "llama-3.1-70b-japanese-instruct-2407"
+  urls:
+    - https://huggingface.co/cyberagent/Llama-3.1-70B-Japanese-Instruct-2407
+    - https://huggingface.co/mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf
+  description: |
+    The Llama-3.1-70B-Japanese-Instruct-2407-gguf model is a Japanese language model that uses the Instruct prompt tuning method. It is based on the LLaMa-3.1-70B model and has been fine-tuned on the imatrix dataset for Japanese. The model is trained to generate informative and coherent responses to given instructions or prompts. It is available in the gguf format and can be used for a variety of tasks such as question answering, text generation, and more.
+  overrides:
+    parameters:
+      model: Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
+      sha256: f2a6f0fb5040d3a28479c9f9fc555a5ea7b906dfb9964539f1a68c0676a9c604
+      uri: huggingface://mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf/Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
+- !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.1-uncensored-iq-imatrix-request"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/iDV5GTVJbjkvMp1set-ZC.png
   urls:
