@@ -128,6 +128,7 @@
     - filename: meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
       sha256: 18cca47adfb3954af2b49e3aa2ce1604158337aff45fab2e7654039b65c7683e
       uri: huggingface://mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF/meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
+- !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.1-uncensored-iq-imatrix-request"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/iDV5GTVJbjkvMp1set-ZC.png
   urls:
