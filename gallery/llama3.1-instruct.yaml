@@ -49,7 +49,7 @@ config_file: |
       {{.Input }}
       <|start_header_id|>assistant<|end_header_id|>
     chat: |
-      <|begin_of_text|>{{.Input }}
+      {{.Input }}
       <|start_header_id|>assistant<|end_header_id|>
     completion: |
       {{.Input}}
