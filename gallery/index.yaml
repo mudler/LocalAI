@@ -205,15 +205,15 @@
     - https://huggingface.co/aifeifei799/Llama-3.1-8B-Instruct-Fei-v1-Uncensored
     - https://huggingface.co/mradermacher/Llama-3.1-8B-Instruct-Fei-v1-Uncensored-GGUF
   description: |
-      Llama-3.1-8B-Instruct Uncensored
-      more informtion look at Llama-3.1-8B-Instruct
+    Llama-3.1-8B-Instruct Uncensored
+    more informtion look at Llama-3.1-8B-Instruct
   overrides:
     parameters:
       model: Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
   files:
     - filename: Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
-      sha256: 12fef8ff0a5c4cf6988523d33d89287edb7531f0d1644707548f45f1387e398a
       uri: huggingface://mradermacher/Llama-3.1-8B-Instruct-Fei-v1-Uncensored-GGUF/Llama-3.1-8B-Instruct-Fei-v1-Uncensored.Q4_K_M.gguf
+      sha256: 6b1985616160712eb884c34132dc0602fa4600a19075e3a7b179119b89b73f77
 - !!merge <<: *llama31
   name: "lumimaid-v0.2-8b"
   urls:
@@ -221,15 +221,15 @@
     - https://huggingface.co/mradermacher/Lumimaid-v0.2-8B-GGUF
   icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/TUcHg7LKNjfo0sni88Ps7.png
   description: |
-      This model is based on: Meta-Llama-3.1-8B-Instruct
+    This model is based on: Meta-Llama-3.1-8B-Instruct
 
-      Wandb: https://wandb.ai/undis95/Lumi-Llama-3-1-8B?nw=nwuserundis95
+    Wandb: https://wandb.ai/undis95/Lumi-Llama-3-1-8B?nw=nwuserundis95
 
-      Lumimaid 0.1 -> 0.2 is a HUGE step up dataset wise.
+    Lumimaid 0.1 -> 0.2 is a HUGE step up dataset wise.
 
-      As some people have told us our models are sloppy, Ikari decided to say fuck it and literally nuke all chats out with most slop.
+    As some people have told us our models are sloppy, Ikari decided to say fuck it and literally nuke all chats out with most slop.
 
-      Our dataset stayed the same since day one, we added data over time, cleaned them, and repeat. After not releasing model for a while because we were never satisfied, we think it's time to come back!
+    Our dataset stayed the same since day one, we added data over time, cleaned them, and repeat. After not releasing model for a while because we were never satisfied, we think it's time to come back!
   overrides:
     parameters:
       model: Lumimaid-v0.2-8B.Q4_K_M.gguf
