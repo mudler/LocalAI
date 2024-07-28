@@ -2108,6 +2108,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     data["grammar"] = predict->grammar();
     data["prompt"] = predict->prompt();
     data["ignore_eos"] = predict->ignoreeos();
+    data["embeddings"] = predict->embeddings();
 
     // for each image in the request, add the image data
     //
@@ -2258,7 +2259,6 @@ static void params_parse(const backend::ModelOptions* request,
      // get the directory of modelfile
      std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
      params.lora_adapter.push_back(std::make_tuple(model_dir + "/"+request->loraadapter(), scale_factor));
-     params.lora_base  =  model_dir + "/"+request->lorabase();
     }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();
@@ -2377,6 +2377,31 @@ public:
             reply->set_prompt_tokens(tokens_evaluated);
             reply->set_tokens(tokens_predicted);
             reply->set_message(completion_text);
+        }
+        else
+        {
+            return grpc::Status::OK;
+        }
+
+        return grpc::Status::OK;
+    }
+
+    /// https://github.com/ggerganov/llama.cpp/blob/aa2341298924ac89778252015efcb792f2df1e20/examples/server/server.cpp#L2969
+    grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) {
+        json data = parse_options(false, request, llama);
+        const int task_id = llama.queue_tasks.get_new_id();
+        llama.queue_results.add_waiting_task_id(task_id);
+        llama.request_completion(task_id, { {"prompt", data["embeddings"]}, { "n_predict", 0}, {"image_data", ""} }, false, true, -1);
+        // get the result
+        task_result result = llama.queue_results.recv(task_id);
+        //std::cout << "Embedding result JSON" << result.result_json.dump() << std::endl;
+        llama.queue_results.remove_waiting_task_id(task_id);
+        if (!result.error && result.stop) {
+            std::vector<float> embeddings = result.result_json.value("embedding", std::vector<float>());
+            // loop the vector and set the embeddings results
+            for (int i = 0; i < embeddings.size(); i++) {
+                embeddingResult->add_embeddings(embeddings[i]);
+            }
         }
         else
         {

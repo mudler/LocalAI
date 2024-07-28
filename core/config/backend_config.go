@@ -33,7 +33,7 @@ type BackendConfig struct {
 	Threads        *int              `yaml:"threads"`
 	Debug          *bool             `yaml:"debug"`
 	Roles          map[string]string `yaml:"roles"`
-	Embeddings     bool              `yaml:"embeddings"`
+	Embeddings     *bool             `yaml:"embeddings"`
 	Backend        string            `yaml:"backend"`
 	TemplateConfig TemplateConfig    `yaml:"template"`
 
@@ -337,6 +337,10 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.LowVRAM == nil {
 		cfg.LowVRAM = &falseV
+	}
+
+	if cfg.Embeddings == nil {
+		cfg.Embeddings = &falseV
 	}
 
 	// Value passed by the top level are treated as default (no implicit defaults)

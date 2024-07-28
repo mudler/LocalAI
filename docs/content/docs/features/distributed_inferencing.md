@@ -5,17 +5,65 @@ weight = 15
 url = "/features/distribute/"
 +++
 
+
+This functionality enables LocalAI to distribute inference requests across multiple worker nodes, improving efficiency and performance. Nodes are automatically discovered and connect via p2p by using a shared token which makes sure the communication is secure and private between the nodes of the network.
+
+LocalAI supports two modes of distributed inferencing via p2p:
+
+- **Federated Mode**: Requests are shared between the cluster and routed to a single worker node in the network based on the load balancer's decision.
+- **Worker Mode** (aka "model sharding" or "splitting weights"): Requests are processed by all the workers which contributes to the final inference result (by sharing the model weights).
+
+## Usage
+
+Starting LocalAI with `--p2p` generates a shared token for connecting multiple instances: and that's all you need to create AI clusters, eliminating the need for intricate network setups. 
+
+Simply navigate to the "Swarm" section in the WebUI and follow the on-screen instructions.
+
+For fully shared instances, initiate LocalAI with --p2p --federated and adhere to the Swarm section's guidance. This feature, while still experimental, offers a tech preview quality experience.
+
+### Federated mode
+
+Federated mode allows to launch multiple LocalAI instances and connect them together in a federated network. This mode is useful when you want to distribute the load of the inference across multiple nodes, but you want to have a single point of entry for the API. In the Swarm section of the WebUI, you can see the instructions to connect multiple instances together.
+
+![346663124-1d2324fd-8b55-4fa2-9856-721a467969c2](https://github.com/user-attachments/assets/19ebd44a-20ff-412c-b92f-cfb8efbe4b21)
+
+To start a LocalAI server in federated mode, run:
+
+```bash
+local-ai run --p2p --federated
+```
+
+This will generate a token that you can use to connect other LocalAI instances to the network or others can use to join the network. If you already have a token, you can specify it using the `TOKEN` environment variable.
+
+To start a load balanced server that routes the requests to the network, run with the `TOKEN`:
+
+```bash
+local-ai federated
+```
+
+To see all the available options, run `local-ai federated --help`.
+
+The instructions are displayed in the "Swarm" section of the WebUI, guiding you through the process of connecting multiple instances.
+
+### Workers mode
+
 {{% alert note %}}
 This feature is available exclusively with llama-cpp compatible models.
 
 This feature was introduced in [LocalAI pull request #2324](https://github.com/mudler/LocalAI/pull/2324) and is based on the upstream work in [llama.cpp pull request #6829](https://github.com/ggerganov/llama.cpp/pull/6829).
 {{% /alert %}}
 
-This functionality enables LocalAI to distribute inference requests across multiple worker nodes, improving efficiency and performance.
+To connect multiple workers to a single LocalAI instance, start first a server in p2p mode:
 
-## Usage
+```bash
+local-ai run --p2p
+```
 
-### Starting Workers
+And navigate the WebUI to the "Swarm" section to see the instructions to connect multiple workers to the network.
+
+![346663124-1d2324fd-8b55-4fa2-9856-721a467969c2](https://github.com/user-attachments/assets/b8cadddf-a467-49cf-a1ed-8850de95366d)
+
+### Without P2P
 
 To start workers for distributing the computational load, run:
 
@@ -23,48 +71,27 @@ To start workers for distributing the computational load, run:
 local-ai worker llama-cpp-rpc <listening_address> <listening_port>
 ```
 
-Alternatively, you can build the RPC server following the llama.cpp [README](https://github.com/ggerganov/llama.cpp/blob/master/examples/rpc/README.md), which is compatible with LocalAI.
-
-### Starting LocalAI
-
-To start the LocalAI server, which handles API requests, specify the worker addresses using the `LLAMACPP_GRPC_SERVERS` environment variable:
+And you can specify the address of the workers when starting LocalAI with the `LLAMACPP_GRPC_SERVERS` environment variable:
 
 ```bash
 LLAMACPP_GRPC_SERVERS="address1:port,address2:port" local-ai run
 ```
-
 The workload on the LocalAI server will then be distributed across the specified nodes.
 
-## Peer-to-Peer Networking
+Alternatively, you can build the RPC workers/server following the llama.cpp [README](https://github.com/ggerganov/llama.cpp/blob/master/examples/rpc/README.md), which is compatible with LocalAI.
 
-![output](https://github.com/mudler/LocalAI/assets/2420543/8ca277cf-c208-4562-8929-808b2324b584)
+## Manual example (worker)
 
-Workers can also connect to each other in a peer-to-peer network, distributing the workload in a decentralized manner.
-
-A shared token between the server and the workers is required for communication within the peer-to-peer network. This feature supports both local network (using mDNS discovery) and DHT for communication across different networks.
-
-The token is automatically generated when starting the server with the `--p2p` flag. Workers can be started with the token using `local-ai worker p2p-llama-cpp-rpc` and specifying the token via the environment variable `TOKEN` or with the `--token` argument.
-
-A network is established between the server and workers using DHT and mDNS discovery protocols. The llama.cpp RPC server is automatically started and exposed to the peer-to-peer network, allowing the API server to connect.
-
-When the HTTP server starts, it discovers workers in the network and creates port forwards to the local service. Llama.cpp is configured to use these services. For more details on the implementation, refer to [LocalAI pull request #2343](https://github.com/mudler/LocalAI/pull/2343).
-
-### Usage
+Use the WebUI to guide you in the process of starting new workers. This example shows the manual steps to highlight the process.
 
 1. Start the server with `--p2p`:
 
 ```bash
 ./local-ai run --p2p
-# 1:02AM INF loading environment variables from file envFile=.env
-# 1:02AM INF Setting logging to info
-# 1:02AM INF P2P mode enabled
-# 1:02AM INF No token provided, generating one
-# 1:02AM INF Generated Token:
-# XXXXXXXXXXX
-# 1:02AM INF Press a button to proceed
+# Get the token in the Swarm section of the WebUI
 ```
 
-Copy the displayed token and press Enter.
+Copy the token from the WebUI or via API call (e.g., `curl http://localhost:8000/p2p/token`) and save it for later use.
 
 To reuse the same token later, restart the server with `--p2ptoken` or `P2P_TOKEN`.
 
@@ -93,11 +120,7 @@ The server logs should indicate that new workers are being discovered.
 
 3. Start inference as usual on the server initiated in step 1.
 
-## Notes
-
-- If running in p2p mode with container images, make sure you start the container with `--net host` or `network_mode: host` in the docker-compose file.
-- Only a single model is supported currently.
-- Ensure the server detects new workers before starting inference. Currently, additional workers cannot be added once inference has begun.
+![output](https://github.com/mudler/LocalAI/assets/2420543/8ca277cf-c208-4562-8929-808b2324b584)
 
 
 ## Environment Variables
@@ -109,3 +132,20 @@ There are options that can be tweaked or parameters that can be set using enviro
 | **LOCALAI_P2P_DISABLE_DHT** | Set to "true" to disable DHT and enable p2p layer to be local only (mDNS) |
 | **LOCALAI_P2P_DISABLE_LIMITS** | Set to "true" to disable connection limits and resources management |
 | **LOCALAI_P2P_TOKEN** | Set the token for the p2p network |
+
+## Architecture
+
+LocalAI uses https://github.com/libp2p/go-libp2p under the hood, the same project powering IPFS. Differently from other frameworks, LocalAI uses peer2peer without a single master server, but rather it uses sub/gossip and ledger functionalities to achieve consensus across different peers. 
+
+[EdgeVPN](https://github.com/mudler/edgevpn) is used as a library to establish the network and expose the ledger functionality under a shared token to ease out automatic discovery and have separated, private peer2peer networks.
+
+The weights are split proportional to the memory when running into worker mode, when in federation mode each request is split to every node which have to load the model fully.
+
+## Notes
+
+- If running in p2p mode with container images, make sure you start the container with `--net host` or `network_mode: host` in the docker-compose file.
+- Only a single model is supported currently.
+- Ensure the server detects new workers before starting inference. Currently, additional workers cannot be added once inference has begun.
+- For more details on the implementation, refer to [LocalAI pull request #2343](https://github.com/mudler/LocalAI/pull/2343)
+
+

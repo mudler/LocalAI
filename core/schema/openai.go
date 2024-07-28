@@ -2,6 +2,7 @@ package schema
 
 import (
 	"context"
+	"time"
 
 	functions "github.com/mudler/LocalAI/pkg/functions"
 )
@@ -99,6 +100,37 @@ type OpenAIModel struct {
 	Object string `json:"object"`
 }
 
+type DeleteAssistantResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Deleted bool   `json:"deleted"`
+}
+
+// File represents the structure of a file object from the OpenAI API.
+type File struct {
+	ID        string    `json:"id"`         // Unique identifier for the file
+	Object    string    `json:"object"`     // Type of the object (e.g., "file")
+	Bytes     int       `json:"bytes"`      // Size of the file in bytes
+	CreatedAt time.Time `json:"created_at"` // The time at which the file was created
+	Filename  string    `json:"filename"`   // The name of the file
+	Purpose   string    `json:"purpose"`    // The purpose of the file (e.g., "fine-tune", "classifications", etc.)
+}
+
+type ListFiles struct {
+	Data   []File
+	Object string
+}
+
+type AssistantFileRequest struct {
+	FileID string `json:"file_id"`
+}
+
+type DeleteAssistantFileResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Deleted bool   `json:"deleted"`
+}
+
 type ImageGenerationResponseFormat string
 
 type ChatCompletionResponseFormatType string
@@ -147,8 +179,7 @@ type OpenAIRequest struct {
 	// A grammar to constrain the LLM output
 	Grammar string `json:"grammar" yaml:"grammar"`
 
-	JSONFunctionGrammarObject     *functions.JSONFunctionStructureFunction `json:"grammar_json_functions" yaml:"grammar_json_functions"`
-	JSONFunctionGrammarObjectName *functions.JSONFunctionStructureName     `json:"grammar_json_name" yaml:"grammar_json_name"`
+	JSONFunctionGrammarObject *functions.JSONFunctionStructure `json:"grammar_json_functions" yaml:"grammar_json_functions"`
 
 	Backend string `json:"backend" yaml:"backend"`
 

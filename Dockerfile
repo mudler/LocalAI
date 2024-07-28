@@ -24,7 +24,7 @@ RUN apt-get update && \
         cmake \
         curl \
         git \
-        unzip && \
+        unzip upx-ucl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -99,7 +99,7 @@ FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
-ARG CUDA_MINOR_VERSION=4
+ARG CUDA_MINOR_VERSION=0
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 
@@ -108,11 +108,11 @@ RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
-                        software-properties-common pciutils wget gpg-agent && \
+            software-properties-common pciutils wget gpg-agent && \
         wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
         wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list && \
         apt-get update && \
-            apt-get install -y \
+        apt-get install -y \
             vulkan-sdk && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
@@ -124,33 +124,13 @@ RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "cublas" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
-                        software-properties-common pciutils
+            software-properties-common pciutils
         if [ "amd64" = "$TARGETARCH" ]; then
             curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
-            fi
+        fi
         if [ "arm64" = "$TARGETARCH" ]; then
             curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
         fi
-        dpkg -i cuda-keyring_1.1-1_all.deb && \
-            rm -f cuda-keyring_1.1-1_all.deb && \
-            apt-get update && \
-            apt-get install -y --no-install-recommends \
-                cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-                libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-                libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-                libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-                libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-                libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
-            apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
-    fi
-EOT
-
-RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
-        apt-get update && \
-        apt-get install -y  --no-install-recommends \
-            software-properties-common pciutils && \
-        curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
         dpkg -i cuda-keyring_1.1-1_all.deb && \
         rm -f cuda-keyring_1.1-1_all.deb && \
         apt-get update && \
@@ -162,8 +142,9 @@ RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
             libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
 
 # If we are building with clblas support, we need the libraries for the builds
 RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \

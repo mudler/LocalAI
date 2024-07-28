@@ -21,6 +21,40 @@ import (
 	"github.com/google/uuid"
 )
 
+type modelOpCache struct {
+	status *xsync.SyncedMap[string, string]
+}
+
+func NewModelOpCache() *modelOpCache {
+	return &modelOpCache{
+		status: xsync.NewSyncedMap[string, string](),
+	}
+}
+
+func (m *modelOpCache) Set(key string, value string) {
+	m.status.Set(key, value)
+}
+
+func (m *modelOpCache) Get(key string) string {
+	return m.status.Get(key)
+}
+
+func (m *modelOpCache) DeleteUUID(uuid string) {
+	for _, k := range m.status.Keys() {
+		if m.status.Get(k) == uuid {
+			m.status.Delete(k)
+		}
+	}
+}
+
+func (m *modelOpCache) Map() map[string]string {
+	return m.status.Map()
+}
+
+func (m *modelOpCache) Exists(key string) bool {
+	return m.status.Exists(key)
+}
+
 func RegisterUIRoutes(app *fiber.App,
 	cl *config.BackendConfigLoader,
 	ml *model.ModelLoader,
@@ -29,7 +63,7 @@ func RegisterUIRoutes(app *fiber.App,
 	auth func(*fiber.Ctx) error) {
 
 	// keeps the state of models that are being installed from the UI
-	var processingModels = xsync.NewSyncedMap[string, string]()
+	var processingModels = NewModelOpCache()
 
 	// modelStatus returns the current status of the models being processed (installation or deletion)
 	// it is called asynchonously from the UI
@@ -232,6 +266,8 @@ func RegisterUIRoutes(app *fiber.App,
 			return c.SendString(elements.ProgressBar("100"))
 		}
 		if status.Error != nil {
+			// TODO: instead of deleting the job, we should keep it in the cache and make it dismissable
+			processingModels.DeleteUUID(jobUID)
 			return c.SendString(elements.ErrorProgress(status.Error.Error(), status.GalleryModelName))
 		}
 
@@ -246,12 +282,7 @@ func RegisterUIRoutes(app *fiber.App,
 		status := galleryService.GetStatus(jobUID)
 
 		galleryID := ""
-		for _, k := range processingModels.Keys() {
-			if processingModels.Get(k) == jobUID {
-				galleryID = k
-				processingModels.Delete(k)
-			}
-		}
+		processingModels.DeleteUUID(jobUID)
 		if galleryID == "" {
 			log.Debug().Msgf("no processing model found for job : %+v\n", jobUID)
 		}

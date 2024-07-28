@@ -41,7 +41,7 @@ jobs:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
           commit-message: ':arrow_up: Checksum updates in gallery/index.yaml'
-          title: 'models(gallery): :arrow_up: update checksum'
+          title: 'chore(model-gallery): :arrow_up: update checksum'
           branch: "update/checksum"
           body: Updating checksums in gallery/index.yaml
           signoff: true
