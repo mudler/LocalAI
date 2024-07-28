@@ -194,7 +194,7 @@ install_container_toolkit_yum() {
     curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | \
     $SUDO  tee /etc/yum.repos.d/nvidia-container-toolkit.repo
 
-    if [ "$PACKAGE_MANAGER" == "dnf" ]; then
+    if [ "$PACKAGE_MANAGER" = "dnf" ]; then
         $SUDO $PACKAGE_MANAGER config-manager --enable nvidia-container-toolkit-experimental
     else 
         $SUDO $PACKAGE_MANAGER -y install yum-utils
@@ -629,7 +629,7 @@ case "$ARCH" in
     *) fatal "Unsupported architecture: $ARCH" ;;
 esac
 
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" = "Darwin" ]; then
     install_binary_darwin
     exit 0
 fi
