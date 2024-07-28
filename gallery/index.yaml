@@ -84,8 +84,8 @@
       model: meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
   files:
     - filename: meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
-      sha256: 18cca47adfb3954af2b49e3aa2ce1604158337aff45fab2e7654039b65c7683e
       uri: huggingface://mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF/meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
+      sha256: 2e1fd6d93b19cc6548b2b8ed2d3f1f34b432ee0573f3dcf358bbaab4f23c760b
 - !!merge <<: *llama31
   name: "llama-3.1-70b-japanese-instruct-2407"
   urls:
@@ -173,8 +173,8 @@
       model: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
   files:
     - filename: DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
-      sha256: 6730efc0628c7534189487b52ed5a358a0a2c3ecb062824eccc8e0444eaa212f
       uri: huggingface://mradermacher/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored-i1-GGUF/DarkIdol-Llama-3.1-8B-Instruct-1.0-Uncensored.i1-Q4_K_M.gguf
+      sha256: 9632316d735365087f36083dec320a71995650deb86cf74f39ab071e43114eb8
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.1-uncensored-iq-imatrix-request"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/iDV5GTVJbjkvMp1set-ZC.png
