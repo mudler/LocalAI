@@ -442,7 +442,7 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_EMBEDDINGS) == FLAG_EMBEDDINGS {
-		if !c.Embeddings {
+		if c.Embeddings == nil || !*c.Embeddings {
 			return false
 		}
 	}
