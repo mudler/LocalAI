@@ -101,13 +101,14 @@ parameters:
 		Expect(d.HasUsecases(FLAG_COMPLETION)).To(BeTrue())
 		Expect(d.HasUsecases(FLAG_CHAT)).To(BeTrue())
 
+		trueValue := true
 		e := BackendConfig{
 			Name:    "e",
 			Backend: "llama-cpp",
 			TemplateConfig: TemplateConfig{
 				Completion: "completion",
 			},
-			Embeddings: true,
+			Embeddings: &trueValue,
 		}
 
 		Expect(e.HasUsecases(FLAG_ANY)).To(BeTrue())
