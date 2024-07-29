@@ -237,6 +237,29 @@
     - filename: Lumimaid-v0.2-8B.Q4_K_M.gguf
       sha256: c8024fcb49c71410903d0d076a1048249fa48b31637bac5177bf5c3f3d603d85
       uri: huggingface://mradermacher/Lumimaid-v0.2-8B-GGUF/Lumimaid-v0.2-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "lumimaid-v0.2-70b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/HY1KTq6FMAm-CwmY8-ndO.png
+  urls:
+    - https://huggingface.co/NeverSleep/Lumimaid-v0.2-70B
+    - https://huggingface.co/mradermacher/Lumimaid-v0.2-70B-i1-GGUF
+  description: |
+    This model is based on: Meta-Llama-3.1-8B-Instruct
+
+    Wandb: https://wandb.ai/undis95/Lumi-Llama-3-1-8B?nw=nwuserundis95
+
+    Lumimaid 0.1 -> 0.2 is a HUGE step up dataset wise.
+
+    As some people have told us our models are sloppy, Ikari decided to say fuck it and literally nuke all chats out with most slop.
+
+    Our dataset stayed the same since day one, we added data over time, cleaned them, and repeat. After not releasing model for a while because we were never satisfied, we think it's time to come back!
+  overrides:
+    parameters:
+      model: Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
+      sha256: 4857da8685cb0f3d2b8b8c91fb0c07b35b863eb7c185e93ed83ac338e095cbb5
+      uri: huggingface://mradermacher/Lumimaid-v0.2-70B-i1-GGUF/Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
