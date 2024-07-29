@@ -515,6 +515,21 @@
     - filename: StellarDong-72b.i1-Q4_K_M.gguf
       sha256: 4c5012f0a034f40a044904891343ade2594f29c28a8a9d8052916de4dc5a61df
       uri: huggingface://mradermacher/StellarDong-72b-i1-GGUF/StellarDong-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "magnum-32b-v1-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/635567189c72a7e742f1419c/PK7xRSd18Du0bX-w_t-9c.png
+  urls:
+    - https://huggingface.co/anthracite-org/magnum-32b-v1
+    - https://huggingface.co/mradermacher/magnum-32b-v1-i1-GGUF
+  description: |
+    This is the second in a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus. This model is fine-tuned on top of Qwen1.5 32B.
+  overrides:
+    parameters:
+      model: magnum-32b-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: magnum-32b-v1.i1-Q4_K_M.gguf
+      sha256: a31704ce0d7e5b774f155522b9ab7ef6015a4ece4e9056bf4dfc6cac561ff0a3
+      uri: huggingface://mradermacher/magnum-32b-v1-i1-GGUF/magnum-32b-v1.i1-Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
