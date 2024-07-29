@@ -158,6 +158,26 @@
     - filename: Sekhmet_Aleph-L3.1-8B-v0.1.i1-Q4_K_M.gguf
       sha256: 5b6f4eaa2091bf13a2b563a54a3f87b22efa7f2862362537c956c70da6e11cea
       uri: huggingface://mradermacher/Sekhmet_Aleph-L3.1-8B-v0.1-i1-GGUF/Sekhmet_Aleph-L3.1-8B-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-llamoutcast-i1"
+  icon: https://files.catbox.moe/ecgn0m.jpg
+  urls:
+    - https://huggingface.co/Envoid/L3.1-8B-Llamoutcast
+    - https://huggingface.co/mradermacher/L3.1-8B-Llamoutcast-i1-GGUF
+  description: |
+    Warning: this model is utterly cursed.
+    Llamoutcast
+
+    This model was originally intended to be a DADA finetune of Llama-3.1-8B-Instruct but the results were unsatisfactory. So it received some additional finetuning on a rawtext dataset and now it is utterly cursed.
+
+    It responds to Llama-3 Instruct formatting.
+  overrides:
+    parameters:
+      model: L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
+      sha256: 438ca0a7e9470f5ee40f3b14dc2da41b1cafc4ad4315dead3eb57924109d5cf6
+      uri: huggingface://mradermacher/L3.1-8B-Llamoutcast-i1-GGUF/L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
