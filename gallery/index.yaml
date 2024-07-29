@@ -145,6 +145,19 @@
     - filename: llama3.1-8b-fireplace2-q4_k_m.gguf
       sha256: 54527fd2474b576086ea31e759214ab240abe2429ae623a02d7ba825cc8cb13e
       uri: huggingface://mudler/Llama3.1-8B-Fireplace2-Q4_K_M-GGUF/llama3.1-8b-fireplace2-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "sekhmet_aleph-l3.1-8b-v0.1-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/SVyiW4mu495ngqszJGWRl.png
+  urls:
+    - https://huggingface.co/Nitral-Archive/Sekhmet_Aleph-L3.1-8B-v0.1
+    - https://huggingface.co/mradermacher/Sekhmet_Aleph-L3.1-8B-v0.1-i1-GGUF
+  overrides:
+    parameters:
+      model: Sekhmet_Aleph-L3.1-8B-v0.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Sekhmet_Aleph-L3.1-8B-v0.1.i1-Q4_K_M.gguf
+      sha256: 5b6f4eaa2091bf13a2b563a54a3f87b22efa7f2862362537c956c70da6e11cea
+      uri: huggingface://mradermacher/Sekhmet_Aleph-L3.1-8B-v0.1-i1-GGUF/Sekhmet_Aleph-L3.1-8B-v0.1.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
