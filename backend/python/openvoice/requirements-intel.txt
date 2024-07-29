@@ -18,6 +18,6 @@ python-dotenv
 pypinyin==0.50.0
 cn2an==0.5.22
 jieba==0.42.1
-gradio==4.38.1
+gradio==4.39.0
 langid==1.1.6
 git+https://github.com/myshell-ai/MeloTTS.git
