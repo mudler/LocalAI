@@ -178,6 +178,22 @@
     - filename: L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
       sha256: 438ca0a7e9470f5ee40f3b14dc2da41b1cafc4ad4315dead3eb57924109d5cf6
       uri: huggingface://mradermacher/L3.1-8B-Llamoutcast-i1-GGUF/L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-guard-3-8b"
+  urls:
+    - https://huggingface.co/meta-llama/Llama-Guard-3-8B
+    - https://huggingface.co/QuantFactory/Llama-Guard-3-8B-GGUF
+  description: |
+    Llama Guard 3 is a Llama-3.1-8B pretrained model, fine-tuned for content safety classification. Similar to previous versions, it can be used to classify content in both LLM inputs (prompt classification) and in LLM responses (response classification). It acts as an LLM – it generates text in its output that indicates whether a given prompt or response is safe or unsafe, and if unsafe, it also lists the content categories violated.
+
+    Llama Guard 3 was aligned to safeguard against the MLCommons standardized hazards taxonomy and designed to support Llama 3.1 capabilities. Specifically, it provides content moderation in 8 languages, and was optimized to support safety and security for search and code interpreter tool calls.
+  overrides:
+    parameters:
+      model: Llama-Guard-3-8B.Q4_K_M.gguf
+  files:
+    - filename: Llama-Guard-3-8B.Q4_K_M.gguf
+      sha256: c5ea8760a1e544eea66a8915fcc3fbd2c67357ea2ee6871a9e6a6c33b64d4981
+      uri: huggingface://QuantFactory/Llama-Guard-3-8B-GGUF/Llama-Guard-3-8B.Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
@@ -293,6 +309,22 @@
     - filename: Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
       sha256: 4857da8685cb0f3d2b8b8c91fb0c07b35b863eb7c185e93ed83ac338e095cbb5
       uri: huggingface://mradermacher/Lumimaid-v0.2-70B-i1-GGUF/Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-celeste-v1.5"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630cf5d14ca0a22768bbe10c/QcU3xEgVu18jeFtMFxIw-.webp
+  urls:
+    - https://huggingface.co/nothingiisreal/L3.1-8B-Celeste-V1.5
+    - https://huggingface.co/bartowski/L3.1-8B-Celeste-V1.5-GGUF
+  description: |
+    The LLM model is a large language model trained on a combination of datasets including nothingiisreal/c2-logs-cleaned, kalomaze/Opus_Instruct_25k, and nothingiisreal/Reddit-Dirty-And-WritingPrompts. The training was performed on a combination of English-language data using the Hugging Face Transformers library.
+    Trained on LLaMA 3.1 8B Instruct at 8K context using a new mix of Reddit Writing Prompts, Kalo's Opus 25K Instruct and c2 logs cleaned This version has the highest coherency and is very strong on OOC: instruct following.
+  overrides:
+    parameters:
+      model: L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
+  files:
+    - filename: L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
+      sha256: a408dfbbd91ed5561f70d3129af040dfd06704d6c7fa21146aa9f09714aafbc6
+      uri: huggingface://bartowski/L3.1-8B-Celeste-V1.5-GGUF/L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -3673,6 +3705,19 @@
     - filename: calme-2.4-llama3-70b.Q4_K_M.gguf
       sha256: 0b44ac8a88395dfc60f1b9d3cfffc0ffef74ec0a302e610ef91fc787187568f2
       uri: huggingface://mradermacher/calme-2.4-llama3-70b-GGUF/calme-2.4-llama3-70b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "meta-llama-3-instruct-8.9b-brainstorm-5x-form-11"
+  urls:
+    - https://huggingface.co/DavidAU/Meta-Llama-3-Instruct-8.9B-BRAINSTORM-5x-FORM-11-GGUF
+  description: |
+    Meta-Llama-3-8B Instruct (now at 8.9B) is an enhanced version of the LLM model, specifically designed for creative use cases such as story writing, roleplaying, and fiction. This model has been augmented through the "Brainstorm" process, which involves expanding and calibrating the reasoning center of the LLM to improve its performance in various creative tasks. The enhancements brought by this process include more detailed and nuanced descriptions, stronger prose, and a greater sense of immersion in the story. The model is capable of generating long and vivid content, with fewer clichés and more focused, coherent narratives. Users can provide more instructions and details to elicit stronger and more engaging responses from the model. The "Brainstorm" process has been tested on multiple LLM models, including Llama2, Llama3, and Mistral, as well as on individual models like Llama3 Instruct, Mistral Instruct, and custom fine-tuned models.
+  overrides:
+    parameters:
+      model: Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
+      sha256: 5dd81b8b809667d10036499affdd1461cf95af50b405cbc9f800b421a4b60e98
+      uri: huggingface://DavidAU/Meta-Llama-3-Instruct-8.9B-BRAINSTORM-5x-FORM-11-GGUF/Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
