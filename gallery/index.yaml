@@ -178,6 +178,22 @@
     - filename: L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
       sha256: 438ca0a7e9470f5ee40f3b14dc2da41b1cafc4ad4315dead3eb57924109d5cf6
       uri: huggingface://mradermacher/L3.1-8B-Llamoutcast-i1-GGUF/L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-guard-3-8b"
+  urls:
+    - https://huggingface.co/meta-llama/Llama-Guard-3-8B
+    - https://huggingface.co/QuantFactory/Llama-Guard-3-8B-GGUF
+  description: |
+    Llama Guard 3 is a Llama-3.1-8B pretrained model, fine-tuned for content safety classification. Similar to previous versions, it can be used to classify content in both LLM inputs (prompt classification) and in LLM responses (response classification). It acts as an LLM – it generates text in its output that indicates whether a given prompt or response is safe or unsafe, and if unsafe, it also lists the content categories violated.
+
+    Llama Guard 3 was aligned to safeguard against the MLCommons standardized hazards taxonomy and designed to support Llama 3.1 capabilities. Specifically, it provides content moderation in 8 languages, and was optimized to support safety and security for search and code interpreter tool calls.
+  overrides:
+    parameters:
+      model: Llama-Guard-3-8B.Q4_K_M.gguf
+  files:
+    - filename: Llama-Guard-3-8B.Q4_K_M.gguf
+      sha256: c5ea8760a1e544eea66a8915fcc3fbd2c67357ea2ee6871a9e6a6c33b64d4981
+      uri: huggingface://QuantFactory/Llama-Guard-3-8B-GGUF/Llama-Guard-3-8B.Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
