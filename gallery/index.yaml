@@ -3705,6 +3705,19 @@
     - filename: calme-2.4-llama3-70b.Q4_K_M.gguf
       sha256: 0b44ac8a88395dfc60f1b9d3cfffc0ffef74ec0a302e610ef91fc787187568f2
       uri: huggingface://mradermacher/calme-2.4-llama3-70b-GGUF/calme-2.4-llama3-70b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "meta-llama-3-instruct-8.9b-brainstorm-5x-form-11"
+  urls:
+    - https://huggingface.co/DavidAU/Meta-Llama-3-Instruct-8.9B-BRAINSTORM-5x-FORM-11-GGUF
+  description: |
+    Meta-Llama-3-8B Instruct (now at 8.9B) is an enhanced version of the LLM model, specifically designed for creative use cases such as story writing, roleplaying, and fiction. This model has been augmented through the "Brainstorm" process, which involves expanding and calibrating the reasoning center of the LLM to improve its performance in various creative tasks. The enhancements brought by this process include more detailed and nuanced descriptions, stronger prose, and a greater sense of immersion in the story. The model is capable of generating long and vivid content, with fewer clichés and more focused, coherent narratives. Users can provide more instructions and details to elicit stronger and more engaging responses from the model. The "Brainstorm" process has been tested on multiple LLM models, including Llama2, Llama3, and Mistral, as well as on individual models like Llama3 Instruct, Mistral Instruct, and custom fine-tuned models.
+  overrides:
+    parameters:
+      model: Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
+      sha256: 5dd81b8b809667d10036499affdd1461cf95af50b405cbc9f800b421a4b60e98
+      uri: huggingface://DavidAU/Meta-Llama-3-Instruct-8.9B-BRAINSTORM-5x-FORM-11-GGUF/Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
