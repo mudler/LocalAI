@@ -293,6 +293,22 @@
     - filename: Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
       sha256: 4857da8685cb0f3d2b8b8c91fb0c07b35b863eb7c185e93ed83ac338e095cbb5
       uri: huggingface://mradermacher/Lumimaid-v0.2-70B-i1-GGUF/Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-celeste-v1.5"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630cf5d14ca0a22768bbe10c/QcU3xEgVu18jeFtMFxIw-.webp
+  urls:
+    - https://huggingface.co/nothingiisreal/L3.1-8B-Celeste-V1.5
+    - https://huggingface.co/bartowski/L3.1-8B-Celeste-V1.5-GGUF
+  description: |
+    The LLM model is a large language model trained on a combination of datasets including nothingiisreal/c2-logs-cleaned, kalomaze/Opus_Instruct_25k, and nothingiisreal/Reddit-Dirty-And-WritingPrompts. The training was performed on a combination of English-language data using the Hugging Face Transformers library.
+    Trained on LLaMA 3.1 8B Instruct at 8K context using a new mix of Reddit Writing Prompts, Kalo's Opus 25K Instruct and c2 logs cleaned This version has the highest coherency and is very strong on OOC: instruct following.
+  overrides:
+    parameters:
+      model: L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
+  files:
+    - filename: L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
+      sha256: a408dfbbd91ed5561f70d3129af040dfd06704d6c7fa21146aa9f09714aafbc6
+      uri: huggingface://bartowski/L3.1-8B-Celeste-V1.5-GGUF/L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
