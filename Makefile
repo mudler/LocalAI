@@ -783,9 +783,6 @@ else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
 endif
-ifneq ($(UPX),)
-	$(UPX) backend/cpp/${VARIANT}/grpc-server
-endif
 
 # This target is for manually building a variant with-auto detected flags
 backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/llama.cpp
@@ -858,9 +855,6 @@ backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc backend/cpp/llama/llama.
 backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
 	mkdir -p backend-assets/util/
 	cp -rf backend/cpp/llama-grpc/llama.cpp/build/bin/rpc-server backend-assets/util/llama-cpp-rpc-server
-ifneq ($(UPX),)
-	$(UPX) backend-assets/util/llama-cpp-rpc-server
-endif
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
