@@ -69,8 +69,8 @@
       model: Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
   files:
     - filename: Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
-      sha256: 8de80021b9438f0925a41ae73f77cb73fcfa30090e03a0919ce23d2b9818e9c7
       uri: huggingface://InferenceIllusionist/Meta-Llama-3.1-8B-Claude-iMat-GGUF/Meta-Llama-3.1-8B-Claude-iMat-Q4_K_M.gguf
+      sha256: 6d175432f66d10dfed9737f73a5073d513d18e1ee7bd4b9cf2a59deb359f36ff
 - !!merge <<: *llama31
   name: "meta-llama-3.1-8b-instruct-abliterated"
   icon: https://i.imgur.com/KhorYYG.png
@@ -145,6 +145,39 @@
     - filename: llama3.1-8b-fireplace2-q4_k_m.gguf
       sha256: 54527fd2474b576086ea31e759214ab240abe2429ae623a02d7ba825cc8cb13e
       uri: huggingface://mudler/Llama3.1-8B-Fireplace2-Q4_K_M-GGUF/llama3.1-8b-fireplace2-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "sekhmet_aleph-l3.1-8b-v0.1-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/SVyiW4mu495ngqszJGWRl.png
+  urls:
+    - https://huggingface.co/Nitral-Archive/Sekhmet_Aleph-L3.1-8B-v0.1
+    - https://huggingface.co/mradermacher/Sekhmet_Aleph-L3.1-8B-v0.1-i1-GGUF
+  overrides:
+    parameters:
+      model: Sekhmet_Aleph-L3.1-8B-v0.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Sekhmet_Aleph-L3.1-8B-v0.1.i1-Q4_K_M.gguf
+      sha256: 5b6f4eaa2091bf13a2b563a54a3f87b22efa7f2862362537c956c70da6e11cea
+      uri: huggingface://mradermacher/Sekhmet_Aleph-L3.1-8B-v0.1-i1-GGUF/Sekhmet_Aleph-L3.1-8B-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-llamoutcast-i1"
+  icon: https://files.catbox.moe/ecgn0m.jpg
+  urls:
+    - https://huggingface.co/Envoid/L3.1-8B-Llamoutcast
+    - https://huggingface.co/mradermacher/L3.1-8B-Llamoutcast-i1-GGUF
+  description: |
+    Warning: this model is utterly cursed.
+    Llamoutcast
+
+    This model was originally intended to be a DADA finetune of Llama-3.1-8B-Instruct but the results were unsatisfactory. So it received some additional finetuning on a rawtext dataset and now it is utterly cursed.
+
+    It responds to Llama-3 Instruct formatting.
+  overrides:
+    parameters:
+      model: L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
+      sha256: 438ca0a7e9470f5ee40f3b14dc2da41b1cafc4ad4315dead3eb57924109d5cf6
+      uri: huggingface://mradermacher/L3.1-8B-Llamoutcast-i1-GGUF/L3.1-8B-Llamoutcast.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
@@ -237,6 +270,29 @@
     - filename: Lumimaid-v0.2-8B.Q4_K_M.gguf
       sha256: c8024fcb49c71410903d0d076a1048249fa48b31637bac5177bf5c3f3d603d85
       uri: huggingface://mradermacher/Lumimaid-v0.2-8B-GGUF/Lumimaid-v0.2-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "lumimaid-v0.2-70b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/HY1KTq6FMAm-CwmY8-ndO.png
+  urls:
+    - https://huggingface.co/NeverSleep/Lumimaid-v0.2-70B
+    - https://huggingface.co/mradermacher/Lumimaid-v0.2-70B-i1-GGUF
+  description: |
+    This model is based on: Meta-Llama-3.1-8B-Instruct
+
+    Wandb: https://wandb.ai/undis95/Lumi-Llama-3-1-8B?nw=nwuserundis95
+
+    Lumimaid 0.1 -> 0.2 is a HUGE step up dataset wise.
+
+    As some people have told us our models are sloppy, Ikari decided to say fuck it and literally nuke all chats out with most slop.
+
+    Our dataset stayed the same since day one, we added data over time, cleaned them, and repeat. After not releasing model for a while because we were never satisfied, we think it's time to come back!
+  overrides:
+    parameters:
+      model: Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
+      sha256: 4857da8685cb0f3d2b8b8c91fb0c07b35b863eb7c185e93ed83ac338e095cbb5
+      uri: huggingface://mradermacher/Lumimaid-v0.2-70B-i1-GGUF/Lumimaid-v0.2-70B.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -515,6 +571,21 @@
     - filename: StellarDong-72b.i1-Q4_K_M.gguf
       sha256: 4c5012f0a034f40a044904891343ade2594f29c28a8a9d8052916de4dc5a61df
       uri: huggingface://mradermacher/StellarDong-72b-i1-GGUF/StellarDong-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "magnum-32b-v1-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/635567189c72a7e742f1419c/PK7xRSd18Du0bX-w_t-9c.png
+  urls:
+    - https://huggingface.co/anthracite-org/magnum-32b-v1
+    - https://huggingface.co/mradermacher/magnum-32b-v1-i1-GGUF
+  description: |
+    This is the second in a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus. This model is fine-tuned on top of Qwen1.5 32B.
+  overrides:
+    parameters:
+      model: magnum-32b-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: magnum-32b-v1.i1-Q4_K_M.gguf
+      sha256: a31704ce0d7e5b774f155522b9ab7ef6015a4ece4e9056bf4dfc6cac561ff0a3
+      uri: huggingface://mradermacher/magnum-32b-v1-i1-GGUF/magnum-32b-v1.i1-Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
