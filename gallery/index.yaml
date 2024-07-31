@@ -1155,6 +1155,32 @@
     - filename: Gemmoy-9B-G2-MK.3.i1-Q4_K_M.gguf
       sha256: 0d1004a246fbda7f1408a6841129b73c4100e697bd0a6806fc698eabbb0802a1
       uri: huggingface://mradermacher/Gemmoy-9B-G2-MK.3-i1-GGUF/Gemmoy-9B-G2-MK.3.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "sunfall-simpo-9b"
+  urls:
+    - https://huggingface.co/mradermacher/sunfall-SimPO-9B-GGUF
+  description: |
+    Crazy idea that what if you put the LoRA from crestf411/sunfall-peft on top of princeton-nlp/gemma-2-9b-it-SimPO and therefore this exists solely for that purpose alone in the universe.
+  overrides:
+    parameters:
+      model: sunfall-SimPO-9B.Q4_K_M.gguf
+  files:
+    - filename: sunfall-SimPO-9B.Q4_K_M.gguf
+      sha256: 810c51c6ce34107706d921531b97cfa409cd53c215d18b88bce7cdb617f73ceb
+      uri: huggingface://mradermacher/sunfall-SimPO-9B-GGUF/sunfall-SimPO-9B.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "sunfall-simpo-9b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/sunfall-SimPO-9B-i1-GGUF
+  description: |
+    Crazy idea that what if you put the LoRA from crestf411/sunfall-peft on top of princeton-nlp/gemma-2-9b-it-SimPO and therefore this exists solely for that purpose alone in the universe.
+  overrides:
+    parameters:
+      model: sunfall-SimPO-9B.i1-Q4_K_M.gguf
+  files:
+    - filename: sunfall-SimPO-9B.i1-Q4_K_M.gguf
+      sha256: edde9df372a9a5b2316dc6822dc2f52f5a2059103dd7f08072e5a5355c5f5d0b
+      uri: huggingface://mradermacher/sunfall-SimPO-9B-i1-GGUF/sunfall-SimPO-9B.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
