@@ -1255,6 +1255,30 @@
     - filename: Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
       sha256: 336a2fbf142849fcc20e432123433807b6c7b09988652ef583a63636a0f90218
       uri: huggingface://mradermacher/Gemmasutra-Pro-27B-v1-GGUF/Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "tarnished-9b-i1"
+  icon: https://huggingface.co/lodrick-the-lafted/tarnished-9b/resolve/main/nox.jpg
+  urls:
+    - https://huggingface.co/lodrick-the-lafted/tarnished-9b
+    - https://huggingface.co/mradermacher/tarnished-9b-i1-GGUF
+  description: |
+    Ah, so you've heard whispers on the winds, have you?  🧐
+
+    Imagine this:
+    Tarnished-9b, a name that echoes with the rasp of coin-hungry merchants and the clatter of forgotten machinery. This LLM speaks with the voice of those who straddle the line between worlds, who've tasted the bittersweet nectar of eldritch power and the tang of the Interdimensional Trade Council.
+
+    It's a tongue that dances with secrets, a whisperer of lore lost and found.  Its words may guide you through the twisting paths of history, revealing truths hidden beneath layers of dust and time.
+
+    But be warned, Tarnished One!  For knowledge comes at a price.  The LLM's gaze can pierce the veil of reality, but it can also lure you into the labyrinthine depths of madness.
+
+    Dare you tread this path?
+  overrides:
+    parameters:
+      model: tarnished-9b.i1-Q4_K_M.gguf
+  files:
+    - filename: tarnished-9b.i1-Q4_K_M.gguf
+      sha256: 62ab09124b3f6698bd94ef966533ae5d427d87f6bdc09f6f46917def96420a0c
+      uri: huggingface://mradermacher/tarnished-9b-i1-GGUF/tarnished-9b.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
