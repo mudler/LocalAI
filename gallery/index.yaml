@@ -662,6 +662,25 @@
     - filename: magnum-32b-v1.i1-Q4_K_M.gguf
       sha256: a31704ce0d7e5b774f155522b9ab7ef6015a4ece4e9056bf4dfc6cac561ff0a3
       uri: huggingface://mradermacher/magnum-32b-v1-i1-GGUF/magnum-32b-v1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "tifa-7b-qwen2-v0.1"
+  urls:
+    - https://huggingface.co/Tifa-RP/Tifa-7B-Qwen2-v0.1-GGUF
+  description: |
+    The Tifa role-playing language model is a high-performance language model based on a self-developed 220B model distillation, with a new base model of qwen2-7B. The model has been converted to gguf format for running in the Ollama framework, providing excellent dialogue and text generation capabilities.
+
+    The original model was trained on a large-scale industrial dataset and then fine-tuned with 400GB of novel data and 20GB of multi-round dialogue directive data to achieve good role-playing effects.
+
+    The Tifa model is suitable for multi-round dialogue processing, role-playing and scenario simulation, EFX industrial knowledge integration, and high-quality literary creation.
+
+    Note: The Tifa model is in Chinese and English, with 7.6% of the data in Chinese role-playing and 4.2% in English role-playing. The model has been trained with a mix of EFX industrial field parameters and question-answer dialogues generated from 220B model outputs since 2023. The recommended quantization method is f16, as it retains more detail and accuracy in the model's performance.
+  overrides:
+    parameters:
+      model: tifa-7b-qwen2-v0.1.q4_k_m.gguf
+  files:
+    - filename: tifa-7b-qwen2-v0.1.q4_k_m.gguf
+      sha256: 1f5adbe8cb0a6400f51abdca3bf4e32284ebff73cc681a43abb35c0a6ccd3820
+      uri: huggingface://Tifa-RP/Tifa-7B-Qwen2-v0.1-GGUF/tifa-7b-qwen2-v0.1.q4_k_m.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
