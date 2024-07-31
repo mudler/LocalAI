@@ -4371,6 +4371,28 @@
     - filename: "Codestral-22B-v0.1-Q4_K_M.gguf"
       uri: "huggingface://bartowski/Codestral-22B-v0.1-GGUF/Codestral-22B-v0.1-Q4_K_M.gguf"
       sha256: 003e48ed892850b80994fcddca2bd6b833b092a4ef2db2853c33a3144245e06c
+- !!merge <<: *codellama
+  url: "github:mudler/LocalAI/gallery/alpaca.yaml@master"
+  icon: https://huggingface.co/Nan-Do/LeetCodeWizard_7B_V1.1/resolve/main/LeetCodeWizardLogo.png
+  name: "leetcodewizard_7b_v1.1-i1"
+  urls:
+    - https://huggingface.co/Nan-Do/LeetCodeWizard_7B_V1.1
+    - https://huggingface.co/mradermacher/LeetCodeWizard_7B_V1.1-i1-GGUF
+  description: |
+    LeetCodeWizard is a coding large language model specifically trained to solve and explain Leetcode (or any) programming problems.
+    This model is a fine-tuned version of the WizardCoder-Python-7B with a dataset of Leetcode problems\
+    Model capabilities:
+
+        It should be able to solve most of the problems found at Leetcode and even pass the sample interviews they offer on the site.
+
+        It can write both the code and the explanations for the solutions.
+  overrides:
+    parameters:
+      model: LeetCodeWizard_7B_V1.1.i1-Q4_K_M.gguf
+  files:
+    - filename: LeetCodeWizard_7B_V1.1.i1-Q4_K_M.gguf
+      sha256: 19720d8e1ba89d32c6f88ed6518caf0251f9e3ec011297929c801efc5ea979f4
+      uri: huggingface://mradermacher/LeetCodeWizard_7B_V1.1-i1-GGUF/LeetCodeWizard_7B_V1.1.i1-Q4_K_M.gguf
 - &llm-compiler
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   name: "llm-compiler-13b-imat"
