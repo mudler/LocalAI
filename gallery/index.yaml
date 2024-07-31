@@ -1196,6 +1196,21 @@
     - filename: sunfall-SimPO-9B.i1-Q4_K_M.gguf
       sha256: edde9df372a9a5b2316dc6822dc2f52f5a2059103dd7f08072e5a5355c5f5d0b
       uri: huggingface://mradermacher/sunfall-SimPO-9B-i1-GGUF/sunfall-SimPO-9B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "seeker-9b"
+  icon: https://huggingface.co/lodrick-the-lafted/seeker-9b/resolve/main/seeker.webp
+  urls:
+    - https://huggingface.co/lodrick-the-lafted/seeker-9b
+    - https://huggingface.co/mradermacher/seeker-9b-GGUF
+  description: |
+    The LLM model is the "Seeker-9b" model, which is a large language model trained on a diverse range of text data. It has 9 billion parameters and is based on the "lodrick-the-lafted" repository. The model is capable of generating text and can be used for a variety of natural language processing tasks such as language translation, text summarization, and text generation. It supports the English language and is available under the Apache-2.0 license.
+  overrides:
+    parameters:
+      model: seeker-9b.Q4_K_M.gguf
+  files:
+    - filename: seeker-9b.Q4_K_M.gguf
+      sha256: 7658e5bdad96dc8d232f83cff7c3fe5fa993defbfd3e728dcc7436352574a00a
+      uri: huggingface://mradermacher/seeker-9b-GGUF/seeker-9b.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
