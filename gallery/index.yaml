@@ -194,6 +194,21 @@
     - filename: Llama-Guard-3-8B.Q4_K_M.gguf
       sha256: c5ea8760a1e544eea66a8915fcc3fbd2c67357ea2ee6871a9e6a6c33b64d4981
       uri: huggingface://QuantFactory/Llama-Guard-3-8B-GGUF/Llama-Guard-3-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "genius-llama3.1-i1"
+  icon: https://github.com/fangyuan-ksgk/GeniusUpload/assets/66006349/7272c93e-9806-461c-a3d0-2e50ef2b7af0
+  urls:
+    - https://huggingface.co/Ksgk-fy/Genius-Llama3.1
+    - https://huggingface.co/mradermacher/Genius-Llama3.1-i1-GGUF
+  description: |
+    Finetuned Llama-3.1 base on Lex Fridman's podcast transcript.
+  overrides:
+    parameters:
+      model: Genius-Llama3.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Genius-Llama3.1.i1-Q4_K_M.gguf
+      sha256: a272bb2a6ab7ed565738733fb8af8e345b177eba9e76ce615ea845c25ebf8cd5
+      uri: huggingface://mradermacher/Genius-Llama3.1-i1-GGUF/Genius-Llama3.1.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
