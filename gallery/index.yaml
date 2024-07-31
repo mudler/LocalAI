@@ -1240,6 +1240,21 @@
     - filename: seeker-9b.Q4_K_M.gguf
       sha256: 7658e5bdad96dc8d232f83cff7c3fe5fa993defbfd3e728dcc7436352574a00a
       uri: huggingface://mradermacher/seeker-9b-GGUF/seeker-9b.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemmasutra-pro-27b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/w0Oi8TReoQNT3ljm5Wf6c.webp
+  urls:
+    - https://huggingface.co/TheDrummer/Gemmasutra-Pro-27B-v1
+    - https://huggingface.co/mradermacher/Gemmasutra-Pro-27B-v1-GGUF
+  description: |
+    An RP model with impressive flexibility. Finetuned by yours truly.
+  overrides:
+    parameters:
+      model: Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
+  files:
+    - filename: Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
+      sha256: 336a2fbf142849fcc20e432123433807b6c7b09988652ef583a63636a0f90218
+      uri: huggingface://mradermacher/Gemmasutra-Pro-27B-v1-GGUF/Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
