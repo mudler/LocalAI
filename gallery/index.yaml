@@ -209,6 +209,35 @@
     - filename: Genius-Llama3.1.i1-Q4_K_M.gguf
       sha256: a272bb2a6ab7ed565738733fb8af8e345b177eba9e76ce615ea845c25ebf8cd5
       uri: huggingface://mradermacher/Genius-Llama3.1-i1-GGUF/Genius-Llama3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-chinese-chat"
+  urls:
+    - https://huggingface.co/shenzhi-wang/Llama3.1-8B-Chinese-Chat
+    - https://huggingface.co/QuantFactory/Llama3.1-8B-Chinese-Chat-GGUF
+  description: |
+    llama3.1-8B-Chinese-Chat is an instruction-tuned language model for Chinese & English users with various abilities such as roleplaying & tool-using built upon the Meta-Llama-3.1-8B-Instruct model. Developers: [Shenzhi Wang](https://shenzhi-wang.netlify.app)*, [Yaowei Zheng](https://github.com/hiyouga)*, Guoyin Wang (in.ai), Shiji Song, Gao Huang. (*: Equal Contribution) - License: [Llama-3.1 License](https://huggingface.co/meta-llama/Meta-Llla...
+    m-3.1-8B/blob/main/LICENSE) - Base Model: Meta-Llama-3.1-8B-Instruct - Model Size: 8.03B - Context length: 128K(reported by [Meta-Llama-3.1-8B-Instruct model](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct), untested for our Chinese model)
+  overrides:
+    parameters:
+      model: Llama3.1-8B-Chinese-Chat.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-8B-Chinese-Chat.Q4_K_M.gguf
+      sha256: 824847b6cca82c4d60107c6a059d80ba975a68543e6effd98880435436ddba06
+      uri: huggingface://QuantFactory/Llama3.1-8B-Chinese-Chat-GGUF/Llama3.1-8B-Chinese-Chat.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-70b-chinese-chat"
+  urls:
+    - https://huggingface.co/shenzhi-wang/Llama3.1-70B-Chinese-Chat
+    - https://huggingface.co/mradermacher/Llama3.1-70B-Chinese-Chat-GGUF
+  description: |
+    "Llama3.1-70B-Chinese-Chat" is a 70-billion parameter large language model pre-trained on a large corpus of Chinese text data. It is designed for chat and dialog applications, and can generate human-like responses to various prompts and inputs. The model is based on the Llama3.1 architecture and has been fine-tuned for Chinese language understanding and generation. It can be used for a wide range of natural language processing tasks, including language translation, text summarization, question answering, and more.
+  overrides:
+    parameters:
+      model: Llama3.1-70B-Chinese-Chat.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-70B-Chinese-Chat.Q4_K_M.gguf
+      sha256: 395cff3cce2b092f840b68eb6e31f4c8b670bc8e3854bbb230df8334369e671d
+      uri: huggingface://mradermacher/Llama3.1-70B-Chinese-Chat-GGUF/Llama3.1-70B-Chinese-Chat.Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
