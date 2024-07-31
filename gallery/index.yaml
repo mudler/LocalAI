@@ -2422,6 +2422,68 @@
     - filename: Meta-Llama-3-8B-Instruct-exp20-8-Q4_K_M.gguf
       sha256: 5568ab6195ab5da703f728cc118108ddcbe97255e3ba4a543b531acdf082b999
       uri: huggingface://DavidAU/Meta-Llama-3-Instruct-12.2B-BRAINSTORM-20x-FORM-8-GGUF/Meta-Llama-3-8B-Instruct-exp20-8-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "loki-base-i1"
+  urls:
+    - https://huggingface.co/MrRobotoAI/Loki-base
+    - https://huggingface.co/mradermacher/Loki-base-i1-GGUF
+  description: |
+    Merge of several models using mergekit:
+    - model: abacusai/Llama-3-Smaug-8B
+    - model: Aculi/Llama3-Sophie
+    - model: ajibawa-2023/Uncensored-Frank-Llama-3-8B
+    - model: Blackroot/Llama-3-Gamma-Twist
+    - model: Casual-Autopsy/L3-Super-Nova-RP-8B
+    - model: Casual-Autopsy/L3-Umbral-Mind-RP-v3.0-8B
+    - model: cgato/L3-TheSpice-8b-v0.8.3
+    - model: ChaoticNeutrals/Hathor_Respawn-L3-8B-v0.8
+    - model: ChaoticNeutrals/Hathor_RP-v.01-L3-8B
+    - model: chargoddard/prometheus-2-llama-3-8b
+    - model: chujiezheng/Llama-3-Instruct-8B-SimPO-ExPO
+    - model: chujiezheng/LLaMA3-iterative-DPO-final-ExPO
+    - model: Fizzarolli/L3-8b-Rosier-v1
+    - model: flammenai/Mahou-1.2a-llama3-8B
+    - model: HaitameLaf/Llama-3-8B-StoryGenerator
+    - model: HPAI-BSC/Llama3-Aloe-8B-Alpha
+    - model: iRyanBell/ARC1
+    - model: iRyanBell/ARC1-II
+    - model: lemon07r/Llama-3-RedMagic4-8B
+    - model: lemon07r/Lllama-3-RedElixir-8B
+    - model: Locutusque/Llama-3-Hercules-5.0-8B
+    - model: Magpie-Align/Llama-3-8B-Magpie-Pro-MT-SFT-v0.1
+    - model: maldv/badger-lambda-llama-3-8b
+    - model: maldv/badger-mu-llama-3-8b
+    - model: maldv/badger-writer-llama-3-8b
+    - model: mlabonne/NeuralDaredevil-8B-abliterated
+    - model: MrRobotoAI/Fiction-Writer-6
+    - model: MrRobotoAI/Unholy-Thoth-8B-v2
+    - model: nbeerbower/llama-3-spicy-abliterated-stella-8B
+    - model: NeverSleep/Llama-3-Lumimaid-8B-v0.1
+    - model: NeverSleep/Llama-3-Lumimaid-8B-v0.1-OAS
+    - model: Nitral-AI/Hathor_Sofit-L3-8B-v1
+    - model: Nitral-AI/Hathor_Stable-v0.2-L3-8B
+    - model: Nitral-AI/Hathor_Tahsin-L3-8B-v0.85
+    - model: Nitral-AI/Poppy_Porpoise-0.72-L3-8B
+    - model: nothingiisreal/L3-8B-Instruct-Abliterated-DWP
+    - model: nothingiisreal/L3-8B-Stheno-Horny-v3.3-32K
+    - model: NousResearch/Hermes-2-Theta-Llama-3-8B
+    - model: OwenArli/Awanllm-Llama-3-8B-Cumulus-v1.0
+    - model: refuelai/Llama-3-Refueled
+    - model: ResplendentAI/Nymph_8B
+    - model: shauray/Llama3-8B-DPO-uncensored
+    - model: SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha
+    - model: TIGER-Lab/MAmmoTH2-8B-Plus
+    - model: Undi95/Llama-3-LewdPlay-8B
+    - model: Undi95/Meta-Llama-3-8B-hf
+    - model: VAGOsolutions/Llama-3-SauerkrautLM-8b-Instruct
+    - model: WhiteRabbitNeo/Llama-3-WhiteRabbitNeo-8B-v2.0
+  overrides:
+    parameters:
+      model: Loki-base.i1-Q4_K_M.gguf
+  files:
+    - filename: Loki-base.i1-Q4_K_M.gguf
+      sha256: 60a4357fa399bfd18aa841cc529da09439791331d117a4f06f0467d002b385bb
+      uri: huggingface://mradermacher/Loki-base-i1-GGUF/Loki-base.i1-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
