@@ -2385,6 +2385,19 @@
     - filename: L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-D_AU-Q4_K_M.gguf
       sha256: ae29f38d73dfb04415821405cf8b319fc42d78d0cdd0da91db147d12e68030fe
       uri: huggingface://DavidAU/L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-GGUF/L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-D_AU-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "meta-llama-3-instruct-12.2b-brainstorm-20x-form-8"
+  urls:
+    - https://huggingface.co/DavidAU/Meta-Llama-3-Instruct-12.2B-BRAINSTORM-20x-FORM-8-GGUF
+  description: |
+    Meta-Llama-3-8B Instruct (now at 12.2B) with Brainstorm process that increases its performance at the core level for any creative use case. It has calibrations that allow it to exceed the logic solving abilities of the original model. The Brainstorm process expands the reasoning center of the LLM, reassembles and calibrates it, introducing subtle changes into the reasoning process. This enhances the model's detail, concept, connection to the "world", general concept connections, prose quality, and prose length without affecting instruction following. It improves coherence, description, simile, metaphors, emotional engagement, and takes fewer liberties with instructions while following them more closely. The model's performance is further enhanced by other technologies like "Ultra" (precision), "Neo Imatrix" (custom imatrix datasets), and "X-quants" (custom application of the imatrix process). It has been tested on multiple LLaMA2, LLaMA3, and Mistral models of various parameter sizes.
+  overrides:
+    parameters:
+      model: Meta-Llama-3-8B-Instruct-exp20-8-Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3-8B-Instruct-exp20-8-Q4_K_M.gguf
+      sha256: 5568ab6195ab5da703f728cc118108ddcbe97255e3ba4a543b531acdf082b999
+      uri: huggingface://DavidAU/Meta-Llama-3-Instruct-12.2B-BRAINSTORM-20x-FORM-8-GGUF/Meta-Llama-3-8B-Instruct-exp20-8-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
