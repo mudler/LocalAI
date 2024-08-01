@@ -1331,6 +1331,20 @@
     - filename: tarnished-9b.i1-Q4_K_M.gguf
       sha256: 62ab09124b3f6698bd94ef966533ae5d427d87f6bdc09f6f46917def96420a0c
       uri: huggingface://mradermacher/tarnished-9b-i1-GGUF/tarnished-9b.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "shieldgemma-9b-i1"
+  urls:
+    - https://huggingface.co/google/shieldgemma-9b
+    - https://huggingface.co/mradermacher/shieldgemma-9b-i1-GGUF
+  description: |
+    ShieldGemma is a series of safety content moderation models built upon Gemma 2 that target four harm categories (sexually explicit, dangerous content, hate, and harassment). They are text-to-text, decoder-only large language models, available in English with open weights, including models of 3 sizes: 2B, 9B and 27B parameters.
+  overrides:
+    parameters:
+      model: shieldgemma-9b.i1-Q4_K_M.gguf
+  files:
+    - filename: shieldgemma-9b.i1-Q4_K_M.gguf
+      sha256: ffa7eaadcc0c7d0544fda5b0d86bba3ffa3431b673e5b2135f421cfe65bd8732
+      uri: huggingface://mradermacher/shieldgemma-9b-i1-GGUF/shieldgemma-9b.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
