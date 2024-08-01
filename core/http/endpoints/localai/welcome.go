@@ -17,7 +17,10 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		galleryConfigs := map[string]*gallery.Config{}
+		modelsWithBackendConfig := map[string]interface{}{}
+
 		for _, m := range backendConfigs {
+			modelsWithBackendConfig[m.Name] = nil
 
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {
@@ -32,7 +35,7 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		modelsWithoutConfig := []string{}
 
 		for _, m := range models {
-			if _, ok := galleryConfigs[m]; !ok {
+			if _, ok := modelsWithBackendConfig[m]; !ok {
 				modelsWithoutConfig = append(modelsWithoutConfig, m)
 			}
 		}
