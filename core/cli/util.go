@@ -86,7 +86,7 @@ func (hfscmd *HFScanCMD) Run(ctx *cliContext.Context) error {
 		var errs error = nil
 		for _, uri := range hfscmd.ToScan {
 			log.Info().Str("uri", uri).Msg("scanning specific uri")
-			scanResults, err := downloader.HuggingFaceScan(uri)
+			scanResults, err := downloader.HuggingFaceScan(downloader.URI(uri))
 			if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
 				log.Error().Err(err).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("! WARNING ! A known-vulnerable model is included in this repo!")
 				errs = errors.Join(errs, err)

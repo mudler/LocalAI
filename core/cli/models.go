@@ -83,7 +83,9 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			return err
 		}
 
-		if !downloader.LooksLikeOCI(modelName) {
+		modelURI := downloader.URI(modelName)
+
+		if !modelURI.LooksLikeOCI() {
 			model := gallery.FindModel(models, modelName, mi.ModelsPath)
 			if model == nil {
 				log.Error().Str("model", modelName).Msg("model not found")
