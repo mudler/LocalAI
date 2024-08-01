@@ -194,6 +194,63 @@
     - filename: Llama-Guard-3-8B.Q4_K_M.gguf
       sha256: c5ea8760a1e544eea66a8915fcc3fbd2c67357ea2ee6871a9e6a6c33b64d4981
       uri: huggingface://QuantFactory/Llama-Guard-3-8B-GGUF/Llama-Guard-3-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "genius-llama3.1-i1"
+  icon: https://github.com/fangyuan-ksgk/GeniusUpload/assets/66006349/7272c93e-9806-461c-a3d0-2e50ef2b7af0
+  urls:
+    - https://huggingface.co/Ksgk-fy/Genius-Llama3.1
+    - https://huggingface.co/mradermacher/Genius-Llama3.1-i1-GGUF
+  description: |
+    Finetuned Llama-3.1 base on Lex Fridman's podcast transcript.
+  overrides:
+    parameters:
+      model: Genius-Llama3.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Genius-Llama3.1.i1-Q4_K_M.gguf
+      sha256: a272bb2a6ab7ed565738733fb8af8e345b177eba9e76ce615ea845c25ebf8cd5
+      uri: huggingface://mradermacher/Genius-Llama3.1-i1-GGUF/Genius-Llama3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-chinese-chat"
+  urls:
+    - https://huggingface.co/shenzhi-wang/Llama3.1-8B-Chinese-Chat
+    - https://huggingface.co/QuantFactory/Llama3.1-8B-Chinese-Chat-GGUF
+  description: |
+    llama3.1-8B-Chinese-Chat is an instruction-tuned language model for Chinese & English users with various abilities such as roleplaying & tool-using built upon the Meta-Llama-3.1-8B-Instruct model. Developers: [Shenzhi Wang](https://shenzhi-wang.netlify.app)*, [Yaowei Zheng](https://github.com/hiyouga)*, Guoyin Wang (in.ai), Shiji Song, Gao Huang. (*: Equal Contribution) - License: [Llama-3.1 License](https://huggingface.co/meta-llama/Meta-Llla...
+    m-3.1-8B/blob/main/LICENSE) - Base Model: Meta-Llama-3.1-8B-Instruct - Model Size: 8.03B - Context length: 128K(reported by [Meta-Llama-3.1-8B-Instruct model](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct), untested for our Chinese model)
+  overrides:
+    parameters:
+      model: Llama3.1-8B-Chinese-Chat.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-8B-Chinese-Chat.Q4_K_M.gguf
+      sha256: 824847b6cca82c4d60107c6a059d80ba975a68543e6effd98880435436ddba06
+      uri: huggingface://QuantFactory/Llama3.1-8B-Chinese-Chat-GGUF/Llama3.1-8B-Chinese-Chat.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-70b-chinese-chat"
+  urls:
+    - https://huggingface.co/shenzhi-wang/Llama3.1-70B-Chinese-Chat
+    - https://huggingface.co/mradermacher/Llama3.1-70B-Chinese-Chat-GGUF
+  description: |
+    "Llama3.1-70B-Chinese-Chat" is a 70-billion parameter large language model pre-trained on a large corpus of Chinese text data. It is designed for chat and dialog applications, and can generate human-like responses to various prompts and inputs. The model is based on the Llama3.1 architecture and has been fine-tuned for Chinese language understanding and generation. It can be used for a wide range of natural language processing tasks, including language translation, text summarization, question answering, and more.
+  overrides:
+    parameters:
+      model: Llama3.1-70B-Chinese-Chat.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-70B-Chinese-Chat.Q4_K_M.gguf
+      sha256: 395cff3cce2b092f840b68eb6e31f4c8b670bc8e3854bbb230df8334369e671d
+      uri: huggingface://mradermacher/Llama3.1-70B-Chinese-Chat-GGUF/Llama3.1-70B-Chinese-Chat.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "meta-llama-3.1-instruct-9.99b-brainstorm-10x-form-3"
+  urls:
+    - https://huggingface.co/DavidAU/Meta-Llama-3.1-Instruct-9.99B-BRAINSTORM-10x-FORM-3-GGUF
+  description: |
+    The Meta-Llama-3.1-8B Instruct model is a large language model trained on a diverse range of text data, with the goal of generating high-quality and coherent text in response to user input. This model is enhanced through a process called "Brainstorm", which involves expanding and recalibrating the model's reasoning center to improve its creative and generative capabilities. The resulting model is capable of generating detailed, vivid, and nuanced text, with a focus on prose quality, conceptually complex responses, and a deeper understanding of the user's intent. The Brainstorm process is designed to enhance the model's performance in creative writing, roleplaying, and story generation, and to improve its ability to generate coherent and engaging text in a wide range of contexts. The model is based on the Llama3 architecture and has been fine-tuned using the Instruct framework, which provides it with a strong foundation for understanding natural language instructions and generating appropriate responses. The model can be used for a variety of tasks, including creative writing,Generating coherent and detailed text, exploring different perspectives and scenarios, and brainstorming ideas.
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-8B-Instruct-Instruct-exp10-3-Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-8B-Instruct-Instruct-exp10-3-Q4_K_M.gguf
+      sha256: f52ff984100b1ff6acfbd7ed1df770064118274a54ae5d48749400a662113615
+      uri: huggingface://DavidAU/Meta-Llama-3.1-Instruct-9.99B-BRAINSTORM-10x-FORM-3-GGUF/Meta-Llama-3.1-8B-Instruct-Instruct-exp10-3-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
@@ -618,6 +675,25 @@
     - filename: magnum-32b-v1.i1-Q4_K_M.gguf
       sha256: a31704ce0d7e5b774f155522b9ab7ef6015a4ece4e9056bf4dfc6cac561ff0a3
       uri: huggingface://mradermacher/magnum-32b-v1-i1-GGUF/magnum-32b-v1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "tifa-7b-qwen2-v0.1"
+  urls:
+    - https://huggingface.co/Tifa-RP/Tifa-7B-Qwen2-v0.1-GGUF
+  description: |
+    The Tifa role-playing language model is a high-performance language model based on a self-developed 220B model distillation, with a new base model of qwen2-7B. The model has been converted to gguf format for running in the Ollama framework, providing excellent dialogue and text generation capabilities.
+
+    The original model was trained on a large-scale industrial dataset and then fine-tuned with 400GB of novel data and 20GB of multi-round dialogue directive data to achieve good role-playing effects.
+
+    The Tifa model is suitable for multi-round dialogue processing, role-playing and scenario simulation, EFX industrial knowledge integration, and high-quality literary creation.
+
+    Note: The Tifa model is in Chinese and English, with 7.6% of the data in Chinese role-playing and 4.2% in English role-playing. The model has been trained with a mix of EFX industrial field parameters and question-answer dialogues generated from 220B model outputs since 2023. The recommended quantization method is f16, as it retains more detail and accuracy in the model's performance.
+  overrides:
+    parameters:
+      model: tifa-7b-qwen2-v0.1.q4_k_m.gguf
+  files:
+    - filename: tifa-7b-qwen2-v0.1.q4_k_m.gguf
+      sha256: 1f5adbe8cb0a6400f51abdca3bf4e32284ebff73cc681a43abb35c0a6ccd3820
+      uri: huggingface://Tifa-RP/Tifa-7B-Qwen2-v0.1-GGUF/tifa-7b-qwen2-v0.1.q4_k_m.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -740,6 +816,26 @@
     - filename: lumimaid-v0.2-12b-q4_k_m.gguf
       sha256: f72299858a07e52be920b86d42ddcfcd5008b961d601ef6fd6a98a3377adccbf
       uri: huggingface://mudler/Lumimaid-v0.2-12B-Q4_K_M-GGUF/lumimaid-v0.2-12b-q4_k_m.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mn-12b-celeste-v1.9"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630cf5d14ca0a22768bbe10c/QcU3xEgVu18jeFtMFxIw-.webp
+  urls:
+    - https://huggingface.co/nothingiisreal/MN-12B-Celeste-V1.9
+    - https://huggingface.co/mradermacher/MN-12B-Celeste-V1.9-GGUF
+  description: |
+      Mistral Nemo 12B Celeste V1.9
+
+      This is a story writing and roleplaying model trained on Mistral NeMo 12B Instruct at 8K context using Reddit Writing Prompts, Kalo's Opus 25K Instruct and c2 logs cleaned
+
+      This version has improved NSFW, smarter and more active narration. It's also trained with ChatML tokens so there should be no EOS bleeding whatsoever.
+  overrides:
+    parameters:
+      model: MN-12B-Celeste-V1.9.Q4_K_M.gguf
+  files:
+    - filename: MN-12B-Celeste-V1.9.Q4_K_M.gguf
+      sha256: 019daeaa63d82d55d1ea623b9c255deea6793af4044bb4994d2b4d09e8959f7b
+      uri: huggingface://mradermacher/MN-12B-Celeste-V1.9-GGUF/MN-12B-Celeste-V1.9.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -1155,6 +1251,100 @@
     - filename: Gemmoy-9B-G2-MK.3.i1-Q4_K_M.gguf
       sha256: 0d1004a246fbda7f1408a6841129b73c4100e697bd0a6806fc698eabbb0802a1
       uri: huggingface://mradermacher/Gemmoy-9B-G2-MK.3-i1-GGUF/Gemmoy-9B-G2-MK.3.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "sunfall-simpo-9b"
+  urls:
+    - https://huggingface.co/mradermacher/sunfall-SimPO-9B-GGUF
+  description: |
+    Crazy idea that what if you put the LoRA from crestf411/sunfall-peft on top of princeton-nlp/gemma-2-9b-it-SimPO and therefore this exists solely for that purpose alone in the universe.
+  overrides:
+    parameters:
+      model: sunfall-SimPO-9B.Q4_K_M.gguf
+  files:
+    - filename: sunfall-SimPO-9B.Q4_K_M.gguf
+      sha256: 810c51c6ce34107706d921531b97cfa409cd53c215d18b88bce7cdb617f73ceb
+      uri: huggingface://mradermacher/sunfall-SimPO-9B-GGUF/sunfall-SimPO-9B.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "sunfall-simpo-9b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/sunfall-SimPO-9B-i1-GGUF
+  description: |
+    Crazy idea that what if you put the LoRA from crestf411/sunfall-peft on top of princeton-nlp/gemma-2-9b-it-SimPO and therefore this exists solely for that purpose alone in the universe.
+  overrides:
+    parameters:
+      model: sunfall-SimPO-9B.i1-Q4_K_M.gguf
+  files:
+    - filename: sunfall-SimPO-9B.i1-Q4_K_M.gguf
+      sha256: edde9df372a9a5b2316dc6822dc2f52f5a2059103dd7f08072e5a5355c5f5d0b
+      uri: huggingface://mradermacher/sunfall-SimPO-9B-i1-GGUF/sunfall-SimPO-9B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "seeker-9b"
+  icon: https://huggingface.co/lodrick-the-lafted/seeker-9b/resolve/main/seeker.webp
+  urls:
+    - https://huggingface.co/lodrick-the-lafted/seeker-9b
+    - https://huggingface.co/mradermacher/seeker-9b-GGUF
+  description: |
+    The LLM model is the "Seeker-9b" model, which is a large language model trained on a diverse range of text data. It has 9 billion parameters and is based on the "lodrick-the-lafted" repository. The model is capable of generating text and can be used for a variety of natural language processing tasks such as language translation, text summarization, and text generation. It supports the English language and is available under the Apache-2.0 license.
+  overrides:
+    parameters:
+      model: seeker-9b.Q4_K_M.gguf
+  files:
+    - filename: seeker-9b.Q4_K_M.gguf
+      sha256: 7658e5bdad96dc8d232f83cff7c3fe5fa993defbfd3e728dcc7436352574a00a
+      uri: huggingface://mradermacher/seeker-9b-GGUF/seeker-9b.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemmasutra-pro-27b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/w0Oi8TReoQNT3ljm5Wf6c.webp
+  urls:
+    - https://huggingface.co/TheDrummer/Gemmasutra-Pro-27B-v1
+    - https://huggingface.co/mradermacher/Gemmasutra-Pro-27B-v1-GGUF
+  description: |
+    An RP model with impressive flexibility. Finetuned by yours truly.
+  overrides:
+    parameters:
+      model: Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
+  files:
+    - filename: Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
+      sha256: 336a2fbf142849fcc20e432123433807b6c7b09988652ef583a63636a0f90218
+      uri: huggingface://mradermacher/Gemmasutra-Pro-27B-v1-GGUF/Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "tarnished-9b-i1"
+  icon: https://huggingface.co/lodrick-the-lafted/tarnished-9b/resolve/main/nox.jpg
+  urls:
+    - https://huggingface.co/lodrick-the-lafted/tarnished-9b
+    - https://huggingface.co/mradermacher/tarnished-9b-i1-GGUF
+  description: |
+    Ah, so you've heard whispers on the winds, have you?  🧐
+
+    Imagine this:
+    Tarnished-9b, a name that echoes with the rasp of coin-hungry merchants and the clatter of forgotten machinery. This LLM speaks with the voice of those who straddle the line between worlds, who've tasted the bittersweet nectar of eldritch power and the tang of the Interdimensional Trade Council.
+
+    It's a tongue that dances with secrets, a whisperer of lore lost and found.  Its words may guide you through the twisting paths of history, revealing truths hidden beneath layers of dust and time.
+
+    But be warned, Tarnished One!  For knowledge comes at a price.  The LLM's gaze can pierce the veil of reality, but it can also lure you into the labyrinthine depths of madness.
+
+    Dare you tread this path?
+  overrides:
+    parameters:
+      model: tarnished-9b.i1-Q4_K_M.gguf
+  files:
+    - filename: tarnished-9b.i1-Q4_K_M.gguf
+      sha256: 62ab09124b3f6698bd94ef966533ae5d427d87f6bdc09f6f46917def96420a0c
+      uri: huggingface://mradermacher/tarnished-9b-i1-GGUF/tarnished-9b.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "shieldgemma-9b-i1"
+  urls:
+    - https://huggingface.co/google/shieldgemma-9b
+    - https://huggingface.co/mradermacher/shieldgemma-9b-i1-GGUF
+  description: |
+    ShieldGemma is a series of safety content moderation models built upon Gemma 2 that target four harm categories (sexually explicit, dangerous content, hate, and harassment). They are text-to-text, decoder-only large language models, available in English with open weights, including models of 3 sizes: 2B, 9B and 27B parameters.
+  overrides:
+    parameters:
+      model: shieldgemma-9b.i1-Q4_K_M.gguf
+  files:
+    - filename: shieldgemma-9b.i1-Q4_K_M.gguf
+      sha256: ffa7eaadcc0c7d0544fda5b0d86bba3ffa3431b673e5b2135f421cfe65bd8732
+      uri: huggingface://mradermacher/shieldgemma-9b-i1-GGUF/shieldgemma-9b.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -2285,6 +2475,81 @@
     - filename: L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-D_AU-Q4_K_M.gguf
       sha256: ae29f38d73dfb04415821405cf8b319fc42d78d0cdd0da91db147d12e68030fe
       uri: huggingface://DavidAU/L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-GGUF/L3-Stheno-Maid-Blackroot-Grand-HORROR-16B-D_AU-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "meta-llama-3-instruct-12.2b-brainstorm-20x-form-8"
+  urls:
+    - https://huggingface.co/DavidAU/Meta-Llama-3-Instruct-12.2B-BRAINSTORM-20x-FORM-8-GGUF
+  description: |
+    Meta-Llama-3-8B Instruct (now at 12.2B) with Brainstorm process that increases its performance at the core level for any creative use case. It has calibrations that allow it to exceed the logic solving abilities of the original model. The Brainstorm process expands the reasoning center of the LLM, reassembles and calibrates it, introducing subtle changes into the reasoning process. This enhances the model's detail, concept, connection to the "world", general concept connections, prose quality, and prose length without affecting instruction following. It improves coherence, description, simile, metaphors, emotional engagement, and takes fewer liberties with instructions while following them more closely. The model's performance is further enhanced by other technologies like "Ultra" (precision), "Neo Imatrix" (custom imatrix datasets), and "X-quants" (custom application of the imatrix process). It has been tested on multiple LLaMA2, LLaMA3, and Mistral models of various parameter sizes.
+  overrides:
+    parameters:
+      model: Meta-Llama-3-8B-Instruct-exp20-8-Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3-8B-Instruct-exp20-8-Q4_K_M.gguf
+      sha256: 5568ab6195ab5da703f728cc118108ddcbe97255e3ba4a543b531acdf082b999
+      uri: huggingface://DavidAU/Meta-Llama-3-Instruct-12.2B-BRAINSTORM-20x-FORM-8-GGUF/Meta-Llama-3-8B-Instruct-exp20-8-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "loki-base-i1"
+  urls:
+    - https://huggingface.co/MrRobotoAI/Loki-base
+    - https://huggingface.co/mradermacher/Loki-base-i1-GGUF
+  description: |
+    Merge of several models using mergekit:
+    - model: abacusai/Llama-3-Smaug-8B
+    - model: Aculi/Llama3-Sophie
+    - model: ajibawa-2023/Uncensored-Frank-Llama-3-8B
+    - model: Blackroot/Llama-3-Gamma-Twist
+    - model: Casual-Autopsy/L3-Super-Nova-RP-8B
+    - model: Casual-Autopsy/L3-Umbral-Mind-RP-v3.0-8B
+    - model: cgato/L3-TheSpice-8b-v0.8.3
+    - model: ChaoticNeutrals/Hathor_Respawn-L3-8B-v0.8
+    - model: ChaoticNeutrals/Hathor_RP-v.01-L3-8B
+    - model: chargoddard/prometheus-2-llama-3-8b
+    - model: chujiezheng/Llama-3-Instruct-8B-SimPO-ExPO
+    - model: chujiezheng/LLaMA3-iterative-DPO-final-ExPO
+    - model: Fizzarolli/L3-8b-Rosier-v1
+    - model: flammenai/Mahou-1.2a-llama3-8B
+    - model: HaitameLaf/Llama-3-8B-StoryGenerator
+    - model: HPAI-BSC/Llama3-Aloe-8B-Alpha
+    - model: iRyanBell/ARC1
+    - model: iRyanBell/ARC1-II
+    - model: lemon07r/Llama-3-RedMagic4-8B
+    - model: lemon07r/Lllama-3-RedElixir-8B
+    - model: Locutusque/Llama-3-Hercules-5.0-8B
+    - model: Magpie-Align/Llama-3-8B-Magpie-Pro-MT-SFT-v0.1
+    - model: maldv/badger-lambda-llama-3-8b
+    - model: maldv/badger-mu-llama-3-8b
+    - model: maldv/badger-writer-llama-3-8b
+    - model: mlabonne/NeuralDaredevil-8B-abliterated
+    - model: MrRobotoAI/Fiction-Writer-6
+    - model: MrRobotoAI/Unholy-Thoth-8B-v2
+    - model: nbeerbower/llama-3-spicy-abliterated-stella-8B
+    - model: NeverSleep/Llama-3-Lumimaid-8B-v0.1
+    - model: NeverSleep/Llama-3-Lumimaid-8B-v0.1-OAS
+    - model: Nitral-AI/Hathor_Sofit-L3-8B-v1
+    - model: Nitral-AI/Hathor_Stable-v0.2-L3-8B
+    - model: Nitral-AI/Hathor_Tahsin-L3-8B-v0.85
+    - model: Nitral-AI/Poppy_Porpoise-0.72-L3-8B
+    - model: nothingiisreal/L3-8B-Instruct-Abliterated-DWP
+    - model: nothingiisreal/L3-8B-Stheno-Horny-v3.3-32K
+    - model: NousResearch/Hermes-2-Theta-Llama-3-8B
+    - model: OwenArli/Awanllm-Llama-3-8B-Cumulus-v1.0
+    - model: refuelai/Llama-3-Refueled
+    - model: ResplendentAI/Nymph_8B
+    - model: shauray/Llama3-8B-DPO-uncensored
+    - model: SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha
+    - model: TIGER-Lab/MAmmoTH2-8B-Plus
+    - model: Undi95/Llama-3-LewdPlay-8B
+    - model: Undi95/Meta-Llama-3-8B-hf
+    - model: VAGOsolutions/Llama-3-SauerkrautLM-8b-Instruct
+    - model: WhiteRabbitNeo/Llama-3-WhiteRabbitNeo-8B-v2.0
+  overrides:
+    parameters:
+      model: Loki-base.i1-Q4_K_M.gguf
+  files:
+    - filename: Loki-base.i1-Q4_K_M.gguf
+      sha256: 60a4357fa399bfd18aa841cc529da09439791331d117a4f06f0467d002b385bb
+      uri: huggingface://mradermacher/Loki-base-i1-GGUF/Loki-base.i1-Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
@@ -4286,6 +4551,28 @@
     - filename: "Codestral-22B-v0.1-Q4_K_M.gguf"
       uri: "huggingface://bartowski/Codestral-22B-v0.1-GGUF/Codestral-22B-v0.1-Q4_K_M.gguf"
       sha256: 003e48ed892850b80994fcddca2bd6b833b092a4ef2db2853c33a3144245e06c
+- !!merge <<: *codellama
+  url: "github:mudler/LocalAI/gallery/alpaca.yaml@master"
+  icon: https://huggingface.co/Nan-Do/LeetCodeWizard_7B_V1.1/resolve/main/LeetCodeWizardLogo.png
+  name: "leetcodewizard_7b_v1.1-i1"
+  urls:
+    - https://huggingface.co/Nan-Do/LeetCodeWizard_7B_V1.1
+    - https://huggingface.co/mradermacher/LeetCodeWizard_7B_V1.1-i1-GGUF
+  description: |
+    LeetCodeWizard is a coding large language model specifically trained to solve and explain Leetcode (or any) programming problems.
+    This model is a fine-tuned version of the WizardCoder-Python-7B with a dataset of Leetcode problems\
+    Model capabilities:
+
+        It should be able to solve most of the problems found at Leetcode and even pass the sample interviews they offer on the site.
+
+        It can write both the code and the explanations for the solutions.
+  overrides:
+    parameters:
+      model: LeetCodeWizard_7B_V1.1.i1-Q4_K_M.gguf
+  files:
+    - filename: LeetCodeWizard_7B_V1.1.i1-Q4_K_M.gguf
+      sha256: 19720d8e1ba89d32c6f88ed6518caf0251f9e3ec011297929c801efc5ea979f4
+      uri: huggingface://mradermacher/LeetCodeWizard_7B_V1.1-i1-GGUF/LeetCodeWizard_7B_V1.1.i1-Q4_K_M.gguf
 - &llm-compiler
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   name: "llm-compiler-13b-imat"
