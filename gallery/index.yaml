@@ -238,6 +238,19 @@
     - filename: Llama3.1-70B-Chinese-Chat.Q4_K_M.gguf
       sha256: 395cff3cce2b092f840b68eb6e31f4c8b670bc8e3854bbb230df8334369e671d
       uri: huggingface://mradermacher/Llama3.1-70B-Chinese-Chat-GGUF/Llama3.1-70B-Chinese-Chat.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "meta-llama-3.1-instruct-9.99b-brainstorm-10x-form-3"
+  urls:
+    - https://huggingface.co/DavidAU/Meta-Llama-3.1-Instruct-9.99B-BRAINSTORM-10x-FORM-3-GGUF
+  description: |
+    The Meta-Llama-3.1-8B Instruct model is a large language model trained on a diverse range of text data, with the goal of generating high-quality and coherent text in response to user input. This model is enhanced through a process called "Brainstorm", which involves expanding and recalibrating the model's reasoning center to improve its creative and generative capabilities. The resulting model is capable of generating detailed, vivid, and nuanced text, with a focus on prose quality, conceptually complex responses, and a deeper understanding of the user's intent. The Brainstorm process is designed to enhance the model's performance in creative writing, roleplaying, and story generation, and to improve its ability to generate coherent and engaging text in a wide range of contexts. The model is based on the Llama3 architecture and has been fine-tuned using the Instruct framework, which provides it with a strong foundation for understanding natural language instructions and generating appropriate responses. The model can be used for a variety of tasks, including creative writing,Generating coherent and detailed text, exploring different perspectives and scenarios, and brainstorming ideas.
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-8B-Instruct-Instruct-exp10-3-Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-8B-Instruct-Instruct-exp10-3-Q4_K_M.gguf
+      sha256: f52ff984100b1ff6acfbd7ed1df770064118274a54ae5d48749400a662113615
+      uri: huggingface://DavidAU/Meta-Llama-3.1-Instruct-9.99B-BRAINSTORM-10x-FORM-3-GGUF/Meta-Llama-3.1-8B-Instruct-Instruct-exp10-3-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
