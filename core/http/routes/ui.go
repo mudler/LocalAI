@@ -266,7 +266,7 @@ func RegisterUIRoutes(app *fiber.App,
 			return c.SendString(elements.ProgressBar("100"))
 		}
 		if status.Error != nil {
-			// TODO: instead of deleting the job, we should keep it in the cache and make it dismissable
+			// TODO: instead of deleting the job, we should keep it in the cache and make it dismissable by the user
 			processingModels.DeleteUUID(jobUID)
 			return c.SendString(elements.ErrorProgress(status.Error.Error(), status.GalleryModelName))
 		}
