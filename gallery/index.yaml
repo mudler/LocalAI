@@ -816,6 +816,26 @@
     - filename: lumimaid-v0.2-12b-q4_k_m.gguf
       sha256: f72299858a07e52be920b86d42ddcfcd5008b961d601ef6fd6a98a3377adccbf
       uri: huggingface://mudler/Lumimaid-v0.2-12B-Q4_K_M-GGUF/lumimaid-v0.2-12b-q4_k_m.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mn-12b-celeste-v1.9"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630cf5d14ca0a22768bbe10c/QcU3xEgVu18jeFtMFxIw-.webp
+  urls:
+    - https://huggingface.co/nothingiisreal/MN-12B-Celeste-V1.9
+    - https://huggingface.co/mradermacher/MN-12B-Celeste-V1.9-GGUF
+  description: |
+      Mistral Nemo 12B Celeste V1.9
+
+      This is a story writing and roleplaying model trained on Mistral NeMo 12B Instruct at 8K context using Reddit Writing Prompts, Kalo's Opus 25K Instruct and c2 logs cleaned
+
+      This version has improved NSFW, smarter and more active narration. It's also trained with ChatML tokens so there should be no EOS bleeding whatsoever.
+  overrides:
+    parameters:
+      model: MN-12B-Celeste-V1.9.Q4_K_M.gguf
+  files:
+    - filename: MN-12B-Celeste-V1.9.Q4_K_M.gguf
+      sha256: 019daeaa63d82d55d1ea623b9c255deea6793af4044bb4994d2b4d09e8959f7b
+      uri: huggingface://mradermacher/MN-12B-Celeste-V1.9-GGUF/MN-12B-Celeste-V1.9.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
