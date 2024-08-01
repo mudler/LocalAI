@@ -13,7 +13,7 @@ import (
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 	cl *config.BackendConfigLoader, ml *model.ModelLoader, modelStatus func() (map[string]string, map[string]string)) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		models, _ := services.ListModels(cl, ml, config.NoFilterFn, services.ALWAYS_INCLUDE)
+		models, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		galleryConfigs := map[string]*gallery.Config{}
