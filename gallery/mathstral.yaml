@@ -1,0 +1,67 @@
+---
+name: "mathstral"
+
+config_file: |
+  context_size: 8192
+  mmap: true
+  stopwords:
+  - "<|im_end|>"
+  - "<dummy32000>"
+  - "</tool_call>"
+  - "<|eot_id|>"
+  - "<|end_of_text|>"
+  - "</s>"
+  - "[/TOOL_CALLS]"
+  - "[/ACTIONS]"
+  - "[/INST]"
+  - "[INST]"
+
+  function:
+    # disable injecting the "answer" tool
+    disable_no_action: true
+
+    grammar:
+      # This allows the grammar to also return messages
+      #mixed_mode: true
+      # Not all models have a sketchpad or something to write thoughts on.
+      # This one will OR reply to strings OR JSON, but not both in the same reply
+      #no_mixed_free_string: true
+      # Disable grammar
+      # Base instructor model doesn't work well with grammars
+      disable: true
+      parallel_calls: true
+      disable_parallel_new_lines: true
+
+    return_name_in_function_response: true
+    # Without grammar uncomment the lines below
+    # Warning: this is relying only on the capability of the
+    # LLM model to generate the correct function call.
+    json_regex_match:
+      - "(?s)\\[TOOL\\_CALLS\\](.*)"
+    replace_function_results:
+    # Replace everything that is not JSON array or object
+    - key: '(?s)^[^{\[]*'
+      value: ""
+    - key: '(?s)[^}\]]*$'
+      value: ""
+    - key: "(?s)\\[TOOL\\_CALLS\\]"
+      value: ""
+    - key: "(?s)\\[\\/TOOL\\_CALLS\\]"
+      value: ""
+
+  template:
+    join_chat_messages_by_character: "" ## No newlines between messages
+    chat: |
+      {{.Input -}}
+    chat_message: |-
+      {{- if .FunctionCall -}}
+      [TOOL_CALLS] {{toJson .FunctionCall}} [/TOOL_CALLS]
+      {{- else if eq .RoleName "tool" -}}
+      [TOOL_RESULTS] {{.Content}} [/TOOL_RESULTS]
+      {{- else -}}
+      [INST] {{.Content }} [/INST]
+      {{ end -}}
+    completion: |
+      {{.Input}}
+    function: |-
+      [AVAILABLE_TOOLS] [{{range .Functions}}{"type": "function", "function": {"name": "{{.Name}}", "description": "{{.Description}}", "parameters": {{toJson .Parameters}} }}{{end}} ] [/AVAILABLE_TOOLS]{{.Input }}

@@ -13,11 +13,17 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: 'stable'
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install protobuf-compiler
       - run: |
           go install github.com/swaggo/swag/cmd/swag@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
       - name: Bump swagger 🔧
         run: |
-          make swagger
+          make protogen-go swagger
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:

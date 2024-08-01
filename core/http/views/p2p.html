@@ -16,7 +16,16 @@
                 </a> 
             </h2> 
             <h5 class="mb-4 text-justify">LocalAI uses P2P technologies to enable distribution of work between peers. It is possible to share an instance with Federation and/or split the weights of a model across peers (only available with llama.cpp models). You can now share computational resources between your devices or your friends!</h5>
-            
+            <!-- Warning box if p2p token is empty and p2p is enabled -->
+            {{ if and .IsP2PEnabled (eq .P2PToken "") }}
+            <div class="bg-red-500 p-4 rounded-lg shadow-lg mb-12 text-left">
+                <p class="text-xl font-semibold text-white"> <i class="fa-solid fa-exclamation-triangle"></i> Warning: P2P mode is disabled or no token was specified</p>
+                <p class="mb-4">You have to enable P2P mode by starting LocalAI with <code>--p2p</code>. Please restart the server with <code>--p2p</code> to generate a new token automatically that can be used to automatically discover other nodes. If you already have a token specify it with <code>export TOKEN=".."</code> <a href="https://localai.io/features/distribute/" target="_blank">
+                    Check out the documentation for more information.
+                </a> </p>
+            </div>
+            {{ else }}
+
             <!-- Federation Box -->
             <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-12 text-left">
 
@@ -128,7 +137,8 @@
                     </div>
                 </div>
             </div>
-            <!-- Llama.cpp Box END -->       
+            <!-- Llama.cpp Box END -->    
+            {{ end }}   
         </div>
     </div>
 

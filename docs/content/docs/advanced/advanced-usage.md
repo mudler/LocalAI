@@ -112,6 +112,8 @@ name: "" # Model name, used to identify the model in API calls.
 # Precision settings for the model, reducing precision can enhance performance on some hardware.
 f16: null # Whether to use 16-bit floating-point precision.
 
+embeddings: true # Enable embeddings for the model.
+
 # Concurrency settings for the application.
 threads: null # Number of threads to use for processing.
 
@@ -150,7 +152,8 @@ function:
     replace_function_results: [] # Placeholder to replace function call results with arbitrary strings or patterns.
     replace_llm_results: [] # Replace language model results with arbitrary strings or patterns.
     capture_llm_results: [] # Capture language model results as text result, among JSON, in function calls. For instance, if a model returns a block for "thinking" and a block for "response", this will allow you to capture the thinking block.
-    return_name_in_function_response: false # Some models might prefer to use "name" rather then "function" when returning JSON data. This will allow to use "name" as a key in the JSON response.
+    function_name_key: "name"
+    function_arguments_key: "arguments"
 
 # Feature gating flags to enable experimental or optional features.
 feature_flags: {}

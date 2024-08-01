@@ -2,9 +2,12 @@ package functions
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"regexp"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/functions/grammars"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
@@ -20,7 +23,9 @@ type GrammarConfig struct {
 	MixedMode bool `yaml:"mixed_mode"`
 
 	// NoMixedFreeString disables the mixed mode for free strings
-	// In this way if the LLM selects a free string, it won't be mixed necessarly with JSON objects
+	// In this way if the LLM selects a free string, it won't be mixed necessarly with JSON objects.
+	// For example, if enabled the LLM or returns a JSON object or a free string, but not a mix of both
+	// If disabled(default): the LLM can return a JSON object surrounded by free strings (e.g. `this is the JSON result: { "bar": "baz" } for your question`). This forces the LLM to return at least a JSON object, but its not going to be strict
 	NoMixedFreeString bool `yaml:"no_mixed_free_string"`
 
 	// NoGrammar disables the grammar parsing and parses the responses directly from the LLM
@@ -37,6 +42,10 @@ type GrammarConfig struct {
 	// for instance name,arguments will make print { "name": "foo", "arguments": { "bar": "baz" } }
 	// instead of { "arguments": { "bar": "baz" }, "name": "foo" }
 	PropOrder string `yaml:"properties_order"`
+
+	// SchemaType can be configured to use a specific schema type to force the grammar
+	// available : json, llama3.1
+	SchemaType string `yaml:"schema_type"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -76,7 +85,8 @@ type FunctionsConfig struct {
 	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
 	// This might be useful for certain models trained with the function name as the first token.
-	FunctionName bool `yaml:"return_name_in_function_response"`
+	FunctionNameKey      string `yaml:"function_name_key"`
+	FunctionArgumentsKey string `yaml:"function_arguments_key"`
 }
 
 type ReplaceResult struct {
@@ -89,28 +99,36 @@ type FuncCallResults struct {
 	Arguments string
 }
 
-func (g GrammarConfig) Options() []func(o *GrammarOption) {
-	opts := []func(o *GrammarOption){}
-	if g.MixedMode {
-		opts = append(opts, EnableMaybeString)
+func (g FunctionsConfig) GrammarOptions() []func(o *grammars.GrammarOption) {
+	opts := []func(o *grammars.GrammarOption){}
+	if g.GrammarConfig.MixedMode {
+		opts = append(opts, grammars.EnableMaybeString)
 	}
-	if g.ParallelCalls {
-		opts = append(opts, EnableMaybeArray)
+	if g.GrammarConfig.ParallelCalls {
+		opts = append(opts, grammars.EnableMaybeArray)
 	}
-	if g.DisableParallelNewLines {
-		opts = append(opts, DisableParallelNewLines)
+	if g.GrammarConfig.DisableParallelNewLines {
+		opts = append(opts, grammars.DisableParallelNewLines)
 	}
-	if g.Prefix != "" {
-		opts = append(opts, SetPrefix(g.Prefix))
+	if g.GrammarConfig.Prefix != "" {
+		opts = append(opts, grammars.SetPrefix(g.GrammarConfig.Prefix))
 	}
-	if g.NoMixedFreeString {
-		opts = append(opts, NoMixedFreeString)
+	if g.GrammarConfig.NoMixedFreeString {
+		opts = append(opts, grammars.NoMixedFreeString)
 	}
-	if g.ExpectStringsAfterJSON {
-		opts = append(opts, ExpectStringsAfterJSON)
+	if g.GrammarConfig.ExpectStringsAfterJSON {
+		opts = append(opts, grammars.ExpectStringsAfterJSON)
 	}
 
-	opts = append(opts, SetPropOrder(g.PropOrder))
+	if g.GrammarConfig.SchemaType != "" {
+		opts = append(opts, grammars.WithSchemaType(grammars.NewType(g.GrammarConfig.SchemaType)))
+	}
+
+	if g.FunctionNameKey != "" {
+		opts = append(opts, grammars.WithFunctionName(g.FunctionNameKey))
+	}
+
+	opts = append(opts, grammars.SetPropOrder(g.GrammarConfig.PropOrder))
 	return opts
 }
 
@@ -145,6 +163,47 @@ func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
 	return ""
 }
 
+// ParseJSON is a function that parses a JSON string that might contain multiple JSON objects
+// and syntax errors in between by shifting the offset
+// This for e.g. allow to parse
+// { "foo": "bar" } invalid { "baz": "qux" }
+// into
+// [ { "foo": "bar" }, { "baz": "qux" } ]
+// Credits to Michael Yang (https://github.com/mxyng) for the original implementation
+// This is a slighly reworked version, improved for readability and error handling
+func ParseJSON(s string) ([]map[string]any, error) {
+	var objs []map[string]any
+	offset := 0
+
+	for offset < len(s) {
+		var obj map[string]any
+		decoder := json.NewDecoder(strings.NewReader(s[offset:]))
+
+		err := decoder.Decode(&obj)
+		switch {
+		case errors.Is(err, io.EOF):
+			return objs, nil
+		case err == nil:
+			offset += int(decoder.InputOffset())
+			objs = append(objs, obj)
+		default: // handle the error type
+			var syntaxErr *json.SyntaxError
+			var unmarshalTypeErr *json.UnmarshalTypeError
+
+			switch {
+			case errors.As(err, &syntaxErr):
+				offset += int(syntaxErr.Offset)
+			case errors.As(err, &unmarshalTypeErr):
+				offset += int(unmarshalTypeErr.Offset)
+			default:
+				return objs, err
+			}
+		}
+	}
+
+	return objs, nil
+}
+
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 
 	log.Debug().Msgf("LLM result: %s", llmresult)
@@ -157,9 +216,13 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	}
 	log.Debug().Msgf("LLM result(function cleanup): %s", llmresult)
 
-	functionNameKey := "function"
-	if functionConfig.FunctionName {
-		functionNameKey = "name"
+	functionNameKey := defaultFunctionNameKey
+	functionArgumentsKey := defaultFunctionArgumentsKey
+	if functionConfig.FunctionNameKey != "" {
+		functionNameKey = functionConfig.FunctionNameKey
+	}
+	if functionConfig.FunctionArgumentsKey != "" {
+		functionArgumentsKey = functionConfig.FunctionArgumentsKey
 	}
 
 	results := []FuncCallResults{}
@@ -170,19 +233,13 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		result = make([]FuncCallResults, 0)
 
 		for _, s := range results {
-			var ss []map[string]interface{}
+			var ss []map[string]any
 
 			s = utils.EscapeNewLines(s)
-			err := json.Unmarshal([]byte(s), &ss)
+			ss, err := ParseJSON(s)
+			//err := json.Unmarshal([]byte(s), &ss)
 			if err != nil {
-				// If the LLM result is a single object, try unmarshaling it into a single map
-				var singleObj map[string]interface{}
-				err = json.Unmarshal([]byte(s), &singleObj)
-				if err != nil {
-					log.Debug().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result in a single object or an array of JSON objects")
-				} else {
-					ss = []map[string]interface{}{singleObj}
-				}
+				log.Debug().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result in a single object or an array of JSON objects")
 			}
 
 			log.Debug().Msgf("Function return: %s %+v", s, ss)
@@ -195,7 +252,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 					//return result, fmt.Errorf("unable to find function name in result")
 				}
 				// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
-				args, ok := s["arguments"] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+				args, ok := s[functionArgumentsKey] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
 				if !ok {
 					continue
 					//return result, fmt.Errorf("unable to find arguments in result")
@@ -253,7 +310,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 				if functionName == "" {
 					return results
 				}
-				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result["arguments"]})
+				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result[functionArgumentsKey]})
 			}
 		}
 	} else {

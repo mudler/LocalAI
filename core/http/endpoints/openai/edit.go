@@ -16,6 +16,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// EditEndpoint is the OpenAI edit API endpoint
+// @Summary OpenAI edit endpoint
+// @Param request body schema.OpenAIRequest true "query params"
+// @Success 200 {object} schema.OpenAIResponse "Response"
+// @Router /v1/edits [post]
 func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)

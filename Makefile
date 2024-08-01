@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=aaab2419eaa17ab3aa38f4ba49c7eea406999e99
+CPPLLAMA_VERSION?=ed9d2854c9de4ae1f448334294e61167b04bec2a
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -20,7 +20,7 @@ RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=d207c6882247984689091ae9d780d2e51eab1df7
+WHISPER_CPP_VERSION?=6739eb83c3ca5cf40d24c6fe8442a761a1eb6248
 
 # bert.cpp version
 BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
@@ -58,7 +58,7 @@ RANDOM := $(shell bash -c 'echo $$RANDOM')
 
 VERSION?=$(shell git describe --always --tags || echo "dev" )
 # go tool nm ./local-ai | grep Commit
-LD_FLAGS?=
+LD_FLAGS?=-s -w
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Commit=$(shell git rev-parse HEAD)"
 
@@ -71,6 +71,14 @@ YELLOW := $(shell tput -Txterm setaf 3)
 WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
+
+UPX?=
+# check if upx exists
+ifeq (, $(shell which upx))
+	UPX=
+else
+	UPX=$(shell which upx)
+endif
 
 # Default Docker bridge IP
 E2E_BRIDGE_IP?=172.17.0.1
@@ -310,7 +318,7 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream
+get-sources: sources/go-llama.cpp sources/gpt4all sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(CURDIR)/sources/go-rwkv.cpp
@@ -377,6 +385,7 @@ build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
+	$(info ${GREEN}I UPX: ${YELLOW}$(UPX)${RESET})
 ifneq ($(BACKEND_LIBS),)
 	$(MAKE) backend-assets/lib
 	cp -f $(BACKEND_LIBS) backend-assets/lib/
@@ -421,7 +430,7 @@ else
 endif
 
 dist-cross-linux-arm64:
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server" \
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server" GO_TAGS="p2p" \
 	STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
@@ -471,7 +480,7 @@ prepare-e2e:
 	mkdir -p $(TEST_DIR)
 	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
 	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
-	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=4 --build-arg FFMPEG=true -t localai-tests .
+	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=0 --build-arg FFMPEG=true -t localai-tests .
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
@@ -733,13 +742,22 @@ backend-assets/grpc: protogen-go replace
 backend-assets/grpc/bert-embeddings: sources/go-bert.cpp sources/go-bert.cpp/libgobert.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-bert.cpp LIBRARY_PATH=$(CURDIR)/sources/go-bert.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bert-embeddings ./backend/go/llm/bert/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/bert-embeddings
+endif
 
 backend-assets/grpc/gpt4all: sources/gpt4all sources/gpt4all/gpt4all-bindings/golang/libgpt4all.a backend-assets/gpt4all backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang/ LIBRARY_PATH=$(CURDIR)/sources/gpt4all/gpt4all-bindings/golang/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/gpt4all ./backend/go/llm/gpt4all/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/gpt4all
+endif
 
 backend-assets/grpc/huggingface: backend-assets/grpc
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/huggingface ./backend/go/llm/langchain/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/huggingface
+endif
 
 backend/cpp/llama/llama.cpp:
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama llama.cpp
@@ -767,28 +785,28 @@ else
 endif
 
 # This target is for manually building a variant with-auto detected flags
-backend-assets/grpc/llama-cpp: backend-assets/grpc
+backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-cpp
 	$(MAKE) -C backend/cpp/llama-cpp purge
 	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
 	$(MAKE) VARIANT="llama-cpp" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-cpp/grpc-server backend-assets/grpc/llama-cpp
 
-backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc
+backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-avx2
 	$(MAKE) -C backend/cpp/llama-avx2 purge
 	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-avx2/grpc-server backend-assets/grpc/llama-cpp-avx2
 
-backend-assets/grpc/llama-cpp-avx: backend-assets/grpc
+backend-assets/grpc/llama-cpp-avx: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-avx
 	$(MAKE) -C backend/cpp/llama-avx purge
 	$(info ${GREEN}I llama-cpp build info:avx${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-avx" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-avx/grpc-server backend-assets/grpc/llama-cpp-avx
 
-backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc
+backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-fallback
 	$(MAKE) -C backend/cpp/llama-fallback purge
 	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
@@ -799,35 +817,35 @@ ifeq ($(BUILD_TYPE),metal)
 	cp backend/cpp/llama-fallback/llama.cpp/build/bin/default.metallib backend-assets/grpc/
 endif
 
-backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc
+backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-cuda
 	$(MAKE) -C backend/cpp/llama-cuda purge
 	$(info ${GREEN}I llama-cpp build info:cuda${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
 
-backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc
+backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-hipblas
 	$(MAKE) -C backend/cpp/llama-hipblas purge
 	$(info ${GREEN}I llama-cpp build info:hipblas${RESET})
 	BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-hipblas/grpc-server backend-assets/grpc/llama-cpp-hipblas
 
-backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc
+backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f16
 	$(MAKE) -C backend/cpp/llama-sycl_f16 purge
 	$(info ${GREEN}I llama-cpp build info:sycl_f16${RESET})
 	BUILD_TYPE="sycl_f16" $(MAKE) VARIANT="llama-sycl_f16" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-sycl_f16/grpc-server backend-assets/grpc/llama-cpp-sycl_f16
 
-backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc
+backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f32
 	$(MAKE) -C backend/cpp/llama-sycl_f32 purge
 	$(info ${GREEN}I llama-cpp build info:sycl_f32${RESET})
 	BUILD_TYPE="sycl_f32" $(MAKE) VARIANT="llama-sycl_f32" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-sycl_f32/grpc-server backend-assets/grpc/llama-cpp-sycl_f32
 
-backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc
+backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-grpc
 	$(MAKE) -C backend/cpp/llama-grpc purge
 	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
@@ -841,29 +859,50 @@ backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/llama-ggml
+endif
 
 backend-assets/grpc/piper: sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
 	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-piper \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/piper
+endif
 
 backend-assets/grpc/rwkv: sources/go-rwkv.cpp sources/go-rwkv.cpp/librwkv.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-rwkv.cpp LIBRARY_PATH=$(CURDIR)/sources/go-rwkv.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/rwkv ./backend/go/llm/rwkv
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/rwkv
+endif
 
 backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stable-diffusion/libstablediffusion.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/go-stable-diffusion/:/usr/include/opencv4" LIBRARY_PATH=$(CURDIR)/sources/go-stable-diffusion/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/stablediffusion
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/stablediffusion
+endif
 
 backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libtinydream.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/go-tiny-dream \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/tinydream
+endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="$(CURDIR)/sources/whisper.cpp/include:$(CURDIR)/sources/whisper.cpp/ggml/include" LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/whisper
+endif
 
 backend-assets/grpc/local-store: backend-assets/grpc
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/local-store ./backend/go/stores/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/local-store
+endif
 
 grpcs: prepare $(GRPC_BACKENDS)
 

@@ -137,14 +137,9 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 
 }
 
-func copyStream(closer chan struct{}, dst io.Writer, src io.Reader) {
-	defer func() { closer <- struct{}{} }() // connection is closed, send signal to stop proxy
-	io.Copy(dst, src)
-}
-
 // This is the main of the server (which keeps the env variable updated)
 // This starts a goroutine that keeps LLAMACPP_GRPC_SERVERS updated with the discovered services
-func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID string, discoveryFunc func()) error {
+func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID string, discoveryFunc func(serviceID string, node NodeData)) error {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
@@ -166,7 +161,7 @@ func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID stri
 			case tunnel := <-tunnels:
 				AddNode(servicesID, tunnel)
 				if discoveryFunc != nil {
-					discoveryFunc()
+					discoveryFunc(servicesID, tunnel)
 				}
 			}
 		}
@@ -395,4 +390,9 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	nodeOpts = append(nodeOpts, services.Alive(30*time.Second, 900*time.Second, 15*time.Minute)...)
 
 	return nodeOpts, nil
+}
+
+func copyStream(closer chan struct{}, dst io.Writer, src io.Reader) {
+	defer func() { closer <- struct{}{} }() // connection is closed, send signal to stop proxy
+	io.Copy(dst, src)
 }

@@ -10,6 +10,7 @@ import (
 	"dario.cat/mergo"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
@@ -189,6 +190,12 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 
 	galleryFile := filepath.Join(basePath, galleryFileName(name))
 
+	for _, f := range []string{configFile, galleryFile} {
+		if err := utils.VerifyPath(f, basePath); err != nil {
+			return fmt.Errorf("failed to verify path %s: %w", f, err)
+		}
+	}
+
 	var err error
 	// Delete all the files associated to the model
 	// read the model config
@@ -197,34 +204,33 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 		log.Error().Err(err).Msgf("failed to read gallery file %s", configFile)
 	}
 
+	var filesToRemove []string
+
 	// Remove additional files
 	if galleryconfig != nil {
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(basePath, f.Filename)
-			log.Debug().Msgf("Removing file %s", fullPath)
-			if e := os.Remove(fullPath); e != nil {
-				err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f.Filename, e))
-			}
+			filesToRemove = append(filesToRemove, fullPath)
 		}
 	}
 
 	for _, f := range additionalFiles {
 		fullPath := filepath.Join(filepath.Join(basePath, f))
-		log.Debug().Msgf("Removing additional file %s", fullPath)
-		if e := os.Remove(fullPath); e != nil {
+		filesToRemove = append(filesToRemove, fullPath)
+	}
+
+	filesToRemove = append(filesToRemove, configFile)
+	filesToRemove = append(filesToRemove, galleryFile)
+
+	// skip duplicates
+	filesToRemove = utils.Unique(filesToRemove)
+
+	// Removing files
+	for _, f := range filesToRemove {
+		if e := os.Remove(f); e != nil {
 			err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f, e))
 		}
 	}
-
-	log.Debug().Msgf("Removing model config file %s", configFile)
-
-	// Delete the model config file
-	if e := os.Remove(configFile); e != nil {
-		err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", configFile, e))
-	}
-
-	// Delete gallery config file
-	os.Remove(galleryFile)
 
 	return err
 }

@@ -1,77 +1,63 @@
-package functions_test
+package grammars_test
 
 import (
 	"strings"
 
-	"github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/mudler/LocalAI/pkg/functions"
+	. "github.com/mudler/LocalAI/pkg/functions/grammars"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var testFunctions = []ItemFunction{
+var testFunctions = []Item{
 	{
 		Type: "object",
-		Properties: FunctionProperties{
-			Function: FunctionName{
-				Const: "create_event",
+		Properties: createFunction(
+			"function",
+			"arguments",
+			"create_event",
+			map[string]interface{}{
+				"title": map[string]string{"type": "string"},
+				"date":  map[string]string{"type": "string"},
+				"time":  map[string]string{"type": "string"},
 			},
-			Arguments: Argument{ // this is OpenAI's parameter
-				Type: "object",
-				Properties: map[string]interface{}{
-					"title": map[string]string{"type": "string"},
-					"date":  map[string]string{"type": "string"},
-					"time":  map[string]string{"type": "string"},
-				},
-			},
-		},
+		),
 	},
 	{
 		Type: "object",
-		Properties: FunctionProperties{
-			Function: FunctionName{
-				Const: "search",
-			},
-			Arguments: Argument{
-				Type: "object",
-				Properties: map[string]interface{}{
-					"query": map[string]string{"type": "string"},
-				},
-			},
-		},
+		Properties: createFunction(
+			"function",
+			"arguments",
+			"search",
+			map[string]interface{}{
+				"query": map[string]string{"type": "string"},
+			}),
 	},
 }
 
-var testFunctionsName = []ItemName{
+var testFunctionsName = []Item{
 	{
 		Type: "object",
-		Properties: NameProperties{
-			Function: FunctionName{
-				Const: "create_event",
+		Properties: createFunction(
+			"name",
+			"arguments",
+			"create_event",
+			map[string]interface{}{
+				"title": map[string]string{"type": "string"},
+				"date":  map[string]string{"type": "string"},
+				"time":  map[string]string{"type": "string"},
 			},
-			Arguments: Argument{ // this is OpenAI's parameter
-				Type: "object",
-				Properties: map[string]interface{}{
-					"title": map[string]string{"type": "string"},
-					"date":  map[string]string{"type": "string"},
-					"time":  map[string]string{"type": "string"},
-				},
-			},
-		},
+		),
 	},
 	{
 		Type: "object",
-		Properties: NameProperties{
-			Function: FunctionName{
-				Const: "search",
-			},
-			Arguments: Argument{
-				Type: "object",
-				Properties: map[string]interface{}{
-					"query": map[string]string{"type": "string"},
-				},
-			},
-		},
+		Properties: createFunction(
+			"name",
+			"arguments",
+			"search",
+			map[string]interface{}{
+				"query": map[string]string{"type": "string"},
+			}),
 	},
 }
 
@@ -249,7 +235,8 @@ root-1-name ::= "\"search\""`
 var _ = Describe("JSON schema grammar tests", func() {
 	Context("JSON", func() {
 		It("generates a valid grammar from JSON schema", func() {
-			grammar := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput1))
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput1))
+			Expect(err).To(BeNil())
 			results := strings.Split(inputResult1, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -259,7 +246,8 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))))
 		})
 		It("generates a valid grammar from JSON schema", func() {
-			grammar := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput2))
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(testInput2))
+			Expect(err).To(BeNil())
 			results := strings.Split(inputResult3, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -270,10 +258,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 		It("generates a valid grammar from JSON Objects", func() {
 
-			structuredGrammar := JSONFunctionStructureFunction{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctions}
 
-			grammar := structuredGrammar.Grammar()
+			grammar, err := structuredGrammar.Grammar()
+			Expect(err).To(BeNil())
 			results := strings.Split(inputResult1, "\n")
 			for _, r := range results {
 				if r != "" {
@@ -284,10 +273,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects for multiple function return", func() {
-			structuredGrammar := JSONFunctionStructureFunction{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctions}
 
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeArray)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeArray)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					inputResult2,
@@ -302,10 +292,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects for multiple function return", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeArray)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeArray)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					inputResult4,
@@ -320,13 +311,14 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects for multiple function return with a suffix and array", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(
-				functions.SetPrefix("suffix"),
-				functions.EnableMaybeArray,
+			grammar, err := structuredGrammar.Grammar(
+				SetPrefix("suffix"),
+				EnableMaybeArray,
 			)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`"suffix" arr | realvalue`),
@@ -340,10 +332,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))), grammar)
 		})
 		It("generates a valid grammar from JSON Objects with a suffix", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"))
+			grammar, err := structuredGrammar.Grammar(SetPrefix("suffix"))
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`"suffix" realvalue`),
@@ -357,10 +350,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))), grammar)
 		})
 		It("generates a valid grammar from JSON Objects with a suffix and could return string", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"), functions.EnableMaybeString)
+			grammar, err := structuredGrammar.Grammar(SetPrefix("suffix"), EnableMaybeString)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`( "suffix" realvalue | mixedstring )`),
@@ -374,10 +368,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 			Expect(len(results)).To(Equal(len(strings.Split(grammar, "\n"))), grammar)
 		})
 		It("generates a valid grammar from JSON Objects with a suffix that could return text or an array of tools", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.SetPrefix("suffix"), functions.EnableMaybeString, functions.EnableMaybeArray)
+			grammar, err := structuredGrammar.Grammar(SetPrefix("suffix"), EnableMaybeString, EnableMaybeArray)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`( "suffix" (arr | realvalue) | mixedstring )`),
@@ -393,10 +388,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects without a suffix that could return text or an array of tools or just string", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeString, EnableMaybeArray)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`mixedstring | arr | realvalue`),
@@ -411,10 +407,11 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates a valid grammar from JSON Objects without a suffix that could return text or an array of tools or just string. Disables mixedstring", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray, functions.NoMixedFreeString)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeString, EnableMaybeArray, NoMixedFreeString)
+			Expect(err).To(BeNil())
 			results := strings.Split(
 				strings.Join([]string{
 					rootResult(`freestring | arr | realvalue`),
@@ -429,14 +426,15 @@ var _ = Describe("JSON schema grammar tests", func() {
 		})
 
 		It("generates parallel tools without newlines in JSON", func() {
-			structuredGrammar := JSONFunctionStructureName{
+			structuredGrammar := JSONFunctionStructure{
 				OneOf: testFunctionsName}
 			content := `arr  ::=
 "["  (
 realvalue
 (","  realvalue)*
 )? "]"`
-			grammar := structuredGrammar.Grammar(functions.EnableMaybeString, functions.EnableMaybeArray, functions.DisableParallelNewLines)
+			grammar, err := structuredGrammar.Grammar(EnableMaybeString, EnableMaybeArray, DisableParallelNewLines)
+			Expect(err).To(BeNil())
 			results := strings.Split(content, "\n")
 			for _, r := range results {
 				if r != "" {

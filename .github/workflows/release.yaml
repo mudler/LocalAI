@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - 'v*'
   pull_request:
 
 env:
@@ -29,11 +31,10 @@ jobs:
         with:
           go-version: '1.21.x'
           cache: false
-
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg protobuf-compiler ccache gawk
+          sudo apt-get install build-essential ffmpeg protobuf-compiler ccache upx-ucl gawk
           sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libgmock-dev
       - name: Install CUDA Dependencies
         run: |
@@ -149,7 +150,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache gawk cmake libgmock-dev
+          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache upx-ucl gawk cmake libgmock-dev
       - name: Intel Dependencies
         run: |
           wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
@@ -250,7 +251,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler ccache
+          sudo apt-get install -y --no-install-recommends libopencv-dev protobuf-compiler ccache upx-ucl
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
       - name: Build stablediffusion

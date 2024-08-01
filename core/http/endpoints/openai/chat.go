@@ -225,18 +225,16 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			}
 
 			// Update input grammar
-			// Handle if we should return "name" instead of "functions"
-			if config.FunctionsConfig.FunctionName {
-				jsStruct := funcs.ToJSONNameStructure()
-				config.Grammar = jsStruct.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
-			} else {
-				jsStruct := funcs.ToJSONFunctionStructure()
-				config.Grammar = jsStruct.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
+			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
+			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			if err == nil {
+				config.Grammar = g
 			}
 		case input.JSONFunctionGrammarObject != nil:
-			config.Grammar = input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
-		case input.JSONFunctionGrammarObjectName != nil:
-			config.Grammar = input.JSONFunctionGrammarObjectName.Grammar(config.FunctionsConfig.GrammarConfig.Options()...)
+			g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			if err == nil {
+				config.Grammar = g
+			}
 		default:
 			// Force picking one of the functions by the request
 			if config.FunctionToCall() != "" {
