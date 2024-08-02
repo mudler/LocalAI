@@ -8,7 +8,6 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
-	"github.com/mudler/LocalAI/pkg/utils"
 )
 
 const (
@@ -72,9 +71,9 @@ type BackendConfig struct {
 }
 
 type File struct {
-	Filename string `yaml:"filename" json:"filename"`
-	SHA256   string `yaml:"sha256" json:"sha256"`
-	URI      string `yaml:"uri" json:"uri"`
+	Filename string         `yaml:"filename" json:"filename"`
+	SHA256   string         `yaml:"sha256" json:"sha256"`
+	URI      downloader.URI `yaml:"uri" json:"uri"`
 }
 
 type VallE struct {
@@ -213,28 +212,32 @@ func (c *BackendConfig) ShouldCallSpecificFunction() bool {
 // MMProjFileName returns the filename of the MMProj file
 // If the MMProj is a URL, it will return the MD5 of the URL which is the filename
 func (c *BackendConfig) MMProjFileName() string {
-	modelURL := downloader.ConvertURL(c.MMProj)
-	if downloader.LooksLikeURL(modelURL) {
-		return utils.MD5(modelURL)
+	uri := downloader.URI(c.MMProj)
+	if uri.LooksLikeURL() {
+		f, _ := uri.FilenameFromUrl()
+		return f
 	}
 
 	return c.MMProj
 }
 
 func (c *BackendConfig) IsMMProjURL() bool {
-	return downloader.LooksLikeURL(downloader.ConvertURL(c.MMProj))
+	uri := downloader.URI(c.MMProj)
+	return uri.LooksLikeURL()
 }
 
 func (c *BackendConfig) IsModelURL() bool {
-	return downloader.LooksLikeURL(downloader.ConvertURL(c.Model))
+	uri := downloader.URI(c.Model)
+	return uri.LooksLikeURL()
 }
 
 // ModelFileName returns the filename of the model
 // If the model is a URL, it will return the MD5 of the URL which is the filename
 func (c *BackendConfig) ModelFileName() string {
-	modelURL := downloader.ConvertURL(c.Model)
-	if downloader.LooksLikeURL(modelURL) {
-		return utils.MD5(modelURL)
+	uri := downloader.URI(c.Model)
+	if uri.LooksLikeURL() {
+		f, _ := uri.FilenameFromUrl()
+		return f
 	}
 
 	return c.Model

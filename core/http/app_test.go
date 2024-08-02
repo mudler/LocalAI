@@ -73,8 +73,9 @@ func getModelStatus(url string) (response map[string]interface{}) {
 }
 
 func getModels(url string) (response []gallery.GalleryModel) {
+	uri := downloader.URI(url)
 	// TODO: No tests currently seem to exercise file:// urls. Fix?
-	downloader.DownloadAndUnmarshal(url, "", func(url string, i []byte) error {
+	uri.DownloadAndUnmarshal("", func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})

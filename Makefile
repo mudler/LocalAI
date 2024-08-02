@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=68504f0970db5a3602d176953690f503059906b1
+CPPLLAMA_VERSION?=b7a08fd5e0e7c898c68d1743066ea495202d9608
 
 # gpt4all version
 GPT4ALL_REPO?=https://github.com/nomic-ai/gpt4all
@@ -20,7 +20,7 @@ RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=f68298ce06ca3edd6e6f3f21c3d0bb5f073942c3
+WHISPER_CPP_VERSION?=6739eb83c3ca5cf40d24c6fe8442a761a1eb6248
 
 # bert.cpp version
 BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
@@ -783,9 +783,6 @@ else
 	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
 endif
-ifneq ($(UPX),)
-	$(UPX) backend/cpp/${VARIANT}/grpc-server
-endif
 
 # This target is for manually building a variant with-auto detected flags
 backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/llama.cpp
@@ -858,9 +855,6 @@ backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc backend/cpp/llama/llama.
 backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
 	mkdir -p backend-assets/util/
 	cp -rf backend/cpp/llama-grpc/llama.cpp/build/bin/rpc-server backend-assets/util/llama-cpp-rpc-server
-ifneq ($(UPX),)
-	$(UPX) backend-assets/util/llama-cpp-rpc-server
-endif
 
 backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbinding.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-llama.cpp LIBRARY_PATH=$(CURDIR)/sources/go-llama.cpp \

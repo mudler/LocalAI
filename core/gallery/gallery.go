@@ -131,7 +131,8 @@ func AvailableGalleryModels(galleries []config.Gallery, basePath string) ([]*Gal
 
 func findGalleryURLFromReferenceURL(url string, basePath string) (string, error) {
 	var refFile string
-	err := downloader.DownloadAndUnmarshal(url, basePath, func(url string, d []byte) error {
+	uri := downloader.URI(url)
+	err := uri.DownloadAndUnmarshal(basePath, func(url string, d []byte) error {
 		refFile = string(d)
 		if len(refFile) == 0 {
 			return fmt.Errorf("invalid reference file at url %s: %s", url, d)
@@ -153,8 +154,9 @@ func getGalleryModels(gallery config.Gallery, basePath string) ([]*GalleryModel,
 			return models, err
 		}
 	}
+	uri := downloader.URI(gallery.URL)
 
-	err := downloader.DownloadAndUnmarshal(gallery.URL, basePath, func(url string, d []byte) error {
+	err := uri.DownloadAndUnmarshal(basePath, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {
@@ -204,34 +206,33 @@ func DeleteModelFromSystem(basePath string, name string, additionalFiles []strin
 		log.Error().Err(err).Msgf("failed to read gallery file %s", configFile)
 	}
 
+	var filesToRemove []string
+
 	// Remove additional files
 	if galleryconfig != nil {
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(basePath, f.Filename)
-			log.Debug().Msgf("Removing file %s", fullPath)
-			if e := os.Remove(fullPath); e != nil {
-				err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f.Filename, e))
-			}
+			filesToRemove = append(filesToRemove, fullPath)
 		}
 	}
 
 	for _, f := range additionalFiles {
 		fullPath := filepath.Join(filepath.Join(basePath, f))
-		log.Debug().Msgf("Removing additional file %s", fullPath)
-		if e := os.Remove(fullPath); e != nil {
+		filesToRemove = append(filesToRemove, fullPath)
+	}
+
+	filesToRemove = append(filesToRemove, configFile)
+	filesToRemove = append(filesToRemove, galleryFile)
+
+	// skip duplicates
+	filesToRemove = utils.Unique(filesToRemove)
+
+	// Removing files
+	for _, f := range filesToRemove {
+		if e := os.Remove(f); e != nil {
 			err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f, e))
 		}
 	}
-
-	log.Debug().Msgf("Removing model config file %s", configFile)
-
-	// Delete the model config file
-	if e := os.Remove(configFile); e != nil {
-		err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", configFile, e))
-	}
-
-	// Delete gallery config file
-	os.Remove(galleryFile)
 
 	return err
 }
@@ -253,8 +254,8 @@ func SafetyScanGalleryModels(galleries []config.Gallery, basePath string) error 
 
 func SafetyScanGalleryModel(galleryModel *GalleryModel) error {
 	for _, file := range galleryModel.AdditionalFiles {
-		scanResults, err := downloader.HuggingFaceScan(file.URI)
-		if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
+		scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
+		if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
 			log.Error().Str("model", galleryModel.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
 			return err
 		}
