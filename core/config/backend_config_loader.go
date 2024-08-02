@@ -244,7 +244,7 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 			// Create file path
 			filePath := filepath.Join(modelPath, file.Filename)
 
-			if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, i, len(config.DownloadFiles), status); err != nil {
+			if err := file.URI.DownloadFile(filePath, file.SHA256, i, len(config.DownloadFiles), status); err != nil {
 				return err
 			}
 		}
@@ -252,10 +252,10 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 		// If the model is an URL, expand it, and download the file
 		if config.IsModelURL() {
 			modelFileName := config.ModelFileName()
-			modelURL := downloader.ConvertURL(config.Model)
+			uri := downloader.URI(config.Model)
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
-				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, modelFileName), "", 0, 0, status)
+				err := uri.DownloadFile(filepath.Join(modelPath, modelFileName), "", 0, 0, status)
 				if err != nil {
 					return err
 				}
@@ -269,10 +269,10 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 
 		if config.IsMMProjURL() {
 			modelFileName := config.MMProjFileName()
-			modelURL := downloader.ConvertURL(config.MMProj)
+			uri := downloader.URI(config.MMProj)
 			// check if file exists
 			if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
-				err := downloader.DownloadFile(modelURL, filepath.Join(modelPath, modelFileName), "", 0, 0, status)
+				err := uri.DownloadFile(filepath.Join(modelPath, modelFileName), "", 0, 0, status)
 				if err != nil {
 					return err
 				}

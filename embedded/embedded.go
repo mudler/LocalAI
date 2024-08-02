@@ -38,8 +38,8 @@ func init() {
 
 func GetRemoteLibraryShorteners(url string, basePath string) (map[string]string, error) {
 	remoteLibrary := map[string]string{}
-
-	err := downloader.DownloadAndUnmarshal(url, basePath, func(_ string, i []byte) error {
+	uri := downloader.URI(url)
+	err := uri.DownloadAndUnmarshal(basePath, func(_ string, i []byte) error {
 		return yaml.Unmarshal(i, &remoteLibrary)
 	})
 	if err != nil {

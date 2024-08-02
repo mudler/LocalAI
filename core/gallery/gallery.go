@@ -131,7 +131,8 @@ func AvailableGalleryModels(galleries []config.Gallery, basePath string) ([]*Gal
 
 func findGalleryURLFromReferenceURL(url string, basePath string) (string, error) {
 	var refFile string
-	err := downloader.DownloadAndUnmarshal(url, basePath, func(url string, d []byte) error {
+	uri := downloader.URI(url)
+	err := uri.DownloadAndUnmarshal(basePath, func(url string, d []byte) error {
 		refFile = string(d)
 		if len(refFile) == 0 {
 			return fmt.Errorf("invalid reference file at url %s: %s", url, d)
@@ -153,8 +154,9 @@ func getGalleryModels(gallery config.Gallery, basePath string) ([]*GalleryModel,
 			return models, err
 		}
 	}
+	uri := downloader.URI(gallery.URL)
 
-	err := downloader.DownloadAndUnmarshal(gallery.URL, basePath, func(url string, d []byte) error {
+	err := uri.DownloadAndUnmarshal(basePath, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {
@@ -252,8 +254,8 @@ func SafetyScanGalleryModels(galleries []config.Gallery, basePath string) error 
 
 func SafetyScanGalleryModel(galleryModel *GalleryModel) error {
 	for _, file := range galleryModel.AdditionalFiles {
-		scanResults, err := downloader.HuggingFaceScan(file.URI)
-		if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
+		scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
+		if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
 			log.Error().Str("model", galleryModel.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
 			return err
 		}
