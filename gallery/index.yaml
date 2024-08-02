@@ -251,6 +251,32 @@
     - filename: Meta-Llama-3.1-8B-Instruct-Instruct-exp10-3-Q4_K_M.gguf
       sha256: f52ff984100b1ff6acfbd7ed1df770064118274a54ae5d48749400a662113615
       uri: huggingface://DavidAU/Meta-Llama-3.1-Instruct-9.99B-BRAINSTORM-10x-FORM-3-GGUF/Meta-Llama-3.1-8B-Instruct-Instruct-exp10-3-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-techne-rp-8b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/633a809fa4a8f33508dce32c/BMdwgJ6cHZWbiGL48Q-Wq.png
+  urls:
+    - https://huggingface.co/athirdpath/Llama-3.1-Techne-RP-8b-v1
+    - https://huggingface.co/mradermacher/Llama-3.1-Techne-RP-8b-v1-GGUF
+  description: |
+      athirdpath/Llama-3.1-Instruct_NSFW-pretrained_e1-plus_reddit was further trained in the order below:
+      SFT
+
+          Doctor-Shotgun/no-robots-sharegpt
+          grimulkan/LimaRP-augmented
+          Inv/c2-logs-cleaned-deslopped
+
+      DPO
+
+          jondurbin/truthy-dpo-v0.1
+          Undi95/Weyaxi-humanish-dpo-project-noemoji
+          athirdpath/DPO_Pairs-Roleplay-Llama3-NSFW
+  overrides:
+    parameters:
+      model: Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
+      sha256: 6557c5d5091f2507d19ab1f8bfb9ceb4e1536a755ab70f148b18aeb33741580f
+      uri: huggingface://mradermacher/Llama-3.1-Techne-RP-8b-v1-GGUF/Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"

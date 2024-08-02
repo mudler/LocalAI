@@ -17,7 +17,10 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		backendConfigs := cl.GetAllBackendConfigs()
 
 		galleryConfigs := map[string]*gallery.Config{}
+		modelsWithBackendConfig := map[string]interface{}{}
+
 		for _, m := range backendConfigs {
+			modelsWithBackendConfig[m.Name] = nil
 
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {

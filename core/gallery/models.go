@@ -68,7 +68,8 @@ type PromptTemplate struct {
 
 func GetGalleryConfigFromURL(url string, basePath string) (Config, error) {
 	var config Config
-	err := downloader.DownloadAndUnmarshal(url, basePath, func(url string, d []byte) error {
+	uri := downloader.URI(url)
+	err := uri.DownloadAndUnmarshal(basePath, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -118,14 +119,14 @@ func InstallModel(basePath, nameOverride string, config *Config, configOverrides
 		filePath := filepath.Join(basePath, file.Filename)
 
 		if enforceScan {
-			scanResults, err := downloader.HuggingFaceScan(file.URI)
-			if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
+			scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
+			if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
 				log.Error().Str("model", config.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
 				return err
 			}
 		}
-
-		if err := downloader.DownloadFile(file.URI, filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
+		uri := downloader.URI(file.URI)
+		if err := uri.DownloadFile(filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
 			return err
 		}
 	}
