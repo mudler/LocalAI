@@ -277,6 +277,21 @@
     - filename: Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
       sha256: 6557c5d5091f2507d19ab1f8bfb9ceb4e1536a755ab70f148b18aeb33741580f
       uri: huggingface://mradermacher/Llama-3.1-Techne-RP-8b-v1-GGUF/Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://i.ibb.co/9hwFrvL/BLMs-Wkx-NQf-W-46-FZDg-ILhg.jpg
+  name: "llama-spark"
+  urls:
+    - https://huggingface.co/arcee-ai/Llama-Spark
+    - https://huggingface.co/arcee-ai/Llama-Spark-GGUF
+  description: |
+    Llama-Spark is a powerful conversational AI model developed by Arcee.ai. It's built on the foundation of Llama-3.1-8B and merges the power of our Tome Dataset with Llama-3.1-8B-Instruct, resulting in a remarkable conversationalist that punches well above its 8B parameter weight class.
+  overrides:
+    parameters:
+      model: llama-spark-dpo-v0.3-Q4_K_M.gguf
+  files:
+    - filename: llama-spark-dpo-v0.3-Q4_K_M.gguf
+      sha256: 41367168bbdc4b16eb80efcbee4dacc941781ee8748065940167fe6947b4e4c3
+      uri: huggingface://arcee-ai/Llama-Spark-GGUF/llama-spark-dpo-v0.3-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
