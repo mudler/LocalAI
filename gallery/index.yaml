@@ -438,6 +438,20 @@
     - filename: L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
       sha256: a408dfbbd91ed5561f70d3129af040dfd06704d6c7fa21146aa9f09714aafbc6
       uri: huggingface://bartowski/L3.1-8B-Celeste-V1.5-GGUF/L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://cdn-uploads.huggingface.co/production/uploads/659c4ecb413a1376bee2f661/szz8sIxofYzSe5XPet2pO.png
+  name: "kumiho-v1-rp-uwu-8b"
+  urls:
+    - https://huggingface.co/juvi21/Kumiho-v1-rp-UwU-8B-GGUF
+  description: |
+    Meet Kumiho-V1 uwu. Kumiho-V1-rp-UwU aims to be a generalist model with specialization in roleplay and writing capabilities. It is finetuned and merged with various models, with a heavy base of Meta's LLaMA 3.1-8B as base model, and Claude 3.5 Sonnet and Claude 3 Opus generated synthetic data.
+  overrides:
+    parameters:
+      model: Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
+  files:
+    - filename: Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
+      sha256: a1deb46675418277cf785a406cd1508fec556ff6e4d45d2231eb2a82986d52d0
+      uri: huggingface://juvi21/Kumiho-v1-rp-UwU-8B-GGUF/Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
