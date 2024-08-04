@@ -1364,6 +1364,20 @@
       sha256: 336a2fbf142849fcc20e432123433807b6c7b09988652ef583a63636a0f90218
       uri: huggingface://mradermacher/Gemmasutra-Pro-27B-v1-GGUF/Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
 - !!merge <<: *gemma
+  name: "gemmasutra-mini-2b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/w0Oi8TReoQNT3ljm5Wf6c.webp
+  urls:
+    - https://huggingface.co/TheDrummer/Gemmasutra-Mini-2B-v1-GGUF
+  description: |
+    It is a small, 2 billion parameter language model that has been trained for role-playing purposes. The model is designed to work well in various settings, such as in the browser, on a laptop, or even on a Raspberry Pi. It has been fine-tuned for RP use and claims to provide a satisfying experience, even in low-resource environments. The model is uncensored and unaligned, and it can be used with the Gemma Instruct template or with chat completion. For the best experience, it is recommended to modify the template to support the `system` role. The model also features examples of its output, highlighting its versatility and creativity.
+  overrides:
+    parameters:
+      model: Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
+  files:
+    - filename: Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
+      sha256: 29ba3db911fbadef4452ba757ddd9ce58fb892b7a872f19eefd0743c961797fb
+      uri: huggingface://TheDrummer/Gemmasutra-Mini-2B-v1-GGUF/Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
+- !!merge <<: *gemma
   name: "tarnished-9b-i1"
   icon: https://huggingface.co/lodrick-the-lafted/tarnished-9b/resolve/main/nox.jpg
   urls:
