@@ -35,8 +35,8 @@ var defaultsSettings map[familyType]settingsConfig = map[familyType]settingsConf
 		RepeatPenalty: 1.0,
 		StopWords: []string{"<|im_end|>", "<end_of_turn>", "<start_of_turn>"},
 		TemplateConfig: TemplateConfig{
-			Chat:        "{{.Input }}\n<|start_of_turn|>model\n",
-			ChatMessage: "<|start_of_turn|>{{if eq .RoleName \"assistant\" }}model{{else}}{{ .RoleName }}{{end}}\n{{ if .Content -}}\n{{.Content -}}\n{{ end -}}<|end_of_turn|>",
+			Chat:        "{{.Input }}\n<start_of_turn>model\n",
+			ChatMessage: "<start_of_turn>{{if eq .RoleName \"assistant\" }}model{{else}}{{ .RoleName }}{{end}}\n{{ if .Content -}}\n{{.Content -}}\n{{ end -}}<end_of_turn>",
 			Completion:  "{{.Input}}",
 		},
 	},
