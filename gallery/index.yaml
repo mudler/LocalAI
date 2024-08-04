@@ -292,6 +292,21 @@
     - filename: llama-spark-dpo-v0.3-Q4_K_M.gguf
       sha256: 41367168bbdc4b16eb80efcbee4dacc941781ee8748065940167fe6947b4e4c3
       uri: huggingface://arcee-ai/Llama-Spark-GGUF/llama-spark-dpo-v0.3-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-70b-glitz-v0.2-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/q2dOUnzc1GRbZp3YfzGXB.png
+  urls:
+    - https://huggingface.co/Fizzarolli/L3.1-70b-glitz-v0.2
+    - https://huggingface.co/mradermacher/L3.1-70b-glitz-v0.2-i1-GGUF
+  description: |
+    this is an experimental l3.1 70b finetuning run... that crashed midway through. however, the results are still interesting, so i wanted to publish them :3
+  overrides:
+    parameters:
+      model: L3.1-70b-glitz-v0.2.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-70b-glitz-v0.2.i1-Q4_K_M.gguf
+      sha256: 585efc83e7f6893043be2487fc09c914a381fb463ce97942ef2f25ae85103bcd
+      uri: huggingface://mradermacher/L3.1-70b-glitz-v0.2-i1-GGUF/L3.1-70b-glitz-v0.2.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
