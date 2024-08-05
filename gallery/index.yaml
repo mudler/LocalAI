@@ -307,6 +307,23 @@
     - filename: L3.1-70b-glitz-v0.2.i1-Q4_K_M.gguf
       sha256: 585efc83e7f6893043be2487fc09c914a381fb463ce97942ef2f25ae85103bcd
       uri: huggingface://mradermacher/L3.1-70b-glitz-v0.2-i1-GGUF/L3.1-70b-glitz-v0.2.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "humanish-roleplay-llama-3.1-8b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/5fad8602b8423e1d80b8a965/VPwtjS3BtjEEEq7ck4kAQ.webp
+  urls:
+    - https://huggingface.co/mradermacher/Humanish-Roleplay-Llama-3.1-8B-i1-GGUF
+  description: |
+    A DPO-tuned Llama-3.1 to behave more "humanish", i.e., avoiding all the AI assistant slop. It also works for role-play (RP). To achieve this, the model was fine-tuned over a series of datasets:
+        General conversations from Claude Opus, from Undi95/Meta-Llama-3.1-8B-Claude
+        Undi95/Weyaxi-humanish-dpo-project-noemoji, to make the model react as a human, rejecting assistant-like or too neutral responses.
+        ResplendentAI/NSFW_RP_Format_DPO, to steer the model towards using the *action* format in RP settings. Works best if in the first message you also use this format naturally (see example)
+  overrides:
+    parameters:
+      model: Humanish-Roleplay-Llama-3.1-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Humanish-Roleplay-Llama-3.1-8B.i1-Q4_K_M.gguf
+      sha256: 18cf753684e5226b51f3defc708852ca4924f50dc8bc31c9a7d0a036a477b7a7
+      uri: huggingface://mradermacher/Humanish-Roleplay-Llama-3.1-8B-i1-GGUF/Humanish-Roleplay-Llama-3.1-8B.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
