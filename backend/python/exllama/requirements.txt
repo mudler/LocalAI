@@ -1,6 +1,5 @@
 grpcio==1.65.0
 protobuf
-torch
 transformers
 certifi
 setuptools

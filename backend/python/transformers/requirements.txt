@@ -2,7 +2,6 @@ accelerate
 transformers
 grpcio==1.65.1
 protobuf
-torch
 certifi
 intel-extension-for-transformers
 bitsandbytes

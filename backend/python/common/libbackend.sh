@@ -122,6 +122,13 @@ function installRequirements() {
         requirementFiles+=("${MY_DIR}/requirements-${BUILD_PROFILE}.txt")
     fi
 
+    # if BUILD_TYPE is empty, we are a CPU build, so we should try to install the CPU requirements
+    if [ "x${BUILD_TYPE}" == "x" ]; then
+        requirementFiles+=("${MY_DIR}/requirements-cpu.txt")
+    fi
+
+    requirementFiles+=("${MY_DIR}/requirements-after.txt")
+
     for reqFile in ${requirementFiles[@]}; do
         if [ -f ${reqFile} ]; then
             echo "starting requirements install for ${reqFile}"
