@@ -6,7 +6,7 @@ certifi==2024.7.4
 charset-normalizer==3.3.2
 colorama==0.4.6
 dataclasses-json==0.6.7
-debugpy==1.8.2
+debugpy==1.8.3
 frozenlist==1.4.1
 greenlet==3.0.3
 idna==3.7
