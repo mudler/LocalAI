@@ -1,6 +1,15 @@
 package p2p
 
+import "fmt"
+
 const FederatedID = "federated"
+
+func NetworkID(networkID, serviceID string) string {
+	if networkID != "" {
+		return fmt.Sprintf("%s_%s", networkID, serviceID)
+	}
+	return serviceID
+}
 
 type FederatedServer struct {
 	listenAddr, service, p2ptoken string
