@@ -1,4 +1,3 @@
-mamba-ssm==2.2.2
 grpcio==1.65.1
 protobuf
 certifi

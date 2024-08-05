@@ -127,6 +127,8 @@ function installRequirements() {
         requirementFiles+=("${MY_DIR}/requirements-cpu.txt")
     fi
 
+    requirementFiles+=("${MY_DIR}/requirements-after.txt")
+
     for reqFile in ${requirementFiles[@]}; do
         if [ -f ${reqFile} ]; then
             echo "starting requirements install for ${reqFile}"
