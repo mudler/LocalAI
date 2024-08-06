@@ -48,6 +48,7 @@ jobs:
             cat "${{ matrix.variable }}_message.txt"
             echo EOF
           } >> "$GITHUB_OUTPUT"
+          rm -rfv ${{ matrix.variable }}_message.txt
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
