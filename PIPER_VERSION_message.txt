@@ -1,0 +1,2 @@
+Updated PIPER_VERSION from 9d0100873a7dbb0824dfea40e8cec70a1b110759 to 9d0100873a7dbb0824dfea40e8cec70a1b110759.
+https://github.com/mudler/go-piper/compare/9d0100873a7dbb0824dfea40e8cec70a1b110759..9d0100873a7dbb0824dfea40e8cec70a1b110759
