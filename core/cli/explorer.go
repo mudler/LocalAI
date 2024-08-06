@@ -8,7 +8,7 @@ import (
 
 type ExplorerCMD struct {
 	Address      string `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
-	PoolDatabase string `env:"LOCALAI_POOL_DATABASE,POOL_DATABASE" default:"" help:"Path to the pool database" group:"api"`
+	PoolDatabase string `env:"LOCALAI_POOL_DATABASE,POOL_DATABASE" default:"explorer.json" help:"Path to the pool database" group:"api"`
 }
 
 func (e *ExplorerCMD) Run(ctx *cliContext.Context) error {

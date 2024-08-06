@@ -18,7 +18,7 @@ func Explorer(db *explorer.Database) *fiber.App {
 
 	app := fiber.New(fiberCfg)
 
-	routes.RegisterExplorerRoutes(app)
+	routes.RegisterExplorerRoutes(app, db)
 
 	return app
 }

@@ -45,7 +45,7 @@ func (db *Database) Set(token string, t TokenData) error {
 	db.data[token] = t
 	db.Unlock()
 
-	return db.save()
+	return db.Save()
 }
 
 // Delete removes a Token from the Database by its token.
@@ -53,7 +53,7 @@ func (db *Database) Delete(token string) error {
 	db.Lock()
 	delete(db.data, token)
 	db.Unlock()
-	return db.save()
+	return db.Save()
 }
 
 func (db *Database) TokenList() []string {
@@ -78,7 +78,6 @@ func (db *Database) load() error {
 	defer db.Unlock()
 
 	if _, err := os.Stat(db.path); os.IsNotExist(err) {
-
 		return nil
 	}
 
@@ -91,8 +90,8 @@ func (db *Database) load() error {
 	return json.Unmarshal(f, &db.data)
 }
 
-// save writes the Database to disk.
-func (db *Database) save() error {
+// Save writes the Database to disk.
+func (db *Database) Save() error {
 	db.RLock()
 	defer db.RUnlock()
 
