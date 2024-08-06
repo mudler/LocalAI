@@ -40,8 +40,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Bump dependencies 🔧
+        id: bump
         run: |
           bash .github/bump_deps.sh ${{ matrix.repository }} ${{ matrix.branch }} ${{ matrix.variable }}
+          {
+            echo 'message<<EOF'
+            cat "${{ matrix.repository }}_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
@@ -50,7 +56,7 @@ jobs:
           commit-message: ':arrow_up: Update ${{ matrix.repository }}'
           title: 'chore: :arrow_up: Update ${{ matrix.repository }}'
           branch: "update/${{ matrix.variable }}"
-          body: Bump of ${{ matrix.repository }} version
+          body:  ${{ steps.bump.outputs.message }}
           signoff: true
 
 
