@@ -19,4 +19,6 @@ if [ -z "$CURRENT_COMMIT" ]; then
 fi
 
 echo "Updated $VAR from $CURRENT_COMMIT to ${LAST_COMMIT}." > "${VAR}_message.txt"
-echo "https://github.com/$REPO/compare/${CURRENT_COMMIT}..${LAST_COMMIT}" >> "${VAR}_message.txt"
+echo "" >> "${VAR}_message.txt"
+echo "Diff URL: https://github.com/$REPO/compare/${CURRENT_COMMIT}..${LAST_COMMIT}" >> "${VAR}_message.txt"
+echo "${LAST_COMMIT}" >> "${VAR}_commit.txt"
