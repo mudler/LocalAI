@@ -1,0 +1,3 @@
+Updated RWKV_VERSION from 661e7ae26d442f5cfebd2a0881b44e8c55949ec6 to 661e7ae26d442f5cfebd2a0881b44e8c55949ec6.
+
+Diff URL: https://github.com/donomii/go-rwkv.cpp/compare/661e7ae26d442f5cfebd2a0881b44e8c55949ec6..661e7ae26d442f5cfebd2a0881b44e8c55949ec6
