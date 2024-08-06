@@ -40,17 +40,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Bump dependencies 🔧
+        id: bump
         run: |
           bash .github/bump_deps.sh ${{ matrix.repository }} ${{ matrix.branch }} ${{ matrix.variable }}
+          {
+            echo 'message<<EOF'
+            cat "${{ matrix.variable }}_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit<<EOF'
+            cat "${{ matrix.variable }}_commit.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          rm -rfv ${{ matrix.variable }}_message.txt
+          rm -rfv ${{ matrix.variable }}_commit.txt
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
           commit-message: ':arrow_up: Update ${{ matrix.repository }}'
-          title: 'chore: :arrow_up: Update ${{ matrix.repository }}'
+          title: 'chore: :arrow_up: Update ${{ matrix.repository }} to `${{ steps.bump.outputs.commit }}`'
           branch: "update/${{ matrix.variable }}"
-          body: Bump of ${{ matrix.repository }} version
+          body: ${{ steps.bump.outputs.message }}
           signoff: true
 
 

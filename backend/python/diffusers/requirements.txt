@@ -3,11 +3,10 @@ accelerate
 compel
 peft
 diffusers
-grpcio==1.65.1
+grpcio==1.65.4
 opencv-python
 pillow
 protobuf
 sentencepiece
-torch
 transformers
 certifi
