@@ -1,0 +1,2 @@
+Updated STABLEDIFFUSION_VERSION from 4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f to 4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f.
+https://github.com/mudler/go-stable-diffusion/compare/4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f..4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
