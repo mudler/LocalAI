@@ -45,7 +45,7 @@ jobs:
           bash .github/bump_deps.sh ${{ matrix.repository }} ${{ matrix.branch }} ${{ matrix.variable }}
           {
             echo 'message<<EOF'
-            cat "${{ matrix.repository }}_message.txt"
+            cat "${{ matrix.variable }}_message.txt"
             echo EOF
           } >> "$GITHUB_OUTPUT"
       - name: Create Pull Request
