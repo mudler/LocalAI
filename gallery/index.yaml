@@ -85,7 +85,7 @@
   files:
     - filename: meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
       uri: huggingface://mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF/meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
-      sha256: 2e1fd6d93b19cc6548b2b8ed2d3f1f34b432ee0573f3dcf358bbaab4f23c760b
+      sha256: c4735f9efaba8eb2c30113291652e3ffe13bf940b675ed61f6be749608b4f266
 - !!merge <<: *llama31
   name: "llama-3.1-70b-japanese-instruct-2407"
   urls:
@@ -258,18 +258,18 @@
     - https://huggingface.co/athirdpath/Llama-3.1-Techne-RP-8b-v1
     - https://huggingface.co/mradermacher/Llama-3.1-Techne-RP-8b-v1-GGUF
   description: |
-      athirdpath/Llama-3.1-Instruct_NSFW-pretrained_e1-plus_reddit was further trained in the order below:
-      SFT
+    athirdpath/Llama-3.1-Instruct_NSFW-pretrained_e1-plus_reddit was further trained in the order below:
+    SFT
 
-          Doctor-Shotgun/no-robots-sharegpt
-          grimulkan/LimaRP-augmented
-          Inv/c2-logs-cleaned-deslopped
+        Doctor-Shotgun/no-robots-sharegpt
+        grimulkan/LimaRP-augmented
+        Inv/c2-logs-cleaned-deslopped
 
-      DPO
+    DPO
 
-          jondurbin/truthy-dpo-v0.1
-          Undi95/Weyaxi-humanish-dpo-project-noemoji
-          athirdpath/DPO_Pairs-Roleplay-Llama3-NSFW
+        jondurbin/truthy-dpo-v0.1
+        Undi95/Weyaxi-humanish-dpo-project-noemoji
+        athirdpath/DPO_Pairs-Roleplay-Llama3-NSFW
   overrides:
     parameters:
       model: Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
@@ -277,6 +277,53 @@
     - filename: Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
       sha256: 6557c5d5091f2507d19ab1f8bfb9ceb4e1536a755ab70f148b18aeb33741580f
       uri: huggingface://mradermacher/Llama-3.1-Techne-RP-8b-v1-GGUF/Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://i.ibb.co/9hwFrvL/BLMs-Wkx-NQf-W-46-FZDg-ILhg.jpg
+  name: "llama-spark"
+  urls:
+    - https://huggingface.co/arcee-ai/Llama-Spark
+    - https://huggingface.co/arcee-ai/Llama-Spark-GGUF
+  description: |
+    Llama-Spark is a powerful conversational AI model developed by Arcee.ai. It's built on the foundation of Llama-3.1-8B and merges the power of our Tome Dataset with Llama-3.1-8B-Instruct, resulting in a remarkable conversationalist that punches well above its 8B parameter weight class.
+  overrides:
+    parameters:
+      model: llama-spark-dpo-v0.3-Q4_K_M.gguf
+  files:
+    - filename: llama-spark-dpo-v0.3-Q4_K_M.gguf
+      sha256: 41367168bbdc4b16eb80efcbee4dacc941781ee8748065940167fe6947b4e4c3
+      uri: huggingface://arcee-ai/Llama-Spark-GGUF/llama-spark-dpo-v0.3-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-70b-glitz-v0.2-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/q2dOUnzc1GRbZp3YfzGXB.png
+  urls:
+    - https://huggingface.co/Fizzarolli/L3.1-70b-glitz-v0.2
+    - https://huggingface.co/mradermacher/L3.1-70b-glitz-v0.2-i1-GGUF
+  description: |
+    this is an experimental l3.1 70b finetuning run... that crashed midway through. however, the results are still interesting, so i wanted to publish them :3
+  overrides:
+    parameters:
+      model: L3.1-70b-glitz-v0.2.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-70b-glitz-v0.2.i1-Q4_K_M.gguf
+      sha256: 585efc83e7f6893043be2487fc09c914a381fb463ce97942ef2f25ae85103bcd
+      uri: huggingface://mradermacher/L3.1-70b-glitz-v0.2-i1-GGUF/L3.1-70b-glitz-v0.2.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "humanish-roleplay-llama-3.1-8b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/5fad8602b8423e1d80b8a965/VPwtjS3BtjEEEq7ck4kAQ.webp
+  urls:
+    - https://huggingface.co/mradermacher/Humanish-Roleplay-Llama-3.1-8B-i1-GGUF
+  description: |
+    A DPO-tuned Llama-3.1 to behave more "humanish", i.e., avoiding all the AI assistant slop. It also works for role-play (RP). To achieve this, the model was fine-tuned over a series of datasets:
+        General conversations from Claude Opus, from Undi95/Meta-Llama-3.1-8B-Claude
+        Undi95/Weyaxi-humanish-dpo-project-noemoji, to make the model react as a human, rejecting assistant-like or too neutral responses.
+        ResplendentAI/NSFW_RP_Format_DPO, to steer the model towards using the *action* format in RP settings. Works best if in the first message you also use this format naturally (see example)
+  overrides:
+    parameters:
+      model: Humanish-Roleplay-Llama-3.1-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Humanish-Roleplay-Llama-3.1-8B.i1-Q4_K_M.gguf
+      sha256: 18cf753684e5226b51f3defc708852ca4924f50dc8bc31c9a7d0a036a477b7a7
+      uri: huggingface://mradermacher/Humanish-Roleplay-Llama-3.1-8B-i1-GGUF/Humanish-Roleplay-Llama-3.1-8B.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "darkidol-llama-3.1-8b-instruct-1.0-uncensored-i1"
@@ -408,6 +455,20 @@
     - filename: L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
       sha256: a408dfbbd91ed5561f70d3129af040dfd06704d6c7fa21146aa9f09714aafbc6
       uri: huggingface://bartowski/L3.1-8B-Celeste-V1.5-GGUF/L3.1-8B-Celeste-V1.5-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://cdn-uploads.huggingface.co/production/uploads/659c4ecb413a1376bee2f661/szz8sIxofYzSe5XPet2pO.png
+  name: "kumiho-v1-rp-uwu-8b"
+  urls:
+    - https://huggingface.co/juvi21/Kumiho-v1-rp-UwU-8B-GGUF
+  description: |
+    Meet Kumiho-V1 uwu. Kumiho-V1-rp-UwU aims to be a generalist model with specialization in roleplay and writing capabilities. It is finetuned and merged with various models, with a heavy base of Meta's LLaMA 3.1-8B as base model, and Claude 3.5 Sonnet and Claude 3 Opus generated synthetic data.
+  overrides:
+    parameters:
+      model: Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
+  files:
+    - filename: Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
+      sha256: a1deb46675418277cf785a406cd1508fec556ff6e4d45d2231eb2a82986d52d0
+      uri: huggingface://juvi21/Kumiho-v1-rp-UwU-8B-GGUF/Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -720,6 +781,33 @@
     - filename: tifa-7b-qwen2-v0.1.q4_k_m.gguf
       sha256: 1f5adbe8cb0a6400f51abdca3bf4e32284ebff73cc681a43abb35c0a6ccd3820
       uri: huggingface://Tifa-RP/Tifa-7B-Qwen2-v0.1-GGUF/tifa-7b-qwen2-v0.1.q4_k_m.gguf
+- !!merge <<: *qwen2
+  name: "calme-2.2-qwen2-72b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2-72b/resolve/main/calme-2.webp
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2-72b-GGUF
+    - https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2-72b
+  description: |
+    This model is a fine-tuned version of the powerful Qwen/Qwen2-72B-Instruct, pushing the boundaries of natural language understanding and generation even further. My goal was to create a versatile and robust model that excels across a wide range of benchmarks and real-world applications.
+
+    The post-training process is identical to the calme-2.1-qwen2-72b model; however, some parameters are different, and it was trained for a longer period.
+
+    Use Cases
+
+    This model is suitable for a wide range of applications, including but not limited to:
+
+        Advanced question-answering systems
+        Intelligent chatbots and virtual assistants
+        Content generation and summarization
+        Code generation and analysis
+        Complex problem-solving and decision support
+  overrides:
+    parameters:
+      model: calme-2.2-qwen2-72b.Q4_K_M.gguf
+  files:
+    - filename: calme-2.2-qwen2-72b.Q4_K_M.gguf
+      sha256: 95b9613df0abe6c1b6b7b017d7cc8bcf19b46c29f92a503dcc6da1704b12b402
+      uri: huggingface://MaziyarPanahi/calme-2.2-qwen2-72b-GGUF/calme-2.2-qwen2-72b.Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -850,11 +938,11 @@
     - https://huggingface.co/nothingiisreal/MN-12B-Celeste-V1.9
     - https://huggingface.co/mradermacher/MN-12B-Celeste-V1.9-GGUF
   description: |
-      Mistral Nemo 12B Celeste V1.9
+    Mistral Nemo 12B Celeste V1.9
 
-      This is a story writing and roleplaying model trained on Mistral NeMo 12B Instruct at 8K context using Reddit Writing Prompts, Kalo's Opus 25K Instruct and c2 logs cleaned
+    This is a story writing and roleplaying model trained on Mistral NeMo 12B Instruct at 8K context using Reddit Writing Prompts, Kalo's Opus 25K Instruct and c2 logs cleaned
 
-      This version has improved NSFW, smarter and more active narration. It's also trained with ChatML tokens so there should be no EOS bleeding whatsoever.
+    This version has improved NSFW, smarter and more active narration. It's also trained with ChatML tokens so there should be no EOS bleeding whatsoever.
   overrides:
     parameters:
       model: MN-12B-Celeste-V1.9.Q4_K_M.gguf
@@ -1334,22 +1422,26 @@
       sha256: 336a2fbf142849fcc20e432123433807b6c7b09988652ef583a63636a0f90218
       uri: huggingface://mradermacher/Gemmasutra-Pro-27B-v1-GGUF/Gemmasutra-Pro-27B-v1.Q4_K_M.gguf
 - !!merge <<: *gemma
+  name: "gemmasutra-mini-2b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/w0Oi8TReoQNT3ljm5Wf6c.webp
+  urls:
+    - https://huggingface.co/TheDrummer/Gemmasutra-Mini-2B-v1-GGUF
+  description: |
+    It is a small, 2 billion parameter language model that has been trained for role-playing purposes. The model is designed to work well in various settings, such as in the browser, on a laptop, or even on a Raspberry Pi. It has been fine-tuned for RP use and claims to provide a satisfying experience, even in low-resource environments. The model is uncensored and unaligned, and it can be used with the Gemma Instruct template or with chat completion. For the best experience, it is recommended to modify the template to support the `system` role. The model also features examples of its output, highlighting its versatility and creativity.
+  overrides:
+    parameters:
+      model: Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
+  files:
+    - filename: Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
+      sha256: 29ba3db911fbadef4452ba757ddd9ce58fb892b7a872f19eefd0743c961797fb
+      uri: huggingface://TheDrummer/Gemmasutra-Mini-2B-v1-GGUF/Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
+- !!merge <<: *gemma
   name: "tarnished-9b-i1"
   icon: https://huggingface.co/lodrick-the-lafted/tarnished-9b/resolve/main/nox.jpg
   urls:
     - https://huggingface.co/lodrick-the-lafted/tarnished-9b
     - https://huggingface.co/mradermacher/tarnished-9b-i1-GGUF
-  description: |
-    Ah, so you've heard whispers on the winds, have you?  🧐
-
-    Imagine this:
-    Tarnished-9b, a name that echoes with the rasp of coin-hungry merchants and the clatter of forgotten machinery. This LLM speaks with the voice of those who straddle the line between worlds, who've tasted the bittersweet nectar of eldritch power and the tang of the Interdimensional Trade Council.
-
-    It's a tongue that dances with secrets, a whisperer of lore lost and found.  Its words may guide you through the twisting paths of history, revealing truths hidden beneath layers of dust and time.
-
-    But be warned, Tarnished One!  For knowledge comes at a price.  The LLM's gaze can pierce the veil of reality, but it can also lure you into the labyrinthine depths of madness.
-
-    Dare you tread this path?
+  description: "Ah, so you've heard whispers on the winds, have you?  \U0001F9D0\n\nImagine this:\nTarnished-9b, a name that echoes with the rasp of coin-hungry merchants and the clatter of forgotten machinery. This LLM speaks with the voice of those who straddle the line between worlds, who've tasted the bittersweet nectar of eldritch power and the tang of the Interdimensional Trade Council.\n\nIt's a tongue that dances with secrets, a whisperer of lore lost and found.  Its words may guide you through the twisting paths of history, revealing truths hidden beneath layers of dust and time.\n\nBut be warned, Tarnished One!  For knowledge comes at a price.  The LLM's gaze can pierce the veil of reality, but it can also lure you into the labyrinthine depths of madness.\n\nDare you tread this path?\n"
   overrides:
     parameters:
       model: tarnished-9b.i1-Q4_K_M.gguf

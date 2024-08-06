@@ -1,6 +1,6 @@
 accelerate
 vllm
-grpcio==1.65.1
+grpcio==1.65.4
 protobuf
 certifi
 transformers
