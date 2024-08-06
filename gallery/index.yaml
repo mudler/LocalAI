@@ -781,6 +781,33 @@
     - filename: tifa-7b-qwen2-v0.1.q4_k_m.gguf
       sha256: 1f5adbe8cb0a6400f51abdca3bf4e32284ebff73cc681a43abb35c0a6ccd3820
       uri: huggingface://Tifa-RP/Tifa-7B-Qwen2-v0.1-GGUF/tifa-7b-qwen2-v0.1.q4_k_m.gguf
+- !!merge <<: *qwen2
+  name: "calme-2.2-qwen2-72b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2-72b/resolve/main/calme-2.webp
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2-72b-GGUF
+    - https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2-72b
+  description: |
+    This model is a fine-tuned version of the powerful Qwen/Qwen2-72B-Instruct, pushing the boundaries of natural language understanding and generation even further. My goal was to create a versatile and robust model that excels across a wide range of benchmarks and real-world applications.
+
+    The post-training process is identical to the calme-2.1-qwen2-72b model; however, some parameters are different, and it was trained for a longer period.
+
+    Use Cases
+
+    This model is suitable for a wide range of applications, including but not limited to:
+
+        Advanced question-answering systems
+        Intelligent chatbots and virtual assistants
+        Content generation and summarization
+        Code generation and analysis
+        Complex problem-solving and decision support
+  overrides:
+    parameters:
+      model: calme-2.2-qwen2-72b.Q4_K_M.gguf
+  files:
+    - filename: calme-2.2-qwen2-72b.Q4_K_M.gguf
+      sha256: 95b9613df0abe6c1b6b7b017d7cc8bcf19b46c29f92a503dcc6da1704b12b402
+      uri: huggingface://MaziyarPanahi/calme-2.2-qwen2-72b-GGUF/calme-2.2-qwen2-72b.Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
