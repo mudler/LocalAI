@@ -2,4 +2,3 @@
 accelerate
 torch
 transformers
-vllm
