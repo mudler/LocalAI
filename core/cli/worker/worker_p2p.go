@@ -33,7 +33,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 	err := assets.ExtractFiles(ctx.BackendAssets, r.BackendAssetsPath)
 	log.Debug().Msgf("Extracting backend assets files to %s", r.BackendAssetsPath)
 	if err != nil {
-		log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
+		log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly)", err)
 	}
 
 	// Check if the token is set
