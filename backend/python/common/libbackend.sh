@@ -143,6 +143,10 @@ function installRequirements() {
 
     requirementFiles+=("${EDIR}/requirements-after.txt")
 
+    if [ "x${BUILD_TYPE}" != "x${BUILD_PROFILE}" ]; then
+        requirementFiles+=("${EDIR}/requirements-${BUILD_PROFILE}-after.txt")
+    fi
+
     for reqFile in ${requirementFiles[@]}; do
         if [ -f ${reqFile} ]; then
             echo "starting requirements install for ${reqFile}"
