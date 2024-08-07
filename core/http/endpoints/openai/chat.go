@@ -195,14 +195,26 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 		if config.ResponseFormatMap != nil {
 			d := schema.ChatCompletionResponseFormat{}
-			dat, _ := json.Marshal(config.ResponseFormatMap)
-			_ = json.Unmarshal(dat, &d)
+			dat, err := json.Marshal(config.ResponseFormatMap)
+			if err != nil {
+				return err
+			}
+			err = json.Unmarshal(dat, &d)
+			if err != nil {
+				return err
+			}
 			if d.Type == "json_object" {
 				input.Grammar = functions.JSONBNF
 			} else if d.Type == "json_schema" {
 				d := schema.JsonSchemaRequest{}
-				dat, _ := json.Marshal(config.ResponseFormatMap)
-				_ = json.Unmarshal(dat, &d)
+				dat, err := json.Marshal(config.ResponseFormatMap)
+				if err != nil {
+					return err
+				}
+				err = json.Unmarshal(dat, &d)
+				if err != nil {
+					return err
+				}
 				fs := &functions.JSONFunctionStructure{
 					AnyOf: []functions.Item{d.JsonSchema.Schema},
 				}
