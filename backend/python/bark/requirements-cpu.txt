@@ -1,4 +1,4 @@
 transformers
 accelerate
 torch
-rerankers[transformers]
+torchaudio

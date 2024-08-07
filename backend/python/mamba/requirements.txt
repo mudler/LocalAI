@@ -1,4 +1,3 @@
 grpcio==1.65.1
 protobuf
 certifi
-transformers

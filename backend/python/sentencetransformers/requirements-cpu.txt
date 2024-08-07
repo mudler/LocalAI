@@ -1,5 +1,6 @@
---extra-index-url https://download.pytorch.org/whl/cu118
 torch
 accelerate
+transformers
+bitsandbytes
 sentence-transformers==3.0.1
 transformers

@@ -1,6 +1,4 @@
-accelerate
 grpcio==1.65.1
 protobuf
 git+https://github.com/huggingface/parler-tts.git@10016fb0300c0dc31a0fb70e26f3affee7b62f16
 certifi
-transformers
