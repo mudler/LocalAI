@@ -172,6 +172,14 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 		funcs := input.Functions
 		shouldUseFn := len(input.Functions) > 0 && config.ShouldUseFunctions()
+		strictMode := false
+
+		for _, f := range input.Functions {
+			if f.Strict {
+				strictMode = true
+				break
+			}
+		}
 
 		// Allow the user to set custom actions via config file
 		// to be "embedded" in each model
@@ -191,6 +199,17 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			_ = json.Unmarshal(dat, &d)
 			if d.Type == "json_object" {
 				input.Grammar = functions.JSONBNF
+			} else if d.Type == "json_schema" {
+				d := schema.JsonSchemaRequest{}
+				dat, _ := json.Marshal(config.ResponseFormatMap)
+				_ = json.Unmarshal(dat, &d)
+				fs := &functions.JSONFunctionStructure{
+					AnyOf: []functions.Item{d.JsonSchema.Schema},
+				}
+				g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
+				if err == nil {
+					input.Grammar = g
+				}
 			}
 		}
 
@@ -201,7 +220,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		}
 
 		switch {
-		case !config.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn:
+		case (!config.FunctionsConfig.GrammarConfig.NoGrammar || strictMode) && shouldUseFn:
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
 				Description: noActionDescription,

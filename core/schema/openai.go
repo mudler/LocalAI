@@ -139,6 +139,17 @@ type ChatCompletionResponseFormat struct {
 	Type ChatCompletionResponseFormatType `json:"type,omitempty"`
 }
 
+type JsonSchemaRequest struct {
+	Type       string     `json:"type"`
+	JsonSchema JsonSchema `json:"json_schema"`
+}
+
+type JsonSchema struct {
+	Name   string         `json:"name"`
+	Strict bool           `json:"strict"`
+	Schema functions.Item `json:"schema"`
+}
+
 type OpenAIRequest struct {
 	PredictionOptions
 
