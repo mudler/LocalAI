@@ -27,6 +27,8 @@ func (s *DiscoveryServer) NetworkState() *NetworkState {
 	return s.networkState
 }
 
+// NewDiscoveryServer creates a new DiscoveryServer with the given Database.
+// it keeps the db state in sync with the network state
 func NewDiscoveryServer(db *Database) *DiscoveryServer {
 	return &DiscoveryServer{
 		database: db,
@@ -41,6 +43,11 @@ type Network struct {
 }
 
 func (s *DiscoveryServer) runBackground() {
+	if len(s.database.TokenList()) == 0 {
+		time.Sleep(5 * time.Second) // avoid busy loop
+		return
+	}
+
 	for _, token := range s.database.TokenList() {
 		c, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 		defer cancel()
@@ -52,18 +59,21 @@ func (s *DiscoveryServer) runBackground() {
 		n, err := p2p.NewNode(token)
 		if err != nil {
 			fmt.Println(err)
+			s.database.Delete(token)
 			continue
 		}
 
 		err = n.Start(c)
 		if err != nil {
 			fmt.Println(err)
+			s.database.Delete(token)
 			continue
 		}
 
 		ledger, err := n.Ledger()
 		if err != nil {
 			fmt.Println(err)
+			s.database.Delete(token)
 			continue
 		}
 
@@ -74,16 +84,25 @@ func (s *DiscoveryServer) runBackground() {
 		// and few attempts would have to be made before bailing out
 		go s.retrieveNetworkData(c, ledger, networkData)
 
+		hasWorkers := false
 		ledgerK := []ClusterData{}
 		for key := range networkData {
 			ledgerK = append(ledgerK, key)
+			if len(key.Workers) > 0 {
+				hasWorkers = true
+			}
 		}
 
-		s.Lock()
-		s.networkState.Networks[token] = Network{
-			Clusters: ledgerK,
+		if hasWorkers {
+			s.Lock()
+			s.networkState.Networks[token] = Network{
+				Clusters: ledgerK,
+			}
+			s.Unlock()
+		} else {
+			fmt.Println("No workers found in the network, removing token", token)
+			s.database.Delete(token)
 		}
-		s.Unlock()
 	}
 }
 
