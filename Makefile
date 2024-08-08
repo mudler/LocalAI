@@ -387,7 +387,7 @@ ifeq ($(DETECT_LIBS),true)
 	scripts/prepare-libs.sh backend-assets/grpc/llama-cpp-avx2
 endif
 ifeq ($(OS),Darwin)
-	$(info ${GREEN}I Skip CUDA/hipblas build on MacOS${RESET})
+	BUILD_TYPE=none $(MAKE) backend-assets/grpc/llama-cpp-fallback
 else
 	$(MAKE) backend-assets/grpc/llama-cpp-cuda
 	$(MAKE) backend-assets/grpc/llama-cpp-hipblas
