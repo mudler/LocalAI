@@ -134,6 +134,7 @@ func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockch
 					continue LEDGER
 				}
 
+				atLeastOneWorker := false
 			DATA:
 				for _, v := range data[d] {
 					nd := &p2p.NodeData{}
@@ -142,11 +143,14 @@ func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockch
 					}
 
 					if nd.IsOnline() {
+						atLeastOneWorker = true
 						(&cd).Workers = append(cd.Workers, nd.ID)
 					}
 				}
 
-				clusters[d] = cd
+				if atLeastOneWorker {
+					clusters[d] = cd
+				}
 			}
 		}
 	}
