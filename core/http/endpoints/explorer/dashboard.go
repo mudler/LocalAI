@@ -45,7 +45,14 @@ func ShowNetworks(db *explorer.Database, ds *explorer.DiscoveryServer) func(*fib
 		results := []Network{}
 		for token, network := range networkState.Networks {
 			networkData, exists := db.Get(token) // get the token data
-			if exists {
+			hasWorkers := false
+			for _, cluster := range network.Clusters {
+				if len(cluster.Workers) > 0 {
+					hasWorkers = true
+					break
+				}
+			}
+			if exists && hasWorkers {
 				results = append(results, Network{Network: network, TokenData: networkData, Token: token})
 			}
 		}
