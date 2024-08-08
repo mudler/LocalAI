@@ -1,0 +1,26 @@
+{
+    "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+    "name": "LocalAI",
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+    "build": { 
+        "dockerfile": "../Dockerfile",
+        "target": "devcontainer",
+        "args": {
+            "GO_TAGS": "p2p tts stablediffusion"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.go",
+                "ms-vscode.makefile-tools",
+                "ms-azuretools.vscode-docker"
+            ]
+        }
+    },
+    "capAdd": ["SYS_PTRACE"],
+    "securityOpt": ["seccomp=unconfined"],
+    "forwardPorts": [8080],
+    "postAttachCommand": "make prepare"
+}
