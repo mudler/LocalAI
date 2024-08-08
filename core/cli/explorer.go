@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/explorer"
 	"github.com/mudler/LocalAI/core/http"
@@ -18,6 +20,10 @@ func (e *ExplorerCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 	appHTTP := http.Explorer(db)
+
+	ds := explorer.NewDiscoveryServer(db)
+
+	go ds.Start(context.Background())
 
 	return appHTTP.Listen(e.Address)
 }

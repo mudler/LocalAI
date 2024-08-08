@@ -30,8 +30,10 @@ func NewDiscoveryServer(db *Database) *DiscoveryServer {
 func (s *DiscoveryServer) runBackground() {
 	for _, token := range s.database.TokenList() {
 
+		fmt.Println("Checking token", token)
 		c, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 		defer cancel()
+		fmt.Println("Starting node", token)
 
 		// Connect to the network
 		// Get the number of nodes
@@ -42,11 +44,14 @@ func (s *DiscoveryServer) runBackground() {
 			fmt.Println(err)
 			continue
 		}
+
+		fmt.Println("Starting network", token)
 		err = n.Start(c)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
+		fmt.Println("ledger", token)
 
 		ledger, err := n.Ledger()
 		if err != nil {
@@ -58,10 +63,19 @@ func (s *DiscoveryServer) runBackground() {
 		go s.getLedgerKeys(c, ledger, ledgerKeys)
 
 		ledgerK := []string{}
+		fmt.Println("waiting for ledger keys", token)
 
-		for key := range ledgerKeys {
-			ledgerK = append(ledgerK, key)
+	LOOP:
+		for {
+			select {
+			case <-c.Done():
+				fmt.Println("Context exhausted")
+				break LOOP
+			case key := <-ledgerKeys:
+				ledgerK = append(ledgerK, key)
+			}
 		}
+
 		fmt.Println("Token network", token)
 		fmt.Println("Found the following ledger keys in the network", ledgerK)
 		// get new services, allocate and return to the channel
