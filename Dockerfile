@@ -272,7 +272,7 @@ COPY .git .
 RUN make prepare
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
-RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+RUN echo "$GO_TAGS" | grep -q "stablediffusion" && GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build || true
 
 # Rebuild with defaults backends
 WORKDIR /build
@@ -293,8 +293,7 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 
 FROM builder-base AS devcontainer
 
-# do not let stablediffusion rebuild (requires an older version of absl)
-COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 ###################################
 ###################################

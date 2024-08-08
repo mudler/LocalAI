@@ -7,7 +7,7 @@
         "dockerfile": "../Dockerfile",
         "target": "devcontainer",
         "args": {
-            "GO_TAGS": "p2p tts stablediffusion"
+            "GO_TAGS": "p2p tts"
         }
     },
     "customizations": {
