@@ -85,6 +85,9 @@ func AddNetwork(db *explorer.Database) func(*fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid token"})
 		}
 
+		if _, exists := db.Get(request.Token); exists {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Token already exists"})
+		}
 		err = db.Set(request.Token, explorer.TokenData{Name: request.Name, Description: request.Description})
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Cannot add token"})
