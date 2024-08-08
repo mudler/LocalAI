@@ -1,6 +1,7 @@
 package explorer
 
 import (
+	"encoding/base64"
 	"sort"
 
 	"github.com/gofiber/fiber/v2"
@@ -78,8 +79,13 @@ func AddNetwork(db *explorer.Database) func(*fiber.Ctx) error {
 		}
 
 		// TODO: check if token is valid, otherwise reject
+		// try to decode the token from base64
+		_, err := base64.StdEncoding.DecodeString(request.Token)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid token"})
+		}
 
-		err := db.Set(request.Token, explorer.TokenData{Name: request.Name, Description: request.Description})
+		err = db.Set(request.Token, explorer.TokenData{Name: request.Name, Description: request.Description})
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Cannot add token"})
 		}

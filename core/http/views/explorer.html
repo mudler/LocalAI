@@ -13,6 +13,7 @@
         max-width: 800px;
         margin: 0 auto;
         padding: 20px;
+        position: relative;
     }
     .network-card {
         background-color: #2d3748;
@@ -35,6 +36,54 @@
         font-size: 18px;
         font-weight: bold;
     }
+    .form-container {
+        background-color: #2d3748;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .form-control {
+        margin-bottom: 10px;
+    }
+    label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    input[type="text"], textarea {
+        width: 100%;
+        padding: 8px;
+        border-radius: 4px;
+        border: none;
+        background-color: #4a5568;
+        color: #e2e8f0;
+    }
+    button {
+        background-color: #3182ce;
+        color: #e2e8f0;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    button:hover {
+        background-color: #63b3ed;
+    }
+    .toggle-button {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background-color: #e53e3e;
+    }
+    .error {
+        color: #e53e3e;
+        margin-top: 5px;
+    }
+    .success {
+        color: #38a169;
+        margin-top: 5px;
+    }
 </style>
 <body class="bg-gray-900 text-gray-200">
     <div class="flex flex-col min-h-screen" x-data="networkClusters()" x-init="init()">
@@ -44,6 +93,34 @@
         </header>
 
         <div class="container mx-auto px-4 flex-grow">
+
+          <!-- Toggle button for showing/hiding the form -->
+          <button class="toggle-button" @click="toggleForm()" x-text="showForm ? 'Close' : 'Add New Network'"></button>
+
+          <!-- Form for adding a new network -->
+          <div class="form-container" x-show="showForm" @click.outside="showForm = false">
+              <h2 class="text-3xl font-bold mb-4">Add New Network</h2>
+              <div class="form-control">
+                  <label for="name">Network Name</label>
+                  <input type="text" id="name" x-model="newNetwork.name" placeholder="Enter network name" />
+              </div>
+              <div class="form-control">
+                  <label for="description">Description</label>
+                  <textarea id="description" x-model="newNetwork.description" placeholder="Enter description"></textarea>
+              </div>
+              <div class="form-control">
+                  <label for="token">Token</label>
+                  <textarea id="token" x-model="newNetwork.token" placeholder="Enter token"></textarea>
+              </div>
+              <button @click="addNetwork">Add Network</button>
+              <template x-if="errorMessage">
+                  <p class="error" x-text="errorMessage"></p>
+              </template>
+              <template x-if="successMessage">
+                  <p class="success" x-text="successMessage"></p>
+              </template>
+          </div>
+
             <template x-if="networks.length === 0">
                 <p class="text-center">Loading networks...</p>
             </template>
@@ -64,12 +141,22 @@
                 </div>
             </template>
         </div>
-
         <script>
             function networkClusters() {
                 return {
                     networks: [],
-    
+                    newNetwork: {
+                        name: '',
+                        description: '',
+                        token: ''
+                    },
+                    errorMessage: '',
+                    successMessage: '',
+                    showForm: false, // Form visibility state
+                    toggleForm() {
+                        this.showForm = !this.showForm;
+                        console.log('Toggling form:', this.showForm);
+                    },
                     fetchNetworks() {
                         console.log('Fetching networks...');
                         fetch('/networks')
@@ -81,6 +168,45 @@
                             .catch(error => {
                                 console.error('Error fetching networks:', error);
                             });
+                    },
+    
+                    addNetwork() {
+                        this.errorMessage = '';
+                        this.successMessage = '';
+                        console.log('Adding new network:', this.newNetwork);
+    
+                        // Validate input
+                        if (!this.newNetwork.name || !this.newNetwork.description || !this.newNetwork.token) {
+                            this.errorMessage = 'All fields are required.';
+                            return;
+                        }
+    
+                        fetch('/network/add', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.newNetwork)
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(err => { throw err; });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('Network added successfully:', data);
+                            this.successMessage = 'Network added successfully!';
+                            this.fetchNetworks(); // Refresh the networks list
+                            this.newNetwork = { name: '', description: '', token: '' }; // Clear form
+                        })
+                        .catch(error => {
+                            console.error('Error adding network:', error);
+                            this.errorMessage = 'Failed to add network. Please try again.'
+                            if (error.error) {
+                                this.errorMessage += " Error : "+error.error;
+                            }
+                        });
                     },
     
                     init() {
