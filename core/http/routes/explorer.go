@@ -9,4 +9,5 @@ import (
 func RegisterExplorerRoutes(app *fiber.App, db *coreExplorer.Database, ds *coreExplorer.DiscoveryServer) {
 	app.Get("/", explorer.Dashboard())
 	app.Post("/network/add", explorer.AddNetwork(db))
+	app.Get("/networks", explorer.ShowNetworks(db, ds))
 }

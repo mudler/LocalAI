@@ -1,6 +1,8 @@
 package explorer
 
 import (
+	"sort"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/explorer"
 	"github.com/mudler/LocalAI/internal"
@@ -28,6 +30,32 @@ type AddNetworkRequest struct {
 	Token       string `json:"token"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+type Network struct {
+	explorer.Network
+	explorer.TokenData
+	Token string `json:"token"`
+}
+
+func ShowNetworks(db *explorer.Database, ds *explorer.DiscoveryServer) func(*fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		networkState := ds.NetworkState()
+		results := []Network{}
+		for token, network := range networkState.Networks {
+			networkData, exists := db.Get(token) // get the token data
+			if exists {
+				results = append(results, Network{Network: network, TokenData: networkData, Token: token})
+			}
+		}
+
+		// order by number of clusters
+		sort.Slice(results, func(i, j int) bool {
+			return len(results[i].Clusters) > len(results[j].Clusters)
+		})
+
+		return c.JSON(results)
+	}
 }
 
 func AddNetwork(db *explorer.Database) func(*fiber.Ctx) error {

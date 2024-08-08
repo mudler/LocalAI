@@ -79,36 +79,24 @@ func (s *DiscoveryServer) runBackground() {
 			ledgerK = append(ledgerK, key)
 		}
 
-		fmt.Println("Token network", token)
-		fmt.Println("Found the following workers in the network", ledgerK)
-
 		s.Lock()
 		s.networkState.Networks[token] = Network{
 			Clusters: ledgerK,
 		}
 		s.Unlock()
-		// get new services, allocate and return to the channel
-
-		// TODO:
-		// a function ensureServices that:
-		// - starts a service if not started, if the worker is Online
-		// - checks that workers are Online, if not cancel the context of allocateLocalService
-		// - discoveryTunnels should return all the nodes and addresses associated with it
-		// - the caller should take now care of the fact that we are always returning fresh informations
 	}
 }
 
 type ClusterData struct {
-	Workers []string
-	Type    string
+	Workers   []string
+	Type      string
+	NetworkID string
 }
 
 func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockchain.Ledger, networkData chan ClusterData) {
 	clusters := map[string]ClusterData{}
 
 	defer func() {
-		fmt.Println("Defer clusters", clusters)
-
 		for _, n := range clusters {
 			networkData <- n
 		}
@@ -118,8 +106,6 @@ func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockch
 	for {
 		select {
 		case <-c.Done():
-			fmt.Println("Closing with ccluster")
-			fmt.Println(clusters)
 			return
 		default:
 			time.Sleep(5 * time.Second)
@@ -138,7 +124,10 @@ func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockch
 				case isFederatedCluster:
 					toScanForWorkers = true
 					cd.Type = "federated"
+				}
 
+				if strings.Contains(d, "_") {
+					cd.NetworkID = strings.Split(d, "_")[0]
 				}
 
 				if !toScanForWorkers {
