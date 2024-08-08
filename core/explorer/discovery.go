@@ -3,6 +3,8 @@ package explorer
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/p2p"
@@ -10,30 +12,38 @@ import (
 )
 
 type DiscoveryServer struct {
+	sync.Mutex
 	database     *Database
 	networkState *NetworkState
 }
 
 type NetworkState struct {
-	Nodes map[string]map[string]p2p.NodeData
+	Networks map[string]Network
+}
+
+func (s *DiscoveryServer) NetworkState() *NetworkState {
+	s.Lock()
+	defer s.Unlock()
+	return s.networkState
 }
 
 func NewDiscoveryServer(db *Database) *DiscoveryServer {
 	return &DiscoveryServer{
 		database: db,
 		networkState: &NetworkState{
-			Nodes: map[string]map[string]p2p.NodeData{},
+			Networks: map[string]Network{},
 		},
 	}
 }
 
+type Network struct {
+	Clusters []ClusterData
+}
+
 func (s *DiscoveryServer) runBackground() {
 	for _, token := range s.database.TokenList() {
-
-		fmt.Println("Checking token", token)
 		c, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 		defer cancel()
-		fmt.Println("Starting node", token)
 
 		// Connect to the network
 		// Get the number of nodes
@@ -45,13 +55,11 @@ func (s *DiscoveryServer) runBackground() {
 			continue
 		}
 
-		fmt.Println("Starting network", token)
 		err = n.Start(c)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Println("ledger", token)
 
 		ledger, err := n.Ledger()
 		if err != nil {
@@ -59,25 +67,26 @@ func (s *DiscoveryServer) runBackground() {
 			continue
 		}
 
-		ledgerKeys := make(chan string)
-		go s.getLedgerKeys(c, ledger, ledgerKeys)
+		networkData := make(chan ClusterData)
 
-		ledgerK := []string{}
-		fmt.Println("waiting for ledger keys", token)
+		// get the network data - it takes the whole timeout
+		// as we might not be connected to the network yet,
+		// and few attempts would have to be made before bailing out
+		go s.retrieveNetworkData(c, ledger, networkData)
 
-	LOOP:
-		for {
-			select {
-			case <-c.Done():
-				fmt.Println("Context exhausted")
-				break LOOP
-			case key := <-ledgerKeys:
-				ledgerK = append(ledgerK, key)
-			}
+		ledgerK := []ClusterData{}
+		for key := range networkData {
+			ledgerK = append(ledgerK, key)
 		}
 
 		fmt.Println("Token network", token)
-		fmt.Println("Found the following ledger keys in the network", ledgerK)
+		fmt.Println("Found the following workers in the network", ledgerK)
+
+		s.Lock()
+		s.networkState.Networks[token] = Network{
+			Clusters: ledgerK,
+		}
+		s.Unlock()
 		// get new services, allocate and return to the channel
 
 		// TODO:
@@ -89,26 +98,69 @@ func (s *DiscoveryServer) runBackground() {
 	}
 }
 
-func (s *DiscoveryServer) getLedgerKeys(c context.Context, ledger *blockchain.Ledger, ledgerKeys chan string) {
-	keys := map[string]struct{}{}
+type ClusterData struct {
+	Workers []string
+	Type    string
+}
+
+func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockchain.Ledger, networkData chan ClusterData) {
+	clusters := map[string]ClusterData{}
+
+	defer func() {
+		fmt.Println("Defer clusters", clusters)
+
+		for _, n := range clusters {
+			networkData <- n
+		}
+		close(networkData)
+	}()
 
 	for {
 		select {
 		case <-c.Done():
+			fmt.Println("Closing with ccluster")
+			fmt.Println(clusters)
 			return
 		default:
 			time.Sleep(5 * time.Second)
 
 			data := ledger.LastBlock().Storage
-			for k, _ := range data {
-				if _, ok := keys[k]; !ok {
-					keys[k] = struct{}{}
-					ledgerKeys <- k
+		LEDGER:
+			for d := range data {
+				toScanForWorkers := false
+				cd := ClusterData{}
+				isWorkerCluster := d == p2p.WorkerID || (strings.Contains(d, "_") && strings.Contains(d, p2p.WorkerID))
+				isFederatedCluster := d == p2p.FederatedID || (strings.Contains(d, "_") && strings.Contains(d, p2p.FederatedID))
+				switch {
+				case isWorkerCluster:
+					toScanForWorkers = true
+					cd.Type = "worker"
+				case isFederatedCluster:
+					toScanForWorkers = true
+					cd.Type = "federated"
+
 				}
+
+				if !toScanForWorkers {
+					continue LEDGER
+				}
+
+			DATA:
+				for _, v := range data[d] {
+					nd := &p2p.NodeData{}
+					if err := v.Unmarshal(nd); err != nil {
+						continue DATA
+					}
+
+					if nd.IsOnline() {
+						(&cd).Workers = append(cd.Workers, nd.ID)
+					}
+				}
+
+				clusters[d] = cd
 			}
 		}
 	}
-
 }
 
 // Start the discovery server. This is meant to be run in to a goroutine.

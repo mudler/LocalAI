@@ -6,7 +6,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/routes"
 )
 
-func Explorer(db *explorer.Database) *fiber.App {
+func Explorer(db *explorer.Database, discoveryServer *explorer.DiscoveryServer) *fiber.App {
 
 	fiberCfg := fiber.Config{
 		Views: renderEngine(),
@@ -18,7 +18,7 @@ func Explorer(db *explorer.Database) *fiber.App {
 
 	app := fiber.New(fiberCfg)
 
-	routes.RegisterExplorerRoutes(app, db)
+	routes.RegisterExplorerRoutes(app, db, discoveryServer)
 
 	return app
 }

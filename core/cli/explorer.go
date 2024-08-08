@@ -19,11 +19,11 @@ func (e *ExplorerCMD) Run(ctx *cliContext.Context) error {
 	if err != nil {
 		return err
 	}
-	appHTTP := http.Explorer(db)
 
 	ds := explorer.NewDiscoveryServer(db)
 
 	go ds.Start(context.Background())
+	appHTTP := http.Explorer(db, ds)
 
 	return appHTTP.Listen(e.Address)
 }
