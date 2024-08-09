@@ -374,7 +374,7 @@ func newNodeOpts(token string) ([]node.Option, error) {
 			RateLimitInterval: defaultInterval,
 		},
 		Discovery: config.Discovery{
-			DHT:      noDHT,
+			DHT:      !noDHT,
 			MDNS:     true,
 			Interval: 10 * time.Second,
 		},
