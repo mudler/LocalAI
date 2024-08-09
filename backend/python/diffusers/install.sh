@@ -11,4 +11,9 @@ if [ "x${BUILD_PROFILE}" == "xintel" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
 fi
 
+# hipblas builds from nightly that needs pre-releases to work
+if [ "x${BUILD_PROFILE}" == "xhipblas" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --prerelease=allow"
+fi
+
 installRequirements
