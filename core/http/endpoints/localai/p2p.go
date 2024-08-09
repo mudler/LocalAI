@@ -15,7 +15,7 @@ func ShowP2PNodes(appConfig *config.ApplicationConfig) func(*fiber.Ctx) error {
 	// Render index
 	return func(c *fiber.Ctx) error {
 		return c.JSON(schema.P2PNodesResponse{
-			Nodes:          p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, "")),
+			Nodes:          p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID)),
 			FederatedNodes: p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID)),
 		})
 	}

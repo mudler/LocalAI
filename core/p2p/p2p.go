@@ -345,13 +345,16 @@ func newNodeOpts(token string) ([]node.Option, error) {
 
 	// TODO: move this up, expose more config options when creating a node
 	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
-	noLimits := os.Getenv("LOCALAI_P2P_DISABLE_LIMITS") == "true"
+	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") == "true"
 
-	loglevel := "info"
+	loglevel := os.Getenv("LOCALAI_P2P_LOGLEVEL")
+	if loglevel == "" {
+		loglevel = "info"
+	}
 
 	c := config.Config{
 		Limit: config.ResourceLimit{
-			Enable:   !noLimits,
+			Enable:   noLimits,
 			MaxConns: 100,
 		},
 		NetworkToken:   token,
@@ -366,19 +369,19 @@ func newNodeOpts(token string) ([]node.Option, error) {
 			Service:           true,
 			Map:               true,
 			RateLimit:         true,
-			RateLimitGlobal:   10,
-			RateLimitPeer:     10,
+			RateLimitGlobal:   100,
+			RateLimitPeer:     100,
 			RateLimitInterval: defaultInterval,
 		},
 		Discovery: config.Discovery{
-			DHT:      noDHT,
+			DHT:      !noDHT,
 			MDNS:     true,
-			Interval: 30 * time.Second,
+			Interval: 10 * time.Second,
 		},
 		Connection: config.Connection{
 			HolePunch:      true,
 			AutoRelay:      true,
-			MaxConnections: 100,
+			MaxConnections: 1000,
 		},
 	}
 

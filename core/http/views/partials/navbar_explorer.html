@@ -1,0 +1,39 @@
+<nav class="bg-gray-800 shadow-lg">
+    <div class="container mx-auto px-4 py-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <!-- Logo Image: Replace 'logo_url_here' with your actual logo URL -->
+                <a href="/" class="text-white text-xl font-bold"><img src="https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd" alt="LocalAI Logo" class="h-10 mr-3 border-2 border-gray-300 shadow rounded"></a>
+                <a href="/" class="text-white text-xl font-bold">LocalAI</a>
+            </div>
+            <!-- Menu button for small screens -->
+            <div class="lg:hidden">
+                <button id="menu-toggle" class="text-gray-400 hover:text-white focus:outline-none">
+                    <i class="fas fa-bars fa-lg"></i>
+                </button>
+            </div>
+            <!-- Navigation links -->
+            <div class="hidden lg:flex lg:items-center lg:justify-end lg:flex-1 lg:w-0">
+                <a href="/" class="text-gray-400 hover:text-white px-3 py-2 rounded"><i class="fas fa-home pr-2"></i>Home</a>
+                <a href="https://localai.io" class="text-gray-400 hover:text-white px-3 py-2 rounded" target="_blank" ><i class="fas fa-book-reader pr-2"></i> Documentation</a>
+                <a href="https://models.localai.io/" class="text-gray-400 hover:text-white px-3 py-2 rounded"><i class="fas fa-brain pr-2"></i> Models</a>
+            </div>
+        </div>
+        <!-- Collapsible menu for small screens -->
+        <div class="hidden lg:hidden" id="mobile-menu">
+            <div class="pt-4 pb-3 border-t border-gray-700">
+                <a href="/" class="block text-gray-400 hover:text-white px-3 py-2 rounded mt-1"><i class="fas fa-home pr-2"></i>Home</a>
+                <a href="https://localai.io" class="block text-gray-400 hover:text-white px-3 py-2 rounded mt-1" target="_blank" ><i class="fas fa-book-reader pr-2"></i> Documentation</a>
+                <a href="https://models.localai.io/" class="text-gray-400 hover:text-white px-3 py-2 rounded"><i class="fas fa-brain pr-2"></i> Models</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<script>
+    // JavaScript to toggle the mobile menu
+    document.getElementById('menu-toggle').addEventListener('click', function () {
+        var mobileMenu = document.getElementById('mobile-menu');
+        mobileMenu.classList.toggle('hidden');
+    });
+</script>

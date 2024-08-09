@@ -105,14 +105,14 @@ func RegisterUIRoutes(app *fiber.App,
 
 		/* show nodes live! */
 		app.Get("/p2p/ui/workers", auth, func(c *fiber.Ctx) error {
-			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, ""))))
+			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))))
 		})
 		app.Get("/p2p/ui/workers-federation", auth, func(c *fiber.Ctx) error {
 			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))))
 		})
 
 		app.Get("/p2p/ui/workers-stats", auth, func(c *fiber.Ctx) error {
-			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, ""))))
+			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))))
 		})
 		app.Get("/p2p/ui/workers-federation-stats", auth, func(c *fiber.Ctx) error {
 			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))))
