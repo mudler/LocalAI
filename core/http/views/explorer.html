@@ -131,6 +131,27 @@
     .warning-box i {
         margin-right: 10px;
     }
+    .token-box {
+            background-color: #4a5568;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            position: relative;
+            cursor: pointer;
+        }
+        .token-box:hover {
+            background-color: #5a6b7e;
+        }
+        .token-text {
+            overflow-wrap: break-word;
+            font-family: monospace;
+        }
+        .copy-icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #e2e8f0;
+        }
 </style>
 
 <body class="bg-gray-900 text-gray-200">
@@ -143,10 +164,13 @@
         </header>
 
         <div class="container mx-auto px-4 flex-grow">
-              <!-- Warning Box -->
-        <div class="warning-box bg-yellow-500 mb-20 pt-5 pb-5 pr-5 pl-5 text-lg">
+        <!-- Warning Box -->
+        <div class="warning-box bg-yellow-100 text-gray-800 mb-20 pt-5 pb-5 pr-5 pl-5 text-lg">
             <i class="fa-solid fa-triangle-exclamation"></i>
-            This application is provided without any warranty. Use it at your own risk. We are not responsible for any potential harm or misuse. Be aware that malicious actors might attempt to compromise your systems. Although the community will address bugs, this is experimental software and may be insecure to deploy on your hardware unless you take all necessary precautions.
+            The explorer is a global, community-driven tool to share network tokens and view available clusters in the globe.
+            Anyone can use the tokens to offload computation and use the clusters available or share resources.
+            This is provided without any warranty. Use it at your own risk. We are not responsible for any potential harm or misuse. Sharing tokens globally allows anyone from the internet to use your instances. 
+            Although the community will address bugs, this is experimental software and may be insecure to deploy on your hardware unless you take all necessary precautions.
         </div>
             <div class="flow-root">
             <!-- Toggle button for showing/hiding the form -->
@@ -198,13 +222,21 @@
             <template x-for="network in networks" :key="network.name">
                 <div class="network-card">
                     <div class="network-title" x-text="network.name"></div>
-                    <div class="network-token" x-text="'Token: ' + network.token"></div>
-                    <p x-text="network.description"></p>
+                    <div class="token-box" @click="copyToken(network.token)">
+                        <i class="fa-solid fa-copy copy-icon"></i>
+                        Token (click to copy): <br>
+                        <span class="token-text" x-text="network.token"></span>
+                    </div>
+
+                    <div class="cluster">
+                        <p class="text-lg">Description</p>
+                        <p x-text="network.description"></p>
+                    </div>
 
                     <template x-for="cluster in network.Clusters" :key="cluster.NetworkID + cluster.Type">
                         <div class="cluster">
                             <div class="cluster-title" x-text="'Cluster Type: ' + cluster.Type"></div>
-                            <p x-text="'Network ID: ' + (cluster.NetworkID || 'N/A')"></p>
+                            <p x-show="cluster.NetworkID" x-text="'Network ID: ' + (cluster.NetworkID || 'N/A')"></p>
                             <p x-text="'Number of Workers: ' + cluster.Workers.length"></p>
                         </div>
                     </template>
@@ -281,7 +313,16 @@
                                 }
                             });
                     },
-
+                    copyToken(token) {
+                        navigator.clipboard.writeText(token)
+                        .then(() => {
+                            console.log('Token copied to clipboard:', token);
+                            alert('Token copied to clipboard!');
+                        })
+                        .catch(err => {
+                            console.error('Failed to copy token:', err);
+                        });
+                    },
                     init() {
                         console.log('Initializing Alpine component...');
                         this.fetchNetworks();
