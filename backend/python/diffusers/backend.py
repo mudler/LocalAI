@@ -18,7 +18,7 @@ import backend_pb2_grpc
 import grpc
 
 from diffusers import StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, \
-    EulerAncestralDiscreteScheduler
+    EulerAncestralDiscreteScheduler, FluxPipeline
 from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image, export_to_video
@@ -244,6 +244,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         torch_dtype=torchType,
                         use_safetensors=True,
                         variant=variant)
+            elif request.PipelineType == "FluxPipeline":
+                    self.pipe = FluxPipeline.from_pretrained(
+                        request.Model,
+                        torch_dtype=torch.bfloat16)
+                    if request.LowVRAM:
+                        self.pipe.enable_model_cpu_offload()
 
             if CLIPSKIP and request.CLIPSkip != 0:
                 self.clip_skip = request.CLIPSkip
