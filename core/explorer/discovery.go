@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/edgevpn/pkg/blockchain"
 )
@@ -63,21 +65,21 @@ func (s *DiscoveryServer) runBackground() {
 		// do not do in parallel
 		n, err := p2p.NewNode(token)
 		if err != nil {
-			fmt.Println(err)
+			log.Err(err).Msg("Failed to create node")
 			s.database.Delete(token)
 			continue
 		}
 
 		err = n.Start(c)
 		if err != nil {
-			fmt.Println(err)
+			log.Err(err).Msg("Failed to start node")
 			s.database.Delete(token)
 			continue
 		}
 
 		ledger, err := n.Ledger()
 		if err != nil {
-			fmt.Println(err)
+			log.Err(err).Msg("Failed to start ledger")
 			s.database.Delete(token)
 			continue
 		}
@@ -98,6 +100,13 @@ func (s *DiscoveryServer) runBackground() {
 			}
 		}
 
+		log.Debug().Any("network", token).Msgf("Network has %d clusters", len(ledgerK))
+		if len(ledgerK) != 0 {
+			for _, k := range ledgerK {
+				log.Debug().Any("network", token).Msgf("Clusterdata %+v", k)
+			}
+		}
+
 		if hasWorkers {
 			s.Lock()
 			s.networkState.Networks[token] = Network{
@@ -105,7 +114,7 @@ func (s *DiscoveryServer) runBackground() {
 			}
 			s.Unlock()
 		} else {
-			fmt.Println("No workers found in the network, removing token", token)
+			log.Info().Any("network", token).Msg("No workers found in the network. Removing it from the database")
 			s.database.Delete(token)
 		}
 	}
