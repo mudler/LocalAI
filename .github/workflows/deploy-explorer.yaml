@@ -6,13 +6,6 @@ on:
       - master
     tags:
       - 'v*'
-  pull_request:
-
-env:
-  GRPC_VERSION: v1.65.0
-
-permissions:
-  contents: write
 
 concurrency:
   group: ci-deploy-${{ github.head_ref || github.ref }}-${{ github.repository }}
