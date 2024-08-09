@@ -87,6 +87,8 @@
 </style>
 <body class="bg-gray-900 text-gray-200">
     <div class="flex flex-col min-h-screen" x-data="networkClusters()" x-init="init()">
+        {{template "views/partials/navbar_explorer" .}}
+
         <header class="text-center py-12">
             <h1 class="text-5xl font-bold text-gray-100">Network Clusters</h1>
             <p class="mt-4 text-lg">View the clusters and workers available in each network.</p>
