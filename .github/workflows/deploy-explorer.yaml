@@ -39,6 +39,15 @@ jobs:
       - name: Build api
         run: |
           make build-api
+      - name: rm
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+            host: ${{ secrets.EXPLORER_SSH_HOST }}
+            username: ${{ secrets.EXPLORER_SSH_USERNAME }}
+            key: ${{ secrets.EXPLORER_SSH_KEY }}
+            port: ${{ secrets.EXPLORER_SSH_PORT }}
+            script: |
+                sudo rm -rf local-ai/ || true
       - name: copy file via ssh
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -58,5 +67,5 @@ jobs:
             key: ${{ secrets.EXPLORER_SSH_KEY }}
             port: ${{ secrets.EXPLORER_SSH_PORT }}
             script: |
-                sudo cp -r local-ai/local-ai /usr/bin/local-ai
+                sudo cp -rfv local-ai/local-ai /usr/bin/local-ai
                 sudo systemctl restart local-ai
