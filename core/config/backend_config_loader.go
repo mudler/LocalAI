@@ -201,6 +201,26 @@ func (bcl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
 	return res
 }
 
+func (bcl *BackendConfigLoader) GetBackendConfigsByFilter(filter BackendConfigFilterFn) []BackendConfig {
+	bcl.Lock()
+	defer bcl.Unlock()
+	var res []BackendConfig
+
+	if filter == nil {
+		filter = NoFilterFn
+	}
+
+	for n, v := range bcl.configs {
+		if filter(n, &v) {
+			res = append(res, v)
+		}
+	}
+
+	// TODO: I don't think this one needs to Sort on name... but we'll see what breaks.
+
+	return res
+}
+
 func (bcl *BackendConfigLoader) RemoveBackendConfig(m string) {
 	bcl.Lock()
 	defer bcl.Unlock()

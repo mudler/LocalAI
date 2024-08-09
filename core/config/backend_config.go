@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/schema"
@@ -408,4 +409,73 @@ func (c *BackendConfig) Validate() bool {
 
 func (c *BackendConfig) HasTemplate() bool {
 	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != ""
+}
+
+type BackendConfigUsecases int
+
+const (
+	FLAG_ANY        BackendConfigUsecases = 0b00000000
+	FLAG_CHAT       BackendConfigUsecases = 0b00000001
+	FLAG_COMPLETION BackendConfigUsecases = 0b00000010
+	FLAG_EDIT       BackendConfigUsecases = 0b00000100
+	FLAG_EMBEDDINGS BackendConfigUsecases = 0b00001000
+	FLAG_RERANK     BackendConfigUsecases = 0b00010000
+	FLAG_IMAGE      BackendConfigUsecases = 0b00100000
+	FLAG_TRANSCRIPT BackendConfigUsecases = 0b01000000
+	FLAG_TTS        BackendConfigUsecases = 0b10000000
+
+	// Common Subsets
+	FLAG_LLM BackendConfigUsecases = FLAG_CHAT & FLAG_COMPLETION & FLAG_EDIT
+)
+
+func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
+	if (u & FLAG_CHAT) == FLAG_CHAT {
+		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
+			return false
+		}
+	}
+	if (u & FLAG_COMPLETION) == FLAG_COMPLETION {
+		if c.TemplateConfig.Completion == "" {
+			return false
+		}
+	}
+	if (u & FLAG_EDIT) == FLAG_EDIT {
+		if c.TemplateConfig.Edit == "" {
+			return false
+		}
+	}
+	if (u & FLAG_EMBEDDINGS) == FLAG_EMBEDDINGS {
+		if c.Embeddings == nil || !*c.Embeddings {
+			return false
+		}
+	}
+	if (u & FLAG_IMAGE) == FLAG_IMAGE {
+		imageBackends := []string{"diffusers", "tinydream", "stablediffusion"}
+		if !slices.Contains(imageBackends, c.Backend) {
+			return false
+		}
+
+		if c.Backend == "diffusers" && c.Diffusers.PipelineType == "" {
+			return false
+		}
+
+	}
+	if (u & FLAG_RERANK) == FLAG_RERANK {
+		if c.Backend != "rerankers" {
+			return false
+		}
+	}
+	if (u & FLAG_TRANSCRIPT) == FLAG_TRANSCRIPT {
+		if c.Backend != "whisper" {
+			return false
+		}
+	}
+	if (u & FLAG_TTS) == FLAG_TTS {
+		ttsBackends := []string{"piper", "transformer-musicgen", "parler-tts"}
+		if !slices.Contains(ttsBackends, c.Backend) {
+			return false
+		}
+	}
+
+	return true
 }

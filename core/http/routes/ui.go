@@ -301,7 +301,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// Show the Chat page
 	app.Get("/chat/:model", auth, func(c *fiber.Ctx) error {
-		backendConfigs, _ := services.ListModels(cl, ml, "", true)
+		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Chat with " + c.Params("model"),
@@ -316,7 +316,7 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/talk/", auth, func(c *fiber.Ctx) error {
-		backendConfigs, _ := services.ListModels(cl, ml, "", true)
+		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
@@ -337,7 +337,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/chat/", auth, func(c *fiber.Ctx) error {
 
-		backendConfigs, _ := services.ListModels(cl, ml, "", true)
+		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models

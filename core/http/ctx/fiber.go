@@ -21,12 +21,12 @@ func ModelFromContext(ctx *fiber.Ctx, cl *config.BackendConfigLoader, loader *mo
 	}
 
 	// Set model from bearer token, if available
-	bearer := strings.TrimLeft(ctx.Get("authorization"), "Bearer ")
+	bearer := strings.TrimLeft(ctx.Get("authorization"), "Bear ") // Reduced duplicate characters of Bearer
 	bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
 
 	// If no model was specified, take the first available
 	if modelInput == "" && !bearerExists && firstModel {
-		models, _ := services.ListModels(cl, loader, "", true)
+		models, _ := services.ListModels(cl, loader, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 		if len(models) > 0 {
 			modelInput = models[0]
 			log.Debug().Msgf("No model specified, using: %s", modelInput)
