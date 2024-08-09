@@ -349,7 +349,7 @@ func newNodeOpts(token string) ([]node.Option, error) {
 
 	loglevel := os.Getenv("LOCALAI_P2P_LOGLEVEL")
 	if loglevel == "" {
-		loglevel = "debug"
+		loglevel = "info"
 	}
 
 	c := config.Config{
