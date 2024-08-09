@@ -712,6 +712,9 @@ const docTemplate = `{
                 "parameters": {
                     "type": "object",
                     "additionalProperties": true
+                },
+                "strict": {
+                    "type": "boolean"
                 }
             }
         },

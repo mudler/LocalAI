@@ -1,5 +1,4 @@
 grpcio==1.65.0
 protobuf
-transformers
 certifi
 setuptools
