@@ -347,7 +347,10 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
 	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") == "true"
 
-	loglevel := "info"
+	loglevel := os.Getenv("LOCALAI_P2P_LOGLEVEL")
+	if loglevel == "" {
+		loglevel = "debug"
+	}
 
 	c := config.Config{
 		Limit: config.ResourceLimit{
