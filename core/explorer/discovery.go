@@ -13,8 +13,9 @@ import (
 
 type DiscoveryServer struct {
 	sync.Mutex
-	database     *Database
-	networkState *NetworkState
+	database       *Database
+	networkState   *NetworkState
+	connectionTime time.Duration
 }
 
 type NetworkState struct {
@@ -29,9 +30,13 @@ func (s *DiscoveryServer) NetworkState() *NetworkState {
 
 // NewDiscoveryServer creates a new DiscoveryServer with the given Database.
 // it keeps the db state in sync with the network state
-func NewDiscoveryServer(db *Database) *DiscoveryServer {
+func NewDiscoveryServer(db *Database, dur time.Duration) *DiscoveryServer {
+	if dur == 0 {
+		dur = 50 * time.Second
+	}
 	return &DiscoveryServer{
-		database: db,
+		database:       db,
+		connectionTime: dur,
 		networkState: &NetworkState{
 			Networks: map[string]Network{},
 		},
@@ -49,7 +54,7 @@ func (s *DiscoveryServer) runBackground() {
 	}
 
 	for _, token := range s.database.TokenList() {
-		c, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+		c, cancel := context.WithTimeout(context.Background(), s.connectionTime)
 		defer cancel()
 
 		// Connect to the network
