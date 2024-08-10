@@ -2,20 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Package",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}"
-        },
-        {
             "name": "Python: Current File",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "cwd": "${workspaceFolder}/examples/langchain-chroma",
+            "cwd": "${fileDirname}",
             "env": {
                 "OPENAI_API_BASE": "http://localhost:8080/v1",
                 "OPENAI_API_KEY": "abc"
@@ -33,7 +26,9 @@
             "env": {
                 "C_INCLUDE_PATH": "${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
                 "LIBRARY_PATH": "${workspaceFolder}/go-llama:${workspaceFolder}/go-stable-diffusion/:${workspaceFolder}/gpt4all/gpt4all-bindings/golang/:${workspaceFolder}/go-gpt2:${workspaceFolder}/go-rwkv:${workspaceFolder}/whisper.cpp:${workspaceFolder}/go-bert:${workspaceFolder}/bloomz",
-                "DEBUG": "true"
+                "DEBUG": "true",
+                "LOCALAI_LOG_LEVEL": "debug",
+                "LOCALAI_P2P": "true"
             }
         }
     ]

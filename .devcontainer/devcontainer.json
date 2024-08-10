@@ -16,7 +16,9 @@
                 "golang.go",
                 "ms-vscode.makefile-tools",
                 "ms-azuretools.vscode-docker",
-                "ms-python.python"
+                "ms-python.python",
+                "ms-python.debugpy",
+                "wayou.vscode-todo-highlight"
             ]
         }
     },
