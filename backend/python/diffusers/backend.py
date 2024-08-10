@@ -254,9 +254,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         self.pipe.enable_model_cpu_offload()
             elif request.PipelineType == "FluxTransformer2DModel":
                     dtype = torch.bfloat16
-                    bfl_repo = "black-forest-labs/FLUX.1-dev"
+                    # specify from environment or default to "ChuckMcSneed/FLUX.1-dev"
+                    bfl_repo = os.environ.get("BFL_REPO", "ChuckMcSneed/FLUX.1-dev")
 
-                    transformer = FluxTransformer2DModel.from_single_file(request.Model, torch_dtype=dtype)
+                    transformer = FluxTransformer2DModel.from_single_file(modelFile, torch_dtype=dtype)
                     quantize(transformer, weights=qfloat8)
                     freeze(transformer)
                     text_encoder_2 = T5EncoderModel.from_pretrained(bfl_repo, subfolder="text_encoder_2", torch_dtype=dtype)
