@@ -15,9 +15,11 @@ import (
 
 type DiscoveryServer struct {
 	sync.Mutex
-	database       *Database
-	networkState   *NetworkState
-	connectionTime time.Duration
+	database          *Database
+	networkState      *NetworkState
+	connectionTime    time.Duration
+	failures          map[string]int
+	errorThreshold int
 }
 
 type NetworkState struct {
@@ -32,9 +34,12 @@ func (s *DiscoveryServer) NetworkState() *NetworkState {
 
 // NewDiscoveryServer creates a new DiscoveryServer with the given Database.
 // it keeps the db state in sync with the network state
-func NewDiscoveryServer(db *Database, dur time.Duration) *DiscoveryServer {
+func NewDiscoveryServer(db *Database, dur time.Duration, failureThreshold int) *DiscoveryServer {
 	if dur == 0 {
 		dur = 50 * time.Second
+	}
+	if failureThreshold == 0 {
+		failureThreshold = 3
 	}
 	return &DiscoveryServer{
 		database:       db,
@@ -42,6 +47,7 @@ func NewDiscoveryServer(db *Database, dur time.Duration) *DiscoveryServer {
 		networkState: &NetworkState{
 			Networks: map[string]Network{},
 		},
+		errorThreshold: failureThreshold,
 	}
 }
 
@@ -66,21 +72,21 @@ func (s *DiscoveryServer) runBackground() {
 		n, err := p2p.NewNode(token)
 		if err != nil {
 			log.Err(err).Msg("Failed to create node")
-			s.database.Delete(token)
+			s.failedToken(token)
 			continue
 		}
 
 		err = n.Start(c)
 		if err != nil {
 			log.Err(err).Msg("Failed to start node")
-			s.database.Delete(token)
+			s.failedToken(token)
 			continue
 		}
 
 		ledger, err := n.Ledger()
 		if err != nil {
 			log.Err(err).Msg("Failed to start ledger")
-			s.database.Delete(token)
+			s.failedToken(token)
 			continue
 		}
 
@@ -114,8 +120,27 @@ func (s *DiscoveryServer) runBackground() {
 			}
 			s.Unlock()
 		} else {
-			log.Info().Any("network", token).Msg("No workers found in the network. Removing it from the database")
-			s.database.Delete(token)
+			s.failedToken(token)
+		}
+	}
+
+	s.deleteFailedConnections()
+}
+
+func (s *DiscoveryServer) failedToken(token string) {
+	s.Lock()
+	defer s.Unlock()
+	s.failures[token]++
+}
+
+func (s *DiscoveryServer) deleteFailedConnections() {
+	s.Lock()
+	defer s.Unlock()
+	for k, v := range s.failures {
+		if v > s.errorThreshold {
+			log.Info().Any("network", k).Msg("Network has been removed from the database")
+			s.database.Delete(k)
+			delete(s.failures, k)
 		}
 	}
 }
