@@ -118,6 +118,7 @@ func (s *DiscoveryServer) runBackground() {
 			s.networkState.Networks[token] = Network{
 				Clusters: ledgerK,
 			}
+			delete(s.failures, token)
 			s.Unlock()
 		} else {
 			s.failedToken(token)
