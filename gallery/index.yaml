@@ -314,11 +314,11 @@
     - https://huggingface.co/mradermacher/calme-2.3-legalkit-8b-i1-GGUF
     - https://huggingface.co/MaziyarPanahi/calme-2.3-legalkit-8b
   description: |
-      This model is an advanced iteration of the powerful meta-llama/Meta-Llama-3.1-8B-Instruct, specifically fine-tuned to enhance its capabilities in the legal domain. The fine-tuning process utilized a synthetically generated dataset derived from the French LegalKit, a comprehensive legal language resource.
+    This model is an advanced iteration of the powerful meta-llama/Meta-Llama-3.1-8B-Instruct, specifically fine-tuned to enhance its capabilities in the legal domain. The fine-tuning process utilized a synthetically generated dataset derived from the French LegalKit, a comprehensive legal language resource.
 
-      To create this specialized dataset, I used the NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO model in conjunction with Hugging Face's Inference Endpoint. This approach allowed for the generation of high-quality, synthetic data that incorporates Chain of Thought (CoT) and advanced reasoning in its responses.
+    To create this specialized dataset, I used the NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO model in conjunction with Hugging Face's Inference Endpoint. This approach allowed for the generation of high-quality, synthetic data that incorporates Chain of Thought (CoT) and advanced reasoning in its responses.
 
-      The resulting model combines the robust foundation of Llama-3.1-8B with tailored legal knowledge and enhanced reasoning capabilities. This makes it particularly well-suited for tasks requiring in-depth legal analysis, interpretation, and application of French legal concepts.
+    The resulting model combines the robust foundation of Llama-3.1-8B with tailored legal knowledge and enhanced reasoning capabilities. This makes it particularly well-suited for tasks requiring in-depth legal analysis, interpretation, and application of French legal concepts.
   overrides:
     parameters:
       model: calme-2.3-legalkit-8b.i1-Q4_K_M.gguf
@@ -4319,7 +4319,7 @@
   files:
     - filename: "Phi-3-medium-4k-instruct-Q4_K_M.gguf"
       uri: "huggingface://bartowski/Phi-3-medium-4k-instruct-GGUF/Phi-3-medium-4k-instruct-Q4_K_M.gguf"
-      sha256: 4e8d4258ed44562573c8984a045b0a4651c51e7e4d9d00a06c65cd2149ab4539
+      sha256: 6f05c97bc676dd1ec8d58e9a8795b4f5c809db771f6fc7bf48634c805face82c
 - !!merge <<: *phi-3
   name: "cream-phi-3-14b-v1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/AP4-OHepdqiqHj2KSi26M.gif
