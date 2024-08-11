@@ -2,14 +2,9 @@
     "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
     "name": "LocalAI",
     "workspaceFolder": "/workspace",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
-    "build": { 
-        "dockerfile": "../Dockerfile",
-        "target": "devcontainer",
-        "args": {
-            "GO_TAGS": "p2p tts"
-        }
-    },
+    "dockerComposeFile": [ "./docker-compose-devcontainer.yml" ],
+    "service": "api",
+    "shutdownAction": "stopCompose",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -18,12 +13,11 @@
                 "ms-azuretools.vscode-docker",
                 "ms-python.python",
                 "ms-python.debugpy",
-                "wayou.vscode-todo-highlight"
+                "wayou.vscode-todo-highlight",
+                "waderyan.gitblame"
             ]
         }
     },
-    "capAdd": ["SYS_PTRACE"],
-    "securityOpt": ["seccomp=unconfined"],
-    "forwardPorts": [8080],
-    "postAttachCommand": "make prepare"
+    "forwardPorts": [8080, 3000],
+    "postStartCommand": "make prepare"
 }
