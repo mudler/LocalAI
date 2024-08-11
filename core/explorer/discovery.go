@@ -15,10 +15,10 @@ import (
 
 type DiscoveryServer struct {
 	sync.Mutex
-	database          *Database
-	networkState      *NetworkState
-	connectionTime    time.Duration
-	failures          map[string]int
+	database       *Database
+	networkState   *NetworkState
+	connectionTime time.Duration
+	failures       map[string]int
 	errorThreshold int
 }
 
@@ -48,6 +48,7 @@ func NewDiscoveryServer(db *Database, dur time.Duration, failureThreshold int) *
 			Networks: map[string]Network{},
 		},
 		errorThreshold: failureThreshold,
+		failures:       make(map[string]int),
 	}
 }
 
