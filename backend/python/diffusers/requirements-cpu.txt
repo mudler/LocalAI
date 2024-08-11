@@ -6,3 +6,4 @@ compel
 peft
 sentencepiece
 torch
+optimum-quanto

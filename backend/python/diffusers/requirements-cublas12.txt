@@ -6,3 +6,4 @@ accelerate
 compel
 peft
 sentencepiece
+optimum-quanto
