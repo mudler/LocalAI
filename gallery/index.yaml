@@ -4942,6 +4942,44 @@
     - sd-3
     - gpu
   url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
+- &flux
+  name: flux.1-dev
+  license: flux-1-dev-non-commercial-license
+  description: |
+    FLUX.1 [dev] is a 12 billion parameter rectified flow transformer capable of generating images from text descriptions. For more information, please read our blog post.
+    Key Features
+        Cutting-edge output quality, second only to our state-of-the-art model FLUX.1 [pro].
+        Competitive prompt following, matching the performance of closed source alternatives .
+        Trained using guidance distillation, making FLUX.1 [dev] more efficient.
+        Open weights to drive new scientific research, and empower artists to develop innovative workflows.
+        Generated outputs can be used for personal, scientific, and commercial purposes as described in the flux-1-dev-non-commercial-license.
+  urls:
+    - https://huggingface.co/black-forest-labs/FLUX.1-dev
+  tags:
+    - text-to-image
+    - flux
+    - python
+    - gpu
+  url: "github:mudler/LocalAI/gallery/flux.yaml@master"
+  overrides:
+    parameters:
+      model: ChuckMcSneed/FLUX.1-dev
+- !!merge <<: *flux
+  name: flux.1-schnell
+  license: apache-2
+  icon: https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/schnell_grid.jpeg
+  description: |
+    FLUX.1 [schnell] is a 12 billion parameter rectified flow transformer capable of generating images from text descriptions. For more information, please read our blog post.
+    Key Features
+
+        Cutting-edge output quality and competitive prompt following, matching the performance of closed source alternatives.
+        Trained using latent adversarial diffusion distillation, FLUX.1 [schnell] can generate high-quality images in only 1 to 4 steps.
+        Released under the apache-2.0 licence, the model can be used for personal, scientific, and commercial purposes.
+  urls:
+    - https://huggingface.co/black-forest-labs/FLUX.1-schnell
+  overrides:
+    parameters:
+      model: black-forest-labs/FLUX.1-schnell
 - &whisper
   ## Whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
