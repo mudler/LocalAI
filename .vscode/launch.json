@@ -23,7 +23,8 @@
             "args": [],
             "env": {
                 "LOCALAI_LOG_LEVEL": "debug",
-                "LOCALAI_P2P": "true"
+                "LOCALAI_P2P": "true",
+                "LOCALAI_FEDERATED": "true"
             },
             "buildFlags": ["-tags", "p2p tts", "-v"],
             "envFile": "${workspaceFolder}/.env",
