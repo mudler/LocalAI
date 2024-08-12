@@ -1,6 +1,11 @@
 package p2p
 
-import "fmt"
+import (
+	"fmt"
+	"math/rand/v2"
+
+	"github.com/rs/zerolog/log"
+)
 
 const FederatedID = "federated"
 
@@ -15,19 +20,46 @@ type FederatedServer struct {
 	listenAddr, service, p2ptoken string
 	requestTable                  map[string]int
 	loadBalanced                  bool
+	workerTarget                  string
 }
 
-func NewFederatedServer(listenAddr, service, p2pToken string, loadBalanced bool) *FederatedServer {
+func NewFederatedServer(listenAddr, service, p2pToken string, loadBalanced bool, workerTarget string) *FederatedServer {
 	return &FederatedServer{
 		listenAddr:   listenAddr,
 		service:      service,
 		p2ptoken:     p2pToken,
 		requestTable: map[string]int{},
 		loadBalanced: loadBalanced,
+		workerTarget: workerTarget,
 	}
 }
 
+func (fs *FederatedServer) RandomServer() string {
+	var tunnelAddresses []string
+	for _, v := range GetAvailableNodes(fs.service) {
+		if v.IsOnline() {
+			tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
+		} else {
+			log.Info().Msgf("Node %s is offline", v.ID)
+		}
+	}
+
+	if len(tunnelAddresses) == 0 {
+		return ""
+	}
+
+	return tunnelAddresses[rand.IntN(len(tunnelAddresses))]
+}
+
 func (fs *FederatedServer) SelectLeastUsedServer() string {
+	for _, v := range GetAvailableNodes(fs.service) {
+		if v.IsOnline() {
+			fs.ensureRecordExist(v.TunnelAddress)
+		} else {
+			delete(fs.requestTable, v.TunnelAddress)
+		}
+	}
+
 	// cycle over requestTable and find the entry with the lower number
 	// if there are multiple entries with the same number, select one randomly
 	// if there are no entries, return an empty string
@@ -39,6 +71,7 @@ func (fs *FederatedServer) SelectLeastUsedServer() string {
 			minKey = k
 		}
 	}
+
 	return minKey
 }
 
@@ -47,7 +80,7 @@ func (fs *FederatedServer) RecordRequest(nodeID string) {
 	fs.requestTable[nodeID]++
 }
 
-func (fs *FederatedServer) EnsureRecordExist(nodeID string) {
+func (fs *FederatedServer) ensureRecordExist(nodeID string) {
 	// if the nodeID is not in the requestTable, add it with a counter of 0
 	_, ok := fs.requestTable[nodeID]
 	if !ok {
