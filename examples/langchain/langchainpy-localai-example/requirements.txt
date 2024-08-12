@@ -22,7 +22,7 @@ openai==1.39.0
 openapi-schema-pydantic==1.2.4
 packaging>=23.2
 pydantic==2.8.2
-PyYAML==6.0.1
+PyYAML==6.0.2
 requests==2.32.3
 SQLAlchemy==2.0.32
 tenacity==8.5.0
