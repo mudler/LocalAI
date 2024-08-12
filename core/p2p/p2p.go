@@ -236,6 +236,7 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 	if ndService, found := service[nd.Name]; !found {
 		if !nd.IsOnline() {
 			// if node is offline and not present, do nothing
+			zlog.Debug().Msgf("Node %s is offline", nd.ID)
 			return
 		}
 		newCtxm, cancel := context.WithCancel(ctx)
