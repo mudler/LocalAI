@@ -1,0 +1,37 @@
+backend: llama-cpp
+context_size: 65536
+name: wizardlm-2-8x22b.q4_k_s
+stop:
+  - "</s>"
+
+roles:
+  user: "USER:"
+  assistant: "ASSISTANT:"
+  system: "SYSTEM:"
+
+parameters:
+  model: WizardLM-2-8x22B.Q4_K_S-00001-of-00005.gguf
+  stopwords:
+    - "</s>"
+
+config_file: |
+  template:
+    chat_message: |-
+      {{if eq .RoleName "assistant"}}ASSISTANT: {{.Content}}</s>{{else if eq .RoleName "system"}}{{.Content}}{{else if eq .RoleName "user"}}USER: {{.Content}}{{end}}
+    chat: "{{.Input}}ASSISTANT: "
+    completion: |-
+      {{.Input}}
+  stopwords:
+  - "</s>"
+
+download_files:
+- filename: WizardLM-2-8x22B.Q4_K_S-00001-of-00005.gguf
+  uri: https://huggingface.co/MaziyarPanahi/WizardLM-2-8x22B-GGUF/resolve/main/WizardLM-2-8x22B.Q4_K_S-00001-of-00005.gguf?download=true
+- filename: WizardLM-2-8x22B.Q4_K_S-00002-of-00005.gguf
+  uri: https://huggingface.co/MaziyarPanahi/WizardLM-2-8x22B-GGUF/resolve/main/WizardLM-2-8x22B.Q4_K_S-00002-of-00005.gguf?download=true
+- filename: WizardLM-2-8x22B.Q4_K_S-00003-of-00005.gguf
+  uri: https://huggingface.co/MaziyarPanahi/WizardLM-2-8x22B-GGUF/resolve/main/WizardLM-2-8x22B.Q4_K_S-00003-of-00005.gguf?download=true
+- filename: WizardLM-2-8x22B.Q4_K_S-00004-of-00005.gguf
+  uri: https://huggingface.co/MaziyarPanahi/WizardLM-2-8x22B-GGUF/resolve/main/WizardLM-2-8x22B.Q4_K_S-00004-of-00005.gguf?download=true
+- filename: WizardLM-2-8x22B.Q4_K_S-00005-of-00005.gguf
+  uri: https://huggingface.co/MaziyarPanahi/WizardLM-2-8x22B-GGUF/resolve/main/WizardLM-2-8x22B.Q4_K_S-00005-of-00005.gguf?download=true
