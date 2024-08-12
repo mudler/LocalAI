@@ -11,7 +11,6 @@ import (
 
 func Dashboard() func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-
 		summary := fiber.Map{
 			"Title":   "LocalAI API - " + internal.PrintableVersion(),
 			"Version": internal.PrintableVersion(),
@@ -34,26 +33,24 @@ type AddNetworkRequest struct {
 }
 
 type Network struct {
-	explorer.Network
 	explorer.TokenData
 	Token string `json:"token"`
 }
 
-func ShowNetworks(db *explorer.Database, ds *explorer.DiscoveryServer) func(*fiber.Ctx) error {
+func ShowNetworks(db *explorer.Database) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		networkState := ds.NetworkState()
 		results := []Network{}
-		for token, network := range networkState.Networks {
+		for _, token := range db.TokenList() {
 			networkData, exists := db.Get(token) // get the token data
 			hasWorkers := false
-			for _, cluster := range network.Clusters {
+			for _, cluster := range networkData.Clusters {
 				if len(cluster.Workers) > 0 {
 					hasWorkers = true
 					break
 				}
 			}
 			if exists && hasWorkers {
-				results = append(results, Network{Network: network, TokenData: networkData, Token: token})
+				results = append(results, Network{TokenData: networkData, Token: token})
 			}
 		}
 
