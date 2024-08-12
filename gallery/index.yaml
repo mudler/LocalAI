@@ -502,6 +502,33 @@
     - filename: Infinity-Instruct-7M-Gen-Llama3_1-70B.Q4_K_M.gguf
       sha256: f4379ab4d7140da0510886073375ca820ea9ac4ad9d3c20e17ed05156bd29697
       uri: huggingface://mradermacher/Infinity-Instruct-7M-Gen-Llama3_1-70B-GGUF/Infinity-Instruct-7M-Gen-Llama3_1-70B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "cathallama-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/649dc85249ae3a68334adcc6/KxaiZ7rDKkYlix99O9j5H.png
+  urls:
+    - https://huggingface.co/gbueno86/Cathallama-70B
+    - https://huggingface.co/mradermacher/Cathallama-70B-GGUF
+  description: |
+    Notable Performance
+
+        9% overall success rate increase on MMLU-PRO over LLaMA 3.1 70b
+        Strong performance in MMLU-PRO categories overall
+        Great performance during manual testing
+
+    Creation workflow
+
+    Models merged
+
+        meta-llama/Meta-Llama-3.1-70B-Instruct
+        turboderp/Cat-Llama-3-70B-instruct
+        Nexusflow/Athene-70B
+  overrides:
+    parameters:
+      model: Cathallama-70B.Q4_K_M.gguf
+  files:
+    - filename: Cathallama-70B.Q4_K_M.gguf
+      sha256: 7bbac0849a8da82e7912a493a15fa07d605f1ffbe7337a322f17e09195511022
+      uri: huggingface://mradermacher/Cathallama-70B-GGUF/Cathallama-70B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
