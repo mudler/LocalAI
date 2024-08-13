@@ -6,8 +6,8 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/explorer"
 )
 
-func RegisterExplorerRoutes(app *fiber.App, db *coreExplorer.Database, ds *coreExplorer.DiscoveryServer) {
+func RegisterExplorerRoutes(app *fiber.App, db *coreExplorer.Database) {
 	app.Get("/", explorer.Dashboard())
 	app.Post("/network/add", explorer.AddNetwork(db))
-	app.Get("/networks", explorer.ShowNetworks(db, ds))
+	app.Get("/networks", explorer.ShowNetworks(db))
 }

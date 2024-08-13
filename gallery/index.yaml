@@ -488,6 +488,47 @@
     - filename: Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
       sha256: a1deb46675418277cf785a406cd1508fec556ff6e4d45d2231eb2a82986d52d0
       uri: huggingface://juvi21/Kumiho-v1-rp-UwU-8B-GGUF/Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "infinity-instruct-7m-gen-llama3_1-70b"
+  icon: https://huggingface.co/BAAI/Infinity-Instruct-7M-Gen-Llama3_1-70B/resolve/main/fig/Bk3NbjnJko51MTx1ZCScT2sqnGg.png
+  urls:
+    - https://huggingface.co/mradermacher/Infinity-Instruct-7M-Gen-Llama3_1-70B-GGUF
+  description: |
+    Infinity-Instruct-7M-Gen-Llama3.1-70B is an opensource supervised instruction tuning model without reinforcement learning from human feedback (RLHF). This model is just finetuned on Infinity-Instruct-7M and Infinity-Instruct-Gen and showing favorable results on AlpacaEval 2.0 and arena-hard compared to GPT4.
+  overrides:
+    parameters:
+      model: Infinity-Instruct-7M-Gen-Llama3_1-70B.Q4_K_M.gguf
+  files:
+    - filename: Infinity-Instruct-7M-Gen-Llama3_1-70B.Q4_K_M.gguf
+      sha256: f4379ab4d7140da0510886073375ca820ea9ac4ad9d3c20e17ed05156bd29697
+      uri: huggingface://mradermacher/Infinity-Instruct-7M-Gen-Llama3_1-70B-GGUF/Infinity-Instruct-7M-Gen-Llama3_1-70B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "cathallama-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/649dc85249ae3a68334adcc6/KxaiZ7rDKkYlix99O9j5H.png
+  urls:
+    - https://huggingface.co/gbueno86/Cathallama-70B
+    - https://huggingface.co/mradermacher/Cathallama-70B-GGUF
+  description: |
+    Notable Performance
+
+        9% overall success rate increase on MMLU-PRO over LLaMA 3.1 70b
+        Strong performance in MMLU-PRO categories overall
+        Great performance during manual testing
+
+    Creation workflow
+
+    Models merged
+
+        meta-llama/Meta-Llama-3.1-70B-Instruct
+        turboderp/Cat-Llama-3-70B-instruct
+        Nexusflow/Athene-70B
+  overrides:
+    parameters:
+      model: Cathallama-70B.Q4_K_M.gguf
+  files:
+    - filename: Cathallama-70B.Q4_K_M.gguf
+      sha256: 7bbac0849a8da82e7912a493a15fa07d605f1ffbe7337a322f17e09195511022
+      uri: huggingface://mradermacher/Cathallama-70B-GGUF/Cathallama-70B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
