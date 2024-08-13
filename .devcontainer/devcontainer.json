@@ -19,5 +19,5 @@
         }
     },
     "forwardPorts": [8080, 3000],
-    "postStartCommand": "make prepare && GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build"
+    "postStartCommand": "make prepare && cp /build/backend-assets /workdir/backend-assets"
 }
