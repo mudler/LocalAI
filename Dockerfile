@@ -295,7 +295,7 @@ FROM builder-base AS devcontainer
 
 # This is somewhat of a dirty hack as this dev machine has issues with stablediffusion... but it should also speed up devcontainers?
 # localai/localai:latest-aio-cpu
-COPY --from=grpc /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
+COPY --from=builder /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
