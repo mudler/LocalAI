@@ -74,7 +74,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		case <-ctx.Done():
 			return errors.New("context canceled")
 		default:
-			log.Debug().Msg("New connection")
+			log.Debug().Msgf("New connection from %s", l.Addr().String())
 			// Listen for an incoming connection.
 			conn, err := l.Accept()
 			if err != nil {
@@ -94,13 +94,13 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 						}
 					}
 				} else if fs.loadBalanced {
+					log.Debug().Msgf("Load balancing request")
+
 					tunnelAddr = fs.SelectLeastUsedServer()
-					log.Debug().Msgf("Selected tunnel %s", tunnelAddr)
-					if tunnelAddr != "" {
+					if tunnelAddr == "" {
 						tunnelAddr = fs.RandomServer()
 					}
 
-					fs.RecordRequest(tunnelAddr)
 				} else {
 					tunnelAddr = fs.RandomServer()
 				}
@@ -109,6 +109,8 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 					log.Error().Msg("No available nodes yet")
 					return
 				}
+
+				log.Debug().Msgf("Selected tunnel %s", tunnelAddr)
 
 				tunnelConn, err := net.Dial("tcp", tunnelAddr)
 				if err != nil {
@@ -124,7 +126,10 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 
 				tunnelConn.Close()
 				conn.Close()
-				//	ll.Infof("(service %s) Done handling %s", serviceID, l.Addr().String())
+
+				if fs.loadBalanced {
+					fs.RecordRequest(tunnelAddr)
+				}
 			}()
 		}
 	}

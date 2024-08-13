@@ -3,6 +3,7 @@ package p2p
 import (
 	"fmt"
 	"math/rand/v2"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )
@@ -17,6 +18,7 @@ func NetworkID(networkID, serviceID string) string {
 }
 
 type FederatedServer struct {
+	sync.Mutex
 	listenAddr, service, p2ptoken string
 	requestTable                  map[string]int
 	loadBalanced                  bool
@@ -40,6 +42,7 @@ func (fs *FederatedServer) RandomServer() string {
 		if v.IsOnline() {
 			tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
 		} else {
+			delete(fs.requestTable, v.TunnelAddress) // make sure it's not tracked
 			log.Info().Msgf("Node %s is offline", v.ID)
 		}
 	}
@@ -60,6 +63,11 @@ func (fs *FederatedServer) SelectLeastUsedServer() string {
 		}
 	}
 
+	fs.Lock()
+	defer fs.Unlock()
+
+	log.Debug().Any("request_table", fs.requestTable).Msgf("Current request table")
+
 	// cycle over requestTable and find the entry with the lower number
 	// if there are multiple entries with the same number, select one randomly
 	// if there are no entries, return an empty string
@@ -71,19 +79,28 @@ func (fs *FederatedServer) SelectLeastUsedServer() string {
 			minKey = k
 		}
 	}
+	log.Debug().Any("requests_served", min).Msgf("Selected tunnel %s", minKey)
 
 	return minKey
 }
 
 func (fs *FederatedServer) RecordRequest(nodeID string) {
+	fs.Lock()
+	defer fs.Unlock()
 	// increment the counter for the nodeID in the requestTable
 	fs.requestTable[nodeID]++
+
+	log.Debug().Any("request_table", fs.requestTable).Msgf("Current request table")
 }
 
 func (fs *FederatedServer) ensureRecordExist(nodeID string) {
+	fs.Lock()
+	defer fs.Unlock()
 	// if the nodeID is not in the requestTable, add it with a counter of 0
 	_, ok := fs.requestTable[nodeID]
 	if !ok {
 		fs.requestTable[nodeID] = 0
 	}
+
+	log.Debug().Any("request_table", fs.requestTable).Msgf("Current request table")
 }
