@@ -8,7 +8,7 @@ FROM ${BASE_IMAGE} AS requirements-core
 
 USER root
 
-ARG GO_VERSION=1.22.5
+ARG GO_VERSION=1.22.6
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -30,7 +30,7 @@ RUN apt-get update && \
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
-ENV PATH $PATH:/root/go/bin:/usr/local/go/bin
+ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
 
 # Install grpc compilers
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
@@ -39,15 +39,18 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
+RUN test -n "$TARGETARCH" \
+    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
+
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"
 
 # Cuda
-ENV PATH /usr/local/cuda/bin:${PATH}
+ENV PATH=/usr/local/cuda/bin:${PATH}
 
 # HipBLAS requirements
-ENV PATH /opt/rocm/bin:${PATH}
+ENV PATH=/opt/rocm/bin:${PATH}
 
 # OpenBLAS requirements and stable diffusion
 RUN apt-get update && \
@@ -61,9 +64,6 @@ RUN apt-get update && \
 RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
 WORKDIR /build
-
-RUN test -n "$TARGETARCH" \
-    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
 
 ###################################
 ###################################
@@ -292,6 +292,10 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 # rather than copying files it mounts them locally and leaves building to the developer
 
 FROM builder-base AS devcontainer
+
+# This is somewhat of a dirty hack as this dev machine has issues with stablediffusion... but it should also speed up devcontainers?
+# localai/localai:latest-aio-cpu
+COPY --from=grpc /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
