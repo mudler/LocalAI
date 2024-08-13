@@ -234,7 +234,7 @@ ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV LD_FLAGS=${LD_FLAGS}
 
-RUN echo "GO_TAGS: $GO_TAGS"
+RUN echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
 
 WORKDIR /build
 
@@ -293,9 +293,20 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 
 FROM builder-base AS devcontainer
 
+ARG FFMPEG
+
 # This is somewhat of a dirty hack as this dev machine has issues with stablediffusion... but it should also speed up devcontainers?
 # localai/localai:latest-aio-cpu
 COPY --from=builder /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
+
+# Add FFmpeg
+RUN if [ "${FFMPEG}" = "true" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            ffmpeg && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 

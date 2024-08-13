@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
       target: devcontainer
       args:
+      - FFMPEG=true
       - IMAGE_TYPE=extras
       - GO_TAGS=stablediffusion p2p tts
     env_file:
