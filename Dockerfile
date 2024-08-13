@@ -255,9 +255,6 @@ RUN <<EOT bash
     fi
 EOT
 
-# Install the pre-built GRPC
-COPY --from=grpc /opt/grpc /usr/local
-
 
 ###################################
 ###################################
@@ -271,8 +268,12 @@ COPY .git .
 
 RUN make prepare
 
+
 # stablediffusion does not tolerate a newer version of abseil, build it first
-RUN echo "$GO_TAGS" | grep -q "stablediffusion" && GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build || true
+RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+
+# Install the pre-built GRPC
+COPY --from=grpc /opt/grpc /usr/local
 
 # Rebuild with defaults backends
 WORKDIR /build
@@ -294,6 +295,8 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 FROM builder-base AS devcontainer
 
 ARG FFMPEG
+
+COPY --from=grpc /opt/grpc /usr/local
 
 # This is somewhat of a dirty hack as this dev machine has issues with stablediffusion... but it should also speed up devcontainers?
 # localai/localai:latest-aio-cpu
