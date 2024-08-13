@@ -181,7 +181,6 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 	if err != nil {
 		return nil, fmt.Errorf("creating a new node: %w", err)
 	}
-
 	// get new services, allocate and return to the channel
 
 	// TODO:
@@ -201,6 +200,9 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 				zlog.Debug().Msg("Searching for workers")
 
 				data := ledger.LastBlock().Storage[servicesID]
+
+				zlog.Debug().Any("data", ledger.LastBlock().Storage).Msg("Ledger data")
+
 				for k, v := range data {
 					zlog.Info().Msgf("Found worker %s", k)
 					nd := &NodeData{}
