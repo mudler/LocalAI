@@ -314,11 +314,11 @@
     - https://huggingface.co/mradermacher/calme-2.3-legalkit-8b-i1-GGUF
     - https://huggingface.co/MaziyarPanahi/calme-2.3-legalkit-8b
   description: |
-      This model is an advanced iteration of the powerful meta-llama/Meta-Llama-3.1-8B-Instruct, specifically fine-tuned to enhance its capabilities in the legal domain. The fine-tuning process utilized a synthetically generated dataset derived from the French LegalKit, a comprehensive legal language resource.
+    This model is an advanced iteration of the powerful meta-llama/Meta-Llama-3.1-8B-Instruct, specifically fine-tuned to enhance its capabilities in the legal domain. The fine-tuning process utilized a synthetically generated dataset derived from the French LegalKit, a comprehensive legal language resource.
 
-      To create this specialized dataset, I used the NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO model in conjunction with Hugging Face's Inference Endpoint. This approach allowed for the generation of high-quality, synthetic data that incorporates Chain of Thought (CoT) and advanced reasoning in its responses.
+    To create this specialized dataset, I used the NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO model in conjunction with Hugging Face's Inference Endpoint. This approach allowed for the generation of high-quality, synthetic data that incorporates Chain of Thought (CoT) and advanced reasoning in its responses.
 
-      The resulting model combines the robust foundation of Llama-3.1-8B with tailored legal knowledge and enhanced reasoning capabilities. This makes it particularly well-suited for tasks requiring in-depth legal analysis, interpretation, and application of French legal concepts.
+    The resulting model combines the robust foundation of Llama-3.1-8B with tailored legal knowledge and enhanced reasoning capabilities. This makes it particularly well-suited for tasks requiring in-depth legal analysis, interpretation, and application of French legal concepts.
   overrides:
     parameters:
       model: calme-2.3-legalkit-8b.i1-Q4_K_M.gguf
@@ -488,6 +488,47 @@
     - filename: Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
       sha256: a1deb46675418277cf785a406cd1508fec556ff6e4d45d2231eb2a82986d52d0
       uri: huggingface://juvi21/Kumiho-v1-rp-UwU-8B-GGUF/Kumiho-v1-rp-UwU-8B-gguf-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "infinity-instruct-7m-gen-llama3_1-70b"
+  icon: https://huggingface.co/BAAI/Infinity-Instruct-7M-Gen-Llama3_1-70B/resolve/main/fig/Bk3NbjnJko51MTx1ZCScT2sqnGg.png
+  urls:
+    - https://huggingface.co/mradermacher/Infinity-Instruct-7M-Gen-Llama3_1-70B-GGUF
+  description: |
+    Infinity-Instruct-7M-Gen-Llama3.1-70B is an opensource supervised instruction tuning model without reinforcement learning from human feedback (RLHF). This model is just finetuned on Infinity-Instruct-7M and Infinity-Instruct-Gen and showing favorable results on AlpacaEval 2.0 and arena-hard compared to GPT4.
+  overrides:
+    parameters:
+      model: Infinity-Instruct-7M-Gen-Llama3_1-70B.Q4_K_M.gguf
+  files:
+    - filename: Infinity-Instruct-7M-Gen-Llama3_1-70B.Q4_K_M.gguf
+      sha256: f4379ab4d7140da0510886073375ca820ea9ac4ad9d3c20e17ed05156bd29697
+      uri: huggingface://mradermacher/Infinity-Instruct-7M-Gen-Llama3_1-70B-GGUF/Infinity-Instruct-7M-Gen-Llama3_1-70B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "cathallama-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/649dc85249ae3a68334adcc6/KxaiZ7rDKkYlix99O9j5H.png
+  urls:
+    - https://huggingface.co/gbueno86/Cathallama-70B
+    - https://huggingface.co/mradermacher/Cathallama-70B-GGUF
+  description: |
+    Notable Performance
+
+        9% overall success rate increase on MMLU-PRO over LLaMA 3.1 70b
+        Strong performance in MMLU-PRO categories overall
+        Great performance during manual testing
+
+    Creation workflow
+
+    Models merged
+
+        meta-llama/Meta-Llama-3.1-70B-Instruct
+        turboderp/Cat-Llama-3-70B-instruct
+        Nexusflow/Athene-70B
+  overrides:
+    parameters:
+      model: Cathallama-70B.Q4_K_M.gguf
+  files:
+    - filename: Cathallama-70B.Q4_K_M.gguf
+      sha256: 7bbac0849a8da82e7912a493a15fa07d605f1ffbe7337a322f17e09195511022
+      uri: huggingface://mradermacher/Cathallama-70B-GGUF/Cathallama-70B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -4319,7 +4360,7 @@
   files:
     - filename: "Phi-3-medium-4k-instruct-Q4_K_M.gguf"
       uri: "huggingface://bartowski/Phi-3-medium-4k-instruct-GGUF/Phi-3-medium-4k-instruct-Q4_K_M.gguf"
-      sha256: 4e8d4258ed44562573c8984a045b0a4651c51e7e4d9d00a06c65cd2149ab4539
+      sha256: 6f05c97bc676dd1ec8d58e9a8795b4f5c809db771f6fc7bf48634c805face82c
 - !!merge <<: *phi-3
   name: "cream-phi-3-14b-v1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/AP4-OHepdqiqHj2KSi26M.gif
@@ -4942,6 +4983,44 @@
     - sd-3
     - gpu
   url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
+- &flux
+  name: flux.1-dev
+  license: flux-1-dev-non-commercial-license
+  description: |
+    FLUX.1 [dev] is a 12 billion parameter rectified flow transformer capable of generating images from text descriptions. For more information, please read our blog post.
+    Key Features
+        Cutting-edge output quality, second only to our state-of-the-art model FLUX.1 [pro].
+        Competitive prompt following, matching the performance of closed source alternatives .
+        Trained using guidance distillation, making FLUX.1 [dev] more efficient.
+        Open weights to drive new scientific research, and empower artists to develop innovative workflows.
+        Generated outputs can be used for personal, scientific, and commercial purposes as described in the flux-1-dev-non-commercial-license.
+  urls:
+    - https://huggingface.co/black-forest-labs/FLUX.1-dev
+  tags:
+    - text-to-image
+    - flux
+    - python
+    - gpu
+  url: "github:mudler/LocalAI/gallery/flux.yaml@master"
+  overrides:
+    parameters:
+      model: ChuckMcSneed/FLUX.1-dev
+- !!merge <<: *flux
+  name: flux.1-schnell
+  license: apache-2
+  icon: https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/schnell_grid.jpeg
+  description: |
+    FLUX.1 [schnell] is a 12 billion parameter rectified flow transformer capable of generating images from text descriptions. For more information, please read our blog post.
+    Key Features
+
+        Cutting-edge output quality and competitive prompt following, matching the performance of closed source alternatives.
+        Trained using latent adversarial diffusion distillation, FLUX.1 [schnell] can generate high-quality images in only 1 to 4 steps.
+        Released under the apache-2.0 licence, the model can be used for personal, scientific, and commercial purposes.
+  urls:
+    - https://huggingface.co/black-forest-labs/FLUX.1-schnell
+  overrides:
+    parameters:
+      model: black-forest-labs/FLUX.1-schnell
 - &whisper
   ## Whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
