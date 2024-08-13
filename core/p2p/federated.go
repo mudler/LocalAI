@@ -54,14 +54,28 @@ func (fs *FederatedServer) RandomServer() string {
 	return tunnelAddresses[rand.IntN(len(tunnelAddresses))]
 }
 
-func (fs *FederatedServer) SelectLeastUsedServer() string {
+func (fs *FederatedServer) syncTableStatus() {
+	fs.Lock()
+	defer fs.Unlock()
+	currentTunnels := make(map[string]struct{})
+
 	for _, v := range GetAvailableNodes(fs.service) {
 		if v.IsOnline() {
 			fs.ensureRecordExist(v.TunnelAddress)
-		} else {
-			delete(fs.requestTable, v.TunnelAddress)
+			currentTunnels[v.TunnelAddress] = struct{}{}
 		}
 	}
+
+	// delete tunnels that don't exist anymore
+	for t := range fs.requestTable {
+		if _, ok := currentTunnels[t]; !ok {
+			delete(fs.requestTable, t)
+		}
+	}
+}
+
+func (fs *FederatedServer) SelectLeastUsedServer() string {
+	fs.syncTableStatus()
 
 	fs.Lock()
 	defer fs.Unlock()
@@ -94,8 +108,6 @@ func (fs *FederatedServer) RecordRequest(nodeID string) {
 }
 
 func (fs *FederatedServer) ensureRecordExist(nodeID string) {
-	fs.Lock()
-	defer fs.Unlock()
 	// if the nodeID is not in the requestTable, add it with a counter of 0
 	_, ok := fs.requestTable[nodeID]
 	if !ok {
