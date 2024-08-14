@@ -1,5 +1,3 @@
-version: '3.6'
-
 services:
   api:
     # See https://localai.io/basics/getting_started/#container-images for
