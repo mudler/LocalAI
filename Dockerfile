@@ -8,7 +8,7 @@ FROM ${BASE_IMAGE} AS requirements-core
 
 USER root
 
-ARG GO_VERSION=1.22.5
+ARG GO_VERSION=1.22.6
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -30,7 +30,7 @@ RUN apt-get update && \
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
-ENV PATH $PATH:/root/go/bin:/usr/local/go/bin
+ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
 
 # Install grpc compilers
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
@@ -39,15 +39,18 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
+RUN test -n "$TARGETARCH" \
+    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
+
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"
 
 # Cuda
-ENV PATH /usr/local/cuda/bin:${PATH}
+ENV PATH=/usr/local/cuda/bin:${PATH}
 
 # HipBLAS requirements
-ENV PATH /opt/rocm/bin:${PATH}
+ENV PATH=/opt/rocm/bin:${PATH}
 
 # OpenBLAS requirements and stable diffusion
 RUN apt-get update && \
@@ -61,9 +64,6 @@ RUN apt-get update && \
 RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
 WORKDIR /build
-
-RUN test -n "$TARGETARCH" \
-    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
 
 ###################################
 ###################################
@@ -217,13 +217,14 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 ###################################
 ###################################
 
-# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
-# Adjustments to the build process should likely be made here.
-FROM requirements-drivers AS builder
+# The builder-base target has the arguments, variables, and copies shared between full builder images and the uncompiled devcontainer
+
+FROM requirements-drivers AS builder-base
 
 ARG GO_TAGS="stablediffusion tts p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
+ARG LD_FLAGS="-s -w"
 
 ENV GRPC_BACKENDS=${GRPC_BACKENDS}
 ENV GO_TAGS=${GO_TAGS}
@@ -231,14 +232,12 @@ ENV MAKEFLAGS=${MAKEFLAGS}
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
+ENV LD_FLAGS=${LD_FLAGS}
+
+RUN echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
 
 WORKDIR /build
 
-COPY . .
-COPY .git .
-RUN echo "GO_TAGS: $GO_TAGS"
-
-RUN make prepare
 
 # We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
 # but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
@@ -256,6 +255,20 @@ RUN <<EOT bash
     fi
 EOT
 
+
+###################################
+###################################
+
+# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
+# Adjustments to the build process should likely be made here.
+FROM builder-base AS builder
+
+COPY . .
+COPY .git .
+
+RUN make prepare
+
+
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
 
@@ -272,6 +285,33 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
         mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
         touch /build/sources/go-piper/piper-phonemize/pi/lib/keep \
     ; fi
+
+###################################
+###################################
+
+# The devcontainer target is not used on CI. It is a target for developers to use locally -
+# rather than copying files it mounts them locally and leaves building to the developer
+
+FROM builder-base AS devcontainer
+
+ARG FFMPEG
+
+COPY --from=grpc /opt/grpc /usr/local
+
+# This is somewhat of a dirty hack as this dev machine has issues with stablediffusion... but it should also speed up devcontainers?
+# localai/localai:latest-aio-cpu
+COPY --from=builder /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
+
+# Add FFmpeg
+RUN if [ "${FFMPEG}" = "true" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            ffmpeg && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 ###################################
 ###################################
