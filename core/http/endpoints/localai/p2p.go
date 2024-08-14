@@ -11,12 +11,14 @@ import (
 // @Summary Returns available P2P nodes
 // @Success 200 {object} []schema.P2PNodesResponse "Response"
 // @Router /api/p2p [get]
-func ShowP2PNodes(c *fiber.Ctx) error {
+func ShowP2PNodes(appConfig *config.ApplicationConfig) func(*fiber.Ctx) error {
 	// Render index
-	return c.JSON(schema.P2PNodesResponse{
-		Nodes:          p2p.GetAvailableNodes(""),
-		FederatedNodes: p2p.GetAvailableNodes(p2p.FederatedID),
-	})
+	return func(c *fiber.Ctx) error {
+		return c.JSON(schema.P2PNodesResponse{
+			Nodes:          p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID)),
+			FederatedNodes: p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID)),
+		})
+	}
 }
 
 // ShowP2PToken returns the P2P token

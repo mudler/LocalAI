@@ -1,0 +1,6 @@
+torch
+accelerate
+transformers
+bitsandbytes
+sentence-transformers==3.0.1
+transformers

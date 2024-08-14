@@ -5,7 +5,10 @@ import (
 	"time"
 )
 
-const defaultServicesID = "services_localai"
+const (
+	defaultServicesID = "services"
+	WorkerID          = "worker"
+)
 
 type NodeData struct {
 	Name          string

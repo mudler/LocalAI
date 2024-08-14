@@ -1,0 +1,64 @@
+name: Explorer deployment
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ci-deploy-${{ github.head_ref || github.ref }}-${{ github.repository }}
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.x'
+          cache: false
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache upx-ucl gawk cmake libgmock-dev
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          make protogen-go
+      - name: Build api
+        run: |
+          make build-api
+      - name: rm
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+            host: ${{ secrets.EXPLORER_SSH_HOST }}
+            username: ${{ secrets.EXPLORER_SSH_USERNAME }}
+            key: ${{ secrets.EXPLORER_SSH_KEY }}
+            port: ${{ secrets.EXPLORER_SSH_PORT }}
+            script: |
+                sudo rm -rf local-ai/ || true
+      - name: copy file via ssh
+        uses: appleboy/scp-action@v0.1.7
+        with:
+            host: ${{ secrets.EXPLORER_SSH_HOST }}
+            username: ${{ secrets.EXPLORER_SSH_USERNAME }}
+            key: ${{ secrets.EXPLORER_SSH_KEY }}
+            port: ${{ secrets.EXPLORER_SSH_PORT }}
+            source: "local-ai"
+            overwrite: true
+            rm: true
+            target: ./local-ai
+      - name: restarting
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+            host: ${{ secrets.EXPLORER_SSH_HOST }}
+            username: ${{ secrets.EXPLORER_SSH_USERNAME }}
+            key: ${{ secrets.EXPLORER_SSH_KEY }}
+            port: ${{ secrets.EXPLORER_SSH_PORT }}
+            script: |
+                sudo cp -rfv local-ai/local-ai /usr/bin/local-ai
+                sudo systemctl restart local-ai

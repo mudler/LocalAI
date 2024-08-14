@@ -45,11 +45,6 @@ const (
 
 	LLamaCPPGRPC = "llama-cpp-grpc"
 
-	Gpt4AllLlamaBackend = "gpt4all-llama"
-	Gpt4AllMptBackend   = "gpt4all-mpt"
-	Gpt4AllJBackend     = "gpt4all-j"
-	Gpt4All             = "gpt4all"
-
 	BertEmbeddingsBackend  = "bert-embeddings"
 	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
@@ -144,11 +139,10 @@ ENTRY:
 
 	// sets a priority list - first has more priority
 	priorityList := []string{
-
 		// First llama.cpp(variants) and llama-ggml to follow.
 		// We keep the fallback to prevent that if the llama.cpp variants
 		// that depends on shared libs if breaks have still a safety net.
-		LLamaCPP, LlamaGGML, Gpt4All, LLamaCPPFallback,
+		LLamaCPP, LlamaGGML, LLamaCPPFallback,
 	}
 
 	toTheEnd := []string{
@@ -434,9 +428,6 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 	var backendToConsume string
 
 	switch backend {
-	case Gpt4AllLlamaBackend, Gpt4AllMptBackend, Gpt4AllJBackend, Gpt4All:
-		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "gpt4all")
-		backendToConsume = Gpt4All
 	case PiperBackend:
 		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "espeak-ng-data")
 		backendToConsume = PiperBackend

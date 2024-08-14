@@ -58,7 +58,7 @@ func RegisterLocalAIRoutes(app *fiber.App,
 
 	// p2p
 	if p2p.IsP2PEnabled() {
-		app.Get("/api/p2p", localai.ShowP2PNodes)
+		app.Get("/api/p2p", localai.ShowP2PNodes(appConfig))
 		app.Get("/api/p2p/token", localai.ShowP2PToken(appConfig))
 	}
 

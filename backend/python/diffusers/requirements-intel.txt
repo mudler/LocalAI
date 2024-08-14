@@ -4,3 +4,11 @@ torch
 torchvision
 optimum[openvino]
 setuptools==70.3.0 # https://github.com/mudler/LocalAI/issues/2406
+diffusers
+opencv-python
+transformers
+accelerate
+compel
+peft
+sentencepiece
+optimum-quanto

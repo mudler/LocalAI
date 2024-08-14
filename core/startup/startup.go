@@ -106,7 +106,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		err := assets.ExtractFiles(options.BackendAssets, options.AssetsDestination)
 		log.Debug().Msgf("Extracting backend assets files to %s", options.AssetsDestination)
 		if err != nil {
-			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
+			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly)", err)
 		}
 	}
 

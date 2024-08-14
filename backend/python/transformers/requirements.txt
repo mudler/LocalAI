@@ -1,8 +1,4 @@
-accelerate
-transformers
 grpcio==1.65.4
 protobuf
 certifi
-intel-extension-for-transformers
-bitsandbytes
 setuptools==69.5.1 # https://github.com/mudler/LocalAI/issues/2406

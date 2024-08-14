@@ -2260,7 +2260,7 @@ static void params_parse(const backend::ModelOptions* request,
      }
      // get the directory of modelfile
      std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
-     params.lora_adapter.push_back(std::make_tuple(model_dir + "/"+request->loraadapter(), scale_factor));
+     params.lora_adapters.push_back({ model_dir + "/"+request->loraadapter(), scale_factor });
     }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();

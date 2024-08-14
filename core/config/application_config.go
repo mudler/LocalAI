@@ -33,6 +33,7 @@ type ApplicationConfig struct {
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
 	P2PToken                            string
+	P2PNetworkID                        string
 
 	EnforcePredownloadScans            bool
 	OpaqueErrors                       bool
@@ -93,6 +94,12 @@ func WithModelPath(path string) AppOption {
 func WithCors(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.CORS = b
+	}
+}
+
+func WithP2PNetworkID(s string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.P2PNetworkID = s
 	}
 }
 

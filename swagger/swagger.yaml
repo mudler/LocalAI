@@ -16,6 +16,8 @@ definitions:
       parameters:
         additionalProperties: true
         type: object
+      strict:
+        type: boolean
     type: object
   functions.Item:
     properties:

@@ -19,12 +19,13 @@ import (
 )
 
 type P2P struct {
-	WorkerFlags       `embed:""`
-	Token             string   `env:"LOCALAI_TOKEN,LOCALAI_P2P_TOKEN,TOKEN" help:"P2P token to use"`
-	NoRunner          bool     `env:"LOCALAI_NO_RUNNER,NO_RUNNER" help:"Do not start the llama-cpp-rpc-server"`
-	RunnerAddress     string   `env:"LOCALAI_RUNNER_ADDRESS,RUNNER_ADDRESS" help:"Address of the llama-cpp-rpc-server"`
-	RunnerPort        string   `env:"LOCALAI_RUNNER_PORT,RUNNER_PORT" help:"Port of the llama-cpp-rpc-server"`
-	ExtraLLamaCPPArgs []string `env:"LOCALAI_EXTRA_LLAMA_CPP_ARGS,EXTRA_LLAMA_CPP_ARGS" help:"Extra arguments to pass to llama-cpp-rpc-server"`
+	WorkerFlags        `embed:""`
+	Token              string   `env:"LOCALAI_TOKEN,LOCALAI_P2P_TOKEN,TOKEN" help:"P2P token to use"`
+	NoRunner           bool     `env:"LOCALAI_NO_RUNNER,NO_RUNNER" help:"Do not start the llama-cpp-rpc-server"`
+	RunnerAddress      string   `env:"LOCALAI_RUNNER_ADDRESS,RUNNER_ADDRESS" help:"Address of the llama-cpp-rpc-server"`
+	RunnerPort         string   `env:"LOCALAI_RUNNER_PORT,RUNNER_PORT" help:"Port of the llama-cpp-rpc-server"`
+	ExtraLLamaCPPArgs  []string `env:"LOCALAI_EXTRA_LLAMA_CPP_ARGS,EXTRA_LLAMA_CPP_ARGS" help:"Extra arguments to pass to llama-cpp-rpc-server"`
+	Peer2PeerNetworkID string   `env:"LOCALAI_P2P_NETWORK_ID,P2P_NETWORK_ID" help:"Network ID for P2P mode, can be set arbitrarly by the user for grouping a set of instances" group:"p2p"`
 }
 
 func (r *P2P) Run(ctx *cliContext.Context) error {
@@ -32,7 +33,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 	err := assets.ExtractFiles(ctx.BackendAssets, r.BackendAssetsPath)
 	log.Debug().Msgf("Extracting backend assets files to %s", r.BackendAssetsPath)
 	if err != nil {
-		log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly, like gpt4all)", err)
+		log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly)", err)
 	}
 
 	// Check if the token is set
@@ -59,7 +60,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			p = r.RunnerPort
 		}
 
-		err = p2p.ExposeService(context.Background(), address, p, r.Token, "")
+		err = p2p.ExposeService(context.Background(), address, p, r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
 		if err != nil {
 			return err
 		}
@@ -99,7 +100,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	err = p2p.ExposeService(context.Background(), address, fmt.Sprint(port), r.Token, "")
+	err = p2p.ExposeService(context.Background(), address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
 	if err != nil {
 		return err
 	}
