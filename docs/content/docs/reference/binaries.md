@@ -20,3 +20,12 @@ Otherwise, here are the links to the binaries:
 | Linux (amd64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-x86_64) |
 | Linux (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-arm64) |
 | MacOS (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Darwin-arm64) |
+
+
+{{% alert icon="⚡" context="warning" %}}
+Binaries do have limited support compared to container images:
+
+- Python-based backends are not shipped with binaries (e.g. `bark`, `diffusers` or `transformers`)
+- MacOS binaries and Linux-arm64 do not ship TTS nor `stablediffusion-cpp` backends
+- Linux binaries do not ship `stablediffusion-cpp` backend
+{{% /alert %}}
