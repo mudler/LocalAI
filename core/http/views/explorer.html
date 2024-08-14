@@ -152,6 +152,35 @@
             right: 10px;
             color: #e2e8f0;
         }
+        .fa-circle-nodes {
+           /* font-size: 100px; /* Adjust the size as needed */
+            animation: rotateCircleNodes 8s linear infinite; /* Slow and fluid rotation */
+            display: inline-block;
+        }
+
+        @keyframes rotateCircleNodes {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Animation for the warning box */
+        .fa-flask {
+         /*  font-size: 100px; /* Adjust the size as needed */
+            animation: shakeFlask 3s ease-in-out infinite; /* Smooth easing and longer duration for fluidity */
+            transform-origin: bottom center;
+        }
+
+        @keyframes shakeFlask {
+            0%, 10% { transform: rotate(0deg); } /* Start and end still */
+            20% { transform: rotate(-10deg); } /* Smooth transition to left */
+            30% { transform: rotate(10deg); } /* Smooth transition to right */
+            40% { transform: rotate(-8deg); } /* Smooth transition to left */
+            50% { transform: rotate(8deg); } /* Smooth transition to right */
+            60% { transform: rotate(-5deg); } /* Smooth transition to left */
+            70% { transform: rotate(5deg); } /* Smooth transition to right */
+            80% { transform: rotate(-2deg); } /* Smooth transition to left */
+            90% { transform: rotate(2deg); } /* Smooth transition to right */
+            100% { transform: rotate(0deg); } /* Return to center */
+        }
 </style>
 
 <body class="bg-gray-900 text-gray-200">
@@ -159,14 +188,23 @@
         {{template "views/partials/navbar_explorer" .}}
 
         <header class="text-center py-12">
-            <h1 class="text-5xl font-bold text-gray-100">Network Clusters Explorer</h1>
-            <p class="mt-4 text-lg">View the clusters and workers available in each network.</p>
+            <h1 class="text-5xl font-bold text-gray-100">
+                <i class="fa-solid fa-circle-nodes mr-2"></i> Network Clusters Explorer   
+
+            </h1>
+            <p class="mt-4 text-lg">
+                View the clusters and workers available in each network.
+                <a href="https://localai.io/features/distribute/" target="_blank">
+                    <i class="fas fa-circle-info pr-2"></i>
+                </a>
+            </p>
+
         </header>
 
         <div class="container mx-auto px-4 flex-grow">
         <!-- Warning Box -->
         <div class="warning-box bg-yellow-100 text-gray-800 mb-20 pt-5 pb-5 pr-5 pl-5 text-lg">
-            <i class="fa-solid fa-triangle-exclamation"></i>
+            <i class="fa-solid fa-triangle-exclamation"></i><i class="fa-solid fa-flask"></i>
             The explorer is a global, community-driven tool to share network tokens and view available clusters in the globe.
             Anyone can use the tokens to offload computation and use the clusters available or share resources.
             This is provided without any warranty. Use it at your own risk. We are not responsible for any potential harm or misuse. Sharing tokens globally allows anyone from the internet to use your instances. 
@@ -221,23 +259,30 @@
             <!-- Display Networks -->
             <template x-for="network in networks" :key="network.name">
                 <div class="network-card">
-                    <div class="network-title" x-text="network.name"></div>
+                    <i class="fa-solid fa-circle-nodes mr-2"></i><span class="network-title font-bold mb-4 mt-1" x-text="network.name"></span>
                     <div class="token-box" @click="copyToken(network.token)">
-                        <i class="fa-solid fa-copy copy-icon"></i>
-                        Token (click to copy): <br>
+                        <p class="text-lg font-bold mb-4 mt-1">
+                            <i class="fa-solid fa-copy copy-icon"></i>
+                            <i class="fa-solid fa-key mr-2"></i>Token (click to copy): 
+                        </p>
                         <span class="token-text" x-text="network.token"></span>
                     </div>
 
                     <div class="cluster">
-                        <p class="text-lg">Description</p>
+                        <p class="text-lg font-bold mb-4 mt-1"><i class="fa-solid fa-book mr-2"></i> Description</p>
                         <p x-text="network.description"></p>
                     </div>
-
+                    <h2 class="text-3xl font-bold mb-4 mt-4">Available Clusters in this network</h2>
                     <template x-for="cluster in network.Clusters" :key="cluster.NetworkID + cluster.Type">
                         <div class="cluster">
-                            <div class="cluster-title" x-text="'Cluster Type: ' + cluster.Type"></div>
-                            <p x-show="cluster.NetworkID" x-text="'Network ID: ' + (cluster.NetworkID || 'N/A')"></p>
-                            <p x-text="'Number of Workers: ' + cluster.Workers.length"></p>
+                       
+                            <div class="cluster-title"></div>
+                            <span class="inline-block bg-orange-500 text-white py-1 px-3 rounded-full text-xs"  x-text="'Cluster Type: ' + cluster.Type">
+                            </span>
+                            <span class="inline-block bg-orange-500 text-white py-1 px-3 rounded-full text-xs" x-show="cluster.NetworkID" x-text="'Network ID: ' + (cluster.NetworkID || 'N/A')">
+                            </span>
+                            <span class="inline-block bg-blue-500 text-white py-1 px-3 rounded-full text-xs"  x-text="'Number of Workers: ' + cluster.Workers.length">
+                            </span>
                         </div>
                     </template>
                 </div>
