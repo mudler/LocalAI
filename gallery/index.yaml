@@ -868,6 +868,23 @@
     - filename: calme-2.2-qwen2-72b.Q4_K_M.gguf
       sha256: 95b9613df0abe6c1b6b7b017d7cc8bcf19b46c29f92a503dcc6da1704b12b402
       uri: huggingface://MaziyarPanahi/calme-2.2-qwen2-72b-GGUF/calme-2.2-qwen2-72b.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "edgerunner-tactical-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/668ed3dcd857a9ca47edb75c/tSyuw39VtmEqvC_wptTDf.png
+  urls:
+    - https://huggingface.co/edgerunner-ai/EdgeRunner-Tactical-7B
+    - https://huggingface.co/RichardErkhov/edgerunner-ai_-_EdgeRunner-Tactical-7B-gguf
+  description: |
+    EdgeRunner-Tactical-7B is a powerful and efficient language model for the edge. Our mission is to build Generative AI for the edge that is safe, secure, and transparent. To that end, the EdgeRunner team is proud to release EdgeRunner-Tactical-7B, the most powerful language model for its size to date.
+
+    EdgeRunner-Tactical-7B is a 7 billion parameter language model that delivers powerful performance while demonstrating the potential of running state-of-the-art (SOTA) models at the edge.
+  overrides:
+    parameters:
+      model: EdgeRunner-Tactical-7B.Q4_K_M.gguf
+  files:
+    - filename: EdgeRunner-Tactical-7B.Q4_K_M.gguf
+      sha256: 90ca9c3ab19e5d1de4499e3f988cc0ba3d205e50285d7c89de6f0a4c525bf204
+      uri: huggingface://RichardErkhov/edgerunner-ai_-_EdgeRunner-Tactical-7B-gguf/EdgeRunner-Tactical-7B.Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
