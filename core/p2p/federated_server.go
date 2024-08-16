@@ -46,7 +46,10 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		return err
 	}
 	//	ll.Info("Binding local port on", srcaddr)
-
+	go func() {
+		<-ctx.Done()
+		l.Close()
+	}()
 	ledger, _ := node.Ledger()
 
 	// Announce ourselves so nodes accepts our connection

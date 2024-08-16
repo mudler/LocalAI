@@ -51,6 +51,11 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 		zlog.Error().Err(err).Msg("Error listening")
 		return err
 	}
+	go func() {
+		<-ctx.Done()
+		l.Close()
+	}()
+
 	//	ll.Info("Binding local port on", srcaddr)
 
 	ledger, _ := node.Ledger()
