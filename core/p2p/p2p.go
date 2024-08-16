@@ -239,8 +239,10 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 		// Start the service
 		port, err := freeport.GetFreePort()
 		if err != nil {
-			fmt.Print(err)
+			zlog.Error().Err(err).Msgf("Could not allocate a free port for %s", nd.ID)
+			return
 		}
+
 		tunnelAddress := fmt.Sprintf("127.0.0.1:%d", port)
 		nd.TunnelAddress = tunnelAddress
 		service[nd.Name] = nodeServiceData{
