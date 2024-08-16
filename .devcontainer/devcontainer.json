@@ -19,5 +19,6 @@
         }
     },
     "forwardPorts": [8080, 3000],
-    "postStartCommand": "make prepare && cp /build/backend-assets /workdir/backend-assets"
+    "postCreateCommand": "git clone https://github.com/mudler/LocalAI.git .",
+    "postStartCommand": "make prepare && cp -r /build/backend-assets /workdir/backend-assets"
 }

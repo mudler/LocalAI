@@ -13,7 +13,7 @@ services:
     ports:
       - 8080:8080
     volumes:
-      - ..:/workspace:cached
+      - localai_workspace:/workspace
     command: /bin/sh -c "while sleep 1000; do :; done"
     cap_add:
       - SYS_PTRACE
@@ -43,3 +43,4 @@ services:
       - ./grafana:/etc/grafana/provisioning/datasources
 volumes:
   prom_data:
+  localai_workspace:
