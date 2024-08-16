@@ -21,17 +21,18 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	app.Get("/swagger/*", swagger.HandlerDefault) // default
 
 	// LocalAI API endpoints
+	if !appConfig.DisableGalleryEndpoint {
+		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
+		app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
+		app.Post("/models/delete/:name", auth, modelGalleryEndpointService.DeleteModelGalleryEndpoint())
 
-	modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
-	app.Post("/models/apply", auth, modelGalleryEndpointService.ApplyModelGalleryEndpoint())
-	app.Post("/models/delete/:name", auth, modelGalleryEndpointService.DeleteModelGalleryEndpoint())
-
-	app.Get("/models/available", auth, modelGalleryEndpointService.ListModelFromGalleryEndpoint())
-	app.Get("/models/galleries", auth, modelGalleryEndpointService.ListModelGalleriesEndpoint())
-	app.Post("/models/galleries", auth, modelGalleryEndpointService.AddModelGalleryEndpoint())
-	app.Delete("/models/galleries", auth, modelGalleryEndpointService.RemoveModelGalleryEndpoint())
-	app.Get("/models/jobs/:uuid", auth, modelGalleryEndpointService.GetOpStatusEndpoint())
-	app.Get("/models/jobs", auth, modelGalleryEndpointService.GetAllStatusEndpoint())
+		app.Get("/models/available", auth, modelGalleryEndpointService.ListModelFromGalleryEndpoint())
+		app.Get("/models/galleries", auth, modelGalleryEndpointService.ListModelGalleriesEndpoint())
+		app.Post("/models/galleries", auth, modelGalleryEndpointService.AddModelGalleryEndpoint())
+		app.Delete("/models/galleries", auth, modelGalleryEndpointService.RemoveModelGalleryEndpoint())
+		app.Get("/models/jobs/:uuid", auth, modelGalleryEndpointService.GetOpStatusEndpoint())
+		app.Get("/models/jobs", auth, modelGalleryEndpointService.GetAllStatusEndpoint())
+	}
 
 	app.Post("/tts", auth, localai.TTSEndpoint(cl, ml, appConfig))
 
