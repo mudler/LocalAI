@@ -54,17 +54,12 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		ctx,
 		10*time.Second,
 		func() {
-			// Retrieve current ID for ip in the blockchain
-			//_, found := ledger.GetKey(protocol.UsersLedgerKey, node.Host().ID().String())
-			// If mismatch, update the blockchain
-			//if !found {
 			updatedMap := map[string]interface{}{}
 			updatedMap[node.Host().ID().String()] = &types.User{
 				PeerID:    node.Host().ID().String(),
 				Timestamp: time.Now().String(),
 			}
 			ledger.Add(protocol.UsersLedgerKey, updatedMap)
-			//	}
 		},
 	)
 

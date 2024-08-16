@@ -60,17 +60,12 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 		ctx,
 		10*time.Second,
 		func() {
-			// Retrieve current ID for ip in the blockchain
-			//_, found := ledger.GetKey(protocol.UsersLedgerKey, node.Host().ID().String())
-			// If mismatch, update the blockchain
-			//if !found {
 			updatedMap := map[string]interface{}{}
 			updatedMap[node.Host().ID().String()] = &types.User{
 				PeerID:    node.Host().ID().String(),
 				Timestamp: time.Now().String(),
 			}
 			ledger.Add(protocol.UsersLedgerKey, updatedMap)
-			//	}
 		},
 	)
 
@@ -310,10 +305,6 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 		ctx,
 		20*time.Second,
 		func() {
-			// Retrieve current ID for ip in the blockchain
-			//_, found := ledger.GetKey("services_localai", name)
-			// If mismatch, update the blockchain
-			//if !found {
 			updatedMap := map[string]interface{}{}
 			updatedMap[name] = &NodeData{
 				Name:     name,
@@ -321,7 +312,6 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 				ID:       nodeID(name),
 			}
 			ledger.Add(servicesID, updatedMap)
-			//	}
 		},
 	)
 

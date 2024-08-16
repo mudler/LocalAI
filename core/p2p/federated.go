@@ -80,7 +80,7 @@ func (fs *FederatedServer) SelectLeastUsedServer() string {
 	fs.Lock()
 	defer fs.Unlock()
 
-	log.Debug().Any("request_table", fs.requestTable).Msgf("Current request table")
+	log.Debug().Any("request_table", fs.requestTable).Msgf("SelectLeastUsedServer()")
 
 	// cycle over requestTable and find the entry with the lower number
 	// if there are multiple entries with the same number, select one randomly
@@ -93,7 +93,7 @@ func (fs *FederatedServer) SelectLeastUsedServer() string {
 			minKey = k
 		}
 	}
-	log.Debug().Any("requests_served", min).Msgf("Selected tunnel %s", minKey)
+	log.Debug().Any("requests_served", min).Any("request_table", fs.requestTable).Msgf("Selected tunnel %s", minKey)
 
 	return minKey
 }
@@ -104,7 +104,7 @@ func (fs *FederatedServer) RecordRequest(nodeID string) {
 	// increment the counter for the nodeID in the requestTable
 	fs.requestTable[nodeID]++
 
-	log.Debug().Any("request_table", fs.requestTable).Msgf("Current request table")
+	log.Debug().Any("request_table", fs.requestTable).Any("request", nodeID).Msgf("Recording request")
 }
 
 func (fs *FederatedServer) ensureRecordExist(nodeID string) {
@@ -114,5 +114,5 @@ func (fs *FederatedServer) ensureRecordExist(nodeID string) {
 		fs.requestTable[nodeID] = 0
 	}
 
-	log.Debug().Any("request_table", fs.requestTable).Msgf("Current request table")
+	log.Debug().Any("request_table", fs.requestTable).Any("request", nodeID).Msgf("Ensure record exists")
 }
