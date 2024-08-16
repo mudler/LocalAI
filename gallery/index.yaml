@@ -1511,7 +1511,7 @@
   files:
     - filename: Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
       sha256: 29ba3db911fbadef4452ba757ddd9ce58fb892b7a872f19eefd0743c961797fb
-      uri: huggingface://TheDrummer/Gemmasutra-Mini-2B-v1-GGUF/Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
+      uri: huggingface://TheDrummer/Gemmasutra-Mini-2B-v1-GGUF/Gemmasutra-Mini-2B-v1-Q4_K_M.gguf
 - !!merge <<: *gemma
   name: "tarnished-9b-i1"
   icon: https://huggingface.co/lodrick-the-lafted/tarnished-9b/resolve/main/nox.jpg
