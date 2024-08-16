@@ -9,6 +9,9 @@
         color: #e2e8f0;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
+    .token {
+        word-break: break-all;
+    }
     .container {
         max-width: 800px;
         margin: 0 auto;
@@ -275,13 +278,27 @@
                     <h2 class="text-3xl font-bold mb-4 mt-4">Available Clusters in this network</h2>
                     <template x-for="cluster in network.Clusters" :key="cluster.NetworkID + cluster.Type">
                         <div class="cluster">
-                       
                             <div class="cluster-title"></div>
                             <span class="inline-block bg-orange-500 text-white py-1 px-3 rounded-full text-xs"  x-text="'Cluster Type: ' + cluster.Type">
                             </span>
+
                             <span class="inline-block bg-orange-500 text-white py-1 px-3 rounded-full text-xs" x-show="cluster.NetworkID" x-text="'Network ID: ' + (cluster.NetworkID || 'N/A')">
                             </span>
                             <span class="inline-block bg-blue-500 text-white py-1 px-3 rounded-full text-xs"  x-text="'Number of Workers: ' + cluster.Workers.length">
+                            </span>
+                            <!-- Give commands and instructions to join the network -->
+                            <span class="inline-block token-box text-white py-1 px-3 text-xs" x-show="cluster.Type == 'federated'" >
+                                <p class="text-lg font-bold mb-4 mt-1">
+                                    <i class="fa-solid fa-copy copy-icon float-right"></i>
+                                    Command to connect (click to copy): 
+                                </p>
+                                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyToken($el.textContent)" >
+                                    docker run -d --restart=always -e ADDRESS=":80" -e LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> -e LOCALAI_P2P_LOGLEVEL=debug --name local-ai -e TOKEN="<span class="token" x-text="network.token"></span>" --net host -ti localai/localai:master-ffmpeg-core federated --debug
+                                </code>
+                                or via CLI:
+                                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyToken($el.textContent)" >
+                                   ADDRESS=":80" LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> LOCALAI_P2P_LOGLEVEL=debug TOKEN="<span class="token" x-text="network.token"></span>" local-ai federated --debug
+                                </code>
                             </span>
                         </div>
                     </template>
@@ -361,8 +378,8 @@
                     copyToken(token) {
                         navigator.clipboard.writeText(token)
                         .then(() => {
-                            console.log('Token copied to clipboard:', token);
-                            alert('Token copied to clipboard!');
+                            console.log('Text copied to clipboard:', token);
+                            alert('Text copied to clipboard!');
                         })
                         .catch(err => {
                             console.error('Failed to copy token:', err);
