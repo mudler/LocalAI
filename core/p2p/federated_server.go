@@ -98,6 +98,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 
 					tunnelAddr = fs.SelectLeastUsedServer()
 					if tunnelAddr == "" {
+						log.Debug().Msgf("Least used server not found, selecting random")
 						tunnelAddr = fs.RandomServer()
 					}
 
