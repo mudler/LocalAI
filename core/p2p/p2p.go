@@ -192,14 +192,13 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 				return
 			default:
 				time.Sleep(5 * time.Second)
-				zlog.Debug().Msg("Searching for workers")
 
 				data := ledger.LastBlock().Storage[servicesID]
 
 				zlog.Debug().Any("data", ledger.LastBlock().Storage).Msg("Ledger data")
 
 				for k, v := range data {
-					zlog.Info().Msgf("Found worker %s", k)
+					zlog.Debug().Msgf("New worker found in the ledger data '%s'", k)
 					nd := &NodeData{}
 					if err := v.Unmarshal(nd); err != nil {
 						zlog.Error().Msg("cannot unmarshal node data")
@@ -344,7 +343,10 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	if loglevel == "" {
 		loglevel = "info"
 	}
-
+	libp2ploglevel := os.Getenv("LOCALAI_LIBP2P_LOGLEVEL")
+	if libp2ploglevel == "" {
+		libp2ploglevel = "info"
+	}
 	c := config.Config{
 		Limit: config.ResourceLimit{
 			Enable:   noLimits,
@@ -353,7 +355,7 @@ func newNodeOpts(token string) ([]node.Option, error) {
 		NetworkToken:   token,
 		LowProfile:     false,
 		LogLevel:       loglevel,
-		Libp2pLogLevel: "fatal",
+		Libp2pLogLevel: libp2ploglevel,
 		Ledger: config.Ledger{
 			SyncInterval:     defaultInterval,
 			AnnounceInterval: defaultInterval,
