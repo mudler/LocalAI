@@ -29,7 +29,7 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 
 	if err := ServiceDiscoverer(ctx, n, f.p2ptoken, f.service, func(servicesID string, tunnel NodeData) {
 		log.Debug().Msgf("Discovered node: %s", tunnel.ID)
-	}); err != nil {
+	}, true); err != nil {
 		return err
 	}
 

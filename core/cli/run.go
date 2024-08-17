@@ -135,7 +135,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
-		}); err != nil {
+		}, true); err != nil {
 			return err
 		}
 	}
@@ -153,7 +153,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 
-		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil); err != nil {
+		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
 			return err
 		}
 	}
