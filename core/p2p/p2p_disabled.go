@@ -18,7 +18,7 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 	return fmt.Errorf("not implemented")
 }
 
-func ServiceDiscoverer(ctx context.Context, node *node.Node, token, servicesID string, fn func(string, NodeData)) error {
+func ServiceDiscoverer(ctx context.Context, node *node.Node, token, servicesID string, fn func(string, NodeData), allocate bool) error {
 	return fmt.Errorf("not implemented")
 }
 

@@ -139,11 +139,11 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 
 // This is the main of the server (which keeps the env variable updated)
 // This starts a goroutine that keeps LLAMACPP_GRPC_SERVERS updated with the discovered services
-func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID string, discoveryFunc func(serviceID string, node NodeData)) error {
+func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID string, discoveryFunc func(serviceID string, node NodeData), allocate bool) error {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
-	tunnels, err := discoveryTunnels(ctx, n, token, servicesID)
+	tunnels, err := discoveryTunnels(ctx, n, token, servicesID, allocate)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID stri
 	return nil
 }
 
-func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string) (chan NodeData, error) {
+func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string, allocate bool) (chan NodeData, error) {
 	tunnels := make(chan NodeData)
 
 	err := n.Start(ctx)
@@ -209,7 +209,7 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 						zlog.Error().Msg("cannot unmarshal node data")
 						continue
 					}
-					ensureService(ctx, n, nd, k)
+					ensureService(ctx, n, nd, k, allocate)
 					muservice.Lock()
 					if _, ok := service[nd.Name]; ok {
 						tunnels <- service[nd.Name].NodeData
@@ -231,7 +231,7 @@ type nodeServiceData struct {
 var service = map[string]nodeServiceData{}
 var muservice sync.Mutex
 
-func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string) {
+func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string, allocate bool) {
 	muservice.Lock()
 	defer muservice.Unlock()
 	if ndService, found := service[nd.Name]; !found {
@@ -240,22 +240,25 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 			zlog.Debug().Msgf("Node %s is offline", nd.ID)
 			return
 		}
-		newCtxm, cancel := context.WithCancel(ctx)
-		// Start the service
-		port, err := freeport.GetFreePort()
-		if err != nil {
-			zlog.Error().Err(err).Msgf("Could not allocate a free port for %s", nd.ID)
-			return
-		}
 
-		tunnelAddress := fmt.Sprintf("127.0.0.1:%d", port)
-		nd.TunnelAddress = tunnelAddress
+		newCtxm, cancel := context.WithCancel(ctx)
+		if allocate {
+			// Start the service
+			port, err := freeport.GetFreePort()
+			if err != nil {
+				zlog.Error().Err(err).Msgf("Could not allocate a free port for %s", nd.ID)
+				return
+			}
+
+			tunnelAddress := fmt.Sprintf("127.0.0.1:%d", port)
+			nd.TunnelAddress = tunnelAddress
+			go allocateLocalService(newCtxm, n, tunnelAddress, sserv)
+			zlog.Debug().Msgf("Starting service %s on %s", sserv, tunnelAddress)
+		}
 		service[nd.Name] = nodeServiceData{
 			NodeData:   *nd,
 			CancelFunc: cancel,
 		}
-		go allocateLocalService(newCtxm, n, tunnelAddress, sserv)
-		zlog.Debug().Msgf("Starting service %s on %s", sserv, tunnelAddress)
 	} else {
 		// Check if the service is still alive
 		// if not cancel the context
