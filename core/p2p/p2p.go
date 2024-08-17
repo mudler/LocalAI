@@ -51,6 +51,11 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 		zlog.Error().Err(err).Msg("Error listening")
 		return err
 	}
+	go func() {
+		<-ctx.Done()
+		l.Close()
+	}()
+
 	//	ll.Info("Binding local port on", srcaddr)
 
 	ledger, _ := node.Ledger()
@@ -60,17 +65,12 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 		ctx,
 		10*time.Second,
 		func() {
-			// Retrieve current ID for ip in the blockchain
-			//_, found := ledger.GetKey(protocol.UsersLedgerKey, node.Host().ID().String())
-			// If mismatch, update the blockchain
-			//if !found {
 			updatedMap := map[string]interface{}{}
 			updatedMap[node.Host().ID().String()] = &types.User{
 				PeerID:    node.Host().ID().String(),
 				Timestamp: time.Now().String(),
 			}
 			ledger.Add(protocol.UsersLedgerKey, updatedMap)
-			//	}
 		},
 	)
 
@@ -197,14 +197,13 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 				return
 			default:
 				time.Sleep(5 * time.Second)
-				zlog.Debug().Msg("Searching for workers")
 
 				data := ledger.LastBlock().Storage[servicesID]
 
 				zlog.Debug().Any("data", ledger.LastBlock().Storage).Msg("Ledger data")
 
 				for k, v := range data {
-					zlog.Info().Msgf("Found worker %s", k)
+					zlog.Debug().Msgf("New worker found in the ledger data '%s'", k)
 					nd := &NodeData{}
 					if err := v.Unmarshal(nd); err != nil {
 						zlog.Error().Msg("cannot unmarshal node data")
@@ -245,8 +244,10 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 		// Start the service
 		port, err := freeport.GetFreePort()
 		if err != nil {
-			fmt.Print(err)
+			zlog.Error().Err(err).Msgf("Could not allocate a free port for %s", nd.ID)
+			return
 		}
+
 		tunnelAddress := fmt.Sprintf("127.0.0.1:%d", port)
 		nd.TunnelAddress = tunnelAddress
 		service[nd.Name] = nodeServiceData{
@@ -310,10 +311,6 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 		ctx,
 		20*time.Second,
 		func() {
-			// Retrieve current ID for ip in the blockchain
-			//_, found := ledger.GetKey("services_localai", name)
-			// If mismatch, update the blockchain
-			//if !found {
 			updatedMap := map[string]interface{}{}
 			updatedMap[name] = &NodeData{
 				Name:     name,
@@ -321,7 +318,6 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 				ID:       nodeID(name),
 			}
 			ledger.Add(servicesID, updatedMap)
-			//	}
 		},
 	)
 
@@ -354,7 +350,10 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	if loglevel == "" {
 		loglevel = "info"
 	}
-
+	libp2ploglevel := os.Getenv("LOCALAI_LIBP2P_LOGLEVEL")
+	if libp2ploglevel == "" {
+		libp2ploglevel = "info"
+	}
 	c := config.Config{
 		Limit: config.ResourceLimit{
 			Enable:   noLimits,
@@ -363,7 +362,7 @@ func newNodeOpts(token string) ([]node.Option, error) {
 		NetworkToken:   token,
 		LowProfile:     false,
 		LogLevel:       loglevel,
-		Libp2pLogLevel: "fatal",
+		Libp2pLogLevel: libp2ploglevel,
 		Ledger: config.Ledger{
 			SyncInterval:     defaultInterval,
 			AnnounceInterval: defaultInterval,

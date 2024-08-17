@@ -64,6 +64,7 @@ type RunCMD struct {
 	EnableWatchdogBusy     bool     `env:"LOCALAI_WATCHDOG_BUSY,WATCHDOG_BUSY" default:"false" help:"Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout" group:"backends"`
 	WatchdogBusyTimeout    string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
 	Federated              bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
+	DisableGalleryEndpoint bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -162,6 +163,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	if r.DisableWebUI {
 		opts = append(opts, config.DisableWebUI)
+	}
+
+	if r.DisableGalleryEndpoint {
+		opts = append(opts, config.DisableGalleryEndpoint)
 	}
 
 	if idleWatchDog || busyWatchDog {
