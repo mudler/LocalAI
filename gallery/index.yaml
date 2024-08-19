@@ -1,4 +1,32 @@
 ---
+## SmolLM
+- &smollm
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "smollm-1.7b-instruct"
+  icon: https://huggingface.co/datasets/HuggingFaceTB/images/resolve/main/banner_smol.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - smollm
+    - chatml
+    - cpu
+  urls:
+    - https://huggingface.co/MaziyarPanahi/SmolLM-1.7B-Instruct-GGUF
+    - https://huggingface.co/HuggingFaceTB/SmolLM-1.7B-Instruct
+  description: |
+    SmolLM is a series of small language models available in three sizes: 135M, 360M, and 1.7B parameters.
+
+    These models are pre-trained on SmolLM-Corpus, a curated collection of high-quality educational and synthetic data designed for training LLMs. For further details, we refer to our blogpost.
+
+    To build SmolLM-Instruct, we finetuned the base models on publicly available datasets.
+  overrides:
+    parameters:
+      model: SmolLM-1.7B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: SmolLM-1.7B-Instruct.Q4_K_M.gguf
+      sha256: 2b07eb2293ed3fc544a9858beda5bfb03dcabda6aa6582d3c85768c95f498d28
+      uri: huggingface://MaziyarPanahi/SmolLM-1.7B-Instruct-GGUF/SmolLM-1.7B-Instruct.Q4_K_M.gguf
 ## LLama3.1
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
