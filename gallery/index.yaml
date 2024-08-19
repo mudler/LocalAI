@@ -354,6 +354,23 @@
     - filename: calme-2.3-legalkit-8b.i1-Q4_K_M.gguf
       sha256: b71dfea8bbd73b0fbd5793ef462b8540c24e1c52a47b1794561adb88109a9e80
       uri: huggingface://mradermacher/calme-2.3-legalkit-8b-i1-GGUF/calme-2.3-legalkit-8b.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "fireball-llama-3.11-8b-v1orpo"
+  icon: https://huggingface.co/EpistemeAI/Fireball-Llama-3.1-8B-v1dpo/resolve/main/fireball-llama.JPG
+  urls:
+    - https://huggingface.co/mradermacher/Fireball-Llama-3.11-8B-v1orpo-GGUF
+  description: |
+    Developed by: EpistemeAI
+    License: apache-2.0
+    Finetuned from model : unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit
+    Finetuned methods: DPO (Direct Preference Optimization) & ORPO (Odds Ratio Preference Optimization)
+  overrides:
+    parameters:
+      model: Fireball-Llama-3.11-8B-v1orpo.Q4_K_M.gguf
+  files:
+    - filename: Fireball-Llama-3.11-8B-v1orpo.Q4_K_M.gguf
+      sha256: c61a1f4ee4f05730ac6af754dc8dfddf34eba4486ffa320864e16620d6527731
+      uri: huggingface://mradermacher/Fireball-Llama-3.11-8B-v1orpo-GGUF/Fireball-Llama-3.11-8B-v1orpo.Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
