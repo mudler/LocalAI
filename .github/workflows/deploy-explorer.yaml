@@ -31,7 +31,7 @@ jobs:
           make protogen-go
       - name: Build api
         run: |
-          make build-api
+          CGO_ENABLED=0 make build-api
       - name: rm
         uses: appleboy/ssh-action@v1.0.3
         with:

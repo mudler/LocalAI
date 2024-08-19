@@ -57,6 +57,8 @@ type ApplicationConfig struct {
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+
+	DisableGalleryEndpoint bool
 }
 
 type AppOption func(*ApplicationConfig)
@@ -129,6 +131,10 @@ var EnableWatchDog = func(o *ApplicationConfig) {
 var EnableWatchDogIdleCheck = func(o *ApplicationConfig) {
 	o.WatchDog = true
 	o.WatchDogIdle = true
+}
+
+var DisableGalleryEndpoint = func(o *ApplicationConfig) {
+	o.DisableGalleryEndpoint = true
 }
 
 var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {

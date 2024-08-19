@@ -1,4 +1,32 @@
 ---
+## SmolLM
+- &smollm
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "smollm-1.7b-instruct"
+  icon: https://huggingface.co/datasets/HuggingFaceTB/images/resolve/main/banner_smol.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - smollm
+    - chatml
+    - cpu
+  urls:
+    - https://huggingface.co/MaziyarPanahi/SmolLM-1.7B-Instruct-GGUF
+    - https://huggingface.co/HuggingFaceTB/SmolLM-1.7B-Instruct
+  description: |
+    SmolLM is a series of small language models available in three sizes: 135M, 360M, and 1.7B parameters.
+
+    These models are pre-trained on SmolLM-Corpus, a curated collection of high-quality educational and synthetic data designed for training LLMs. For further details, we refer to our blogpost.
+
+    To build SmolLM-Instruct, we finetuned the base models on publicly available datasets.
+  overrides:
+    parameters:
+      model: SmolLM-1.7B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: SmolLM-1.7B-Instruct.Q4_K_M.gguf
+      sha256: 2b07eb2293ed3fc544a9858beda5bfb03dcabda6aa6582d3c85768c95f498d28
+      uri: huggingface://MaziyarPanahi/SmolLM-1.7B-Instruct-GGUF/SmolLM-1.7B-Instruct.Q4_K_M.gguf
 ## LLama3.1
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
@@ -326,6 +354,41 @@
     - filename: calme-2.3-legalkit-8b.i1-Q4_K_M.gguf
       sha256: b71dfea8bbd73b0fbd5793ef462b8540c24e1c52a47b1794561adb88109a9e80
       uri: huggingface://mradermacher/calme-2.3-legalkit-8b-i1-GGUF/calme-2.3-legalkit-8b.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "fireball-llama-3.11-8b-v1orpo"
+  icon: https://huggingface.co/EpistemeAI/Fireball-Llama-3.1-8B-v1dpo/resolve/main/fireball-llama.JPG
+  urls:
+    - https://huggingface.co/mradermacher/Fireball-Llama-3.11-8B-v1orpo-GGUF
+  description: |
+    Developed by: EpistemeAI
+    License: apache-2.0
+    Finetuned from model : unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit
+    Finetuned methods: DPO (Direct Preference Optimization) & ORPO (Odds Ratio Preference Optimization)
+  overrides:
+    parameters:
+      model: Fireball-Llama-3.11-8B-v1orpo.Q4_K_M.gguf
+  files:
+    - filename: Fireball-Llama-3.11-8B-v1orpo.Q4_K_M.gguf
+      sha256: c61a1f4ee4f05730ac6af754dc8dfddf34eba4486ffa320864e16620d6527731
+      uri: huggingface://mradermacher/Fireball-Llama-3.11-8B-v1orpo-GGUF/Fireball-Llama-3.11-8B-v1orpo.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-storm-8b-q4_k_m"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64c75c1237333ccfef30a602/tmOlbERGKP7JSODa6T06J.jpeg
+  urls:
+    - https://huggingface.co/mudler/Llama-3.1-Storm-8B-Q4_K_M-GGUF
+    - https://huggingface.co/akjindal53244/Llama-3.1-Storm-8B
+  description: |
+    We present the Llama-3.1-Storm-8B model that outperforms Meta AI's Llama-3.1-8B-Instruct and Hermes-3-Llama-3.1-8B models significantly across diverse benchmarks as shown in the performance comparison plot in the next section. Our approach consists of three key steps:
+    - Self-Curation: We applied two self-curation methods to select approximately 1 million high-quality examples from a pool of about 3 million open-source examples. Our curation criteria focused on educational value and difficulty level, using the same SLM for annotation instead of larger models (e.g. 70B, 405B).
+    - Targeted fine-tuning: We performed Spectrum-based targeted fine-tuning over the Llama-3.1-8B-Instruct model. The Spectrum method accelerates training by selectively targeting layer modules based on their signal-to-noise ratio (SNR), and freezing the remaining modules. In our work, 50% of layers are frozen.
+    - Model Merging: We merged our fine-tuned model with the Llama-Spark model using SLERP method. The merging method produces a blended model with characteristics smoothly interpolated from both parent models, ensuring the resultant model captures the essence of both its parents. Llama-3.1-Storm-8B improves Llama-3.1-8B-Instruct across 10 diverse benchmarks. These benchmarks cover areas such as instruction-following, knowledge-driven QA, reasoning, truthful answer generation, and function calling.
+  overrides:
+    parameters:
+      model: llama-3.1-storm-8b-q4_k_m.gguf
+  files:
+    - filename: llama-3.1-storm-8b-q4_k_m.gguf
+      sha256: d714e960211ee0fe6113d3131a6573e438f37debd07e1067d2571298624414a0
+      uri: huggingface://mudler/Llama-3.1-Storm-8B-Q4_K_M-GGUF/llama-3.1-storm-8b-q4_k_m.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
@@ -529,6 +592,22 @@
     - filename: Cathallama-70B.Q4_K_M.gguf
       sha256: 7bbac0849a8da82e7912a493a15fa07d605f1ffbe7337a322f17e09195511022
       uri: huggingface://mradermacher/Cathallama-70B-GGUF/Cathallama-70B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mahou-1.3-llama3.1-8b"
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/mradermacher/Mahou-1.3-llama3.1-8B-GGUF
+    - https://huggingface.co/flammenai/Mahou-1.3-llama3.1-8B
+  description: |
+    Mahou is designed to provide short messages in a conversational context. It is capable of casual conversation and character roleplay.
+  overrides:
+    parameters:
+      model: Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
+      sha256: 88bfdca2f6077d789d3e0f161d19711aa208a6d9a02cce96a2276c69413b3594
+      uri: huggingface://mradermacher/Mahou-1.3-llama3.1-8B-GGUF/Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -868,6 +947,23 @@
     - filename: calme-2.2-qwen2-72b.Q4_K_M.gguf
       sha256: 95b9613df0abe6c1b6b7b017d7cc8bcf19b46c29f92a503dcc6da1704b12b402
       uri: huggingface://MaziyarPanahi/calme-2.2-qwen2-72b-GGUF/calme-2.2-qwen2-72b.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "edgerunner-tactical-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/668ed3dcd857a9ca47edb75c/tSyuw39VtmEqvC_wptTDf.png
+  urls:
+    - https://huggingface.co/edgerunner-ai/EdgeRunner-Tactical-7B
+    - https://huggingface.co/RichardErkhov/edgerunner-ai_-_EdgeRunner-Tactical-7B-gguf
+  description: |
+    EdgeRunner-Tactical-7B is a powerful and efficient language model for the edge. Our mission is to build Generative AI for the edge that is safe, secure, and transparent. To that end, the EdgeRunner team is proud to release EdgeRunner-Tactical-7B, the most powerful language model for its size to date.
+
+    EdgeRunner-Tactical-7B is a 7 billion parameter language model that delivers powerful performance while demonstrating the potential of running state-of-the-art (SOTA) models at the edge.
+  overrides:
+    parameters:
+      model: EdgeRunner-Tactical-7B.Q4_K_M.gguf
+  files:
+    - filename: EdgeRunner-Tactical-7B.Q4_K_M.gguf
+      sha256: 90ca9c3ab19e5d1de4499e3f988cc0ba3d205e50285d7c89de6f0a4c525bf204
+      uri: huggingface://RichardErkhov/edgerunner-ai_-_EdgeRunner-Tactical-7B-gguf/EdgeRunner-Tactical-7B.Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -1010,6 +1106,45 @@
     - filename: MN-12B-Celeste-V1.9.Q4_K_M.gguf
       sha256: 019daeaa63d82d55d1ea623b9c255deea6793af4044bb4994d2b4d09e8959f7b
       uri: huggingface://mradermacher/MN-12B-Celeste-V1.9-GGUF/MN-12B-Celeste-V1.9.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/ybqwvRJAtBPqtulQlKW93.gif
+  name: "rocinante-12b-v1.1"
+  urls:
+    - https://huggingface.co/TheDrummer/Rocinante-12B-v1.1-GGUF
+    - https://huggingface.co/TheDrummer/Rocinante-12B-v1.1
+  description: |
+     A versatile workhorse for any adventure!
+  overrides:
+    parameters:
+      model: Rocinante-12B-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Rocinante-12B-v1.1-Q4_K_M.gguf
+      sha256: bdeaeefac79cff944ae673e6924c9f82f7eed789669a32a09997db398790b0b5
+      uri: huggingface://TheDrummer/Rocinante-12B-v1.1-GGUF/Rocinante-12B-v1.1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pantheon-rp-1.6-12b-nemo"
+  icon: https://huggingface.co/Gryphe/Pantheon-RP-1.6-12b-Nemo/resolve/main/Pantheon.png
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF
+    - https://huggingface.co/Gryphe/Pantheon-RP-1.6-12b-Nemo
+  description: |
+    Welcome to the next iteration of my Pantheon model series, in which I strive to introduce a whole collection of personas that can be summoned with a simple activation phrase. The huge variety in personalities introduced also serve to enhance the general roleplay experience.
+    Changes in version 1.6:
+    The final finetune now consists of data that is equally split between Markdown and novel-style roleplay. This should solve Pantheon's greatest weakness.
+    The base was redone. (Details below)
+    Select Claude-specific phrases were rewritten, boosting variety in the model's responses.
+    Aiva no longer serves as both persona and assistant, with the assistant role having been given to Lyra.
+    Stella's dialogue received some post-fix alterations since the model really loved the phrase "Fuck me sideways".
+    Your user feedback is critical to me so don't hesitate to tell me whether my model is either 1. terrible, 2. awesome or 3. somewhere in-between.
+  overrides:
+    parameters:
+      model: Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
+  files:
+    - filename: Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
+      sha256: cf3465c183bf4ecbccd1b6b480f687e0160475b04c87e2f1e5ebc8baa0f4c7aa
+      uri: huggingface://bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF/Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -1494,7 +1629,7 @@
   files:
     - filename: Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
       sha256: 29ba3db911fbadef4452ba757ddd9ce58fb892b7a872f19eefd0743c961797fb
-      uri: huggingface://TheDrummer/Gemmasutra-Mini-2B-v1-GGUF/Gemmasutra-Mini-2B-v1i-Q4_K_M.gguf
+      uri: huggingface://TheDrummer/Gemmasutra-Mini-2B-v1-GGUF/Gemmasutra-Mini-2B-v1-Q4_K_M.gguf
 - !!merge <<: *gemma
   name: "tarnished-9b-i1"
   icon: https://huggingface.co/lodrick-the-lafted/tarnished-9b/resolve/main/nox.jpg
@@ -4587,6 +4722,36 @@
     - filename: "Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
       sha256: "d138388cfda04d185a68eaf2396cf7a5cfa87d038a20896817a9b7cf1806f532"
       uri: "huggingface://NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF/Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
+- !!merge <<: *hermes-2-pro-mistral
+  name: "hermes-3-llama-3.1-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/bMcZ3sNNQK8SRZpHXBmwM.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF
+  description: |
+    Hermes 3 is a generalist language model developed by Nous Research. It is an advanced agentic model with improved roleplaying, reasoning, multi-turn conversation, long context coherence, and generalist assistant capabilities. The model is built on top of the Llama-3 architecture and has been fine-tuned to achieve superior performance in various tasks. It is designed to be a powerful and reliable tool for solving complex problems and assisting users in achieving their goals. Hermes 3 can be used for a wide range of applications, including research, education, and personal assistant tasks. It is available on the Hugging Face model hub for easy access and integration into existing workflows.
+  overrides:
+    parameters:
+      model: Hermes-3-Llama-3.1-8B.Q4_K_M.gguf
+  files:
+    - filename: Hermes-3-Llama-3.1-8B.Q4_K_M.gguf
+      sha256: d4403ce5a6e930f4c2509456388c20d633a15ff08dd52ef3b142ff1810ec3553
+      uri: huggingface://NousResearch/Hermes-3-Llama-3.1-8B-GGUF/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf
+- !!merge <<: *hermes-2-pro-mistral
+  name: "hermes-3-llama-3.1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/vG6j5WxHX09yj32vgjJlI.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-70B
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-70B-GGUF
+  description: |
+    Hermes 3 is a generalist language model with many improvements over Hermes 2, including advanced agentic capabilities, much better roleplaying, reasoning, multi-turn conversation, long context coherence, and improvements across the board. It is designed to focus on aligning LLMs to the user, with powerful steering capabilities and control given to the end user. The model uses ChatML as the prompt format, opening up a much more structured system for engaging the LLM in multi-turn chat dialogue. It also supports function calling and structured output capabilities, generalist assistant capabilities, and improved code generation skills.
+  overrides:
+    parameters:
+      model: Hermes-3-Llama-3.1-70B.Q4_K_M.gguf
+  files:
+    - filename: Hermes-3-Llama-3.1-70B.Q4_K_M.gguf
+      sha256: 955c2f42caade4278f3c9dbffa32bb74572652b20e49e5340e782de3585bbe3f
+      uri: huggingface://NousResearch/Hermes-3-Llama-3.1-70B-GGUF/Hermes-3-Llama-3.1-70B.Q4_K_M.gguf
 - !!merge <<: *hermes-2-pro-mistral
   name: "biomistral-7b"
   description: |

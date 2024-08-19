@@ -64,6 +64,7 @@ type RunCMD struct {
 	EnableWatchdogBusy     bool     `env:"LOCALAI_WATCHDOG_BUSY,WATCHDOG_BUSY" default:"false" help:"Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout" group:"backends"`
 	WatchdogBusyTimeout    string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
 	Federated              bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
+	DisableGalleryEndpoint bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -134,7 +135,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
-		}); err != nil {
+		}, true); err != nil {
 			return err
 		}
 	}
@@ -152,7 +153,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 
-		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil); err != nil {
+		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
 			return err
 		}
 	}
@@ -162,6 +163,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	if r.DisableWebUI {
 		opts = append(opts, config.DisableWebUI)
+	}
+
+	if r.DisableGalleryEndpoint {
+		opts = append(opts, config.DisableGalleryEndpoint)
 	}
 
 	if idleWatchDog || busyWatchDog {

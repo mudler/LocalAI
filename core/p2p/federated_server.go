@@ -29,7 +29,7 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 
 	if err := ServiceDiscoverer(ctx, n, f.p2ptoken, f.service, func(servicesID string, tunnel NodeData) {
 		log.Debug().Msgf("Discovered node: %s", tunnel.ID)
-	}); err != nil {
+	}, true); err != nil {
 		return err
 	}
 
@@ -46,7 +46,10 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		return err
 	}
 	//	ll.Info("Binding local port on", srcaddr)
-
+	go func() {
+		<-ctx.Done()
+		l.Close()
+	}()
 	ledger, _ := node.Ledger()
 
 	// Announce ourselves so nodes accepts our connection
@@ -54,17 +57,12 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		ctx,
 		10*time.Second,
 		func() {
-			// Retrieve current ID for ip in the blockchain
-			//_, found := ledger.GetKey(protocol.UsersLedgerKey, node.Host().ID().String())
-			// If mismatch, update the blockchain
-			//if !found {
 			updatedMap := map[string]interface{}{}
 			updatedMap[node.Host().ID().String()] = &types.User{
 				PeerID:    node.Host().ID().String(),
 				Timestamp: time.Now().String(),
 			}
 			ledger.Add(protocol.UsersLedgerKey, updatedMap)
-			//	}
 		},
 	)
 
@@ -98,6 +96,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 
 					tunnelAddr = fs.SelectLeastUsedServer()
 					if tunnelAddr == "" {
+						log.Debug().Msgf("Least used server not found, selecting random")
 						tunnelAddr = fs.RandomServer()
 					}
 
