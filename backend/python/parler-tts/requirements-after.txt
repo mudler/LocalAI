@@ -1,0 +1,1 @@
+git+https://github.com/huggingface/parler-tts.git@8e465f1b5fcd223478e07175cb40494d19ffbe17
