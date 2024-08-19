@@ -6,6 +6,7 @@
     rel="stylesheet"
     href="/static/assets/highlightjs.css"
   />
+  <script defer src="/static/assets/anime.min.js"></script>
     <script
     defer
     src="/static/assets/highlightjs.js"
@@ -47,8 +48,68 @@
       },
     };
   </script>
-    <link href="/static/assets/fontawesome/css/fontawesome.css" rel="stylesheet" />
-    <link href="/static/assets/fontawesome/css/brands.css" rel="stylesheet" />
-    <link href="/static/assets/fontawesome/css/solid.css" rel="stylesheet" />
-    <script src="/static/assets/htmx.js" crossorigin="anonymous"></script>
+  <link href="/static/assets/fontawesome/css/fontawesome.css" rel="stylesheet" />
+  <link href="/static/assets/fontawesome/css/brands.css" rel="stylesheet" />
+  <link href="/static/assets/fontawesome/css/solid.css" rel="stylesheet" />
+  <script src="/static/assets/htmx.js" crossorigin="anonymous"></script>
+  <!-- P2P Animation START -->
+  <style>
+    .animation-container {
+        position: relative;
+        width: 100%;
+        height: 25vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
+
+    canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    .text-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 1;
+    }
+  </style>
+  <!-- P2P Animation END -->
+  <!-- Flask and node animation -->
+  <style>
+            .fa-circle-nodes {
+           /* font-size: 100px; /* Adjust the size as needed */
+            animation: rotateCircleNodes 8s linear infinite; /* Slow and fluid rotation */
+            display: inline-block;
+        }
+
+        @keyframes rotateCircleNodes {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Animation for the warning box */
+        .fa-flask {
+         /*  font-size: 100px; /* Adjust the size as needed */
+            animation: shakeFlask 3s ease-in-out infinite; /* Smooth easing and longer duration for fluidity */
+            transform-origin: bottom center;
+        }
+
+        @keyframes shakeFlask {
+            0%, 10% { transform: rotate(0deg); } /* Start and end still */
+            20% { transform: rotate(-10deg); } /* Smooth transition to left */
+            30% { transform: rotate(10deg); } /* Smooth transition to right */
+            40% { transform: rotate(-8deg); } /* Smooth transition to left */
+            50% { transform: rotate(8deg); } /* Smooth transition to right */
+            60% { transform: rotate(-5deg); } /* Smooth transition to left */
+            70% { transform: rotate(5deg); } /* Smooth transition to right */
+            80% { transform: rotate(-2deg); } /* Smooth transition to left */
+            90% { transform: rotate(2deg); } /* Smooth transition to right */
+            100% { transform: rotate(0deg); } /* Return to center */
+        }
+  </style>
 </head>
