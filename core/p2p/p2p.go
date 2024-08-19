@@ -21,16 +21,40 @@ import (
 	"github.com/mudler/edgevpn/pkg/protocol"
 	"github.com/mudler/edgevpn/pkg/services"
 	"github.com/mudler/edgevpn/pkg/types"
+	eutils "github.com/mudler/edgevpn/pkg/utils"
 	"github.com/phayes/freeport"
 	zlog "github.com/rs/zerolog/log"
 
 	"github.com/mudler/edgevpn/pkg/logger"
 )
 
+func generateNewConnectionData() *node.YAMLConnectionConfig {
+	maxMessSize := 20 << 20 // 20MB
+	keyLength := 43
+
+	return &node.YAMLConnectionConfig{
+		MaxMessageSize: maxMessSize,
+		RoomName:       eutils.RandStringRunes(keyLength),
+		Rendezvous:     eutils.RandStringRunes(keyLength),
+		MDNS:           eutils.RandStringRunes(keyLength),
+		OTP: node.OTP{
+			DHT: node.OTPConfig{
+				Key:      eutils.RandStringRunes(keyLength),
+				Interval: 120,
+				Length:   keyLength,
+			},
+			Crypto: node.OTPConfig{
+				Key:      eutils.RandStringRunes(keyLength),
+				Interval: 9000,
+				Length:   keyLength,
+			},
+		},
+	}
+}
+
 func GenerateToken() string {
 	// Generates a new config and exit
-	newData := node.GenerateNewConnectionData(120)
-	return newData.Base64()
+	return generateNewConnectionData().Base64()
 }
 
 func IsP2PEnabled() bool {
