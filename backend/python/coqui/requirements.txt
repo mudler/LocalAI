@@ -1,4 +1,4 @@
 TTS==0.22.0
-grpcio==1.65.4
+grpcio==1.65.5
 protobuf
 certifi
