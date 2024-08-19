@@ -29,7 +29,7 @@ import (
 
 func GenerateToken() string {
 	// Generates a new config and exit
-	newData := node.GenerateNewConnectionData(900)
+	newData := node.GenerateNewConnectionData(120)
 	return newData.Base64()
 }
 
