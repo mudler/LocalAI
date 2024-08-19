@@ -1088,6 +1088,22 @@
     - filename: MN-12B-Celeste-V1.9.Q4_K_M.gguf
       sha256: 019daeaa63d82d55d1ea623b9c255deea6793af4044bb4994d2b4d09e8959f7b
       uri: huggingface://mradermacher/MN-12B-Celeste-V1.9-GGUF/MN-12B-Celeste-V1.9.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/ybqwvRJAtBPqtulQlKW93.gif
+  name: "rocinante-12b-v1.1"
+  urls:
+    - https://huggingface.co/TheDrummer/Rocinante-12B-v1.1-GGUF
+    - https://huggingface.co/TheDrummer/Rocinante-12B-v1.1
+  description: |
+     A versatile workhorse for any adventure!
+  overrides:
+    parameters:
+      model: Rocinante-12B-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Rocinante-12B-v1.1-Q4_K_M.gguf
+      sha256: bdeaeefac79cff944ae673e6924c9f82f7eed789669a32a09997db398790b0b5
+      uri: huggingface://TheDrummer/Rocinante-12B-v1.1-GGUF/Rocinante-12B-v1.1-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
