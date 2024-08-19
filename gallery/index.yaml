@@ -1104,6 +1104,29 @@
     - filename: Rocinante-12B-v1.1-Q4_K_M.gguf
       sha256: bdeaeefac79cff944ae673e6924c9f82f7eed789669a32a09997db398790b0b5
       uri: huggingface://TheDrummer/Rocinante-12B-v1.1-GGUF/Rocinante-12B-v1.1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pantheon-rp-1.6-12b-nemo"
+  icon: https://huggingface.co/Gryphe/Pantheon-RP-1.6-12b-Nemo/resolve/main/Pantheon.png
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF
+    - https://huggingface.co/Gryphe/Pantheon-RP-1.6-12b-Nemo
+  description: |
+    Welcome to the next iteration of my Pantheon model series, in which I strive to introduce a whole collection of personas that can be summoned with a simple activation phrase. The huge variety in personalities introduced also serve to enhance the general roleplay experience.
+    Changes in version 1.6:
+    The final finetune now consists of data that is equally split between Markdown and novel-style roleplay. This should solve Pantheon's greatest weakness.
+    The base was redone. (Details below)
+    Select Claude-specific phrases were rewritten, boosting variety in the model's responses.
+    Aiva no longer serves as both persona and assistant, with the assistant role having been given to Lyra.
+    Stella's dialogue received some post-fix alterations since the model really loved the phrase "Fuck me sideways".
+    Your user feedback is critical to me so don't hesitate to tell me whether my model is either 1. terrible, 2. awesome or 3. somewhere in-between.
+  overrides:
+    parameters:
+      model: Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
+  files:
+    - filename: Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
+      sha256: cf3465c183bf4ecbccd1b6b480f687e0160475b04c87e2f1e5ebc8baa0f4c7aa
+      uri: huggingface://bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF/Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
