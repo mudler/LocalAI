@@ -155,54 +155,29 @@
             right: 10px;
             color: #e2e8f0;
         }
-        .fa-circle-nodes {
-           /* font-size: 100px; /* Adjust the size as needed */
-            animation: rotateCircleNodes 8s linear infinite; /* Slow and fluid rotation */
-            display: inline-block;
-        }
-
-        @keyframes rotateCircleNodes {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* Animation for the warning box */
-        .fa-flask {
-         /*  font-size: 100px; /* Adjust the size as needed */
-            animation: shakeFlask 3s ease-in-out infinite; /* Smooth easing and longer duration for fluidity */
-            transform-origin: bottom center;
-        }
-
-        @keyframes shakeFlask {
-            0%, 10% { transform: rotate(0deg); } /* Start and end still */
-            20% { transform: rotate(-10deg); } /* Smooth transition to left */
-            30% { transform: rotate(10deg); } /* Smooth transition to right */
-            40% { transform: rotate(-8deg); } /* Smooth transition to left */
-            50% { transform: rotate(8deg); } /* Smooth transition to right */
-            60% { transform: rotate(-5deg); } /* Smooth transition to left */
-            70% { transform: rotate(5deg); } /* Smooth transition to right */
-            80% { transform: rotate(-2deg); } /* Smooth transition to left */
-            90% { transform: rotate(2deg); } /* Smooth transition to right */
-            100% { transform: rotate(0deg); } /* Return to center */
-        }
 </style>
 
 <body class="bg-gray-900 text-gray-200">
     <div class="flex flex-col min-h-screen" x-data="networkClusters()" x-init="init()">
         {{template "views/partials/navbar_explorer" .}}
-
-        <header class="text-center py-12">
-            <h1 class="text-5xl font-bold text-gray-100">
-                <i class="fa-solid fa-circle-nodes mr-2"></i> Network Clusters Explorer   
-
-            </h1>
-            <p class="mt-4 text-lg">
-                View the clusters and workers available in each network.
-                <a href="https://localai.io/features/distribute/" target="_blank">
-                    <i class="fas fa-circle-info pr-2"></i>
-                </a>
-            </p>
-
-        </header>
+        <div class="animation-container">
+            <canvas id="networkCanvas"></canvas>
+            <div class="text-overlay">
+                <header class="text-center py-12">
+                    <h1 class="text-5xl font-bold text-gray-100">
+                        <i class="fa-solid fa-circle-nodes mr-2"></i> Network Clusters Explorer   
+        
+                    </h1>
+                    <p class="mt-4 text-lg">
+                        View the clusters and workers available in each network.
+                        <a href="https://localai.io/features/distribute/" target="_blank">
+                            <i class="fas fa-circle-info pr-2"></i>
+                        </a>
+                    </p>
+        
+                </header>
+            </div>
+        </div>
 
         <div class="container mx-auto px-4 flex-grow">
         <!-- Warning Box -->
@@ -395,6 +370,7 @@
                 }
             }
         </script>
+        <script src="/static/p2panimation.js"></script>
 
         {{template "views/partials/footer" .}}
     </div>

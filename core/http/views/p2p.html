@@ -8,13 +8,23 @@
     {{template "views/partials/navbar" .}}
     <div class="container mx-auto px-4 flex-grow">
         <div class="workers mt-12 text-center">
-      
-            <h2 class="text-3xl font-semibold text-gray-100 mb-8">
-                <i class="fa-solid fa-circle-nodes"></i> Distributed inference with P2P   
-                <a href="https://localai.io/features/distribute/" target="_blank">
-                    <i class="fas fa-circle-info pr-2"></i>
-                </a> 
-            </h2> 
+            <div class="animation-container">
+                <canvas id="networkCanvas"></canvas>
+                <div class="text-overlay">
+                    <header class="text-center py-12">
+                        <h1 class="text-5xl font-bold text-gray-100">
+                            <i class="fa-solid fa-circle-nodes mr-2"></i> Distributed inference with P2P 
+                        </h1>
+                        <p class="mt-4 text-lg">
+                            Distribute computation by sharing and loadbalancing instances or  sharding model weights.
+                            <a href="https://localai.io/features/distribute/" target="_blank">
+                                <i class="fas fa-circle-info pr-2"></i>
+                            </a>
+                        </p>
+            
+                    </header>
+                </div>
+            </div>      
             <h5 class="mb-4 text-justify">LocalAI uses P2P technologies to enable distribution of work between peers. It is possible to share an instance with Federation and/or split the weights of a model across peers (only available with llama.cpp models). You can now share computational resources between your devices or your friends!</h5>
             <!-- Warning box if p2p token is empty and p2p is enabled -->
             {{ if and .IsP2PEnabled (eq .P2PToken "") }}
@@ -144,7 +154,7 @@
 
     {{template "views/partials/footer" .}}
 </div>
-
+<script src="/static/p2panimation.js"></script>
 <style>
     .token {
         word-break: break-all;
