@@ -47,6 +47,16 @@
         preflight: false,
       },
     };
+    function copyClipboard(token) {
+      navigator.clipboard.writeText(token)
+      .then(() => {
+          console.log('Text copied to clipboard:', token);
+          alert('Text copied to clipboard!');
+      })
+      .catch(err => {
+          console.error('Failed to copy token:', err);
+      });
+    }
   </script>
   <link href="/static/assets/fontawesome/css/fontawesome.css" rel="stylesheet" />
   <link href="/static/assets/fontawesome/css/brands.css" rel="stylesheet" />

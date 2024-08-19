@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 {{template "views/partials/head" .}}
-
 <body class="bg-gray-900 text-gray-200">
-<div class="flex flex-col min-h-screen">
-   
+<div class="flex flex-col min-h-screen" x-data="{}">
+
     {{template "views/partials/navbar" .}}
     <div class="container mx-auto px-4 flex-grow">
         <div class="workers mt-12 text-center">
@@ -26,6 +25,16 @@
                 </div>
             </div>      
             <h5 class="mb-4 text-justify">LocalAI uses P2P technologies to enable distribution of work between peers. It is possible to share an instance with Federation and/or split the weights of a model across peers (only available with llama.cpp models). You can now share computational resources between your devices or your friends!</h5>
+
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-12 text-left">
+                <p class="text-lg font-bold mb-4 mt-1">
+                    Network token
+                    <i class="fa-solid fa-copy copy-icon float-right"></i>
+                </p>
+                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words" @click="copyClipboard($el.textContent)">{{.P2PToken}}</code><br>
+                The network token can be used to either share the instance or join a federation or a worker network. Below you will find a few examples on how to start a new instance or a worker with the token and you will be able to see the available workers and federated nodes.
+            </div>
+        
             <!-- Warning box if p2p token is empty and p2p is enabled -->
             {{ if and .IsP2PEnabled (eq .P2PToken "") }}
             <div class="bg-red-500 p-4 rounded-lg shadow-lg mb-12 text-left">
@@ -50,7 +59,6 @@
 
                 <h3 class="text-2xl font-semibold text-gray-100 mb-6"><i class="fa-solid fa-book"></i> Start a federated instance</h3>
 
-                
                 <!-- Tabs navigation -->
                 <ul class="mb-5 flex list-none flex-row flex-wrap ps-0" role="tablist" data-twe-nav-ref>
                     <li role="presentation" class="flex-auto text-center">
@@ -62,22 +70,25 @@
                 </ul>
 
                 <!-- Tabs content -->
-                <div class="mb-6">
-                    
+                <div class="mb-6">                    
                     <div class="tabcontent hidden opacity-100 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-federated-cli" role="tabpanel" aria-labelledby="tabs-federated-cli" data-twe-tab-active>
 
-
-                        <p class="mb-2">To start a new instance to share:</p>
-                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                        <p class="text-lg font-bold mb-4 mt-1">
+                            To start a new instance to share:
+                            <i class="fa-solid fa-copy copy-icon float-right"></i>
+                        </p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words" @click="copyClipboard($el.textContent)">
                             # Start a new instance to share with --federated and a TOKEN<br>
                             export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
                             local-ai run --federated --p2p
                         </code>
 
                         <p class="mt-2">Note: If you don't have a token do not specify it and use the generated one that you can find in this page.</p>
-
-                        <p class="mb-2">To start a new federated load balancer:</p>
-                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                        <p class="text-lg font-bold mb-4 mt-1">
+                            To start a new federated load balancer:
+                            <i class="fa-solid fa-copy copy-icon float-right"></i>
+                        </p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words" @click="copyClipboard($el.textContent)">
                             export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
                             local-ai federated
                         </code>
@@ -87,13 +98,19 @@
                         <p class="mt-2">For all the options available, please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-yellow-300 hover:text-yellow-400">documentation</a>.</p>
                     </div>
                     <div class="tabcontent hidden opacity-0 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-federated-docker" role="tabpanel" aria-labelledby="tabs-federated-docker">
-                        <p class="mb-2">To start a new federated instance:</p>
-                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                        <p class="text-lg font-bold mb-4 mt-1">
+                            To start a new federated instance:
+                            <i class="fa-solid fa-copy copy-icon float-right"></i>
+                        </p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words" @click="copyClipboard($el.textContent)">
                             docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-cpu run --federated --p2p
                         </code>
 
-                        <p class="mb-2">To start a new federated server (port to 9090):</p>
-                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                        <p class="text-lg font-bold mb-4 mt-1">
+                            To start a new federated server with Docker (port to 9090):
+                            <i class="fa-solid fa-copy copy-icon float-right"></i>
+                        </p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words" @click="copyClipboard($el.textContent)">
                             docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 9090:8080 localai/localai:latest-cpu federated
                         </code>
 
@@ -129,8 +146,11 @@
                 <!-- Tabs content -->
                 <div class="mb-6">
                     <div class="tabcontent hidden opacity-100 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-cli" role="tabpanel" aria-labelledby="tabs-cli" data-twe-tab-active>
-                        <p class="mb-2">To start a new worker, run the following command:</p>
-                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                        <p class="text-lg font-bold mb-4 mt-1">
+                            To start a new worker, run the following command:
+                            <i class="fa-solid fa-copy copy-icon float-right"></i>
+                        </p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words" @click="copyClipboard($el.textContent)">
                             export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
                             local-ai worker p2p-llama-cpp-rpc
                         </code>
@@ -138,8 +158,11 @@
                         <p class="mt-2">For all the options available, please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-yellow-300 hover:text-yellow-400">documentation</a>.</p>
                     </div>
                     <div class="tabcontent hidden opacity-0 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-docker" role="tabpanel" aria-labelledby="tabs-docker">
-                        <p class="mb-2">To start a new worker with docker, run the following command:</p>
-                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words">
+                        <p class="text-lg font-bold mb-4 mt-1">
+                            To start a new worker with docker, run the following command:
+                            <i class="fa-solid fa-copy copy-icon float-right"></i>
+                        </p>
+                        <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyClipboard($el.textContent)">
                             docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-cpu worker p2p-llama-cpp-rpc
                         </code>
 

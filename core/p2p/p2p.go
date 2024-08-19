@@ -379,7 +379,7 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	}
 	libp2ploglevel := os.Getenv("LOCALAI_LIBP2P_LOGLEVEL")
 	if libp2ploglevel == "" {
-		libp2ploglevel = "info"
+		libp2ploglevel = "fatal"
 	}
 	c := config.Config{
 		Limit: config.ResourceLimit{
