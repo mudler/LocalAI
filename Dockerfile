@@ -311,6 +311,12 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
         rm -rf /var/lib/apt/lists/* \
     ; fi
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ssh && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 ###################################
