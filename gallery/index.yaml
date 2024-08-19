@@ -371,6 +371,24 @@
     - filename: Fireball-Llama-3.11-8B-v1orpo.Q4_K_M.gguf
       sha256: c61a1f4ee4f05730ac6af754dc8dfddf34eba4486ffa320864e16620d6527731
       uri: huggingface://mradermacher/Fireball-Llama-3.11-8B-v1orpo-GGUF/Fireball-Llama-3.11-8B-v1orpo.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-storm-8b-q4_k_m"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64c75c1237333ccfef30a602/tmOlbERGKP7JSODa6T06J.jpeg
+  urls:
+    - https://huggingface.co/mudler/Llama-3.1-Storm-8B-Q4_K_M-GGUF
+    - https://huggingface.co/akjindal53244/Llama-3.1-Storm-8B
+  description: |
+    We present the Llama-3.1-Storm-8B model that outperforms Meta AI's Llama-3.1-8B-Instruct and Hermes-3-Llama-3.1-8B models significantly across diverse benchmarks as shown in the performance comparison plot in the next section. Our approach consists of three key steps:
+    - Self-Curation: We applied two self-curation methods to select approximately 1 million high-quality examples from a pool of about 3 million open-source examples. Our curation criteria focused on educational value and difficulty level, using the same SLM for annotation instead of larger models (e.g. 70B, 405B).
+    - Targeted fine-tuning: We performed Spectrum-based targeted fine-tuning over the Llama-3.1-8B-Instruct model. The Spectrum method accelerates training by selectively targeting layer modules based on their signal-to-noise ratio (SNR), and freezing the remaining modules. In our work, 50% of layers are frozen.
+    - Model Merging: We merged our fine-tuned model with the Llama-Spark model using SLERP method. The merging method produces a blended model with characteristics smoothly interpolated from both parent models, ensuring the resultant model captures the essence of both its parents. Llama-3.1-Storm-8B improves Llama-3.1-8B-Instruct across 10 diverse benchmarks. These benchmarks cover areas such as instruction-following, knowledge-driven QA, reasoning, truthful answer generation, and function calling.
+  overrides:
+    parameters:
+      model: llama-3.1-storm-8b-q4_k_m.gguf
+  files:
+    - filename: llama-3.1-storm-8b-q4_k_m.gguf
+      sha256: d714e960211ee0fe6113d3131a6573e438f37debd07e1067d2571298624414a0
+      uri: huggingface://mudler/Llama-3.1-Storm-8B-Q4_K_M-GGUF/llama-3.1-storm-8b-q4_k_m.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
