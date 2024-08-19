@@ -298,8 +298,6 @@ ARG FFMPEG
 
 COPY --from=grpc /opt/grpc /usr/local
 
-# This is somewhat of a dirty hack as this dev machine has issues with stablediffusion... but it should also speed up devcontainers?
-# localai/localai:latest-aio-cpu
 COPY --from=builder /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
 
 # Add FFmpeg
@@ -313,7 +311,7 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ssh && \
+        ssh yq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
