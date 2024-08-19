@@ -2,4 +2,4 @@
 intel-extension-for-pytorch
 torch
 optimum[openvino]
-setuptools==72.1.0 # https://github.com/mudler/LocalAI/issues/2406
+setuptools==72.2.0 # https://github.com/mudler/LocalAI/issues/2406
