@@ -81,6 +81,7 @@ RUN apt-get update && \
         espeak \
         python3-pip \
         python-is-python3 \
+        llvm \
         python3-dev \
         python3-venv && \
     apt-get clean && \
