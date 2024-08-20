@@ -111,7 +111,7 @@ func proxyP2PConnection(ctx context.Context, node *node.Node, serviceID string, 
 	// Open a stream
 	stream, err := node.Host().NewStream(ctx, d, protocol.ServiceProtocol.ID())
 	if err != nil {
-		zlog.Error().Msg("cannot open stream peer")
+		zlog.Error().Err(err).Msg("cannot open stream peer")
 
 		conn.Close()
 		//	ll.Debugf("could not open stream '%s'", err.Error())
@@ -263,6 +263,7 @@ var muservice sync.Mutex
 func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string, allocate bool) {
 	muservice.Lock()
 	defer muservice.Unlock()
+	nd.ServiceID = sserv
 	if ndService, found := service[nd.Name]; !found {
 		if !nd.IsOnline() {
 			// if node is offline and not present, do nothing
