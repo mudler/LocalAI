@@ -66,22 +66,7 @@ func nodeID(s string) string {
 	return fmt.Sprintf("%s-%s", hostname, s)
 }
 
-func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, service string) error {
-
-	zlog.Info().Msgf("Allocating service '%s' on: %s", service, listenAddr)
-	// Open local port for listening
-	l, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		zlog.Error().Err(err).Msg("Error listening")
-		return err
-	}
-	go func() {
-		<-ctx.Done()
-		l.Close()
-	}()
-
-	//	ll.Info("Binding local port on", srcaddr)
-
+func nodeAnnounce(ctx context.Context, node *node.Node) {
 	ledger, _ := node.Ledger()
 
 	// Announce ourselves so nodes accepts our connection
@@ -97,6 +82,66 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 			ledger.Add(protocol.UsersLedgerKey, updatedMap)
 		},
 	)
+}
+
+func proxyP2PConnection(ctx context.Context, node *node.Node, serviceID string, conn net.Conn) {
+	ledger, _ := node.Ledger()
+	// Retrieve current ID for ip in the blockchain
+	existingValue, found := ledger.GetKey(protocol.ServicesLedgerKey, serviceID)
+	service := &types.Service{}
+	existingValue.Unmarshal(service)
+	// If mismatch, update the blockchain
+	if !found {
+		zlog.Error().Msg("Service not found on blockchain")
+		conn.Close()
+		//	ll.Debugf("service '%s' not found on blockchain", serviceID)
+		return
+	}
+
+	// Decode the Peer
+	d, err := peer.Decode(service.PeerID)
+	if err != nil {
+		zlog.Error().Msg("cannot decode peer")
+
+		conn.Close()
+		//	ll.Debugf("could not decode peer '%s'", service.PeerID)
+		return
+	}
+
+	// Open a stream
+	stream, err := node.Host().NewStream(ctx, d, protocol.ServiceProtocol.ID())
+	if err != nil {
+		zlog.Error().Err(err).Msg("cannot open stream peer")
+
+		conn.Close()
+		//	ll.Debugf("could not open stream '%s'", err.Error())
+		return
+	}
+	//	ll.Debugf("(service %s) Redirecting", serviceID, l.Addr().String())
+	zlog.Info().Msgf("Redirecting %s to %s", conn.LocalAddr().String(), stream.Conn().RemoteMultiaddr().String())
+	closer := make(chan struct{}, 2)
+	go copyStream(closer, stream, conn)
+	go copyStream(closer, conn, stream)
+	<-closer
+
+	stream.Close()
+	conn.Close()
+}
+
+func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, service string) error {
+	zlog.Info().Msgf("Allocating service '%s' on: %s", service, listenAddr)
+	// Open local port for listening
+	l, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		zlog.Error().Err(err).Msg("Error listening")
+		return err
+	}
+	go func() {
+		<-ctx.Done()
+		l.Close()
+	}()
+
+	nodeAnnounce(ctx, node)
 
 	defer l.Close()
 	for {
@@ -114,47 +159,7 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 
 			// Handle connections in a new goroutine, forwarding to the p2p service
 			go func() {
-				// Retrieve current ID for ip in the blockchain
-				existingValue, found := ledger.GetKey(protocol.ServicesLedgerKey, service)
-				service := &types.Service{}
-				existingValue.Unmarshal(service)
-				// If mismatch, update the blockchain
-				if !found {
-					zlog.Error().Msg("Service not found on blockchain")
-					conn.Close()
-					//	ll.Debugf("service '%s' not found on blockchain", serviceID)
-					return
-				}
-
-				// Decode the Peer
-				d, err := peer.Decode(service.PeerID)
-				if err != nil {
-					zlog.Error().Msg("cannot decode peer")
-
-					conn.Close()
-					//	ll.Debugf("could not decode peer '%s'", service.PeerID)
-					return
-				}
-
-				// Open a stream
-				stream, err := node.Host().NewStream(ctx, d, protocol.ServiceProtocol.ID())
-				if err != nil {
-					zlog.Error().Msg("cannot open stream peer")
-
-					conn.Close()
-					//	ll.Debugf("could not open stream '%s'", err.Error())
-					return
-				}
-				//	ll.Debugf("(service %s) Redirecting", serviceID, l.Addr().String())
-				zlog.Info().Msgf("Redirecting %s to %s", conn.LocalAddr().String(), stream.Conn().RemoteMultiaddr().String())
-				closer := make(chan struct{}, 2)
-				go copyStream(closer, stream, conn)
-				go copyStream(closer, conn, stream)
-				<-closer
-
-				stream.Close()
-				conn.Close()
-				//	ll.Infof("(service %s) Done handling %s", serviceID, l.Addr().String())
+				proxyP2PConnection(ctx, node, service, conn)
 			}()
 		}
 	}
@@ -258,6 +263,7 @@ var muservice sync.Mutex
 func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string, allocate bool) {
 	muservice.Lock()
 	defer muservice.Unlock()
+	nd.ServiceID = sserv
 	if ndService, found := service[nd.Name]; !found {
 		if !nd.IsOnline() {
 			// if node is offline and not present, do nothing
