@@ -64,8 +64,8 @@ functions = [
 response = openai.ChatCompletion.create(
     model="gpt-3.5-turbo",
     messages=messages,
-    functions=functions,
-    function_call="auto",
+    tools=functions,
+    tool_choice="auto",
 )
 # ...
 ```
