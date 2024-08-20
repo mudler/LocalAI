@@ -81,12 +81,12 @@ RUN apt-get update && \
         espeak \
         python3-pip \
         python-is-python3 \
-        python3-dev lsb-release wget software-properties-common gnupg \
+        python3-dev llvm-10* \
         python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     pip install --upgrade pip
-RUN curl -L https://apt.llvm.org/llvm.sh -o llvm.sh && chmod +x llvm.sh && ./llvm.sh 10
+
 # Install grpcio-tools (the version in 22.04 is too old)
 RUN pip install --user grpcio-tools
 
