@@ -1,29 +1,46 @@
 const canvas = document.getElementById('networkCanvas');
 const ctx = canvas.getContext('2d');
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+let particles = [];
+let isDragging = false;
+let dragParticle = null;
+const maxParticles = 100; // Maximum number of particles
+const dragAreaRadius = 10; // Increased area for easier dragging
 
-const particles = [];
-const lines = [];
+// Function to resize canvas based on aspect ratio
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = Math.min(window.innerHeight, 400); // Maintain a max height of 400px
+}
+
+// Adjust the canvas size when the window resizes
+window.addEventListener('resize', resizeCanvas);
+
+// Initialize canvas size
+resizeCanvas();
 
 class Particle {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.radius = 2 + Math.random() * 2;
-        this.color = `rgba(0, 255, 204, ${Math.random()})`;
-        this.speed = Math.random() * 2 + 1;
-        this.angle = Math.random() * Math.PI * 2;
+        this.radius = 4;
+        this.color = `rgba(0, 255, 204, 1)`;
+        this.speedX = (Math.random() - 0.5) * 2; // Random horizontal speed
+        this.speedY = (Math.random() - 0.5) * 2; // Random vertical speed
     }
 
     update() {
-        this.x += Math.cos(this.angle) * this.speed;
-        this.y += Math.sin(this.angle) * this.speed;
+        if (!isDragging || dragParticle !== this) {
+            this.x += this.speedX;
+            this.y += this.speedY;
 
-        if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
+            // Bounce off the edges of the canvas
+            if (this.x < 0 || this.x > canvas.width) {
+                this.speedX *= -1;
+            }
+            if (this.y < 0 || this.y > canvas.height) {
+                this.speedY *= -1;
+            }
         }
     }
 
@@ -32,6 +49,11 @@ class Particle {
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
         ctx.fillStyle = this.color;
         ctx.fill();
+    }
+
+    isMouseOver(mouseX, mouseY) {
+        // Increase the draggable area by checking if the mouse is within a larger radius
+        return Math.hypot(mouseX - this.x, mouseY - this.y) < dragAreaRadius;
     }
 }
 
@@ -69,5 +91,54 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-initParticles(100);
+// Handle mouse click to create a new particle
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const newParticle = new Particle(mouseX, mouseY);
+    particles.push(newParticle);
+
+    // Limit the number of particles to the maximum
+    if (particles.length > maxParticles) {
+        particles.shift(); // Remove the oldest particle
+    }
+});
+
+// Handle mouse down for dragging
+canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    for (let particle of particles) {
+        if (particle.isMouseOver(mouseX, mouseY)) {
+            isDragging = true;
+            dragParticle = particle;
+            break;
+        }
+    }
+});
+
+// Handle mouse move for dragging
+canvas.addEventListener('mousemove', (e) => {
+    if (isDragging && dragParticle) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        dragParticle.x = mouseX;
+        dragParticle.y = mouseY;
+    }
+});
+
+// Handle mouse up to stop dragging
+canvas.addEventListener('mouseup', () => {
+    isDragging = false;
+    dragParticle = null;
+});
+
+// Initialize and start the animation
+initParticles(maxParticles);
 animate();

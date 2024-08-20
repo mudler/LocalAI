@@ -1,4 +1,4 @@
-grpcio==1.65.4
+grpcio==1.65.5
 protobuf
 librosa
 faster-whisper
