@@ -81,7 +81,7 @@ RUN apt-get update && \
         espeak \
         python3-pip \
         python-is-python3 \
-        python3-dev llvm-10* \
+        python3-dev llvm \
         python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
