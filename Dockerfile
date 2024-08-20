@@ -307,6 +307,8 @@ COPY --from=grpc /opt/grpc /usr/local
 
 COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
 
+COPY .devcontainer/scripts /devcontainer-scripts
+
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
         apt-get update && \
