@@ -259,9 +259,9 @@ EOT
 ###################################
 ###################################
 
-# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
-# Adjustments to the build process should likely be made here.
-FROM builder-base AS builder
+# This first portion of builder holds the layers specifically used to build backend-assets/grpc/stablediffusion
+# In most cases, builder is the image you should be using - however, this can save build time if one just needs to copy backend-assets/grpc/stablediffusion and nothing else.
+FROM builder-base AS builder-sd
 
 COPY . .
 COPY .git .
@@ -271,6 +271,13 @@ RUN make prepare
 
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+
+###################################
+###################################
+
+# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
+# Adjustments to the build process should likely be made here.
+FROM builder-sd AS builder
 
 # Install the pre-built GRPC
 COPY --from=grpc /opt/grpc /usr/local
@@ -298,7 +305,7 @@ ARG FFMPEG
 
 COPY --from=grpc /opt/grpc /usr/local
 
-COPY --from=builder /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
+COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
 
 # Add FFmpeg
 RUN if [ "${FFMPEG}" = "true" ]; then \
@@ -372,7 +379,7 @@ COPY --from=builder /build/local-ai ./
 COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)
-COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
+COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
 # Change the shell to bash so we can use [[ tests below
 SHELL ["/bin/bash", "-c"]
