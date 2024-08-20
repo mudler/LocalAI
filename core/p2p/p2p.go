@@ -309,7 +309,7 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 }
 
 // This is the P2P worker main
-func ExposeService(ctx context.Context, host, port, token, servicesID string) error {
+func ExposeService(ctx context.Context, host, port, token, servicesID string) (*node.Node, error) {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
@@ -317,7 +317,7 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 
 	nodeOpts, err := newNodeOpts(token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// generate a random string for the name
 	name := utils.RandString(10)
@@ -327,17 +327,17 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 		services.RegisterService(llger, time.Duration(60)*time.Second, name, fmt.Sprintf("%s:%s", host, port))...)
 	n, err := node.New(nodeOpts...)
 	if err != nil {
-		return fmt.Errorf("creating a new node: %w", err)
+		return nil, fmt.Errorf("creating a new node: %w", err)
 	}
 
 	err = n.Start(ctx)
 	if err != nil {
-		return fmt.Errorf("creating a new node: %w", err)
+		return n, fmt.Errorf("creating a new node: %w", err)
 	}
 
 	ledger, err := n.Ledger()
 	if err != nil {
-		return fmt.Errorf("creating a new node: %w", err)
+		return n, fmt.Errorf("creating a new node: %w", err)
 	}
 
 	ledger.Announce(
@@ -354,7 +354,7 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 		},
 	)
 
-	return err
+	return n, err
 }
 
 func NewNode(token string) (*node.Node, error) {
