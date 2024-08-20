@@ -318,13 +318,13 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ssh snapd less && \
+        ssh less && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
-RUN snap install yq
+RUN go install github.com/mikefarah/yq/v4@latest
 
 ###################################
 ###################################
