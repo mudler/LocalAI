@@ -311,7 +311,7 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ssh yq && \
+        ssh yq less && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

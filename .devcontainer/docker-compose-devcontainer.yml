@@ -15,6 +15,7 @@ services:
     volumes:
       - localai_workspace:/workspace
       - ../models:/host-models
+      - ./customization:/devcontainer-customization
     command: /bin/sh -c "while sleep 1000; do :; done"
     cap_add:
       - SYS_PTRACE
