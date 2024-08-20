@@ -19,6 +19,6 @@
         }
     },
     "forwardPorts": [8080, 3000],
-    "postCreateCommand": "bash /workspace/.devcontainer-scripts/postcreate.sh",
-    "postStartCommand": "bash /workspace/.devcontainer-scripts/poststart.sh"
+    "postCreateCommand": "bash /.devcontainer-scripts/postcreate.sh",
+    "postStartCommand": "bash /.devcontainer-scripts/poststart.sh"
 }
