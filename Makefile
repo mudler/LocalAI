@@ -534,10 +534,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen petals-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen openvoice-protogen
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen openvoice-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean petals-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean openvoice-protogen-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean openvoice-protogen-clean
 
 .PHONY: autogptq-protogen
 autogptq-protogen:
@@ -594,14 +594,6 @@ mamba-protogen:
 .PHONY: mamba-protogen-clean
 mamba-protogen-clean:
 	$(MAKE) -C backend/python/mamba protogen-clean
-
-.PHONY: petals-protogen
-petals-protogen:
-	$(MAKE) -C backend/python/petals protogen
-
-.PHONY: petals-protogen-clean
-petals-protogen-clean:
-	$(MAKE) -C backend/python/petals protogen-clean
 
 .PHONY: rerankers-protogen
 rerankers-protogen:
@@ -684,7 +676,6 @@ prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/vall-e-x
 	$(MAKE) -C backend/python/openvoice
 	$(MAKE) -C backend/python/exllama
-	$(MAKE) -C backend/python/petals
 	$(MAKE) -C backend/python/exllama2
 
 prepare-test-extra: protogen-python
