@@ -99,5 +99,4 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 			}()
 		}
 	}
-
 }
