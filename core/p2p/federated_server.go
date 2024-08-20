@@ -8,16 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/mudler/edgevpn/pkg/node"
-	"github.com/mudler/edgevpn/pkg/protocol"
-	"github.com/mudler/edgevpn/pkg/types"
 	"github.com/rs/zerolog/log"
 )
 
 func (f *FederatedServer) Start(ctx context.Context) error {
-
 	n, err := NewNode(f.p2ptoken)
 	if err != nil {
 		return fmt.Errorf("creating a new node: %w", err)
@@ -29,7 +25,7 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 
 	if err := ServiceDiscoverer(ctx, n, f.p2ptoken, f.service, func(servicesID string, tunnel NodeData) {
 		log.Debug().Msgf("Discovered node: %s", tunnel.ID)
-	}, true); err != nil {
+	}, false); err != nil {
 		return err
 	}
 
@@ -50,21 +46,8 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		<-ctx.Done()
 		l.Close()
 	}()
-	ledger, _ := node.Ledger()
 
-	// Announce ourselves so nodes accepts our connection
-	ledger.Announce(
-		ctx,
-		10*time.Second,
-		func() {
-			updatedMap := map[string]interface{}{}
-			updatedMap[node.Host().ID().String()] = &types.User{
-				PeerID:    node.Host().ID().String(),
-				Timestamp: time.Now().String(),
-			}
-			ledger.Add(protocol.UsersLedgerKey, updatedMap)
-		},
-	)
+	nodeAnnounce(ctx, node)
 
 	defer l.Close()
 	for {
@@ -82,55 +65,38 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 
 			// Handle connections in a new goroutine, forwarding to the p2p service
 			go func() {
-				tunnelAddr := ""
-
+				workerID := ""
 				if fs.workerTarget != "" {
-					for _, v := range GetAvailableNodes(fs.service) {
-						if v.ID == fs.workerTarget {
-							tunnelAddr = v.TunnelAddress
-							break
-						}
-					}
+					workerID = fs.workerTarget
 				} else if fs.loadBalanced {
 					log.Debug().Msgf("Load balancing request")
 
-					tunnelAddr = fs.SelectLeastUsedServer()
-					if tunnelAddr == "" {
+					workerID = fs.SelectLeastUsedServer()
+					if workerID == "" {
 						log.Debug().Msgf("Least used server not found, selecting random")
-						tunnelAddr = fs.RandomServer()
+						workerID = fs.RandomServer()
 					}
-
 				} else {
-					tunnelAddr = fs.RandomServer()
+					workerID = fs.RandomServer()
 				}
 
-				if tunnelAddr == "" {
+				if workerID == "" {
 					log.Error().Msg("No available nodes yet")
 					return
 				}
 
-				log.Debug().Msgf("Selected tunnel %s", tunnelAddr)
-
-				tunnelConn, err := net.Dial("tcp", tunnelAddr)
-				if err != nil {
-					log.Error().Err(err).Msg("Error connecting to tunnel")
+				log.Debug().Msgf("Selected node %s", workerID)
+				nodeData, exists := GetNode(fs.service, workerID)
+				if !exists {
+					log.Error().Msgf("Node %s not found", workerID)
 					return
 				}
 
-				log.Info().Msgf("Redirecting %s to %s", conn.LocalAddr().String(), tunnelConn.RemoteAddr().String())
-				closer := make(chan struct{}, 2)
-				go copyStream(closer, tunnelConn, conn)
-				go copyStream(closer, conn, tunnelConn)
-				<-closer
-
-				tunnelConn.Close()
-				conn.Close()
-
+				proxyP2PConnection(ctx, node, nodeData.ServiceID, conn)
 				if fs.loadBalanced {
-					fs.RecordRequest(tunnelAddr)
+					fs.RecordRequest(workerID)
 				}
 			}()
 		}
 	}
-
 }

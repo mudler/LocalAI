@@ -150,7 +150,6 @@ The devices in the following list have been tested with `hipblas` images running
 | exllama | no | none |
 | exllama2 | no | none |
 | mamba | no | none |
-| petals | no | none |
 | sentencetransformers | no | none |
 | transformers-musicgen | no | none |
 | vall-e-x | no | none |
