@@ -458,7 +458,9 @@ struct llama_server_context
             }
         }
 
-        std::tie(model, ctx) = llama_init_from_gpt_params(params);
+        llama_init_result llama_init = llama_init_from_gpt_params(params);
+        model = llama_init.model;
+        ctx = llama_init.context;
         if (model == nullptr)
         {
             LOG_ERROR("unable to load model", {{"model", params.model}});
@@ -478,7 +480,7 @@ struct llama_server_context
 
         n_ctx = llama_n_ctx(ctx);
 
-        add_bos_token = llama_should_add_bos_token(model);
+        add_bos_token = llama_add_bos_token(model);
 
         return true;
     }
@@ -2258,7 +2260,7 @@ static void params_parse(const backend::ModelOptions* request,
      }
      // get the directory of modelfile
      std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
-     params.lora_adapter.push_back(std::make_tuple(model_dir + "/"+request->loraadapter(), scale_factor));
+     params.lora_adapters.push_back({ model_dir + "/"+request->loraadapter(), scale_factor });
     }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();

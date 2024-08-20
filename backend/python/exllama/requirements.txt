@@ -1,6 +1,4 @@
-grpcio==1.65.0
+grpcio==1.65.5
 protobuf
-torch
-transformers
 certifi
 setuptools

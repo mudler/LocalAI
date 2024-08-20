@@ -37,7 +37,8 @@ func main() {
 
 	// download the assets
 	for _, asset := range assets {
-		if err := downloader.DownloadFile(asset.URL, filepath.Join(destPath, asset.FileName), asset.SHA, 1, 1, utils.DisplayDownloadFunction); err != nil {
+		uri := downloader.URI(asset.URL)
+		if err := uri.DownloadFile(filepath.Join(destPath, asset.FileName), asset.SHA, 1, 1, utils.DisplayDownloadFunction); err != nil {
 			panic(err)
 		}
 	}

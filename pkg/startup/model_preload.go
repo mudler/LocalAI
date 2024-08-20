@@ -3,7 +3,6 @@ package startup
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,21 +22,21 @@ func InstallModels(galleries []config.Gallery, modelLibraryURL string, modelPath
 	// create an error that groups all errors
 	var err error
 
-	for _, url := range models {
+	lib, _ := embedded.GetRemoteLibraryShorteners(modelLibraryURL, modelPath)
 
+	for _, url := range models {
 		// As a best effort, try to resolve the model from the remote library
 		// if it's not resolved we try with the other method below
 		if modelLibraryURL != "" {
-			lib, err := embedded.GetRemoteLibraryShorteners(modelLibraryURL, modelPath)
-			if err == nil {
-				if lib[url] != "" {
-					log.Debug().Msgf("[startup] model configuration is defined remotely: %s (%s)", url, lib[url])
-					url = lib[url]
-				}
+			if lib[url] != "" {
+				log.Debug().Msgf("[startup] model configuration is defined remotely: %s (%s)", url, lib[url])
+				url = lib[url]
 			}
 		}
 
 		url = embedded.ModelShortURL(url)
+		uri := downloader.URI(url)
+
 		switch {
 		case embedded.ExistsInModelsLibrary(url):
 			modelYAML, e := embedded.ResolveContent(url)
@@ -55,7 +54,7 @@ func InstallModels(galleries []config.Gallery, modelLibraryURL string, modelPath
 				log.Error().Err(e).Str("filepath", modelDefinitionFilePath).Msg("error writing model definition")
 				err = errors.Join(err, e)
 			}
-		case downloader.LooksLikeOCI(url):
+		case uri.LooksLikeOCI():
 			log.Debug().Msgf("[startup] resolved OCI model to download: %s", url)
 
 			// convert OCI image name to a file name.
@@ -67,7 +66,7 @@ func InstallModels(galleries []config.Gallery, modelLibraryURL string, modelPath
 			// check if file exists
 			if _, e := os.Stat(filepath.Join(modelPath, ociName)); errors.Is(e, os.ErrNotExist) {
 				modelDefinitionFilePath := filepath.Join(modelPath, ociName)
-				e := downloader.DownloadFile(url, modelDefinitionFilePath, "", 0, 0, func(fileName, current, total string, percent float64) {
+				e := uri.DownloadFile(modelDefinitionFilePath, "", 0, 0, func(fileName, current, total string, percent float64) {
 					utils.DisplayDownloadFunction(fileName, current, total, percent)
 				})
 				if e != nil {
@@ -77,19 +76,15 @@ func InstallModels(galleries []config.Gallery, modelLibraryURL string, modelPath
 			}
 
 			log.Info().Msgf("[startup] installed model from OCI repository: %s", ociName)
-		case downloader.LooksLikeURL(url):
+		case uri.LooksLikeURL():
 			log.Debug().Msgf("[startup] downloading %s", url)
 
 			// Extract filename from URL
-			fileName, e := filenameFromUrl(url)
-			if e != nil || fileName == "" {
-				fileName = utils.MD5(url)
-				if strings.HasSuffix(url, ".yaml") || strings.HasSuffix(url, ".yml") {
-					fileName = fileName + ".yaml"
-				}
+			fileName, e := uri.FilenameFromUrl()
+			if e != nil {
 				log.Warn().Err(e).Str("url", url).Msg("error extracting filename from URL")
-				//err = errors.Join(err, e)
-				//continue
+				err = errors.Join(err, e)
+				continue
 			}
 
 			modelPath := filepath.Join(modelPath, fileName)
@@ -102,7 +97,7 @@ func InstallModels(galleries []config.Gallery, modelLibraryURL string, modelPath
 
 			// check if file exists
 			if _, e := os.Stat(modelPath); errors.Is(e, os.ErrNotExist) {
-				e := downloader.DownloadFile(url, modelPath, "", 0, 0, func(fileName, current, total string, percent float64) {
+				e := uri.DownloadFile(modelPath, "", 0, 0, func(fileName, current, total string, percent float64) {
 					utils.DisplayDownloadFunction(fileName, current, total, percent)
 				})
 				if e != nil {
@@ -166,21 +161,4 @@ func installModel(galleries []config.Gallery, modelName, modelPath string, downl
 	}
 
 	return nil, true
-}
-
-func filenameFromUrl(urlstr string) (string, error) {
-	// strip anything after @
-	if strings.Contains(urlstr, "@") {
-		urlstr = strings.Split(urlstr, "@")[0]
-	}
-
-	u, err := url.Parse(urlstr)
-	if err != nil {
-		return "", fmt.Errorf("error due to parsing url: %w", err)
-	}
-	x, err := url.QueryUnescape(u.EscapedPath())
-	if err != nil {
-		return "", fmt.Errorf("error due to escaping: %w", err)
-	}
-	return filepath.Base(x), nil
 }

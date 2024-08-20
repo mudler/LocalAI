@@ -8,18 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"time"
-
-	"math/rand/v2"
 
 	"github.com/mudler/edgevpn/pkg/node"
-	"github.com/mudler/edgevpn/pkg/protocol"
-	"github.com/mudler/edgevpn/pkg/types"
 	"github.com/rs/zerolog/log"
 )
 
 func (f *FederatedServer) Start(ctx context.Context) error {
-
 	n, err := NewNode(f.p2ptoken)
 	if err != nil {
 		return fmt.Errorf("creating a new node: %w", err)
@@ -31,7 +25,7 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 
 	if err := ServiceDiscoverer(ctx, n, f.p2ptoken, f.service, func(servicesID string, tunnel NodeData) {
 		log.Debug().Msgf("Discovered node: %s", tunnel.ID)
-	}); err != nil {
+	}, false); err != nil {
 		return err
 	}
 
@@ -48,27 +42,12 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		return err
 	}
 	//	ll.Info("Binding local port on", srcaddr)
+	go func() {
+		<-ctx.Done()
+		l.Close()
+	}()
 
-	ledger, _ := node.Ledger()
-
-	// Announce ourselves so nodes accepts our connection
-	ledger.Announce(
-		ctx,
-		10*time.Second,
-		func() {
-			// Retrieve current ID for ip in the blockchain
-			//_, found := ledger.GetKey(protocol.UsersLedgerKey, node.Host().ID().String())
-			// If mismatch, update the blockchain
-			//if !found {
-			updatedMap := map[string]interface{}{}
-			updatedMap[node.Host().ID().String()] = &types.User{
-				PeerID:    node.Host().ID().String(),
-				Timestamp: time.Now().String(),
-			}
-			ledger.Add(protocol.UsersLedgerKey, updatedMap)
-			//	}
-		},
-	)
+	nodeAnnounce(ctx, node)
 
 	defer l.Close()
 	for {
@@ -76,7 +55,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		case <-ctx.Done():
 			return errors.New("context canceled")
 		default:
-			log.Debug().Msg("New for connection")
+			log.Debug().Msgf("New connection from %s", l.Addr().String())
 			// Listen for an incoming connection.
 			conn, err := l.Accept()
 			if err != nil {
@@ -86,55 +65,38 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 
 			// Handle connections in a new goroutine, forwarding to the p2p service
 			go func() {
-				var tunnelAddresses []string
-				for _, v := range GetAvailableNodes(fs.service) {
-					if v.IsOnline() {
-						tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
-					} else {
-						log.Info().Msgf("Node %s is offline", v.ID)
+				workerID := ""
+				if fs.workerTarget != "" {
+					workerID = fs.workerTarget
+				} else if fs.loadBalanced {
+					log.Debug().Msgf("Load balancing request")
+
+					workerID = fs.SelectLeastUsedServer()
+					if workerID == "" {
+						log.Debug().Msgf("Least used server not found, selecting random")
+						workerID = fs.RandomServer()
 					}
+				} else {
+					workerID = fs.RandomServer()
 				}
 
-				if len(tunnelAddresses) == 0 {
+				if workerID == "" {
 					log.Error().Msg("No available nodes yet")
 					return
 				}
 
-				tunnelAddr := ""
-
-				if fs.loadBalanced {
-					for _, t := range tunnelAddresses {
-						fs.EnsureRecordExist(t)
-					}
-
-					tunnelAddr = fs.SelectLeastUsedServer()
-					log.Debug().Msgf("Selected tunnel %s", tunnelAddr)
-					if tunnelAddr == "" {
-						tunnelAddr = tunnelAddresses[rand.IntN(len(tunnelAddresses))]
-					}
-
-					fs.RecordRequest(tunnelAddr)
-				} else {
-					tunnelAddr = tunnelAddresses[rand.IntN(len(tunnelAddresses))]
-				}
-
-				tunnelConn, err := net.Dial("tcp", tunnelAddr)
-				if err != nil {
-					log.Error().Err(err).Msg("Error connecting to tunnel")
+				log.Debug().Msgf("Selected node %s", workerID)
+				nodeData, exists := GetNode(fs.service, workerID)
+				if !exists {
+					log.Error().Msgf("Node %s not found", workerID)
 					return
 				}
 
-				log.Info().Msgf("Redirecting %s to %s", conn.LocalAddr().String(), tunnelConn.RemoteAddr().String())
-				closer := make(chan struct{}, 2)
-				go copyStream(closer, tunnelConn, conn)
-				go copyStream(closer, conn, tunnelConn)
-				<-closer
-
-				tunnelConn.Close()
-				conn.Close()
-				//	ll.Infof("(service %s) Done handling %s", serviceID, l.Addr().String())
+				proxyP2PConnection(ctx, node, nodeData.ServiceID, conn)
+				if fs.loadBalanced {
+					fs.RecordRequest(workerID)
+				}
 			}()
 		}
 	}
-
 }

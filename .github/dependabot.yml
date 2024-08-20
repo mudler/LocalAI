@@ -68,10 +68,6 @@ updates:
     schedule:
       interval: "weekly"
   - package-ecosystem: "pip"
-    directory: "/backend/python/petals"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "pip"
     directory: "/backend/python/rerankers"
     schedule:
       interval: "weekly"

@@ -712,6 +712,9 @@ const docTemplate = `{
                 "parameters": {
                     "type": "object",
                     "additionalProperties": true
+                },
+                "strict": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1066,6 +1069,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "serviceID": {
                     "type": "string"
                 },
                 "tunnelAddress": {

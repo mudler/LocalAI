@@ -54,6 +54,7 @@ type RunCMD struct {
 	OpaqueErrors           bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
 	Peer2Peer              bool     `env:"LOCALAI_P2P,P2P" name:"p2p" default:"false" help:"Enable P2P mode" group:"p2p"`
 	Peer2PeerToken         string   `env:"LOCALAI_P2P_TOKEN,P2P_TOKEN,TOKEN" name:"p2ptoken" help:"Token for P2P mode (optional)" group:"p2p"`
+	Peer2PeerNetworkID     string   `env:"LOCALAI_P2P_NETWORK_ID,P2P_NETWORK_ID" help:"Network ID for P2P mode, can be set arbitrarly by the user for grouping a set of instances" group:"p2p"`
 	ParallelRequests       bool     `env:"LOCALAI_PARALLEL_REQUESTS,PARALLEL_REQUESTS" help:"Enable backends to handle multiple requests in parallel if they support it (e.g.: llama.cpp or vllm)" group:"backends"`
 	SingleActiveBackend    bool     `env:"LOCALAI_SINGLE_ACTIVE_BACKEND,SINGLE_ACTIVE_BACKEND" help:"Allow only one backend to be run at a time" group:"backends"`
 	PreloadBackendOnly     bool     `env:"LOCALAI_PRELOAD_BACKEND_ONLY,PRELOAD_BACKEND_ONLY" default:"false" help:"Do not launch the API services, only the preloaded models / backends are started (useful for multi-node setups)" group:"backends"`
@@ -63,6 +64,7 @@ type RunCMD struct {
 	EnableWatchdogBusy     bool     `env:"LOCALAI_WATCHDOG_BUSY,WATCHDOG_BUSY" default:"false" help:"Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout" group:"backends"`
 	WatchdogBusyTimeout    string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
 	Federated              bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
+	DisableGalleryEndpoint bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -94,6 +96,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithModelsURL(append(r.Models, r.ModelArgs...)...),
 		config.WithOpaqueErrors(r.OpaqueErrors),
 		config.WithEnforcedPredownloadScans(!r.DisablePredownloadScan),
+		config.WithP2PNetworkID(r.Peer2PeerNetworkID),
 	}
 
 	token := ""
@@ -119,9 +122,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 
 		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.ServiceDiscoverer(context.Background(), node, token, "", func(serviceID string, node p2p.NodeData) {
+		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
 			var tunnelAddresses []string
-			for _, v := range p2p.GetAvailableNodes("") {
+			for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID)) {
 				if v.IsOnline() {
 					tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
 				} else {
@@ -132,7 +135,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
-		}); err != nil {
+		}, true); err != nil {
 			return err
 		}
 	}
@@ -142,14 +145,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := p2p.ExposeService(context.Background(), "localhost", port, token, p2p.FederatedID); err != nil {
-			return err
-		}
-		node, err := p2p.NewNode(token)
+		fedCtx := context.Background()
+		node, err := p2p.ExposeService(fedCtx, "localhost", port, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID))
 		if err != nil {
 			return err
 		}
-		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.FederatedID, nil); err != nil {
+
+		if err := p2p.ServiceDiscoverer(fedCtx, node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
 			return err
 		}
 	}
@@ -159,6 +161,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	if r.DisableWebUI {
 		opts = append(opts, config.DisableWebUI)
+	}
+
+	if r.DisableGalleryEndpoint {
+		opts = append(opts, config.DisableGalleryEndpoint)
 	}
 
 	if idleWatchDog || busyWatchDog {

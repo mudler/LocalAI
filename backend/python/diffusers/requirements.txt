@@ -1,13 +1,5 @@
 setuptools
-accelerate
-compel
-peft
-diffusers
-grpcio==1.65.1
-opencv-python
+grpcio==1.65.4
 pillow
 protobuf
-sentencepiece
-torch
-transformers
 certifi

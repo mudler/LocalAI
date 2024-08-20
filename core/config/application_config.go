@@ -34,6 +34,7 @@ type ApplicationConfig struct {
 	EnforcePredownloadScans             bool
 	OpaqueErrors                        bool
 	P2PToken                            string
+	P2PNetworkID                        string
 
 	ModelLibraryURL string
 
@@ -56,6 +57,8 @@ type ApplicationConfig struct {
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+
+	DisableGalleryEndpoint bool
 }
 
 type AppOption func(*ApplicationConfig)
@@ -91,6 +94,12 @@ func WithCors(b bool) AppOption {
 	}
 }
 
+func WithP2PNetworkID(s string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.P2PNetworkID = s
+	}
+}
+
 func WithCsrf(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.CSRF = b
@@ -122,6 +131,10 @@ var EnableWatchDog = func(o *ApplicationConfig) {
 var EnableWatchDogIdleCheck = func(o *ApplicationConfig) {
 	o.WatchDog = true
 	o.WatchDogIdle = true
+}
+
+var DisableGalleryEndpoint = func(o *ApplicationConfig) {
+	o.DisableGalleryEndpoint = true
 }
 
 var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {

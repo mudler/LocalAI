@@ -1,0 +1,4 @@
+transformers
+accelerate
+torch
+rerankers[transformers]

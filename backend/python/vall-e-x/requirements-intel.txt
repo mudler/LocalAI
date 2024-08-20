@@ -1,6 +1,7 @@
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 intel-extension-for-pytorch
+accelerate
 torch
 torchaudio
 optimum[openvino]
-setuptools==70.3.0 # https://github.com/mudler/LocalAI/issues/2406
+setuptools==72.1.0 # https://github.com/mudler/LocalAI/issues/2406

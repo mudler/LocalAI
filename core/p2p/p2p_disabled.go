@@ -18,12 +18,12 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 	return fmt.Errorf("not implemented")
 }
 
-func ServiceDiscoverer(ctx context.Context, node *node.Node, token, servicesID string, fn func(string, NodeData)) error {
+func ServiceDiscoverer(ctx context.Context, node *node.Node, token, servicesID string, fn func(string, NodeData), allocate bool) error {
 	return fmt.Errorf("not implemented")
 }
 
-func ExposeService(ctx context.Context, host, port, token, servicesID string) error {
-	return fmt.Errorf("not implemented")
+func ExposeService(ctx context.Context, host, port, token, servicesID string) (*node.Node, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func IsP2PEnabled() bool {

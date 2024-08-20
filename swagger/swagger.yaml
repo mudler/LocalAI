@@ -16,6 +16,8 @@ definitions:
       parameters:
         additionalProperties: true
         type: object
+      strict:
+        type: boolean
     type: object
   functions.Item:
     properties:
@@ -259,6 +261,8 @@ definitions:
       lastSeen:
         type: string
       name:
+        type: string
+      serviceID:
         type: string
       tunnelAddress:
         type: string

@@ -84,6 +84,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 Hot topics (looking for contributors):
 
+- 🔥🔥 Distributed, P2P Global community pools: https://github.com/mudler/LocalAI/issues/3113
 - WebUI improvements: https://github.com/mudler/LocalAI/issues/2156
 - Backends v2: https://github.com/mudler/LocalAI/issues/1126
 - Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
@@ -150,6 +151,7 @@ Other:
 
 ## :book: 🎥 [Media, Blogs, Social](https://localai.io/basics/news/#media-blogs-social)
 
+- [Run Visual studio code with LocalAI (SUSE)](https://www.suse.com/c/running-ai-locally/)
 - 🆕 [Run LocalAI on Jetson Nano Devkit](https://mudler.pm/posts/local-ai-jetson-nano-devkit/)
 - [Run LocalAI on AWS EKS with Pulumi](https://www.pulumi.com/blog/low-code-llm-apps-with-local-ai-flowise-and-pulumi/)
 - [Run LocalAI on AWS](https://staleks.hashnode.dev/installing-localai-on-aws-ec2-instance)

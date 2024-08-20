@@ -1,0 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+accelerate
+torch
+transformers

@@ -73,8 +73,9 @@ func getModelStatus(url string) (response map[string]interface{}) {
 }
 
 func getModels(url string) (response []gallery.GalleryModel) {
+	uri := downloader.URI(url)
 	// TODO: No tests currently seem to exercise file:// urls. Fix?
-	downloader.DownloadAndUnmarshal(url, "", func(url string, i []byte) error {
+	uri.DownloadAndUnmarshal("", func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})
@@ -562,32 +563,6 @@ var _ = Describe("API test", func() {
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 			})
-
-			It("runs gpt4all", Label("gpt4all"), func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
-
-				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					URL:  "github:go-skynet/model-gallery/gpt4all-j.yaml",
-					Name: "gpt4all-j",
-				})
-
-				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
-
-				uuid := response["uuid"].(string)
-
-				Eventually(func() bool {
-					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
-					return response["processed"].(bool)
-				}, "960s", "10s").Should(Equal(true))
-
-				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "gpt4all-j", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: "How are you?"}}})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices)).To(Equal(1))
-				Expect(resp.Choices[0].Message.Content).To(ContainSubstring("well"))
-			})
-
 		})
 	})
 
@@ -786,20 +761,6 @@ var _ = Describe("API test", func() {
 
 		It("can generate chat completions via ggml", func() {
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel.ggml", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(resp.Choices)).To(Equal(1))
-			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
-		})
-
-		It("can generate completions from model configs", func() {
-			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "gpt4all", Prompt: testPrompt})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(resp.Choices)).To(Equal(1))
-			Expect(resp.Choices[0].Text).ToNot(BeEmpty())
-		})
-
-		It("can generate chat completions from model configs", func() {
-			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "gpt4all-2", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())

@@ -2,3 +2,5 @@
 intel-extension-for-pytorch
 torch
 optimum[openvino]
+intel-extension-for-transformers
+bitsandbytes

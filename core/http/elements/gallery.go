@@ -9,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
-	"github.com/mudler/LocalAI/pkg/xsync"
 )
 
 const (
@@ -372,7 +371,12 @@ func dropBadChars(s string) string {
 	return strings.ReplaceAll(s, "@", "__")
 }
 
-func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[string, string], galleryService *services.GalleryService) string {
+type ProcessTracker interface {
+	Exists(string) bool
+	Get(string) string
+}
+
+func ListModels(models []*gallery.GalleryModel, processTracker ProcessTracker, galleryService *services.GalleryService) string {
 	modelsElements := []elem.Node{}
 	descriptionDiv := func(m *gallery.GalleryModel) elem.Node {
 		return elem.Div(
@@ -396,7 +400,7 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 
 	actionDiv := func(m *gallery.GalleryModel) elem.Node {
 		galleryID := fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
-		currentlyProcessing := processing.Exists(galleryID)
+		currentlyProcessing := processTracker.Exists(galleryID)
 		jobID := ""
 		isDeletionOp := false
 		if currentlyProcessing {
@@ -404,7 +408,7 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 			if status != nil && status.Deletion {
 				isDeletionOp = true
 			}
-			jobID = processing.Get(galleryID)
+			jobID = processTracker.Get(galleryID)
 			// TODO:
 			// case not handled, if status == nil : "Waiting"
 		}
@@ -497,8 +501,9 @@ func ListModels(models []*gallery.GalleryModel, processing *xsync.SyncedMap[stri
 				},
 					elem.Img(attrs.Props{
 						//	"class": "rounded-t-lg object-fit object-center h-96",
-						"class": "rounded-t-lg max-h-48 max-w-96 object-cover mt-3",
-						"src":   m.Icon,
+						"class":   "rounded-t-lg max-h-48 max-w-96 object-cover mt-3",
+						"src":     m.Icon,
+						"loading": "lazy",
 					}),
 				),
 			),

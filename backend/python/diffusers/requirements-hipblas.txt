@@ -1,3 +1,11 @@
 --extra-index-url https://download.pytorch.org/whl/rocm6.0
-torch
-torchvision
+torch==2.3.1+rocm6.0
+torchvision==0.18.1+rocm6.0
+diffusers
+opencv-python
+transformers
+accelerate
+compel
+peft
+sentencepiece
+optimum-quanto

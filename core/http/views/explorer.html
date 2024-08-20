@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+
+{{template "views/partials/head" .}}
+
+<style>
+    body {
+        background-color: #1a202c;
+        color: #e2e8f0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .token {
+        word-break: break-all;
+    }
+    .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        position: relative;
+    }
+    .network-card {
+        background-color: #2d3748;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .network-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+    }
+    .network-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #63b3ed;
+    }
+    .network-token {
+        font-size: 14px;
+        font-style: italic;
+        color: #cbd5e0;
+        margin-bottom: 10px;
+        word-break: break-word; /* Breaks words to prevent overflow */
+        overflow-wrap: break-word; /* Ensures long strings break */
+        white-space: pre-wrap; /* Preserves whitespace for breaking */
+    }
+    .cluster {
+        margin-top: 10px;
+        background-color: #4a5568;
+        padding: 10px;
+        border-radius: 6px;
+        transition: background-color 0.3s ease;
+    }
+    .cluster:hover {
+        background-color: #5a6b78;
+    }
+    .cluster-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #e2e8f0;
+    }
+    .form-container {
+        background-color: #2d3748;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .form-control {
+        margin-bottom: 15px;
+    }
+    label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    input[type="text"],
+    textarea {
+        width: 100%;
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #4a5568;
+        background-color: #3a4250;
+        color: #e2e8f0;
+        transition: border-color 0.3s ease, background-color 0.3s ease;
+    }
+    input[type="text"]:focus,
+    textarea:focus {
+        border-color: #63b3ed;
+        background-color: #4a5568;
+    }
+    button {
+        background-color: #3182ce;
+        color: #e2e8f0;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    .error {
+        color: #e53e3e;
+        margin-top: 5px;
+    }
+    .success {
+        color: #38a169;
+        margin-top: 5px;
+    }
+    /* Spinner Styles */
+    .spinner {
+        display: inline-block;
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        border-top-color: #3182ce;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Center the loading text and spinner */
+    .loading-container {
+        text-align: center;
+        padding: 50px;
+    }
+    .warning-box {
+            border-radius: 5px;
+    }
+    .warning-box i {
+        margin-right: 10px;
+    }
+    .token-box {
+            background-color: #4a5568;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            position: relative;
+            cursor: pointer;
+        }
+        .token-box:hover {
+            background-color: #5a6b7e;
+        }
+        .token-text {
+            overflow-wrap: break-word;
+            font-family: monospace;
+        }
+        .copy-icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #e2e8f0;
+        }
+</style>
+
+<body class="bg-gray-900 text-gray-200">
+    <div class="flex flex-col min-h-screen" x-data="networkClusters()" x-init="init()">
+        {{template "views/partials/navbar_explorer" .}}
+        <div class="animation-container">
+            <canvas id="networkCanvas"></canvas>
+            <div class="text-overlay">
+                <header class="text-center py-12">
+                    <h1 class="text-5xl font-bold text-gray-100">
+                        <i class="fa-solid fa-circle-nodes mr-2"></i> Network Clusters Explorer   
+        
+                    </h1>
+                    <p class="mt-4 text-lg">
+                        View the clusters and workers available in each network.
+                        <a href="https://localai.io/features/distribute/" target="_blank">
+                            <i class="fas fa-circle-info pr-2"></i>
+                        </a>
+                    </p>
+        
+                </header>
+            </div>
+        </div>
+
+        <div class="container mx-auto px-4 flex-grow">
+        <!-- Warning Box -->
+        <div class="warning-box bg-yellow-100 text-gray-800 mb-20 pt-5 pb-5 pr-5 pl-5 text-lg">
+            <i class="fa-solid fa-triangle-exclamation"></i><i class="fa-solid fa-flask"></i>
+            The explorer is a global, community-driven tool to share network tokens and view available clusters in the globe.
+            Anyone can use the tokens to offload computation and use the clusters available or share resources.
+            This is provided without any warranty. Use it at your own risk. We are not responsible for any potential harm or misuse. Sharing tokens globally allows anyone from the internet to use your instances. 
+            Although the community will address bugs, this is experimental software and may be insecure to deploy on your hardware unless you take all necessary precautions.
+        </div>
+            <div class="flow-root">
+            <!-- Toggle button for showing/hiding the form -->
+            <button class="bg-red-600 hover:bg-blue-600 float-right mb-2 flex items-center px-4 py-2 rounded" @click="toggleForm()">
+                <!-- Conditional icon display -->
+                <i :class="showForm ? 'fa-solid fa-times' : 'fa-solid fa-plus'" class="mr-2"></i>
+                <span x-text="showForm ? 'Close' : 'Add New Network'"></span>
+            </button>
+        </div>
+            <!-- Form for adding a new network -->
+            <div class="form-container" x-show="showForm" @click.outside="showForm = false">
+                <h2 class="text-3xl font-bold mb-4"><i class="fa-solid fa-plus"></i> Add New Network</h2>
+                <div class="form-control">
+                    <label for="name">Network Name</label>
+                    <input type="text" id="name" x-model="newNetwork.name" placeholder="Enter network name" />
+                </div>
+                <div class="form-control">
+                    <label for="description">Description</label>
+                    <textarea id="description" x-model="newNetwork.description" placeholder="Enter description"></textarea>
+                </div>
+                <div class="form-control">
+                    <label for="token">Token</label>
+                    <textarea id="token" x-model="newNetwork.token" placeholder="Enter token"></textarea>
+                </div>
+                <button @click="addNetwork"><i class="fa-solid fa-plus"></i> Add Network</button>
+                <template x-if="errorMessage">
+                    <p class="error" x-text="errorMessage"></p>
+                </template>
+                <template x-if="successMessage">
+                    <p class="success" x-text="successMessage"></p>
+                </template>
+            </div>
+
+            <!-- Loading Spinner -->
+            <template x-if="networks.length === 0 && !loadingComplete">
+                <div class="loading-container">
+                    <div class="spinner"></div>
+                    <p class="text-center mt-4">Loading networks...</p>
+                </div>
+            </template>
+
+            <template x-if="networks.length === 0 && loadingComplete">
+                <div class="loading-container">
+                    <p class="text-center mt-4">No networks available with online workers</p>
+                </div>
+            </template>
+
+            <!-- Display Networks -->
+            <template x-for="network in networks" :key="network.name">
+                <div class="network-card">
+                    <i class="fa-solid fa-circle-nodes mr-2"></i><span class="network-title font-bold mb-4 mt-1" x-text="network.name"></span>
+                    <div class="token-box" @click="copyToken(network.token)">
+                        <p class="text-lg font-bold mb-4 mt-1">
+                            <i class="fa-solid fa-copy copy-icon"></i>
+                            <i class="fa-solid fa-key mr-2"></i>Token (click to copy): 
+                        </p>
+                        <span class="token-text" x-text="network.token"></span>
+                    </div>
+
+                    <div class="cluster">
+                        <p class="text-lg font-bold mb-4 mt-1"><i class="fa-solid fa-book mr-2"></i> Description</p>
+                        <p x-text="network.description"></p>
+                    </div>
+                    <h2 class="text-3xl font-bold mb-4 mt-4">Available Clusters in this network</h2>
+                    <template x-for="cluster in network.Clusters" :key="cluster.NetworkID + cluster.Type">
+                        <div class="cluster">
+                            <div class="cluster-title"></div>
+                            <span class="inline-block bg-orange-500 text-white py-1 px-3 rounded-full text-xs"  x-text="'Cluster Type: ' + cluster.Type">
+                            </span>
+
+                            <span class="inline-block bg-orange-500 text-white py-1 px-3 rounded-full text-xs" x-show="cluster.NetworkID" x-text="'Network ID: ' + (cluster.NetworkID || 'N/A')">
+                            </span>
+                            <span class="inline-block bg-blue-500 text-white py-1 px-3 rounded-full text-xs"  x-text="'Number of Workers: ' + cluster.Workers.length">
+                            </span>
+                            <!-- Give commands and instructions to join the network -->
+                            <span class="inline-block token-box text-white py-1 px-3 text-xs" x-show="cluster.Type == 'federated'" >
+                                <p class="text-lg font-bold mb-4 mt-1">
+                                    <i class="fa-solid fa-copy copy-icon float-right"></i>
+                                    Command to connect (click to copy): 
+                                </p>
+                                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyToken($el.textContent)" >
+                                    docker run -d --restart=always -e ADDRESS=":80" -e LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> -e LOCALAI_P2P_LOGLEVEL=debug --name local-ai -e TOKEN="<span class="token" x-text="network.token"></span>" --net host -ti localai/localai:master-ffmpeg-core federated --debug
+                                </code>
+                                or via CLI:
+                                <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyToken($el.textContent)" >
+                                   ADDRESS=":80" LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> LOCALAI_P2P_LOGLEVEL=debug TOKEN="<span class="token" x-text="network.token"></span>" local-ai federated --debug
+                                </code>
+                            </span>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+        <script>
+            function networkClusters() {
+                return {
+                    networks: [],
+                    newNetwork: {
+                        name: '',
+                        description: '',
+                        token: ''
+                    },
+                    errorMessage: '',
+                    successMessage: '',
+                    showForm: false, // Form visibility state
+                    loadingComplete: false, // To track if loading is complete
+                    toggleForm() {
+                        this.showForm = !this.showForm;
+                        console.log('Toggling form:', this.showForm);
+                    },
+                    fetchNetworks() {
+                        console.log('Fetching networks...');
+                        fetch('/networks')
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log('Data fetched successfully:', data);
+                                this.networks = data;
+                                this.loadingComplete = true; // Set loading complete
+                            })
+                            .catch(error => {
+                                console.error('Error fetching networks:', error);
+                                this.loadingComplete = true; // Ensure spinner is hidden if error occurs
+                            });
+                    },
+
+                    addNetwork() {
+                        this.errorMessage = '';
+                        this.successMessage = '';
+                        console.log('Adding new network:', this.newNetwork);
+
+                        // Validate input
+                        if (!this.newNetwork.name || !this.newNetwork.description || !this.newNetwork.token) {
+                            this.errorMessage = 'All fields are required.';
+                            return;
+                        }
+
+                        fetch('/network/add', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.newNetwork)
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    return response.json().then(err => { throw err; });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                console.log('Network added successfully:', data);
+                                this.successMessage = 'Network added successfully!';
+                                this.fetchNetworks(); // Refresh the networks list
+                                this.newNetwork = { name: '', description: '', token: '' }; // Clear form
+                            })
+                            .catch(error => {
+                                console.error('Error adding network:', error);
+                                this.errorMessage = 'Failed to add network. Please try again.'
+                                if (error.error) {
+                                    this.errorMessage += " Error : " + error.error;
+                                }
+                            });
+                    },
+                    copyToken(token) {
+                        navigator.clipboard.writeText(token)
+                        .then(() => {
+                            console.log('Text copied to clipboard:', token);
+                            alert('Text copied to clipboard!');
+                        })
+                        .catch(err => {
+                            console.error('Failed to copy token:', err);
+                        });
+                    },
+                    init() {
+                        console.log('Initializing Alpine component...');
+                        this.fetchNetworks();
+                        setInterval(() => {
+                            this.fetchNetworks();
+                        }, 5000); // Refresh every 5 seconds
+                    }
+                }
+            }
+        </script>
+        <script src="/static/p2panimation.js"></script>
+
+        {{template "views/partials/footer" .}}
+    </div>
+
+</body>
+
+</html>

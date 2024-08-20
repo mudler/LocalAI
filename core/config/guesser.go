@@ -26,15 +26,17 @@ const (
 type settingsConfig struct {
 	StopWords      []string
 	TemplateConfig TemplateConfig
+	RepeatPenalty float64
 }
 
 // default settings to adopt with a given model family
 var defaultsSettings map[familyType]settingsConfig = map[familyType]settingsConfig{
 	Gemma: {
+		RepeatPenalty: 1.0,
 		StopWords: []string{"<|im_end|>", "<end_of_turn>", "<start_of_turn>"},
 		TemplateConfig: TemplateConfig{
-			Chat:        "{{.Input }}\n<|start_of_turn|>model\n",
-			ChatMessage: "<|start_of_turn|>{{if eq .RoleName \"assistant\" }}model{{else}}{{ .RoleName }}{{end}}\n{{ if .Content -}}\n{{.Content -}}\n{{ end -}}<|end_of_turn|>",
+			Chat:        "{{.Input }}\n<start_of_turn>model\n",
+			ChatMessage: "<start_of_turn>{{if eq .RoleName \"assistant\" }}model{{else}}{{ .RoleName }}{{end}}\n{{ if .Content -}}\n{{.Content -}}\n{{ end -}}<end_of_turn>",
 			Completion:  "{{.Input}}",
 		},
 	},
@@ -192,6 +194,9 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 		if len(cfg.StopWords) == 0 {
 			cfg.StopWords = settings.StopWords
 		}
+		if cfg.RepeatPenalty == 0.0 {
+			cfg.RepeatPenalty = settings.RepeatPenalty
+		}
 	} else {
 		log.Debug().Any("family", family).Msgf("guessDefaultsFromFile: no template found for family")
 	}
@@ -219,7 +224,7 @@ func identifyFamily(f *gguf.GGUFFile) familyType {
 	commandR := arch == "command-r" && eosTokenID == 255001
 	qwen2 := arch == "qwen2"
 	phi3 := arch == "phi-3"
-	gemma := strings.HasPrefix(f.Model().Name, "gemma")
+	gemma := strings.HasPrefix(arch, "gemma") || strings.Contains(strings.ToLower(f.Model().Name), "gemma")
 	deepseek2 := arch == "deepseek2"
 
 	switch {

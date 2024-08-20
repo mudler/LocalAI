@@ -1,0 +1,4 @@
+torch
+accelerate
+sentence-transformers==3.0.1
+transformers

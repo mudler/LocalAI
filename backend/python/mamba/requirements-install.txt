@@ -4,4 +4,3 @@
 packaging
 setuptools
 wheel
-torch==2.3.1

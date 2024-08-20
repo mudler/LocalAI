@@ -1,5 +1,8 @@
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 intel-extension-for-pytorch
+transformers
+accelerate
 torch
+rerankers[transformers]
 optimum[openvino]
-setuptools==70.3.0 # https://github.com/mudler/LocalAI/issues/2406
+setuptools==72.1.0 # https://github.com/mudler/LocalAI/issues/2406

@@ -705,6 +705,9 @@
                 "parameters": {
                     "type": "object",
                     "additionalProperties": true
+                },
+                "strict": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1059,6 +1062,9 @@
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "serviceID": {
                     "type": "string"
                 },
                 "tunnelAddress": {

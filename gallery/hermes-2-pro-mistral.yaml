@@ -11,7 +11,6 @@ config_file: |
   - "<|end_of_text|>"
   function:
     disable_no_action: true
-    return_name_in_function_response: true
     grammar:
       # Uncomment the line below to enable grammar matching for JSON results if the model is breaking
       # the output. This will make the model more accurate and won't break the JSON output.

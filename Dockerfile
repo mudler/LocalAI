@@ -8,12 +8,12 @@ FROM ${BASE_IMAGE} AS requirements-core
 
 USER root
 
-ARG GO_VERSION=1.22.5
+ARG GO_VERSION=1.22.6
 ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,petals:/build/backend/python/petals/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,openvoice:/build/backend/python/openvoice/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
+ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,openvoice:/build/backend/python/openvoice/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
 
 
 RUN apt-get update && \
@@ -30,7 +30,7 @@ RUN apt-get update && \
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
-ENV PATH $PATH:/root/go/bin:/usr/local/go/bin
+ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
 
 # Install grpc compilers
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
@@ -39,15 +39,18 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
+RUN test -n "$TARGETARCH" \
+    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
+
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"
 
 # Cuda
-ENV PATH /usr/local/cuda/bin:${PATH}
+ENV PATH=/usr/local/cuda/bin:${PATH}
 
 # HipBLAS requirements
-ENV PATH /opt/rocm/bin:${PATH}
+ENV PATH=/opt/rocm/bin:${PATH}
 
 # OpenBLAS requirements and stable diffusion
 RUN apt-get update && \
@@ -61,9 +64,6 @@ RUN apt-get update && \
 RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
 WORKDIR /build
-
-RUN test -n "$TARGETARCH" \
-    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
 
 ###################################
 ###################################
@@ -81,7 +81,7 @@ RUN apt-get update && \
         espeak \
         python3-pip \
         python-is-python3 \
-        python3-dev \
+        python3-dev llvm \
         python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
@@ -217,13 +217,14 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 ###################################
 ###################################
 
-# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
-# Adjustments to the build process should likely be made here.
-FROM requirements-drivers AS builder
+# The builder-base target has the arguments, variables, and copies shared between full builder images and the uncompiled devcontainer
+
+FROM requirements-drivers AS builder-base
 
 ARG GO_TAGS="stablediffusion tts p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
+ARG LD_FLAGS="-s -w"
 
 ENV GRPC_BACKENDS=${GRPC_BACKENDS}
 ENV GO_TAGS=${GO_TAGS}
@@ -231,14 +232,12 @@ ENV MAKEFLAGS=${MAKEFLAGS}
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
+ENV LD_FLAGS=${LD_FLAGS}
+
+RUN echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
 
 WORKDIR /build
 
-COPY . .
-COPY .git .
-RUN echo "GO_TAGS: $GO_TAGS"
-
-RUN make prepare
 
 # We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
 # but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
@@ -256,8 +255,29 @@ RUN <<EOT bash
     fi
 EOT
 
+
+###################################
+###################################
+
+# This first portion of builder holds the layers specifically used to build backend-assets/grpc/stablediffusion
+# In most cases, builder is the image you should be using - however, this can save build time if one just needs to copy backend-assets/grpc/stablediffusion and nothing else.
+FROM builder-base AS builder-sd
+
+COPY . .
+COPY .git .
+
+RUN make prepare
+
+
 # stablediffusion does not tolerate a newer version of abseil, build it first
 RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+
+###################################
+###################################
+
+# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
+# Adjustments to the build process should likely be made here.
+FROM builder-sd AS builder
 
 # Install the pre-built GRPC
 COPY --from=grpc /opt/grpc /usr/local
@@ -272,6 +292,41 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
         mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
         touch /build/sources/go-piper/piper-phonemize/pi/lib/keep \
     ; fi
+
+###################################
+###################################
+
+# The devcontainer target is not used on CI. It is a target for developers to use locally -
+# rather than copying files it mounts them locally and leaves building to the developer
+
+FROM builder-base AS devcontainer
+
+ARG FFMPEG
+
+COPY --from=grpc /opt/grpc /usr/local
+
+COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
+
+COPY .devcontainer-scripts /.devcontainer-scripts
+
+# Add FFmpeg
+RUN if [ "${FFMPEG}" = "true" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            ffmpeg && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; fi
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ssh less && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+RUN go install github.com/mikefarah/yq/v4@latest
 
 ###################################
 ###################################
@@ -326,7 +381,7 @@ COPY --from=builder /build/local-ai ./
 COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
 # do not let stablediffusion rebuild (requires an older version of absl)
-COPY --from=builder /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
+COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
 
 # Change the shell to bash so we can use [[ tests below
 SHELL ["/bin/bash", "-c"]
@@ -355,9 +410,6 @@ RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vall-e-x" || -z "${EXTRA_BACKENDS}" ) && "$I
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "openvoice" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/openvoice \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "petals" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/petals \
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "sentencetransformers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/sentencetransformers \

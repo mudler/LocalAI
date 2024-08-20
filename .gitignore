@@ -54,3 +54,6 @@ docs/static/gallery.html
 
 # backend virtual environments
 **/venv
+
+# per-developer customization files for the development container
+.devcontainer/customization/*
