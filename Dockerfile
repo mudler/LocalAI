@@ -81,7 +81,7 @@ RUN apt-get update && \
         espeak \
         python3-pip \
         python-is-python3 \
-        python3-dev lsb_release wget add-apt-repository gpg \
+        python3-dev lsb-release wget software-properties-common gnupg \
         python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
