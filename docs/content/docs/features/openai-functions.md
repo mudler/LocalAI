@@ -37,46 +37,76 @@ parameters:
   temperature: 0.1
 ```
 
-To use the functions with the OpenAI client in python:
+For example, with curl:
 
-```python
-import openai
-# ...
-# Send the conversation and available functions to GPT
-messages = [{"role": "user", "content": "What's the weather like in Boston?"}]
-functions = [
-    {
-        "name": "get_current_weather",
-        "description": "Get the current weather in a given location",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "The city and state, e.g. San Francisco, CA",
-                },
-                "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
-            },
-            "required": ["location"],
-        },
-    }
-]
-response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
-    messages=messages,
-    tools=functions,
-    tool_choice="auto",
-)
-# ...
+```bash
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+  "model": "gpt-4",
+  "messages": [{"role": "user", "content": "What is the weather like in Beijing now?"}],
+  "tools": [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_weather",
+                "description": "Return the temperature of the specified region specified by the user",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "User specified region"
+                        },
+                        "unit": {
+                            "type": "string",
+                            "enum": ["celsius", "fahrenheit"],
+                            "description": "temperature unit"
+                        }
+                    },
+                    "required": ["location"]
+                }
+            }
+        }
+    ],
+    "tool_choice":"auto"
+}'
 ```
 
-{{% alert note %}}
-When running the python script, be sure to:
+Return data：
 
-- Set `OPENAI_API_KEY` environment variable to a random string (the OpenAI api key is NOT required!)
-- Set `OPENAI_API_BASE` to point to your LocalAI service, for example `OPENAI_API_BASE=http://localhost:8080`
-
-{{% /alert %}}
+```json
+{
+    "created": 1724210813,
+    "object": "chat.completion",
+    "id": "16b57014-477c-4e6b-8d25-aad028a5625e",
+    "model": "gpt-4",
+    "choices": [
+        {
+            "index": 0,
+            "finish_reason": "tool_calls",
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "16b57014-477c-4e6b-8d25-aad028a5625e",
+                        "type": "function",
+                        "function": {
+                            "name": "get_current_weather",
+                            "arguments": "{\"location\":\"Beijing\",\"unit\":\"celsius\"}"
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 221,
+        "completion_tokens": 26,
+        "total_tokens": 247
+    }
+}
+```
 
 ## Advanced
 
