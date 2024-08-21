@@ -32,7 +32,7 @@ require (
 	github.com/libp2p/go-libp2p v0.36.2
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.26
-	github.com/mudler/edgevpn v0.27.2
+	github.com/mudler/edgevpn v0.27.3
 	github.com/mudler/go-processmanager v0.0.0-20230818213616-f204007f963c
 	github.com/mudler/go-stable-diffusion v0.0.0-20240429204715-4a3cd6aeae6f
 	github.com/nomic-ai/gpt4all/gpt4all-bindings/golang v0.0.0-20240606155928-41c9013fa46a
