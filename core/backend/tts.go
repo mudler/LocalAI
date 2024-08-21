@@ -9,31 +9,15 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
-	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 )
-
-func generateUniqueFileName(dir, baseName, ext string) string {
-	counter := 1
-	fileName := baseName + ext
-
-	for {
-		filePath := filepath.Join(dir, fileName)
-		_, err := os.Stat(filePath)
-		if os.IsNotExist(err) {
-			return fileName
-		}
-
-		counter++
-		fileName = fmt.Sprintf("%s_%d%s", baseName, counter, ext)
-	}
-}
 
 func ModelTTS(
 	backend,
 	text,
 	modelFile,
-	voice ,
+	voice,
 	language string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
@@ -66,7 +50,7 @@ func ModelTTS(
 		return "", nil, fmt.Errorf("failed creating audio directory: %s", err)
 	}
 
-	fileName := generateUniqueFileName(appConfig.AudioDir, "tts", ".wav")
+	fileName := utils.GenerateUniqueFileName(appConfig.AudioDir, "tts", ".wav")
 	filePath := filepath.Join(appConfig.AudioDir, fileName)
 
 	// If the model file is not empty, we pass it joined with the model path
@@ -88,10 +72,10 @@ func ModelTTS(
 	}
 
 	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{
-		Text:  text,
-		Model: modelPath,
-		Voice: voice,
-		Dst:   filePath,
+		Text:     text,
+		Model:    modelPath,
+		Voice:    voice,
+		Dst:      filePath,
 		Language: &language,
 	})
 

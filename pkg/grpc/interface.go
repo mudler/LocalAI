@@ -17,6 +17,7 @@ type LLM interface {
 	GenerateImage(*pb.GenerateImageRequest) error
 	AudioTranscription(*pb.TranscriptRequest) (schema.TranscriptionResult, error)
 	TTS(*pb.TTSRequest) error
+	SoundGeneration(*pb.SoundGenerationRequest) error
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
 	Status() (pb.StatusResponse, error)
 
