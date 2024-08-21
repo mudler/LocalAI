@@ -37,6 +37,54 @@ parameters:
   temperature: 0.1
 ```
 
+To use the functions with the OpenAI client in python:
+
+```python
+from openai import OpenAI
+
+# ...
+# Send the conversation and available functions to GPT
+messages = [{"role": "user", "content": "What is the weather like in Beijing now?"}]
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_weather",
+            "description": "Return the temperature of the specified region specified by the user",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "User specified region",
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "temperature unit"
+                    },
+                },
+                "required": ["location"],
+            },
+        },
+    }
+]
+
+client = OpenAI(
+    # This is the default and can be omitted
+    api_key="test",
+    base_url="http://localhost:8080/v1/"
+)
+
+response =client.chat.completions.create(
+    messages=messages,
+    tools=tools,
+    tool_choice ="auto",
+    model="gpt-4",
+)
+#...
+```
+
 For example, with curl:
 
 ```bash
