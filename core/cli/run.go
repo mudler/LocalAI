@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/edgevpn/pkg/node"
+
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
@@ -115,20 +117,52 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
 		}
 		opts = append(opts, config.WithP2PToken(token))
+	}
 
-		node, err := p2p.NewNode(token)
+	backgroundCtx := context.Background()
+
+	var n *node.Node
+	// Avoid creating multiple nodes:
+	// - if the federated mode is enabled, we create a federated node and expose a service
+	// Exposing a service creates a node with specific options, and we don't want to create another node
+
+	// If the federated mode is enabled, we expose a service to the local instance running
+	// at r.Address
+	if r.Federated {
+		_, port, err := net.SplitHostPort(r.Address)
 		if err != nil {
 			return err
 		}
-		nodeContext := context.Background()
 
-		err = node.Start(nodeContext)
+		node, err := p2p.ExposeService(backgroundCtx, "localhost", port, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID))
 		if err != nil {
-			return fmt.Errorf("starting new node: %w", err)
+			return err
+		}
+
+		if err := p2p.ServiceDiscoverer(backgroundCtx, node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
+			return err
+		}
+
+		n = node
+	}
+
+	// If the p2p mode is enabled, we start the service discovery
+	if token != "" {
+		// If a node wasn't created previously, create it
+		if n == nil {
+			node, err := p2p.NewNode(token)
+			if err != nil {
+				return err
+			}
+			err = node.Start(backgroundCtx)
+			if err != nil {
+				return fmt.Errorf("starting new node: %w", err)
+			}
+			n = node
 		}
 
 		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.ServiceDiscoverer(nodeContext, node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
+		if err := p2p.ServiceDiscoverer(backgroundCtx, n, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
 			var tunnelAddresses []string
 			for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID)) {
 				if v.IsOnline() {
@@ -142,23 +176,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
 		}, true); err != nil {
-			return err
-		}
-	}
-
-	if r.Federated {
-		_, port, err := net.SplitHostPort(r.Address)
-		if err != nil {
-			return err
-		}
-		fedCtx := context.Background()
-
-		node, err := p2p.ExposeService(fedCtx, "localhost", port, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID))
-		if err != nil {
-			return err
-		}
-
-		if err := p2p.ServiceDiscoverer(fedCtx, node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
 			return err
 		}
 	}
