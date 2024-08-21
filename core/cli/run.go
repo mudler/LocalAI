@@ -120,9 +120,15 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		if err != nil {
 			return err
 		}
+		nodeContext := context.Background()
+
+		err = node.Start(nodeContext)
+		if err != nil {
+			return fmt.Errorf("starting new node: %w", err)
+		}
 
 		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
+		if err := p2p.ServiceDiscoverer(nodeContext, node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
 			var tunnelAddresses []string
 			for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID)) {
 				if v.IsOnline() {
@@ -146,6 +152,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 		fedCtx := context.Background()
+
 		node, err := p2p.ExposeService(fedCtx, "localhost", port, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID))
 		if err != nil {
 			return err

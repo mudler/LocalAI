@@ -202,13 +202,9 @@ func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID stri
 func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string, allocate bool) (chan NodeData, error) {
 	tunnels := make(chan NodeData)
 
-	err := n.Start(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating a new node: %w", err)
-	}
 	ledger, err := n.Ledger()
 	if err != nil {
-		return nil, fmt.Errorf("creating a new node: %w", err)
+		return nil, fmt.Errorf("getting the ledger: %w", err)
 	}
 	// get new services, allocate and return to the channel
 
