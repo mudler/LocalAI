@@ -23,8 +23,6 @@ func SoundGenerationEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoad
 			return err
 		}
 
-		log.Debug().Msgf("\n\n>>> TMP after parse: %+v\n\n", input)
-
 		modelFile, err := fiberContext.ModelFromContext(c, cl, ml, input.ModelID, false)
 		if err != nil {
 			modelFile = input.ModelID
