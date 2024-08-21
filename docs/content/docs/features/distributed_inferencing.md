@@ -130,8 +130,10 @@ There are options that can be tweaked or parameters that can be set using enviro
 | Environment Variable | Description |
 |----------------------|-------------|
 | **LOCALAI_P2P_DISABLE_DHT** | Set to "true" to disable DHT and enable p2p layer to be local only (mDNS) |
-| **LOCALAI_P2P_DISABLE_LIMITS** | Set to "true" to disable connection limits and resources management |
+| **LOCALAI_P2P_ENABLE_LIMITS** | Set to "true" to enable connection limits and resources management (useful when running with poor connectivity or want to limit resources consumption) |
 | **LOCALAI_P2P_TOKEN** | Set the token for the p2p network |
+| **LOCALAI_P2P_LOGLEVEL** | Set the loglevel for the LocalAI p2p stack (default: info) |
+| **LOCALAI_LIBP2P_LOGLEVEL** | Set the loglevel for the underlying libp2p stack (default: fatal) |
 
 ## Architecture
 
