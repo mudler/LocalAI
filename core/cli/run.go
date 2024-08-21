@@ -3,11 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"net"
-	"os"
 	"strings"
 	"time"
 
+	cli_api "github.com/mudler/LocalAI/core/cli/api"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
@@ -115,52 +114,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
 		}
 		opts = append(opts, config.WithP2PToken(token))
-
-		node, err := p2p.NewNode(token)
-		if err != nil {
-			return err
-		}
-		nodeContext := context.Background()
-
-		err = node.Start(nodeContext)
-		if err != nil {
-			return fmt.Errorf("starting new node: %w", err)
-		}
-
-		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.ServiceDiscoverer(nodeContext, node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
-			var tunnelAddresses []string
-			for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID)) {
-				if v.IsOnline() {
-					tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
-				} else {
-					log.Info().Msgf("Node %s is offline", v.ID)
-				}
-			}
-			tunnelEnvVar := strings.Join(tunnelAddresses, ",")
-
-			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
-			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
-		}, true); err != nil {
-			return err
-		}
 	}
 
-	if r.Federated {
-		_, port, err := net.SplitHostPort(r.Address)
-		if err != nil {
-			return err
-		}
-		fedCtx := context.Background()
+	backgroundCtx := context.Background()
 
-		node, err := p2p.ExposeService(fedCtx, "localhost", port, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID))
-		if err != nil {
-			return err
-		}
-
-		if err := p2p.ServiceDiscoverer(fedCtx, node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
-			return err
-		}
+	if err := cli_api.StartP2PStack(backgroundCtx, r.Address, token, r.Peer2PeerNetworkID, r.Federated); err != nil {
+		return err
 	}
 
 	idleWatchDog := r.EnableWatchdogIdle
