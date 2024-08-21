@@ -10,7 +10,7 @@ import (
 	"github.com/mudler/edgevpn/pkg/node"
 )
 
-func GenerateToken() string {
+func GenerateToken(DHTInterval, OTPInterval int) string {
 	return "not implemented"
 }
 
@@ -22,8 +22,8 @@ func ServiceDiscoverer(ctx context.Context, node *node.Node, token, servicesID s
 	return fmt.Errorf("not implemented")
 }
 
-func ExposeService(ctx context.Context, host, port, token, servicesID string) error {
-	return fmt.Errorf("not implemented")
+func ExposeService(ctx context.Context, host, port, token, servicesID string) (*node.Node, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func IsP2PEnabled() bool {

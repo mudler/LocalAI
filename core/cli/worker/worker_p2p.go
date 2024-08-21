@@ -60,49 +60,47 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			p = r.RunnerPort
 		}
 
-		err = p2p.ExposeService(context.Background(), address, p, r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
+		_, err = p2p.ExposeService(context.Background(), address, p, r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
 		if err != nil {
 			return err
 		}
 		log.Info().Msgf("You need to start llama-cpp-rpc-server on '%s:%s'", address, p)
+	} else {
+		// Start llama.cpp directly from the version we have pre-packaged
+		go func() {
+			for {
+				log.Info().Msgf("Starting llama-cpp-rpc-server on '%s:%d'", address, port)
 
-		return nil
-	}
+				grpcProcess := assets.ResolvePath(
+					r.BackendAssetsPath,
+					"util",
+					"llama-cpp-rpc-server",
+				)
 
-	// Start llama.cpp directly from the version we have pre-packaged
-	go func() {
-		for {
-			log.Info().Msgf("Starting llama-cpp-rpc-server on '%s:%d'", address, port)
+				args := append([]string{"--host", address, "--port", fmt.Sprint(port)}, r.ExtraLLamaCPPArgs...)
+				args, grpcProcess = library.LoadLDSO(r.BackendAssetsPath, args, grpcProcess)
 
-			grpcProcess := assets.ResolvePath(
-				r.BackendAssetsPath,
-				"util",
-				"llama-cpp-rpc-server",
-			)
+				cmd := exec.Command(
+					grpcProcess, args...,
+				)
 
-			args := append([]string{"--host", address, "--port", fmt.Sprint(port)}, r.ExtraLLamaCPPArgs...)
-			args, grpcProcess = library.LoadLDSO(r.BackendAssetsPath, args, grpcProcess)
+				cmd.Env = os.Environ()
 
-			cmd := exec.Command(
-				grpcProcess, args...,
-			)
+				cmd.Stderr = os.Stdout
+				cmd.Stdout = os.Stdout
 
-			cmd.Env = os.Environ()
+				if err := cmd.Start(); err != nil {
+					log.Error().Any("grpcProcess", grpcProcess).Any("args", args).Err(err).Msg("Failed to start llama-cpp-rpc-server")
+				}
 
-			cmd.Stderr = os.Stdout
-			cmd.Stdout = os.Stdout
-
-			if err := cmd.Start(); err != nil {
-				log.Error().Any("grpcProcess", grpcProcess).Any("args", args).Err(err).Msg("Failed to start llama-cpp-rpc-server")
+				cmd.Wait()
 			}
+		}()
 
-			cmd.Wait()
+		_, err = p2p.ExposeService(context.Background(), address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
+		if err != nil {
+			return err
 		}
-	}()
-
-	err = p2p.ExposeService(context.Background(), address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
-	if err != nil {
-		return err
 	}
 
 	for {

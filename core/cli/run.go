@@ -3,11 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"net"
-	"os"
 	"strings"
 	"time"
 
+	cli_api "github.com/mudler/LocalAI/core/cli/api"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
@@ -53,6 +52,8 @@ type RunCMD struct {
 	DisablePredownloadScan bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
 	OpaqueErrors           bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
 	Peer2Peer              bool     `env:"LOCALAI_P2P,P2P" name:"p2p" default:"false" help:"Enable P2P mode" group:"p2p"`
+	Peer2PeerDHTInterval   int      `env:"LOCALAI_P2P_DHT_INTERVAL,P2P_DHT_INTERVAL" default:"360" name:"p2p-dht-interval" help:"Interval for DHT refresh (used during token generation)" group:"p2p"`
+	Peer2PeerOTPInterval   int      `env:"LOCALAI_P2P_OTP_INTERVAL,P2P_OTP_INTERVAL" default:"9000" name:"p2p-otp-interval" help:"Interval for OTP refresh (used during token generation)" group:"p2p"`
 	Peer2PeerToken         string   `env:"LOCALAI_P2P_TOKEN,P2P_TOKEN,TOKEN" name:"p2ptoken" help:"Token for P2P mode (optional)" group:"p2p"`
 	Peer2PeerNetworkID     string   `env:"LOCALAI_P2P_NETWORK_ID,P2P_NETWORK_ID" help:"Network ID for P2P mode, can be set arbitrarly by the user for grouping a set of instances" group:"p2p"`
 	ParallelRequests       bool     `env:"LOCALAI_PARALLEL_REQUESTS,PARALLEL_REQUESTS" help:"Enable backends to handle multiple requests in parallel if they support it (e.g.: llama.cpp or vllm)" group:"backends"`
@@ -107,7 +108,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			// IF no token is provided, and p2p is enabled,
 			// we generate one and wait for the user to pick up the token (this is for interactive)
 			log.Info().Msg("No token provided, generating one")
-			token = p2p.GenerateToken()
+			token = p2p.GenerateToken(r.Peer2PeerDHTInterval, r.Peer2PeerOTPInterval)
 			log.Info().Msg("Generated Token:")
 			fmt.Println(token)
 
@@ -115,47 +116,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
 		}
 		opts = append(opts, config.WithP2PToken(token))
-
-		node, err := p2p.NewNode(token)
-		if err != nil {
-			return err
-		}
-
-		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
-			var tunnelAddresses []string
-			for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID)) {
-				if v.IsOnline() {
-					tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
-				} else {
-					log.Info().Msgf("Node %s is offline", v.ID)
-				}
-			}
-			tunnelEnvVar := strings.Join(tunnelAddresses, ",")
-
-			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
-			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
-		}, true); err != nil {
-			return err
-		}
 	}
 
-	if r.Federated {
-		_, port, err := net.SplitHostPort(r.Address)
-		if err != nil {
-			return err
-		}
-		if err := p2p.ExposeService(context.Background(), "localhost", port, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID)); err != nil {
-			return err
-		}
-		node, err := p2p.NewNode(token)
-		if err != nil {
-			return err
-		}
+	backgroundCtx := context.Background()
 
-		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
-			return err
-		}
+	if err := cli_api.StartP2PStack(backgroundCtx, r.Address, token, r.Peer2PeerNetworkID, r.Federated); err != nil {
+		return err
 	}
 
 	idleWatchDog := r.EnableWatchdogIdle

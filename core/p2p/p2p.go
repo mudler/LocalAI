@@ -28,9 +28,15 @@ import (
 	"github.com/mudler/edgevpn/pkg/logger"
 )
 
-func generateNewConnectionData() *node.YAMLConnectionConfig {
+func generateNewConnectionData(DHTInterval, OTPInterval int) *node.YAMLConnectionConfig {
 	maxMessSize := 20 << 20 // 20MB
 	keyLength := 43
+	if DHTInterval == 0 {
+		DHTInterval = 360
+	}
+	if OTPInterval == 0 {
+		OTPInterval = 9000
+	}
 
 	return &node.YAMLConnectionConfig{
 		MaxMessageSize: maxMessSize,
@@ -40,21 +46,21 @@ func generateNewConnectionData() *node.YAMLConnectionConfig {
 		OTP: node.OTP{
 			DHT: node.OTPConfig{
 				Key:      eutils.RandStringRunes(keyLength),
-				Interval: 120,
+				Interval: DHTInterval,
 				Length:   keyLength,
 			},
 			Crypto: node.OTPConfig{
 				Key:      eutils.RandStringRunes(keyLength),
-				Interval: 9000,
+				Interval: OTPInterval,
 				Length:   keyLength,
 			},
 		},
 	}
 }
 
-func GenerateToken() string {
+func GenerateToken(DHTInterval, OTPInterval int) string {
 	// Generates a new config and exit
-	return generateNewConnectionData().Base64()
+	return generateNewConnectionData(DHTInterval, OTPInterval).Base64()
 }
 
 func IsP2PEnabled() bool {
@@ -66,22 +72,7 @@ func nodeID(s string) string {
 	return fmt.Sprintf("%s-%s", hostname, s)
 }
 
-func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, service string) error {
-
-	zlog.Info().Msgf("Allocating service '%s' on: %s", service, listenAddr)
-	// Open local port for listening
-	l, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		zlog.Error().Err(err).Msg("Error listening")
-		return err
-	}
-	go func() {
-		<-ctx.Done()
-		l.Close()
-	}()
-
-	//	ll.Info("Binding local port on", srcaddr)
-
+func nodeAnnounce(ctx context.Context, node *node.Node) {
 	ledger, _ := node.Ledger()
 
 	// Announce ourselves so nodes accepts our connection
@@ -97,6 +88,66 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 			ledger.Add(protocol.UsersLedgerKey, updatedMap)
 		},
 	)
+}
+
+func proxyP2PConnection(ctx context.Context, node *node.Node, serviceID string, conn net.Conn) {
+	ledger, _ := node.Ledger()
+	// Retrieve current ID for ip in the blockchain
+	existingValue, found := ledger.GetKey(protocol.ServicesLedgerKey, serviceID)
+	service := &types.Service{}
+	existingValue.Unmarshal(service)
+	// If mismatch, update the blockchain
+	if !found {
+		zlog.Error().Msg("Service not found on blockchain")
+		conn.Close()
+		//	ll.Debugf("service '%s' not found on blockchain", serviceID)
+		return
+	}
+
+	// Decode the Peer
+	d, err := peer.Decode(service.PeerID)
+	if err != nil {
+		zlog.Error().Msg("cannot decode peer")
+
+		conn.Close()
+		//	ll.Debugf("could not decode peer '%s'", service.PeerID)
+		return
+	}
+
+	// Open a stream
+	stream, err := node.Host().NewStream(ctx, d, protocol.ServiceProtocol.ID())
+	if err != nil {
+		zlog.Error().Err(err).Msg("cannot open stream peer")
+
+		conn.Close()
+		//	ll.Debugf("could not open stream '%s'", err.Error())
+		return
+	}
+	//	ll.Debugf("(service %s) Redirecting", serviceID, l.Addr().String())
+	zlog.Info().Msgf("Redirecting %s to %s", conn.LocalAddr().String(), stream.Conn().RemoteMultiaddr().String())
+	closer := make(chan struct{}, 2)
+	go copyStream(closer, stream, conn)
+	go copyStream(closer, conn, stream)
+	<-closer
+
+	stream.Close()
+	conn.Close()
+}
+
+func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, service string) error {
+	zlog.Info().Msgf("Allocating service '%s' on: %s", service, listenAddr)
+	// Open local port for listening
+	l, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		zlog.Error().Err(err).Msg("Error listening")
+		return err
+	}
+	go func() {
+		<-ctx.Done()
+		l.Close()
+	}()
+
+	nodeAnnounce(ctx, node)
 
 	defer l.Close()
 	for {
@@ -114,47 +165,7 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 
 			// Handle connections in a new goroutine, forwarding to the p2p service
 			go func() {
-				// Retrieve current ID for ip in the blockchain
-				existingValue, found := ledger.GetKey(protocol.ServicesLedgerKey, service)
-				service := &types.Service{}
-				existingValue.Unmarshal(service)
-				// If mismatch, update the blockchain
-				if !found {
-					zlog.Error().Msg("Service not found on blockchain")
-					conn.Close()
-					//	ll.Debugf("service '%s' not found on blockchain", serviceID)
-					return
-				}
-
-				// Decode the Peer
-				d, err := peer.Decode(service.PeerID)
-				if err != nil {
-					zlog.Error().Msg("cannot decode peer")
-
-					conn.Close()
-					//	ll.Debugf("could not decode peer '%s'", service.PeerID)
-					return
-				}
-
-				// Open a stream
-				stream, err := node.Host().NewStream(ctx, d, protocol.ServiceProtocol.ID())
-				if err != nil {
-					zlog.Error().Msg("cannot open stream peer")
-
-					conn.Close()
-					//	ll.Debugf("could not open stream '%s'", err.Error())
-					return
-				}
-				//	ll.Debugf("(service %s) Redirecting", serviceID, l.Addr().String())
-				zlog.Info().Msgf("Redirecting %s to %s", conn.LocalAddr().String(), stream.Conn().RemoteMultiaddr().String())
-				closer := make(chan struct{}, 2)
-				go copyStream(closer, stream, conn)
-				go copyStream(closer, conn, stream)
-				<-closer
-
-				stream.Close()
-				conn.Close()
-				//	ll.Infof("(service %s) Done handling %s", serviceID, l.Addr().String())
+				proxyP2PConnection(ctx, node, service, conn)
 			}()
 		}
 	}
@@ -197,13 +208,9 @@ func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID stri
 func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string, allocate bool) (chan NodeData, error) {
 	tunnels := make(chan NodeData)
 
-	err := n.Start(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating a new node: %w", err)
-	}
 	ledger, err := n.Ledger()
 	if err != nil {
-		return nil, fmt.Errorf("creating a new node: %w", err)
+		return nil, fmt.Errorf("getting the ledger: %w", err)
 	}
 	// get new services, allocate and return to the channel
 
@@ -258,6 +265,7 @@ var muservice sync.Mutex
 func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string, allocate bool) {
 	muservice.Lock()
 	defer muservice.Unlock()
+	nd.ServiceID = sserv
 	if ndService, found := service[nd.Name]; !found {
 		if !nd.IsOnline() {
 			// if node is offline and not present, do nothing
@@ -303,7 +311,7 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 }
 
 // This is the P2P worker main
-func ExposeService(ctx context.Context, host, port, token, servicesID string) error {
+func ExposeService(ctx context.Context, host, port, token, servicesID string) (*node.Node, error) {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
@@ -311,7 +319,7 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 
 	nodeOpts, err := newNodeOpts(token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// generate a random string for the name
 	name := utils.RandString(10)
@@ -321,17 +329,17 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 		services.RegisterService(llger, time.Duration(60)*time.Second, name, fmt.Sprintf("%s:%s", host, port))...)
 	n, err := node.New(nodeOpts...)
 	if err != nil {
-		return fmt.Errorf("creating a new node: %w", err)
+		return nil, fmt.Errorf("creating a new node: %w", err)
 	}
 
 	err = n.Start(ctx)
 	if err != nil {
-		return fmt.Errorf("creating a new node: %w", err)
+		return n, fmt.Errorf("creating a new node: %w", err)
 	}
 
 	ledger, err := n.Ledger()
 	if err != nil {
-		return fmt.Errorf("creating a new node: %w", err)
+		return n, fmt.Errorf("creating a new node: %w", err)
 	}
 
 	ledger.Announce(
@@ -348,7 +356,7 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) er
 		},
 	)
 
-	return err
+	return n, err
 }
 
 func NewNode(token string) (*node.Node, error) {

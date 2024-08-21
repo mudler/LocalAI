@@ -1071,6 +1071,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "serviceID": {
+                    "type": "string"
+                },
                 "tunnelAddress": {
                     "type": "string"
                 }
