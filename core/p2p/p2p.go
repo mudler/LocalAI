@@ -28,9 +28,15 @@ import (
 	"github.com/mudler/edgevpn/pkg/logger"
 )
 
-func generateNewConnectionData() *node.YAMLConnectionConfig {
+func generateNewConnectionData(DHTInterval, OTPInterval int) *node.YAMLConnectionConfig {
 	maxMessSize := 20 << 20 // 20MB
 	keyLength := 43
+	if DHTInterval == 0 {
+		DHTInterval = 360
+	}
+	if OTPInterval == 0 {
+		OTPInterval = 9000
+	}
 
 	return &node.YAMLConnectionConfig{
 		MaxMessageSize: maxMessSize,
@@ -40,21 +46,21 @@ func generateNewConnectionData() *node.YAMLConnectionConfig {
 		OTP: node.OTP{
 			DHT: node.OTPConfig{
 				Key:      eutils.RandStringRunes(keyLength),
-				Interval: 120,
+				Interval: DHTInterval,
 				Length:   keyLength,
 			},
 			Crypto: node.OTPConfig{
 				Key:      eutils.RandStringRunes(keyLength),
-				Interval: 9000,
+				Interval: OTPInterval,
 				Length:   keyLength,
 			},
 		},
 	}
 }
 
-func GenerateToken() string {
+func GenerateToken(DHTInterval, OTPInterval int) string {
 	// Generates a new config and exit
-	return generateNewConnectionData().Base64()
+	return generateNewConnectionData(DHTInterval, OTPInterval).Base64()
 }
 
 func IsP2PEnabled() bool {
@@ -202,13 +208,9 @@ func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID stri
 func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string, allocate bool) (chan NodeData, error) {
 	tunnels := make(chan NodeData)
 
-	err := n.Start(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating a new node: %w", err)
-	}
 	ledger, err := n.Ledger()
 	if err != nil {
-		return nil, fmt.Errorf("creating a new node: %w", err)
+		return nil, fmt.Errorf("getting the ledger: %w", err)
 	}
 	// get new services, allocate and return to the channel
 
