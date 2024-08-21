@@ -10,7 +10,7 @@ import (
 	"github.com/mudler/edgevpn/pkg/node"
 )
 
-func GenerateToken() string {
+func GenerateToken(DHTInterval, OTPInterval int) string {
 	return "not implemented"
 }
 
