@@ -262,6 +262,8 @@ definitions:
         type: string
       name:
         type: string
+      serviceID:
+        type: string
       tunnelAddress:
         type: string
     type: object

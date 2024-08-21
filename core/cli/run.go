@@ -145,15 +145,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := p2p.ExposeService(context.Background(), "localhost", port, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID)); err != nil {
-			return err
-		}
-		node, err := p2p.NewNode(token)
+		fedCtx := context.Background()
+		node, err := p2p.ExposeService(fedCtx, "localhost", port, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID))
 		if err != nil {
 			return err
 		}
 
-		if err := p2p.ServiceDiscoverer(context.Background(), node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
+		if err := p2p.ServiceDiscoverer(fedCtx, node, token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.FederatedID), nil, false); err != nil {
 			return err
 		}
 	}

@@ -40,9 +40,9 @@ func (fs *FederatedServer) RandomServer() string {
 	var tunnelAddresses []string
 	for _, v := range GetAvailableNodes(fs.service) {
 		if v.IsOnline() {
-			tunnelAddresses = append(tunnelAddresses, v.TunnelAddress)
+			tunnelAddresses = append(tunnelAddresses, v.ID)
 		} else {
-			delete(fs.requestTable, v.TunnelAddress) // make sure it's not tracked
+			delete(fs.requestTable, v.ID) // make sure it's not tracked
 			log.Info().Msgf("Node %s is offline", v.ID)
 		}
 	}
@@ -61,8 +61,8 @@ func (fs *FederatedServer) syncTableStatus() {
 
 	for _, v := range GetAvailableNodes(fs.service) {
 		if v.IsOnline() {
-			fs.ensureRecordExist(v.TunnelAddress)
-			currentTunnels[v.TunnelAddress] = struct{}{}
+			fs.ensureRecordExist(v.ID)
+			currentTunnels[v.ID] = struct{}{}
 		}
 	}
 
