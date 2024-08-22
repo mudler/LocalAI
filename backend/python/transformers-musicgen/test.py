@@ -90,7 +90,7 @@ class TestBackendServicer(unittest.TestCase):
                 stub = backend_pb2_grpc.BackendStub(channel)
                 response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
                 self.assertTrue(response.success)
-                sg_request = backend_pb2.SoundGeneration(text="80s TV news production music hit for tonight's biggest story")
+                sg_request = backend_pb2.SoundGenerationRequest(text="80s TV news production music hit for tonight's biggest story")
                 sg_response = stub.SoundGeneration(sg_request)
                 self.assertIsNotNone(sg_response)
         except Exception as err:
