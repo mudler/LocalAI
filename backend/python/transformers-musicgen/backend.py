@@ -69,7 +69,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return backend_pb2.Result(success=False, message="request.model is required")
         try:
             self.processor = AutoProcessor.from_pretrained(model_name)
-            self.model = MusicgenForConditionalGeneration.from_pretrained(model_name)s
+            self.model = MusicgenForConditionalGeneration.from_pretrained(model_name)
             inputs = None
             if request.text == "":
                 inputs = self.model.get_unconditional_inputs(num_samples=1)
