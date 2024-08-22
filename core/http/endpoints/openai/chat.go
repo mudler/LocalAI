@@ -25,9 +25,8 @@ import (
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
 func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	textContentToReturn := ""
-	id := uuid.New().String()
-	created := int(time.Now().Unix())
+	var id, textContentToReturn string
+	var created int
 
 	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		initialMessage := schema.OpenAIResponse{
@@ -159,6 +158,10 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 	}
 
 	return func(c *fiber.Ctx) error {
+		textContentToReturn = ""
+		id = uuid.New().String()
+		created = int(time.Now().Unix())
+
 		modelFile, input, err := readRequest(c, cl, ml, startupOptions, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
