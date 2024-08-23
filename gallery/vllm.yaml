@@ -2,6 +2,9 @@
 name: "vllm"
 
 config_file: |
+    context_size: 8192
+    parameters:
+      max_tokens: 8192
     backend: vllm
     function:
       disable_no_action: true
