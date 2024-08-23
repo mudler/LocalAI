@@ -3,6 +3,8 @@ name: "hermes-vllm"
 
 config_file: |
     backend: vllm
+    parameters:
+      max_tokens: 8192
     context_size: 8192
     stopwords:
     - "<|im_end|>"
