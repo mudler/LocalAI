@@ -294,13 +294,15 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		if uri, ok := o.externalBackends[backend]; ok {
 			log.Debug().Msgf("Loading external backend: %s", uri)
 			// check if uri is a file or a address
-			if _, err := os.Stat(uri); err == nil {
+			if fi, err := os.Stat(uri); err == nil {
+				log.Debug().Msgf("external backend is file: %+v", fi)
 				serverAddress, err := getFreeAddress()
 				if err != nil {
 					return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
 				}
 				// Make sure the process is executable
 				if err := ml.startProcess(uri, o.model, serverAddress); err != nil {
+					log.Error().Err(err).Str("path", uri).Msg("failed to launch ")
 					return "", err
 				}
 
@@ -308,6 +310,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 				client = ModelAddress(serverAddress)
 			} else {
+				log.Debug().Msg("external backend is uri")
 				// address
 				client = ModelAddress(uri)
 			}
