@@ -133,5 +133,14 @@ parameters:
 		Expect(g.HasUsecases(FLAG_TRANSCRIPT)).To(BeTrue())
 		Expect(g.HasUsecases(FLAG_TTS)).To(BeFalse())
 
+		h := BackendConfig{
+			Name:    "h",
+			Backend: "transformers-musicgen",
+		}
+		Expect(h.HasUsecases(FLAG_ANY)).To(BeTrue())
+		Expect(h.HasUsecases(FLAG_TRANSCRIPT)).To(BeFalse())
+		Expect(h.HasUsecases(FLAG_TTS)).To(BeTrue())
+		Expect(h.HasUsecases(FLAG_SOUND_GENERATION)).To(BeTrue())
+
 	})
 })
