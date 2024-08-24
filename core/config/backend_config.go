@@ -433,6 +433,9 @@ const (
 // This is a **heuristic based** function, as the backend in question may not be loaded yet.
 // In the future, we may wish to consider storing this information in the config directly (which could get out of date)
 // or alternatively interrogating the backends (not always loaded) or loading the "implemented services" earlier with external backend registry?
+//
+// In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
+// This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 	if (u & FLAG_CHAT) == FLAG_CHAT {
 		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
