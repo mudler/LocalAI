@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -79,11 +80,17 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	log.Debug().Msgf("GRPC Service for %s will be running at: '%s'", id, serverAddress)
 
+	workDir, err := filepath.Abs(filepath.Dir(grpcProcess))
+	if err != nil {
+		return err
+	}
+
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
-		process.WithName(grpcProcess),
+		process.WithName(filepath.Base(grpcProcess)),
 		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(os.Environ()...),
+		process.WithWorkDir(workDir),
 	)
 
 	if ml.wd != nil {

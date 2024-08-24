@@ -133,6 +133,10 @@ Due to the nature of ROCm it is best to run all implementations in containers as
 Ongoing verification testing of ROCm compatability with integrated backends.
 Please note the following list of verified backends and devices.
 
+LocalAI hipblas images are built against the following targets: gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
+
+If your device is not one of these you must specify the corresponding `GPU_TARGETS` and specify `REBUILD=true`. Otherwise you don't need to specify these in the commands below.
+
 ### Verified 
 
 The devices in the following list have been tested with `hipblas` images running `ROCm 6.0.0`

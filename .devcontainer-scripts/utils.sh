@@ -35,8 +35,9 @@ config_remote() {
 #
 # Param 1: bash array, filenames relative to the customization directory that should be copied to ~/.ssh
 setup_ssh() {
+    mkdir -p ~/.ssh
     local files=("$@")
-    for file in "${files[@]}"; then
+    for file in "${files[@]}" ; do
         local cfile="/devcontainer-customization/${file}"
         local hfile="~/.ssh/${file}"
         if [ ! -f "${hfile}" ]; then

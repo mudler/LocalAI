@@ -86,6 +86,24 @@
       sha256: c2f17f44af962660d1ad4cb1af91a731f219f3b326c2b14441f9df1f347f2815
       uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf
 - !!merge <<: *llama31
+  name: "meta-llama-3.1-8b-instruct:Q8_grammar-functioncall"
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct-grammar.yaml@master"
+  urls:
+    - https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct
+    - https://huggingface.co/MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF
+  description: |
+    This is the standard Llama 3.1 8B Instruct model with grammar and function call enabled.
+
+    When grammars are enabled in LocalAI, the LLM is forced to output valid tools constrained by BNF grammars. This can be useful for ensuring that the model outputs are valid and can be used in a production environment.
+    For more information on how to use grammars in LocalAI, see https://localai.io/features/openai-functions/#advanced and https://localai.io/features/constrained_grammars/.
+  overrides:
+    parameters:
+      model: Meta-Llama-3.1-8B-Instruct.Q8_0.gguf
+  files:
+    - filename: Meta-Llama-3.1-8B-Instruct.Q8_0.gguf
+      sha256: f8d608c983b83a1bf28229bc9beb4294c91f5d4cbfe2c1829566b4d7c4693eeb
+      uri: huggingface://MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct.Q8_0.gguf
+- !!merge <<: *llama31
   name: "meta-llama-3.1-8b-claude-imat"
   urls:
     - https://huggingface.co/Undi95/Meta-Llama-3.1-8B-Claude
@@ -4738,6 +4756,21 @@
       sha256: d4403ce5a6e930f4c2509456388c20d633a15ff08dd52ef3b142ff1810ec3553
       uri: huggingface://NousResearch/Hermes-3-Llama-3.1-8B-GGUF/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf
 - !!merge <<: *hermes-2-pro-mistral
+  name: "hermes-3-llama-3.1-8b:Q8"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/bMcZ3sNNQK8SRZpHXBmwM.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF
+  description: |
+    Hermes 3 is a generalist language model developed by Nous Research. It is an advanced agentic model with improved roleplaying, reasoning, multi-turn conversation, long context coherence, and generalist assistant capabilities. The model is built on top of the Llama-3 architecture and has been fine-tuned to achieve superior performance in various tasks. It is designed to be a powerful and reliable tool for solving complex problems and assisting users in achieving their goals. Hermes 3 can be used for a wide range of applications, including research, education, and personal assistant tasks. It is available on the Hugging Face model hub for easy access and integration into existing workflows.
+  overrides:
+    parameters:
+      model: Hermes-3-Llama-3.1-8B.Q8_0.gguf
+  files:
+    - filename: Hermes-3-Llama-3.1-8B.Q8_0.gguf
+      sha256: c77c263f78b2f56fbaddd3ef2af750fda6ebb4344a546aaa0bfdd546b1ca8d84
+      uri: huggingface://NousResearch/Hermes-3-Llama-3.1-8B-GGUF/Hermes-3-Llama-3.1-8B.Q8_0.gguf
+- !!merge <<: *hermes-2-pro-mistral
   name: "hermes-3-llama-3.1-70b"
   icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/vG6j5WxHX09yj32vgjJlI.jpeg
   urls:
@@ -4752,6 +4785,53 @@
     - filename: Hermes-3-Llama-3.1-70B.Q4_K_M.gguf
       sha256: 955c2f42caade4278f3c9dbffa32bb74572652b20e49e5340e782de3585bbe3f
       uri: huggingface://NousResearch/Hermes-3-Llama-3.1-70B-GGUF/Hermes-3-Llama-3.1-70B.Q4_K_M.gguf
+- !!merge <<: *hermes-2-pro-mistral
+  name: "hermes-3-llama-3.1-70b:Q5_K_M"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/vG6j5WxHX09yj32vgjJlI.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-70B
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-70B-GGUF
+  description: |
+    Hermes 3 is a generalist language model with many improvements over Hermes 2, including advanced agentic capabilities, much better roleplaying, reasoning, multi-turn conversation, long context coherence, and improvements across the board. It is designed to focus on aligning LLMs to the user, with powerful steering capabilities and control given to the end user. The model uses ChatML as the prompt format, opening up a much more structured system for engaging the LLM in multi-turn chat dialogue. It also supports function calling and structured output capabilities, generalist assistant capabilities, and improved code generation skills.
+  overrides:
+    parameters:
+      model: Hermes-3-Llama-3.1-70B.Q5_K_M.gguf
+  files:
+    - filename: Hermes-3-Llama-3.1-70B.Q5_K_M.gguf
+      sha256: 10ae3e0441b14c4a6476436f3c14e8bcacc7928aa3e8ce978d053287289a7ebb
+      uri: huggingface://NousResearch/Hermes-3-Llama-3.1-70B-GGUF/Hermes-3-Llama-3.1-70B.Q5_K_M.gguf
+- &hermes-vllm
+  url: "github:mudler/LocalAI/gallery/hermes-vllm.yaml@master"
+  name: "hermes-3-llama-3.1-8b:vllm"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/vG6j5WxHX09yj32vgjJlI.jpeg
+  tags:
+    - llm
+    - vllm
+    - gpu
+    - function-calling
+  license: llama-3
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B
+  description: |
+    Hermes 3 is a generalist language model with many improvements over Hermes 2, including advanced agentic capabilities, much better roleplaying, reasoning, multi-turn conversation, long context coherence, and improvements across the board. It is designed to focus on aligning LLMs to the user, with powerful steering capabilities and control given to the end user. The model uses ChatML as the prompt format, opening up a much more structured system for engaging the LLM in multi-turn chat dialogue. It also supports function calling and structured output capabilities, generalist assistant capabilities, and improved code generation skills.
+  overrides:
+    parameters:
+      model: NousResearch/Hermes-3-Llama-3.1-8B
+- !!merge <<: *hermes-vllm
+  name: "hermes-3-llama-3.1-70b:vllm"
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-70B
+  overrides:
+    parameters:
+      model: NousResearch/Hermes-3-Llama-3.1-70B
+- !!merge <<: *hermes-vllm
+  name: "hermes-3-llama-3.1-405b:vllm"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/-kj_KflXsdpcZoTQsvx7W.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-405B
+  overrides:
+    parameters:
+      model: NousResearch/Hermes-3-Llama-3.1-405B
 - !!merge <<: *hermes-2-pro-mistral
   name: "biomistral-7b"
   description: |
