@@ -656,6 +656,30 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/sound-generation": {
+            "post": {
+                "summary": "Generates audio from the input text.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ElevenLabsSoundGenerationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/text-to-speech/{voice-id}": {
             "post": {
                 "summary": "Generates audio from the input text.",
@@ -1157,6 +1181,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ElevenLabsSoundGenerationRequest": {
+            "type": "object",
+            "properties": {
+                "do_sample": {
+                    "type": "boolean"
+                },
+                "duration_seconds": {
+                    "type": "number"
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "prompt_influence": {
+                    "type": "number"
+                },
+                "text": {
                     "type": "string"
                 }
             }
