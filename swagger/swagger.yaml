@@ -322,6 +322,19 @@ definitions:
       object:
         type: string
     type: object
+  schema.ElevenLabsSoundGenerationRequest:
+    properties:
+      do_sample:
+        type: boolean
+      duration_seconds:
+        type: number
+      model_id:
+        type: string
+      prompt_influence:
+        type: number
+      text:
+        type: string
+    type: object
   schema.File:
     properties:
       bytes:
@@ -1066,6 +1079,21 @@ paths:
           schema:
             $ref: '#/definitions/schema.JINARerankResponse'
       summary: Reranks a list of phrases by relevance to a given text query.
+  /v1/sound-generation:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ElevenLabsSoundGenerationRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Generates audio from the input text.
   /v1/text-to-speech/{voice-id}:
     post:
       parameters:
