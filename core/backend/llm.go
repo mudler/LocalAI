@@ -87,7 +87,7 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			case string:
 				protoMessages[i].Content = ct
 			default:
-				return nil, fmt.Errorf("Unsupported type for schema.Message.Content for inference: %T", ct)
+				return nil, fmt.Errorf("unsupported type for schema.Message.Content for inference: %T", ct)
 			}
 		}
 	}

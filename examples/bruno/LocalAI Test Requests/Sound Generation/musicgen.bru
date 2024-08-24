@@ -1,0 +1,23 @@
+meta {
+  name: musicgen
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/v1/sound-generation
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "model_id": "facebook/musicgen-small",
+      "text": "Exciting 80s Newscast Interstitial",
+      "duration_seconds": 8
+  }
+}
