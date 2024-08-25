@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// WatchDog tracks all the requests from GRPC clients.
 // All GRPC Clients created by ModelLoader should have an associated injected
 // watchdog that will keep track of the state of each backend (busy or not)
 // and for how much time it has been busy.
@@ -15,7 +16,6 @@ import (
 // force a reload of the model
 // The watchdog runs as a separate go routine,
 // and the GRPC client talks to it via a channel to send status updates
-
 type WatchDog struct {
 	sync.Mutex
 	timetable            map[string]time.Time

@@ -80,6 +80,9 @@ ENTRY:
 		if e.IsDir() {
 			continue
 		}
+		if strings.HasSuffix(e.Name(), ".log") {
+			continue
+		}
 
 		// Skip the llama.cpp variants if we are autoDetecting
 		// But we always load the fallback variant if it exists
@@ -265,12 +268,12 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
 // It also loads the model
-func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string) (ModelAddress, error) {
-	return func(modelName, modelFile string) (ModelAddress, error) {
+func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string) (*Model, error) {
+	return func(modelName, modelFile string) (*Model, error) {
 
 		log.Debug().Msgf("Loading Model %s with gRPC (file: %s) (backend: %s): %+v", modelName, modelFile, backend, *o)
 
-		var client ModelAddress
+		var client *Model
 
 		getFreeAddress := func() (string, error) {
 			port, err := freeport.GetFreePort()
@@ -298,26 +301,26 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				log.Debug().Msgf("external backend is file: %+v", fi)
 				serverAddress, err := getFreeAddress()
 				if err != nil {
-					return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
+					return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
 				}
 				// Make sure the process is executable
 				if err := ml.startProcess(uri, o.model, serverAddress); err != nil {
 					log.Error().Err(err).Str("path", uri).Msg("failed to launch ")
-					return "", err
+					return nil, err
 				}
 
 				log.Debug().Msgf("GRPC Service Started")
 
-				client = ModelAddress(serverAddress)
+				client = NewModel(serverAddress)
 			} else {
 				log.Debug().Msg("external backend is uri")
 				// address
-				client = ModelAddress(uri)
+				client = NewModel(uri)
 			}
 		} else {
 			grpcProcess := backendPath(o.assetDir, backend)
 			if err := utils.VerifyPath(grpcProcess, o.assetDir); err != nil {
-				return "", fmt.Errorf("grpc process not found in assetdir: %s", err.Error())
+				return nil, fmt.Errorf("grpc process not found in assetdir: %s", err.Error())
 			}
 
 			if autoDetect {
@@ -329,12 +332,12 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 			// Check if the file exists
 			if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
-				return "", fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
+				return nil, fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
 			}
 
 			serverAddress, err := getFreeAddress()
 			if err != nil {
-				return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
+				return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
 			}
 
 			args := []string{}
@@ -344,12 +347,12 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 			// Make sure the process is executable in any circumstance
 			if err := ml.startProcess(grpcProcess, o.model, serverAddress, args...); err != nil {
-				return "", err
+				return nil, err
 			}
 
 			log.Debug().Msgf("GRPC Service Started")
 
-			client = ModelAddress(serverAddress)
+			client = NewModel(serverAddress)
 		}
 
 		// Wait for the service to start up
@@ -369,7 +372,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		if !ready {
 			log.Debug().Msgf("GRPC Service NOT ready")
-			return "", fmt.Errorf("grpc service not ready")
+			return nil, fmt.Errorf("grpc service not ready")
 		}
 
 		options := *o.gRPCOptions
@@ -380,25 +383,14 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, &options)
 		if err != nil {
-			return "", fmt.Errorf("could not load model: %w", err)
+			return nil, fmt.Errorf("could not load model: %w", err)
 		}
 		if !res.Success {
-			return "", fmt.Errorf("could not load model (no success): %s", res.Message)
+			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
 		}
 
 		return client, nil
 	}
-}
-
-func (ml *ModelLoader) resolveAddress(addr ModelAddress, parallel bool) (grpc.Backend, error) {
-	if parallel {
-		return addr.GRPC(parallel, ml.wd), nil
-	}
-
-	if _, ok := ml.grpcClients[string(addr)]; !ok {
-		ml.grpcClients[string(addr)] = addr.GRPC(parallel, ml.wd)
-	}
-	return ml.grpcClients[string(addr)], nil
 }
 
 func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err error) {
@@ -425,7 +417,6 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 			log.Error().Err(err).Str("keptModel", o.model).Msg("error while shutting down all backends except for the keptModel")
 			return nil, err
 		}
-
 	}
 
 	var backendToConsume string
@@ -438,26 +429,28 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 		backendToConsume = backend
 	}
 
-	addr, err := ml.LoadModel(o.model, ml.grpcModel(backendToConsume, o))
+	model, err := ml.LoadModel(o.model, ml.grpcModel(backendToConsume, o))
 	if err != nil {
 		return nil, err
 	}
 
-	return ml.resolveAddress(addr, o.parallelRequests)
+	return model.GRPC(o.parallelRequests, ml.wd), nil
 }
 
 func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 	o := NewOptions(opts...)
 
 	ml.mu.Lock()
+
 	// Return earlier if we have a model already loaded
 	// (avoid looping through all the backends)
-	if m := ml.CheckIsLoaded(o.model); m != "" {
+	if m := ml.CheckIsLoaded(o.model); m != nil {
 		log.Debug().Msgf("Model '%s' already loaded", o.model)
 		ml.mu.Unlock()
 
-		return ml.resolveAddress(m, o.parallelRequests)
+		return m.GRPC(o.parallelRequests, ml.wd), nil
 	}
+
 	// If we can have only one backend active, kill all the others (except external backends)
 	if o.singleActiveBackend {
 		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
