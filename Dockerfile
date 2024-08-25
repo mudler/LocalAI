@@ -286,7 +286,14 @@ COPY --from=grpc /opt/grpc /usr/local
 WORKDIR /build
 
 ## Build the binary
-RUN make build
+## If it's CUDA, we want to skip some of the llama-compat backends to save space
+## We only leave the most CPU-optimized variant and the fallback for the cublas build
+## (both will use CUDA for the actual computation)
+RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
+        SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make build; \
+    else \
+        make build; \
+    fi
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
         mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
