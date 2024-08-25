@@ -479,14 +479,14 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
-		ttsBackends := []string{"piper", "transformer-musicgen", "parler-tts"}
+		ttsBackends := []string{"piper", "transformers-musicgen", "parler-tts"}
 		if !slices.Contains(ttsBackends, c.Backend) {
 			return false
 		}
 	}
 
 	if (u & FLAG_SOUND_GENERATION) == FLAG_SOUND_GENERATION {
-		if c.Backend != "transformer-musicgen" {
+		if c.Backend != "transformers-musicgen" {
 			return false
 		}
 	}
