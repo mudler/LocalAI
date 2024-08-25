@@ -4573,7 +4573,7 @@
     - filename: phillama-3.8b-v0.1.Q4_K_M.gguf
       sha256: da537d352b7aae54bbad0d2cff3e3a1b0e1dc1e1d25bec3aae1d05cf4faee7a2
       uri: huggingface://RichardErkhov/raincandy-u_-_phillama-3.8b-v0.1-gguf/phillama-3.8b-v0.1.Q4_K_M.gguf
-- !!merge <<: *llama3
+- !!merge <<: *phi-3
   name: "calme-2.3-phi3-4b"
   icon: https://huggingface.co/MaziyarPanahi/calme-2.1-phi3-4b/resolve/main/phi-3-instruct.webp
   urls:
@@ -4590,6 +4590,20 @@
     - filename: Phi-3-mini-4k-instruct-v0.3.Q4_K_M.gguf
       sha256: 3a23e1052369c080afb925882bd814cbea5ec859894655a7434c3d49e43a6127
       uri: huggingface://MaziyarPanahi/calme-2.3-phi3-4b-GGUF/Phi-3-mini-4k-instruct-v0.3.Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "phi-3.5-mini-instruct"
+  urls:
+    - https://huggingface.co/microsoft/Phi-3.5-mini-instruct
+    - https://huggingface.co/MaziyarPanahi/Phi-3.5-mini-instruct-GGUF
+  description: |
+    Phi-3.5-mini is a lightweight, state-of-the-art open model built upon datasets used for Phi-3 - synthetic data and filtered publicly available websites - with a focus on very high-quality, reasoning dense data. The model belongs to the Phi-3 model family and supports 128K token context length. The model underwent a rigorous enhancement process, incorporating both supervised fine-tuning, proximal policy optimization, and direct preference optimization to ensure precise instruction adherence and robust safety measures.
+  overrides:
+    parameters:
+      model: Phi-3.5-mini-instruct.Q4_K_M.gguf
+  files:
+    - filename: Phi-3.5-mini-instruct.Q4_K_M.gguf
+      sha256: 3f68916e850b107d8641d18bcd5548f0d66beef9e0a9077fe84ef28943eb7e88
+      uri: huggingface://MaziyarPanahi/Phi-3.5-mini-instruct-GGUF/Phi-3.5-mini-instruct.Q4_K_M.gguf
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
