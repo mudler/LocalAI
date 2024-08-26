@@ -3160,6 +3160,23 @@
     - filename: Master-Yi-9B_Q4_K_M.gguf
       sha256: 57e2afcf9f24d7138a3b8e2b547336d7edc13621a5e8090bc196d7de360b2b45
       uri: huggingface://qnguyen3/Master-Yi-9B-GGUF/Master-Yi-9B_Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  name: "magnum-v3-34b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/658a46cbfb9c2bdfae75b3a6/9yEmnTDG9bcC_bxwuDU6G.png
+  urls:
+    - https://huggingface.co/anthracite-org/magnum-v3-34b
+    - https://huggingface.co/bartowski/magnum-v3-34b-GGUF
+  description: |
+    This is the 9th in a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus.
+
+    This model is fine-tuned on top of Yi-1.5-34 B-32 K.
+  overrides:
+    parameters:
+      model: magnum-v3-34b-Q4_K_M.gguf
+  files:
+    - filename: magnum-v3-34b-Q4_K_M.gguf
+      sha256: f902956c0731581f1ff189e547e6e5aad86b77af5f4dc7e4fc26bcda5c1f7cc3
+      uri: huggingface://bartowski/magnum-v3-34b-GGUF/magnum-v3-34b-Q4_K_M.gguf
 - &vicuna-chat
   ## LLama2 and derivatives
   ### Start Fimbulvetr
