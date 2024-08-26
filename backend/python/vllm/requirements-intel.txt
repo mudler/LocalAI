@@ -4,4 +4,4 @@ accelerate
 torch
 transformers
 optimum[openvino]
-setuptools==70.3.0 # https://github.com/mudler/LocalAI/issues/2406
+setuptools==73.0.1 # https://github.com/mudler/LocalAI/issues/2406
