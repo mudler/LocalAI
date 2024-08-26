@@ -4604,6 +4604,21 @@
     - filename: Phi-3.5-mini-instruct.Q4_K_M.gguf
       sha256: 3f68916e850b107d8641d18bcd5548f0d66beef9e0a9077fe84ef28943eb7e88
       uri: huggingface://MaziyarPanahi/Phi-3.5-mini-instruct-GGUF/Phi-3.5-mini-instruct.Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "calme-2.1-phi3.5-4b-i1"
+  icon: https://huggingface.co/MaziyarPanahi/calme-2.1-phi3.5-4b/resolve/main/calme-2.webp
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-2.1-phi3.5-4b
+    - https://huggingface.co/mradermacher/calme-2.1-phi3.5-4b-i1-GGUF
+  description: |
+    This model is a fine-tuned version of the microsoft/Phi-3.5-mini-instruct, pushing the boundaries of natural language understanding and generation even further. My goal was to create a versatile and robust model that excels across a wide range of benchmarks and real-world applications.
+  overrides:
+    parameters:
+      model: calme-2.1-phi3.5-4b.i1-Q4_K_M.gguf
+  files:
+    - filename: calme-2.1-phi3.5-4b.i1-Q4_K_M.gguf
+      sha256: 989eccacd52b6d9ebf2c06c35c363da19aadb125659a10df299b7130bc293e77
+      uri: huggingface://mradermacher/calme-2.1-phi3.5-4b-i1-GGUF/calme-2.1-phi3.5-4b.i1-Q4_K_M.gguf
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
