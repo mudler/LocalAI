@@ -37,7 +37,7 @@ require (
 	github.com/libp2p/go-libp2p v0.36.2
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.26
-	github.com/mudler/edgevpn v0.28.2
+	github.com/mudler/edgevpn v0.28.3
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
 	github.com/mudler/go-stable-diffusion v0.0.0-20240429204715-4a3cd6aeae6f
 	github.com/onsi/ginkgo/v2 v2.20.1
