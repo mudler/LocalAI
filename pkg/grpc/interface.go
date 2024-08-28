@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"github.com/mudler/LocalAI/core/schema"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -15,7 +14,7 @@ type LLM interface {
 	Load(*pb.ModelOptions) error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
-	AudioTranscription(*pb.TranscriptRequest) (schema.TranscriptionResult, error)
+	AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error)
 	TTS(*pb.TTSRequest) error
 	SoundGeneration(*pb.SoundGenerationRequest) error
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)

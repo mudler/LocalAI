@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mudler/LocalAI/core/schema"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
@@ -53,8 +52,8 @@ func (llm *Base) GenerateImage(*pb.GenerateImageRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
-func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (schema.TranscriptionResult, error) {
-	return schema.TranscriptionResult{}, fmt.Errorf("unimplemented")
+func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error) {
+	return pb.TranscriptResult{}, fmt.Errorf("unimplemented")
 }
 
 func (llm *Base) TTS(*pb.TTSRequest) error {
