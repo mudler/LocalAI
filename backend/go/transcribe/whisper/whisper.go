@@ -102,8 +102,4 @@ func (sd *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (pb.Transcript
 		Text:     text,
 	}, nil
 
-	// r, err := Transcript(sd.whisper, opts.Dst, opts.Language, opts.Translate, uint(opts.Threads))
-	// if err == nil && r != nil {
-	// 	return r, nil
-	// }
 }

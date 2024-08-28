@@ -56,28 +56,7 @@ func (e *embedBackend) SoundGeneration(ctx context.Context, in *pb.SoundGenerati
 }
 
 func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*pb.TranscriptResult, error) {
-	// r, err :=
 	return e.s.AudioTranscription(ctx, in)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// tr := &schema.TranscriptionResult{}
-	// for _, s := range r.Segments {
-	// 	var tks []int
-	// 	for _, t := range s.Tokens {
-	// 		tks = append(tks, int(t))
-	// 	}
-	// 	tr.Segments = append(tr.Segments,
-	// 		schema.Segment{
-	// 			Text:   s.Text,
-	// 			Id:     int(s.Id),
-	// 			Start:  time.Duration(s.Start),
-	// 			End:    time.Duration(s.End),
-	// 			Tokens: tks,
-	// 		})
-	// }
-	// tr.Text = r.Text
-	// return tr, err
 }
 
 func (e *embedBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
