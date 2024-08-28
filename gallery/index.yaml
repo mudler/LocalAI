@@ -27,8 +27,8 @@
     - filename: SmolLM-1.7B-Instruct.Q4_K_M.gguf
       sha256: 2b07eb2293ed3fc544a9858beda5bfb03dcabda6aa6582d3c85768c95f498d28
       uri: huggingface://MaziyarPanahi/SmolLM-1.7B-Instruct-GGUF/SmolLM-1.7B-Instruct.Q4_K_M.gguf
-## LLama3.1
 - &llama31
+  ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
   name: "meta-llama-3.1-8b-instruct"
@@ -1132,7 +1132,7 @@
     - https://huggingface.co/TheDrummer/Rocinante-12B-v1.1-GGUF
     - https://huggingface.co/TheDrummer/Rocinante-12B-v1.1
   description: |
-     A versatile workhorse for any adventure!
+    A versatile workhorse for any adventure!
   overrides:
     parameters:
       model: Rocinante-12B-v1.1-Q4_K_M.gguf
@@ -1708,7 +1708,7 @@
   files:
     - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q4_0.gguf
-      sha256: 1977ae6185ef5bc476e27db85bb3d79ca4bd87e7b03399083c297d9c612d334c
+      sha256: 18c8eb909db870d456a823700b4c82f6259e6052899f0ebf2bddc9b2417cd355
 - !!merge <<: *llama3
   name: "llama3-8b-instruct:Q6_K"
   overrides:
@@ -1717,7 +1717,7 @@
   files:
     - filename: Meta-Llama-3-8B-Instruct.Q6_K.gguf
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
-      sha256: d1cdc49a716674c8e2506039bef85b905376cdaafc33e449b5aa2cf88f9532ad
+      sha256: 67f8eb2218938a5fd711605d526d2287e9a4ad26849efdf3bf7c0c17dcbde018
 - !!merge <<: *llama3
   name: "llama-3-8b-instruct-abliterated"
   urls:
