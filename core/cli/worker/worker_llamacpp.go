@@ -3,6 +3,7 @@ package worker
 import (
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -12,7 +13,6 @@ import (
 )
 
 type LLamaCPP struct {
-	Args        []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 	WorkerFlags `embed:""`
 }
 
@@ -34,9 +34,8 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 		"llama-cpp-rpc-server",
 	)
 
-	args := os.Args[4:]
+	args := strings.Split(r.ExtraLLamaCPPArgs, " ")
 	args, grpcProcess = library.LoadLDSO(r.BackendAssetsPath, args, grpcProcess)
-
 	args = append([]string{grpcProcess}, args...)
 	return syscall.Exec(
 		grpcProcess,
