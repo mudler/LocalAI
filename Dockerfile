@@ -277,7 +277,7 @@ RUN make sources/go-stable-diffusion
 RUN touch prepare-sources
 
 # Actually build the backend
-RUN SKIP_GO_REPLACE=true GRPC_BACKENDS=backend-assets/grpc/stablediffusion make backend-assets/grpc/stablediffusion
+RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make backend-assets/grpc/stablediffusion
 
 ###################################
 ###################################
