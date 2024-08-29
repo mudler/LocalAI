@@ -243,24 +243,6 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
 	return client.AudioTranscription(ctx, in, opts...)
-	// tresult := &pb.TranscriptResult{}
-	// tresult := &schema.TranscriptionResult{}
-	// for _, s := range res.Segments {
-	// 	tks := []int{}
-	// 	for _, t := range s.Tokens {
-	// 		tks = append(tks, int(t))
-	// 	}
-	// 	tresult.Segments = append(tresult.Segments,
-	// 		schema.Segment{
-	// 			Text:   s.Text,
-	// 			Id:     int(s.Id),
-	// 			Start:  time.Duration(s.Start),
-	// 			End:    time.Duration(s.End),
-	// 			Tokens: tks,
-	// 		})
-	// }
-	// tresult.Text = res.Text
-	// return tresult, err
 }
 
 func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {

@@ -78,6 +78,9 @@ func ModelTTS(
 		Dst:      filePath,
 		Language: &language,
 	})
+	if err != nil {
+		return "", nil, err
+	}
 
 	// return RPC error if any
 	if !res.Success {
