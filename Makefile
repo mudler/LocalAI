@@ -696,7 +696,10 @@ backend-assets/espeak-ng-data: sources/go-piper sources/go-piper/libpiper_bindin
 	mkdir -p backend-assets/espeak-ng-data
 	@cp -rf sources/go-piper/piper-phonemize/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
 
-backend-assets/grpc: protogen-go replace
+backend-assets/grpc: protogen-go 
+ifndef SKIP_GO_REPLACE
+backend-assets/grpc: replace
+endif
 	mkdir -p backend-assets/grpc
 
 backend-assets/grpc/bert-embeddings: sources/go-bert.cpp sources/go-bert.cpp/libgobert.a backend-assets/grpc

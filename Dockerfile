@@ -263,14 +263,22 @@ EOT
 # In most cases, builder is the image you should be using - however, this can save build time if one just needs to copy backend-assets/grpc/stablediffusion and nothing else.
 FROM builder-base AS builder-sd
 
-COPY . .
-COPY .git .
+# stablediffusion does not tolerate a newer version of abseil, copy only over enough elements to build it
+COPY Makefile .
+COPY go.mod .
+COPY go.sum .
+COPY backend/backend.proto ./backend/backend.proto
+COPY backend/go/image/stablediffusion ./backend/go/image/stablediffusion
+COPY core/schema ./core/schema
+COPY pkg/grpc ./pkg/grpc
+COPY pkg/stablediffusion ./pkg/stablediffusion
+RUN git init
+RUN make sources/go-stable-diffusion
+# sources/go-tiny-dream
+RUN touch prepare-sources
 
-RUN make prepare
-
-
-# stablediffusion does not tolerate a newer version of abseil, build it first
-RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+# Actually build the backend
+RUN SKIP_GO_REPLACE=true GRPC_BACKENDS=backend-assets/grpc/stablediffusion make backend-assets/grpc/stablediffusion
 
 ###################################
 ###################################
@@ -284,6 +292,9 @@ COPY --from=grpc /opt/grpc /usr/local
 
 # Rebuild with defaults backends
 WORKDIR /build
+
+COPY . .
+COPY .git .
 
 ## Build the binary
 RUN make build

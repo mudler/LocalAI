@@ -21,16 +21,16 @@ func ModelTranscription(audio, language string, translate bool, ml *model.ModelL
 		model.WithAssetDir(appConfig.AssetsDestination),
 	})
 
-	whisperModel, err := ml.BackendLoader(opts...)
+	transcriptionModel, err := ml.BackendLoader(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	if whisperModel == nil {
-		return nil, fmt.Errorf("could not load whisper model")
+	if transcriptionModel == nil {
+		return nil, fmt.Errorf("could not load transcription model")
 	}
 
-	return whisperModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
+	return transcriptionModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
 		Dst:       audio,
 		Language:  language,
 		Translate: translate,
