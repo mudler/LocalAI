@@ -269,7 +269,6 @@ COPY go.mod .
 COPY go.sum .
 COPY backend/backend.proto ./backend/backend.proto
 COPY backend/go/image/stablediffusion ./backend/go/image/stablediffusion
-COPY core/schema ./core/schema
 COPY pkg/grpc ./pkg/grpc
 COPY pkg/stablediffusion ./pkg/stablediffusion
 RUN git init
