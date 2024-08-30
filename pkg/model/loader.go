@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/templates"
 
@@ -102,6 +103,18 @@ FILE:
 	return models, nil
 }
 
+func (ml *ModelLoader) ListModels() []*Model {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	models := []*Model{}
+	for _, model := range ml.models {
+		models = append(models, model)
+	}
+
+	return models
+}
+
 func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (*Model, error)) (*Model, error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
@@ -120,7 +133,12 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 		return nil, err
 	}
 
+	if model == nil {
+		return nil, fmt.Errorf("loader didn't return a model")
+	}
+
 	ml.models[modelName] = model
+
 	return model, nil
 }
 
@@ -146,11 +164,22 @@ func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
 	}
 
 	log.Debug().Msgf("Model already loaded in memory: %s", s)
-	alive, err := m.GRPC(false, ml.wd).HealthCheck(context.Background())
+	client := m.GRPC(false, ml.wd)
+
+	log.Debug().Msgf("Checking model availability (%s)", s)
+	cTimeout, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	alive, err := client.HealthCheck(cTimeout)
 	if !alive {
 		log.Warn().Msgf("GRPC Model not responding: %s", err.Error())
 		log.Warn().Msgf("Deleting the process in order to recreate it")
-		if !ml.grpcProcesses[s].IsAlive() {
+		process, exists := ml.grpcProcesses[s]
+		if !exists {
+			log.Error().Msgf("Process not found for '%s' and the model is not responding anymore !", s)
+			return m
+		}
+		if !process.IsAlive() {
 			log.Debug().Msgf("GRPC Process is not responding: %s", s)
 			// stop and delete the process, this forces to re-load the model and re-create again the service
 			err := ml.deleteProcess(s)

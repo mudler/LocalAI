@@ -23,7 +23,6 @@ func (m *Model) GRPC(parallel bool, wd *WatchDog) grpc.Backend {
 		enableWD = true
 	}
 
-	client := grpc.NewClient(m.address, parallel, wd, enableWD)
-	m.client = client
-	return client
+	m.client = grpc.NewClient(m.address, parallel, wd, enableWD)
+	return m.client
 }
