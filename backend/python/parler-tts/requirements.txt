@@ -1,4 +1,4 @@
-grpcio==1.66.0
+grpcio==1.66.1
 protobuf
 certifi
 llvmlite==0.43.0
