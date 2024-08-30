@@ -1119,7 +1119,7 @@ struct llama_server_context
                 continue;
             }
 
-            if (!llava_image_embed_make_with_clip_img(clp_ctx, params.n_threads, img.img_data, &img.image_embedding, &img.image_tokens)) {
+            if (!llava_image_embed_make_with_clip_img(clp_ctx, params.cpuparams.n_threads, img.img_data, &img.image_embedding, &img.image_tokens)) {
                 LOG_TEE("Error processing the given image");
                 return false;
             }
@@ -2210,7 +2210,7 @@ static void params_parse(const backend::ModelOptions* request,
     params.model_alias =  request->modelfile();
     params.n_ctx = request->contextsize();
     //params.memory_f16 = request->f16memory();
-    params.n_threads = request->threads();
+    params.cpuparams.n_threads = request->threads();
     params.n_gpu_layers = request->ngpulayers();
     params.n_batch = request->nbatch();
     // Set params.n_parallel by environment variable (LLAMA_PARALLEL), defaults to 1
