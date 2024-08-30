@@ -5873,6 +5873,16 @@
       sha256: 394b27b8780f5167e73a62ac103839cc438abc7edb544192f965e5b8f5f4acdb
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-it-paola-medium
+  overrides:
+    parameters:
+      model: it-paola-medium.onnx
+  files:
+    - filename: voice-it-paola-medium.tar.gz
+      uri: https://github.com/fakezeta/piper-paola-voice/releases/download/v1.0.0/voice-it-paola-medium.tar.gz
+      sha256: d117d1e8cdd022898546e1697a53ab5330b69cac32701e888ea3e3b10f4adb54
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-iseke-x-low
   overrides:
     parameters:
