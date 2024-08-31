@@ -5880,7 +5880,7 @@
   files:
     - filename: voice-it-paola-medium.tar.gz
       uri: https://github.com/fakezeta/piper-paola-voice/releases/download/v1.0.0/voice-it-paola-medium.tar.gz
-      sha256: d117d1e8cdd022898546e1697a53ab5330b69cac32701e888ea3e3b10f4adb54
+      sha256: 61d3bac0ff6d347daea5464c4b3ae156a450b603a916cc9ed7deecdeba17153a
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-iseke-x-low
