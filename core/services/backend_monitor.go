@@ -107,7 +107,7 @@ func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.Status
 		return nil, err
 	}
 	modelAddr := bms.modelLoader.CheckIsLoaded(backendId)
-	if modelAddr == "" {
+	if modelAddr == nil {
 		return nil, fmt.Errorf("backend %s is not currently loaded", backendId)
 	}
 

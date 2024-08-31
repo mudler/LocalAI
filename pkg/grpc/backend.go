@@ -18,10 +18,10 @@ func NewClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) 
 	if bc, ok := embeds[address]; ok {
 		return bc
 	}
-	return NewGrpcClient(address, parallel, wd, enableWatchDog)
+	return buildClient(address, parallel, wd, enableWatchDog)
 }
 
-func NewGrpcClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) Backend {
+func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) Backend {
 	if !enableWatchDog {
 		wd = nil
 	}
