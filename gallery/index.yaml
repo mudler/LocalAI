@@ -421,8 +421,8 @@
       model: Hubble-4B-v1-Q4_K_M.gguf
   files:
     - filename: Hubble-4B-v1-Q4_K_M.gguf
-      sha256: f8f44b0fb69e382cf0099a674959ab1a1d86e72ccd1bbce5392210019502a513
       uri: huggingface://TheDrummer/Hubble-4B-v1-GGUF/Hubble-4B-v1-Q4_K_M.gguf
+      sha256: 0721294d0e861c6e6162a112fc7242e0c4b260c156137f4bcbb08667f1748080
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
