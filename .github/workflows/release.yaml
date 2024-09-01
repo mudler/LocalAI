@@ -294,7 +294,7 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
-          export CC=/opt/homebrew/opt/llvm/bin/clang
+          export CC=/usr/local/opt/llvm/bin/clang
           make dist
       - uses: actions/upload-artifact@v4
         with:
