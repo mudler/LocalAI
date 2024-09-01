@@ -285,7 +285,7 @@ jobs:
           cache: false
       - name: Dependencies
         run: |
-          brew install protobuf grpc libomp
+          brew install protobuf grpc libomp llvm
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
       - name: Build
@@ -294,7 +294,7 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
-
+          export CC=/opt/homebrew/opt/llvm/bin/clang
           make dist
       - uses: actions/upload-artifact@v4
         with:
@@ -327,7 +327,7 @@ jobs:
           cache: false
       - name: Dependencies
         run: |
-          brew install protobuf grpc libomp
+          brew install protobuf grpc libomp llvm
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
       - name: Build
@@ -336,7 +336,7 @@ jobs:
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
           export PATH=$PATH:$GOPATH/bin
-
+          export CC=/opt/homebrew/opt/llvm/bin/clang
           make dist
       - uses: actions/upload-artifact@v4
         with:
