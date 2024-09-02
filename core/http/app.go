@@ -3,13 +3,15 @@ package http
 import (
 	"embed"
 	"errors"
+	"fmt"
 	"net/http"
-	"strings"
 
+	"github.com/dave-gray101/v2keyauth"
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -137,36 +139,13 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		})
 	}
 
-	// Auth middleware checking if API key is valid. If no API key is set, no auth is required.
-	auth := func(c *fiber.Ctx) error {
-		if len(appConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
-
-		if len(appConfig.ApiKeys) == 0 {
-			return c.Next()
-		}
-
-		authHeader := readAuthHeader(c)
-		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Authorization header missing"})
-		}
-
-		// If it's a bearer token
-		authHeaderParts := strings.Split(authHeader, " ")
-		if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid Authorization header format"})
-		}
-
-		apiKey := authHeaderParts[1]
-		for _, key := range appConfig.ApiKeys {
-			if apiKey == key {
-				return c.Next()
-			}
-		}
-
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"message": "Invalid API key"})
+	kaConfig, err := middleware.GetKeyAuthConfig(appConfig)
+	if err != nil || kaConfig == nil {
+		return nil, fmt.Errorf("failed to create key auth config: %w", err)
 	}
+
+	// Auth is applied to _all_ endpoints. No exceptions. Filtering out endpoints to bypass is the role of the Filter property of the KeyAuth Configuration
+	app.Use(v2keyauth.New(*kaConfig))
 
 	if appConfig.CORS {
 		var c func(ctx *fiber.Ctx) error
@@ -192,13 +171,13 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	galleryService := services.NewGalleryService(appConfig)
 	galleryService.Start(appConfig.Context, cl)
 
-	routes.RegisterElevenLabsRoutes(app, cl, ml, appConfig, auth)
-	routes.RegisterLocalAIRoutes(app, cl, ml, appConfig, galleryService, auth)
-	routes.RegisterOpenAIRoutes(app, cl, ml, appConfig, auth)
+	routes.RegisterElevenLabsRoutes(app, cl, ml, appConfig)
+	routes.RegisterLocalAIRoutes(app, cl, ml, appConfig, galleryService)
+	routes.RegisterOpenAIRoutes(app, cl, ml, appConfig)
 	if !appConfig.DisableWebUI {
-		routes.RegisterUIRoutes(app, cl, ml, appConfig, galleryService, auth)
+		routes.RegisterUIRoutes(app, cl, ml, appConfig, galleryService)
 	}
-	routes.RegisterJINARoutes(app, cl, ml, appConfig, auth)
+	routes.RegisterJINARoutes(app, cl, ml, appConfig)
 
 	httpFS := http.FS(embedDirStatic)
 
