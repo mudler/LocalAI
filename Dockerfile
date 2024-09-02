@@ -273,7 +273,6 @@ COPY pkg/grpc ./pkg/grpc
 COPY pkg/stablediffusion ./pkg/stablediffusion
 RUN git init
 RUN make sources/go-stable-diffusion
-# sources/go-tiny-dream
 RUN touch prepare-sources
 
 # Actually build the backend
