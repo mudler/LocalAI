@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/core/schema"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -228,7 +227,7 @@ func (c *Client) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequ
 	return client.SoundGeneration(ctx, in, opts...)
 }
 
-func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*schema.TranscriptionResult, error) {
+func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*pb.TranscriptResult, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()
@@ -243,27 +242,7 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	}
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
-	res, err := client.AudioTranscription(ctx, in, opts...)
-	if err != nil {
-		return nil, err
-	}
-	tresult := &schema.TranscriptionResult{}
-	for _, s := range res.Segments {
-		tks := []int{}
-		for _, t := range s.Tokens {
-			tks = append(tks, int(t))
-		}
-		tresult.Segments = append(tresult.Segments,
-			schema.Segment{
-				Text:   s.Text,
-				Id:     int(s.Id),
-				Start:  time.Duration(s.Start),
-				End:    time.Duration(s.End),
-				Tokens: tks,
-			})
-	}
-	tresult.Text = res.Text
-	return tresult, err
+	return client.AudioTranscription(ctx, in, opts...)
 }
 
 func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
