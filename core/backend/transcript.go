@@ -31,7 +31,11 @@ func ModelTranscription(audio, language string, translate bool, ml *model.ModelL
 		return nil, fmt.Errorf("could not load transcription model")
 	}
 
+<<<<<<< HEAD
 	r, err := transcriptionModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
+=======
+	r, err := whisperModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
+>>>>>>> master
 		Dst:       audio,
 		Language:  language,
 		Translate: translate,

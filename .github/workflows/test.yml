@@ -214,12 +214,13 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
           pip install --user --no-cache-dir grpcio-tools==1.64.1
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
+          export CC=/opt/homebrew/opt/llvm/bin/clang
           # Used to run the newer GNUMake version from brew that supports --output-sync
           export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
           BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test

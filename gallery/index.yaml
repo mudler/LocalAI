@@ -407,6 +407,22 @@
     - filename: llama-3.1-storm-8b-q4_k_m.gguf
       sha256: d714e960211ee0fe6113d3131a6573e438f37debd07e1067d2571298624414a0
       uri: huggingface://mudler/Llama-3.1-Storm-8B-Q4_K_M-GGUF/llama-3.1-storm-8b-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "hubble-4b-v1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/R8_o3CCpTgKv5Wnnry7E_.png
+  urls:
+    - https://huggingface.co/TheDrummer/Hubble-4B-v1-GGUF
+  description: |
+    Equipped with his five senses, man explores the universe around him and calls the adventure 'Science'.
+    This is a finetune of Nvidia's Llama 3.1 4B Minitron - a shrunk down model of Llama 3.1 8B 128K.
+  overrides:
+    parameters:
+      model: Hubble-4B-v1-Q4_K_M.gguf
+  files:
+    - filename: Hubble-4B-v1-Q4_K_M.gguf
+      uri: huggingface://TheDrummer/Hubble-4B-v1-GGUF/Hubble-4B-v1-Q4_K_M.gguf
+      sha256: 0721294d0e861c6e6162a112fc7242e0c4b260c156137f4bcbb08667f1748080
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
@@ -5871,6 +5887,16 @@
     - filename: voice-it-riccardo_fasol-x-low.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-it-riccardo_fasol-x-low.tar.gz
       sha256: 394b27b8780f5167e73a62ac103839cc438abc7edb544192f965e5b8f5f4acdb
+- !!merge <<: *piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  name: voice-it-paola-medium
+  overrides:
+    parameters:
+      model: it-paola-medium.onnx
+  files:
+    - filename: voice-it-paola-medium.tar.gz
+      uri: https://github.com/fakezeta/piper-paola-voice/releases/download/v1.0.0/voice-it-paola-medium.tar.gz
+      sha256: 61d3bac0ff6d347daea5464c4b3ae156a450b603a916cc9ed7deecdeba17153a
 - !!merge <<: *piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-kk-iseke-x-low
