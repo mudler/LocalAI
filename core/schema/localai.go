@@ -70,3 +70,7 @@ type P2PNodesResponse struct {
 	Nodes          []p2p.NodeData `json:"nodes" yaml:"nodes"`
 	FederatedNodes []p2p.NodeData `json:"federated_nodes" yaml:"federated_nodes"`
 }
+
+type SystemInformationResponse struct {
+	Backends []string `json:"backends"`
+}
