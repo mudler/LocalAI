@@ -74,3 +74,26 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("text service failed")
         finally:
             self.tearDown()
+
+    def test_embedding(self):
+        """
+        This method tests if the embeddings are generated successfully
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="intfloat/e5-mistral-7b-instruct"))
+                self.assertTrue(response.success)
+                embedding_request = backend_pb2.PredictOptions(Embeddings="This is a test sentence.")
+                embedding_response = stub.Embedding(embedding_request)
+                self.assertIsNotNone(embedding_response.embeddings)
+                # assert that is a list of floats
+                self.assertIsInstance(embedding_response.embeddings, list)
+                # assert that the list is not empty
+                self.assertTrue(len(embedding_response.embeddings) > 0)
+        except Exception as err:
+            print(err)
+            self.fail("Embedding service failed")
+        finally:
+            self.tearDown()

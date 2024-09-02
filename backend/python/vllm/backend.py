@@ -135,6 +135,26 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         res = await gen.__anext__()
         return res
 
+    def Embedding(self, request, context):
+        """
+        A gRPC method that calculates embeddings for a given sentence.
+
+        Args:
+            request: An EmbeddingRequest object that contains the request parameters.
+            context: A grpc.ServicerContext object that provides information about the RPC.
+
+        Returns:
+            An EmbeddingResult object that contains the calculated embeddings.
+        """
+        print("Calculated embeddings for: " + request.Embeddings, file=sys.stderr)
+        outputs = self.model.encode(request.Embeddings)
+        # Check if we have one result at least
+        if len(outputs) == 0:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("No embeddings were calculated.")
+            return backend_pb2.EmbeddingResult()
+        return backend_pb2.EmbeddingResult(embeddings=outputs[0].outputs.embedding)
+
     async def PredictStream(self, request, context):
         """
         Generates text based on the given prompt and sampling parameters, and streams the results.
