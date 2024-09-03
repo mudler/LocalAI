@@ -7,6 +7,15 @@ on:
     tags:
       - 'v*'
   pull_request:
+    paths-ignore:
+      - '.devcontainer/**'
+      - '.devcontainer-scripts/**'
+      - '.github/**'
+      - '.vscode/**'
+      - 'examples/**'
+      - 'docs/**'
+      - 'gallery/**'
+      - '*.md'
 
 env:
   GRPC_VERSION: v1.65.0
@@ -21,6 +30,7 @@ concurrency:
 jobs:
 
   build-linux-arm:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -129,6 +139,7 @@ jobs:
           connect-timeout-seconds: 180
           limit-access-to-actor: true
   build-linux:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: arc-runner-set
     steps:
       - name: Force Install GIT latest
@@ -238,6 +249,7 @@ jobs:
           connect-timeout-seconds: 180
           limit-access-to-actor: true
   build-stablediffusion:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -273,6 +285,7 @@ jobs:
             release/*
 
   build-macOS-x86_64:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: macos-13
     steps:
       - name: Clone
@@ -315,6 +328,7 @@ jobs:
           limit-access-to-actor: true
 
   build-macOS-arm64:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: macos-14
     steps:
       - name: Clone
