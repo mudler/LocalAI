@@ -3,6 +3,15 @@ name: 'build container images tests'
 
 on:
   pull_request:
+    paths-ignore:
+      - '.devcontainer/**'
+      - '.devcontainer-scripts/**'
+      - '.github/**'
+      - '.vscode/**'
+      - 'examples/**'
+      - 'docs/**'
+      - 'gallery/**'
+      - '*.md'
 
 concurrency:
   group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
@@ -10,6 +19,7 @@ concurrency:
 
 jobs:
   extras-image-build:
+    if: github.event.pull_request.changed_files != 0
     uses: ./.github/workflows/image_build.yml
     with:
       tag-latest: ${{ matrix.tag-latest }}
