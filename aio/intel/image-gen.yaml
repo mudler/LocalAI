@@ -1,6 +1,6 @@
 name: stablediffusion
 parameters:
-  model: runwayml/stable-diffusion-v1-5
+  model: Lykon/dreamshaper-8
 backend: diffusers
 step: 25
 f16: true
