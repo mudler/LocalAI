@@ -1724,7 +1724,7 @@
   files:
     - filename: Meta-Llama-3-8B-Instruct.Q4_0.gguf
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q4_0.gguf
-      sha256: 18c8eb909db870d456a823700b4c82f6259e6052899f0ebf2bddc9b2417cd355
+      sha256: 2b4675c2208f09ad8762d8cf1b6a4a26bf65e6f0641aba324ec65143c0b4ad9f
 - !!merge <<: *llama3
   name: "llama3-8b-instruct:Q6_K"
   overrides:
@@ -1733,7 +1733,7 @@
   files:
     - filename: Meta-Llama-3-8B-Instruct.Q6_K.gguf
       uri: huggingface://QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct.Q6_K.gguf
-      sha256: 67f8eb2218938a5fd711605d526d2287e9a4ad26849efdf3bf7c0c17dcbde018
+      sha256: bd7efd73f9fb67e4b9ecc43f861f37c7e594e78a8a5ff9c29da021692bd243ef
 - !!merge <<: *llama3
   name: "llama-3-8b-instruct-abliterated"
   urls:
