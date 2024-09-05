@@ -772,6 +772,17 @@ var _ = Describe("API test", func() {
 			Expect(err.Error()).To(ContainSubstring("error, status code: 500, message: could not load model - all backends returned error:"))
 		})
 
+		It("shows the external backend", func() {
+			// do an http request to the /system endpoint
+			resp, err := http.Get("http://127.0.0.1:9090/system")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(200))
+			dat, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(dat)).To(ContainSubstring("huggingface"))
+			Expect(string(dat)).To(ContainSubstring("llama-cpp"))
+		})
+
 		It("transcribes audio", func() {
 			if runtime.GOOS != "linux" {
 				Skip("test supported only on linux")
