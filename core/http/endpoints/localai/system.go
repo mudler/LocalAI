@@ -17,6 +17,9 @@ func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConf
 		if err != nil {
 			return err
 		}
+		for b := range appConfig.ExternalGRPCBackends {
+			availableBackends = append(availableBackends, b)
+		}
 		return c.JSON(
 			schema.SystemInformationResponse{
 				Backends: availableBackends,
