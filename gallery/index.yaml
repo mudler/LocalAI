@@ -3193,6 +3193,104 @@
     - filename: magnum-v3-34b-Q4_K_M.gguf
       sha256: f902956c0731581f1ff189e547e6e5aad86b77af5f4dc7e4fc26bcda5c1f7cc3
       uri: huggingface://bartowski/magnum-v3-34b-GGUF/magnum-v3-34b-Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  name: "yi-coder-9b-chat"
+  urls:
+    - https://huggingface.co/01-ai/Yi-Coder-9B-Chat
+    - https://huggingface.co/bartowski/Yi-Coder-9B-Chat-GGUF
+    - https://01-ai.github.io/
+    - https://github.com/01-ai/Yi-Coder
+  description: |
+    Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.
+    Key features:
+
+        Excelling in long-context understanding with a maximum context length of 128K tokens.
+        Supporting 52 major programming languages:
+
+      'java', 'markdown', 'python', 'php', 'javascript', 'c++', 'c#', 'c', 'typescript', 'html', 'go', 'java_server_pages', 'dart', 'objective-c', 'kotlin', 'tex', 'swift', 'ruby', 'sql', 'rust', 'css', 'yaml', 'matlab', 'lua', 'json', 'shell', 'visual_basic', 'scala', 'rmarkdown', 'pascal', 'fortran', 'haskell', 'assembly', 'perl', 'julia', 'cmake', 'groovy', 'ocaml', 'powershell', 'elixir', 'clojure', 'makefile', 'coffeescript', 'erlang', 'lisp', 'toml', 'batchfile', 'cobol', 'dockerfile', 'r', 'prolog', 'verilog'
+
+    For model details and benchmarks, see Yi-Coder blog and Yi-Coder README.
+  overrides:
+    parameters:
+      model: Yi-Coder-9B-Chat-Q4_K_M.gguf
+  files:
+    - filename: Yi-Coder-9B-Chat-Q4_K_M.gguf
+      sha256: 251cc196e3813d149694f362bb0f8f154f3320abe44724eebe58c23dc54f201d
+      uri: huggingface://bartowski/Yi-Coder-9B-Chat-GGUF/Yi-Coder-9B-Chat-Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  name: "yi-coder-1.5b-chat"
+  urls:
+    - https://huggingface.co/01-ai/Yi-Coder-1.5B-Chat
+    - https://huggingface.co/MaziyarPanahi/Yi-Coder-1.5B-Chat-GGUF
+    - https://01-ai.github.io/
+    - https://github.com/01-ai/Yi-Coder
+  description: |
+    Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.
+    Key features:
+
+        Excelling in long-context understanding with a maximum context length of 128K tokens.
+        Supporting 52 major programming languages:
+
+      'java', 'markdown', 'python', 'php', 'javascript', 'c++', 'c#', 'c', 'typescript', 'html', 'go', 'java_server_pages', 'dart', 'objective-c', 'kotlin', 'tex', 'swift', 'ruby', 'sql', 'rust', 'css', 'yaml', 'matlab', 'lua', 'json', 'shell', 'visual_basic', 'scala', 'rmarkdown', 'pascal', 'fortran', 'haskell', 'assembly', 'perl', 'julia', 'cmake', 'groovy', 'ocaml', 'powershell', 'elixir', 'clojure', 'makefile', 'coffeescript', 'erlang', 'lisp', 'toml', 'batchfile', 'cobol', 'dockerfile', 'r', 'prolog', 'verilog'
+
+    For model details and benchmarks, see Yi-Coder blog and Yi-Coder README.
+  overrides:
+    parameters:
+      model: Yi-Coder-1.5B-Chat.Q4_K_M.gguf
+  files:
+    - filename: Yi-Coder-1.5B-Chat.Q4_K_M.gguf
+      sha256: e2e8fa659cd75c828d7783b5c2fb60d220e08836065901fad8edb48e537c1cec
+      uri: huggingface://MaziyarPanahi/Yi-Coder-1.5B-Chat-GGUF/Yi-Coder-1.5B-Chat.Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
+  name: "yi-coder-1.5b"
+  urls:
+    - https://huggingface.co/01-ai/Yi-Coder-1.5B
+    - https://huggingface.co/QuantFactory/Yi-Coder-1.5B-GGUF
+    - https://01-ai.github.io/
+    - https://github.com/01-ai/Yi-Coder
+  description: |
+    Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.
+    Key features:
+
+        Excelling in long-context understanding with a maximum context length of 128K tokens.
+        Supporting 52 major programming languages:
+
+      'java', 'markdown', 'python', 'php', 'javascript', 'c++', 'c#', 'c', 'typescript', 'html', 'go', 'java_server_pages', 'dart', 'objective-c', 'kotlin', 'tex', 'swift', 'ruby', 'sql', 'rust', 'css', 'yaml', 'matlab', 'lua', 'json', 'shell', 'visual_basic', 'scala', 'rmarkdown', 'pascal', 'fortran', 'haskell', 'assembly', 'perl', 'julia', 'cmake', 'groovy', 'ocaml', 'powershell', 'elixir', 'clojure', 'makefile', 'coffeescript', 'erlang', 'lisp', 'toml', 'batchfile', 'cobol', 'dockerfile', 'r', 'prolog', 'verilog'
+
+    For model details and benchmarks, see Yi-Coder blog and Yi-Coder README.
+  overrides:
+    parameters:
+      model: Yi-Coder-1.5B.Q4_K_M.gguf
+  files:
+    - filename: Yi-Coder-1.5B.Q4_K_M.gguf
+      sha256: 86a280dd36c9b2342b7023532f9c2c287e251f5cd10bc81ca262db8c1668f272
+      uri: huggingface://QuantFactory/Yi-Coder-1.5B-GGUF/Yi-Coder-1.5B.Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
+  name: "yi-coder-9b"
+  urls:
+    - https://huggingface.co/01-ai/Yi-Coder-9B
+    - https://huggingface.co/QuantFactory/Yi-Coder-9B-GGUF
+    - https://01-ai.github.io/
+    - https://github.com/01-ai/Yi-Coder
+  description: |
+    Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.
+    Key features:
+
+        Excelling in long-context understanding with a maximum context length of 128K tokens.
+        Supporting 52 major programming languages:
+
+      'java', 'markdown', 'python', 'php', 'javascript', 'c++', 'c#', 'c', 'typescript', 'html', 'go', 'java_server_pages', 'dart', 'objective-c', 'kotlin', 'tex', 'swift', 'ruby', 'sql', 'rust', 'css', 'yaml', 'matlab', 'lua', 'json', 'shell', 'visual_basic', 'scala', 'rmarkdown', 'pascal', 'fortran', 'haskell', 'assembly', 'perl', 'julia', 'cmake', 'groovy', 'ocaml', 'powershell', 'elixir', 'clojure', 'makefile', 'coffeescript', 'erlang', 'lisp', 'toml', 'batchfile', 'cobol', 'dockerfile', 'r', 'prolog', 'verilog'
+
+    For model details and benchmarks, see Yi-Coder blog and Yi-Coder README.
+  overrides:
+    parameters:
+      model: Yi-Coder-9B.Q4_K_M.gguf
+  files:
+    - filename: Yi-Coder-9B.Q4_K_M.gguf
+      sha256: cff3db8a69c43654e3c2d2984e86ad2791d1d446ec56b24a636ba1ce78363308
+      uri: huggingface://QuantFactory/Yi-Coder-9B-GGUF/Yi-Coder-9B.Q4_K_M.gguf
 - &vicuna-chat
   ## LLama2 and derivatives
   ### Start Fimbulvetr
