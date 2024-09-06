@@ -429,6 +429,22 @@ const (
 	FLAG_LLM BackendConfigUsecases = FLAG_CHAT & FLAG_COMPLETION & FLAG_EDIT
 )
 
+func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
+	return map[string]BackendConfigUsecases{
+		"FLAG_ANY":              FLAG_ANY,
+		"FLAG_CHAT":             FLAG_CHAT,
+		"FLAG_COMPLETION":       FLAG_COMPLETION,
+		"FLAG_EDIT":             FLAG_EDIT,
+		"FLAG_EMBEDDINGS":       FLAG_EMBEDDINGS,
+		"FLAG_RERANK":           FLAG_RERANK,
+		"FLAG_IMAGE":            FLAG_IMAGE,
+		"FLAG_TRANSCRIPT":       FLAG_TRANSCRIPT,
+		"FLAG_TTS":              FLAG_TTS,
+		"FLAG_SOUND_GENERATION": FLAG_SOUND_GENERATION,
+		"FLAG_LLM":              FLAG_LLM,
+	}
+}
+
 // HasUsecases examines a BackendConfig and determines which endpoints have a chance of success.
 // This is a **heuristic based** function, as the backend in question may not be loaded yet.
 // In the future, we may wish to consider storing this information in the config directly (which could get out of date)
