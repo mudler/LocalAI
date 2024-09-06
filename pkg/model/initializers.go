@@ -393,6 +393,10 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 	}
 }
 
+func (ml *ModelLoader) ListAvailableBackends(assetdir string) ([]string, error) {
+	return backendsInAssetDir(assetdir)
+}
+
 func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 

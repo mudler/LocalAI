@@ -2,9 +2,7 @@ package grpc
 
 import (
 	"context"
-	"time"
 
-	"github.com/mudler/LocalAI/core/schema"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -57,28 +55,8 @@ func (e *embedBackend) SoundGeneration(ctx context.Context, in *pb.SoundGenerati
 	return e.s.SoundGeneration(ctx, in)
 }
 
-func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*schema.TranscriptionResult, error) {
-	r, err := e.s.AudioTranscription(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	tr := &schema.TranscriptionResult{}
-	for _, s := range r.Segments {
-		var tks []int
-		for _, t := range s.Tokens {
-			tks = append(tks, int(t))
-		}
-		tr.Segments = append(tr.Segments,
-			schema.Segment{
-				Text:   s.Text,
-				Id:     int(s.Id),
-				Start:  time.Duration(s.Start),
-				End:    time.Duration(s.End),
-				Tokens: tks,
-			})
-	}
-	tr.Text = r.Text
-	return tr, err
+func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*pb.TranscriptResult, error) {
+	return e.s.AudioTranscription(ctx, in)
 }
 
 func (e *embedBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {

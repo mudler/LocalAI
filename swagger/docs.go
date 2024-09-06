@@ -266,6 +266,19 @@ const docTemplate = `{
                 }
             }
         },
+        "/system": {
+            "get": {
+                "summary": "Show the LocalAI instance information",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemInformationResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tts": {
             "post": {
                 "consumes": [
@@ -1645,6 +1658,17 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/p2p.NodeData"
+                    }
+                }
+            }
+        },
+        "schema.SystemInformationResponse": {
+            "type": "object",
+            "properties": {
+                "backends": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }
