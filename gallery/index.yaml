@@ -1708,6 +1708,20 @@
     - filename: shieldgemma-9b.i1-Q4_K_M.gguf
       sha256: ffa7eaadcc0c7d0544fda5b0d86bba3ffa3431b673e5b2135f421cfe65bd8732
       uri: huggingface://mradermacher/shieldgemma-9b-i1-GGUF/shieldgemma-9b.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "athena-codegemma-2-2b-it"
+  urls:
+    - https://huggingface.co/EpistemeAI/Athena-codegemma-2-2b-it
+    - https://huggingface.co/mradermacher/Athena-codegemma-2-2b-it-GGUF
+  description: |
+      Supervised fine tuned (sft unsloth) for coding with EpistemeAI coding dataset.
+  overrides:
+    parameters:
+      model: Athena-codegemma-2-2b-it.Q4_K_M.gguf
+  files:
+    - filename: Athena-codegemma-2-2b-it.Q4_K_M.gguf
+      sha256: 59ce17023438b0da603dd211c7d39f78e7acac4108258ac0818a97a4ca7d64e3
+      uri: huggingface://mradermacher/Athena-codegemma-2-2b-it-GGUF/Athena-codegemma-2-2b-it.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
