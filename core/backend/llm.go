@@ -188,6 +188,22 @@ func Finetune(config config.BackendConfig, input, prediction string) string {
 		prediction = reg.ReplaceAllString(prediction, "")
 	}
 
+	// extract results from the response which can be for instance inside XML tags
+	var predResult string
+	for _, r := range config.ExtactRegex {
+		mu.Lock()
+		reg, ok := cutstrings[r]
+		if !ok {
+			cutstrings[r] = regexp.MustCompile(r)
+			reg = cutstrings[r]
+		}
+		mu.Unlock()
+		predResult += reg.FindString(prediction)
+	}
+	if predResult != "" {
+		prediction = predResult
+	}
+
 	for _, c := range config.TrimSpace {
 		prediction = strings.TrimSpace(strings.TrimPrefix(prediction, c))
 	}
