@@ -294,6 +294,8 @@ WORKDIR /build
 COPY . .
 COPY .git .
 
+RUN make prepare
+
 ## Build the binary
 ## If it's CUDA, we want to skip some of the llama-compat backends to save space
 ## We only leave the most CPU-optimized variant and the fallback for the cublas build
