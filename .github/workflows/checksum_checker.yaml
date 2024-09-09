@@ -36,7 +36,7 @@ jobs:
           sudo chmod 777 /hf_cache
           bash .github/checksum_checker.sh gallery/index.yaml
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
