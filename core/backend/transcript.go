@@ -9,7 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
-	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 func ModelTranscription(audio, language string, translate bool, ml *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
@@ -22,16 +22,16 @@ func ModelTranscription(audio, language string, translate bool, ml *model.ModelL
 		model.WithAssetDir(appConfig.AssetsDestination),
 	})
 
-	whisperModel, err := ml.BackendLoader(opts...)
+	transcriptionModel, err := ml.BackendLoader(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	if whisperModel == nil {
-		return nil, fmt.Errorf("could not load whisper model")
+	if transcriptionModel == nil {
+		return nil, fmt.Errorf("could not load transcription model")
 	}
 
-	r, err := whisperModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
+	r, err := transcriptionModel.AudioTranscription(context.Background(), &proto.TranscriptRequest{
 		Dst:       audio,
 		Language:  language,
 		Translate: translate,
