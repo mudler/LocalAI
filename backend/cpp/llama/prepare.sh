@@ -1,5 +1,12 @@
 #!/bin/bash
 
+## Patches
+## Apply patches from the `patches` directory
+for patch in $(ls patches); do
+    echo "Applying patch $patch"
+    patch -d llama.cpp/ -p1 < patches/$patch
+done 
+
 cp -r CMakeLists.txt llama.cpp/examples/grpc-server/
 cp -r grpc-server.cpp llama.cpp/examples/grpc-server/
 cp -rfv json.hpp llama.cpp/examples/grpc-server/
