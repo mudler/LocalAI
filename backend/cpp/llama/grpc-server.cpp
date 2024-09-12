@@ -20,7 +20,7 @@
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
 #include "utils.hpp"
-
+#include "sampling.h"
 // include std::regex
 #include <cstddef>
 #include <thread>

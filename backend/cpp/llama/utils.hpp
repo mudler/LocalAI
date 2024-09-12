@@ -481,30 +481,3 @@ static inline std::vector<uint8_t> base64_decode(const std::string & encoded_str
 
     return ret;
 }
-
-//
-// random string / id
-//
-
-static std::string random_string()
-{
-    static const std::string str("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-
-    std::random_device rd;
-    std::mt19937 generator(rd());
-
-    std::string result(32, ' ');
-
-    for (int i = 0; i < 32; ++i) {
-        result[i] = str[generator() % str.size()];
-    }
-
-    return result;
-}
-
-static std::string gen_chatcmplid()
-{
-    std::stringstream chatcmplid;
-    chatcmplid << "chatcmpl-" << random_string();
-    return chatcmplid.str();
-}
