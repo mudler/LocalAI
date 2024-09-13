@@ -658,6 +658,23 @@
     - filename: Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
       sha256: 88bfdca2f6077d789d3e0f161d19711aa208a6d9a02cce96a2276c69413b3594
       uri: huggingface://mradermacher/Mahou-1.3-llama3.1-8B-GGUF/Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "azure_dusk-v0.2-iq-imatrix"
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/n3-g_YTk3FY-DBzxXd28E.png
+  urls:
+    - https://huggingface.co/Lewdiculous/Azure_Dusk-v0.2-GGUF-IQ-Imatrix
+  description: |
+    "Following up on Crimson_Dawn-v0.2 we have Azure_Dusk-v0.2! Training on Mistral-Nemo-Base-2407 this time I've added significantly more data, as well as trained using RSLoRA as opposed to regular LoRA. Another key change is training on ChatML as opposed to Mistral Formatting."
+    by Author.
+  overrides:
+    parameters:
+      model: Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+  files:
+    - filename: Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+      sha256: c03a670c00976d14c267a0322374ed488b2a5f4790eb509136ca4e75cbc10cf4
+      uri: huggingface://Lewdiculous/Azure_Dusk-v0.2-GGUF-IQ-Imatrix/Azure_Dusk-v0.2-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
