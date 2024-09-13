@@ -1212,6 +1212,23 @@
     - filename: Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
       sha256: cf3465c183bf4ecbccd1b6b480f687e0160475b04c87e2f1e5ebc8baa0f4c7aa
       uri: huggingface://bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF/Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mn-12b-lyra-v4-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/dVoru83WOpwVjMlgZ_xhA.png
+  #chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Lewdiculous/MN-12B-Lyra-v4-GGUF-IQ-Imatrix
+  description: |
+      A finetune of Mistral Nemo by Sao10K.
+      Uses the ChatML prompt format.
+  overrides:
+    parameters:
+      model: MN-12B-Lyra-v4-Q4_K_M-imat.gguf
+  files:
+    - filename: MN-12B-Lyra-v4-Q4_K_M-imat.gguf
+      sha256: 1989123481ca1936c8a2cbe278ff5d1d2b0ae63dbdc838bb36a6d7547b8087b3
+      uri: huggingface://Lewdiculous/MN-12B-Lyra-v4-GGUF-IQ-Imatrix/MN-12B-Lyra-v4-Q4_K_M-imat.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
