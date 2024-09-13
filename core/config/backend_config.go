@@ -126,7 +126,7 @@ type LLMConfig struct {
 	Grammar         string   `yaml:"grammar"`
 	StopWords       []string `yaml:"stopwords"`
 	Cutstrings      []string `yaml:"cutstrings"`
-	ExtactRegex     []string `yaml:"extract_regex"`
+	ExtractRegex    []string `yaml:"extract_regex"`
 	TrimSpace       []string `yaml:"trimspace"`
 	TrimSuffix      []string `yaml:"trimsuffix"`
 
