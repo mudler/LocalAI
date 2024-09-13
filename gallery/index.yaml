@@ -1756,6 +1756,34 @@
     - filename: Athena-codegemma-2-2b-it.Q4_K_M.gguf
       sha256: 59ce17023438b0da603dd211c7d39f78e7acac4108258ac0818a97a4ca7d64e3
       uri: huggingface://mradermacher/Athena-codegemma-2-2b-it-GGUF/Athena-codegemma-2-2b-it.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "datagemma-rag-27b-it"
+  urls:
+    - https://huggingface.co/google/datagemma-rag-27b-it
+    - https://huggingface.co/bartowski/datagemma-rag-27b-it-GGUF
+  description: |
+    DataGemma is a series of fine-tuned Gemma 2 models used to help LLMs access and incorporate reliable public statistical data from Data Commons into their responses. DataGemma RAG is used with Retrieval Augmented Generation, where it is trained to take a user query and generate natural language queries that can be understood by Data Commons' existing natural language interface. More information can be found in this research paper.
+  overrides:
+    parameters:
+      model: datagemma-rag-27b-it-Q4_K_M.gguf
+  files:
+    - filename: datagemma-rag-27b-it-Q4_K_M.gguf
+      sha256: 3dfcf51b05e3f0ab0979ad194de350edea71cb14444efa0a9f2ef5bfc80753f8
+      uri: huggingface://bartowski/datagemma-rag-27b-it-GGUF/datagemma-rag-27b-it-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "datagemma-rig-27b-it"
+  urls:
+    - https://huggingface.co/google/datagemma-rig-27b-it
+    - https://huggingface.co/bartowski/datagemma-rig-27b-it-GGUF
+  description: |
+    DataGemma is a series of fine-tuned Gemma 2 models used to help LLMs access and incorporate reliable public statistical data from Data Commons into their responses. DataGemma RIG is used in the retrieval interleaved generation approach (based off of tool-use approaches), where it is trained to annotate a response with natural language queries to Data Commons’ existing natural language interface wherever there are statistics. More information can be found in this research paper.
+  overrides:
+    parameters:
+      model: datagemma-rig-27b-it-Q4_K_M.gguf
+  files:
+    - filename: datagemma-rig-27b-it-Q4_K_M.gguf
+      sha256: a6738ffbb49b6c46d220e2793df85c0538e9ac72398e32a0914ee5e55c3096ad
+      uri: huggingface://bartowski/datagemma-rig-27b-it-GGUF/datagemma-rig-27b-it-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
