@@ -638,6 +638,13 @@ definitions:
           $ref: '#/definitions/p2p.NodeData'
         type: array
     type: object
+  schema.SystemInformationResponse:
+    properties:
+      backends:
+        items:
+          type: string
+        type: array
+    type: object
   schema.TTSRequest:
     description: TTS request body
     properties:
@@ -832,6 +839,14 @@ paths:
           schema:
             $ref: '#/definitions/gallery.GalleryOpStatus'
       summary: Returns the job status
+  /system:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.SystemInformationResponse'
+      summary: Show the LocalAI instance information
   /tts:
     post:
       consumes:
