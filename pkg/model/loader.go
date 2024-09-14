@@ -146,22 +146,17 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
-	if _, ok := ml.models[modelName]; ok {
-		for ml.models[modelName].GRPC(false, ml.wd).IsBusy() {
-			log.Debug().Msgf("%s busy. Waiting.", modelName)
-			time.Sleep(2 * time.Second)
-		}
-	}
-
-	return ml.stopModel(modelName)
-}
-
-func (ml *ModelLoader) stopModel(modelName string) error {
-	defer ml.deleteProcess(modelName)
-	if _, ok := ml.models[modelName]; !ok {
+	_, ok := ml.models[modelName]
+	if !ok {
 		return fmt.Errorf("model %s not found", modelName)
 	}
-	return nil
+
+	for ml.models[modelName].GRPC(false, ml.wd).IsBusy() {
+		log.Debug().Msgf("%s busy. Waiting.", modelName)
+		time.Sleep(2 * time.Second)
+	}
+
+	return ml.deleteProcess(modelName)
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
