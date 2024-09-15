@@ -151,9 +151,11 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 		return fmt.Errorf("model %s not found", modelName)
 	}
 
+	retries := 1
 	for ml.models[modelName].GRPC(false, ml.wd).IsBusy() {
 		log.Debug().Msgf("%s busy. Waiting.", modelName)
-		time.Sleep(2 * time.Second)
+		time.Sleep(retries * 2 * time.Second)
+		retries++
 	}
 
 	return ml.deleteProcess(modelName)
