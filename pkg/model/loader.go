@@ -154,7 +154,7 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	retries := 1
 	for ml.models[modelName].GRPC(false, ml.wd).IsBusy() {
 		log.Debug().Msgf("%s busy. Waiting.", modelName)
-		time.Sleep(retries * 2 * time.Second)
+		time.Sleep(time.Duration(retries * 2) * time.Second)
 		retries++
 	}
 
