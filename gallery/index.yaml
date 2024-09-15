@@ -658,6 +658,23 @@
     - filename: Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
       sha256: 88bfdca2f6077d789d3e0f161d19711aa208a6d9a02cce96a2276c69413b3594
       uri: huggingface://mradermacher/Mahou-1.3-llama3.1-8B-GGUF/Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "azure_dusk-v0.2-iq-imatrix"
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/n3-g_YTk3FY-DBzxXd28E.png
+  urls:
+    - https://huggingface.co/Lewdiculous/Azure_Dusk-v0.2-GGUF-IQ-Imatrix
+  description: |
+    "Following up on Crimson_Dawn-v0.2 we have Azure_Dusk-v0.2! Training on Mistral-Nemo-Base-2407 this time I've added significantly more data, as well as trained using RSLoRA as opposed to regular LoRA. Another key change is training on ChatML as opposed to Mistral Formatting."
+    by Author.
+  overrides:
+    parameters:
+      model: Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+  files:
+    - filename: Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+      sha256: c03a670c00976d14c267a0322374ed488b2a5f4790eb509136ca4e75cbc10cf4
+      uri: huggingface://Lewdiculous/Azure_Dusk-v0.2-GGUF-IQ-Imatrix/Azure_Dusk-v0.2-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -1195,6 +1212,23 @@
     - filename: Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
       sha256: cf3465c183bf4ecbccd1b6b480f687e0160475b04c87e2f1e5ebc8baa0f4c7aa
       uri: huggingface://bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF/Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mn-12b-lyra-v4-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/dVoru83WOpwVjMlgZ_xhA.png
+  #chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Lewdiculous/MN-12B-Lyra-v4-GGUF-IQ-Imatrix
+  description: |
+      A finetune of Mistral Nemo by Sao10K.
+      Uses the ChatML prompt format.
+  overrides:
+    parameters:
+      model: MN-12B-Lyra-v4-Q4_K_M-imat.gguf
+  files:
+    - filename: MN-12B-Lyra-v4-Q4_K_M-imat.gguf
+      sha256: 1989123481ca1936c8a2cbe278ff5d1d2b0ae63dbdc838bb36a6d7547b8087b3
+      uri: huggingface://Lewdiculous/MN-12B-Lyra-v4-GGUF-IQ-Imatrix/MN-12B-Lyra-v4-Q4_K_M-imat.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -1708,6 +1742,48 @@
     - filename: shieldgemma-9b.i1-Q4_K_M.gguf
       sha256: ffa7eaadcc0c7d0544fda5b0d86bba3ffa3431b673e5b2135f421cfe65bd8732
       uri: huggingface://mradermacher/shieldgemma-9b-i1-GGUF/shieldgemma-9b.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "athena-codegemma-2-2b-it"
+  urls:
+    - https://huggingface.co/EpistemeAI/Athena-codegemma-2-2b-it
+    - https://huggingface.co/mradermacher/Athena-codegemma-2-2b-it-GGUF
+  description: |
+      Supervised fine tuned (sft unsloth) for coding with EpistemeAI coding dataset.
+  overrides:
+    parameters:
+      model: Athena-codegemma-2-2b-it.Q4_K_M.gguf
+  files:
+    - filename: Athena-codegemma-2-2b-it.Q4_K_M.gguf
+      sha256: 59ce17023438b0da603dd211c7d39f78e7acac4108258ac0818a97a4ca7d64e3
+      uri: huggingface://mradermacher/Athena-codegemma-2-2b-it-GGUF/Athena-codegemma-2-2b-it.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "datagemma-rag-27b-it"
+  urls:
+    - https://huggingface.co/google/datagemma-rag-27b-it
+    - https://huggingface.co/bartowski/datagemma-rag-27b-it-GGUF
+  description: |
+    DataGemma is a series of fine-tuned Gemma 2 models used to help LLMs access and incorporate reliable public statistical data from Data Commons into their responses. DataGemma RAG is used with Retrieval Augmented Generation, where it is trained to take a user query and generate natural language queries that can be understood by Data Commons' existing natural language interface. More information can be found in this research paper.
+  overrides:
+    parameters:
+      model: datagemma-rag-27b-it-Q4_K_M.gguf
+  files:
+    - filename: datagemma-rag-27b-it-Q4_K_M.gguf
+      sha256: 3dfcf51b05e3f0ab0979ad194de350edea71cb14444efa0a9f2ef5bfc80753f8
+      uri: huggingface://bartowski/datagemma-rag-27b-it-GGUF/datagemma-rag-27b-it-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "datagemma-rig-27b-it"
+  urls:
+    - https://huggingface.co/google/datagemma-rig-27b-it
+    - https://huggingface.co/bartowski/datagemma-rig-27b-it-GGUF
+  description: |
+    DataGemma is a series of fine-tuned Gemma 2 models used to help LLMs access and incorporate reliable public statistical data from Data Commons into their responses. DataGemma RIG is used in the retrieval interleaved generation approach (based off of tool-use approaches), where it is trained to annotate a response with natural language queries to Data Commons’ existing natural language interface wherever there are statistics. More information can be found in this research paper.
+  overrides:
+    parameters:
+      model: datagemma-rig-27b-it-Q4_K_M.gguf
+  files:
+    - filename: datagemma-rig-27b-it-Q4_K_M.gguf
+      sha256: a6738ffbb49b6c46d220e2793df85c0538e9ac72398e32a0914ee5e55c3096ad
+      uri: huggingface://bartowski/datagemma-rig-27b-it-GGUF/datagemma-rig-27b-it-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
