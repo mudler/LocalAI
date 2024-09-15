@@ -310,3 +310,33 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/coqui
           make --jobs=5 --output-sync=target -C backend/python/coqui test
+
+  report-extra-test-results:
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs: [tests-transformers, tests-sentencetransformers, tests-rerankers, tests-diffusers, tests-parler-tts, tests-openvoice, tests-transformers-musicgen, tests-vallex, tests-coqui]
+    steps:
+      - name: Report Status for coqui
+        if: needs.tests-coqui.result != 'success'
+        run: | 
+          echo ${{needs.tests-coqui.outputs}}
+          exit 1
+      - name: Report Status for diffusers
+        if: needs.tests-diffusers.result != 'success'
+        run: | 
+            echo ${{needs.tests-diffusers.outputs}}
+            exit 1
+      - name: Report Status for openvoice
+        if: needs.tests-openvoice.result != 'success'
+        run: | 
+            echo ${{needs.tests-openvoice.outputs}}
+            exit 1
+      - name: Report Status for parler-tts
+        if: needs.tests-parler-tts.result != 'success'
+        run: | 
+            echo ${{needs.tests-parler-tts.outputs}}
+            exit 1
+      - name: Report Success
+        run: |
+            echo "test-extra successfully completed"
+            exit 0
