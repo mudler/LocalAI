@@ -1,0 +1,30 @@
+# .github/actions/report-status/action.yml
+name: 'Report Status'
+on:
+    workflow_call:
+      inputs:
+        job_name:
+          description: 'The name of the job to report'
+          required: true
+          default: ''
+          type: string
+        runs-on:
+          description: 'Runs on'
+          required: true
+          default: 'ubuntu-latest'
+          type: string
+jobs:
+  reusable-report-status:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Print Job Result
+        run: |
+            echo "Job: ${{ inputs.job_name }}""
+            echo "${{ needs[inputs.job_name].result }}"
+
+      - name: Check Job Status
+        run: |
+            if [[ "${{ needs[inputs.job_name].result }}" == "failure" || "${{ needs[inputs.job_name].result }}" == "cancelled" ]]; then
+            echo "${{ needs[inputs.job_name].output }}"
+            exit 1
+            fi
