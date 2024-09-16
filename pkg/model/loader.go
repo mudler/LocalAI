@@ -69,6 +69,8 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".tar.gz",
 }
 
+const retryTimeout = time.Duration(2 * time.Minute)
+
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
 	files, err := os.ReadDir(ml.ModelPath)
 	if err != nil {
@@ -154,7 +156,11 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	retries := 1
 	for ml.models[modelName].GRPC(false, ml.wd).IsBusy() {
 		log.Debug().Msgf("%s busy. Waiting.", modelName)
-		time.Sleep(time.Duration(retries * 2) * time.Second)
+		dur := time.Duration(retries*2) * time.Second
+		if dur > retryTimeout {
+			dur = retryTimeout
+		}
+		time.Sleep(dur)
 		retries++
 	}
 
