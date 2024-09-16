@@ -675,6 +675,29 @@
     - filename: Azure_Dusk-v0.2-Q4_K_M-imat.gguf
       sha256: c03a670c00976d14c267a0322374ed488b2a5f4790eb509136ca4e75cbc10cf4
       uri: huggingface://Lewdiculous/Azure_Dusk-v0.2-GGUF-IQ-Imatrix/Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-niitama-v1.1-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/2Q5ky8TvP0vLS1ulMXnrn.png
+  urls:
+    - https://huggingface.co/Sao10K/L3.1-8B-Niitama-v1.1
+    - https://huggingface.co/Lewdiculous/L3.1-8B-Niitama-v1.1-GGUF-IQ-Imatrix
+  description: |
+   GGUF-IQ-Imatrix quants for Sao10K/L3.1-8B-Niitama-v1.1
+   Here's the subjectively superior L3 version: L3-8B-Niitama-v1
+   An experimental model using experimental methods.
+
+   More detail on it:
+
+   Tamamo and Niitama are made from the same data. Literally. The only thing that's changed is how theyre shuffled and formatted. Yet, I get wildly different results.
+
+   Interesting, eh? Feels kinda not as good compared to the l3 version, but it's aight.
+  overrides:
+    parameters:
+      model: L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
+  files:
+    - filename: L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
+      sha256: 524163bd0f1d43c9284b09118abcc192f3250b13dd3bb79d60c28321108b6748
+      uri: huggingface://Lewdiculous/L3.1-8B-Niitama-v1.1-GGUF-IQ-Imatrix/L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
