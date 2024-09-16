@@ -675,6 +675,72 @@
     - filename: Azure_Dusk-v0.2-Q4_K_M-imat.gguf
       sha256: c03a670c00976d14c267a0322374ed488b2a5f4790eb509136ca4e75cbc10cf4
       uri: huggingface://Lewdiculous/Azure_Dusk-v0.2-GGUF-IQ-Imatrix/Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-niitama-v1.1-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/2Q5ky8TvP0vLS1ulMXnrn.png
+  urls:
+    - https://huggingface.co/Sao10K/L3.1-8B-Niitama-v1.1
+    - https://huggingface.co/Lewdiculous/L3.1-8B-Niitama-v1.1-GGUF-IQ-Imatrix
+  description: |
+   GGUF-IQ-Imatrix quants for Sao10K/L3.1-8B-Niitama-v1.1
+   Here's the subjectively superior L3 version: L3-8B-Niitama-v1
+   An experimental model using experimental methods.
+
+   More detail on it:
+
+   Tamamo and Niitama are made from the same data. Literally. The only thing that's changed is how theyre shuffled and formatted. Yet, I get wildly different results.
+
+   Interesting, eh? Feels kinda not as good compared to the l3 version, but it's aight.
+  overrides:
+    parameters:
+      model: L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
+  files:
+    - filename: L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
+      sha256: 524163bd0f1d43c9284b09118abcc192f3250b13dd3bb79d60c28321108b6748
+      uri: huggingface://Lewdiculous/L3.1-8B-Niitama-v1.1-GGUF-IQ-Imatrix/L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-stheno-v3.4-iq-imatrix"
+  icon: https://huggingface.co/Sao10K/Llama-3.1-8B-Stheno-v3.4/resolve/main/meneno.jpg
+  urls:
+    - https://huggingface.co/Sao10K/Llama-3.1-8B-Stheno-v3.4
+    - https://huggingface.co/Lewdiculous/Llama-3.1-8B-Stheno-v3.4-GGUF-IQ-Imatrix
+  description: |
+    This model has went through a multi-stage finetuning process.
+
+    - 1st, over a multi-turn Conversational-Instruct
+    - 2nd, over a Creative Writing / Roleplay along with some Creative-based Instruct Datasets.
+    - - Dataset consists of a mixture of Human and Claude Data.
+
+    Prompting Format:
+
+    - Use the L3 Instruct Formatting - Euryale 2.1 Preset Works Well
+    - Temperature + min_p as per usual, I recommend 1.4 Temp + 0.2 min_p.
+    - Has a different vibe to previous versions. Tinker around.
+
+    Changes since previous Stheno Datasets:
+
+    - Included Multi-turn Conversation-based Instruct Datasets to boost multi-turn coherency. # This is a seperate set, not the ones made by Kalomaze and Nopm, that are used in Magnum. They're completely different data.
+    - Replaced Single-Turn Instruct with Better Prompts and Answers by Claude 3.5 Sonnet and Claude 3 Opus.
+    - Removed c2 Samples -> Underway of re-filtering and masking to use with custom prefills. TBD
+    - Included 55% more Roleplaying Examples based of [Gryphe's](https://huggingface.co/datasets/Gryphe/Sonnet3.5-Charcard-Roleplay) Charcard RP Sets. Further filtered and cleaned on.
+    - Included 40% More Creative Writing Examples.
+    - Included Datasets Targeting System Prompt Adherence.
+    - Included Datasets targeting Reasoning / Spatial Awareness.
+    - Filtered for the usual errors, slop and stuff at the end. Some may have slipped through, but I removed nearly all of it.
+
+    Personal Opinions:
+
+    - Llama3.1 was more disappointing, in the Instruct Tune? It felt overbaked, atleast. Likely due to the DPO being done after their SFT Stage.
+    - Tuning on L3.1 base did not give good results, unlike when I tested with Nemo base. unfortunate.
+    - Still though, I think I did an okay job. It does feel a bit more distinctive.
+    - It took a lot of tinkering, like a LOT to wrangle this.
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
+  files:
+    - filename: Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
+      sha256: 830d4858aa11a654f82f69fa40dee819edf9ecf54213057648304eb84b8dd5eb
+      uri: huggingface://Lewdiculous/Llama-3.1-8B-Stheno-v3.4-GGUF-IQ-Imatrix/Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
