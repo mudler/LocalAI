@@ -332,6 +332,26 @@ jobs:
         uses: ./.github/workflows/report_status.yaml
         with:
           job_name: tests-parler-tts
+      - name: Report Status for tests-transformers
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-transformers
+      - name: Report Status for tests-transformers-musicgen
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-transformers-musicgen
+      - name: Report Status for tests-sentencetransformers
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-sentencetransformers
+      - name: Report Status for tests-rerankers
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-rerankers
+      - name: Report Status for tests-vallex
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-vallex
       - name: Report Success
         run: |
             echo "test-extra successfully completed"
