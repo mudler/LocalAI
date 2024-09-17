@@ -658,6 +658,89 @@
     - filename: Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
       sha256: 88bfdca2f6077d789d3e0f161d19711aa208a6d9a02cce96a2276c69413b3594
       uri: huggingface://mradermacher/Mahou-1.3-llama3.1-8B-GGUF/Mahou-1.3-llama3.1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "azure_dusk-v0.2-iq-imatrix"
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/n3-g_YTk3FY-DBzxXd28E.png
+  urls:
+    - https://huggingface.co/Lewdiculous/Azure_Dusk-v0.2-GGUF-IQ-Imatrix
+  description: |
+    "Following up on Crimson_Dawn-v0.2 we have Azure_Dusk-v0.2! Training on Mistral-Nemo-Base-2407 this time I've added significantly more data, as well as trained using RSLoRA as opposed to regular LoRA. Another key change is training on ChatML as opposed to Mistral Formatting."
+    by Author.
+  overrides:
+    parameters:
+      model: Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+  files:
+    - filename: Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+      sha256: c03a670c00976d14c267a0322374ed488b2a5f4790eb509136ca4e75cbc10cf4
+      uri: huggingface://Lewdiculous/Azure_Dusk-v0.2-GGUF-IQ-Imatrix/Azure_Dusk-v0.2-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-niitama-v1.1-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/2Q5ky8TvP0vLS1ulMXnrn.png
+  urls:
+    - https://huggingface.co/Sao10K/L3.1-8B-Niitama-v1.1
+    - https://huggingface.co/Lewdiculous/L3.1-8B-Niitama-v1.1-GGUF-IQ-Imatrix
+  description: |
+   GGUF-IQ-Imatrix quants for Sao10K/L3.1-8B-Niitama-v1.1
+   Here's the subjectively superior L3 version: L3-8B-Niitama-v1
+   An experimental model using experimental methods.
+
+   More detail on it:
+
+   Tamamo and Niitama are made from the same data. Literally. The only thing that's changed is how theyre shuffled and formatted. Yet, I get wildly different results.
+
+   Interesting, eh? Feels kinda not as good compared to the l3 version, but it's aight.
+  overrides:
+    parameters:
+      model: L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
+  files:
+    - filename: L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
+      sha256: 524163bd0f1d43c9284b09118abcc192f3250b13dd3bb79d60c28321108b6748
+      uri: huggingface://Lewdiculous/L3.1-8B-Niitama-v1.1-GGUF-IQ-Imatrix/L3.1-8B-Niitama-v1.1-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-stheno-v3.4-iq-imatrix"
+  icon: https://huggingface.co/Sao10K/Llama-3.1-8B-Stheno-v3.4/resolve/main/meneno.jpg
+  urls:
+    - https://huggingface.co/Sao10K/Llama-3.1-8B-Stheno-v3.4
+    - https://huggingface.co/Lewdiculous/Llama-3.1-8B-Stheno-v3.4-GGUF-IQ-Imatrix
+  description: |
+    This model has went through a multi-stage finetuning process.
+
+    - 1st, over a multi-turn Conversational-Instruct
+    - 2nd, over a Creative Writing / Roleplay along with some Creative-based Instruct Datasets.
+    - - Dataset consists of a mixture of Human and Claude Data.
+
+    Prompting Format:
+
+    - Use the L3 Instruct Formatting - Euryale 2.1 Preset Works Well
+    - Temperature + min_p as per usual, I recommend 1.4 Temp + 0.2 min_p.
+    - Has a different vibe to previous versions. Tinker around.
+
+    Changes since previous Stheno Datasets:
+
+    - Included Multi-turn Conversation-based Instruct Datasets to boost multi-turn coherency. # This is a seperate set, not the ones made by Kalomaze and Nopm, that are used in Magnum. They're completely different data.
+    - Replaced Single-Turn Instruct with Better Prompts and Answers by Claude 3.5 Sonnet and Claude 3 Opus.
+    - Removed c2 Samples -> Underway of re-filtering and masking to use with custom prefills. TBD
+    - Included 55% more Roleplaying Examples based of [Gryphe's](https://huggingface.co/datasets/Gryphe/Sonnet3.5-Charcard-Roleplay) Charcard RP Sets. Further filtered and cleaned on.
+    - Included 40% More Creative Writing Examples.
+    - Included Datasets Targeting System Prompt Adherence.
+    - Included Datasets targeting Reasoning / Spatial Awareness.
+    - Filtered for the usual errors, slop and stuff at the end. Some may have slipped through, but I removed nearly all of it.
+
+    Personal Opinions:
+
+    - Llama3.1 was more disappointing, in the Instruct Tune? It felt overbaked, atleast. Likely due to the DPO being done after their SFT Stage.
+    - Tuning on L3.1 base did not give good results, unlike when I tested with Nemo base. unfortunate.
+    - Still though, I think I did an okay job. It does feel a bit more distinctive.
+    - It took a lot of tinkering, like a LOT to wrangle this.
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
+  files:
+    - filename: Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
+      sha256: 830d4858aa11a654f82f69fa40dee819edf9ecf54213057648304eb84b8dd5eb
+      uri: huggingface://Lewdiculous/Llama-3.1-8B-Stheno-v3.4-GGUF-IQ-Imatrix/Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -1195,6 +1278,23 @@
     - filename: Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
       sha256: cf3465c183bf4ecbccd1b6b480f687e0160475b04c87e2f1e5ebc8baa0f4c7aa
       uri: huggingface://bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF/Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mn-12b-lyra-v4-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/dVoru83WOpwVjMlgZ_xhA.png
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Lewdiculous/MN-12B-Lyra-v4-GGUF-IQ-Imatrix
+  description: |
+      A finetune of Mistral Nemo by Sao10K.
+      Uses the ChatML prompt format.
+  overrides:
+    parameters:
+      model: MN-12B-Lyra-v4-Q4_K_M-imat.gguf
+  files:
+    - filename: MN-12B-Lyra-v4-Q4_K_M-imat.gguf
+      sha256: 1989123481ca1936c8a2cbe278ff5d1d2b0ae63dbdc838bb36a6d7547b8087b3
+      uri: huggingface://Lewdiculous/MN-12B-Lyra-v4-GGUF-IQ-Imatrix/MN-12B-Lyra-v4-Q4_K_M-imat.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -1708,6 +1808,48 @@
     - filename: shieldgemma-9b.i1-Q4_K_M.gguf
       sha256: ffa7eaadcc0c7d0544fda5b0d86bba3ffa3431b673e5b2135f421cfe65bd8732
       uri: huggingface://mradermacher/shieldgemma-9b-i1-GGUF/shieldgemma-9b.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "athena-codegemma-2-2b-it"
+  urls:
+    - https://huggingface.co/EpistemeAI/Athena-codegemma-2-2b-it
+    - https://huggingface.co/mradermacher/Athena-codegemma-2-2b-it-GGUF
+  description: |
+      Supervised fine tuned (sft unsloth) for coding with EpistemeAI coding dataset.
+  overrides:
+    parameters:
+      model: Athena-codegemma-2-2b-it.Q4_K_M.gguf
+  files:
+    - filename: Athena-codegemma-2-2b-it.Q4_K_M.gguf
+      sha256: 59ce17023438b0da603dd211c7d39f78e7acac4108258ac0818a97a4ca7d64e3
+      uri: huggingface://mradermacher/Athena-codegemma-2-2b-it-GGUF/Athena-codegemma-2-2b-it.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "datagemma-rag-27b-it"
+  urls:
+    - https://huggingface.co/google/datagemma-rag-27b-it
+    - https://huggingface.co/bartowski/datagemma-rag-27b-it-GGUF
+  description: |
+    DataGemma is a series of fine-tuned Gemma 2 models used to help LLMs access and incorporate reliable public statistical data from Data Commons into their responses. DataGemma RAG is used with Retrieval Augmented Generation, where it is trained to take a user query and generate natural language queries that can be understood by Data Commons' existing natural language interface. More information can be found in this research paper.
+  overrides:
+    parameters:
+      model: datagemma-rag-27b-it-Q4_K_M.gguf
+  files:
+    - filename: datagemma-rag-27b-it-Q4_K_M.gguf
+      sha256: 3dfcf51b05e3f0ab0979ad194de350edea71cb14444efa0a9f2ef5bfc80753f8
+      uri: huggingface://bartowski/datagemma-rag-27b-it-GGUF/datagemma-rag-27b-it-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "datagemma-rig-27b-it"
+  urls:
+    - https://huggingface.co/google/datagemma-rig-27b-it
+    - https://huggingface.co/bartowski/datagemma-rig-27b-it-GGUF
+  description: |
+    DataGemma is a series of fine-tuned Gemma 2 models used to help LLMs access and incorporate reliable public statistical data from Data Commons into their responses. DataGemma RIG is used in the retrieval interleaved generation approach (based off of tool-use approaches), where it is trained to annotate a response with natural language queries to Data Commons’ existing natural language interface wherever there are statistics. More information can be found in this research paper.
+  overrides:
+    parameters:
+      model: datagemma-rig-27b-it-Q4_K_M.gguf
+  files:
+    - filename: datagemma-rig-27b-it-Q4_K_M.gguf
+      sha256: a6738ffbb49b6c46d220e2793df85c0538e9ac72398e32a0914ee5e55c3096ad
+      uri: huggingface://bartowski/datagemma-rig-27b-it-GGUF/datagemma-rig-27b-it-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png

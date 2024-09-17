@@ -9,26 +9,11 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/hpcloud/tail"
 	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"
 )
-
-func (ml *ModelLoader) StopAllExcept(s string) error {
-	return ml.StopGRPC(func(id string, p *process.Process) bool {
-		if id != s {
-			for ml.models[id].GRPC(false, ml.wd).IsBusy() {
-				log.Debug().Msgf("%s busy. Waiting.", id)
-				time.Sleep(2 * time.Second)
-			}
-			log.Debug().Msgf("[single-backend] Stopping %s", id)
-			return true
-		}
-		return false
-	})
-}
 
 func (ml *ModelLoader) deleteProcess(s string) error {
 	if _, exists := ml.grpcProcesses[s]; exists {
@@ -41,17 +26,11 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 	return nil
 }
 
-type GRPCProcessFilter = func(id string, p *process.Process) bool
-
-func includeAllProcesses(_ string, _ *process.Process) bool {
-	return true
-}
-
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 	var err error = nil
 	for k, p := range ml.grpcProcesses {
 		if filter(k, p) {
-			e := ml.deleteProcess(k)
+			e := ml.ShutdownModel(k)
 			err = errors.Join(err, e)
 		}
 	}
@@ -59,10 +38,12 @@ func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 }
 
 func (ml *ModelLoader) StopAllGRPC() error {
-	return ml.StopGRPC(includeAllProcesses)
+	return ml.StopGRPC(all)
 }
 
 func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	p, exists := ml.grpcProcesses[id]
 	if !exists {
 		return -1, fmt.Errorf("no grpc backend found for %s", id)

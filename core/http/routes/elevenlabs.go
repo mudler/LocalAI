@@ -10,12 +10,11 @@ import (
 func RegisterElevenLabsRoutes(app *fiber.App,
 	cl *config.BackendConfigLoader,
 	ml *model.ModelLoader,
-	appConfig *config.ApplicationConfig,
-	auth func(*fiber.Ctx) error) {
+	appConfig *config.ApplicationConfig) {
 
 	// Elevenlabs
-	app.Post("/v1/text-to-speech/:voice-id", auth, elevenlabs.TTSEndpoint(cl, ml, appConfig))
+	app.Post("/v1/text-to-speech/:voice-id", elevenlabs.TTSEndpoint(cl, ml, appConfig))
 
-	app.Post("/v1/sound-generation", auth, elevenlabs.SoundGenerationEndpoint(cl, ml, appConfig))
+	app.Post("/v1/sound-generation", elevenlabs.SoundGenerationEndpoint(cl, ml, appConfig))
 
 }

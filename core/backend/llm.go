@@ -9,6 +9,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 
@@ -181,11 +183,35 @@ func Finetune(config config.BackendConfig, input, prediction string) string {
 		mu.Lock()
 		reg, ok := cutstrings[c]
 		if !ok {
-			cutstrings[c] = regexp.MustCompile(c)
+			r, err := regexp.Compile(c)
+			if err != nil {
+				log.Fatal().Err(err).Msg("failed to compile regex")
+			}
+			cutstrings[c] = r
 			reg = cutstrings[c]
 		}
 		mu.Unlock()
 		prediction = reg.ReplaceAllString(prediction, "")
+	}
+
+	// extract results from the response which can be for instance inside XML tags
+	var predResult string
+	for _, r := range config.ExtractRegex {
+		mu.Lock()
+		reg, ok := cutstrings[r]
+		if !ok {
+			regex, err := regexp.Compile(r)
+			if err != nil {
+				log.Fatal().Err(err).Msg("failed to compile regex")
+			}
+			cutstrings[r] = regex
+			reg = regex
+		}
+		mu.Unlock()
+		predResult += reg.FindString(prediction)
+	}
+	if predResult != "" {
+		prediction = predResult
 	}
 
 	for _, c := range config.TrimSpace {

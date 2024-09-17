@@ -1,3 +1,5 @@
 grpcio==1.66.1
 protobuf
 certifi
+datasets
+einops

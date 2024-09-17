@@ -69,6 +69,8 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".tar.gz",
 }
 
+const retryTimeout = time.Duration(2 * time.Minute)
+
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
 	files, err := os.ReadDir(ml.ModelPath)
 	if err != nil {
@@ -116,9 +118,6 @@ func (ml *ModelLoader) ListModels() []*Model {
 }
 
 func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (*Model, error)) (*Model, error) {
-	ml.mu.Lock()
-	defer ml.mu.Unlock()
-
 	// Check if we already have a loaded model
 	if model := ml.CheckIsLoaded(modelName); model != nil {
 		return model, nil
@@ -137,6 +136,8 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 		return nil, fmt.Errorf("loader didn't return a model")
 	}
 
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	ml.models[modelName] = model
 
 	return model, nil
@@ -146,18 +147,28 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
-	return ml.stopModel(modelName)
-}
-
-func (ml *ModelLoader) stopModel(modelName string) error {
-	defer ml.deleteProcess(modelName)
-	if _, ok := ml.models[modelName]; !ok {
+	_, ok := ml.models[modelName]
+	if !ok {
 		return fmt.Errorf("model %s not found", modelName)
 	}
-	return nil
+
+	retries := 1
+	for ml.models[modelName].GRPC(false, ml.wd).IsBusy() {
+		log.Debug().Msgf("%s busy. Waiting.", modelName)
+		dur := time.Duration(retries*2) * time.Second
+		if dur > retryTimeout {
+			dur = retryTimeout
+		}
+		time.Sleep(dur)
+		retries++
+	}
+
+	return ml.deleteProcess(modelName)
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	m, ok := ml.models[s]
 	if !ok {
 		return nil

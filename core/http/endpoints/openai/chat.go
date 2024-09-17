@@ -68,9 +68,9 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
 		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
-		results := functions.ParseFunctionCall(result, config.FunctionsConfig)
+		functionResults := functions.ParseFunctionCall(result, config.FunctionsConfig)
 		log.Debug().Msgf("Text content to return: %s", textContentToReturn)
-		noActionToRun := len(results) > 0 && results[0].Name == noAction || len(results) == 0
+		noActionToRun := len(functionResults) > 0 && functionResults[0].Name == noAction || len(functionResults) == 0
 
 		switch {
 		case noActionToRun:
@@ -83,7 +83,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			}
 			responses <- initialMessage
 
-			result, err := handleQuestion(config, req, ml, startupOptions, results, result, prompt)
+			result, err := handleQuestion(config, req, ml, startupOptions, functionResults, result, prompt)
 			if err != nil {
 				log.Error().Err(err).Msg("error handling question")
 				return
@@ -105,7 +105,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			responses <- resp
 
 		default:
-			for i, ss := range results {
+			for i, ss := range functionResults {
 				name, args := ss.Name, ss.Arguments
 
 				initialMessage := schema.OpenAIResponse{
