@@ -5,4 +5,4 @@ accelerate
 torch
 rerankers[transformers]
 optimum[openvino]
-setuptools==72.1.0 # https://github.com/mudler/LocalAI/issues/2406
+setuptools==75.1.0 # https://github.com/mudler/LocalAI/issues/2406
