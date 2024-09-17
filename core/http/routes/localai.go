@@ -69,6 +69,6 @@ func RegisterLocalAIRoutes(app *fiber.App,
 		}{Version: internal.PrintableVersion()})
 	})
 
-	app.Get("/system", auth, localai.SystemInformations(ml, appConfig))
+	app.Get("/system", localai.SystemInformations(ml, appConfig))
 
 }

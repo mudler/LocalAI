@@ -31,6 +31,8 @@ import (
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
 
+const apiKey = "joshua"
+
 const testPrompt = `### System:
 You are an AI assistant that follows instruction extremely well. Help as much as you can.
 
@@ -101,6 +103,7 @@ func postModelApplyRequest(url string, request modelApplyRequest) (response map[
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	// Make the request
 	client := &http.Client{}
@@ -140,6 +143,7 @@ func postRequestJSON[B any](url string, bodyJson *B) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -175,6 +179,7 @@ func postRequestResponseJSON[B1 any, B2 any](url string, reqJson *B1, respJson *
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -193,6 +198,35 @@ func postRequestResponseJSON[B1 any, B2 any](url string, reqJson *B1, respJson *
 	}
 
 	return json.Unmarshal(body, respJson)
+}
+
+func postInvalidRequest(url string) (error, int) {
+
+	req, err := http.NewRequest("POST", url, bytes.NewBufferString("invalid request"))
+	if err != nil {
+		return err, -1
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err, -1
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err, -1
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body)), resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
 }
 
 //go:embed backend-assets/*
@@ -260,6 +294,7 @@ var _ = Describe("API test", func() {
 					config.WithContext(c),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
+					config.WithApiKeys([]string{apiKey}),
 					config.WithBackendAssets(backendAssets),
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
@@ -293,6 +328,14 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadDir(tmpdir)
 			Expect(err).To(HaveOccurred())
+		})
+
+		Context("Auth Tests", func() {
+			It("Should fail if the api key is missing", func() {
+				err, sc := postInvalidRequest("http://127.0.0.1:9090/models/available")
+				Expect(err).ToNot(BeNil())
+				Expect(sc).To(Equal(403))
+			})
 		})
 
 		Context("Applying models", func() {
