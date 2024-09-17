@@ -320,7 +320,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		} else {
 			grpcProcess := backendPath(o.assetDir, backend)
 			if err := utils.VerifyPath(grpcProcess, o.assetDir); err != nil {
-				return nil, fmt.Errorf("grpc process not found in assetdir: %s", err.Error())
+				return nil, fmt.Errorf("refering to a backend not in asset dir: %s", err.Error())
 			}
 
 			if autoDetect {
@@ -332,7 +332,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 			// Check if the file exists
 			if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
-				return nil, fmt.Errorf("grpc process not found: %s. some backends(stablediffusion, tts) require LocalAI compiled with GO_TAGS", grpcProcess)
+				return nil, fmt.Errorf("backend not found: %s", grpcProcess)
 			}
 
 			serverAddress, err := getFreeAddress()
@@ -354,6 +354,8 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 			client = NewModel(serverAddress)
 		}
+
+		log.Debug().Msgf("Wait for the service to start up")
 
 		// Wait for the service to start up
 		ready := false

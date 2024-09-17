@@ -42,6 +42,8 @@ func (ml *ModelLoader) StopAllGRPC() error {
 }
 
 func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	p, exists := ml.grpcProcesses[id]
 	if !exists {
 		return -1, fmt.Errorf("no grpc backend found for %s", id)
