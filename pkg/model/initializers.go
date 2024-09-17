@@ -413,10 +413,8 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 	}
 
 	if o.singleActiveBackend {
-		ml.mu.Lock()
 		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
-		err := ml.StopAllExcept(o.model)
-		ml.mu.Unlock()
+		err := ml.StopGRPC(allExcept(o.model))
 		if err != nil {
 			log.Error().Err(err).Str("keptModel", o.model).Msg("error while shutting down all backends except for the keptModel")
 			return nil, err
@@ -444,13 +442,10 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 	o := NewOptions(opts...)
 
-	ml.mu.Lock()
-
 	// Return earlier if we have a model already loaded
 	// (avoid looping through all the backends)
 	if m := ml.CheckIsLoaded(o.model); m != nil {
 		log.Debug().Msgf("Model '%s' already loaded", o.model)
-		ml.mu.Unlock()
 
 		return m.GRPC(o.parallelRequests, ml.wd), nil
 	}
@@ -458,12 +453,11 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 	// If we can have only one backend active, kill all the others (except external backends)
 	if o.singleActiveBackend {
 		log.Debug().Msgf("Stopping all backends except '%s'", o.model)
-		err := ml.StopAllExcept(o.model)
+		err := ml.StopGRPC(allExcept(o.model))
 		if err != nil {
 			log.Error().Err(err).Str("keptModel", o.model).Msg("error while shutting down all backends except for the keptModel - greedyloader continuing")
 		}
 	}
-	ml.mu.Unlock()
 
 	var err error
 
