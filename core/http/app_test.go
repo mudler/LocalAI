@@ -304,7 +304,7 @@ var _ = Describe("API test", func() {
 
 			go app.Listen("127.0.0.1:9090")
 
-			defaultConfig := openai.DefaultConfig("")
+			defaultConfig := openai.DefaultConfig(apiKey)
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
 
 			client2 = openaigo.NewClient("")
