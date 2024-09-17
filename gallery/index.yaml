@@ -1281,7 +1281,7 @@
 - !!merge <<: *mistral03
   name: "mn-12b-lyra-v4-iq-imatrix"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/dVoru83WOpwVjMlgZ_xhA.png
-  #chatml
+  # chatml
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   urls:
     - https://huggingface.co/Lewdiculous/MN-12B-Lyra-v4-GGUF-IQ-Imatrix
