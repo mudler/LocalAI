@@ -118,9 +118,6 @@ func (ml *ModelLoader) ListModels() []*Model {
 }
 
 func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (*Model, error)) (*Model, error) {
-	ml.mu.Lock()
-	defer ml.mu.Unlock()
-
 	// Check if we already have a loaded model
 	if model := ml.CheckIsLoaded(modelName); model != nil {
 		return model, nil
@@ -139,6 +136,8 @@ func (ml *ModelLoader) LoadModel(modelName string, loader func(string, string) (
 		return nil, fmt.Errorf("loader didn't return a model")
 	}
 
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	ml.models[modelName] = model
 
 	return model, nil
@@ -168,6 +167,8 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	m, ok := ml.models[s]
 	if !ok {
 		return nil
