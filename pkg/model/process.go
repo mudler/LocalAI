@@ -18,15 +18,16 @@ import (
 
 func (ml *ModelLoader) StopAllExcept(s string) error {
 	return ml.StopGRPC(func(id string, p *process.Process) bool {
-		if id != s {
-			for ml.models[id].GRPC(false, ml.wd).IsBusy() {
-				log.Debug().Msgf("%s busy. Waiting.", id)
-				time.Sleep(2 * time.Second)
-			}
-			log.Debug().Msgf("[single-backend] Stopping %s", id)
-			return true
+		if id == s {
+			return false
 		}
-		return false
+
+		for ml.models[id].GRPC(false, ml.wd).IsBusy() {
+			log.Debug().Msgf("%s busy. Waiting.", id)
+			time.Sleep(2 * time.Second)
+		}
+		log.Debug().Msgf("[single-backend] Stopping %s", id)
+		return true
 	})
 }
 
