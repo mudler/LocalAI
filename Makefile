@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=2f3c1466ff46a2413b0e363a5005c46538186ee6
+CPPLLAMA_VERSION?=23e0d70bacaaca1429d365a44aa9e7434f17823b
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
@@ -16,7 +16,7 @@ RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=d65786ea540a5aef21f67cacfa6f134097727780
+WHISPER_CPP_VERSION?=049b3a0e53c8a8e4c4576c06a1a4fccf0063a73f
 
 # bert.cpp version
 BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
@@ -534,10 +534,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama-protogen exllama2-protogen mamba-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen openvoice-protogen
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen mamba-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen transformers-musicgen-protogen vall-e-x-protogen vllm-protogen openvoice-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean exllama-protogen-clean exllama2-protogen-clean mamba-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean openvoice-protogen-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean mamba-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean transformers-musicgen-protogen-clean parler-tts-protogen-clean vall-e-x-protogen-clean vllm-protogen-clean openvoice-protogen-clean
 
 .PHONY: autogptq-protogen
 autogptq-protogen:
@@ -570,14 +570,6 @@ diffusers-protogen:
 .PHONY: diffusers-protogen-clean
 diffusers-protogen-clean:
 	$(MAKE) -C backend/python/diffusers protogen-clean
-
-.PHONY: exllama-protogen
-exllama-protogen:
-	$(MAKE) -C backend/python/exllama protogen
-
-.PHONY: exllama-protogen-clean
-exllama-protogen-clean:
-	$(MAKE) -C backend/python/exllama protogen-clean
 
 .PHONY: exllama2-protogen
 exllama2-protogen:
@@ -675,7 +667,6 @@ prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/parler-tts
 	$(MAKE) -C backend/python/vall-e-x
 	$(MAKE) -C backend/python/openvoice
-	$(MAKE) -C backend/python/exllama
 	$(MAKE) -C backend/python/exllama2
 
 prepare-test-extra: protogen-python
@@ -846,7 +837,7 @@ endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="$(CURDIR)/sources/whisper.cpp/include:$(CURDIR)/sources/whisper.cpp/ggml/include" LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/whisper
 endif

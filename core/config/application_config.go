@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"regexp"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -16,7 +17,6 @@ type ApplicationConfig struct {
 	ModelPath                           string
 	LibPath                             string
 	UploadLimitMB, Threads, ContextSize int
-	DisableWebUI                        bool
 	F16                                 bool
 	Debug                               bool
 	ImageDir                            string
@@ -31,10 +31,16 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath               string
 	CORSAllowOrigins                    string
 	ApiKeys                             []string
-	EnforcePredownloadScans             bool
-	OpaqueErrors                        bool
 	P2PToken                            string
 	P2PNetworkID                        string
+
+	DisableWebUI                       bool
+	EnforcePredownloadScans            bool
+	OpaqueErrors                       bool
+	UseSubtleKeyComparison             bool
+	DisableApiKeyRequirementForHttpGet bool
+	HttpGetExemptedEndpoints           []*regexp.Regexp
+	DisableGalleryEndpoint             bool
 
 	ModelLibraryURL string
 
@@ -57,8 +63,6 @@ type ApplicationConfig struct {
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
-
-	DisableGalleryEndpoint bool
 }
 
 type AppOption func(*ApplicationConfig)
@@ -324,6 +328,32 @@ func WithEnforcedPredownloadScans(enforced bool) AppOption {
 func WithOpaqueErrors(opaque bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.OpaqueErrors = opaque
+	}
+}
+
+func WithSubtleKeyComparison(subtle bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.UseSubtleKeyComparison = subtle
+	}
+}
+
+func WithDisableApiKeyRequirementForHttpGet(required bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableApiKeyRequirementForHttpGet = required
+	}
+}
+
+func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.HttpGetExemptedEndpoints = []*regexp.Regexp{}
+		for _, epr := range endpoints {
+			r, err := regexp.Compile(epr)
+			if err == nil && r != nil {
+				o.HttpGetExemptedEndpoints = append(o.HttpGetExemptedEndpoints, r)
+			} else {
+				log.Warn().Err(err).Str("regex", epr).Msg("Error while compiling HTTP Get Exemption regex, skipping this entry.")
+			}
+		}
 	}
 }
 

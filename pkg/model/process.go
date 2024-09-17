@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -17,22 +18,23 @@ import (
 
 func (ml *ModelLoader) StopAllExcept(s string) error {
 	return ml.StopGRPC(func(id string, p *process.Process) bool {
-		if id != s {
-			for ml.models[id].GRPC(false, ml.wd).IsBusy() {
-				log.Debug().Msgf("%s busy. Waiting.", id)
-				time.Sleep(2 * time.Second)
-			}
-			log.Debug().Msgf("[single-backend] Stopping %s", id)
-			return true
+		if id == s {
+			return false
 		}
-		return false
+
+		for ml.models[id].GRPC(false, ml.wd).IsBusy() {
+			log.Debug().Msgf("%s busy. Waiting.", id)
+			time.Sleep(2 * time.Second)
+		}
+		log.Debug().Msgf("[single-backend] Stopping %s", id)
+		return true
 	})
 }
 
 func (ml *ModelLoader) deleteProcess(s string) error {
 	if _, exists := ml.grpcProcesses[s]; exists {
 		if err := ml.grpcProcesses[s].Stop(); err != nil {
-			return err
+			log.Error().Err(err).Msgf("(deleteProcess) error while deleting grpc process %s", s)
 		}
 	}
 	delete(ml.grpcProcesses, s)
@@ -79,11 +81,17 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	log.Debug().Msgf("GRPC Service for %s will be running at: '%s'", id, serverAddress)
 
+	workDir, err := filepath.Abs(filepath.Dir(grpcProcess))
+	if err != nil {
+		return err
+	}
+
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
-		process.WithName(grpcProcess),
+		process.WithName(filepath.Base(grpcProcess)),
 		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(os.Environ()...),
+		process.WithWorkDir(workDir),
 	)
 
 	if ml.wd != nil {

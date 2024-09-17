@@ -266,6 +266,19 @@ const docTemplate = `{
                 }
             }
         },
+        "/system": {
+            "get": {
+                "summary": "Show the LocalAI instance information",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemInformationResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tts": {
             "post": {
                 "consumes": [
@@ -651,6 +664,30 @@ const docTemplate = `{
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.JINARerankResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sound-generation": {
+            "post": {
+                "summary": "Generates audio from the input text.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ElevenLabsSoundGenerationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -1161,6 +1198,26 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ElevenLabsSoundGenerationRequest": {
+            "type": "object",
+            "properties": {
+                "do_sample": {
+                    "type": "boolean"
+                },
+                "duration_seconds": {
+                    "type": "number"
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "prompt_influence": {
+                    "type": "number"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.File": {
             "type": "object",
             "properties": {
@@ -1601,6 +1658,17 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/p2p.NodeData"
+                    }
+                }
+            }
+        },
+        "schema.SystemInformationResponse": {
+            "type": "object",
+            "properties": {
+                "backends": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }

@@ -1,0 +1,32 @@
+---
+name: "vllm"
+
+config_file: |
+    context_size: 8192
+    parameters:
+      max_tokens: 8192
+    backend: vllm
+    function:
+      disable_no_action: true
+      grammar:
+        disable: true
+        parallel_calls: true
+        expect_strings_after_json: true
+    template:
+      use_tokenizer_template: true
+    # Uncomment to specify a quantization method (optional)
+    # quantization: "awq"
+    # Uncomment to limit the GPU memory utilization (vLLM default is 0.9 for 90%)
+    # gpu_memory_utilization: 0.5
+    # Uncomment to trust remote code from huggingface
+    # trust_remote_code: true
+    # Uncomment to enable eager execution
+    # enforce_eager: true
+    # Uncomment to specify the size of the CPU swap space per GPU (in GiB)
+    # swap_space: 2
+    # Uncomment to specify the maximum length of a sequence (including prompt and output)
+    # max_model_len: 32768
+    # Uncomment and specify the number of Tensor divisions.
+    # Allows you to partition and run large models. Performance gains are limited.
+    # https://github.com/vllm-project/vllm/issues/1435
+    # tensor_parallel_size: 2

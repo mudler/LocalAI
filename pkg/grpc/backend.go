@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 
-	"github.com/mudler/LocalAI/core/schema"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
 )
@@ -18,10 +17,10 @@ func NewClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) 
 	if bc, ok := embeds[address]; ok {
 		return bc
 	}
-	return NewGrpcClient(address, parallel, wd, enableWatchDog)
+	return buildClient(address, parallel, wd, enableWatchDog)
 }
 
-func NewGrpcClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) Backend {
+func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool) Backend {
 	if !enableWatchDog {
 		wd = nil
 	}
@@ -41,7 +40,8 @@ type Backend interface {
 	PredictStream(ctx context.Context, in *pb.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error
 	GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...grpc.CallOption) (*pb.Result, error)
 	TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.Result, error)
-	AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*schema.TranscriptionResult, error)
+	SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...grpc.CallOption) (*pb.Result, error)
+	AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*pb.TranscriptResult, error)
 	TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error)
 	Status(ctx context.Context) (*pb.StatusResponse, error)
 

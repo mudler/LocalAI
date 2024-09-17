@@ -53,7 +53,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="runwayml/stable-diffusion-v1-5"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="Lykon/dreamshaper-8"))
                 self.assertTrue(response.success)
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:
@@ -71,7 +71,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="runwayml/stable-diffusion-v1-5"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="Lykon/dreamshaper-8"))
                 print(response.message)
                 self.assertTrue(response.success)
                 image_req = backend_pb2.GenerateImageRequest(positive_prompt="cat", width=16,height=16, dst="test.jpg")

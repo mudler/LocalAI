@@ -38,3 +38,19 @@ func SanitizeFileName(fileName string) string {
 	safeName := strings.ReplaceAll(baseName, "..", "")
 	return safeName
 }
+
+func GenerateUniqueFileName(dir, baseName, ext string) string {
+	counter := 1
+	fileName := baseName + ext
+
+	for {
+		filePath := filepath.Join(dir, fileName)
+		_, err := os.Stat(filePath)
+		if os.IsNotExist(err) {
+			return fileName
+		}
+
+		counter++
+		fileName = fmt.Sprintf("%s_%d%s", baseName, counter, ext)
+	}
+}
