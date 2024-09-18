@@ -40,7 +40,7 @@ func getApiKeyErrorHandler(applicationConfig *config.ApplicationConfig) fiber.Er
 			}
 			e2 := ctx.SendStatus(403)
 			if e2 != nil {
-				err = errors.Join(err, e2)
+				err = errors.Join(e2, err)
 			}
 		}
 		if applicationConfig.OpaqueErrors {
