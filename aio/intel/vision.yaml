@@ -2,7 +2,7 @@ backend: llama-cpp
 context_size: 4096
 mmap: false
 f16: false
-name: gpt-4-vision-preview
+name: gpt-4o
 
 roles:
   user: "USER:"
