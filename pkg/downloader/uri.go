@@ -32,6 +32,10 @@ const (
 type URI string
 
 func (uri URI) DownloadAndUnmarshal(basePath string, f func(url string, i []byte) error) error {
+	return uri.DownloadWithAuthorizationAndUnmarshal(basePath, "", f)
+}
+
+func (uri URI) DownloadWithAuthorizationAndUnmarshal(basePath string, authorization string, f func(url string, i []byte) error) error {
 	url := uri.ResolveURL()
 
 	if strings.HasPrefix(url, LocalPrefix) {
@@ -63,7 +67,16 @@ func (uri URI) DownloadAndUnmarshal(basePath string, f func(url string, i []byte
 	}
 
 	// Send a GET request to the URL
-	response, err := http.Get(url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	if authorization != "" {
+		req.Header.Add("Authorization", authorization)
+	}
+
+	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}

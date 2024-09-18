@@ -32,6 +32,7 @@ import (
 )
 
 const apiKey = "joshua"
+const bearerKey = "Bearer " + apiKey
 
 const testPrompt = `### System:
 You are an AI assistant that follows instruction extremely well. Help as much as you can.
@@ -74,14 +75,15 @@ func getModelStatus(url string) (response map[string]interface{}) {
 	return
 }
 
-func getModels(url string) (response []gallery.GalleryModel) {
+func getModels(url string) ([]gallery.GalleryModel, error) {
+	response := []gallery.GalleryModel{}
 	uri := downloader.URI(url)
 	// TODO: No tests currently seem to exercise file:// urls. Fix?
-	uri.DownloadAndUnmarshal("", func(url string, i []byte) error {
+	err := uri.DownloadWithAuthorizationAndUnmarshal("", bearerKey, func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})
-	return
+	return response, err
 }
 
 func postModelApplyRequest(url string, request modelApplyRequest) (response map[string]interface{}) {
@@ -103,7 +105,7 @@ func postModelApplyRequest(url string, request modelApplyRequest) (response map[
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", bearerKey)
 
 	// Make the request
 	client := &http.Client{}
@@ -143,7 +145,7 @@ func postRequestJSON[B any](url string, bodyJson *B) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", bearerKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -179,7 +181,7 @@ func postRequestResponseJSON[B1 any, B2 any](url string, reqJson *B1, respJson *
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", bearerKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -341,7 +343,8 @@ var _ = Describe("API test", func() {
 		Context("Applying models", func() {
 
 			It("applies models from a gallery", func() {
-				models := getModels("http://127.0.0.1:9090/models/available")
+				models, err := getModels("http://127.0.0.1:9090/models/available")
+				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
 				Expect(models[1].Installed).To(BeFalse(), fmt.Sprint(models))
@@ -374,7 +377,8 @@ var _ = Describe("API test", func() {
 				Expect(content["backend"]).To(Equal("bert-embeddings"))
 				Expect(content["foo"]).To(Equal("bar"))
 
-				models = getModels("http://127.0.0.1:9090/models/available")
+				models, err = getModels("http://127.0.0.1:9090/models/available")
+				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Name).To(Or(Equal("bert"), Equal("bert2")))
 				Expect(models[1].Name).To(Or(Equal("bert"), Equal("bert2")))
