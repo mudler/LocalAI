@@ -644,8 +644,12 @@ func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, m
 	for _, m := range input.Messages {
 		videos = append(videos, m.StringVideos...)
 	}
+	audios := []string{}
+	for _, m := range input.Messages {
+		audios = append(audios, m.StringAudios...)
+	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, ml, *config, o, nil)
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, *config, o, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err

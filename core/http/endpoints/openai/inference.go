@@ -31,9 +31,13 @@ func ComputeChoices(
 	for _, m := range req.Messages {
 		videos = append(videos, m.StringVideos...)
 	}
+	audios := []string{}
+	for _, m := range req.Messages {
+		audios = append(audios, m.StringAudios...)
+	}
 
 	// get the model function to call for the result
-	predFunc, err := backend.ModelInference(req.Context, predInput, req.Messages, images, videos, loader, *config, o, tokenCallback)
+	predFunc, err := backend.ModelInference(req.Context, predInput, req.Messages, images, videos, audios, loader, *config, o, tokenCallback)
 	if err != nil {
 		return result, backend.TokenUsage{}, err
 	}

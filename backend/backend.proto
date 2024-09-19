@@ -135,6 +135,7 @@ message PredictOptions {
   bool UseTokenizerTemplate = 43;
   repeated Message Messages = 44;
   repeated string Videos = 45;
+  repeated string Audios = 46;
 }
 
 // The response message containing the result
