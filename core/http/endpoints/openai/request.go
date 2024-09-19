@@ -135,7 +135,7 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 	}
 
 	// Decode each request's message content
-	index := 0
+	imgIndex, vidIndex, audioIndex := 0, 0, 0
 	for i, m := range input.Messages {
 		switch content := m.Content.(type) {
 		case string:
@@ -144,20 +144,44 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 			dat, _ := json.Marshal(content)
 			c := []schema.Content{}
 			json.Unmarshal(dat, &c)
+		CONTENT:
 			for _, pp := range c {
-				if pp.Type == "text" {
+				switch pp.Type {
+				case "text":
 					input.Messages[i].StringContent = pp.Text
-				} else if pp.Type == "image_url" {
-					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
-					base64, err := utils.GetImageURLAsBase64(pp.ImageURL.URL)
-					if err == nil {
-						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
-						// set a placeholder for each image
-						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
-						index++
-					} else {
-						log.Error().Msgf("Failed encoding image: %s", err)
+				case "video", "video_url":
+					// Decode content as base64 either if it's an URL or base64 text
+					base64, err := utils.GetContentURIAsBase64(pp.VideoURL.URL)
+					if err != nil {
+						log.Error().Msgf("Failed encoding video: %s", err)
+						continue CONTENT
 					}
+					input.Messages[i].StringVideos = append(input.Messages[i].StringVideos, base64) // TODO: make sure that we only return base64 stuff
+					// set a placeholder for each image
+					input.Messages[i].StringContent = fmt.Sprintf("[vid-%d]", vidIndex) + input.Messages[i].StringContent
+					vidIndex++
+				case "audio_url", "audio":
+					// Decode content as base64 either if it's an URL or base64 text
+					base64, err := utils.GetContentURIAsBase64(pp.AudioURL.URL)
+					if err != nil {
+						log.Error().Msgf("Failed encoding image: %s", err)
+						continue CONTENT
+					}
+					input.Messages[i].StringAudios = append(input.Messages[i].StringAudios, base64) // TODO: make sure that we only return base64 stuff
+					// set a placeholder for each image
+					input.Messages[i].StringContent = fmt.Sprintf("[audio-%d]", audioIndex) + input.Messages[i].StringContent
+					audioIndex++
+				case "image_url", "image":
+					// Decode content as base64 either if it's an URL or base64 text
+					base64, err := utils.GetContentURIAsBase64(pp.ImageURL.URL)
+					if err != nil {
+						log.Error().Msgf("Failed encoding image: %s", err)
+						continue CONTENT
+					}
+					input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
+					// set a placeholder for each image
+					input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", imgIndex) + input.Messages[i].StringContent
+					imgIndex++
 				}
 			}
 		}

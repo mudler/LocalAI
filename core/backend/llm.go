@@ -31,7 +31,7 @@ type TokenUsage struct {
 	Completion int
 }
 
-func ModelInference(ctx context.Context, s string, messages []schema.Message, images []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 	threads := c.Threads
 	if *threads == 0 && o.Threads != 0 {
@@ -101,6 +101,8 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		opts.Messages = protoMessages
 		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate
 		opts.Images = images
+		opts.Videos = videos
+		opts.Audios = audios
 
 		tokenUsage := TokenUsage{}
 
