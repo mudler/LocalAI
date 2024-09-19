@@ -13,14 +13,8 @@ var base64DownloadClient http.Client = http.Client{
 	Timeout: 30 * time.Second,
 }
 
-// this function check if the string is an URL, if it's an URL downloads the image in memory
-// encodes it in base64 and returns the base64 string
-
-// This may look weird down in pkg/utils while it is currently only used in core/config
-//
-//	but I believe it may be useful for MQTT as well in the near future, so I'm
-//	extracting it while I'm thinking of it.
-func GetImageURLAsBase64(s string) (string, error) {
+// GetContentURIAsBase64 checks if the string is an URL, if it's an URL downloads the content in memory encodes it in base64 and returns the base64 string, otherwise returns the string by stripping base64 data headers
+func GetContentURIAsBase64(s string) (string, error) {
 	if strings.HasPrefix(s, "http") {
 		// download the image
 		resp, err := base64DownloadClient.Get(s)
