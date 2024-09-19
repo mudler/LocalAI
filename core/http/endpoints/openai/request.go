@@ -135,7 +135,7 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 	}
 
 	// Decode each request's message content
-	imgIndex, vidIndex := 0, 0
+	imgIndex, vidIndex, audioIndex := 0, 0, 0
 	for i, m := range input.Messages {
 		switch content := m.Content.(type) {
 		case string:
@@ -160,9 +160,19 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 					// set a placeholder for each image
 					input.Messages[i].StringContent = fmt.Sprintf("[vid-%d]", vidIndex) + input.Messages[i].StringContent
 					vidIndex++
+				case "audio_url", "audio":
+					// Decode content as base64 either if it's an URL or base64 text
+					base64, err := utils.GetContentURIAsBase64(pp.AudioURL.URL)
+					if err != nil {
+						log.Error().Msgf("Failed encoding image: %s", err)
+						continue CONTENT
+					}
+					input.Messages[i].StringAudios = append(input.Messages[i].StringAudios, base64) // TODO: make sure that we only return base64 stuff
+					// set a placeholder for each image
+					input.Messages[i].StringContent = fmt.Sprintf("[audio-%d]", audioIndex) + input.Messages[i].StringContent
+					audioIndex++
 				case "image_url", "image":
 					// Decode content as base64 either if it's an URL or base64 text
-
 					base64, err := utils.GetContentURIAsBase64(pp.ImageURL.URL)
 					if err != nil {
 						log.Error().Msgf("Failed encoding image: %s", err)
