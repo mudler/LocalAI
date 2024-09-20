@@ -2065,6 +2065,20 @@
     - filename: datagemma-rig-27b-it-Q4_K_M.gguf
       sha256: a6738ffbb49b6c46d220e2793df85c0538e9ac72398e32a0914ee5e55c3096ad
       uri: huggingface://bartowski/datagemma-rig-27b-it-GGUF/datagemma-rig-27b-it-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "buddy-2b-v1"
+  urls:
+    - https://huggingface.co/TheDrummer/Buddy-2B-v1
+    - https://huggingface.co/bartowski/Buddy-2B-v1-GGUF
+  description: |
+    Buddy is designed as an empathetic language model, aimed at fostering introspection, self-reflection, and personal growth through thoughtful conversation. Buddy won't judge and it won't dismiss your concerns. Get some self-care with Buddy.
+  overrides:
+    parameters:
+      model: Buddy-2B-v1-Q4_K_M.gguf
+  files:
+    - filename: Buddy-2B-v1-Q4_K_M.gguf
+      sha256: 9bd25ed907d1a3c2e07fe09399a9b3aec107d368c29896e2c46facede5b7e3d5
+      uri: huggingface://bartowski/Buddy-2B-v1-GGUF/Buddy-2B-v1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
