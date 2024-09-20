@@ -3972,7 +3972,7 @@
   files:
     - filename: NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
       sha256: 12f4af9d66817d7d300bd9a181e4fe66f7ecf7ea972049f2cbd0554cdc3ecf05
-      uri: huggingface://QuantFactory/NeuralDaredevil-8B-abliterated-GGUF/Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+      uri: huggingface://QuantFactory/NeuralDaredevil-8B-abliterated-GGUF/NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llama-3-8b-instruct-mopeymule"
   urls:
