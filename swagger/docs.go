@@ -1394,10 +1394,22 @@ const docTemplate = `{
                     "description": "The message role",
                     "type": "string"
                 },
+                "string_audios": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "string_content": {
                     "type": "string"
                 },
                 "string_images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "string_videos": {
                     "type": "array",
                     "items": {
                         "type": "string"

@@ -453,9 +453,17 @@ definitions:
       role:
         description: The message role
         type: string
+      string_audios:
+        items:
+          type: string
+        type: array
       string_content:
         type: string
       string_images:
+        items:
+          type: string
+        type: array
+      string_videos:
         items:
           type: string
         type: array
