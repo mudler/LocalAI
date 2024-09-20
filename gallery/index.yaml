@@ -1,4 +1,27 @@
 ---
+## Qwen2.5
+- &qwen25
+  name: "qwen2.5-14b-instruct"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  license: apache-2.0
+  description: |
+    Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - cpu
+  urls:
+    - https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF
+    - https://huggingface.co/Qwen/Qwen2.5-7B-Instruct
+  overrides:
+    parameters:
+      model: Qwen2.5-14B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-14B-Instruct-Q4_K_M.gguf
+      sha256: e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008
+      uri: huggingface://bartowski/Qwen2.5-14B-Instruct-GGUF/Qwen2.5-14B-Instruct-Q4_K_M.gguf
 ## SmolLM
 - &smollm
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
