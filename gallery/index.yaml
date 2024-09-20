@@ -125,6 +125,42 @@
     - filename: Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
       sha256: 1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370
       uri: huggingface://bartowski/Qwen2.5-1.5B-Instruct-GGUF/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-32b"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-32B
+    - https://huggingface.co/mradermacher/Qwen2.5-32B-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-32B.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-32B.Q4_K_M.gguf
+      sha256: 02703e27c8b964db445444581a6937ad7538f0c32a100b26b49fa0e8ff527155
+      uri: huggingface://mradermacher/Qwen2.5-32B-GGUF/Qwen2.5-32B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-32b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-32B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-32B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-32B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-32B-Instruct-Q4_K_M.gguf
+      sha256: 2e5f6daea180dbc59f65a40641e94d3973b5dbaa32b3c0acf54647fa874e519e
+      uri: huggingface://bartowski/Qwen2.5-32B-Instruct-GGUF/Qwen2.5-32B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-72b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-72B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-72B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-72B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-72B-Instruct-Q4_K_M.gguf
+      sha256: e4c8fad16946be8cf0bbf67eb8f4e18fc7415a5a6d2854b4cda453edb4082545
+      uri: huggingface://bartowski/Qwen2.5-72B-Instruct-GGUF/Qwen2.5-72B-Instruct-Q4_K_M.gguf
 ## SmolLM
 - &smollm
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
