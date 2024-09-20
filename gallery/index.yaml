@@ -101,6 +101,30 @@
     - filename: Qwen2.5-Math-72B-Instruct-Q4_K_M.gguf
       sha256: 5dee8a6e21d555577712b4f65565a3c3737a0d5d92f5a82970728c6d8e237f17
       uri: huggingface://bartowski/Qwen2.5-Math-72B-Instruct-GGUF/Qwen2.5-Math-72B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-0.5b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+      sha256: 6eb923e7d26e9cea28811e1a8e852009b21242fb157b26149d3b188f3a8c8653
+      uri: huggingface://bartowski/Qwen2.5-0.5B-Instruct-GGUF/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-1.5b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
+      sha256: 1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370
+      uri: huggingface://bartowski/Qwen2.5-1.5B-Instruct-GGUF/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
 ## SmolLM
 - &smollm
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
