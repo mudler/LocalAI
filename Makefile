@@ -361,7 +361,8 @@ clean-tests:
 
 clean-dc: clean clean-tests
 	cp -r /build/backend-assets /workspace/backend-assets
-	touch sources/go-stable-diffusion
+	mkdir -p sources/go-stable-diffusion
+	touch sources/go-stable-diffusion/dc
 
 ## Build:
 build: prepare backend-assets grpcs ## Build the project
