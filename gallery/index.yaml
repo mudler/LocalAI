@@ -84,6 +84,23 @@
     - filename: Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
       sha256: 1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6
       uri: huggingface://bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-math-72b-instruct"
+  icon: http://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen2.5/qwen2.5-math-pipeline.jpeg
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-Math-72B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-Math-72B-Instruct-GGUF
+  description: |
+    In August 2024, we released the first series of mathematical LLMs - Qwen2-Math - of our Qwen family. A month later, we have upgraded it and open-sourced Qwen2.5-Math series, including base models Qwen2.5-Math-1.5B/7B/72B, instruction-tuned models Qwen2.5-Math-1.5B/7B/72B-Instruct, and mathematical reward model Qwen2.5-Math-RM-72B.
+
+    Unlike Qwen2-Math series which only supports using Chain-of-Thught (CoT) to solve English math problems, Qwen2.5-Math series is expanded to support using both CoT and Tool-integrated Reasoning (TIR) to solve math problems in both Chinese and English. The Qwen2.5-Math series models have achieved significant performance improvements compared to the Qwen2-Math series models on the Chinese and English mathematics benchmarks with CoT
+  overrides:
+    parameters:
+      model: Qwen2.5-Math-72B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Math-72B-Instruct-Q4_K_M.gguf
+      sha256: 5dee8a6e21d555577712b4f65565a3c3737a0d5d92f5a82970728c6d8e237f17
+      uri: huggingface://bartowski/Qwen2.5-Math-72B-Instruct-GGUF/Qwen2.5-Math-72B-Instruct-Q4_K_M.gguf
 ## SmolLM
 - &smollm
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
