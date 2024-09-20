@@ -956,6 +956,20 @@
     - filename: Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
       sha256: 830d4858aa11a654f82f69fa40dee819edf9ecf54213057648304eb84b8dd5eb
       uri: huggingface://Lewdiculous/Llama-3.1-8B-Stheno-v3.4-GGUF-IQ-Imatrix/Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-arliai-rpmax-v1.1"
+  urls:
+    - https://huggingface.co/ArliAI/Llama-3.1-8B-ArliAI-RPMax-v1.1
+    - https://huggingface.co/bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.1-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+      sha256: 0a601c7341228d9160332965298d799369a1dc2b7080771fb8051bdeb556b30c
+      uri: huggingface://bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.1-GGUF/Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
