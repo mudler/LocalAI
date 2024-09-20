@@ -601,6 +601,22 @@
     - filename: Reflection-Llama-3.1-70B-q4_k_m.gguf
       sha256: 16064e07037883a750cfeae9a7be41143aa857dbac81c2e93c68e2f941dee7b2
       uri: huggingface://senseable/Reflection-Llama-3.1-70B-gguf/Reflection-Llama-3.1-70B-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-supernova-lite-reflection-v1.0-i1"
+  url: "github:mudler/LocalAI/gallery/llama3.1-reflective.yaml@master"
+  icon: https://i.ibb.co/r072p7j/eopi-ZVu-SQ0-G-Cav78-Byq-Tg.png
+  urls:
+    - https://huggingface.co/SE6446/Llama-3.1-SuperNova-Lite-Reflection-V1.0
+    - https://huggingface.co/mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF
+  description: |
+    This model is a LoRA adaptation of arcee-ai/Llama-3.1-SuperNova-Lite on thesven/Reflective-MAGLLAMA-v0.1.1. This has been a simple experiment into reflection and the model appears to perform adequately, though I am unsure if it is a large improvement.
+  overrides:
+    parameters:
+      model: Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
+      sha256: 0c4531fe553d00142808e1bc7348ae92d400794c5b64d2db1a974718324dfe9a
+      uri: huggingface://mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF/Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
