@@ -22,6 +22,24 @@
     - filename: Qwen2.5-14B-Instruct-Q4_K_M.gguf
       sha256: e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008
       uri: huggingface://bartowski/Qwen2.5-14B-Instruct-GGUF/Qwen2.5-14B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-math-7b-instruct"
+  urls:
+    - https://huggingface.co/bartowski/Qwen2.5-Math-7B-Instruct-GGUF
+    - https://huggingface.co/Qwen/Qwen2.5-Math-7B-Instruct
+  description: |
+      In August 2024, we released the first series of mathematical LLMs - Qwen2-Math - of our Qwen family. A month later, we have upgraded it and open-sourced Qwen2.5-Math series, including base models Qwen2.5-Math-1.5B/7B/72B, instruction-tuned models Qwen2.5-Math-1.5B/7B/72B-Instruct, and mathematical reward model Qwen2.5-Math-RM-72B.
+
+      Unlike Qwen2-Math series which only supports using Chain-of-Thught (CoT) to solve English math problems, Qwen2.5-Math series is expanded to support using both CoT and Tool-integrated Reasoning (TIR) to solve math problems in both Chinese and English. The Qwen2.5-Math series models have achieved significant performance improvements compared to the Qwen2-Math series models on the Chinese and English mathematics benchmarks with CoT.
+
+      The base models of Qwen2-Math are initialized with Qwen2-1.5B/7B/72B, and then pretrained on a meticulously designed Mathematics-specific Corpus. This corpus contains large-scale high-quality mathematical web texts, books, codes, exam questions, and mathematical pre-training data synthesized by Qwen2.
+  overrides:
+    parameters:
+      model: Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf
+      sha256: 7e03cee8c65b9ebf9ca14ddb010aca27b6b18e6c70f2779e94e7451d9529c091
+      uri: huggingface://bartowski/Qwen2.5-Math-7B-Instruct-GGUF/Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf
 ## SmolLM
 - &smollm
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
