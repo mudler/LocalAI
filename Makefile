@@ -359,11 +359,6 @@ clean-tests:
 	rm -rf test-dir
 	rm -rf core/http/backend-assets
 
-clean-dc: clean clean-tests
-	cp -r /build/backend-assets /workspace/backend-assets
-	mkdir -p sources/go-stable-diffusion
-	touch sources/go-stable-diffusion/dc
-
 ## Build:
 build: prepare backend-assets grpcs ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
