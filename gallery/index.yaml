@@ -11,6 +11,7 @@
     - gguf
     - gpu
     - qwen
+    - qwen2.5
     - cpu
   urls:
     - https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF
@@ -40,6 +41,31 @@
     - filename: Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf
       sha256: 7e03cee8c65b9ebf9ca14ddb010aca27b6b18e6c70f2779e94e7451d9529c091
       uri: huggingface://bartowski/Qwen2.5-Math-7B-Instruct-GGUF/Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-14b_uncencored"
+  icon: https://huggingface.co/SicariusSicariiStuff/Phi-3.5-mini-instruct_Uncensored/resolve/main/Misc/Uncensored.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Qwen2.5-14B_Uncencored
+    - https://huggingface.co/bartowski/Qwen2.5-14B_Uncencored-GGUF
+  description: |
+    Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
+
+    Uncensored qwen2.5
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - qwen2.5
+    - cpu
+    - uncensored
+  overrides:
+    parameters:
+      model: Qwen2.5-14B_Uncencored-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-14B_Uncencored-Q4_K_M.gguf
+      sha256: 066b9341b67e0fd0956de3576a3b7988574a5b9a0028aef2b9c8edeadd6dbbd1
+      uri: huggingface://bartowski/Qwen2.5-14B_Uncencored-GGUF/Qwen2.5-14B_Uncencored-Q4_K_M.gguf
 ## SmolLM
 - &smollm
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
