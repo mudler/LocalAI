@@ -617,6 +617,25 @@
     - filename: Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
       sha256: 0c4531fe553d00142808e1bc7348ae92d400794c5b64d2db1a974718324dfe9a
       uri: huggingface://mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF/Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-supernova-lite"
+  icon: https://i.ibb.co/r072p7j/eopi-ZVu-SQ0-G-Cav78-Byq-Tg.png
+  urls:
+    - https://huggingface.co/arcee-ai/Llama-3.1-SuperNova-Lite
+    - https://huggingface.co/arcee-ai/Llama-3.1-SuperNova-Lite-GGUF
+  description: |
+    Llama-3.1-SuperNova-Lite is an 8B parameter model developed by Arcee.ai, based on the Llama-3.1-8B-Instruct architecture. It is a distilled version of the larger Llama-3.1-405B-Instruct model, leveraging offline logits extracted from the 405B parameter variant. This 8B variation of Llama-3.1-SuperNova maintains high performance while offering exceptional instruction-following capabilities and domain-specific adaptability.
+
+    The model was trained using a state-of-the-art distillation pipeline and an instruction dataset generated with EvolKit, ensuring accuracy and efficiency across a wide range of tasks. For more information on its training, visit blog.arcee.ai.
+
+    Llama-3.1-SuperNova-Lite excels in both benchmark performance and real-world applications, providing the power of large-scale models in a more compact, efficient form ideal for organizations seeking high performance with reduced resource requirements.
+  overrides:
+    parameters:
+      model: supernova-lite-v1.Q4_K_M.gguf
+  files:
+    - filename: supernova-lite-v1.Q4_K_M.gguf
+      sha256: 237b7b0b704d294f92f36c576cc8fdc10592f95168a5ad0f075a2d8edf20da4d
+      uri: huggingface://arcee-ai/Llama-3.1-SuperNova-Lite-GGUF/supernova-lite-v1.Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
