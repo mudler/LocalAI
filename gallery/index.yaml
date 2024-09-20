@@ -636,6 +636,24 @@
     - filename: supernova-lite-v1.Q4_K_M.gguf
       sha256: 237b7b0b704d294f92f36c576cc8fdc10592f95168a5ad0f075a2d8edf20da4d
       uri: huggingface://arcee-ai/Llama-3.1-SuperNova-Lite-GGUF/supernova-lite-v1.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-shiningvaliant2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63444f2687964b331809eb55/EXX7TKbB-R6arxww2mk0R.jpeg
+  urls:
+    - https://huggingface.co/ValiantLabs/Llama3.1-8B-ShiningValiant2
+    - https://huggingface.co/bartowski/Llama3.1-8B-ShiningValiant2-GGUF
+  description: |
+    Shining Valiant 2 is a chat model built on Llama 3.1 8b, finetuned on our data for friendship, insight, knowledge and enthusiasm.
+
+        Finetuned on meta-llama/Meta-Llama-3.1-8B-Instruct for best available general performance
+        Trained on a variety of high quality data; focused on science, engineering, technical knowledge, and structured reasoning
+  overrides:
+    parameters:
+      model: Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
+      sha256: 9369eb97922a9f01e4eae610e3d7aaeca30762d78d9239884179451d60bdbdd2
+      uri: huggingface://bartowski/Llama3.1-8B-ShiningValiant2-GGUF/Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
