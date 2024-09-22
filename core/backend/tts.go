@@ -28,7 +28,7 @@ func ModelTTS(
 		bb = model.PiperBackend
 	}
 
-	grpcOpts := gRPCModelOpts(backendConfig)
+	grpcOpts := GRPCModelOpts(backendConfig)
 
 	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
 		model.WithBackendString(bb),

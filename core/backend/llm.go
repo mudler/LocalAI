@@ -37,7 +37,7 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 	if *threads == 0 && o.Threads != 0 {
 		threads = &o.Threads
 	}
-	grpcOpts := gRPCModelOpts(c)
+	grpcOpts := GRPCModelOpts(c)
 
 	var inferenceModel grpc.Backend
 	var err error

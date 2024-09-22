@@ -12,7 +12,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	if *threads == 0 && appConfig.Threads != 0 {
 		threads = &appConfig.Threads
 	}
-	gRPCOpts := gRPCModelOpts(backendConfig)
+	gRPCOpts := GRPCModelOpts(backendConfig)
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
 		model.WithBackendString(backendConfig.Backend),
 		model.WithAssetDir(appConfig.AssetsDestination),

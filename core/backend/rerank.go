@@ -15,7 +15,7 @@ func Rerank(backend, modelFile string, request *proto.RerankRequest, loader *mod
 		return nil, fmt.Errorf("backend is required")
 	}
 
-	grpcOpts := gRPCModelOpts(backendConfig)
+	grpcOpts := GRPCModelOpts(backendConfig)
 
 	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
 		model.WithBackendString(bb),
