@@ -44,7 +44,7 @@ func getSeed(c config.BackendConfig) int32 {
 	return seed
 }
 
-func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
+func GRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch

@@ -12,7 +12,7 @@ import (
 func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
 	modelFile := backendConfig.Model
 
-	grpcOpts := gRPCModelOpts(backendConfig)
+	grpcOpts := GRPCModelOpts(backendConfig)
 
 	var inferenceModel interface{}
 	var err error

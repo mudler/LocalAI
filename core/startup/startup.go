@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/mudler/LocalAI/core"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
@@ -142,6 +143,42 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			log.Debug().Msgf("Context canceled, shutting down")
 			wd.Shutdown()
 		}()
+	}
+
+	if options.LoadToMemory != nil {
+		for _, m := range options.LoadToMemory {
+			cfg, err := cl.LoadBackendConfigFileByName(m, options.ModelPath,
+				config.LoadOptionDebug(options.Debug),
+				config.LoadOptionThreads(options.Threads),
+				config.LoadOptionContextSize(options.ContextSize),
+				config.LoadOptionF16(options.F16),
+				config.ModelPath(options.ModelPath),
+			)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+
+			log.Debug().Msgf("Auto loading model %s into memory from file: %s", m, cfg.Model)
+
+			grpcOpts := backend.GRPCModelOpts(*cfg)
+			o := []model.Option{
+				model.WithModel(cfg.Model),
+				model.WithAssetDir(options.AssetsDestination),
+				model.WithThreads(uint32(options.Threads)),
+				model.WithLoadGRPCLoadModelOpts(grpcOpts),
+			}
+
+			var backendErr error
+			if cfg.Backend != "" {
+				o = append(o, model.WithBackendString(cfg.Backend))
+				_, backendErr = ml.BackendLoader(o...)
+			} else {
+				_, backendErr = ml.GreedyLoader(o...)
+			}
+			if backendErr != nil {
+				return nil, nil, nil, err
+			}
+		}
 	}
 
 	// Watch the configuration directory

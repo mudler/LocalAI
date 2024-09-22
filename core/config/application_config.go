@@ -41,6 +41,7 @@ type ApplicationConfig struct {
 	DisableApiKeyRequirementForHttpGet bool
 	HttpGetExemptedEndpoints           []*regexp.Regexp
 	DisableGalleryEndpoint             bool
+	LoadToMemory                       []string
 
 	ModelLibraryURL string
 
@@ -328,6 +329,12 @@ func WithEnforcedPredownloadScans(enforced bool) AppOption {
 func WithOpaqueErrors(opaque bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.OpaqueErrors = opaque
+	}
+}
+
+func WithLoadToMemory(models []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LoadToMemory = models
 	}
 }
 
