@@ -111,7 +111,7 @@ jobs:
     strategy:
       # Pushing with all jobs in parallel
       # eats the bandwidth of all the nodes
-      max-parallel: ${{ github.event_name != 'pull_request' && 6 || 10 }}
+      max-parallel: ${{ github.event_name != 'pull_request' && 5 || 8 }}
       matrix:
         include:
           # Extra images
