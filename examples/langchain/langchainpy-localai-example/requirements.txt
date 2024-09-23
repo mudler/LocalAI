@@ -29,5 +29,5 @@ tenacity==8.5.0
 tqdm==4.66.5
 typing-inspect==0.9.0
 typing_extensions==4.12.2
-urllib3==2.2.2
+urllib3==2.2.3
 yarl==1.11.1
