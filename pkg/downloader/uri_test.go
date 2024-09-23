@@ -11,7 +11,7 @@ var _ = Describe("Gallery API tests", func() {
 		It("parses github with a branch", func() {
 			uri := URI("github:go-skynet/model-gallery/gpt4all-j.yaml")
 			Expect(
-				uri.DownloadAndUnmarshal("", func(url string, i []byte) error {
+				uri.DownloadWithCallback("", func(url string, i []byte) error {
 					Expect(url).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml"))
 					return nil
 				}),
@@ -21,7 +21,7 @@ var _ = Describe("Gallery API tests", func() {
 			uri := URI("github:go-skynet/model-gallery/gpt4all-j.yaml@main")
 
 			Expect(
-				uri.DownloadAndUnmarshal("", func(url string, i []byte) error {
+				uri.DownloadWithCallback("", func(url string, i []byte) error {
 					Expect(url).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml"))
 					return nil
 				}),
@@ -30,7 +30,7 @@ var _ = Describe("Gallery API tests", func() {
 		It("parses github with urls", func() {
 			uri := URI("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml")
 			Expect(
-				uri.DownloadAndUnmarshal("", func(url string, i []byte) error {
+				uri.DownloadWithCallback("", func(url string, i []byte) error {
 					Expect(url).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml"))
 					return nil
 				}),

@@ -53,9 +53,17 @@ type modelApplyRequest struct {
 
 func getModelStatus(url string) (response map[string]interface{}) {
 	// Create the HTTP request
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
+		return
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -79,7 +87,7 @@ func getModels(url string) ([]gallery.GalleryModel, error) {
 	response := []gallery.GalleryModel{}
 	uri := downloader.URI(url)
 	// TODO: No tests currently seem to exercise file:// urls. Fix?
-	err := uri.DownloadWithAuthorizationAndUnmarshal("", bearerKey, func(url string, i []byte) error {
+	err := uri.DownloadWithAuthorizationAndCallback("", bearerKey, func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})

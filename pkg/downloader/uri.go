@@ -31,11 +31,11 @@ const (
 
 type URI string
 
-func (uri URI) DownloadAndUnmarshal(basePath string, f func(url string, i []byte) error) error {
-	return uri.DownloadWithAuthorizationAndUnmarshal(basePath, "", f)
+func (uri URI) DownloadWithCallback(basePath string, f func(url string, i []byte) error) error {
+	return uri.DownloadWithAuthorizationAndCallback(basePath, "", f)
 }
 
-func (uri URI) DownloadWithAuthorizationAndUnmarshal(basePath string, authorization string, f func(url string, i []byte) error) error {
+func (uri URI) DownloadWithAuthorizationAndCallback(basePath string, authorization string, f func(url string, i []byte) error) error {
 	url := uri.ResolveURL()
 
 	if strings.HasPrefix(url, LocalPrefix) {
@@ -45,7 +45,6 @@ func (uri URI) DownloadWithAuthorizationAndUnmarshal(basePath string, authorizat
 		if err != nil {
 			return err
 		}
-		// ???
 		resolvedBasePath, err := filepath.EvalSymlinks(basePath)
 		if err != nil {
 			return err
