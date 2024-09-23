@@ -2109,6 +2109,20 @@
     - filename: Buddy-2B-v1-Q4_K_M.gguf
       sha256: 9bd25ed907d1a3c2e07fe09399a9b3aec107d368c29896e2c46facede5b7e3d5
       uri: huggingface://bartowski/Buddy-2B-v1-GGUF/Buddy-2B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2-9b-arliai-rpmax-v1.1"
+  urls:
+    - https://huggingface.co/ArliAI/Gemma-2-9B-ArliAI-RPMax-v1.1
+    - https://huggingface.co/bartowski/Gemma-2-9B-ArliAI-RPMax-v1.1-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+  overrides:
+    parameters:
+      model: Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+      sha256: 1724aff0ad6f71bf4371d839aca55578f7ec6f030d8d25c0254126088e4c6250
+      uri: huggingface://bartowski/Gemma-2-9B-ArliAI-RPMax-v1.1-GGUF/Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
