@@ -359,7 +359,7 @@ clean-tests:
 	rm -rf test-dir
 	rm -rf core/http/backend-assets
 
-clean-dc: clean clean-tests
+clean-dc: clean
 	cp -r /build/backend-assets /workspace/backend-assets
 
 ## Build:
