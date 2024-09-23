@@ -1,0 +1,65 @@
+---
+name: "llama3-instruct"
+
+config_file: |
+  mmap: true
+  cutstrings:
+  - (.*?)</thinking>
+  function:
+    disable_no_action: true
+    grammar:
+      disable: true
+    response_regex:
+    - <function=(?P<name>\w+)>(?P<arguments>.*)</function>
+  template:
+    chat_message: |
+      <|start_header_id|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}<|end_header_id|>
+
+      {{ if .FunctionCall -}}
+      Function call:
+      {{ else if eq .RoleName "tool" -}}
+      Function response:
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content -}}
+      {{ else if .FunctionCall -}}
+      {{ toJson .FunctionCall -}}
+      {{ end -}}
+      <|eot_id|>
+    function: |
+      <|start_header_id|>system<|end_header_id|>
+
+      You have access to the following functions:
+
+      {{range .Functions}}
+      Use the function '{{.Name}}' to '{{.Description}}'
+      {{toJson .Parameters}}
+      {{end}}
+
+      Think very carefully before calling functions.
+      If a you choose to call a function ONLY reply in the following format with no prefix or suffix:
+
+      <function=example_function_name>{{`{{"example_name": "example_value"}}`}}</function>
+
+      Reminder:
+      - If looking for real time information use relevant functions before falling back to searching on internet
+      - Function calls MUST follow the specified format, start with <function= and end with </function>
+      - Required parameters MUST be specified
+      - Only call one function at a time
+      - Put the entire function call reply on one line
+      <|eot_id|>
+      {{.Input }}
+      <|start_header_id|>assistant<|end_header_id|>
+    chat: |
+      {{.Input }}
+      <|start_header_id|>assistant<|end_header_id|>
+      <thinking>
+    completion: |
+      {{.Input}}
+  context_size: 8192
+  f16: true
+  stopwords:
+  - <|im_end|>
+  - <dummy32000>
+  - "<|eot_id|>"
+  - <|end_of_text|>
