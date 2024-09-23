@@ -654,6 +654,22 @@
     - filename: Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
       sha256: 9369eb97922a9f01e4eae610e3d7aaeca30762d78d9239884179451d60bdbdd2
       uri: huggingface://bartowski/Llama3.1-8B-ShiningValiant2-GGUF/Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nightygurps-14b-v1.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6336c5b3e3ac69e6a90581da/FvfjK7bKqsWdaBkB3eWgP.png
+  urls:
+    - https://huggingface.co/AlexBefest/NightyGurps-14b-v1.1
+    - https://huggingface.co/bartowski/NightyGurps-14b-v1.1-GGUF
+  description: |
+    This model works with Russian only.
+    This model is designed to run GURPS roleplaying games, as well as consult and assist. This model was trained on an augmented dataset of the GURPS Basic Set rulebook. Its primary purpose was initially to become an assistant consultant and assistant Game Master for the GURPS roleplaying system, but it can also be used as a GM for running solo games as a player.
+  overrides:
+    parameters:
+      model: NightyGurps-14b-v1.1-Q4_K_M.gguf
+  files:
+    - filename: NightyGurps-14b-v1.1-Q4_K_M.gguf
+      sha256: d09d53259ad2c0298150fa8c2db98fe42f11731af89fdc80ad0e255a19adc4b0
+      uri: huggingface://bartowski/NightyGurps-14b-v1.1-GGUF/NightyGurps-14b-v1.1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
