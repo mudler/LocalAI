@@ -1524,6 +1524,21 @@
       sha256: cf3465c183bf4ecbccd1b6b480f687e0160475b04c87e2f1e5ebc8baa0f4c7aa
       uri: huggingface://bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF/Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
 - !!merge <<: *mistral03
+  name: "acolyte-22b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6569a4ed2419be6072890cf8/3dcGMcrWK2-2vQh9QBt3o.png
+  urls:
+    - https://huggingface.co/rAIfle/Acolyte-22B
+    - https://huggingface.co/mradermacher/Acolyte-22B-i1-GGUF
+  description: |
+    LoRA of a bunch of random datasets on top of Mistral-Small-Instruct-2409, then SLERPed onto base at 0.5. Decent enough for its size. Check the LoRA for dataset info.
+  overrides:
+    parameters:
+      model: Acolyte-22B.i1-Q4_K_M.gguf
+  files:
+    - filename: Acolyte-22B.i1-Q4_K_M.gguf
+      sha256: 5a454405b98b6f886e8e4c695488d8ea098162bb8c46f2a7723fc2553c6e2f6e
+      uri: huggingface://mradermacher/Acolyte-22B-i1-GGUF/Acolyte-22B.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
   name: "mn-12b-lyra-v4-iq-imatrix"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/dVoru83WOpwVjMlgZ_xhA.png
   # chatml
