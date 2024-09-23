@@ -39,7 +39,7 @@ jobs:
     strategy:
       # Pushing with all jobs in parallel
       # eats the bandwidth of all the nodes
-      max-parallel: 1
+      max-parallel: 2
       matrix:
         include:
           - build-type: 'hipblas'
