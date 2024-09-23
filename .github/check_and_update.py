@@ -29,9 +29,14 @@ def calculate_sha256(file_path):
 def manual_safety_check_hf(repo_id):
     scanResponse = requests.get('https://huggingface.co/api/models/' + repo_id + "/scan")
     scan = scanResponse.json()
-    if scan['hasUnsafeFile']:
-        return scan
-    return None
+    # Check if 'hasUnsafeFile' exists in the response
+    if 'hasUnsafeFile' in scan:
+        if scan['hasUnsafeFile']:
+            return scan
+        else:
+            return None
+    else:
+        return None
 
 download_type, repo_id_or_url = parse_uri(uri)
 

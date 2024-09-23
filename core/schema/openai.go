@@ -58,6 +58,8 @@ type Content struct {
 	Type     string     `json:"type" yaml:"type"`
 	Text     string     `json:"text" yaml:"text"`
 	ImageURL ContentURL `json:"image_url" yaml:"image_url"`
+	AudioURL ContentURL `json:"audio_url" yaml:"audio_url"`
+	VideoURL ContentURL `json:"video_url" yaml:"video_url"`
 }
 
 type ContentURL struct {
@@ -76,6 +78,8 @@ type Message struct {
 
 	StringContent string   `json:"string_content,omitempty" yaml:"string_content,omitempty"`
 	StringImages  []string `json:"string_images,omitempty" yaml:"string_images,omitempty"`
+	StringVideos  []string `json:"string_videos,omitempty" yaml:"string_videos,omitempty"`
+	StringAudios  []string `json:"string_audios,omitempty" yaml:"string_audios,omitempty"`
 
 	// A result of a function call
 	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`

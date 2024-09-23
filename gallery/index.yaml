@@ -1,4 +1,166 @@
 ---
+## Qwen2.5
+- &qwen25
+  name: "qwen2.5-14b-instruct"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  license: apache-2.0
+  description: |
+    Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - qwen2.5
+    - cpu
+  urls:
+    - https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF
+    - https://huggingface.co/Qwen/Qwen2.5-7B-Instruct
+  overrides:
+    parameters:
+      model: Qwen2.5-14B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-14B-Instruct-Q4_K_M.gguf
+      sha256: e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008
+      uri: huggingface://bartowski/Qwen2.5-14B-Instruct-GGUF/Qwen2.5-14B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-math-7b-instruct"
+  urls:
+    - https://huggingface.co/bartowski/Qwen2.5-Math-7B-Instruct-GGUF
+    - https://huggingface.co/Qwen/Qwen2.5-Math-7B-Instruct
+  description: |
+      In August 2024, we released the first series of mathematical LLMs - Qwen2-Math - of our Qwen family. A month later, we have upgraded it and open-sourced Qwen2.5-Math series, including base models Qwen2.5-Math-1.5B/7B/72B, instruction-tuned models Qwen2.5-Math-1.5B/7B/72B-Instruct, and mathematical reward model Qwen2.5-Math-RM-72B.
+
+      Unlike Qwen2-Math series which only supports using Chain-of-Thught (CoT) to solve English math problems, Qwen2.5-Math series is expanded to support using both CoT and Tool-integrated Reasoning (TIR) to solve math problems in both Chinese and English. The Qwen2.5-Math series models have achieved significant performance improvements compared to the Qwen2-Math series models on the Chinese and English mathematics benchmarks with CoT.
+
+      The base models of Qwen2-Math are initialized with Qwen2-1.5B/7B/72B, and then pretrained on a meticulously designed Mathematics-specific Corpus. This corpus contains large-scale high-quality mathematical web texts, books, codes, exam questions, and mathematical pre-training data synthesized by Qwen2.
+  overrides:
+    parameters:
+      model: Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf
+      sha256: 7e03cee8c65b9ebf9ca14ddb010aca27b6b18e6c70f2779e94e7451d9529c091
+      uri: huggingface://bartowski/Qwen2.5-Math-7B-Instruct-GGUF/Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-14b_uncencored"
+  icon: https://huggingface.co/SicariusSicariiStuff/Phi-3.5-mini-instruct_Uncensored/resolve/main/Misc/Uncensored.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Qwen2.5-14B_Uncencored
+    - https://huggingface.co/bartowski/Qwen2.5-14B_Uncencored-GGUF
+  description: |
+    Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
+
+    Uncensored qwen2.5
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - qwen2.5
+    - cpu
+    - uncensored
+  overrides:
+    parameters:
+      model: Qwen2.5-14B_Uncencored-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-14B_Uncencored-Q4_K_M.gguf
+      sha256: 066b9341b67e0fd0956de3576a3b7988574a5b9a0028aef2b9c8edeadd6dbbd1
+      uri: huggingface://bartowski/Qwen2.5-14B_Uncencored-GGUF/Qwen2.5-14B_Uncencored-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-coder-7b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF
+  description: |
+    Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen). For Qwen2.5-Coder, we release three base language models and instruction-tuned language models, 1.5, 7 and 32 (coming soon) billion parameters. Qwen2.5-Coder brings the following improvements upon CodeQwen1.5:
+
+        Significantly improvements in code generation, code reasoning and code fixing. Base on the strong Qwen2.5, we scale up the training tokens into 5.5 trillion including source code, text-code grounding, Synthetic data, etc.
+        A more comprehensive foundation for real-world applications such as Code Agents. Not only enhancing coding capabilities but also maintaining its strengths in mathematics and general competencies.
+        Long-context Support up to 128K tokens.
+  overrides:
+    parameters:
+      model: Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+      sha256: 1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6
+      uri: huggingface://bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-math-72b-instruct"
+  icon: http://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen2.5/qwen2.5-math-pipeline.jpeg
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-Math-72B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-Math-72B-Instruct-GGUF
+  description: |
+    In August 2024, we released the first series of mathematical LLMs - Qwen2-Math - of our Qwen family. A month later, we have upgraded it and open-sourced Qwen2.5-Math series, including base models Qwen2.5-Math-1.5B/7B/72B, instruction-tuned models Qwen2.5-Math-1.5B/7B/72B-Instruct, and mathematical reward model Qwen2.5-Math-RM-72B.
+
+    Unlike Qwen2-Math series which only supports using Chain-of-Thught (CoT) to solve English math problems, Qwen2.5-Math series is expanded to support using both CoT and Tool-integrated Reasoning (TIR) to solve math problems in both Chinese and English. The Qwen2.5-Math series models have achieved significant performance improvements compared to the Qwen2-Math series models on the Chinese and English mathematics benchmarks with CoT
+  overrides:
+    parameters:
+      model: Qwen2.5-Math-72B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Math-72B-Instruct-Q4_K_M.gguf
+      sha256: 5dee8a6e21d555577712b4f65565a3c3737a0d5d92f5a82970728c6d8e237f17
+      uri: huggingface://bartowski/Qwen2.5-Math-72B-Instruct-GGUF/Qwen2.5-Math-72B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-0.5b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+      sha256: 6eb923e7d26e9cea28811e1a8e852009b21242fb157b26149d3b188f3a8c8653
+      uri: huggingface://bartowski/Qwen2.5-0.5B-Instruct-GGUF/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-1.5b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
+      sha256: 1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370
+      uri: huggingface://bartowski/Qwen2.5-1.5B-Instruct-GGUF/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-32b"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-32B
+    - https://huggingface.co/mradermacher/Qwen2.5-32B-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-32B.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-32B.Q4_K_M.gguf
+      sha256: 02703e27c8b964db445444581a6937ad7538f0c32a100b26b49fa0e8ff527155
+      uri: huggingface://mradermacher/Qwen2.5-32B-GGUF/Qwen2.5-32B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-32b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-32B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-32B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-32B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-32B-Instruct-Q4_K_M.gguf
+      sha256: 2e5f6daea180dbc59f65a40641e94d3973b5dbaa32b3c0acf54647fa874e519e
+      uri: huggingface://bartowski/Qwen2.5-32B-Instruct-GGUF/Qwen2.5-32B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-72b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-72B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-72B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-72B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-72B-Instruct-Q4_K_M.gguf
+      sha256: e4c8fad16946be8cf0bbf67eb8f4e18fc7415a5a6d2854b4cda453edb4082545
+      uri: huggingface://bartowski/Qwen2.5-72B-Instruct-GGUF/Qwen2.5-72B-Instruct-Q4_K_M.gguf
 ## SmolLM
 - &smollm
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -439,6 +601,75 @@
     - filename: Reflection-Llama-3.1-70B-q4_k_m.gguf
       sha256: 16064e07037883a750cfeae9a7be41143aa857dbac81c2e93c68e2f941dee7b2
       uri: huggingface://senseable/Reflection-Llama-3.1-70B-gguf/Reflection-Llama-3.1-70B-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-supernova-lite-reflection-v1.0-i1"
+  url: "github:mudler/LocalAI/gallery/llama3.1-reflective.yaml@master"
+  icon: https://i.ibb.co/r072p7j/eopi-ZVu-SQ0-G-Cav78-Byq-Tg.png
+  urls:
+    - https://huggingface.co/SE6446/Llama-3.1-SuperNova-Lite-Reflection-V1.0
+    - https://huggingface.co/mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF
+  description: |
+    This model is a LoRA adaptation of arcee-ai/Llama-3.1-SuperNova-Lite on thesven/Reflective-MAGLLAMA-v0.1.1. This has been a simple experiment into reflection and the model appears to perform adequately, though I am unsure if it is a large improvement.
+  overrides:
+    parameters:
+      model: Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
+      sha256: 0c4531fe553d00142808e1bc7348ae92d400794c5b64d2db1a974718324dfe9a
+      uri: huggingface://mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF/Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-supernova-lite"
+  icon: https://i.ibb.co/r072p7j/eopi-ZVu-SQ0-G-Cav78-Byq-Tg.png
+  urls:
+    - https://huggingface.co/arcee-ai/Llama-3.1-SuperNova-Lite
+    - https://huggingface.co/arcee-ai/Llama-3.1-SuperNova-Lite-GGUF
+  description: |
+    Llama-3.1-SuperNova-Lite is an 8B parameter model developed by Arcee.ai, based on the Llama-3.1-8B-Instruct architecture. It is a distilled version of the larger Llama-3.1-405B-Instruct model, leveraging offline logits extracted from the 405B parameter variant. This 8B variation of Llama-3.1-SuperNova maintains high performance while offering exceptional instruction-following capabilities and domain-specific adaptability.
+
+    The model was trained using a state-of-the-art distillation pipeline and an instruction dataset generated with EvolKit, ensuring accuracy and efficiency across a wide range of tasks. For more information on its training, visit blog.arcee.ai.
+
+    Llama-3.1-SuperNova-Lite excels in both benchmark performance and real-world applications, providing the power of large-scale models in a more compact, efficient form ideal for organizations seeking high performance with reduced resource requirements.
+  overrides:
+    parameters:
+      model: supernova-lite-v1.Q4_K_M.gguf
+  files:
+    - filename: supernova-lite-v1.Q4_K_M.gguf
+      sha256: 237b7b0b704d294f92f36c576cc8fdc10592f95168a5ad0f075a2d8edf20da4d
+      uri: huggingface://arcee-ai/Llama-3.1-SuperNova-Lite-GGUF/supernova-lite-v1.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-shiningvaliant2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63444f2687964b331809eb55/EXX7TKbB-R6arxww2mk0R.jpeg
+  urls:
+    - https://huggingface.co/ValiantLabs/Llama3.1-8B-ShiningValiant2
+    - https://huggingface.co/bartowski/Llama3.1-8B-ShiningValiant2-GGUF
+  description: |
+    Shining Valiant 2 is a chat model built on Llama 3.1 8b, finetuned on our data for friendship, insight, knowledge and enthusiasm.
+
+        Finetuned on meta-llama/Meta-Llama-3.1-8B-Instruct for best available general performance
+        Trained on a variety of high quality data; focused on science, engineering, technical knowledge, and structured reasoning
+  overrides:
+    parameters:
+      model: Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
+      sha256: 9369eb97922a9f01e4eae610e3d7aaeca30762d78d9239884179451d60bdbdd2
+      uri: huggingface://bartowski/Llama3.1-8B-ShiningValiant2-GGUF/Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nightygurps-14b-v1.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6336c5b3e3ac69e6a90581da/FvfjK7bKqsWdaBkB3eWgP.png
+  urls:
+    - https://huggingface.co/AlexBefest/NightyGurps-14b-v1.1
+    - https://huggingface.co/bartowski/NightyGurps-14b-v1.1-GGUF
+  description: |
+    This model works with Russian only.
+    This model is designed to run GURPS roleplaying games, as well as consult and assist. This model was trained on an augmented dataset of the GURPS Basic Set rulebook. Its primary purpose was initially to become an assistant consultant and assistant Game Master for the GURPS roleplaying system, but it can also be used as a GM for running solo games as a player.
+  overrides:
+    parameters:
+      model: NightyGurps-14b-v1.1-Q4_K_M.gguf
+  files:
+    - filename: NightyGurps-14b-v1.1-Q4_K_M.gguf
+      sha256: d09d53259ad2c0298150fa8c2db98fe42f11731af89fdc80ad0e255a19adc4b0
+      uri: huggingface://bartowski/NightyGurps-14b-v1.1-GGUF/NightyGurps-14b-v1.1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
@@ -741,6 +972,20 @@
     - filename: Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
       sha256: 830d4858aa11a654f82f69fa40dee819edf9ecf54213057648304eb84b8dd5eb
       uri: huggingface://Lewdiculous/Llama-3.1-8B-Stheno-v3.4-GGUF-IQ-Imatrix/Llama-3.1-8B-Stheno-v3.4-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-arliai-rpmax-v1.1"
+  urls:
+    - https://huggingface.co/ArliAI/Llama-3.1-8B-ArliAI-RPMax-v1.1
+    - https://huggingface.co/bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.1-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+      sha256: 0a601c7341228d9160332965298d799369a1dc2b7080771fb8051bdeb556b30c
+      uri: huggingface://bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.1-GGUF/Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -1278,6 +1523,21 @@
     - filename: Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
       sha256: cf3465c183bf4ecbccd1b6b480f687e0160475b04c87e2f1e5ebc8baa0f4c7aa
       uri: huggingface://bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF/Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "acolyte-22b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6569a4ed2419be6072890cf8/3dcGMcrWK2-2vQh9QBt3o.png
+  urls:
+    - https://huggingface.co/rAIfle/Acolyte-22B
+    - https://huggingface.co/mradermacher/Acolyte-22B-i1-GGUF
+  description: |
+    LoRA of a bunch of random datasets on top of Mistral-Small-Instruct-2409, then SLERPed onto base at 0.5. Decent enough for its size. Check the LoRA for dataset info.
+  overrides:
+    parameters:
+      model: Acolyte-22B.i1-Q4_K_M.gguf
+  files:
+    - filename: Acolyte-22B.i1-Q4_K_M.gguf
+      sha256: 5a454405b98b6f886e8e4c695488d8ea098162bb8c46f2a7723fc2553c6e2f6e
+      uri: huggingface://mradermacher/Acolyte-22B-i1-GGUF/Acolyte-22B.i1-Q4_K_M.gguf
 - !!merge <<: *mistral03
   name: "mn-12b-lyra-v4-iq-imatrix"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/dVoru83WOpwVjMlgZ_xhA.png
@@ -1850,6 +2110,47 @@
     - filename: datagemma-rig-27b-it-Q4_K_M.gguf
       sha256: a6738ffbb49b6c46d220e2793df85c0538e9ac72398e32a0914ee5e55c3096ad
       uri: huggingface://bartowski/datagemma-rig-27b-it-GGUF/datagemma-rig-27b-it-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "buddy-2b-v1"
+  urls:
+    - https://huggingface.co/TheDrummer/Buddy-2B-v1
+    - https://huggingface.co/bartowski/Buddy-2B-v1-GGUF
+  description: |
+    Buddy is designed as an empathetic language model, aimed at fostering introspection, self-reflection, and personal growth through thoughtful conversation. Buddy won't judge and it won't dismiss your concerns. Get some self-care with Buddy.
+  overrides:
+    parameters:
+      model: Buddy-2B-v1-Q4_K_M.gguf
+  files:
+    - filename: Buddy-2B-v1-Q4_K_M.gguf
+      sha256: 9bd25ed907d1a3c2e07fe09399a9b3aec107d368c29896e2c46facede5b7e3d5
+      uri: huggingface://bartowski/Buddy-2B-v1-GGUF/Buddy-2B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2-9b-arliai-rpmax-v1.1"
+  urls:
+    - https://huggingface.co/ArliAI/Gemma-2-9B-ArliAI-RPMax-v1.1
+    - https://huggingface.co/bartowski/Gemma-2-9B-ArliAI-RPMax-v1.1-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+  overrides:
+    parameters:
+      model: Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+      sha256: 1724aff0ad6f71bf4371d839aca55578f7ec6f030d8d25c0254126088e4c6250
+      uri: huggingface://bartowski/Gemma-2-9B-ArliAI-RPMax-v1.1-GGUF/Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2-2b-arliai-rpmax-v1.1"
+  urls:
+    - https://huggingface.co/bartowski/Gemma-2-2B-ArliAI-RPMax-v1.1-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+  overrides:
+    parameters:
+      model: Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+      sha256: 89fe35345754d7e9de8d0c0d5bf35b2be9b12a09811b365b712b8b27112f7712
+      uri: huggingface://bartowski/Gemma-2-2B-ArliAI-RPMax-v1.1-GGUF/Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -3729,7 +4030,7 @@
   files:
     - filename: NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
       sha256: 12f4af9d66817d7d300bd9a181e4fe66f7ecf7ea972049f2cbd0554cdc3ecf05
-      uri: huggingface://QuantFactory/NeuralDaredevil-8B-abliterated-GGUF/Poppy_Porpoise-0.85-L3-8B-Q4_K_M-imat.gguf
+      uri: huggingface://QuantFactory/NeuralDaredevil-8B-abliterated-GGUF/NeuralDaredevil-8B-abliterated.Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llama-3-8b-instruct-mopeymule"
   urls:
