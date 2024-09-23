@@ -654,6 +654,22 @@
     - filename: Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
       sha256: 9369eb97922a9f01e4eae610e3d7aaeca30762d78d9239884179451d60bdbdd2
       uri: huggingface://bartowski/Llama3.1-8B-ShiningValiant2-GGUF/Llama3.1-8B-ShiningValiant2-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nightygurps-14b-v1.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6336c5b3e3ac69e6a90581da/FvfjK7bKqsWdaBkB3eWgP.png
+  urls:
+    - https://huggingface.co/AlexBefest/NightyGurps-14b-v1.1
+    - https://huggingface.co/bartowski/NightyGurps-14b-v1.1-GGUF
+  description: |
+    This model works with Russian only.
+    This model is designed to run GURPS roleplaying games, as well as consult and assist. This model was trained on an augmented dataset of the GURPS Basic Set rulebook. Its primary purpose was initially to become an assistant consultant and assistant Game Master for the GURPS roleplaying system, but it can also be used as a GM for running solo games as a player.
+  overrides:
+    parameters:
+      model: NightyGurps-14b-v1.1-Q4_K_M.gguf
+  files:
+    - filename: NightyGurps-14b-v1.1-Q4_K_M.gguf
+      sha256: d09d53259ad2c0298150fa8c2db98fe42f11731af89fdc80ad0e255a19adc4b0
+      uri: huggingface://bartowski/NightyGurps-14b-v1.1-GGUF/NightyGurps-14b-v1.1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
@@ -1508,6 +1524,21 @@
       sha256: cf3465c183bf4ecbccd1b6b480f687e0160475b04c87e2f1e5ebc8baa0f4c7aa
       uri: huggingface://bartowski/Pantheon-RP-1.6-12b-Nemo-GGUF/Pantheon-RP-1.6-12b-Nemo-Q4_K_M.gguf
 - !!merge <<: *mistral03
+  name: "acolyte-22b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6569a4ed2419be6072890cf8/3dcGMcrWK2-2vQh9QBt3o.png
+  urls:
+    - https://huggingface.co/rAIfle/Acolyte-22B
+    - https://huggingface.co/mradermacher/Acolyte-22B-i1-GGUF
+  description: |
+    LoRA of a bunch of random datasets on top of Mistral-Small-Instruct-2409, then SLERPed onto base at 0.5. Decent enough for its size. Check the LoRA for dataset info.
+  overrides:
+    parameters:
+      model: Acolyte-22B.i1-Q4_K_M.gguf
+  files:
+    - filename: Acolyte-22B.i1-Q4_K_M.gguf
+      sha256: 5a454405b98b6f886e8e4c695488d8ea098162bb8c46f2a7723fc2553c6e2f6e
+      uri: huggingface://mradermacher/Acolyte-22B-i1-GGUF/Acolyte-22B.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
   name: "mn-12b-lyra-v4-iq-imatrix"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/dVoru83WOpwVjMlgZ_xhA.png
   # chatml
@@ -2093,6 +2124,33 @@
     - filename: Buddy-2B-v1-Q4_K_M.gguf
       sha256: 9bd25ed907d1a3c2e07fe09399a9b3aec107d368c29896e2c46facede5b7e3d5
       uri: huggingface://bartowski/Buddy-2B-v1-GGUF/Buddy-2B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2-9b-arliai-rpmax-v1.1"
+  urls:
+    - https://huggingface.co/ArliAI/Gemma-2-9B-ArliAI-RPMax-v1.1
+    - https://huggingface.co/bartowski/Gemma-2-9B-ArliAI-RPMax-v1.1-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+  overrides:
+    parameters:
+      model: Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+      sha256: 1724aff0ad6f71bf4371d839aca55578f7ec6f030d8d25c0254126088e4c6250
+      uri: huggingface://bartowski/Gemma-2-9B-ArliAI-RPMax-v1.1-GGUF/Gemma-2-9B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2-2b-arliai-rpmax-v1.1"
+  urls:
+    - https://huggingface.co/bartowski/Gemma-2-2B-ArliAI-RPMax-v1.1-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+  overrides:
+    parameters:
+      model: Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+      sha256: 89fe35345754d7e9de8d0c0d5bf35b2be9b12a09811b365b712b8b27112f7712
+      uri: huggingface://bartowski/Gemma-2-2B-ArliAI-RPMax-v1.1-GGUF/Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
