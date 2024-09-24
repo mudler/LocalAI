@@ -161,6 +161,12 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		textContentToReturn = ""
 		id = uuid.New().String()
 		created = int(time.Now().Unix())
+		// Set CorrelationID
+		correlationID := c.Get("X-Correlation-ID")
+		if len(strings.TrimSpace(correlationID)) == 0 {
+			correlationID = id
+		}
+		c.Set("X-correlationID", correlationID)
 
 		modelFile, input, err := readRequest(c, cl, ml, startupOptions, true)
 		if err != nil {
@@ -444,6 +450,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
+			c.Set("X-correlationID", id)
 
 			responses := make(chan schema.OpenAIResponse)
 

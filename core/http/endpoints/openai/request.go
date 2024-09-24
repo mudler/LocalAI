@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
 	"github.com/mudler/LocalAI/core/schema"
@@ -14,6 +15,11 @@ import (
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
+
+type correlationIDKeyType string
+
+// CorrelationIDKey to track request across process boundary
+const CorrelationIDKey correlationIDKeyType = "correlationID"
 
 func readRequest(c *fiber.Ctx, cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig, firstModel bool) (string, *schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
@@ -24,9 +30,14 @@ func readRequest(c *fiber.Ctx, cl *config.BackendConfigLoader, ml *model.ModelLo
 	}
 
 	received, _ := json.Marshal(input)
+	// Extract or generate the correlation ID
+	correlationID := c.Get("X-Correlation-ID", uuid.New().String())
 
 	ctx, cancel := context.WithCancel(o.Context)
-	input.Context = ctx
+	// Add the correlation ID to the new context
+	ctxWithCorrelationID := context.WithValue(ctx, CorrelationIDKey, correlationID)
+
+	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
 
 	log.Debug().Msgf("Request received: %s", string(received))
