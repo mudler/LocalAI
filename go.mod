@@ -1,8 +1,8 @@
 module github.com/mudler/LocalAI
 
-go 1.22.0
+go 1.23
 
-toolchain go1.22.4
+toolchain go1.23.1
 
 require (
 	dario.cat/mergo v1.0.0

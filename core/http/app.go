@@ -31,24 +31,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func readAuthHeader(c *fiber.Ctx) string {
-	authHeader := c.Get("Authorization")
-
-	// elevenlabs
-	xApiKey := c.Get("xi-api-key")
-	if xApiKey != "" {
-		authHeader = "Bearer " + xApiKey
-	}
-
-	// anthropic
-	xApiKey = c.Get("x-api-key")
-	if xApiKey != "" {
-		authHeader = "Bearer " + xApiKey
-	}
-
-	return authHeader
-}
-
 // Embed a directory
 //
 //go:embed static/*
