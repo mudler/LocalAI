@@ -9,7 +9,7 @@ dataclasses-json==0.6.7
 debugpy==1.8.2
 frozenlist==1.4.1
 greenlet==3.1.0
-idna==3.8
+idna==3.10
 langchain==0.3.0
 langchain-community==0.2.16
 marshmallow==3.22.0
@@ -24,10 +24,10 @@ packaging>=23.2
 pydantic==2.8.2
 PyYAML==6.0.2
 requests==2.32.3
-SQLAlchemy==2.0.32
+SQLAlchemy==2.0.35
 tenacity==8.5.0
 tqdm==4.66.5
 typing-inspect==0.9.0
 typing_extensions==4.12.2
-urllib3==2.2.2
-yarl==1.11.0
+urllib3==2.2.3
+yarl==1.11.1

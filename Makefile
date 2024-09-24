@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=c35e586ea57221844442c65a1172498c54971cb0
+CPPLLAMA_VERSION?=f0c7b5edf82aa200656fd88c11ae3a805d7130bf
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
@@ -358,6 +358,9 @@ clean-tests:
 	rm -rf test-models
 	rm -rf test-dir
 	rm -rf core/http/backend-assets
+
+clean-dc: clean
+	cp -r /build/backend-assets /workspace/backend-assets
 
 ## Build:
 build: prepare backend-assets grpcs ## Build the project

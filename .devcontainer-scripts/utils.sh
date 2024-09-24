@@ -9,6 +9,7 @@
 # Param 2: email
 #
 config_user() {
+    echo "Configuring git for $1 <$2>"
     local gcn=$(git config --global user.name)
     if [ -z "${gcn}" ]; then
         echo "Setting up git user / remote"
@@ -24,6 +25,7 @@ config_user() {
 # Param 2: remote url
 #
 config_remote() {
+    echo "Adding git remote and fetching $2 as $1"
     local gr=$(git remote -v | grep $1)
     if [ -z "${gr}" ]; then
         git remote add $1 $2
