@@ -9,7 +9,7 @@ dataclasses-json==0.6.7
 debugpy==1.8.2
 frozenlist==1.4.1
 greenlet==3.1.0
-idna==3.8
+idna==3.10
 langchain==0.3.0
 langchain-community==0.2.16
 marshmallow==3.22.0
