@@ -3,12 +3,14 @@ package model
 import grpc "github.com/mudler/LocalAI/pkg/grpc"
 
 type Model struct {
+	ID      string `json:"id"`
 	address string
 	client  grpc.Backend
 }
 
-func NewModel(address string) *Model {
+func NewModel(ID, address string) *Model {
 	return &Model{
+		ID:      ID,
 		address: address,
 	}
 }

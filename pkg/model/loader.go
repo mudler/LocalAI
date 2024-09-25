@@ -105,13 +105,13 @@ FILE:
 	return models, nil
 }
 
-func (ml *ModelLoader) ListModels() []*Model {
+func (ml *ModelLoader) ListModels() []Model {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
-	models := []*Model{}
+	models := []Model{}
 	for _, model := range ml.models {
-		models = append(models, model)
+		models = append(models, *model)
 	}
 
 	return models
