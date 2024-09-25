@@ -63,7 +63,7 @@ var _ = Describe("ModelLoader", func() {
 
 	Context("LoadModel", func() {
 		It("should load a model and keep it in memory", func() {
-			mockModel = model.NewModel("test.model")
+			mockModel = model.NewModel("foo", "test.model")
 
 			mockLoader := func(modelName, modelFile string) (*model.Model, error) {
 				return mockModel, nil
@@ -88,7 +88,7 @@ var _ = Describe("ModelLoader", func() {
 
 	Context("ShutdownModel", func() {
 		It("should shutdown a loaded model", func() {
-			mockModel = model.NewModel("test.model")
+			mockModel = model.NewModel("foo", "test.model")
 
 			mockLoader := func(modelName, modelFile string) (*model.Model, error) {
 				return mockModel, nil
