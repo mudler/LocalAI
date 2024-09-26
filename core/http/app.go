@@ -121,6 +121,9 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		})
 	}
 
+ // Health Checks should always be exempt from auth, so register these first
+	routes.HealthRoutes(app)
+
 	kaConfig, err := middleware.GetKeyAuthConfig(appConfig)
 	if err != nil || kaConfig == nil {
 		return nil, fmt.Errorf("failed to create key auth config: %w", err)

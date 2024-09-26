@@ -311,11 +311,11 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 				log.Debug().Msgf("GRPC Service Started")
 
-				client = NewModel(serverAddress)
+				client = NewModel(modelName, serverAddress)
 			} else {
 				log.Debug().Msg("external backend is uri")
 				// address
-				client = NewModel(uri)
+				client = NewModel(modelName, uri)
 			}
 		} else {
 			grpcProcess := backendPath(o.assetDir, backend)
@@ -352,7 +352,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 			log.Debug().Msgf("GRPC Service Started")
 
-			client = NewModel(serverAddress)
+			client = NewModel(modelName, serverAddress)
 		}
 
 		log.Debug().Msgf("Wait for the service to start up")
@@ -419,7 +419,6 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 		err := ml.StopGRPC(allExcept(o.model))
 		if err != nil {
 			log.Error().Err(err).Str("keptModel", o.model).Msg("error while shutting down all backends except for the keptModel")
-			return nil, err
 		}
 	}
 

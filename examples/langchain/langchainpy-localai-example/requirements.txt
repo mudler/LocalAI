@@ -21,7 +21,7 @@ numpy==2.1.1
 openai==1.45.1
 openapi-schema-pydantic==1.2.4
 packaging>=23.2
-pydantic==2.8.2
+pydantic==2.9.2
 PyYAML==6.0.2
 requests==2.32.3
 SQLAlchemy==2.0.35
