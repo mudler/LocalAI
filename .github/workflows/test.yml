@@ -185,7 +185,7 @@ jobs:
       - name: Test
         run: |
           LOCALAI_MODELS_DIR=$PWD/models LOCALAI_IMAGE_TAG=test LOCALAI_IMAGE=local-ai-aio \
-            make prepare run-e2e-aio
+            make run-e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.18
