@@ -1,4 +1,64 @@
 ---
+## llama3.2
+- &llama32
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  license: llama3.2
+  description: |
+    The Meta Llama 3.2 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction-tuned generative models in 1B and 3B sizes (text in/text out). The Llama 3.2 instruction-tuned text only models are optimized for multilingual dialogue use cases, including agentic retrieval and summarization tasks. They outperform many of the available open source and closed chat models on common industry benchmarks.
+
+    Model Developer: Meta
+
+    Model Architecture: Llama 3.2 is an auto-regressive language model that uses an optimized transformer architecture. The tuned versions use supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align with human preferences for helpfulness and safety.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3.2
+  name: "llama-3.2-1b-instruct:q4_k_m"
+  urls:
+    - https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF
+  overrides:
+    parameters:
+      model: llama-3.2-1b-instruct-q4_k_m.gguf
+  files:
+    - filename: llama-3.2-1b-instruct-q4_k_m.gguf
+      sha256: 1d0e9419ec4e12aef73ccf4ffd122703e94c48344a96bc7c5f0f2772c2152ce3
+      uri: huggingface://hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/llama-3.2-1b-instruct-q4_k_m.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-3b-instruct:q4_k_m"
+  urls:
+    - https://huggingface.co/hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF
+  overrides:
+    parameters:
+      model: llama-3.2-3b-instruct-q4_k_m.gguf
+  files:
+    - filename: llama-3.2-3b-instruct-q4_k_m.gguf
+      sha256: c55a83bfb6396799337853ca69918a0b9bbb2917621078c34570bc17d20fd7a1
+      uri: huggingface://hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF/llama-3.2-3b-instruct-q4_k_m.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-3b-instruct:q8_0"
+  urls:
+    - https://huggingface.co/hugging-quants/Llama-3.2-3B-Instruct-Q8_0-GGUF
+  overrides:
+    parameters:
+      model: llama-3.2-3b-instruct-q8_0.gguf
+  files:
+    - filename: llama-3.2-3b-instruct-q8_0.gguf
+      sha256: 51725f77f997a5080c3d8dd66e073da22ddf48ab5264f21f05ded9b202c3680e
+      uri: huggingface://hugging-quants/Llama-3.2-3B-Instruct-Q8_0-GGUF/llama-3.2-3b-instruct-q8_0.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-1b-instruct:q8_0"
+  urls:
+    - https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF
+  overrides:
+    parameters:
+      model: llama-3.2-1b-instruct-q8_0.gguf
+  files:
+    - filename: llama-3.2-1b-instruct-q8_0.gguf
+      sha256: ba345c83bf5cc679c653b853c46517eea5a34f03ed2205449db77184d9ae62a9
+      uri: huggingface://hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF/llama-3.2-1b-instruct-q8_0.gguf
 ## Qwen2.5
 - &qwen25
   name: "qwen2.5-14b-instruct"
