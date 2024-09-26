@@ -2106,8 +2106,8 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
 
-    // Add the correlation_id to json data
-    data["correlation_id"] = predict->correlation_id();
+    // Add the correlationid to json data
+    data["correlation_id"] = predict->correlationid();
 
     // for each image in the request, add the image data
     //
