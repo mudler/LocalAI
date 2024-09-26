@@ -304,18 +304,19 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 					return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
 				}
 				// Make sure the process is executable
-				if err := ml.startProcess(uri, o.model, serverAddress); err != nil {
+				process, err := ml.startProcess(uri, o.model, serverAddress)
+				if err != nil {
 					log.Error().Err(err).Str("path", uri).Msg("failed to launch ")
 					return nil, err
 				}
 
 				log.Debug().Msgf("GRPC Service Started")
 
-				client = NewModel(modelName, serverAddress)
+				client = NewModel(modelName, serverAddress, process)
 			} else {
 				log.Debug().Msg("external backend is uri")
 				// address
-				client = NewModel(modelName, uri)
+				client = NewModel(modelName, uri, nil)
 			}
 		} else {
 			grpcProcess := backendPath(o.assetDir, backend)
@@ -346,13 +347,14 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			args, grpcProcess = library.LoadLDSO(o.assetDir, args, grpcProcess)
 
 			// Make sure the process is executable in any circumstance
-			if err := ml.startProcess(grpcProcess, o.model, serverAddress, args...); err != nil {
+			process, err := ml.startProcess(grpcProcess, o.model, serverAddress, args...)
+			if err != nil {
 				return nil, err
 			}
 
 			log.Debug().Msgf("GRPC Service Started")
 
-			client = NewModel(modelName, serverAddress)
+			client = NewModel(modelName, serverAddress, process)
 		}
 
 		log.Debug().Msgf("Wait for the service to start up")
@@ -374,6 +376,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		if !ready {
 			log.Debug().Msgf("GRPC Service NOT ready")
+			ml.deleteProcess(o.model)
 			return nil, fmt.Errorf("grpc service not ready")
 		}
 
@@ -385,9 +388,11 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, &options)
 		if err != nil {
+			ml.deleteProcess(o.model)
 			return nil, fmt.Errorf("could not load model: %w", err)
 		}
 		if !res.Success {
+			ml.deleteProcess(o.model)
 			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
 		}
 
