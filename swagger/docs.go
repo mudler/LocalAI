@@ -972,6 +972,14 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Model": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
         "openai.Assistant": {
             "type": "object",
             "properties": {
@@ -1681,6 +1689,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "loaded_models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Model"
                     }
                 }
             }
