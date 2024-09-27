@@ -450,7 +450,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
-			c.Set("X-correlationID", id)
+			c.Set("X-Correlation-ID", id)
 
 			responses := make(chan schema.OpenAIResponse)
 
