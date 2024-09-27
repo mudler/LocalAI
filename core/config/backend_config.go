@@ -466,7 +466,7 @@ func GetUsecasesFromYAML(input []string) BackendConfigUsecases {
 	for _, str := range input {
 		flag, exists := flags["FLAG_"+strings.ToUpper(str)]
 		if exists {
-			result &= flag
+			result |= flag
 		}
 	}
 	return result
