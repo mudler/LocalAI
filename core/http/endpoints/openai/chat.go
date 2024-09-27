@@ -166,7 +166,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		if len(strings.TrimSpace(correlationID)) == 0 {
 			correlationID = id
 		}
-		c.Set("X-correlationID", correlationID)
+		c.Set("X-Correlation-ID", correlationID)
 
 		modelFile, input, err := readRequest(c, cl, ml, startupOptions, true)
 		if err != nil {
