@@ -1615,6 +1615,27 @@
     - filename: MN-12B-Lyra-v4-Q4_K_M-imat.gguf
       sha256: 1989123481ca1936c8a2cbe278ff5d1d2b0ae63dbdc838bb36a6d7547b8087b3
       uri: huggingface://Lewdiculous/MN-12B-Lyra-v4-GGUF-IQ-Imatrix/MN-12B-Lyra-v4-Q4_K_M-imat.gguf
+- !!merge <<: *mistral03
+  name: "magnusintellectus-12b-v1-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66b564058d9afb7a9d5607d5/hUVJI1Qa4tCMrZWMgYkoD.png
+  urls:
+    - https://huggingface.co/GalrionSoftworks/MagnusIntellectus-12B-v1
+    - https://huggingface.co/mradermacher/MagnusIntellectus-12B-v1-i1-GGUF
+  description: |
+    How pleasant, the rocks appear to have made a decent conglomerate. A-.
+
+    MagnusIntellectus is a merge of the following models using LazyMergekit:
+
+        UsernameJustAnother/Nemo-12B-Marlin-v5
+        anthracite-org/magnum-12b-v2
+  overrides:
+    parameters:
+      model: MagnusIntellectus-12B-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: MagnusIntellectus-12B-v1.i1-Q4_K_M.gguf
+      sha256: c97107983b4edc5b6f2a592d227ca2dd4196e2af3d3bc0fe6b7a8954a1fb5870
+      uri: huggingface://mradermacher/MagnusIntellectus-12B-v1-i1-GGUF/MagnusIntellectus-12B-v1.i1-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
