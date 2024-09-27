@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -28,13 +29,15 @@ type BackendConfig struct {
 	schema.PredictionOptions `yaml:"parameters"`
 	Name                     string `yaml:"name"`
 
-	F16            *bool             `yaml:"f16"`
-	Threads        *int              `yaml:"threads"`
-	Debug          *bool             `yaml:"debug"`
-	Roles          map[string]string `yaml:"roles"`
-	Embeddings     *bool             `yaml:"embeddings"`
-	Backend        string            `yaml:"backend"`
-	TemplateConfig TemplateConfig    `yaml:"template"`
+	F16                 *bool                 `yaml:"f16"`
+	Threads             *int                  `yaml:"threads"`
+	Debug               *bool                 `yaml:"debug"`
+	Roles               map[string]string     `yaml:"roles"`
+	Embeddings          *bool                 `yaml:"embeddings"`
+	Backend             string                `yaml:"backend"`
+	TemplateConfig      TemplateConfig        `yaml:"template"`
+	KnownUsecaseStrings []string              `yaml:"known_usecases"`
+	KnownUsecases       BackendConfigUsecases `yaml:"-"`
 
 	PromptStrings, InputStrings                []string               `yaml:"-"`
 	InputToken                                 [][]int                `yaml:"-"`
@@ -193,6 +196,17 @@ type TemplateConfig struct {
 	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
 	// It defaults to \n
 	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
+}
+
+func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {
+	type BCAlias BackendConfig
+	var aux BCAlias
+	if err := value.Decode(&aux); err != nil {
+		return err
+	}
+	*c = BackendConfig(aux)
+	c.KnownUsecases = GetUsecasesFromYAML(c.KnownUsecaseStrings)
+	return nil
 }
 
 func (c *BackendConfig) SetFunctionCallString(s string) {
@@ -446,14 +460,30 @@ func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
 	}
 }
 
+func GetUsecasesFromYAML(input []string) BackendConfigUsecases {
+	result := FLAG_ANY
+	flags := GetAllBackendConfigUsecases()
+	for _, str := range input {
+		flag, exists := flags["FLAG_"+strings.ToUpper(str)]
+		if exists {
+			result &= flag
+		}
+	}
+	return result
+}
+
 // HasUsecases examines a BackendConfig and determines which endpoints have a chance of success.
-// This is a **heuristic based** function, as the backend in question may not be loaded yet.
-// In the future, we may wish to consider storing this information in the config directly (which could get out of date)
-// or alternatively interrogating the backends (not always loaded) or loading the "implemented services" earlier with external backend registry?
-//
+func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
+	if (u & c.KnownUsecases) == c.KnownUsecases {
+		return true
+	}
+	return c.GuessUsecases(u)
+}
+
+// GuessUsecases is a **heuristic based** function, as the backend in question may not be loaded yet, and the config may not record what it's useful at.
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
-func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
+func (c *BackendConfig) GuessUsecases(u BackendConfigUsecases) bool {
 	if (u & FLAG_CHAT) == FLAG_CHAT {
 		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
 			return false
