@@ -221,6 +221,22 @@
     - filename: Qwen2.5-72B-Instruct-Q4_K_M.gguf
       sha256: e4c8fad16946be8cf0bbf67eb8f4e18fc7415a5a6d2854b4cda453edb4082545
       uri: huggingface://bartowski/Qwen2.5-72B-Instruct-GGUF/Qwen2.5-72B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "bigqwen2.5-52b-instruct"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/98GiKtmH1AtHHbIbOUH4Y.jpeg
+  urls:
+    - https://huggingface.co/mlabonne/BigQwen2.5-52B-Instruct
+    - https://huggingface.co/bartowski/BigQwen2.5-52B-Instruct-GGUF
+  description: |
+    BigQwen2.5-52B-Instruct is a Qwen/Qwen2-32B-Instruct self-merge made with MergeKit.
+    It applies the mlabonne/Meta-Llama-3-120B-Instruct recipe.
+  overrides:
+    parameters:
+      model: BigQwen2.5-52B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: BigQwen2.5-52B-Instruct-Q4_K_M.gguf
+      sha256: 9c939f08e366b51b07096eb2ecb5cc2a82894ac7baf639e446237ad39889c896
+      uri: huggingface://bartowski/BigQwen2.5-52B-Instruct-GGUF/BigQwen2.5-52B-Instruct-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
