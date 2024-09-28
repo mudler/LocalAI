@@ -29,15 +29,15 @@ type BackendConfig struct {
 	schema.PredictionOptions `yaml:"parameters"`
 	Name                     string `yaml:"name"`
 
-	F16                 *bool                 `yaml:"f16"`
-	Threads             *int                  `yaml:"threads"`
-	Debug               *bool                 `yaml:"debug"`
-	Roles               map[string]string     `yaml:"roles"`
-	Embeddings          *bool                 `yaml:"embeddings"`
-	Backend             string                `yaml:"backend"`
-	TemplateConfig      TemplateConfig        `yaml:"template"`
-	KnownUsecaseStrings []string              `yaml:"known_usecases"`
-	KnownUsecases       BackendConfigUsecases `yaml:"-"`
+	F16                 *bool                  `yaml:"f16"`
+	Threads             *int                   `yaml:"threads"`
+	Debug               *bool                  `yaml:"debug"`
+	Roles               map[string]string      `yaml:"roles"`
+	Embeddings          *bool                  `yaml:"embeddings"`
+	Backend             string                 `yaml:"backend"`
+	TemplateConfig      TemplateConfig         `yaml:"template"`
+	KnownUsecaseStrings []string               `yaml:"known_usecases"`
+	KnownUsecases       *BackendConfigUsecases `yaml:"-"`
 
 	PromptStrings, InputStrings                []string               `yaml:"-"`
 	InputToken                                 [][]int                `yaml:"-"`
@@ -460,7 +460,10 @@ func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
 	}
 }
 
-func GetUsecasesFromYAML(input []string) BackendConfigUsecases {
+func GetUsecasesFromYAML(input []string) *BackendConfigUsecases {
+	if len(input) == 0 {
+		return nil
+	}
 	result := FLAG_ANY
 	flags := GetAllBackendConfigUsecases()
 	for _, str := range input {
@@ -469,12 +472,12 @@ func GetUsecasesFromYAML(input []string) BackendConfigUsecases {
 			result |= flag
 		}
 	}
-	return result
+	return &result
 }
 
 // HasUsecases examines a BackendConfig and determines which endpoints have a chance of success.
 func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
-	if (u & c.KnownUsecases) == c.KnownUsecases {
+	if (c.KnownUsecases != nil) && ((u & *c.KnownUsecases) == *c.KnownUsecases) {
 		return true
 	}
 	return c.GuessUsecases(u)
