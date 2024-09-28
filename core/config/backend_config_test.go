@@ -150,8 +150,8 @@ parameters:
 		Expect(i.HasUsecases(FLAG_ANY)).To(BeTrue())
 		Expect(i.HasUsecases(FLAG_TRANSCRIPT)).To(BeTrue())
 		Expect(i.HasUsecases(FLAG_TTS)).To(BeFalse())
-		Expect(e.HasUsecases(FLAG_COMPLETION)).To(BeTrue())
-		Expect(e.HasUsecases(FLAG_CHAT)).To(BeTrue())
+		Expect(i.HasUsecases(FLAG_COMPLETION)).To(BeTrue())
+		Expect(i.HasUsecases(FLAG_CHAT)).To(BeTrue())
 
 	})
 })
