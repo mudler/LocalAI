@@ -2106,6 +2106,9 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
 
+    // Add the correlationid to json data
+    data["correlation_id"] = predict->correlationid();
+
     // for each image in the request, add the image data
     //
     for (int i = 0; i < predict->images_size(); i++) {
@@ -2344,6 +2347,11 @@ public:
                 int32_t tokens_evaluated = result.result_json.value("tokens_evaluated", 0);
                 reply.set_prompt_tokens(tokens_evaluated);
 
+                // Log Request Correlation Id
+                LOG_VERBOSE("correlation:", {
+                    { "id", data["correlation_id"] }
+                });
+
                 // Send the reply
                 writer->Write(reply);
 
@@ -2367,6 +2375,12 @@ public:
         std::string completion_text;
         task_result result = llama.queue_results.recv(task_id);
         if (!result.error && result.stop) {
+            
+            // Log Request Correlation Id
+            LOG_VERBOSE("correlation:", {
+                { "id", data["correlation_id"] }
+            });
+
             completion_text = result.result_json.value("content", "");
             int32_t tokens_predicted = result.result_json.value("tokens_predicted", 0);
             int32_t tokens_evaluated = result.result_json.value("tokens_evaluated", 0);
