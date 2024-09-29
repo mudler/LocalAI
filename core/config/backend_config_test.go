@@ -147,7 +147,7 @@ parameters:
 		Expect(h.HasUsecases(FLAG_TTS)).To(BeTrue())
 		Expect(h.HasUsecases(FLAG_SOUND_GENERATION)).To(BeTrue())
 
-		knownUsecases := FLAG_CHAT & FLAG_COMPLETION
+		knownUsecases := FLAG_CHAT | FLAG_COMPLETION
 		i := BackendConfig{
 			Name:    "i",
 			Backend: "whisper",
