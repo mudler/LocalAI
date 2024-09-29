@@ -477,7 +477,7 @@ func GetUsecasesFromYAML(input []string) *BackendConfigUsecases {
 
 // HasUsecases examines a BackendConfig and determines which endpoints have a chance of success.
 func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
-	if (c.KnownUsecases != nil) && ((u & *c.KnownUsecases) == *c.KnownUsecases) {
+	if (c.KnownUsecases != nil) && ((u & *c.KnownUsecases) == u) {
 		return true
 	}
 	return c.GuessUsecases(u)
