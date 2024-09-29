@@ -19,12 +19,17 @@ var _ = Describe("Test cases for config related functions", func() {
 				`backend: "../foo-bar"
 name: "foo"
 parameters:
-  model: "foo-bar"`)
+  model: "foo-bar"
+known_usecases:
+- chat
+- COMPLETION
+`)
 			Expect(err).ToNot(HaveOccurred())
 			config, err := readBackendConfigFromFile(tmp.Name())
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			Expect(config.Validate()).To(BeFalse())
+			Expect(config.KnownUsecases).ToNot(BeNil())
 		})
 		It("Test Validate", func() {
 			tmp, err := os.CreateTemp("", "config.yaml")
