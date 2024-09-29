@@ -26,6 +26,17 @@ service Backend {
   rpc StoresFind(StoresFindOptions) returns (StoresFindResult) {}
 
   rpc Rerank(RerankRequest) returns (RerankResult) {}
+
+  rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
+}
+
+// Define the empty request
+message MetricsRequest {}
+
+message MetricsResponse {
+  float tokens_per_second = 1;
+  int32 tokens_generated = 2;
+  int32 prompt_tokens_processed = 3;
 }
 
 message RerankRequest {
