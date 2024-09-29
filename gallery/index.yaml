@@ -254,6 +254,24 @@
     - filename: Replete-LLM-V2.5-Qwen-14b-Q4_K_M.gguf
       sha256: 17d0792ff5e3062aecb965629f66e679ceb407e4542e8045993dcfe9e7e14d9d
       uri: huggingface://bartowski/Replete-LLM-V2.5-Qwen-14b-GGUF/Replete-LLM-V2.5-Qwen-14b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "replete-llm-v2.5-qwen-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/ihnWXDEgV-ZKN_B036U1J.png
+  urls:
+    - https://huggingface.co/Replete-AI/Replete-LLM-V2.5-Qwen-7b
+    - https://huggingface.co/bartowski/Replete-LLM-V2.5-Qwen-7b-GGUF
+  description: |
+    Replete-LLM-V2.5-Qwen-7b is a continues finetuned version of Qwen2.5-14B. I noticed recently that the Qwen team did not learn from my methods of continuous finetuning, the great benefits, and no downsides of it. So I took it upon myself to merge the instruct model with the base model myself using the Ties merge method
+
+    This version of the model shows higher performance than the original instruct and base models.
+  overrides:
+    parameters:
+      model: Replete-LLM-V2.5-Qwen-7b-Q4_K_M.gguf
+  files:
+    - filename: Replete-LLM-V2.5-Qwen-7b-Q4_K_M.gguf
+      sha256: 054d54972259c0398b4e0af3f408f608e1166837b1d7535d08fc440d1daf8639
+      uri: huggingface://bartowski/Replete-LLM-V2.5-Qwen-7b-GGUF/Replete-LLM-V2.5-Qwen-7b-Q4_K_M.gguf
+
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
