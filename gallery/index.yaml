@@ -271,7 +271,30 @@
     - filename: Replete-LLM-V2.5-Qwen-7b-Q4_K_M.gguf
       sha256: 054d54972259c0398b4e0af3f408f608e1166837b1d7535d08fc440d1daf8639
       uri: huggingface://bartowski/Replete-LLM-V2.5-Qwen-7b-GGUF/Replete-LLM-V2.5-Qwen-7b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "calme-2.2-qwen2.5-72b-i1"
+  icon: https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2.5-72b/resolve/main/calme-2.webp
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2.5-72b
+    - https://huggingface.co/mradermacher/calme-2.2-qwen2.5-72b-i1-GGUF
+  description: |
+      This model is a fine-tuned version of the powerful Qwen/Qwen2.5-72B-Instruct, pushing the boundaries of natural language understanding and generation even further. My goal was to create a versatile and robust model that excels across a wide range of benchmarks and real-world applications.
+      Use Cases
 
+      This model is suitable for a wide range of applications, including but not limited to:
+
+          Advanced question-answering systems
+          Intelligent chatbots and virtual assistants
+          Content generation and summarization
+          Code generation and analysis
+          Complex problem-solving and decision support
+  overrides:
+    parameters:
+      model: calme-2.2-qwen2.5-72b.i1-Q4_K_M.gguf
+  files:
+    - filename: calme-2.2-qwen2.5-72b.i1-Q4_K_M.gguf
+      sha256: 5fdfa599724d7c78502c477ced1d294e92781b91d3265bd0748fbf15a6fefde6
+      uri: huggingface://mradermacher/calme-2.2-qwen2.5-72b-i1-GGUF/calme-2.2-qwen2.5-72b.i1-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
