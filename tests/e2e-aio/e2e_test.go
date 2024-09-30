@@ -260,11 +260,9 @@ var _ = Describe("E2E test", func() {
 				resp, err := http.Post(rerankerEndpoint, "application/json", bytes.NewReader(serialized))
 				Expect(err).To(BeNil())
 				Expect(resp).ToNot(BeNil())
-				Expect(resp.StatusCode).To(Equal(200))
-
 				body, err := io.ReadAll(resp.Body)
-				Expect(err).To(BeNil())
-				Expect(body).ToNot(BeNil())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("body: %s, response: %+v", body, resp))
 
 				deserializedResponse := schema.JINARerankResponse{}
 				err = json.Unmarshal(body, &deserializedResponse)
