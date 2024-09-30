@@ -480,18 +480,9 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 
 	for _, key := range autoLoadBackends {
 		log.Info().Msgf("[%s] Attempting to load", key)
-		options := []Option{
-			WithModel(o.model),
-			WithLoadGRPCLoadModelOpts(o.gRPCOptions),
-			WithThreads(o.threads),
-			WithAssetDir(o.assetDir),
-		}
-		options = append(options, WithBackendString(key))
-		options = append(options, WithModelID(o.modelID))
-
-		for k, v := range o.externalBackends {
-			options = append(options, WithExternalBackend(k, v))
-		}
+		options := append(opts, []Option{
+			WithBackendString(key),
+		}...)
 
 		model, modelerr := ml.BackendLoader(options...)
 		if modelerr == nil && model != nil {
