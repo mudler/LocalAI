@@ -9,6 +9,7 @@ import (
 type Options struct {
 	backendString string
 	model         string
+	modelID       string
 	threads       uint32
 	assetDir      string
 	context       context.Context
@@ -89,6 +90,12 @@ func WithContext(ctx context.Context) Option {
 func WithSingleActiveBackend() Option {
 	return func(o *Options) {
 		o.singleActiveBackend = true
+	}
+}
+
+func WithModelID(id string) Option {
+	return func(o *Options) {
+		o.modelID = id
 	}
 }
 

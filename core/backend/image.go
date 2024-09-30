@@ -14,11 +14,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	}
 	gRPCOpts := GRPCModelOpts(backendConfig)
 	opts := modelOpts(backendConfig, appConfig, []model.Option{
-		model.WithBackendString(backendConfig.Backend),
-		model.WithAssetDir(appConfig.AssetsDestination),
 		model.WithThreads(uint32(*threads)),
-		model.WithContext(appConfig.Context),
-		model.WithModel(backendConfig.Model),
 		model.WithLoadGRPCLoadModelOpts(gRPCOpts),
 	})
 

@@ -45,9 +45,6 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 	opts := modelOpts(c, o, []model.Option{
 		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 		model.WithThreads(uint32(*threads)), // some models uses this to allocate threads during startup
-		model.WithAssetDir(o.AssetsDestination),
-		model.WithModel(modelFile),
-		model.WithContext(o.Context),
 	})
 
 	if c.Backend != "" {

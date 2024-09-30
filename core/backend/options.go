@@ -12,27 +12,40 @@ import (
 )
 
 func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
+	name := c.Name
+	if name == "" {
+		name = c.Model
+	}
+
+	defOpts := []model.Option{
+		model.WithBackendString(c.Backend),
+		model.WithModel(c.Model),
+		model.WithAssetDir(so.AssetsDestination),
+		model.WithContext(so.Context),
+		model.WithModelID(name),
+	}
+
 	if so.SingleBackend {
-		opts = append(opts, model.WithSingleActiveBackend())
+		defOpts = append(defOpts, model.WithSingleActiveBackend())
 	}
 
 	if so.ParallelBackendRequests {
-		opts = append(opts, model.EnableParallelRequests)
+		defOpts = append(defOpts, model.EnableParallelRequests)
 	}
 
 	if c.GRPC.Attempts != 0 {
-		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
+		defOpts = append(defOpts, model.WithGRPCAttempts(c.GRPC.Attempts))
 	}
 
 	if c.GRPC.AttemptsSleepTime != 0 {
-		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
+		defOpts = append(defOpts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
 	}
 
 	for k, v := range so.ExternalGRPCBackends {
-		opts = append(opts, model.WithExternalBackend(k, v))
+		defOpts = append(defOpts, model.WithExternalBackend(k, v))
 	}
 
-	return opts
+	return append(defOpts, opts...)
 }
 
 func getSeed(c config.BackendConfig) int32 {
