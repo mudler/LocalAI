@@ -87,6 +87,10 @@ func (e *embedBackend) Rerank(ctx context.Context, in *pb.RerankRequest, opts ..
 	return e.s.Rerank(ctx, in)
 }
 
+func (e *embedBackend) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error) {
+	return e.s.GetMetrics(ctx, in)
+}
+
 type embedBackendServerStream struct {
 	ctx context.Context
 	fn  func(s []byte)

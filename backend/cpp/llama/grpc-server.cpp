@@ -495,6 +495,16 @@ struct llama_server_context
         }
     }
 
+    llama_client_slot* get_active_slot() {
+        for (llama_client_slot& slot : slots) {
+            // Check if the slot is currently processing
+            if (slot.is_processing()) {
+                return &slot;  // Return the active slot
+            }
+        }
+        return nullptr;  // No active slot found
+    }
+
     void initialize() {
         // create slots
         all_slots_are_idle = true;
@@ -2420,6 +2430,31 @@ public:
 
         return grpc::Status::OK;
     }
+
+    grpc::Status GetMetrics(ServerContext* context, const backend::MetricsRequest* request, backend::MetricsResponse* response) {
+        llama_client_slot* active_slot = llama.get_active_slot();
+
+        if (active_slot != nullptr) {
+            // Calculate the tokens per second using existing logic
+            double tokens_per_second = 1e3 / active_slot->t_token_generation * active_slot->n_decoded;
+
+            // Populate the response with metrics
+            response->set_slot_id(active_slot->id);
+            response->set_prompt_json_for_slot(active_slot->prompt.dump());
+            response->set_tokens_per_second(tokens_per_second);
+            response->set_tokens_generated(active_slot->n_decoded);
+            response->set_prompt_tokens_processed(active_slot->num_prompt_tokens_processed);
+        } else {
+            // Handle case when no active slot exists
+            response->set_slot_id(0);
+            response->set_prompt_json_for_slot("");
+            response->set_tokens_per_second(0);
+            response->set_tokens_generated(0);
+            response->set_prompt_tokens_processed(0);
+        }
+
+        return grpc::Status::OK;
+    } 
 };
 
 void RunServer(const std::string& server_address) {

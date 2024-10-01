@@ -26,6 +26,19 @@ service Backend {
   rpc StoresFind(StoresFindOptions) returns (StoresFindResult) {}
 
   rpc Rerank(RerankRequest) returns (RerankResult) {}
+
+  rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
+}
+
+// Define the empty request
+message MetricsRequest {}
+
+message MetricsResponse {
+  int32 slot_id = 1;
+  string prompt_json_for_slot = 2;  // Stores the prompt as a JSON string.
+  float tokens_per_second = 3;
+  int32 tokens_generated = 4;
+  int32 prompt_tokens_processed = 5;
 }
 
 message RerankRequest {

@@ -10,6 +10,10 @@ type BackendMonitorRequest struct {
 	Model string `json:"model" yaml:"model"`
 }
 
+type TokenMetricsRequest struct {
+	Model string `json:"model" yaml:"model"`
+}
+
 type BackendMonitorResponse struct {
 	MemoryInfo    *gopsutil.MemoryInfoStat
 	MemoryPercent float32
