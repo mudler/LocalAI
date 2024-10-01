@@ -25,14 +25,19 @@ func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []mode
 		model.WithModelID(name),
 	}
 
-	threads := c.Threads
-	if *threads == 0 && so.Threads != 0 {
-		threads = &so.Threads
+	threads := 1
+
+	if c.Threads != nil {
+		threads = *c.Threads
+	}
+
+	if so.Threads != 0 {
+		threads = so.Threads
 	}
 
 	grpcOpts := GRPCModelOpts(c)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
-	defOpts = append(defOpts, model.WithThreads(uint32(*threads)))
+	defOpts = append(defOpts, model.WithThreads(uint32(threads)))
 
 	if so.SingleBackend {
 		defOpts = append(defOpts, model.WithSingleActiveBackend())
