@@ -85,13 +85,14 @@ func (t *SoundGenerationCMD) Run(ctx *cliContext.Context) error {
 
 	options := config.BackendConfig{}
 	options.SetDefaults()
+	options.Backend = t.Backend
 
 	var inputFile *string
 	if t.InputFile != "" {
 		inputFile = &t.InputFile
 	}
 
-	filePath, _, err := backend.SoundGeneration(t.Backend, t.Model, text,
+	filePath, _, err := backend.SoundGeneration(t.Model, text,
 		parseToFloat32Ptr(t.Duration), parseToFloat32Ptr(t.Temperature), &t.DoSample,
 		inputFile, parseToInt32Ptr(t.InputFileSampleDivisor), ml, opts, options)
 
