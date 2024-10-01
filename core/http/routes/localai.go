@@ -63,4 +63,7 @@ func RegisterLocalAIRoutes(app *fiber.App,
 
 	app.Get("/system", localai.SystemInformations(ml, appConfig))
 
+	// misc
+	app.Post("/v1/tokenize", localai.TokenizeEndpoint(cl, ml, appConfig))
+
 }
