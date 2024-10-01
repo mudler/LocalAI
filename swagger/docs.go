@@ -972,6 +972,14 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Model": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
         "openai.Assistant": {
             "type": "object",
             "properties": {
@@ -1394,10 +1402,22 @@ const docTemplate = `{
                     "description": "The message role",
                     "type": "string"
                 },
+                "string_audios": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "string_content": {
                     "type": "string"
                 },
                 "string_images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "string_videos": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -1669,6 +1689,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "loaded_models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Model"
                     }
                 }
             }

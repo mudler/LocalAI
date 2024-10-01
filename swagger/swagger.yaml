@@ -168,6 +168,11 @@ definitions:
           type: string
         type: array
     type: object
+  model.Model:
+    properties:
+      id:
+        type: string
+    type: object
   openai.Assistant:
     properties:
       created:
@@ -453,9 +458,17 @@ definitions:
       role:
         description: The message role
         type: string
+      string_audios:
+        items:
+          type: string
+        type: array
       string_content:
         type: string
       string_images:
+        items:
+          type: string
+        type: array
+      string_videos:
         items:
           type: string
         type: array
@@ -643,6 +656,10 @@ definitions:
       backends:
         items:
           type: string
+        type: array
+      loaded_models:
+        items:
+          $ref: '#/definitions/model.Model'
         type: array
     type: object
   schema.TTSRequest:

@@ -297,10 +297,10 @@ COPY .git .
 RUN make prepare
 
 ## Build the binary
-## If it's CUDA, we want to skip some of the llama-compat backends to save space
-## We only leave the most CPU-optimized variant and the fallback for the cublas build
-## (both will use CUDA for the actual computation)
-RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
+## If it's CUDA or hipblas, we want to skip some of the llama-compat backends to save space
+## We only leave the most CPU-optimized variant and the fallback for the cublas/hipblas build
+## (both will use CUDA or hipblas for the actual computation)
+RUN if [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
         SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make build; \
     else \
         make build; \
@@ -338,9 +338,8 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ssh less && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+        ssh less wget
+# For the devcontainer, leave apt functional in case additional devtools are needed at runtime.
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 

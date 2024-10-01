@@ -154,7 +154,7 @@ Images are available with and without python dependencies. Note that images with
 
 Images with `core` in the tag are smaller and do not contain any python dependencies. 
 
-{{< tabs tabTotal="6" >}}
+{{< tabs tabTotal="7" >}}
 {{% tab tabName="Vanilla / CPU Images" %}}
 
 | Description | Quay | Docker Hub                                   |
@@ -225,6 +225,15 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-hipblas-ffmpeg` | `localai/localai:{{< version >}}-hipblas-ffmpeg`      |
 | Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-hipblas-ffmpeg-core` | `localai/localai:{{< version >}}-hipblas-ffmpeg-core` |
 
+{{% /tab %}}
+
+
+{{% tab tabName="Vulkan Images" %}}
+| Description | Quay | Docker Hub                                                  |
+| --- | --- |-------------------------------------------------------------|
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai: master-vulkan-ffmpeg-core ` | `localai/localai: master-vulkan-ffmpeg-core `                      |
+| Latest tag | `quay.io/go-skynet/local-ai: latest-vulkan-ffmpeg-core ` | `localai/localai: latest-vulkan-ffmpeg-core`                 |
+| Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-vulkan-fmpeg-core` | `localai/localai:{{< version >}}-vulkan-fmpeg-core`             |
 {{% /tab %}}
 
 {{< /tabs >}}

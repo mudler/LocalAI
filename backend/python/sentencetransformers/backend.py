@@ -55,7 +55,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         model_name = request.Model
         try:
-            self.model = SentenceTransformer(model_name)
+            self.model = SentenceTransformer(model_name, trust_remote_code=request.TrustRemoteCode)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
 

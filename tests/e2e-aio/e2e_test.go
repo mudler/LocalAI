@@ -171,7 +171,7 @@ var _ = Describe("E2E test", func() {
 		})
 		Context("vision", func() {
 			It("correctly", func() {
-				model := "gpt-4-vision-preview"
+				model := "gpt-4o"
 				resp, err := client.CreateChatCompletion(context.TODO(),
 					openai.ChatCompletionRequest{
 						Model: model, Messages: []openai.ChatCompletionMessage{

@@ -31,6 +31,9 @@ import (
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
 
+const apiKey = "joshua"
+const bearerKey = "Bearer " + apiKey
+
 const testPrompt = `### System:
 You are an AI assistant that follows instruction extremely well. Help as much as you can.
 
@@ -50,9 +53,17 @@ type modelApplyRequest struct {
 
 func getModelStatus(url string) (response map[string]interface{}) {
 	// Create the HTTP request
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
+		return
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -72,14 +83,15 @@ func getModelStatus(url string) (response map[string]interface{}) {
 	return
 }
 
-func getModels(url string) (response []gallery.GalleryModel) {
+func getModels(url string) ([]gallery.GalleryModel, error) {
+	response := []gallery.GalleryModel{}
 	uri := downloader.URI(url)
 	// TODO: No tests currently seem to exercise file:// urls. Fix?
-	uri.DownloadAndUnmarshal("", func(url string, i []byte) error {
+	err := uri.DownloadWithAuthorizationAndCallback("", bearerKey, func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})
-	return
+	return response, err
 }
 
 func postModelApplyRequest(url string, request modelApplyRequest) (response map[string]interface{}) {
@@ -101,6 +113,7 @@ func postModelApplyRequest(url string, request modelApplyRequest) (response map[
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 
 	// Make the request
 	client := &http.Client{}
@@ -140,6 +153,7 @@ func postRequestJSON[B any](url string, bodyJson *B) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -175,6 +189,7 @@ func postRequestResponseJSON[B1 any, B2 any](url string, reqJson *B1, respJson *
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -193,6 +208,35 @@ func postRequestResponseJSON[B1 any, B2 any](url string, reqJson *B1, respJson *
 	}
 
 	return json.Unmarshal(body, respJson)
+}
+
+func postInvalidRequest(url string) (error, int) {
+
+	req, err := http.NewRequest("POST", url, bytes.NewBufferString("invalid request"))
+	if err != nil {
+		return err, -1
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err, -1
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err, -1
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body)), resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
 }
 
 //go:embed backend-assets/*
@@ -260,6 +304,7 @@ var _ = Describe("API test", func() {
 					config.WithContext(c),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
+					config.WithApiKeys([]string{apiKey}),
 					config.WithBackendAssets(backendAssets),
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
@@ -269,7 +314,7 @@ var _ = Describe("API test", func() {
 
 			go app.Listen("127.0.0.1:9090")
 
-			defaultConfig := openai.DefaultConfig("")
+			defaultConfig := openai.DefaultConfig(apiKey)
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
 
 			client2 = openaigo.NewClient("")
@@ -295,10 +340,19 @@ var _ = Describe("API test", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		Context("Auth Tests", func() {
+			It("Should fail if the api key is missing", func() {
+				err, sc := postInvalidRequest("http://127.0.0.1:9090/models/available")
+				Expect(err).ToNot(BeNil())
+				Expect(sc).To(Equal(403))
+			})
+		})
+
 		Context("Applying models", func() {
 
 			It("applies models from a gallery", func() {
-				models := getModels("http://127.0.0.1:9090/models/available")
+				models, err := getModels("http://127.0.0.1:9090/models/available")
+				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
 				Expect(models[1].Installed).To(BeFalse(), fmt.Sprint(models))
@@ -331,7 +385,8 @@ var _ = Describe("API test", func() {
 				Expect(content["backend"]).To(Equal("bert-embeddings"))
 				Expect(content["foo"]).To(Equal("bar"))
 
-				models = getModels("http://127.0.0.1:9090/models/available")
+				models, err = getModels("http://127.0.0.1:9090/models/available")
+				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Name).To(Or(Equal("bert"), Equal("bert2")))
 				Expect(models[1].Name).To(Or(Equal("bert"), Equal("bert2")))

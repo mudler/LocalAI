@@ -1,8 +1,8 @@
 module github.com/mudler/LocalAI
 
-go 1.22.0
+go 1.23
 
-toolchain go1.22.4
+toolchain go1.23.1
 
 require (
 	dario.cat/mergo v1.0.0
@@ -74,6 +74,7 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
+	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect

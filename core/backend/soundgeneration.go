@@ -29,7 +29,7 @@ func SoundGeneration(
 		return "", nil, fmt.Errorf("backend is a required parameter")
 	}
 
-	grpcOpts := gRPCModelOpts(backendConfig)
+	grpcOpts := GRPCModelOpts(backendConfig)
 	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
 		model.WithBackendString(backend),
 		model.WithModel(modelFile),

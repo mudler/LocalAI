@@ -1,4 +1,4 @@
 torch
 accelerate
-sentence-transformers==3.0.1
+sentence-transformers==3.1.1
 transformers

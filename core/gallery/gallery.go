@@ -132,7 +132,7 @@ func AvailableGalleryModels(galleries []config.Gallery, basePath string) ([]*Gal
 func findGalleryURLFromReferenceURL(url string, basePath string) (string, error) {
 	var refFile string
 	uri := downloader.URI(url)
-	err := uri.DownloadAndUnmarshal(basePath, func(url string, d []byte) error {
+	err := uri.DownloadWithCallback(basePath, func(url string, d []byte) error {
 		refFile = string(d)
 		if len(refFile) == 0 {
 			return fmt.Errorf("invalid reference file at url %s: %s", url, d)
@@ -156,7 +156,7 @@ func getGalleryModels(gallery config.Gallery, basePath string) ([]*GalleryModel,
 	}
 	uri := downloader.URI(gallery.URL)
 
-	err := uri.DownloadAndUnmarshal(basePath, func(url string, d []byte) error {
+	err := uri.DownloadWithCallback(basePath, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {
