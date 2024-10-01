@@ -63,7 +63,12 @@ func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []mode
 }
 
 func getSeed(c config.BackendConfig) int32 {
-	seed := int32(*c.Seed)
+	var seed int32 = config.RAND_SEED
+
+	if c.Seed != nil {
+		seed = int32(*c.Seed)
+	}
+
 	if seed == config.RAND_SEED {
 		seed = rand.Int31()
 	}
