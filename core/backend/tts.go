@@ -28,7 +28,7 @@ func ModelTTS(
 		bb = model.PiperBackend
 	}
 
-	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
+	opts := ModelOptions(config.BackendConfig{}, appConfig, []model.Option{
 		model.WithBackendString(bb),
 		model.WithModel(modelFile),
 	})

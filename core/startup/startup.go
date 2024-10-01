@@ -160,13 +160,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 			log.Debug().Msgf("Auto loading model %s into memory from file: %s", m, cfg.Model)
 
-			grpcOpts := backend.GRPCModelOpts(*cfg)
-			o := []model.Option{
-				model.WithModel(cfg.Model),
-				model.WithAssetDir(options.AssetsDestination),
-				model.WithThreads(uint32(options.Threads)),
-				model.WithLoadGRPCLoadModelOpts(grpcOpts),
-			}
+			o := backend.ModelOptions(*cfg, options, []model.Option{})
 
 			var backendErr error
 			if cfg.Backend != "" {

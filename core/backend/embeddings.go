@@ -14,7 +14,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 	var inferenceModel interface{}
 	var err error
 
-	opts := modelOpts(backendConfig, appConfig, []model.Option{})
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{})
 
 	if backendConfig.Backend == "" {
 		inferenceModel, err = loader.GreedyLoader(opts...)

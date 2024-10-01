@@ -18,7 +18,7 @@ func ModelTranscription(audio, language string, translate bool, ml *model.ModelL
 		backendConfig.Backend = model.WhisperBackend
 	}
 
-	opts := modelOpts(backendConfig, appConfig, []model.Option{})
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{})
 
 	transcriptionModel, err := ml.BackendLoader(opts...)
 	if err != nil {

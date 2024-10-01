@@ -11,7 +11,7 @@ import (
 
 func Rerank(modelFile string, request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (*proto.RerankResult, error) {
 
-	opts := modelOpts(backendConfig, appConfig, []model.Option{model.WithModel(modelFile)})
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{model.WithModel(modelFile)})
 	rerankModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return nil, err

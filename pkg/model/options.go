@@ -10,7 +10,6 @@ type Options struct {
 	backendString string
 	model         string
 	modelID       string
-	threads       uint32
 	assetDir      string
 	context       context.Context
 
@@ -66,12 +65,6 @@ func WithModel(modelFile string) Option {
 func WithLoadGRPCLoadModelOpts(opts *pb.ModelOptions) Option {
 	return func(o *Options) {
 		o.gRPCOptions = opts
-	}
-}
-
-func WithThreads(threads uint32) Option {
-	return func(o *Options) {
-		o.threads = threads
 	}
 }
 

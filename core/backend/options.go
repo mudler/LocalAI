@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
+func ModelOptions(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
 	name := c.Name
 	if name == "" {
 		name = c.Model
@@ -35,9 +35,10 @@ func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []mode
 		threads = so.Threads
 	}
 
-	grpcOpts := GRPCModelOpts(c)
+	c.Threads = &threads
+
+	grpcOpts := grpcModelOpts(c)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
-	defOpts = append(defOpts, model.WithThreads(uint32(threads)))
 
 	if so.SingleBackend {
 		defOpts = append(defOpts, model.WithSingleActiveBackend())
@@ -76,11 +77,47 @@ func getSeed(c config.BackendConfig) int32 {
 	return seed
 }
 
-func GRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
+func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
 	}
+
+	f16 := false
+	if c.F16 != nil {
+		f16 = *c.F16
+	}
+
+	embeddings := false
+	if c.Embeddings != nil {
+		embeddings = *c.Embeddings
+	}
+
+	lowVRAM := false
+	if c.LowVRAM != nil {
+		lowVRAM = *c.LowVRAM
+	}
+
+	mmap := false
+	if c.MMap != nil {
+		mmap = *c.MMap
+	}
+
+	ctxSize := 1024
+	if c.ContextSize != nil {
+		ctxSize = *c.ContextSize
+	}
+
+	mmlock := false
+	if c.MMlock != nil {
+		mmlock = *c.MMlock
+	}
+
+	nGPULayers := 9999999
+	if c.NGPULayers != nil {
+		nGPULayers = *c.NGPULayers
+	}
+
 	return &pb.ModelOptions{
 		CUDA:                 c.CUDA || c.Diffusers.CUDA,
 		SchedulerType:        c.Diffusers.SchedulerType,
@@ -88,14 +125,14 @@ func GRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		CFGScale:             c.Diffusers.CFGScale,
 		LoraAdapter:          c.LoraAdapter,
 		LoraScale:            c.LoraScale,
-		F16Memory:            *c.F16,
+		F16Memory:            f16,
 		LoraBase:             c.LoraBase,
 		IMG2IMG:              c.Diffusers.IMG2IMG,
 		CLIPModel:            c.Diffusers.ClipModel,
 		CLIPSubfolder:        c.Diffusers.ClipSubFolder,
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
 		ControlNet:           c.Diffusers.ControlNet,
-		ContextSize:          int32(*c.ContextSize),
+		ContextSize:          int32(ctxSize),
 		Seed:                 getSeed(c),
 		NBatch:               int32(b),
 		NoMulMatQ:            c.NoMulMatQ,
@@ -117,16 +154,16 @@ func GRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		YarnBetaSlow:         c.YarnBetaSlow,
 		NGQA:                 c.NGQA,
 		RMSNormEps:           c.RMSNormEps,
-		MLock:                *c.MMlock,
+		MLock:                mmlock,
 		RopeFreqBase:         c.RopeFreqBase,
 		RopeScaling:          c.RopeScaling,
 		Type:                 c.ModelType,
 		RopeFreqScale:        c.RopeFreqScale,
 		NUMA:                 c.NUMA,
-		Embeddings:           *c.Embeddings,
-		LowVRAM:              *c.LowVRAM,
-		NGPULayers:           int32(*c.NGPULayers),
-		MMap:                 *c.MMap,
+		Embeddings:           embeddings,
+		LowVRAM:              lowVRAM,
+		NGPULayers:           int32(nGPULayers),
+		MMap:                 mmap,
 		MainGPU:              c.MainGPU,
 		Threads:              int32(*c.Threads),
 		TensorSplit:          c.TensorSplit,

@@ -37,7 +37,7 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := modelOpts(c, o, []model.Option{})
+	opts := ModelOptions(c, o, []model.Option{})
 
 	if c.Backend != "" {
 		opts = append(opts, model.WithBackendString(c.Backend))
