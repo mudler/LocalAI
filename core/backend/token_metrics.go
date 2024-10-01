@@ -10,24 +10,13 @@ import (
 )
 
 func TokenMetrics(
-	backend,
 	modelFile string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	backendConfig config.BackendConfig) (*proto.MetricsResponse, error) {
-	bb := backend
-	if bb == "" {
-		return nil, fmt.Errorf("backend is required")
-	}
 
-	grpcOpts := GRPCModelOpts(backendConfig)
-
-	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
-		model.WithBackendString(bb),
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{
 		model.WithModel(modelFile),
-		model.WithContext(appConfig.Context),
-		model.WithAssetDir(appConfig.AssetsDestination),
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
 	})
 	model, err := loader.BackendLoader(opts...)
 	if err != nil {
