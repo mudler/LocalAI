@@ -16,16 +16,26 @@ import (
 )
 
 func (ml *ModelLoader) deleteProcess(s string) error {
-	if m, exists := ml.models[s]; exists {
-		process := m.Process()
-		if process != nil {
-			if err := process.Stop(); err != nil {
-				log.Error().Err(err).Msgf("(deleteProcess) error while deleting process %s", s)
-			}
-		}
+	defer delete(ml.models, s)
+
+	m, exists := ml.models[s]
+	if !exists {
+		// Nothing to do
+		return nil
 	}
-	delete(ml.models, s)
-	return nil
+
+	process := m.Process()
+	if process == nil {
+		// Nothing to do as there is no process
+		return nil
+	}
+
+	err := process.Stop()
+	if err != nil {
+		log.Error().Err(err).Msgf("(deleteProcess) error while deleting process %s", s)
+	}
+
+	return err
 }
 
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
