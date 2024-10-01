@@ -225,7 +225,7 @@ func filterAssistantsAfterID(assistants []Assistant, id string) []Assistant {
 
 func modelExists(cl *config.BackendConfigLoader, ml *model.ModelLoader, modelName string) (found bool) {
 	found = false
-	models, err := services.ListModels(cl, ml, "", true)
+	models, err := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 	if err != nil {
 		return
 	}

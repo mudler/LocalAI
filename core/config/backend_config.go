@@ -3,11 +3,13 @@ package config
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -27,13 +29,15 @@ type BackendConfig struct {
 	schema.PredictionOptions `yaml:"parameters"`
 	Name                     string `yaml:"name"`
 
-	F16            *bool             `yaml:"f16"`
-	Threads        *int              `yaml:"threads"`
-	Debug          *bool             `yaml:"debug"`
-	Roles          map[string]string `yaml:"roles"`
-	Embeddings     *bool             `yaml:"embeddings"`
-	Backend        string            `yaml:"backend"`
-	TemplateConfig TemplateConfig    `yaml:"template"`
+	F16                 *bool                  `yaml:"f16"`
+	Threads             *int                   `yaml:"threads"`
+	Debug               *bool                  `yaml:"debug"`
+	Roles               map[string]string      `yaml:"roles"`
+	Embeddings          *bool                  `yaml:"embeddings"`
+	Backend             string                 `yaml:"backend"`
+	TemplateConfig      TemplateConfig         `yaml:"template"`
+	KnownUsecaseStrings []string               `yaml:"known_usecases"`
+	KnownUsecases       *BackendConfigUsecases `yaml:"-"`
 
 	PromptStrings, InputStrings                []string               `yaml:"-"`
 	InputToken                                 [][]int                `yaml:"-"`
@@ -192,6 +196,17 @@ type TemplateConfig struct {
 	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
 	// It defaults to \n
 	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
+}
+
+func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {
+	type BCAlias BackendConfig
+	var aux BCAlias
+	if err := value.Decode(&aux); err != nil {
+		return err
+	}
+	*c = BackendConfig(aux)
+	c.KnownUsecases = GetUsecasesFromYAML(c.KnownUsecaseStrings)
+	return nil
 }
 
 func (c *BackendConfig) SetFunctionCallString(s string) {
@@ -409,4 +424,122 @@ func (c *BackendConfig) Validate() bool {
 
 func (c *BackendConfig) HasTemplate() bool {
 	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != ""
+}
+
+type BackendConfigUsecases int
+
+const (
+	FLAG_ANY              BackendConfigUsecases = 0b000000000
+	FLAG_CHAT             BackendConfigUsecases = 0b000000001
+	FLAG_COMPLETION       BackendConfigUsecases = 0b000000010
+	FLAG_EDIT             BackendConfigUsecases = 0b000000100
+	FLAG_EMBEDDINGS       BackendConfigUsecases = 0b000001000
+	FLAG_RERANK           BackendConfigUsecases = 0b000010000
+	FLAG_IMAGE            BackendConfigUsecases = 0b000100000
+	FLAG_TRANSCRIPT       BackendConfigUsecases = 0b001000000
+	FLAG_TTS              BackendConfigUsecases = 0b010000000
+	FLAG_SOUND_GENERATION BackendConfigUsecases = 0b100000000
+
+	// Common Subsets
+	FLAG_LLM BackendConfigUsecases = FLAG_CHAT & FLAG_COMPLETION & FLAG_EDIT
+)
+
+func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
+	return map[string]BackendConfigUsecases{
+		"FLAG_ANY":              FLAG_ANY,
+		"FLAG_CHAT":             FLAG_CHAT,
+		"FLAG_COMPLETION":       FLAG_COMPLETION,
+		"FLAG_EDIT":             FLAG_EDIT,
+		"FLAG_EMBEDDINGS":       FLAG_EMBEDDINGS,
+		"FLAG_RERANK":           FLAG_RERANK,
+		"FLAG_IMAGE":            FLAG_IMAGE,
+		"FLAG_TRANSCRIPT":       FLAG_TRANSCRIPT,
+		"FLAG_TTS":              FLAG_TTS,
+		"FLAG_SOUND_GENERATION": FLAG_SOUND_GENERATION,
+		"FLAG_LLM":              FLAG_LLM,
+	}
+}
+
+func GetUsecasesFromYAML(input []string) *BackendConfigUsecases {
+	if len(input) == 0 {
+		return nil
+	}
+	result := FLAG_ANY
+	flags := GetAllBackendConfigUsecases()
+	for _, str := range input {
+		flag, exists := flags["FLAG_"+strings.ToUpper(str)]
+		if exists {
+			result |= flag
+		}
+	}
+	return &result
+}
+
+// HasUsecases examines a BackendConfig and determines which endpoints have a chance of success.
+func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
+	if (c.KnownUsecases != nil) && ((u & *c.KnownUsecases) == u) {
+		return true
+	}
+	return c.GuessUsecases(u)
+}
+
+// GuessUsecases is a **heuristic based** function, as the backend in question may not be loaded yet, and the config may not record what it's useful at.
+// In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
+// This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
+func (c *BackendConfig) GuessUsecases(u BackendConfigUsecases) bool {
+	if (u & FLAG_CHAT) == FLAG_CHAT {
+		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
+			return false
+		}
+	}
+	if (u & FLAG_COMPLETION) == FLAG_COMPLETION {
+		if c.TemplateConfig.Completion == "" {
+			return false
+		}
+	}
+	if (u & FLAG_EDIT) == FLAG_EDIT {
+		if c.TemplateConfig.Edit == "" {
+			return false
+		}
+	}
+	if (u & FLAG_EMBEDDINGS) == FLAG_EMBEDDINGS {
+		if c.Embeddings == nil || !*c.Embeddings {
+			return false
+		}
+	}
+	if (u & FLAG_IMAGE) == FLAG_IMAGE {
+		imageBackends := []string{"diffusers", "tinydream", "stablediffusion"}
+		if !slices.Contains(imageBackends, c.Backend) {
+			return false
+		}
+
+		if c.Backend == "diffusers" && c.Diffusers.PipelineType == "" {
+			return false
+		}
+
+	}
+	if (u & FLAG_RERANK) == FLAG_RERANK {
+		if c.Backend != "rerankers" {
+			return false
+		}
+	}
+	if (u & FLAG_TRANSCRIPT) == FLAG_TRANSCRIPT {
+		if c.Backend != "whisper" {
+			return false
+		}
+	}
+	if (u & FLAG_TTS) == FLAG_TTS {
+		ttsBackends := []string{"piper", "transformers-musicgen", "parler-tts"}
+		if !slices.Contains(ttsBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_SOUND_GENERATION) == FLAG_SOUND_GENERATION {
+		if c.Backend != "transformers-musicgen" {
+			return false
+		}
+	}
+
+	return true
 }

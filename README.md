@@ -85,6 +85,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 Hot topics (looking for contributors):
 
+- Realtime API https://github.com/mudler/LocalAI/issues/3714
 - 🔥🔥 Distributed, P2P Global community pools: https://github.com/mudler/LocalAI/issues/3113
 - WebUI improvements: https://github.com/mudler/LocalAI/issues/2156
 - Backends v2: https://github.com/mudler/LocalAI/issues/1126
