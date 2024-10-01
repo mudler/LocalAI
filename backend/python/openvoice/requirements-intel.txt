@@ -2,7 +2,7 @@
 intel-extension-for-pytorch
 torch
 optimum[openvino]
-grpcio==1.66.1
+grpcio==1.66.2
 protobuf
 librosa==0.9.1
 faster-whisper==1.0.3
@@ -18,6 +18,6 @@ python-dotenv
 pypinyin==0.50.0
 cn2an==0.5.22
 jieba==0.42.1
-gradio==4.38.1
+gradio==4.44.1
 langid==1.1.6
 git+https://github.com/myshell-ai/MeloTTS.git
