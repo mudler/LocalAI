@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai"
@@ -13,6 +14,9 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig) {
 	// openAI compatible API endpoint
+
+	// realtime
+	app.Get("/v1/realtime", websocket.New(openai.RegisterRealtime(cl, ml, appConfig)))
 
 	// chat
 	app.Post("/v1/chat/completions", openai.ChatEndpoint(cl, ml, appConfig))
