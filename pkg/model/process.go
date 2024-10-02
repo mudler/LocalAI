@@ -18,14 +18,18 @@ import (
 func (ml *ModelLoader) deleteProcess(s string) error {
 	defer delete(ml.models, s)
 
+	log.Debug().Msgf("Deleting process %s", s)
+
 	m, exists := ml.models[s]
 	if !exists {
+		log.Error().Msgf("Model does not exist %s", s)
 		// Nothing to do
 		return nil
 	}
 
 	process := m.Process()
 	if process == nil {
+		log.Error().Msgf("No process for %s", s)
 		// Nothing to do as there is no process
 		return nil
 	}
