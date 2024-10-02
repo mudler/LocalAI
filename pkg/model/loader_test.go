@@ -65,22 +65,22 @@ var _ = Describe("ModelLoader", func() {
 		It("should load a model and keep it in memory", func() {
 			mockModel = model.NewModel("foo", "test.model", nil)
 
-			mockLoader := func(modelName, modelFile string) (*model.Model, error) {
+			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
 				return mockModel, nil
 			}
 
-			model, err := modelLoader.LoadModel("test.model", mockLoader)
+			model, err := modelLoader.LoadModel("foo", "test.model", mockLoader)
 			Expect(err).To(BeNil())
 			Expect(model).To(Equal(mockModel))
-			Expect(modelLoader.CheckIsLoaded("test.model")).To(Equal(mockModel))
+			Expect(modelLoader.CheckIsLoaded("foo")).To(Equal(mockModel))
 		})
 
 		It("should return an error if loading the model fails", func() {
-			mockLoader := func(modelName, modelFile string) (*model.Model, error) {
+			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
 				return nil, errors.New("failed to load model")
 			}
 
-			model, err := modelLoader.LoadModel("test.model", mockLoader)
+			model, err := modelLoader.LoadModel("foo", "test.model", mockLoader)
 			Expect(err).To(HaveOccurred())
 			Expect(model).To(BeNil())
 		})
@@ -88,18 +88,16 @@ var _ = Describe("ModelLoader", func() {
 
 	Context("ShutdownModel", func() {
 		It("should shutdown a loaded model", func() {
-			mockModel = model.NewModel("foo", "test.model", nil)
-
-			mockLoader := func(modelName, modelFile string) (*model.Model, error) {
-				return mockModel, nil
+			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return model.NewModel("foo", "test.model", nil), nil
 			}
 
-			_, err := modelLoader.LoadModel("test.model", mockLoader)
+			_, err := modelLoader.LoadModel("foo", "test.model", mockLoader)
 			Expect(err).To(BeNil())
 
-			err = modelLoader.ShutdownModel("test.model")
+			err = modelLoader.ShutdownModel("foo")
 			Expect(err).To(BeNil())
-			Expect(modelLoader.CheckIsLoaded("test.model")).To(BeNil())
+			Expect(modelLoader.CheckIsLoaded("foo")).To(BeNil())
 		})
 	})
 })

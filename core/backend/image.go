@@ -8,19 +8,8 @@ import (
 )
 
 func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {
-	threads := backendConfig.Threads
-	if *threads == 0 && appConfig.Threads != 0 {
-		threads = &appConfig.Threads
-	}
-	gRPCOpts := GRPCModelOpts(backendConfig)
-	opts := modelOpts(backendConfig, appConfig, []model.Option{
-		model.WithBackendString(backendConfig.Backend),
-		model.WithAssetDir(appConfig.AssetsDestination),
-		model.WithThreads(uint32(*threads)),
-		model.WithContext(appConfig.Context),
-		model.WithModel(backendConfig.Model),
-		model.WithLoadGRPCLoadModelOpts(gRPCOpts),
-	})
+
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{})
 
 	inferenceModel, err := loader.BackendLoader(
 		opts...,

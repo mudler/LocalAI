@@ -33,22 +33,11 @@ type TokenUsage struct {
 
 func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
-	threads := c.Threads
-	if *threads == 0 && o.Threads != 0 {
-		threads = &o.Threads
-	}
-	grpcOpts := GRPCModelOpts(c)
 
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := modelOpts(c, o, []model.Option{
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(*threads)), // some models uses this to allocate threads during startup
-		model.WithAssetDir(o.AssetsDestination),
-		model.WithModel(modelFile),
-		model.WithContext(o.Context),
-	})
+	opts := ModelOptions(c, o, []model.Option{})
 
 	if c.Backend != "" {
 		opts = append(opts, model.WithBackendString(c.Backend))

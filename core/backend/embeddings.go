@@ -10,20 +10,11 @@ import (
 )
 
 func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
-	modelFile := backendConfig.Model
-
-	grpcOpts := GRPCModelOpts(backendConfig)
 
 	var inferenceModel interface{}
 	var err error
 
-	opts := modelOpts(backendConfig, appConfig, []model.Option{
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(*backendConfig.Threads)),
-		model.WithAssetDir(appConfig.AssetsDestination),
-		model.WithModel(modelFile),
-		model.WithContext(appConfig.Context),
-	})
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{})
 
 	if backendConfig.Backend == "" {
 		inferenceModel, err = loader.GreedyLoader(opts...)

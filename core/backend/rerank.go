@@ -9,21 +9,9 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func Rerank(backend, modelFile string, request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (*proto.RerankResult, error) {
-	bb := backend
-	if bb == "" {
-		return nil, fmt.Errorf("backend is required")
-	}
+func Rerank(modelFile string, request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (*proto.RerankResult, error) {
 
-	grpcOpts := GRPCModelOpts(backendConfig)
-
-	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
-		model.WithBackendString(bb),
-		model.WithModel(modelFile),
-		model.WithContext(appConfig.Context),
-		model.WithAssetDir(appConfig.AssetsDestination),
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-	})
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{model.WithModel(modelFile)})
 	rerankModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return nil, err

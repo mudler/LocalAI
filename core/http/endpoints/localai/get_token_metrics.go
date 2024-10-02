@@ -51,7 +51,7 @@ func TokenMetricsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader,
 		}
 		log.Debug().Msgf("Token Metrics for model: %s", modelFile)
 
-		response, err := backend.TokenMetrics(cfg.Backend, modelFile, ml, appConfig, *cfg)
+		response, err := backend.TokenMetrics(modelFile, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
