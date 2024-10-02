@@ -40,6 +40,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.26
 	github.com/mudler/edgevpn v0.30.1
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
+	github.com/mudler/go-stable-diffusion v0.0.0-20240429204715-4a3cd6aeae6f
 	github.com/nikolalohinski/gonja/v2 v2.3.2
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
@@ -81,7 +82,7 @@ require (
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
-	github.com/fasthttp/websocket v1.5.3 // indirect
+	github.com/fasthttp/websocket v1.5.8 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
@@ -123,6 +124,10 @@ require (
 	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	github.com/pion/webrtc/v3 v3.3.5 // indirect
+	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
+	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
+	github.com/wlynxg/anet v0.0.5 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.56.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
