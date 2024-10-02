@@ -11,17 +11,11 @@ func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.Bac
 
 	modelFile := backendConfig.Model
 
-	grpcOpts := GRPCModelOpts(backendConfig)
-
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := modelOpts(backendConfig, appConfig, []model.Option{
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(*backendConfig.Threads)),
-		model.WithAssetDir(appConfig.AssetsDestination),
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{
 		model.WithModel(modelFile),
-		model.WithContext(appConfig.Context),
 	})
 
 	if backendConfig.Backend == "" {
