@@ -376,7 +376,9 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		if !ready {
 			log.Debug().Msgf("GRPC Service NOT ready")
-			ml.deleteProcess(o.model)
+			if process := client.Process(); process != nil {
+				process.Stop()
+			}
 			return nil, fmt.Errorf("grpc service not ready")
 		}
 
@@ -388,11 +390,15 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, &options)
 		if err != nil {
-			ml.deleteProcess(o.model)
+			if process := client.Process(); process != nil {
+				process.Stop()
+			}
 			return nil, fmt.Errorf("could not load model: %w", err)
 		}
 		if !res.Success {
-			ml.deleteProcess(o.model)
+			if process := client.Process(); process != nil {
+				process.Stop()
+			}
 			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
 		}
 

@@ -128,7 +128,7 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 	defer ml.mu.Unlock()
 	model, err := loader(modelID, modelName, modelFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load model with internal loader: %s", err)
 	}
 
 	if model == nil {
