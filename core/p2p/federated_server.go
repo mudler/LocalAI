@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 
 	"github.com/mudler/edgevpn/pkg/node"
@@ -41,7 +42,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		log.Error().Err(err).Msg("Error listening")
 		return err
 	}
-	//	ll.Info("Binding local port on", srcaddr)
+
 	go func() {
 		<-ctx.Done()
 		l.Close()
@@ -82,6 +83,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 
 				if workerID == "" {
 					log.Error().Msg("No available nodes yet")
+					fs.sendHTMLResponse(conn, 503, "Sorry, waiting for nodes to connect")
 					return
 				}
 
@@ -89,6 +91,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 				nodeData, exists := GetNode(fs.service, workerID)
 				if !exists {
 					log.Error().Msgf("Node %s not found", workerID)
+					fs.sendHTMLResponse(conn, 404, "Node not found")
 					return
 				}
 
@@ -98,5 +101,44 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 				}
 			}()
 		}
+	}
+}
+
+// sendHTMLResponse sends a basic HTML response with a status code and a message.
+// This is extracted to make the HTML content maintainable.
+func (fs *FederatedServer) sendHTMLResponse(conn net.Conn, statusCode int, message string) {
+	defer conn.Close()
+
+	// Define the HTML content separately for easier maintenance.
+	htmlContent := fmt.Sprintf("<html><body><h1>%s</h1></body></html>\r\n", message)
+
+	// Create the HTTP response with dynamic status code and content.
+	response := fmt.Sprintf(
+		"HTTP/1.1 %d %s\r\n"+
+			"Content-Type: text/html\r\n"+
+			"Connection: close\r\n"+
+			"\r\n"+
+			"%s",
+		statusCode, getHTTPStatusText(statusCode), htmlContent,
+	)
+
+	// Write the response to the client connection.
+	_, writeErr := io.WriteString(conn, response)
+	if writeErr != nil {
+		log.Error().Err(writeErr).Msg("Error writing response to client")
+	}
+}
+
+// getHTTPStatusText returns a textual representation of HTTP status codes.
+func getHTTPStatusText(statusCode int) string {
+	switch statusCode {
+	case 503:
+		return "Service Unavailable"
+	case 404:
+		return "Not Found"
+	case 200:
+		return "OK"
+	default:
+		return "Unknown Status"
 	}
 }
