@@ -15,8 +15,6 @@ Thank you for your interest in contributing to LocalAI! We appreciate your time 
 - [Documentation](#documentation)
 - [Community and Communication](#community-and-communication)
 
-
-
 ## Getting Started
 
 ### Prerequisites
@@ -54,7 +52,7 @@ If you find a bug, have a feature request, or encounter any issues, please check
 
 ## Coding Guidelines
 
-- No specific coding guidelines at the moment. Please make sure the code can be tested. The most popular lint tools like []`golangci-lint`](https://golangci-lint.run) can help you here.
+- No specific coding guidelines at the moment. Please make sure the code can be tested. The most popular lint tools like [`golangci-lint`](https://golangci-lint.run) can help you here.
 
 ## Testing
 
@@ -84,5 +82,3 @@ We are welcome the contribution of the documents, please open new PR or create a
 - You can reach out via the Github issue tracker.
 - Open a new discussion at [Discussion](https://github.com/go-skynet/LocalAI/discussions)
 - Join the Discord channel [Discord](https://discord.gg/uJAeKSAGDy)
-
----
