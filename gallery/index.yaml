@@ -1,4 +1,28 @@
 ---
+- name: "salamandra-7b-instruct"
+  icon: https://huggingface.co/BSC-LT/salamandra-7b-instruct/resolve/main/images/salamandra_header.png
+  # Uses chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/BSC-LT/salamandra-7b-instruct
+    - https://huggingface.co/cstr/salamandra-7b-instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - salamandra
+  description: |
+    Transformer-based decoder-only language model that has been pre-trained on 7.8 trillion tokens of highly curated data. The pre-training corpus contains text in 35 European languages and code.
+    Salamandra comes in three different sizes — 2B, 7B and 40B parameters — with their respective base and instruction-tuned variants. This model card corresponds to the 7B instructed version.
+  overrides:
+    parameters:
+      model: salamandra-7b-instruct.Q4_K_M-f32.gguf
+  files:
+    - filename: salamandra-7b-instruct.Q4_K_M-f32.gguf
+      sha256: bac8e8c1d1d9d53cbdb148b8ff9ad378ddb392429207099e85b5aae3a43bff3d
+      uri: huggingface://cstr/salamandra-7b-instruct-GGUF/salamandra-7b-instruct.Q4_K_M-f32.gguf
 ## llama3.2
 - &llama32
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
