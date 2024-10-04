@@ -314,7 +314,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 				client = NewModel(modelID, serverAddress, process)
 			} else {
-				log.Debug().Msg("external backend is uri")
+				log.Debug().Msg("external backend is a uri")
 				// address
 				client = NewModel(modelID, uri, nil)
 			}
