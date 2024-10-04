@@ -144,6 +144,8 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 	}()
 
 	err := s.llm.PredictStream(in, resultChan)
+	// close the channel, so if resultChan is not closed by the LLM (maybe because does not implement PredictStream), the client will not hang
+	close(resultChan)
 	<-done
 
 	return err
