@@ -5,6 +5,8 @@ import argparse
 import signal
 import sys
 import os
+from typing import List
+from PIL import Image
 
 import backend_pb2
 import backend_pb2_grpc
@@ -15,6 +17,8 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 from vllm.transformers_utils.tokenizer import get_tokenizer
+from vllm.multimodal.utils import fetch_image
+from vllm.assets.video import VideoAsset
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -105,6 +109,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             self.llm = AsyncLLMEngine.from_engine_args(engine_args)
         except Exception as err:
+            print(f"Unexpected {err=}, {type(err)=}", file=sys.stderr)
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
 
         try:
@@ -117,7 +122,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
            )
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
-
+        print("Model loaded successfully", file=sys.stderr)
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     async def Predict(self, request, context):
@@ -196,15 +201,33 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if request.Seed != 0:
             sampling_params.seed = request.Seed
 
+        # Extract image paths and process images
         prompt = request.Prompt
-        
-        # If tokenizer template is enabled and messages are provided instead of prompt apply the tokenizer template
+
+        image_paths = request.Images
+        image_data = [self.load_image(img_path) for img_path in image_paths]
+
+        videos_path = request.Videos
+        video_data = [self.load_video(video_path) for video_path in videos_path]
+
+        # If tokenizer template is enabled and messages are provided instead of prompt, apply the tokenizer template
         if not request.Prompt and request.UseTokenizerTemplate and request.Messages:
             prompt = self.tokenizer.apply_chat_template(request.Messages, tokenize=False, add_generation_prompt=True)
 
-        # Generate text
+        # Generate text using the LLM engine
         request_id = random_uuid()
-        outputs = self.llm.generate(prompt, sampling_params, request_id)
+        print(f"Generating text with request_id: {request_id}", file=sys.stderr)
+        outputs = self.llm.generate(
+            {
+                "prompt": prompt,
+                "multi_modal_data": {
+                    "image": image_data if image_data else None,
+                    "video": video_data if video_data else None,
+                } if image_data or video_data else None,
+            },
+            sampling_params=sampling_params,
+            request_id=request_id,
+        )
 
         # Stream the results
         generated_text = ""
@@ -227,8 +250,48 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if streaming:
             return
 
+        # Remove the image files from /tmp folder
+        for img_path in image_paths:
+            try:
+                os.remove(img_path)
+            except Exception as e:
+                print(f"Error removing image file: {img_path}, {e}", file=sys.stderr)
+
         # Sending the final generated text
         yield backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
+
+    def load_image(self, image_path: str):
+        """
+        Load an image from the given file path.
+        
+        Args:
+            image_path (str): The path to the image file.
+
+        Returns:
+            Image: The loaded image.
+        """
+        try:
+            return Image.open(image_path)
+        except Exception as e:
+            print(f"Error loading image {image_path}: {e}", file=sys.stderr)
+            return self.load_video(image_path)
+
+    def load_video(self, video_path: str):
+        """
+        Load a video from the given file path.
+        
+        Args:
+            video_path (str): The path to the image file.
+
+        Returns:
+            Video: The loaded video.
+        """
+        try:
+            video = VideoAsset(name=video_path).np_ndarrays
+            return video
+        except Exception as e:
+            print(f"Error loading video {image_path}: {e}", file=sys.stderr)
+            return None
 
 async def serve(address):
     # Start asyncio gRPC server

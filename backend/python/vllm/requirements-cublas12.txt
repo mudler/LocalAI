@@ -1,3 +1,4 @@
 accelerate
 torch
 transformers
+bitsandbytes
