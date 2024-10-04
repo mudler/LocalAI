@@ -196,6 +196,10 @@ type TemplateConfig struct {
 	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
 	// It defaults to \n
 	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
+
+	Video string `yaml:"video"`
+	Image string `yaml:"image"`
+	Audio string `yaml:"audio"`
 }
 
 func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {

@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=a39ab216aa624308fda7fa84439c6b61dc98b87a
+CPPLLAMA_VERSION?=d5ed2b929d85bbd7dbeecb690880f07d9d7a6077
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
@@ -16,7 +16,7 @@ RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=ede1718f6d45aa3f7ad4a1e169dfbc9d51570c4e
+WHISPER_CPP_VERSION?=ccc2547210e09e3a1785817383ab770389bb442b
 
 # bert.cpp version
 BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
