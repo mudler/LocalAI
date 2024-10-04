@@ -68,9 +68,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 
 [💻 Getting started](https://localai.io/basics/getting_started/index.html)
 
-## 🔥🔥 Hot topics / Roadmap
-
-[Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
+## 📰 Latest project news
 
 - Aug 2024:  🆕 FLUX-1, [P2P Explorer](https://explorer.localai.io)
 - July 2024: 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723
@@ -83,8 +81,11 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 - May 2024: Chat, TTS, and Image generation in the WebUI: https://github.com/mudler/LocalAI/pull/2222
 - April 2024: Reranker API: https://github.com/mudler/LocalAI/pull/2121
 
-Hot topics (looking for contributors):
+Roadmap items: [List of issues](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+## 🔥🔥 Hot topics (looking for help):
+
+- Multimodal with vLLM and Video understanding: https://github.com/mudler/LocalAI/pull/3729
 - Realtime API https://github.com/mudler/LocalAI/issues/3714
 - 🔥🔥 Distributed, P2P Global community pools: https://github.com/mudler/LocalAI/issues/3113
 - WebUI improvements: https://github.com/mudler/LocalAI/issues/2156
