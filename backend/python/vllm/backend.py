@@ -284,7 +284,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             video_path (str): The path to the image file.
 
         Returns:
-            Image: The loaded image.
+            Video: The loaded video.
         """
         try:
             video = VideoAsset(name=video_path).np_ndarrays

@@ -16,7 +16,6 @@ fi
 if [ "x${BUILD_TYPE}" == "x" ]; then
         ensureVenv
         # https://docs.vllm.ai/en/v0.6.1/getting_started/cpu-installation.html
-        export VLLM_TARGET_DEVICE=cpu
         if [ ! -d vllm ]; then
             git clone https://github.com/vllm-project/vllm
         fi
