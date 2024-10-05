@@ -157,6 +157,11 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 		}
 		time.Sleep(dur)
 		retries++
+
+		if retries > 10 && os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "true" {
+			log.Warn().Msgf("Model %s is still busy after %d retries. Forcing shutdown.", modelName, retries)
+			break
+		}
 	}
 
 	return ml.deleteProcess(modelName)
