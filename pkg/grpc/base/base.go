@@ -41,6 +41,7 @@ func (llm *Base) Predict(opts *pb.PredictOptions) (string, error) {
 }
 
 func (llm *Base) PredictStream(opts *pb.PredictOptions, results chan string) error {
+	close(results)
 	return fmt.Errorf("unimplemented")
 }
 
