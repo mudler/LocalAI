@@ -325,19 +325,3 @@ require (
 	howett.net/plist v1.0.0 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
-
-replace github.com/donomii/go-rwkv.cpp => /Users/siddharthmore/localAI/LocalAI/sources/go-rwkv.cpp
-
-replace github.com/ggerganov/whisper.cpp => /Users/siddharthmore/localAI/LocalAI/sources/whisper.cpp
-
-replace github.com/ggerganov/whisper.cpp/bindings/go => /Users/siddharthmore/localAI/LocalAI/sources/whisper.cpp/bindings/go
-
-replace github.com/go-skynet/go-bert.cpp => /Users/siddharthmore/localAI/LocalAI/sources/go-bert.cpp
-
-replace github.com/M0Rf30/go-tiny-dream => /Users/siddharthmore/localAI/LocalAI/sources/go-tiny-dream
-
-replace github.com/mudler/go-piper => /Users/siddharthmore/localAI/LocalAI/sources/go-piper
-
-replace github.com/mudler/go-stable-diffusion => /Users/siddharthmore/localAI/LocalAI/sources/go-stable-diffusion
-
-replace github.com/go-skynet/go-llama.cpp => /Users/siddharthmore/localAI/LocalAI/sources/go-llama.cpp
