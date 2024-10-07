@@ -1734,6 +1734,26 @@
     - filename: MagnusIntellectus-12B-v1.i1-Q4_K_M.gguf
       sha256: c97107983b4edc5b6f2a592d227ca2dd4196e2af3d3bc0fe6b7a8954a1fb5870
       uri: huggingface://mradermacher/MagnusIntellectus-12B-v1-i1-GGUF/MagnusIntellectus-12B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mn-backyardai-party-12b-v1-iq-arm-imatrix"
+  icon: https://huggingface.co/Sao10K/MN-BackyardAI-Party-12B-v1/resolve/main/party1.png
+  urls:
+    - https://huggingface.co/Sao10K/MN-BackyardAI-Party-12B-v1
+    - https://huggingface.co/Lewdiculous/MN-BackyardAI-Party-12B-v1-GGUF-IQ-ARM-Imatrix
+  description: |
+    This is a group-chat based roleplaying model, based off of 12B-Lyra-v4a2, a variant of Lyra-v4 that is currently private.
+
+    It is trained on an entirely human-based dataset, based on forum / internet group roleplaying styles. The only augmentation done with LLMs is to the character sheets, to fit to the system prompt, to fit various character sheets within context.
+
+    This model is still capable of 1 on 1 roleplay, though I recommend using ChatML when doing that instead.
+  overrides:
+    parameters:
+      model: MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
+  files:
+    - filename: MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
+      sha256: cea68768dff58b553974b755bb40ef790ab8b86866d9b5c46bc2e6c3311b876a
+      uri: huggingface://Lewdiculous/MN-BackyardAI-Party-12B-v1-GGUF-IQ-ARM-Imatrix/MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
