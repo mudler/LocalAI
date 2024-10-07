@@ -2383,6 +2383,24 @@
     - filename: Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
       sha256: 89fe35345754d7e9de8d0c0d5bf35b2be9b12a09811b365b712b8b27112f7712
       uri: huggingface://bartowski/Gemma-2-2B-ArliAI-RPMax-v1.1-GGUF/Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2-9b-it-abliterated"
+  urls:
+    - https://huggingface.co/IlyaGusev/gemma-2-9b-it-abliterated
+    - https://huggingface.co/bartowski/gemma-2-9b-it-abliterated-GGUF
+  description: |
+    Abliterated version of google/gemma-2-9b-it.
+
+    The abliteration script (link) is based on code from the blog post and heavily uses TransformerLens. The only major difference from the code used for Llama is scaling the embedding layer back.
+
+    Orthogonalization did not produce the same results as regular interventions since there are RMSNorm layers before merging activations into the residual stream. However, the final model still seems to be uncensored.
+  overrides:
+    parameters:
+      model: gemma-2-9b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: gemma-2-9b-it-abliterated-Q4_K_M.gguf
+      sha256: 88d84ac9796732c10f6c58e0feb4db8e04c05d74bdb7047a5e37906a589896e1
+      uri: huggingface://bartowski/gemma-2-9b-it-abliterated-GGUF/gemma-2-9b-it-abliterated-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
