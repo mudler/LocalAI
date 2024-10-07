@@ -9,6 +9,7 @@ FROM ${BASE_IMAGE} AS requirements-core
 USER root
 
 ARG GO_VERSION=1.22.6
+ARG CMAKE_VERSION=3.26.4
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -21,8 +22,7 @@ RUN apt-get update && \
         build-essential \
         ccache \
         ca-certificates \
-        cmake \
-        curl \
+        curl libssl-dev \
         git \
         unzip upx-ucl && \
     apt-get clean && \
@@ -31,6 +31,9 @@ RUN apt-get update && \
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
+
+# Install CMake (the version in 22.04 is too old)
+RUN curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
 
 # Install grpc compilers
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
@@ -188,6 +191,7 @@ FROM ${GRPC_BASE_IMAGE} AS grpc
 # This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
 ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG GRPC_VERSION=v1.65.0
+ARG CMAKE_VERSION=3.26.4
 
 ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 
@@ -196,11 +200,13 @@ WORKDIR /build
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
-        build-essential \
-        cmake \
+        build-essential curl libssl-dev \
         git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install CMake (the version in 22.04 is too old)
+RUN curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
 
 # We install GRPC to a different prefix here so that we can copy in only the build artifacts later
 # saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
