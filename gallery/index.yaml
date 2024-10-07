@@ -319,6 +319,23 @@
     - filename: calme-2.2-qwen2.5-72b.i1-Q4_K_M.gguf
       sha256: 5fdfa599724d7c78502c477ced1d294e92781b91d3265bd0748fbf15a6fefde6
       uri: huggingface://mradermacher/calme-2.2-qwen2.5-72b-i1-GGUF/calme-2.2-qwen2.5-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "t.e-8.1-iq-imatrix-request"
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/K1aNPf32z-6tYZdcSQBzF.png
+  urls:
+    - https://huggingface.co/Cran-May/T.E-8.1
+    - https://huggingface.co/Lewdiculous/T.E-8.1-GGUF-IQ-Imatrix-Request
+  description: |
+    Trained for roleplay uses.
+  overrides:
+    parameters:
+      model: T.E-8.1-Q4_K_M-imat.gguf
+  files:
+    - filename: T.E-8.1-Q4_K_M-imat.gguf
+      sha256: 1b7892b82c01ea4cbebe34cd00f9836cbbc369fc3247c1f44a92842201e7ec0b
+      uri: huggingface://Lewdiculous/T.E-8.1-GGUF-IQ-Imatrix-Request/T.E-8.1-Q4_K_M-imat.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
