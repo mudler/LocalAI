@@ -1161,6 +1161,22 @@
     - filename: Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
       sha256: 0a601c7341228d9160332965298d799369a1dc2b7080771fb8051bdeb556b30c
       uri: huggingface://bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.1-GGUF/Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "violet_twilight-v0.2-iq-imatrix"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64adfd277b5ff762771e4571/P962FQhRG4I8nbU_DJolY.png
+  urls:
+    - https://huggingface.co/Epiculous/Violet_Twilight-v0.2
+    - https://huggingface.co/Lewdiculous/Violet_Twilight-v0.2-GGUF-IQ-Imatrix
+  description: |
+    Now for something a bit different, Violet_Twilight-v0.2! This model is a SLERP merge of Azure_Dusk-v0.2 and Crimson_Dawn-v0.2!
+  overrides:
+    parameters:
+      model: Violet_Twilight-v0.2-Q4_K_M-imat.gguf
+  files:
+    - filename: Violet_Twilight-v0.2-Q4_K_M-imat.gguf
+      sha256: 0793d196a00cd6fd4e67b8c585b27a94d397e33d427e4ad4aa9a16b7abc339cd
+      uri: huggingface://Lewdiculous/Violet_Twilight-v0.2-GGUF-IQ-Imatrix/Violet_Twilight-v0.2-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
