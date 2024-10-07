@@ -10,6 +10,43 @@ import (
 	ggufparser "github.com/gpustack/gguf-parser-go"
 )
 
+// Interface for parsing different model formats
+type LocalAIGGUFParser interface {
+	ParseGGUFFileRemote(ctx context.Context, url string) (*ggufparser.GGUFFile, error)
+	ParseGGUFFileFromOllama(ctx context.Context, model string) (*ggufparser.GGUFFile, error)
+	ParseGGUFFileFromHuggingFace(ctx context.Context, repo, file string) (*ggufparser.GGUFFile, error)
+	ParseGGUFFile(filePath string) (*ggufparser.GGUFFile, error)
+}
+
+type LocalAIGGUFParserImpl struct{}
+
+func (p *LocalAIGGUFParserImpl) ParseGGUFFileRemote(ctx context.Context, url string) (*ggufparser.GGUFFile, error) {
+	return ggufparser.ParseGGUFFileRemote(ctx, url)
+}
+
+func (p *LocalAIGGUFParserImpl) ParseGGUFFileFromOllama(ctx context.Context, model string) (*ggufparser.GGUFFile, error) {
+	return ggufparser.ParseGGUFFileFromOllama(ctx, model)
+}
+
+func (p *LocalAIGGUFParserImpl) ParseGGUFFileFromHuggingFace(ctx context.Context, repo, file string) (*ggufparser.GGUFFile, error) {
+	return ggufparser.ParseGGUFFileFromHuggingFace(ctx, repo, file)
+}
+
+func (p *LocalAIGGUFParserImpl) ParseGGUFFile(filePath string) (*ggufparser.GGUFFile, error) {
+	return ggufparser.ParseGGUFFile(filePath)
+}
+
+// Helper to override in test
+type ModelMemoryEstimator interface {
+	Estimate(*ggufparser.GGUFFile) (*ModelEstimate, error)
+}
+
+type DefaultModelMemoryEstimator struct{}
+
+func (d *DefaultModelMemoryEstimator) Estimate(ggufFile *ggufparser.GGUFFile) (*ModelEstimate, error) {
+	return estimateModelMemoryUsage(ggufFile)
+}
+
 // Structs for parsing GGUF data from Parser
 type ModelEstimate struct {
 	Estimate     ModelEstimateItems `json:"estimate"`
@@ -80,26 +117,29 @@ type Tokenizer struct {
 const nonUMARamFootprint = uint64(150 * 1024 * 1024)  // 150 MiB
 const nonUMAVramFootprint = uint64(250 * 1024 * 1024) // 250 MiB
 
-func GetModelGGufData(modelPath string) (*ModelEstimate, error) {
+// Method to
+func GetModelGGufData(modelPath string, localAIGGUFParser LocalAIGGUFParser, estimator ModelMemoryEstimator, ollamaModel bool) (*ModelEstimate, error) {
 	ctx := context.Background()
+
+	fmt.Println("ModelPath: ", modelPath)
 
 	// Check if the input is a valid URL
 	if isURL(modelPath) {
 		fmt.Println("Input is a URL.")
-		ggufRemoteData, err := ggufparser.ParseGGUFFileRemote(ctx, modelPath)
+		ggufRemoteData, err := localAIGGUFParser.ParseGGUFFileRemote(ctx, modelPath)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing GGUF file from remote URL: %v", err)
 		}
-		return estimateModelMemoryUsage(ggufRemoteData)
+		return estimator.Estimate(ggufRemoteData)
 
 		// Check if the input is an Ollama model
-	} else if strings.HasSuffix(modelPath, "ollama") {
+	} else if ollamaModel {
 		fmt.Println("Input is an Ollama model.")
-		ggufOllamaData, err := ggufparser.ParseGGUFFileFromOllama(ctx, modelPath)
+		ggufOllamaData, err := localAIGGUFParser.ParseGGUFFileFromOllama(ctx, modelPath)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing GGUF file from Ollama model: %v", err)
 		}
-		return estimateModelMemoryUsage(ggufOllamaData)
+		return estimator.Estimate(ggufOllamaData)
 
 		// Check if the input is a Hugging Face model reference (format: huggingface.co/<repo>/<file>)
 	} else if strings.Contains(modelPath, "huggingface.co") {
@@ -120,20 +160,20 @@ func GetModelGGufData(modelPath string) (*ModelEstimate, error) {
 		repo := parts[1] // Repository name
 		file := parts[2] // File name
 
-		ggufHuggingFaceData, err := ggufparser.ParseGGUFFileFromHuggingFace(ctx, repo, file)
+		ggufHuggingFaceData, err := localAIGGUFParser.ParseGGUFFileFromHuggingFace(ctx, repo, file)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing GGUF file from Hugging Face: %v", err)
 		}
-		return estimateModelMemoryUsage(ggufHuggingFaceData)
+		return estimator.Estimate(ggufHuggingFaceData)
 
 		// Otherwise, assume the input is a file path
 	} else if fileExists(modelPath) {
 		fmt.Println("Input is a file path.")
-		ggufData, err := ggufparser.ParseGGUFFile(modelPath)
+		ggufData, err := localAIGGUFParser.ParseGGUFFile(modelPath)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing GGUF file from file path: %v", err)
 		}
-		return estimateModelMemoryUsage(ggufData)
+		return estimator.Estimate(ggufData)
 	}
 
 	return nil, fmt.Errorf("unsupported input type")
@@ -141,8 +181,13 @@ func GetModelGGufData(modelPath string) (*ModelEstimate, error) {
 
 // Helper function to check if the string is a valid URL
 func isURL(input string) bool {
-	_, err := url.ParseRequestURI(input)
-	return err == nil
+	parsedURL, err := url.ParseRequestURI(input)
+	if err != nil {
+		return false
+	}
+
+	// Check if the scheme and host are present
+	return parsedURL.Scheme != "" && parsedURL.Host != ""
 }
 
 // Helper function to check if the input is a valid file path
