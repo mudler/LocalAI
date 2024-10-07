@@ -10,6 +10,7 @@ USER root
 
 ARG GO_VERSION=1.22.6
 ARG CMAKE_VERSION=3.26.4
+ARG CMAKE_FROM_SOURCE=false
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -28,12 +29,22 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
-
-# Install CMake (the version in 22.04 is too old)
-RUN curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
 
 # Install grpc compilers
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
@@ -191,6 +202,7 @@ FROM ${GRPC_BASE_IMAGE} AS grpc
 # This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
 ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG GRPC_VERSION=v1.65.0
+ARG CMAKE_FROM_SOURCE=false
 ARG CMAKE_VERSION=3.26.4
 
 ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
@@ -206,7 +218,17 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install CMake (the version in 22.04 is too old)
-RUN curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
 
 # We install GRPC to a different prefix here so that we can copy in only the build artifacts later
 # saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
