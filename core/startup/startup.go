@@ -17,6 +17,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type ModelMemoryInfo struct {
+	VRAM uint64
+	RAM  uint64
+}
+
 func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, error) {
 	options := config.NewApplicationConfig(opts...)
 
@@ -33,6 +38,8 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			log.Debug().Msgf("GPU: %s", gpu.String())
 		}
 	}
+
+	// TODO: Add code to fetch VRAM by querying GPU using Nvidia-SMI
 
 	// Make sure directories exists
 	if options.ModelPath == "" {
@@ -144,8 +151,14 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			wd.Shutdown()
 		}()
 	}
+	// Store ModelMemoryMap
+	var localAIModelMemoryMap = make(map[string]ModelMemoryInfo)
+	// Instantiate the GGUF parser and memory estimator
+	localAIGGUFParser := &model.LocalAIGGUFParserImpl{}
+	localAIMemoryEstimator := &model.DefaultModelMemoryEstimator{}
 
 	if options.LoadToMemory != nil {
+
 		for _, m := range options.LoadToMemory {
 			cfg, err := cl.LoadBackendConfigFileByName(m, options.ModelPath,
 				config.LoadOptionDebug(options.Debug),
@@ -159,6 +172,22 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			}
 
 			log.Debug().Msgf("Auto loading model %s into memory from file: %s", m, cfg.Model)
+
+			ggufData, err := model.GetModelGGufData(options.ModelPath, localAIGGUFParser, localAIMemoryEstimator, false)
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to load GGUF data for model: %s", options.ModelPath)
+				continue
+			}
+
+			// Save ModelData for Later recall
+			// TODO: Pass it down
+			// TODO: Store all Device Data
+			localAIModelMemoryMap[cfg.Model] = ModelMemoryInfo{
+				VRAM: ggufData.Estimate.Items[0].VRAMs[0].NonUMA,
+				RAM:  ggufData.Estimate.Items[0].RAM.NonUMA,
+			}
+
+			log.Debug().Msgf("RAM %s and VRAM %s  for Model: %s", localAIModelMemoryMap[cfg.Model].RAM, localAIModelMemoryMap[cfg.Model].VRAM, cfg.Model)
 
 			o := backend.ModelOptions(*cfg, options, []model.Option{})
 
