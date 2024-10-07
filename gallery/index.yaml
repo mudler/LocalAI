@@ -319,6 +319,23 @@
     - filename: calme-2.2-qwen2.5-72b.i1-Q4_K_M.gguf
       sha256: 5fdfa599724d7c78502c477ced1d294e92781b91d3265bd0748fbf15a6fefde6
       uri: huggingface://mradermacher/calme-2.2-qwen2.5-72b-i1-GGUF/calme-2.2-qwen2.5-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "t.e-8.1-iq-imatrix-request"
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/K1aNPf32z-6tYZdcSQBzF.png
+  urls:
+    - https://huggingface.co/Cran-May/T.E-8.1
+    - https://huggingface.co/Lewdiculous/T.E-8.1-GGUF-IQ-Imatrix-Request
+  description: |
+    Trained for roleplay uses.
+  overrides:
+    parameters:
+      model: T.E-8.1-Q4_K_M-imat.gguf
+  files:
+    - filename: T.E-8.1-Q4_K_M-imat.gguf
+      sha256: 1b7892b82c01ea4cbebe34cd00f9836cbbc369fc3247c1f44a92842201e7ec0b
+      uri: huggingface://Lewdiculous/T.E-8.1-GGUF-IQ-Imatrix-Request/T.E-8.1-Q4_K_M-imat.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -1144,6 +1161,22 @@
     - filename: Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
       sha256: 0a601c7341228d9160332965298d799369a1dc2b7080771fb8051bdeb556b30c
       uri: huggingface://bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.1-GGUF/Llama-3.1-8B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "violet_twilight-v0.2-iq-imatrix"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64adfd277b5ff762771e4571/P962FQhRG4I8nbU_DJolY.png
+  urls:
+    - https://huggingface.co/Epiculous/Violet_Twilight-v0.2
+    - https://huggingface.co/Lewdiculous/Violet_Twilight-v0.2-GGUF-IQ-Imatrix
+  description: |
+    Now for something a bit different, Violet_Twilight-v0.2! This model is a SLERP merge of Azure_Dusk-v0.2 and Crimson_Dawn-v0.2!
+  overrides:
+    parameters:
+      model: Violet_Twilight-v0.2-Q4_K_M-imat.gguf
+  files:
+    - filename: Violet_Twilight-v0.2-Q4_K_M-imat.gguf
+      sha256: 0793d196a00cd6fd4e67b8c585b27a94d397e33d427e4ad4aa9a16b7abc339cd
+      uri: huggingface://Lewdiculous/Violet_Twilight-v0.2-GGUF-IQ-Imatrix/Violet_Twilight-v0.2-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -1734,6 +1767,26 @@
     - filename: MagnusIntellectus-12B-v1.i1-Q4_K_M.gguf
       sha256: c97107983b4edc5b6f2a592d227ca2dd4196e2af3d3bc0fe6b7a8954a1fb5870
       uri: huggingface://mradermacher/MagnusIntellectus-12B-v1-i1-GGUF/MagnusIntellectus-12B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mn-backyardai-party-12b-v1-iq-arm-imatrix"
+  icon: https://huggingface.co/Sao10K/MN-BackyardAI-Party-12B-v1/resolve/main/party1.png
+  urls:
+    - https://huggingface.co/Sao10K/MN-BackyardAI-Party-12B-v1
+    - https://huggingface.co/Lewdiculous/MN-BackyardAI-Party-12B-v1-GGUF-IQ-ARM-Imatrix
+  description: |
+    This is a group-chat based roleplaying model, based off of 12B-Lyra-v4a2, a variant of Lyra-v4 that is currently private.
+
+    It is trained on an entirely human-based dataset, based on forum / internet group roleplaying styles. The only augmentation done with LLMs is to the character sheets, to fit to the system prompt, to fit various character sheets within context.
+
+    This model is still capable of 1 on 1 roleplay, though I recommend using ChatML when doing that instead.
+  overrides:
+    parameters:
+      model: MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
+  files:
+    - filename: MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
+      sha256: cea68768dff58b553974b755bb40ef790ab8b86866d9b5c46bc2e6c3311b876a
+      uri: huggingface://Lewdiculous/MN-BackyardAI-Party-12B-v1-GGUF-IQ-ARM-Imatrix/MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -2330,6 +2383,24 @@
     - filename: Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
       sha256: 89fe35345754d7e9de8d0c0d5bf35b2be9b12a09811b365b712b8b27112f7712
       uri: huggingface://bartowski/Gemma-2-2B-ArliAI-RPMax-v1.1-GGUF/Gemma-2-2B-ArliAI-RPMax-v1.1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "gemma-2-9b-it-abliterated"
+  urls:
+    - https://huggingface.co/IlyaGusev/gemma-2-9b-it-abliterated
+    - https://huggingface.co/bartowski/gemma-2-9b-it-abliterated-GGUF
+  description: |
+    Abliterated version of google/gemma-2-9b-it.
+
+    The abliteration script (link) is based on code from the blog post and heavily uses TransformerLens. The only major difference from the code used for Llama is scaling the embedding layer back.
+
+    Orthogonalization did not produce the same results as regular interventions since there are RMSNorm layers before merging activations into the residual stream. However, the final model still seems to be uncensored.
+  overrides:
+    parameters:
+      model: gemma-2-9b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: gemma-2-9b-it-abliterated-Q4_K_M.gguf
+      sha256: 88d84ac9796732c10f6c58e0feb4db8e04c05d74bdb7047a5e37906a589896e1
+      uri: huggingface://bartowski/gemma-2-9b-it-abliterated-GGUF/gemma-2-9b-it-abliterated-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
