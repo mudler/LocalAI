@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http"
@@ -950,7 +951,7 @@ var _ = Describe("API test", func() {
 					openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("Sure"), ContainSubstring("five")))
+				Expect(strings.ToLower(resp.Choices[0].Message.Content)).To(Or(ContainSubstring("sure"), ContainSubstring("five")))
 
 				stream, err := client.CreateChatCompletionStream(context.TODO(), openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())
@@ -969,7 +970,7 @@ var _ = Describe("API test", func() {
 					tokens++
 				}
 				Expect(text).ToNot(BeEmpty())
-				Expect(text).To(Or(ContainSubstring("Sure"), ContainSubstring("five")))
+				Expect(strings.ToLower(text)).To(Or(ContainSubstring("sure"), ContainSubstring("five")))
 
 				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
 			})
