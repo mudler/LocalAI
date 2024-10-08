@@ -1,4 +1,21 @@
 ---
+- name: "moe-girl-1ba-7bt-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/kTXXSSSqpb21rfyOX7FUa.jpeg
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/allura-org/MoE-Girl-1BA-7BT
+    - https://huggingface.co/mradermacher/MoE-Girl-1BA-7BT-i1-GGUF
+  description: |
+    A finetune of OLMoE by AllenAI designed for roleplaying (and maybe general usecases if you try hard enough).
+    PLEASE do not expect godliness out of this, it's a model with 1 billion active parameters. Expect something more akin to Gemma 2 2B, not Llama 3 8B.
+  overrides:
+    parameters:
+      model: MoE-Girl-1BA-7BT.i1-Q4_K_M.gguf
+  files:
+    - filename: MoE-Girl-1BA-7BT.i1-Q4_K_M.gguf
+      sha256: e6ef9c311c73573b243de6ff7538b386f430af30b2be0a96a5745c17137ad432
+      uri: huggingface://mradermacher/MoE-Girl-1BA-7BT-i1-GGUF/MoE-Girl-1BA-7BT.i1-Q4_K_M.gguf
 - name: "salamandra-7b-instruct"
   icon: https://huggingface.co/BSC-LT/salamandra-7b-instruct/resolve/main/images/salamandra_header.png
   # Uses chatml
