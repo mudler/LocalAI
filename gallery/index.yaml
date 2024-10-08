@@ -353,6 +353,59 @@
     - filename: T.E-8.1-Q4_K_M-imat.gguf
       sha256: 1b7892b82c01ea4cbebe34cd00f9836cbbc369fc3247c1f44a92842201e7ec0b
       uri: huggingface://Lewdiculous/T.E-8.1-GGUF-IQ-Imatrix-Request/T.E-8.1-Q4_K_M-imat.gguf
+- &archfunct
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - qwen2.5
+    - cpu
+    - function-calling
+  name: "arch-function-1.5b"
+  uri: "github:mudler/LocalAI/gallery/arch-function.yaml@master"
+  urls:
+    - https://huggingface.co/katanemolabs/Arch-Function-1.5B
+    - https://huggingface.co/mradermacher/Arch-Function-1.5B-GGUF
+  description: |
+    The Katanemo Arch-Function collection of large language models (LLMs) is a collection state-of-the-art (SOTA) LLMs specifically designed for function calling tasks. The models are designed to understand complex function signatures, identify required parameters, and produce accurate function call outputs based on natural language prompts. Achieving performance on par with GPT-4, these models set a new benchmark in the domain of function-oriented tasks, making them suitable for scenarios where automated API interaction and function execution is crucial.
+    In summary, the Katanemo Arch-Function collection demonstrates:
+        State-of-the-art performance in function calling
+        Accurate parameter identification and suggestion, even in ambiguous or incomplete inputs
+        High generalization across multiple function calling use cases, from API interactions to automated backend tasks.
+        Optimized low-latency, high-throughput performance, making it suitable for real-time, production environments.
+  overrides:
+    parameters:
+      model: Arch-Function-1.5B.Q4_K_M.gguf
+  files:
+    - filename: Arch-Function-1.5B.Q4_K_M.gguf
+      sha256: 5ac54d2d50cca0ee0335ca2c9b688204c0829cd3a73de3ee3fda108281ad9691
+      uri: huggingface://mradermacher/Arch-Function-1.5B-GGUF/Arch-Function-1.5B.Q4_K_M.gguf
+- !!merge <<: *archfunct
+  name: "arch-function-7b"
+  urls:
+    - https://huggingface.co/katanemolabs/Arch-Function-7B
+    - https://huggingface.co/mradermacher/Arch-Function-7B-GGUF
+  overrides:
+    parameters:
+      model: Arch-Function-7B.Q4_K_M.gguf
+  files:
+    - filename: Arch-Function-7B.Q4_K_M.gguf
+      sha256: 6e38661321d79d02b8cf57c79d97c6c0e19adb9ffa66083cc440c24e257234b6
+      uri: huggingface://mradermacher/Arch-Function-7B-GGUF/Arch-Function-7B.Q4_K_M.gguf
+- !!merge <<: *archfunct
+  name: "arch-function-3b"
+  urls:
+    - https://huggingface.co/katanemolabs/Arch-Function-3B
+    - https://huggingface.co/mradermacher/Arch-Function-3B-GGUF
+  overrides:
+    parameters:
+      model: Arch-Function-3B.Q4_K_M.gguf
+  files:
+    - filename: Arch-Function-3B.Q4_K_M.gguf
+      sha256: 9945cb8d070498d163e5df90c1987f591d35e4fd2222a6c51bcfff848c4b573b
+      uri: huggingface://mradermacher/Arch-Function-3B-GGUF/Arch-Function-3B.Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
