@@ -221,6 +221,14 @@ func estimateModelMemoryUsage(ggufFile *ggufparser.GGUFFile) (*ModelEstimate, er
 	tokenizer := ggufFile.Tokenizer()
 
 	// Construct the JSON payload
+	var esitmateVram []EstimateVRAM
+
+	// Append VRAM for list of Devices
+	// Skip 1st because it is CPU
+	for i := 1; i < len(summary.VRAMs); i++ {
+		esitmateVram = append(esitmateVram, EstimateVRAM{UMA: uint64(summary.VRAMs[i].UMA), NonUMA: uint64(summary.VRAMs[i].NonUMA)})
+	}
+
 	payload := ModelEstimate{
 		Estimate: ModelEstimateItems{
 			Items: []ModelMemory{
@@ -231,12 +239,7 @@ func estimateModelMemoryUsage(ggufFile *ggufparser.GGUFFile) (*ModelEstimate, er
 						UMA:    uint64(summary.RAM.UMA),
 						NonUMA: uint64(summary.RAM.NonUMA),
 					},
-					VRAMs: []EstimateVRAM{
-						{
-							UMA:    uint64(summary.VRAMs[0].UMA),
-							NonUMA: uint64(summary.VRAMs[0].NonUMA),
-						},
-					},
+					VRAMs: esitmateVram,
 				},
 			},
 			Type:              architecture.Type,

@@ -3,6 +3,7 @@ package startup
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mudler/LocalAI/core"
 	"github.com/mudler/LocalAI/core/backend"
@@ -40,6 +41,23 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	}
 
 	// TODO: Add code to fetch VRAM by querying GPU using Nvidia-SMI
+	var isNvidiaGpu bool = false
+	for _, gpu := range gpus {
+		if strings.Contains(strings.ToLower(gpu.DeviceInfo.Vendor.Name), "nvidia") {
+			fmt.Println("The device vendor is NVIDIA.")
+			isNvidiaGpu = true
+		} else {
+			fmt.Println("The device vendor is not NVIDIA.")
+		}
+	}
+
+	if isNvidiaGpu {
+		// Get this data and pass it to gpu_layer estimator
+		_, err := xsysinfo.GetNvidiaGpuInfo()
+		if err != nil {
+			fmt.Print("Failed to Get NVIDIA GPU Info %v", err)
+		}
+	}
 
 	// Make sure directories exists
 	if options.ModelPath == "" {
@@ -152,7 +170,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		}()
 	}
 	// Store ModelMemoryMap
-	var localAIModelMemoryMap = make(map[string]ModelMemoryInfo)
+	var localAIModelMemoryMap = make(map[string][]ModelMemoryInfo)
 	// Instantiate the GGUF parser and memory estimator
 	localAIGGUFParser := &model.LocalAIGGUFParserImpl{}
 	localAIMemoryEstimator := &model.DefaultModelMemoryEstimator{}
@@ -182,12 +200,22 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			// Save ModelData for Later recall
 			// TODO: Pass it down
 			// TODO: Store all Device Data
-			localAIModelMemoryMap[cfg.Model] = ModelMemoryInfo{
-				VRAM: ggufData.Estimate.Items[0].VRAMs[0].NonUMA,
-				RAM:  ggufData.Estimate.Items[0].RAM.NonUMA,
+			// Get L
+			var ggufVRAMDeviceInfo []ModelMemoryInfo
+
+			for _, item := range ggufData.Estimate.Items {
+				for _, vram := range item.VRAMs {
+					memoryInfo := ModelMemoryInfo{
+						VRAM: vram.NonUMA,
+						RAM:  vram.UMA,
+					}
+					ggufVRAMDeviceInfo = append(ggufVRAMDeviceInfo, memoryInfo)
+				}
 			}
 
-			log.Debug().Msgf("RAM %s and VRAM %s  for Model: %s", localAIModelMemoryMap[cfg.Model].RAM, localAIModelMemoryMap[cfg.Model].VRAM, cfg.Model)
+			localAIModelMemoryMap[cfg.Model] = ggufVRAMDeviceInfo
+
+			log.Debug().Msgf("GGUFVram for Model: %s added", cfg.Model)
 
 			o := backend.ModelOptions(*cfg, options, []model.Option{})
 
