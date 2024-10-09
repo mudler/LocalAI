@@ -100,6 +100,21 @@
     - filename: llama-3.2-1b-instruct-q8_0.gguf
       sha256: ba345c83bf5cc679c653b853c46517eea5a34f03ed2205449db77184d9ae62a9
       uri: huggingface://hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF/llama-3.2-1b-instruct-q8_0.gguf
+## Uncensored
+- !!merge <<: *llama32
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c9d7a26f2335ba288810a4/4YDg-rcEXCK0fdTS1fBzE.webp
+  name: "versatillama-llama-3.2-3b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/QuantFactory/VersatiLlama-Llama-3.2-3B-Instruct-Abliterated-GGUF
+  description: |
+    Small but Smart Fine-Tuned on Vast dataset of Conversations. Able to Generate Human like text with high performance within its size. It is Very Versatile when compared for it's size and Parameters and offers capability almost as good as Llama 3.1 8B Instruct.
+  overrides:
+    parameters:
+      model: VersatiLlama-Llama-3.2-3B-Instruct-Abliterated.Q4_K_M.gguf
+  files:
+    - filename: VersatiLlama-Llama-3.2-3B-Instruct-Abliterated.Q4_K_M.gguf
+      sha256: 15b9e4a987f50d7594d030815c7166a996e20db46fe1e20da03e96955020312c
+      uri: huggingface://QuantFactory/VersatiLlama-Llama-3.2-3B-Instruct-Abliterated-GGUF/VersatiLlama-Llama-3.2-3B-Instruct-Abliterated.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
