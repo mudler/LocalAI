@@ -129,6 +129,20 @@
     - filename: Llama3.2-3B-Enigma.Q4_K_M.gguf
       sha256: 4304e6ee1e348b228470700ec1e9423f5972333d376295195ce6cd5c70cae5e4
       uri: huggingface://QuantFactory/Llama3.2-3B-Enigma-GGUF/Llama3.2-3B-Enigma.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama3.2-3b-esper2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f267a8a4f79a118e0fcc89/4I6oK8DG0so4VD8GroFsd.jpeg
+  urls:
+    - https://huggingface.co/QuantFactory/Llama3.2-3B-Esper2-GGUF
+  description: |
+    Esper 2 is a DevOps and cloud architecture code specialist built on Llama 3.2 3b. It is an AI assistant focused on AWS, Azure, GCP, Terraform, Dockerfiles, pipelines, shell scripts and more, with real world problem solving and high quality code instruct performance within the Llama 3.2 Instruct chat format. Finetuned on synthetic DevOps-instruct and code-instruct data generated with Llama 3.1 405b and supplemented with generalist chat data.
+  overrides:
+    parameters:
+      model: Llama3.2-3B-Esper2.Q4_K_M.gguf
+  files:
+    - filename: Llama3.2-3B-Esper2.Q4_K_M.gguf
+      sha256: 11d2bd674aa22a71a59ec49ad29b695000d14bc275b0195b8d7089bfc7582fc7
+      uri: huggingface://QuantFactory/Llama3.2-3B-Esper2-GGUF/Llama3.2-3B-Esper2.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
