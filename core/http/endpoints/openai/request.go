@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
@@ -39,6 +40,25 @@ func readRequest(c *fiber.Ctx, cl *config.BackendConfigLoader, ml *model.ModelLo
 	ctxWithCorrelationID := context.WithValue(ctx, CorrelationIDKey, correlationID)
 
 	input.Context = ctxWithCorrelationID
+	input.Cancel = cancel
+
+	log.Debug().Msgf("Request received: %s", string(received))
+
+	modelFile, err := fiberContext.ModelFromContext(c, cl, ml, input.Model, firstModel)
+
+	return modelFile, input, err
+}
+
+func readWSRequest(c *websocket.Conn, cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig, firstModel bool) (string, *schema.OpenAIRequest, error) {
+	input := new(schema.OpenAIRequest)
+
+	input.Model = c.Query("name")
+
+	received, _ := json.Marshal(input)
+
+	ctx, cancel := context.WithCancel(o.Context)
+
+	input.Context = ctx
 	input.Cancel = cancel
 
 	log.Debug().Msgf("Request received: %s", string(received))
