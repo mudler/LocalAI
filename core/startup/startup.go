@@ -41,21 +41,25 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	}
 
 	// TODO: Add code to fetch VRAM by querying GPU using Nvidia-SMI
-	var isNvidiaGpu bool = false
-	for _, gpu := range gpus {
-		if strings.Contains(strings.ToLower(gpu.DeviceInfo.Vendor.Name), "nvidia") {
-			fmt.Println("The device vendor is NVIDIA.")
-			isNvidiaGpu = true
-		} else {
-			fmt.Println("The device vendor is not NVIDIA.")
+	// Possibly to its own method later
+	if options.AdjustGPULayers {
+		var isNvidiaGpu bool = false
+		for _, gpu := range gpus {
+			if strings.Contains(strings.ToLower(gpu.DeviceInfo.Vendor.Name), "nvidia") {
+				fmt.Println("The device vendor is NVIDIA.")
+				isNvidiaGpu = true
+			} else {
+				fmt.Println("The device vendor is not NVIDIA.")
+			}
 		}
-	}
 
-	if isNvidiaGpu {
-		// Get this data and pass it to gpu_layer estimator
-		_, err := xsysinfo.GetNvidiaGpuInfo()
-		if err != nil {
-			fmt.Print("Failed to Get NVIDIA GPU Info %v", err)
+		// Adjusting GPU Layers should be done initially only for NVIDIA GPU
+		if isNvidiaGpu {
+			// Get this data and pass it to gpu_layer estimator
+			_, err := xsysinfo.GetNvidiaGpuInfo()
+			if err != nil {
+				fmt.Print("Failed to Get NVIDIA GPU Info %v", err)
+			}
 		}
 	}
 

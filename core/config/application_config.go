@@ -64,6 +64,7 @@ type ApplicationConfig struct {
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+	AdjustGPULayers                          bool
 }
 
 type AppOption func(*ApplicationConfig)
@@ -362,6 +363,10 @@ func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
 			}
 		}
 	}
+}
+
+var AdjustGPULayers = func(o *ApplicationConfig) {
+	o.AdjustGPULayers = true
 }
 
 // ToConfigLoaderOptions returns a slice of ConfigLoader Option.
