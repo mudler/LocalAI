@@ -958,6 +958,21 @@
     - filename: NightyGurps-14b-v1.1-Q4_K_M.gguf
       sha256: d09d53259ad2c0298150fa8c2db98fe42f11731af89fdc80ad0e255a19adc4b0
       uri: huggingface://bartowski/NightyGurps-14b-v1.1-GGUF/NightyGurps-14b-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-swallow-70b-v0.1-i1"
+  icon: https://huggingface.co/tokyotech-llm/Llama-3.1-Swallow-70B-v0.1/resolve/main/logo.png
+  urls:
+    - https://huggingface.co/tokyotech-llm/Llama-3.1-Swallow-70B-v0.1
+    - https://huggingface.co/mradermacher/Llama-3.1-Swallow-70B-v0.1-i1-GGUF
+  description: |
+    Llama 3.1 Swallow is a series of large language models (8B, 70B) that were built by continual pre-training on the Meta Llama 3.1 models. Llama 3.1 Swallow enhanced the Japanese language capabilities of the original Llama 3.1 while retaining the English language capabilities. We use approximately 200 billion tokens that were sampled from a large Japanese web corpus (Swallow Corpus Version 2), Japanese and English Wikipedia articles, and mathematical and coding contents, etc (see the Training Datasets section) for continual pre-training. The instruction-tuned models (Instruct) were built by supervised fine-tuning (SFT) on the synthetic data specially built for Japanese. See the Swallow Model Index section to find other model variants.
+  overrides:
+    parameters:
+      model: Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
+      sha256: 9eaa08a4872a26f56fe34b27a99f7bd0d22ee2b2d1c84cfcde2091b5f61af5fa
+      uri: huggingface://mradermacher/Llama-3.1-Swallow-70B-v0.1-i1-GGUF/Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
