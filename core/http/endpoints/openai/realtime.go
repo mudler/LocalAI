@@ -108,6 +108,12 @@ func RegisterRealtime(cl *config.BackendConfigLoader, ml *model.ModelLoader, app
 	return func(c *websocket.Conn) {
 		// Generate a unique session ID
 		sessionID := generateSessionID()
+
+		modelFile, input, err := readWSRequest(c, cl, ml, appConfig, true)
+		if err != nil {
+			return fmt.Errorf("failed reading parameters from request:%w", err)
+		}
+
 		session := &Session{
 			ID:            sessionID,
 			Model:         "gpt-4o",     // default model
