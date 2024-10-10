@@ -143,6 +143,19 @@
     - filename: Llama3.2-3B-Esper2.Q4_K_M.gguf
       sha256: 11d2bd674aa22a71a59ec49ad29b695000d14bc275b0195b8d7089bfc7582fc7
       uri: huggingface://QuantFactory/Llama3.2-3B-Esper2-GGUF/Llama3.2-3B-Esper2.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-3b-agent007"
+  urls:
+    - https://huggingface.co/QuantFactory/Llama-3.2-3B-Agent007-GGUF
+  description: |
+    The model is a quantized version of EpistemeAI/Llama-3.2-3B-Agent007, developed by EpistemeAI and fine-tuned from unsloth/llama-3.2-3b-instruct-bnb-4bit. It was trained 2x faster with Unsloth and Huggingface's TRL library. Fine tuned with Agent datasets.
+  overrides:
+    parameters:
+      model: Llama-3.2-3B-Agent007.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-3B-Agent007.Q4_K_M.gguf
+      sha256: 7a2543a69b116f2a059e2e445e5d362bb7df4a51b97e83d8785c1803dc9d687f
+      uri: huggingface://QuantFactory/Llama-3.2-3B-Agent007-GGUF/Llama-3.2-3B-Agent007.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
