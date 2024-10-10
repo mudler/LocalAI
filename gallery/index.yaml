@@ -1372,6 +1372,20 @@
     - filename: Dans-PersonalityEngine-v1.0.0-8b-Q4_K_M.gguf
       sha256: 193b66434c9962e278bb171a21e652f0d3f299f04e86c95f9f75ec5aa8ff006e
       uri: huggingface://bartowski/Dans-PersonalityEngine-v1.0.0-8b-GGUF/Dans-PersonalityEngine-v1.0.0-8b-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nihappy-l3.1-8b-v0.09"
+  urls:
+    - https://huggingface.co/Arkana08/NIHAPPY-L3.1-8B-v0.09
+    - https://huggingface.co/QuantFactory/NIHAPPY-L3.1-8B-v0.09-GGUF
+  description: |
+    The model is a quantized version of Arkana08/NIHAPPY-L3.1-8B-v0.09 created using llama.cpp. It is a role-playing model that integrates the finest qualities of various pre-trained language models, focusing on dynamic storytelling.
+  overrides:
+    parameters:
+      model: NIHAPPY-L3.1-8B-v0.09.Q4_K_M.gguf
+  files:
+    - filename: NIHAPPY-L3.1-8B-v0.09.Q4_K_M.gguf
+      sha256: 9bd46a06093448b143bd2775f0fb1b1b172c851fafdce31289e13b7dfc23a0d7
+      uri: huggingface://QuantFactory/NIHAPPY-L3.1-8B-v0.09-GGUF/NIHAPPY-L3.1-8B-v0.09.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
