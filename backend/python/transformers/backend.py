@@ -72,7 +72,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         Returns:
             A Result object that contains the result of the LoadModel operation.
         """
+
         model_name = request.Model
+        
+        # Check to see if the Model exists in the filesystem already.
+        if os.path.exists(request.ModelFile):
+            model_name = request.ModelFile
 
         compute = torch.float16
         if request.F16Memory == True:
