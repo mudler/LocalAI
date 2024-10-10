@@ -169,6 +169,19 @@
     - filename: Llama-3.2-3B-Agent007-Coder.Q4_K_M.gguf
       sha256: 49a4861c094d94ef5faa33f69b02cd132bb0167f1c3ca59059404f85f61e1d12
       uri: huggingface://QuantFactory/Llama-3.2-3B-Agent007-Coder-GGUF/Llama-3.2-3B-Agent007-Coder.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "fireball-meta-llama-3.2-8b-instruct-agent-003-128k-code-dpo"
+  urls:
+    - https://huggingface.co/QuantFactory/Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO-GGUF
+  description: |
+    The LLM model is a quantized version of EpistemeAI/Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO, which is an experimental and revolutionary fine-tune with DPO dataset to allow LLama 3.1 8B to be an agentic coder. It has some built-in agent features such as search, calculator, and ReAct. Other noticeable features include self-learning using unsloth, RAG applications, and memory. The context window of the model is 128K. It can be integrated into projects using popular libraries like Transformers and vLLM. The model is suitable for use with Langchain or LLamaIndex. The model is developed by EpistemeAI and licensed under the Apache 2.0 license.
+  overrides:
+    parameters:
+      model: Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO.Q4_K_M.gguf
+  files:
+    - filename: Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO.Q4_K_M.gguf
+      sha256: 7f45fa79bc6c9847ef9fbad08c3bb5a0f2dbb56d2e2200a5d37b260a57274e55
+      uri: huggingface://QuantFactory/Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO-GGUF/Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
