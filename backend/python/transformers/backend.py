@@ -76,7 +76,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         model_name = request.Model
         
         # Check to see if the Model exists in the filesystem already.
-        if not os.path.exists(request.ModelFile):
+        if os.path.exists(request.ModelFile):
             model_name = request.ModelFile
 
         compute = torch.float16
