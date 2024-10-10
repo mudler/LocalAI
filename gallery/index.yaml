@@ -418,6 +418,21 @@
     - filename: Rombos-LLM-V2.5.1-Qwen-3b.Q4_K_M.gguf
       sha256: 656c342a2921cac8912e0123fc295c3bb3d631a85c671c12a3843a957e46d30d
       uri: huggingface://QuantFactory/Rombos-LLM-V2.5.1-Qwen-3b-GGUF/Rombos-LLM-V2.5.1-Qwen-3b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-ins-v3"
+  urls:
+    - https://huggingface.co/happzy2633/qwen2.5-7b-ins-v3
+    - https://huggingface.co/bartowski/qwen2.5-7b-ins-v3-GGUF
+  description: |
+    Qwen 2.5 fine-tuned on CoT to match o1 performance. An attempt to build an Open o1 mathcing OpenAI o1 model
+    Demo: https://huggingface.co/spaces/happzy2633/open-o1
+  overrides:
+    parameters:
+      model: qwen2.5-7b-ins-v3-Q4_K_M.gguf
+  files:
+    - filename: qwen2.5-7b-ins-v3-Q4_K_M.gguf
+      sha256: 9c23734072714a4886c0386ae0ff07a5e940d67ad52278e2ed689fec44e1e0c8
+      uri: huggingface://bartowski/qwen2.5-7b-ins-v3-GGUF/qwen2.5-7b-ins-v3-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
