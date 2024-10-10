@@ -1,4 +1,21 @@
 ---
+- name: "moe-girl-1ba-7bt-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/kTXXSSSqpb21rfyOX7FUa.jpeg
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/allura-org/MoE-Girl-1BA-7BT
+    - https://huggingface.co/mradermacher/MoE-Girl-1BA-7BT-i1-GGUF
+  description: |
+    A finetune of OLMoE by AllenAI designed for roleplaying (and maybe general usecases if you try hard enough).
+    PLEASE do not expect godliness out of this, it's a model with 1 billion active parameters. Expect something more akin to Gemma 2 2B, not Llama 3 8B.
+  overrides:
+    parameters:
+      model: MoE-Girl-1BA-7BT.i1-Q4_K_M.gguf
+  files:
+    - filename: MoE-Girl-1BA-7BT.i1-Q4_K_M.gguf
+      sha256: e6ef9c311c73573b243de6ff7538b386f430af30b2be0a96a5745c17137ad432
+      uri: huggingface://mradermacher/MoE-Girl-1BA-7BT-i1-GGUF/MoE-Girl-1BA-7BT.i1-Q4_K_M.gguf
 - name: "salamandra-7b-instruct"
   icon: https://huggingface.co/BSC-LT/salamandra-7b-instruct/resolve/main/images/salamandra_header.png
   # Uses chatml
@@ -83,6 +100,49 @@
     - filename: llama-3.2-1b-instruct-q8_0.gguf
       sha256: ba345c83bf5cc679c653b853c46517eea5a34f03ed2205449db77184d9ae62a9
       uri: huggingface://hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF/llama-3.2-1b-instruct-q8_0.gguf
+## Uncensored
+- !!merge <<: *llama32
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c9d7a26f2335ba288810a4/4YDg-rcEXCK0fdTS1fBzE.webp
+  name: "versatillama-llama-3.2-3b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/QuantFactory/VersatiLlama-Llama-3.2-3B-Instruct-Abliterated-GGUF
+  description: |
+    Small but Smart Fine-Tuned on Vast dataset of Conversations. Able to Generate Human like text with high performance within its size. It is Very Versatile when compared for it's size and Parameters and offers capability almost as good as Llama 3.1 8B Instruct.
+  overrides:
+    parameters:
+      model: VersatiLlama-Llama-3.2-3B-Instruct-Abliterated.Q4_K_M.gguf
+  files:
+    - filename: VersatiLlama-Llama-3.2-3B-Instruct-Abliterated.Q4_K_M.gguf
+      sha256: 15b9e4a987f50d7594d030815c7166a996e20db46fe1e20da03e96955020312c
+      uri: huggingface://QuantFactory/VersatiLlama-Llama-3.2-3B-Instruct-Abliterated-GGUF/VersatiLlama-Llama-3.2-3B-Instruct-Abliterated.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama3.2-3b-enigma"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f267a8a4f79a118e0fcc89/it7MY5MyLCLpFQev5dUis.jpeg
+  urls:
+    - https://huggingface.co/QuantFactory/Llama3.2-3B-Enigma-GGUF
+  description: |
+    Enigma is a code-instruct model built on Llama 3.2 3b. It is a high quality code instruct model with the Llama 3.2 Instruct chat format. The model is finetuned on synthetic code-instruct data generated with Llama 3.1 405b and supplemented with generalist synthetic data. It uses the Llama 3.2 Instruct prompt format.
+  overrides:
+    parameters:
+      model: Llama3.2-3B-Enigma.Q4_K_M.gguf
+  files:
+    - filename: Llama3.2-3B-Enigma.Q4_K_M.gguf
+      sha256: 4304e6ee1e348b228470700ec1e9423f5972333d376295195ce6cd5c70cae5e4
+      uri: huggingface://QuantFactory/Llama3.2-3B-Enigma-GGUF/Llama3.2-3B-Enigma.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama3.2-3b-esper2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f267a8a4f79a118e0fcc89/4I6oK8DG0so4VD8GroFsd.jpeg
+  urls:
+    - https://huggingface.co/QuantFactory/Llama3.2-3B-Esper2-GGUF
+  description: |
+    Esper 2 is a DevOps and cloud architecture code specialist built on Llama 3.2 3b. It is an AI assistant focused on AWS, Azure, GCP, Terraform, Dockerfiles, pipelines, shell scripts and more, with real world problem solving and high quality code instruct performance within the Llama 3.2 Instruct chat format. Finetuned on synthetic DevOps-instruct and code-instruct data generated with Llama 3.1 405b and supplemented with generalist chat data.
+  overrides:
+    parameters:
+      model: Llama3.2-3B-Esper2.Q4_K_M.gguf
+  files:
+    - filename: Llama3.2-3B-Esper2.Q4_K_M.gguf
+      sha256: 11d2bd674aa22a71a59ec49ad29b695000d14bc275b0195b8d7089bfc7582fc7
+      uri: huggingface://QuantFactory/Llama3.2-3B-Esper2-GGUF/Llama3.2-3B-Esper2.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -336,6 +396,59 @@
     - filename: T.E-8.1-Q4_K_M-imat.gguf
       sha256: 1b7892b82c01ea4cbebe34cd00f9836cbbc369fc3247c1f44a92842201e7ec0b
       uri: huggingface://Lewdiculous/T.E-8.1-GGUF-IQ-Imatrix-Request/T.E-8.1-Q4_K_M-imat.gguf
+- &archfunct
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - qwen2.5
+    - cpu
+    - function-calling
+  name: "arch-function-1.5b"
+  uri: "github:mudler/LocalAI/gallery/arch-function.yaml@master"
+  urls:
+    - https://huggingface.co/katanemolabs/Arch-Function-1.5B
+    - https://huggingface.co/mradermacher/Arch-Function-1.5B-GGUF
+  description: |
+    The Katanemo Arch-Function collection of large language models (LLMs) is a collection state-of-the-art (SOTA) LLMs specifically designed for function calling tasks. The models are designed to understand complex function signatures, identify required parameters, and produce accurate function call outputs based on natural language prompts. Achieving performance on par with GPT-4, these models set a new benchmark in the domain of function-oriented tasks, making them suitable for scenarios where automated API interaction and function execution is crucial.
+    In summary, the Katanemo Arch-Function collection demonstrates:
+        State-of-the-art performance in function calling
+        Accurate parameter identification and suggestion, even in ambiguous or incomplete inputs
+        High generalization across multiple function calling use cases, from API interactions to automated backend tasks.
+        Optimized low-latency, high-throughput performance, making it suitable for real-time, production environments.
+  overrides:
+    parameters:
+      model: Arch-Function-1.5B.Q4_K_M.gguf
+  files:
+    - filename: Arch-Function-1.5B.Q4_K_M.gguf
+      sha256: 5ac54d2d50cca0ee0335ca2c9b688204c0829cd3a73de3ee3fda108281ad9691
+      uri: huggingface://mradermacher/Arch-Function-1.5B-GGUF/Arch-Function-1.5B.Q4_K_M.gguf
+- !!merge <<: *archfunct
+  name: "arch-function-7b"
+  urls:
+    - https://huggingface.co/katanemolabs/Arch-Function-7B
+    - https://huggingface.co/mradermacher/Arch-Function-7B-GGUF
+  overrides:
+    parameters:
+      model: Arch-Function-7B.Q4_K_M.gguf
+  files:
+    - filename: Arch-Function-7B.Q4_K_M.gguf
+      sha256: 6e38661321d79d02b8cf57c79d97c6c0e19adb9ffa66083cc440c24e257234b6
+      uri: huggingface://mradermacher/Arch-Function-7B-GGUF/Arch-Function-7B.Q4_K_M.gguf
+- !!merge <<: *archfunct
+  name: "arch-function-3b"
+  urls:
+    - https://huggingface.co/katanemolabs/Arch-Function-3B
+    - https://huggingface.co/mradermacher/Arch-Function-3B-GGUF
+  overrides:
+    parameters:
+      model: Arch-Function-3B.Q4_K_M.gguf
+  files:
+    - filename: Arch-Function-3B.Q4_K_M.gguf
+      sha256: 9945cb8d070498d163e5df90c1987f591d35e4fd2222a6c51bcfff848c4b573b
+      uri: huggingface://mradermacher/Arch-Function-3B-GGUF/Arch-Function-3B.Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -845,6 +958,21 @@
     - filename: NightyGurps-14b-v1.1-Q4_K_M.gguf
       sha256: d09d53259ad2c0298150fa8c2db98fe42f11731af89fdc80ad0e255a19adc4b0
       uri: huggingface://bartowski/NightyGurps-14b-v1.1-GGUF/NightyGurps-14b-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-swallow-70b-v0.1-i1"
+  icon: https://huggingface.co/tokyotech-llm/Llama-3.1-Swallow-70B-v0.1/resolve/main/logo.png
+  urls:
+    - https://huggingface.co/tokyotech-llm/Llama-3.1-Swallow-70B-v0.1
+    - https://huggingface.co/mradermacher/Llama-3.1-Swallow-70B-v0.1-i1-GGUF
+  description: |
+    Llama 3.1 Swallow is a series of large language models (8B, 70B) that were built by continual pre-training on the Meta Llama 3.1 models. Llama 3.1 Swallow enhanced the Japanese language capabilities of the original Llama 3.1 while retaining the English language capabilities. We use approximately 200 billion tokens that were sampled from a large Japanese web corpus (Swallow Corpus Version 2), Japanese and English Wikipedia articles, and mathematical and coding contents, etc (see the Training Datasets section) for continual pre-training. The instruction-tuned models (Instruct) were built by supervised fine-tuning (SFT) on the synthetic data specially built for Japanese. See the Swallow Model Index section to find other model variants.
+  overrides:
+    parameters:
+      model: Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
+      sha256: 9eaa08a4872a26f56fe34b27a99f7bd0d22ee2b2d1c84cfcde2091b5f61af5fa
+      uri: huggingface://mradermacher/Llama-3.1-Swallow-70B-v0.1-i1-GGUF/Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
