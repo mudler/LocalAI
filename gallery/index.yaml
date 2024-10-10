@@ -156,6 +156,19 @@
     - filename: Llama-3.2-3B-Agent007.Q4_K_M.gguf
       sha256: 7a2543a69b116f2a059e2e445e5d362bb7df4a51b97e83d8785c1803dc9d687f
       uri: huggingface://QuantFactory/Llama-3.2-3B-Agent007-GGUF/Llama-3.2-3B-Agent007.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-3b-agent007-coder"
+  urls:
+    - https://huggingface.co/QuantFactory/Llama-3.2-3B-Agent007-Coder-GGUF
+  description: |
+    The Llama-3.2-3B-Agent007-Coder-GGUF is a quantized version of the EpistemeAI/Llama-3.2-3B-Agent007-Coder model, which is a fine-tuned version of the unsloth/llama-3.2-3b-instruct-bnb-4bit model. It is created using llama.cpp and trained with additional datasets such as the Agent dataset, Code Alpaca 20K, and magpie ultra 0.1. This model is optimized for multilingual dialogue use cases and agentic retrieval and summarization tasks. The model is available for commercial and research use in multiple languages and is best used with the transformers library.
+  overrides:
+    parameters:
+      model: Llama-3.2-3B-Agent007-Coder.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-3B-Agent007-Coder.Q4_K_M.gguf
+      sha256: 49a4861c094d94ef5faa33f69b02cd132bb0167f1c3ca59059404f85f61e1d12
+      uri: huggingface://QuantFactory/Llama-3.2-3B-Agent007-Coder-GGUF/Llama-3.2-3B-Agent007-Coder.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
