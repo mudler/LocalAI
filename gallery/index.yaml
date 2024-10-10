@@ -1342,6 +1342,23 @@
     - filename: Violet_Twilight-v0.2-Q4_K_M-imat.gguf
       sha256: 0793d196a00cd6fd4e67b8c585b27a94d397e33d427e4ad4aa9a16b7abc339cd
       uri: huggingface://Lewdiculous/Violet_Twilight-v0.2-GGUF-IQ-Imatrix/Violet_Twilight-v0.2-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "dans-personalityengine-v1.0.0-8b"
+  urls:
+    - https://huggingface.co/PocketDoc/Dans-PersonalityEngine-v1.0.0-8b
+    - https://huggingface.co/bartowski/Dans-PersonalityEngine-v1.0.0-8b-GGUF
+  description: |
+    This model is intended to be multifarious in its capabilities and should be quite capable at both co-writing and roleplay as well as find itself quite at home performing sentiment analysis or summarization as part of a pipeline. It has been trained on a wide array of one shot instructions, multi turn instructions, role playing scenarios, text adventure games, co-writing, and much more. The full dataset is publicly available and can be found in the datasets section of the model page.
+
+    There has not been any form of harmfulness alignment done on this model, please take the appropriate precautions when using it in a production environment.
+  overrides:
+    parameters:
+      model: Dans-PersonalityEngine-v1.0.0-8b-Q4_K_M.gguf
+  files:
+    - filename: Dans-PersonalityEngine-v1.0.0-8b-Q4_K_M.gguf
+      sha256: 193b66434c9962e278bb171a21e652f0d3f299f04e86c95f9f75ec5aa8ff006e
+      uri: huggingface://bartowski/Dans-PersonalityEngine-v1.0.0-8b-GGUF/Dans-PersonalityEngine-v1.0.0-8b-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
