@@ -396,6 +396,28 @@
     - filename: T.E-8.1-Q4_K_M-imat.gguf
       sha256: 1b7892b82c01ea4cbebe34cd00f9836cbbc369fc3247c1f44a92842201e7ec0b
       uri: huggingface://Lewdiculous/T.E-8.1-GGUF-IQ-Imatrix-Request/T.E-8.1-Q4_K_M-imat.gguf
+- !!merge <<: *qwen25
+  name: "rombos-llm-v2.5.1-qwen-3b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/pNDtgE5FDkxxvbG4qiZ1A.jpeg
+  urls:
+    - https://huggingface.co/QuantFactory/Rombos-LLM-V2.5.1-Qwen-3b-GGUF
+  description: |
+    Rombos-LLM-V2.5.1-Qwen-3b is a little experiment that merges a high-quality LLM, arcee-ai/raspberry-3B, using the last step of the Continuous Finetuning method outlined in a Google document. The merge is done using the mergekit with the following parameters:
+
+    - Models: Qwen2.5-3B-Instruct, raspberry-3B
+    - Merge method: ties
+    - Base model: Qwen2.5-3B
+    - Parameters: weight=1, density=1, normalize=true, int8_mask=true
+    - Dtype: bfloat16
+
+    The model has been evaluated on various tasks and datasets, and the results are available on the Open LLM Leaderboard. The model has shown promising performance across different benchmarks.
+  overrides:
+    parameters:
+      model: Rombos-LLM-V2.5.1-Qwen-3b.Q4_K_M.gguf
+  files:
+    - filename: Rombos-LLM-V2.5.1-Qwen-3b.Q4_K_M.gguf
+      sha256: 656c342a2921cac8912e0123fc295c3bb3d631a85c671c12a3843a957e46d30d
+      uri: huggingface://QuantFactory/Rombos-LLM-V2.5.1-Qwen-3b-GGUF/Rombos-LLM-V2.5.1-Qwen-3b.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
