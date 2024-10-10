@@ -525,6 +525,10 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 			// Autodetection failed, try the fallback
 			log.Info().Msgf("[%s] Autodetection failed, trying the fallback", key)
 			options = append(options, WithBackendString(backendToUse))
+			// TODO: try to see why it is not killing when greedy backend is used.
+			// To repro: demo.localai.io, try to start a fresh conv with functioncall, check ps aux
+			// and see how it creates a dangling llama-ggml process (old backend!)
+			// it leaves some processes running
 			model, modelerr = ml.BackendLoader(options...)
 			if modelerr == nil && model != nil {
 				log.Info().Msgf("[%s] Loads OK", key)
