@@ -21,11 +21,12 @@ func ListModels(bcl *config.BackendConfigLoader, ml *model.ModelLoader, filter c
 	dataModels := []string{}
 
 	// Start with known configurations
-	if looseFilePolicy != LOOSE_ONLY {
-		for _, c := range bcl.GetBackendConfigsByFilter(filter) {
-			if looseFilePolicy == SKIP_IF_CONFIGURED {
-				skipMap[c.Model] = nil
-			}
+
+	for _, c := range bcl.GetBackendConfigsByFilter(filter) {
+		if (looseFilePolicy == SKIP_IF_CONFIGURED) || (looseFilePolicy == LOOSE_ONLY) {
+			skipMap[c.Model] = nil
+		}
+		if looseFilePolicy != LOOSE_ONLY {
 			dataModels = append(dataModels, c.Name)
 		}
 	}
