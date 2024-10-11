@@ -203,6 +203,7 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 		return backendPath(assetDir, LLamaCPPGRPC)
 	}
 
+	// Check for GPU-binaries that are shipped with single binary releases
 	gpus, err := xsysinfo.GPUs()
 	if err == nil {
 		for _, gpu := range gpus {
@@ -247,45 +248,27 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 		return grpcProcess
 	}
 
+	selectedProcess := backendPath(assetDir, LLamaCPPFallback)
+
 	if xsysinfo.HasCPUCaps(cpuid.AVX2) {
 		p := backendPath(assetDir, LLamaCPPAVX2)
 		if _, err := os.Stat(p); err == nil {
 			log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
-			grpcProcess = p
-		} else {
-			p = backendPath(assetDir, LLamaCPPFallback)
-			if _, err := os.Stat(p); err == nil {
-				log.Info().Msgf("[%s] No AVX2 variant found, trying to load with fallback variant", backend)
-				grpcProcess = p
-			}
+			selectedProcess = p
 		}
 	} else if xsysinfo.HasCPUCaps(cpuid.AVX) {
 		p := backendPath(assetDir, LLamaCPPAVX)
 		if _, err := os.Stat(p); err == nil {
 			log.Info().Msgf("[%s] attempting to load with AVX variant", backend)
-			grpcProcess = p
-		} else {
-			p = backendPath(assetDir, LLamaCPPFallback)
-			if _, err := os.Stat(p); err == nil {
-				log.Info().Msgf("[%s] No AVX2 variant found, trying to load with fallback variant", backend)
-				grpcProcess = p
-			}
-		}
-	} else {
-		p := backendPath(assetDir, LLamaCPPFallback)
-		if _, err := os.Stat(p); err == nil {
-			log.Info().Msgf("[%s] attempting to load with fallback variant", backend)
-			grpcProcess = p
-		} else {
-			p = backendPath(assetDir, LLamaCPPFallback)
-			if _, err := os.Stat(p); err == nil {
-				log.Info().Msgf("[%s] No AVX2 variant found, trying to load with fallback variant", backend)
-				grpcProcess = p
-			}
+			selectedProcess = p
 		}
 	}
 
-	return grpcProcess
+	if _, err := os.Stat(selectedProcess); err == nil {
+		return selectedProcess
+	}
+
+	return ""
 }
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
