@@ -13,15 +13,10 @@ import (
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 	cl *config.BackendConfigLoader, ml *model.ModelLoader, modelStatus func() (map[string]string, map[string]string)) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		models, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 		backendConfigs := cl.GetAllBackendConfigs()
-
 		galleryConfigs := map[string]*gallery.Config{}
-		modelsWithBackendConfig := map[string]interface{}{}
 
 		for _, m := range backendConfigs {
-			modelsWithBackendConfig[m.Name] = nil
-
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {
 				continue
@@ -29,12 +24,7 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			galleryConfigs[m.Name] = cfg
 		}
 
-		modelsWithoutConfig := []string{}
-		for _, m := range models {
-			if _, ok := modelsWithBackendConfig[m]; !ok {
-				modelsWithoutConfig = append(modelsWithoutConfig, m)
-			}
-		}
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		// Get model statuses to display in the UI the operation in progress
 		processingModels, taskTypes := modelStatus()
