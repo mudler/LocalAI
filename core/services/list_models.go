@@ -8,10 +8,10 @@ import (
 type LooseFilePolicy int
 
 const (
-	SKIP_IF_CONFIGURED LooseFilePolicy = iota
+	LOOSE_ONLY LooseFilePolicy = iota
+	SKIP_IF_CONFIGURED
 	SKIP_ALWAYS
 	ALWAYS_INCLUDE
-	LOOSE_ONLY
 )
 
 func ListModels(bcl *config.BackendConfigLoader, ml *model.ModelLoader, filter config.BackendConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
@@ -23,6 +23,7 @@ func ListModels(bcl *config.BackendConfigLoader, ml *model.ModelLoader, filter c
 	// Start with known configurations
 
 	for _, c := range bcl.GetBackendConfigsByFilter(filter) {
+		// Is this better than looseFilePolicy <= SKIP_IF_CONFIGURED ? less performant but more readable?
 		if (looseFilePolicy == SKIP_IF_CONFIGURED) || (looseFilePolicy == LOOSE_ONLY) {
 			skipMap[c.Model] = nil
 		}
