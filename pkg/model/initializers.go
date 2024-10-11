@@ -28,7 +28,7 @@ var Aliases map[string]string = map[string]string{
 	"langchain-huggingface": LCHuggingFaceBackend,
 }
 
-var autoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
+var AutoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
 
 const (
 	LlamaGGML = "llama-ggml"
@@ -86,7 +86,7 @@ ENTRY:
 
 		// Skip the llama.cpp variants if we are autoDetecting
 		// But we always load the fallback variant if it exists
-		if strings.Contains(e.Name(), LLamaCPP) && !strings.Contains(e.Name(), LLamaCPPFallback) && autoDetect {
+		if strings.Contains(e.Name(), LLamaCPP) && !strings.Contains(e.Name(), LLamaCPPFallback) && AutoDetect {
 			continue
 		}
 
@@ -94,7 +94,7 @@ ENTRY:
 	}
 
 	// if we are autoDetecting, we want to show the llama.cpp variants as a single backend
-	if autoDetect {
+	if AutoDetect {
 		// if we find the llama.cpp variants, show them of as a single backend (llama-cpp) as later we are going to pick that up
 		// when starting the service
 		foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC, foundLCPPCuda, foundLCPPHipblas, foundSycl16, foundSycl32 := false, false, false, false, false, false, false, false
@@ -273,7 +273,7 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
 // It also loads the model
-func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string, string) (*Model, error) {
+func (ml *ModelLoader) grpcModel(backend string, autodetect bool, o *Options) func(string, string, string) (*Model, error) {
 	return func(modelID, modelName, modelFile string) (*Model, error) {
 
 		log.Debug().Msgf("Loading Model %s with gRPC (file: %s) (backend: %s): %+v", modelID, modelFile, backend, *o)
@@ -329,7 +329,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				return nil, fmt.Errorf("refering to a backend not in asset dir: %s", err.Error())
 			}
 
-			if autoDetect {
+			if autodetect {
 				// autoDetect GRPC process to start based on system capabilities
 				if selectedProcess := selectGRPCProcess(backend, o.assetDir, o.gRPCOptions.F16Memory); selectedProcess != "" {
 					grpcProcess = selectedProcess
@@ -442,9 +442,17 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 		backendToConsume = backend
 	}
 
-	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backendToConsume, o))
-	if err != nil {
-		return nil, err
+	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backendToConsume, AutoDetect, o))
+	if backend == LLamaCPP && err != nil {
+		// XXX: This is too backend specific(llama-cpp), remove this bit or generalize further
+		// We failed somehow starting the binary. For instance, could be that we are missing
+		// some libraries if running in binary-only mode.
+		// In this case, we attempt to load the model with the fallback variant.
+		log.Error().Msgf("[%s] Failed loading model, trying with fallback '%s'", backend, LLamaCPPFallback)
+		model, err = ml.LoadModel(o.modelID, o.model, ml.grpcModel(LLamaCPPFallback, AutoDetect, o))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return model.GRPC(o.parallelRequests, ml.wd), nil
@@ -507,39 +515,6 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 		} else if model == nil {
 			err = errors.Join(err, fmt.Errorf("backend %s returned no usable model", key))
 			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
-		}
-
-		if autoDetect && key == LLamaCPP && err != nil {
-			// try as hard as possible to run the llama.cpp variants
-			backendToUse := LLamaCPPFallback
-			if xsysinfo.HasCPUCaps(cpuid.AVX2) {
-				if _, err := os.Stat(backendPath(o.assetDir, LLamaCPPAVX2)); err == nil {
-					backendToUse = LLamaCPPAVX2
-				}
-			} else if xsysinfo.HasCPUCaps(cpuid.AVX) {
-				if _, err := os.Stat(backendPath(o.assetDir, LLamaCPPAVX2)); err == nil {
-					backendToUse = LLamaCPPAVX
-				}
-			} else {
-				if _, err := os.Stat(backendPath(o.assetDir, LLamaCPPFallback)); err == nil {
-					backendToUse = LLamaCPPFallback
-				} else {
-					// If we don't have a fallback, just skip fallback
-					continue
-				}
-			}
-
-			// Autodetection failed, try the fallback
-			log.Info().Msgf("[%s] Autodetection failed, trying the fallback %s", key, backendToUse)
-			options = append(options, WithBackendString(backendToUse))
-			model, modelerr = ml.BackendLoader(options...)
-			if modelerr == nil && model != nil {
-				log.Info().Msgf("[%s] Loads OK", key)
-				return model, nil
-			} else {
-				err = errors.Join(err, fmt.Errorf("[%s]: %w", key, modelerr))
-				log.Info().Msgf("[%s] Fails: %s", key, modelerr.Error())
-			}
 		}
 	}
 
