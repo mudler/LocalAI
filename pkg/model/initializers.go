@@ -185,8 +185,9 @@ func orderBackends(backends map[string][]string) ([]string, error) {
 	return orderedBackends.Keys(), nil
 }
 
-// selectGRPCProcess selects the GRPC process to start based on system capabilities
-func selectGRPCProcess(backend, assetDir string, f16 bool) string {
+// selectGRPCProcessByHostCapabilities selects the GRPC process to start based on system capabilities
+// Note: this is now relevant only for llama.cpp
+func selectGRPCProcessByHostCapabilities(backend, assetDir string, f16 bool) string {
 	foundCUDA := false
 	foundAMDGPU := false
 	foundIntelGPU := false
@@ -248,8 +249,12 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 		return grpcProcess
 	}
 
+	// No GPU found or no specific binaries found, try to load the CPU variant(s)
+
+	// Select the Fallback by default
 	selectedProcess := backendPath(assetDir, LLamaCPPFallback)
 
+	// IF we find any optimized binary, we use that
 	if xsysinfo.HasCPUCaps(cpuid.AVX2) {
 		p := backendPath(assetDir, LLamaCPPAVX2)
 		if _, err := os.Stat(p); err == nil {
@@ -264,6 +269,7 @@ func selectGRPCProcess(backend, assetDir string, f16 bool) string {
 		}
 	}
 
+	// Check if the binary exists!
 	if _, err := os.Stat(selectedProcess); err == nil {
 		return selectedProcess
 	}
@@ -331,7 +337,7 @@ func (ml *ModelLoader) grpcModel(backend string, autodetect bool, o *Options) fu
 
 			if autodetect {
 				// autoDetect GRPC process to start based on system capabilities
-				if selectedProcess := selectGRPCProcess(backend, o.assetDir, o.gRPCOptions.F16Memory); selectedProcess != "" {
+				if selectedProcess := selectGRPCProcessByHostCapabilities(backend, o.assetDir, o.gRPCOptions.F16Memory); selectedProcess != "" {
 					grpcProcess = selectedProcess
 				}
 			}
