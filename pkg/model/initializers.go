@@ -449,13 +449,20 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 	}
 
 	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backendToConsume, AutoDetect, o))
-	if backend == LLamaCPP && err != nil {
+	if err != nil {
 		// XXX: This is too backend specific(llama-cpp), remove this bit or generalize further
 		// We failed somehow starting the binary. For instance, could be that we are missing
 		// some libraries if running in binary-only mode.
 		// In this case, we attempt to load the model with the fallback variant.
+
+		// If not llama-cpp backend, return error immediately
+		if backend != LLamaCPP {
+			return nil, err
+		}
+
+		// Otherwise attempt with fallback
 		log.Error().Msgf("[%s] Failed loading model, trying with fallback '%s'", backend, LLamaCPPFallback)
-		model, err = ml.LoadModel(o.modelID, o.model, ml.grpcModel(LLamaCPPFallback, AutoDetect, o))
+		model, err = ml.LoadModel(o.modelID, o.model, ml.grpcModel(LLamaCPPFallback, false, o))
 		if err != nil {
 			return nil, err
 		}
