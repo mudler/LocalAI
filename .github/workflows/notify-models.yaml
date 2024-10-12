@@ -79,7 +79,7 @@ jobs:
         args: ${{ steps.summarize.outputs.message }}
     - name: Setup tmate session if fails
       if: ${{ failure() }}
-      uses: mxschmitt/action-tmate@v3.18
+      uses: mxschmitt/action-tmate@v3.19
       with:
         detached: true
         connect-timeout-seconds: 180
@@ -161,7 +161,7 @@ jobs:
         TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
     - name: Setup tmate session if fails
       if: ${{ failure() }}
-      uses: mxschmitt/action-tmate@v3.18
+      uses: mxschmitt/action-tmate@v3.19
       with:
         detached: true
         connect-timeout-seconds: 180
