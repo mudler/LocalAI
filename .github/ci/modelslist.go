@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/microcosm-cc/bluemonday"
 	"gopkg.in/yaml.v3"
 )
 
@@ -277,6 +278,12 @@ func main() {
 		// write to stderr
 		os.Stderr.WriteString("Error unmarshaling YAML: " + err.Error() + "\n")
 		return
+	}
+
+	// Ensure that all arbitrary text content is sanitized before display
+	for i, m := range models {
+		models[i].Name = bluemonday.StrictPolicy().Sanitize(m.Name)
+		models[i].Description = bluemonday.StrictPolicy().Sanitize(m.Description)
 	}
 
 	// render the template

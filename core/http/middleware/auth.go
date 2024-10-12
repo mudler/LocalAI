@@ -7,6 +7,7 @@ import (
 	"github.com/dave-gray101/v2keyauth"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/keyauth"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/mudler/LocalAI/core/config"
 )
 
@@ -38,7 +39,7 @@ func getApiKeyErrorHandler(applicationConfig *config.ApplicationConfig) fiber.Er
 			if applicationConfig.OpaqueErrors {
 				return ctx.SendStatus(403)
 			}
-			return ctx.Status(403).SendString(err.Error())
+			return ctx.Status(403).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
 		}
 		if applicationConfig.OpaqueErrors {
 			return ctx.SendStatus(500)

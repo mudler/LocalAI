@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
@@ -83,7 +84,7 @@ func CreateAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoad
 
 		if !modelExists(cl, ml, request.Model) {
 			log.Warn().Msgf("Model: %s was not found in list of models.", request.Model)
-			return c.Status(fiber.StatusBadRequest).SendString("Model " + request.Model + " not found")
+			return c.Status(fiber.StatusBadRequest).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Model %q not found", request.Model)))
 		}
 
 		if request.Tools == nil {
@@ -147,7 +148,7 @@ func ListAssistantsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoade
 		// Convert string limit to integer
 		limit, err := strconv.Atoi(limitQuery)
 		if err != nil {
-			return c.Status(http.StatusBadRequest).SendString(fmt.Sprintf("Invalid limit query value: %s", limitQuery))
+			return c.Status(http.StatusBadRequest).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Invalid limit query value: %s", limitQuery)))
 		}
 
 		// Sort assistants
@@ -288,7 +289,7 @@ func GetAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader,
 			}
 		}
 
-		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Unable to find assistant with id: %s", assistantID))
+		return c.Status(fiber.StatusNotFound).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Unable to find assistant with id: %s", assistantID)))
 	}
 }
 
@@ -337,11 +338,11 @@ func CreateAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.Model
 					}
 				}
 
-				return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Unable to find file_id: %s", request.FileID))
+				return c.Status(fiber.StatusNotFound).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Unable to find file_id: %s", request.FileID)))
 			}
 		}
 
-		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Unable to find %q", assistantID))
+		return c.Status(fiber.StatusNotFound).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Unable to find %q", assistantID)))
 	}
 }
 
@@ -442,7 +443,7 @@ func ModifyAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoad
 				return c.Status(fiber.StatusOK).JSON(newAssistant)
 			}
 		}
-		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Unable to find assistant with id: %s", assistantID))
+		return c.Status(fiber.StatusNotFound).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Unable to find assistant with id: %s", assistantID)))
 	}
 }
 
@@ -513,9 +514,9 @@ func GetAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoa
 				if assistantFile.ID == fileId {
 					return c.Status(fiber.StatusOK).JSON(assistantFile)
 				}
-				return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Unable to find assistant file with file_id: %s", fileId))
+				return c.Status(fiber.StatusNotFound).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Unable to find assistant file with file_id: %s", fileId)))
 			}
 		}
-		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Unable to find assistant file with assistant_id: %s", assistantID))
+		return c.Status(fiber.StatusNotFound).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Unable to find assistant file with assistant_id: %s", assistantID)))
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/elements"
@@ -171,7 +172,7 @@ func RegisterUIRoutes(app *fiber.App,
 				Search string `form:"search"`
 			}{}
 			if err := c.BodyParser(&form); err != nil {
-				return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+				return c.Status(fiber.StatusBadRequest).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
 			}
 
 			models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
