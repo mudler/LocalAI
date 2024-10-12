@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 
@@ -49,7 +50,7 @@ func UploadFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.Appli
 
 		err = c.SaveFile(file, savePath)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString("Failed to save file: " + err.Error())
+			return c.Status(fiber.StatusInternalServerError).SendString("Failed to save file: " + bluemonday.StrictPolicy().Sanitize(err.Error()))
 		}
 
 		f := schema.File{
@@ -121,7 +122,7 @@ func GetFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.Applicat
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+			return c.Status(fiber.StatusInternalServerError).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
 		}
 
 		return c.JSON(file)
@@ -143,14 +144,14 @@ func DeleteFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.Appli
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+			return c.Status(fiber.StatusInternalServerError).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
 		}
 
 		err = os.Remove(filepath.Join(appConfig.UploadDir, file.Filename))
 		if err != nil {
 			// If the file doesn't exist then we should just continue to remove it
 			if !errors.Is(err, os.ErrNotExist) {
-				return c.Status(fiber.StatusInternalServerError).SendString(fmt.Sprintf("Unable to delete file: %s, %v", file.Filename, err))
+				return c.Status(fiber.StatusInternalServerError).SendString(bluemonday.StrictPolicy().Sanitize(fmt.Sprintf("Unable to delete file: %s, %v", file.Filename, err)))
 			}
 		}
 
@@ -180,12 +181,12 @@ func GetFilesContentsEndpoint(cm *config.BackendConfigLoader, appConfig *config.
 	return func(c *fiber.Ctx) error {
 		file, err := getFileFromRequest(c)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+			return c.Status(fiber.StatusInternalServerError).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
 		}
 
 		fileContents, err := os.ReadFile(filepath.Join(appConfig.UploadDir, file.Filename))
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+			return c.Status(fiber.StatusInternalServerError).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
 		}
 
 		return c.Send(fileContents)
