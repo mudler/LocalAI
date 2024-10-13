@@ -5175,6 +5175,26 @@
     - filename: L3-8B-Niitama-v1.i1-Q4_K_M.gguf
       sha256: 8c62f831db2a6e34aa75459fe8a98815199ecc2dac1892a460b8b86363b6826e
       uri: huggingface://mradermacher/L3-8B-Niitama-v1-i1-GGUF/L3-8B-Niitama-v1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  icon: https://huggingface.co/SicariusSicariiStuff/LLAMA-3_8B_Unaligned_BETA/resolve/main/Images/LLAMA-3_8B_Unaligned_BETA.png
+  name: "llama-3_8b_unaligned_beta"
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/LLAMA-3_8B_Unaligned_BETA
+    - https://huggingface.co/bartowski/LLAMA-3_8B_Unaligned_BETA-GGUF
+  description: |
+    In the Wild West of the AI world, the real titans never hit their deadlines, no sir!
+    The projects that finish on time? They’re the soft ones—basic, surface-level shenanigans. But the serious projects? They’re always delayed. You set a date, then reality hits: not gonna happen, scope creep that mutates the roadmap, unexpected turn of events that derails everything.
+    It's only been 4 months since the Alpha was released, and half a year since the project started, but it felt like nearly a decade.
+    Deadlines shift, but with each delay, you’re not failing—you’re refining, and becoming more ambitious. A project that keeps getting pushed isn’t late; it’s just gaining weight, becoming something worth building, and truly worth seeing all the way through. The longer it’s delayed, the more serious it gets.
+    LLAMA-3_8B_Unaligned is a serious project, and thank god, the Beta is finally here.
+    I love you all unconditionally, thanks for all the support and kind words!
+  overrides:
+    parameters:
+      model: LLAMA-3_8B_Unaligned_BETA-Q4_K_M.gguf
+  files:
+    - filename: LLAMA-3_8B_Unaligned_BETA-Q4_K_M.gguf
+      sha256: 5b88fb4537339996c04e4a1b6ef6a2d555c4103b6378e273ae9c6c5e77af67eb
+      uri: huggingface://bartowski/LLAMA-3_8B_Unaligned_BETA-GGUF/LLAMA-3_8B_Unaligned_BETA-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
