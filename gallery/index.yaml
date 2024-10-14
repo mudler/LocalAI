@@ -1427,6 +1427,23 @@
     - filename: Llama3.1-Flammades-70B.Q4_K_M.gguf
       sha256: f602ed006d0059ac87c6ce5904a7cc6f4b4f290886a1049f96b5b2c561ab5a89
       uri: huggingface://mradermacher/Llama3.1-Flammades-70B-GGUF/Llama3.1-Flammades-70B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-gutenberg-doppel-70b"
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/nbeerbower/Mistral-Small-Gutenberg-Doppel-22B/resolve/main/doppel-header?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Llama3.1-Gutenberg-Doppel-70B
+    - https://huggingface.co/mradermacher/Llama3.1-Gutenberg-Doppel-70B-GGUF
+  description: |
+    mlabonne/Hermes-3-Llama-3.1-70B-lorablated finetuned on jondurbin/gutenberg-dpo-v0.1 and nbeerbower/gutenberg2-dpo.
+  overrides:
+    parameters:
+      model: Llama3.1-Gutenberg-Doppel-70B.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-Gutenberg-Doppel-70B.Q4_K_M.gguf
+      sha256: af558f954fa26c5bb75352178cb815bbf268f01c0ca0b96f2149422d4c19511b
+      uri: huggingface://mradermacher/Llama3.1-Gutenberg-Doppel-70B-GGUF/Llama3.1-Gutenberg-Doppel-70B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
