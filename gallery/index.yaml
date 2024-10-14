@@ -1412,6 +1412,21 @@
     - filename: NIHAPPY-L3.1-8B-v0.09.Q4_K_M.gguf
       sha256: 9bd46a06093448b143bd2775f0fb1b1b172c851fafdce31289e13b7dfc23a0d7
       uri: huggingface://QuantFactory/NIHAPPY-L3.1-8B-v0.09-GGUF/NIHAPPY-L3.1-8B-v0.09.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-flammades-70b"
+  icon: https://huggingface.co/flammenai/Flammades-Mistral-7B/resolve/main/flammades.png?download=true
+  urls:
+    - https://huggingface.co/flammenai/Llama3.1-Flammades-70B
+    - https://huggingface.co/mradermacher/Llama3.1-Flammades-70B-GGUF
+  description: |
+    nbeerbower/Llama3.1-Gutenberg-Doppel-70B finetuned on flammenai/Date-DPO-NoAsterisks and jondurbin/truthy-dpo-v0.1.
+  overrides:
+    parameters:
+      model: Llama3.1-Flammades-70B.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-Flammades-70B.Q4_K_M.gguf
+      sha256: f602ed006d0059ac87c6ce5904a7cc6f4b4f290886a1049f96b5b2c561ab5a89
+      uri: huggingface://mradermacher/Llama3.1-Flammades-70B-GGUF/Llama3.1-Flammades-70B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
