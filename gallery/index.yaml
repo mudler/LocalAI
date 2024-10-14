@@ -472,6 +472,21 @@
     - filename: qwen2.5-7b-ins-v3-Q4_K_M.gguf
       sha256: 9c23734072714a4886c0386ae0ff07a5e940d67ad52278e2ed689fec44e1e0c8
       uri: huggingface://bartowski/qwen2.5-7b-ins-v3-GGUF/qwen2.5-7b-ins-v3-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "supernova-medius"
+  urls:
+    - https://huggingface.co/arcee-ai/SuperNova-Medius-GGUF
+  description: |
+    Arcee-SuperNova-Medius is a 14B parameter language model developed by Arcee.ai, built on the Qwen2.5-14B-Instruct architecture. This unique model is the result of a cross-architecture distillation pipeline, combining knowledge from both the Qwen2.5-72B-Instruct model and the Llama-3.1-405B-Instruct model. By leveraging the strengths of these two distinct architectures, SuperNova-Medius achieves high-quality instruction-following and complex reasoning capabilities in a mid-sized, resource-efficient form.
+
+    SuperNova-Medius is designed to excel in a variety of business use cases, including customer support, content creation, and technical assistance, while maintaining compatibility with smaller hardware configurations. It’s an ideal solution for organizations looking for advanced capabilities without the high resource requirements of larger models like our SuperNova-70B.
+  overrides:
+    parameters:
+      model: SuperNova-Medius-Q4_K_M.gguf
+  files:
+    - filename: SuperNova-Medius-Q4_K_M.gguf
+      sha256: aaa4bf3451bc900f186fd4b6b3a6a26bfd40c85908f605db76b92e58aadcc864
+      uri: huggingface://arcee-ai/SuperNova-Medius-GGUF/SuperNova-Medius-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
