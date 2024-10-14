@@ -1478,6 +1478,24 @@
     - filename: Llama-3.1-8B-ArliAI-Formax-v1.0-Q4_K_M-imat.gguf
       sha256: b548ad47caf7008a697afb3556190359529f5a05ec0e4e48ef992c7869e14255
       uri: huggingface://Lewdiculous/Llama-3.1-8B-ArliAI-Formax-v1.0-GGUF-IQ-ARM-Imatrix/Llama-3.1-8B-ArliAI-Formax-v1.0-Q4_K_M-imat.gguf
+- !!merge <<: *llama31
+  name: "hermes-3-llama-3.1-70b-lorablated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/4Hbw5n68jKUSBQeTqQIeT.png
+  urls:
+    - https://huggingface.co/mlabonne/Hermes-3-Llama-3.1-70B-lorablated
+    - https://huggingface.co/mradermacher/Hermes-3-Llama-3.1-70B-lorablated-GGUF
+  description: |
+    This is an uncensored version of NousResearch/Hermes-3-Llama-3.1-70B using lorablation.
+    The recipe is based on @grimjim's grimjim/Llama-3.1-8B-Instruct-abliterated_via_adapter (special thanks):
+    Extraction: We extract a LoRA adapter by comparing two models: a censored Llama 3 (meta-llama/Meta-Llama-3-70B-Instruct) and an abliterated Llama 3.1 (failspy/Meta-Llama-3.1-70B-Instruct-abliterated).
+    Merge: We merge this new LoRA adapter using task arithmetic to the censored NousResearch/Hermes-3-Llama-3.1-70B to abliterate it.
+  overrides:
+    parameters:
+      model: Hermes-3-Llama-3.1-70B-lorablated.Q4_K_M.gguf
+  files:
+    - filename: Hermes-3-Llama-3.1-70B-lorablated.Q4_K_M.gguf
+      sha256: 9294875ae3b8822855072b0f710ce800536d144cf303a91bcb087c4a307b578d
+      uri: huggingface://mradermacher/Hermes-3-Llama-3.1-70B-lorablated-GGUF/Hermes-3-Llama-3.1-70B-lorablated.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
