@@ -530,6 +530,20 @@
     - filename: CursorCore-QW2.5-1.5B-LC.i1-Q4_K_M.gguf
       sha256: 185d720c810f7345ef861ad8eef1199bb15afa8e4f3c03bd5ffd476cfa465127
       uri: huggingface://mradermacher/CursorCore-QW2.5-1.5B-LC-i1-GGUF/CursorCore-QW2.5-1.5B-LC.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "edgerunner-command-nested-i1"
+  urls:
+    - https://huggingface.co/edgerunner-ai/EdgeRunner-Command-Nested
+    - https://huggingface.co/mradermacher/EdgeRunner-Command-Nested-i1-GGUF
+  description: |
+    EdgeRunner-Command-Nested is an advanced large language model designed specifically for handling complex nested function calls. Initialized from Qwen2.5-7B-Instruct, further enhanced by the integration of the Hermes function call template and additional training on a specialized dataset (based on TinyAgent). This extra dataset focuses on personal domain applications, providing the model with a robust understanding of nested function scenarios that are typical in complex user interactions.
+  overrides:
+    parameters:
+      model: EdgeRunner-Command-Nested.i1-Q4_K_M.gguf
+  files:
+    - filename: EdgeRunner-Command-Nested.i1-Q4_K_M.gguf
+      sha256: a1cc4d2b601dc20e58cbb549bd3e9bc460995840c0aaf1cd3c1cb5414c900ac7
+      uri: huggingface://mradermacher/EdgeRunner-Command-Nested-i1-GGUF/EdgeRunner-Command-Nested.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
