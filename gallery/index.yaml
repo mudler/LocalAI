@@ -516,6 +516,20 @@
     - filename: CursorCore-QW2.5-7B.i1-Q4_K_M.gguf
       sha256: 81868f4edb4ec1a61debde1dbdebc02b407930ee19a6d946ff801afba840a102
       uri: huggingface://mradermacher/CursorCore-QW2.5-7B-i1-GGUF/CursorCore-QW2.5-7B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "cursorcore-qw2.5-1.5b-lc-i1"
+  urls:
+    - https://huggingface.co/TechxGenus/CursorCore-QW2.5-1.5B-LC
+    - https://huggingface.co/mradermacher/CursorCore-QW2.5-1.5B-LC-i1-GGUF
+  description: |
+    CursorCore is a series of open-source models designed for AI-assisted programming. It aims to support features such as automated editing and inline chat, replicating the core abilities of closed-source AI-assisted programming tools like Cursor. This is achieved by aligning data generated through Programming-Instruct. Please read our paper to learn more.
+  overrides:
+    parameters:
+      model: CursorCore-QW2.5-1.5B-LC.i1-Q4_K_M.gguf
+  files:
+    - filename: CursorCore-QW2.5-1.5B-LC.i1-Q4_K_M.gguf
+      sha256: 185d720c810f7345ef861ad8eef1199bb15afa8e4f3c03bd5ffd476cfa465127
+      uri: huggingface://mradermacher/CursorCore-QW2.5-1.5B-LC-i1-GGUF/CursorCore-QW2.5-1.5B-LC.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
