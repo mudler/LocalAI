@@ -4405,6 +4405,19 @@
     - filename: Yi-Coder-9B.Q4_K_M.gguf
       sha256: cff3db8a69c43654e3c2d2984e86ad2791d1d446ec56b24a636ba1ce78363308
       uri: huggingface://QuantFactory/Yi-Coder-9B-GGUF/Yi-Coder-9B.Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  name: "cursorcore-yi-9b"
+  urls:
+    - https://huggingface.co/mradermacher/CursorCore-Yi-9B-GGUF
+  description: |
+    CursorCore is a series of open-source models designed for AI-assisted programming. It aims to support features such as automated editing and inline chat, replicating the core abilities of closed-source AI-assisted programming tools like Cursor. This is achieved by aligning data generated through Programming-Instruct. Please read our paper to learn more.
+  overrides:
+    parameters:
+      model: CursorCore-Yi-9B.Q4_K_M.gguf
+  files:
+    - filename: CursorCore-Yi-9B.Q4_K_M.gguf
+      sha256: 943bf59b34bee34afae8390c1791ccbc7c742e11a4d04d538a699754eb92215e
+      uri: huggingface://mradermacher/CursorCore-Yi-9B-GGUF/CursorCore-Yi-9B.Q4_K_M.gguf
 - &vicuna-chat
   ## LLama2 and derivatives
   ### Start Fimbulvetr
