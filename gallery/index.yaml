@@ -1580,6 +1580,20 @@
     - filename: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
       sha256: 50ec78036433265965ed1afd0667c00c71c12aa70bcf383be462cb8e159db6c0
       uri: huggingface://LoneStriker/DeepSeek-Coder-V2-Lite-Instruct-GGUF/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf
+- !!merge <<: *deepseek
+  name: "cursorcore-ds-6.7b-i1"
+  urls:
+    - https://huggingface.co/TechxGenus/CursorCore-DS-6.7B
+    - https://huggingface.co/mradermacher/CursorCore-DS-6.7B-i1-GGUF
+  description: |
+    CursorCore is a series of open-source models designed for AI-assisted programming. It aims to support features such as automated editing and inline chat, replicating the core abilities of closed-source AI-assisted programming tools like Cursor. This is achieved by aligning data generated through Programming-Instruct. Please read our paper to learn more.
+  overrides:
+    parameters:
+      model: CursorCore-DS-6.7B.i1-Q4_K_M.gguf
+  files:
+    - filename: CursorCore-DS-6.7B.i1-Q4_K_M.gguf
+      sha256: 71b94496be79e5bc45c23d6aa6c242f5f1d3625b4f00fe91d781d381ef35c538
+      uri: huggingface://mradermacher/CursorCore-DS-6.7B-i1-GGUF/CursorCore-DS-6.7B.i1-Q4_K_M.gguf
 - name: "archangel_sft_pythia2-8b"
   url: "github:mudler/LocalAI/gallery/tuluv2.yaml@master"
   icon: https://gist.github.com/assets/29318529/fe2d8391-dbd1-4b7e-9dc4-7cb97e55bc06
