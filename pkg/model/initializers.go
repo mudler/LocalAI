@@ -251,8 +251,22 @@ func selectGRPCProcessByHostCapabilities(backend, assetDir string, f16 bool) str
 
 	// No GPU found or no specific binaries found, try to load the CPU variant(s)
 
-	// Select the Fallback by default
-	selectedProcess := backendPath(assetDir, LLamaCPPFallback)
+	// Select a binary based on availability/capability
+	selectedProcess := ""
+
+	// Check if we have a native build (llama-cpp) and use that
+	if _, err := os.Stat(backendPath(assetDir, LLamaCPPFallback)); err == nil {
+		log.Debug().Msgf("[%s] %s variant available", LLamaCPPFallback, backend)
+		selectedProcess = backendPath(assetDir, LLamaCPPFallback)
+	}
+
+	// Check if we have a native build (llama-cpp) and use that instead
+	// As a reminder, we do ultimately attempt again with the fallback variant
+	// If things fail with what we select here
+	if _, err := os.Stat(backendPath(assetDir, LLamaCPP)); err == nil {
+		log.Debug().Msgf("[%s] attempting to load with native variant", backend)
+		selectedProcess = backendPath(assetDir, LLamaCPP)
+	}
 
 	// IF we find any optimized binary, we use that
 	if xsysinfo.HasCPUCaps(cpuid.AVX2) {
@@ -269,12 +283,27 @@ func selectGRPCProcessByHostCapabilities(backend, assetDir string, f16 bool) str
 		}
 	}
 
-	// Check if the binary exists!
+	// Safety measure: check if the binary exists otherwise return empty string
 	if _, err := os.Stat(selectedProcess); err == nil {
 		return selectedProcess
 	}
 
 	return ""
+}
+
+func attemptLoadingOnFailure(backend string, ml *ModelLoader, o *Options, err error) (*Model, error) {
+	// XXX: This is too backend specific(llama-cpp), remove this bit or generalize further
+	// We failed somehow starting the binary. For instance, could be that we are missing
+	// some libraries if running in binary-only mode.
+	// In this case, we attempt to load the model with the fallback variant.
+
+	// If not llama-cpp backend, return the error immediately
+	if backend != LLamaCPP {
+		return nil, err
+	}
+
+	log.Error().Msgf("[%s] Failed loading model, trying with fallback '%s', error: %s", backend, LLamaCPPFallback, err.Error())
+	return ml.LoadModel(o.modelID, o.model, ml.grpcModel(LLamaCPPFallback, false, o))
 }
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
@@ -450,19 +479,7 @@ func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err e
 
 	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backendToConsume, AutoDetect, o))
 	if err != nil {
-		// XXX: This is too backend specific(llama-cpp), remove this bit or generalize further
-		// We failed somehow starting the binary. For instance, could be that we are missing
-		// some libraries if running in binary-only mode.
-		// In this case, we attempt to load the model with the fallback variant.
-
-		// If not llama-cpp backend, return error immediately
-		if backend != LLamaCPP {
-			return nil, err
-		}
-
-		// Otherwise attempt with fallback
-		log.Error().Msgf("[%s] Failed loading model, trying with fallback '%s'", backend, LLamaCPPFallback)
-		model, err = ml.LoadModel(o.modelID, o.model, ml.grpcModel(LLamaCPPFallback, false, o))
+		model, err = attemptLoadingOnFailure(backend, ml, o, err)
 		if err != nil {
 			return nil, err
 		}
