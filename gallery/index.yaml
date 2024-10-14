@@ -1444,6 +1444,25 @@
     - filename: Llama3.1-Gutenberg-Doppel-70B.Q4_K_M.gguf
       sha256: af558f954fa26c5bb75352178cb815bbf268f01c0ca0b96f2149422d4c19511b
       uri: huggingface://mradermacher/Llama3.1-Gutenberg-Doppel-70B-GGUF/Llama3.1-Gutenberg-Doppel-70B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-arliai-formax-v1.0-iq-arm-imatrix"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://iili.io/2HmlLn2.md.png
+  urls:
+    - https://huggingface.co/Lewdiculous/Llama-3.1-8B-ArliAI-Formax-v1.0-GGUF-IQ-ARM-Imatrix
+  description: |
+    Quants for ArliAI/Llama-3.1-8B-ArliAI-Formax-v1.0.
+
+    "Formax is a model that specializes in following response format instructions. Tell it the format of it's response and it will follow it perfectly. Great for data processing and dataset creation tasks."
+
+    "It is also a highly uncensored model that will follow your instructions very well."
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-ArliAI-Formax-v1.0-Q4_K_M-imat.gguf
+  files:
+    - filename: Llama-3.1-8B-ArliAI-Formax-v1.0-Q4_K_M-imat.gguf
+      sha256: b548ad47caf7008a697afb3556190359529f5a05ec0e4e48ef992c7869e14255
+      uri: huggingface://Lewdiculous/Llama-3.1-8B-ArliAI-Formax-v1.0-GGUF-IQ-ARM-Imatrix/Llama-3.1-8B-ArliAI-Formax-v1.0-Q4_K_M-imat.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
