@@ -1656,6 +1656,22 @@
     - filename: Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
       sha256: 14a3b07c1723ef1ca24f99382254b1227d95974541e23792a4e7ff621896055d
       uri: huggingface://mradermacher/Astral-Fusion-Neural-Happy-L3.1-8B-GGUF/Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "mahou-1.5-llama3.1-70b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/flammenai/Mahou-1.5-llama3.1-70B
+    - https://huggingface.co/mradermacher/Mahou-1.5-llama3.1-70B-i1-GGUF
+  description: |
+    Mahou is designed to provide short messages in a conversational context. It is capable of casual conversation and character roleplay.
+  overrides:
+    parameters:
+      model: Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
+      sha256: c2711c4c9c8d011edbeaa391b4418d433e273a318d1de3dbdda9b85baf4996f2
+      uri: huggingface://mradermacher/Mahou-1.5-llama3.1-70B-i1-GGUF/Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
