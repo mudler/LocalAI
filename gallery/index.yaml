@@ -1597,6 +1597,29 @@
     - filename: hermes-3-llama-3.1-8b-lorablated.Q4_K_M.gguf
       sha256: 8cff9d399a0583616fe1f290da6daa091ab5c5493d0e173a8fffb45202d79417
       uri: huggingface://mlabonne/Hermes-3-Llama-3.1-8B-lorablated-GGUF/hermes-3-llama-3.1-8b-lorablated.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "doctoraifinetune-3.1-8b-i1"
+  urls:
+    - https://huggingface.co/huzaifa525/Doctoraifinetune-3.1-8B
+    - https://huggingface.co/mradermacher/Doctoraifinetune-3.1-8B-i1-GGUF
+  description: |
+      This is a fine-tuned version of the Meta-Llama-3.1-8B-bnb-4bit model, specifically adapted for the medical field. It has been trained using a dataset that provides extensive information on diseases, symptoms, and treatments, making it ideal for AI-powered healthcare tools such as medical chatbots, virtual assistants, and diagnostic support systems.
+      Key Features
+
+          Disease Diagnosis: Accurately identifies diseases based on symptoms provided by the user.
+          Symptom Analysis: Breaks down and interprets symptoms to provide a comprehensive medical overview.
+          Treatment Recommendations: Suggests treatments and remedies according to medical conditions.
+
+      Dataset
+
+      The model is fine-tuned on 2000 rows from a dataset consisting of 272k rows. This dataset includes rich information about diseases, symptoms, and their corresponding treatments. The model is continuously being updated and will be further trained on the remaining data in future releases to improve accuracy and capabilities.
+  overrides:
+    parameters:
+      model: Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
+      sha256: 282456efcb6c7e54d34ac25ae7fc022a94152ed77281ae4625b9628091e0a3d6
+      uri: huggingface://mradermacher/Doctoraifinetune-3.1-8B-i1-GGUF/Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
