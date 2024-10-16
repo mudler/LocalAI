@@ -1620,6 +1620,22 @@
     - filename: Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
       sha256: 282456efcb6c7e54d34ac25ae7fc022a94152ed77281ae4625b9628091e0a3d6
       uri: huggingface://mradermacher/Doctoraifinetune-3.1-8B-i1-GGUF/Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "astral-fusion-neural-happy-l3.1-8b"
+  urls:
+    - https://huggingface.co/ZeroXClem/Astral-Fusion-Neural-Happy-L3.1-8B
+    - https://huggingface.co/mradermacher/Astral-Fusion-Neural-Happy-L3.1-8B-GGUF
+  description: |
+    Astral-Fusion-Neural-Happy-L3.1-8B is a celestial blend of magic, creativity, and dynamic storytelling. Designed to excel in instruction-following, immersive roleplaying, and magical narrative generation, this model is a fusion of the finest qualities from Astral-Fusion, NIHAPPY, and NeuralMahou. ✨🚀
+
+    This model is perfect for anyone seeking a cosmic narrative experience, with the ability to generate both precise instructional content and fantastical stories in one cohesive framework. Whether you're crafting immersive stories, creating AI roleplaying characters, or working on interactive storytelling, this model brings out the magic. 🌟
+  overrides:
+    parameters:
+      model: Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
+  files:
+    - filename: Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
+      sha256: 14a3b07c1723ef1ca24f99382254b1227d95974541e23792a4e7ff621896055d
+      uri: huggingface://mradermacher/Astral-Fusion-Neural-Happy-L3.1-8B-GGUF/Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
