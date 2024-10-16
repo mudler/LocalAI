@@ -31,13 +31,13 @@ type TokenUsage struct {
 	Completion int
 }
 
-func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c *config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := ModelOptions(c, o, []model.Option{})
+	opts := ModelOptions(*c, o, []model.Option{})
 
 	if c.Backend != "" {
 		opts = append(opts, model.WithBackendString(c.Backend))
@@ -85,7 +85,7 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
 	fn := func() (LLMResponse, error) {
-		opts := gRPCPredictOpts(c, loader.ModelPath)
+		opts := gRPCPredictOpts(*c, loader.ModelPath)
 		opts.Prompt = s
 		opts.Messages = protoMessages
 		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate

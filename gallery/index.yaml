@@ -182,6 +182,34 @@
     - filename: Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO.Q4_K_M.gguf
       sha256: 7f45fa79bc6c9847ef9fbad08c3bb5a0f2dbb56d2e2200a5d37b260a57274e55
       uri: huggingface://QuantFactory/Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO-GGUF/Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-chibi-3b"
+  icon: https://huggingface.co/AELLM/Llama-3.2-Chibi-3B/resolve/main/chibi.jpg
+  urls:
+    - https://huggingface.co/AELLM/Llama-3.2-Chibi-3B
+    - https://huggingface.co/mradermacher/Llama-3.2-Chibi-3B-GGUF
+  description: |
+    Small parameter LLMs are ideal for navigating the complexities of the Japanese language, which involves multiple character systems like kanji, hiragana, and katakana, along with subtle social cues. Despite their smaller size, these models are capable of delivering highly accurate and context-aware results, making them perfect for use in environments where resources are constrained. Whether deployed on mobile devices with limited processing power or in edge computing scenarios where fast, real-time responses are needed, these models strike the perfect balance between performance and efficiency, without sacrificing quality or speed.
+  overrides:
+    parameters:
+      model: Llama-3.2-Chibi-3B.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-Chibi-3B.Q4_K_M.gguf
+      sha256: 4b594cd5f66181202713f1cf97ce2f86d0acfa1b862a64930d5f512c45640a2f
+      uri: huggingface://mradermacher/Llama-3.2-Chibi-3B-GGUF/Llama-3.2-Chibi-3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-3b-reasoning-time"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.2-3B-Reasoning-Time-GGUF
+  description: |
+    Lyte/Llama-3.2-3B-Reasoning-Time is a large language model with 3.2 billion parameters, designed for reasoning and time-based tasks in English. It is based on the Llama architecture and has been quantized using the GGUF format by mradermacher.
+  overrides:
+    parameters:
+      model: Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
+      sha256: 80b10e1a5c6e27f6d8cf08c3472af2b15a9f63ebf8385eedfe8615f85116c73f
+      uri: huggingface://mradermacher/Llama-3.2-3B-Reasoning-Time-GGUF/Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -544,6 +572,26 @@
     - filename: EdgeRunner-Command-Nested.i1-Q4_K_M.gguf
       sha256: a1cc4d2b601dc20e58cbb549bd3e9bc460995840c0aaf1cd3c1cb5414c900ac7
       uri: huggingface://mradermacher/EdgeRunner-Command-Nested-i1-GGUF/EdgeRunner-Command-Nested.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tsunami-0.5x-7b-instruct-i1"
+  icon: https://huggingface.co/Tsunami-th/Tsunami-0.5x-7B-Instruct/resolve/main/Tsunami.webp
+  urls:
+    - https://huggingface.co/Tsunami-th/Tsunami-0.5x-7B-Instruct
+    - https://huggingface.co/mradermacher/Tsunami-0.5x-7B-Instruct-i1-GGUF
+  description: |
+    TSUNAMI: Transformative Semantic Understanding and Natural Augmentation Model for Intelligence.
+
+    TSUNAMI full name was created by ChatGPT.
+    infomation
+
+    Tsunami-0.5x-7B-Instruct is Thai Large Language Model that fine-tuned from Qwen2.5-7B around 100,000 rows in Thai dataset.
+  overrides:
+    parameters:
+      model: Tsunami-0.5x-7B-Instruct.i1-Q4_K_M.gguf
+  files:
+    - filename: Tsunami-0.5x-7B-Instruct.i1-Q4_K_M.gguf
+      sha256: 22e2003ecec7f1e91f2e9aaec334613c0f37fb3000d0e628b5a9980e53322fa7
+      uri: huggingface://mradermacher/Tsunami-0.5x-7B-Instruct-i1-GGUF/Tsunami-0.5x-7B-Instruct.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -1569,6 +1617,61 @@
     - filename: hermes-3-llama-3.1-8b-lorablated.Q4_K_M.gguf
       sha256: 8cff9d399a0583616fe1f290da6daa091ab5c5493d0e173a8fffb45202d79417
       uri: huggingface://mlabonne/Hermes-3-Llama-3.1-8B-lorablated-GGUF/hermes-3-llama-3.1-8b-lorablated.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "doctoraifinetune-3.1-8b-i1"
+  urls:
+    - https://huggingface.co/huzaifa525/Doctoraifinetune-3.1-8B
+    - https://huggingface.co/mradermacher/Doctoraifinetune-3.1-8B-i1-GGUF
+  description: |
+      This is a fine-tuned version of the Meta-Llama-3.1-8B-bnb-4bit model, specifically adapted for the medical field. It has been trained using a dataset that provides extensive information on diseases, symptoms, and treatments, making it ideal for AI-powered healthcare tools such as medical chatbots, virtual assistants, and diagnostic support systems.
+      Key Features
+
+          Disease Diagnosis: Accurately identifies diseases based on symptoms provided by the user.
+          Symptom Analysis: Breaks down and interprets symptoms to provide a comprehensive medical overview.
+          Treatment Recommendations: Suggests treatments and remedies according to medical conditions.
+
+      Dataset
+
+      The model is fine-tuned on 2000 rows from a dataset consisting of 272k rows. This dataset includes rich information about diseases, symptoms, and their corresponding treatments. The model is continuously being updated and will be further trained on the remaining data in future releases to improve accuracy and capabilities.
+  overrides:
+    parameters:
+      model: Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
+      sha256: 282456efcb6c7e54d34ac25ae7fc022a94152ed77281ae4625b9628091e0a3d6
+      uri: huggingface://mradermacher/Doctoraifinetune-3.1-8B-i1-GGUF/Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "astral-fusion-neural-happy-l3.1-8b"
+  urls:
+    - https://huggingface.co/ZeroXClem/Astral-Fusion-Neural-Happy-L3.1-8B
+    - https://huggingface.co/mradermacher/Astral-Fusion-Neural-Happy-L3.1-8B-GGUF
+  description: |
+    Astral-Fusion-Neural-Happy-L3.1-8B is a celestial blend of magic, creativity, and dynamic storytelling. Designed to excel in instruction-following, immersive roleplaying, and magical narrative generation, this model is a fusion of the finest qualities from Astral-Fusion, NIHAPPY, and NeuralMahou. ✨🚀
+
+    This model is perfect for anyone seeking a cosmic narrative experience, with the ability to generate both precise instructional content and fantastical stories in one cohesive framework. Whether you're crafting immersive stories, creating AI roleplaying characters, or working on interactive storytelling, this model brings out the magic. 🌟
+  overrides:
+    parameters:
+      model: Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
+  files:
+    - filename: Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
+      sha256: 14a3b07c1723ef1ca24f99382254b1227d95974541e23792a4e7ff621896055d
+      uri: huggingface://mradermacher/Astral-Fusion-Neural-Happy-L3.1-8B-GGUF/Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "mahou-1.5-llama3.1-70b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/flammenai/Mahou-1.0-mistral-7B/resolve/main/mahou1.png
+  urls:
+    - https://huggingface.co/flammenai/Mahou-1.5-llama3.1-70B
+    - https://huggingface.co/mradermacher/Mahou-1.5-llama3.1-70B-i1-GGUF
+  description: |
+    Mahou is designed to provide short messages in a conversational context. It is capable of casual conversation and character roleplay.
+  overrides:
+    parameters:
+      model: Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
+      sha256: c2711c4c9c8d011edbeaa391b4418d433e273a318d1de3dbdda9b85baf4996f2
+      uri: huggingface://mradermacher/Mahou-1.5-llama3.1-70B-i1-GGUF/Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -2193,6 +2296,27 @@
     - filename: MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
       sha256: cea68768dff58b553974b755bb40ef790ab8b86866d9b5c46bc2e6c3311b876a
       uri: huggingface://Lewdiculous/MN-BackyardAI-Party-12B-v1-GGUF-IQ-ARM-Imatrix/MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
+- !!merge <<: *mistral03
+  name: "ml-ms-etheris-123b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/ieEjL3TxpDM3WAZQcya6E.png
+  urls:
+    - https://huggingface.co/Steelskull/ML-MS-Etheris-123B
+    - https://huggingface.co/mradermacher/ML-MS-Etheris-123B-GGUF
+  description: |
+    This model merges the robust storytelling of mutiple models while attempting to maintain intelligence. The final model was merged after Model Soup with DELLA to add some specal sause.
+      - model: NeverSleep/Lumimaid-v0.2-123B
+      - model: TheDrummer/Behemoth-123B-v1
+      - model: migtissera/Tess-3-Mistral-Large-2-123B
+      - model: anthracite-org/magnum-v2-123b
+    Use Mistral, ChatML, or Meth Format
+  overrides:
+    parameters:
+      model: ML-MS-Etheris-123B.Q2_K.gguf
+  files:
+    - filename: ML-MS-Etheris-123B.Q2_K.gguf
+      sha256: a17c5615413b5c9c8d01cf55386573d0acd00e01f6e2bcdf492624c73c593fc3
+      uri: huggingface://mradermacher/ML-MS-Etheris-123B-GGUF/ML-MS-Etheris-123B.Q2_K.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"

@@ -12,3 +12,17 @@ type ElevenLabsSoundGenerationRequest struct {
 	Temperature *float32 `json:"prompt_influence,omitempty" yaml:"prompt_influence,omitempty"`
 	DoSample    *bool    `json:"do_sample,omitempty" yaml:"do_sample,omitempty"`
 }
+
+func (elttsr *ElevenLabsTTSRequest) ModelName(s *string) string {
+	if s != nil {
+		elttsr.ModelID = *s
+	}
+	return elttsr.ModelID
+}
+
+func (elsgr *ElevenLabsSoundGenerationRequest) ModelName(s *string) string {
+	if s != nil {
+		elsgr.ModelID = *s
+	}
+	return elsgr.ModelID
+}

@@ -235,7 +235,9 @@ var _ = Describe("E2E test", func() {
 				modelName := "jina-reranker-v1-base-en"
 
 				req := schema.JINARerankRequest{
-					Model: modelName,
+					BasicModelRequest: schema.BasicModelRequest{
+						Model: modelName,
+					},
 					Query: "Organic skincare products for sensitive skin",
 					Documents: []string{
 						"Eco-friendly kitchenware for modern homes",

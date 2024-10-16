@@ -7,9 +7,7 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
-
-	modelFile := backendConfig.Model
+func ModelTokenize(s string, modelFile string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
 
 	var inferenceModel grpc.Backend
 	var err error
