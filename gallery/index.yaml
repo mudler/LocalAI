@@ -182,6 +182,21 @@
     - filename: Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO.Q4_K_M.gguf
       sha256: 7f45fa79bc6c9847ef9fbad08c3bb5a0f2dbb56d2e2200a5d37b260a57274e55
       uri: huggingface://QuantFactory/Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO-GGUF/Fireball-Meta-Llama-3.2-8B-Instruct-agent-003-128k-code-DPO.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-chibi-3b"
+  icon: https://huggingface.co/AELLM/Llama-3.2-Chibi-3B/resolve/main/chibi.jpg
+  urls:
+    - https://huggingface.co/AELLM/Llama-3.2-Chibi-3B
+    - https://huggingface.co/mradermacher/Llama-3.2-Chibi-3B-GGUF
+  description: |
+    Small parameter LLMs are ideal for navigating the complexities of the Japanese language, which involves multiple character systems like kanji, hiragana, and katakana, along with subtle social cues. Despite their smaller size, these models are capable of delivering highly accurate and context-aware results, making them perfect for use in environments where resources are constrained. Whether deployed on mobile devices with limited processing power or in edge computing scenarios where fast, real-time responses are needed, these models strike the perfect balance between performance and efficiency, without sacrificing quality or speed.
+  overrides:
+    parameters:
+      model: Llama-3.2-Chibi-3B.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-Chibi-3B.Q4_K_M.gguf
+      sha256: 4b594cd5f66181202713f1cf97ce2f86d0acfa1b862a64930d5f512c45640a2f
+      uri: huggingface://mradermacher/Llama-3.2-Chibi-3B-GGUF/Llama-3.2-Chibi-3B.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
