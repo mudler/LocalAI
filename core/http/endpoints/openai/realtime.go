@@ -106,13 +106,16 @@ var sessionLock sync.Mutex
 
 func RegisterRealtime(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *websocket.Conn) {
 	return func(c *websocket.Conn) {
+
+		log.Debug().Msgf("WebSocket connection established with '%s'", c.RemoteAddr().String())
+
 		// Generate a unique session ID
 		sessionID := generateSessionID()
 
-		modelFile, input, err := readWSRequest(c, cl, ml, appConfig, true)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
-		}
+		// modelFile, input, err := readWSRequest(c, cl, ml, appConfig, true)
+		// if err != nil {
+		// 	return fmt.Errorf("failed reading parameters from request:%w", err)
+		// }
 
 		session := &Session{
 			ID:            sessionID,
