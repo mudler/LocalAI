@@ -2221,6 +2221,27 @@
     - filename: MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
       sha256: cea68768dff58b553974b755bb40ef790ab8b86866d9b5c46bc2e6c3311b876a
       uri: huggingface://Lewdiculous/MN-BackyardAI-Party-12B-v1-GGUF-IQ-ARM-Imatrix/MN-BackyardAI-Party-12B-v1-Q4_K_M-imat.gguf
+- !!merge <<: *mistral03
+  name: "ml-ms-etheris-123b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/ieEjL3TxpDM3WAZQcya6E.png
+  urls:
+    - https://huggingface.co/Steelskull/ML-MS-Etheris-123B
+    - https://huggingface.co/mradermacher/ML-MS-Etheris-123B-GGUF
+  description: |
+    This model merges the robust storytelling of mutiple models while attempting to maintain intelligence. The final model was merged after Model Soup with DELLA to add some specal sause.
+      - model: NeverSleep/Lumimaid-v0.2-123B
+      - model: TheDrummer/Behemoth-123B-v1
+      - model: migtissera/Tess-3-Mistral-Large-2-123B
+      - model: anthracite-org/magnum-v2-123b
+    Use Mistral, ChatML, or Meth Format
+  overrides:
+    parameters:
+      model: ML-MS-Etheris-123B.Q2_K.gguf
+  files:
+    - filename: ML-MS-Etheris-123B.Q2_K.gguf
+      sha256: a17c5615413b5c9c8d01cf55386573d0acd00e01f6e2bcdf492624c73c593fc3
+      uri: huggingface://mradermacher/ML-MS-Etheris-123B-GGUF/ML-MS-Etheris-123B.Q2_K.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
