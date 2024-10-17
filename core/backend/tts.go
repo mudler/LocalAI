@@ -46,27 +46,9 @@ func ModelTTS(
 	fileName := utils.GenerateUniqueFileName(appConfig.AudioDir, "tts", ".wav")
 	filePath := filepath.Join(appConfig.AudioDir, fileName)
 
-	// If the model file is not empty, we pass it joined with the model path
-	modelPath := ""
-	if modelFile != "" {
-		// If the model file is not empty, we pass it joined with the model path
-		// Checking first that it exists and is not outside ModelPath
-		// TODO: we should actually first check if the modelFile is looking like
-		// a FS path
-		mp := filepath.Join(loader.ModelPath, modelFile)
-		if _, err := os.Stat(mp); err == nil {
-			if err := utils.VerifyPath(mp, appConfig.ModelPath); err != nil {
-				return "", nil, err
-			}
-			modelPath = mp
-		} else {
-			modelPath = modelFile
-		}
-	}
-
 	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{
 		Text:     text,
-		Model:    modelPath,
+		Model:    backendConfig.Model,
 		Voice:    voice,
 		Dst:      filePath,
 		Language: &language,

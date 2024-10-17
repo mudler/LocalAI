@@ -13,7 +13,6 @@ import (
 )
 
 func SoundGeneration(
-	modelFile string,
 	text string,
 	duration *float32,
 	temperature *float32,
@@ -45,7 +44,7 @@ func SoundGeneration(
 
 	res, err := soundGenModel.SoundGeneration(context.Background(), &proto.SoundGenerationRequest{
 		Text:        text,
-		Model:       modelFile,
+		Model:       backendConfig.Model,
 		Dst:         filePath,
 		Sample:      doSample,
 		Duration:    duration,

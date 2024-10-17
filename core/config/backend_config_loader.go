@@ -334,6 +334,7 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 func (bcl *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
+
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("cannot read directory '%s': %w", path, err)
