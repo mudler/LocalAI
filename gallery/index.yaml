@@ -2410,6 +2410,21 @@
     - filename: MN-Lulanum-12B-FIX.i1-Q4_K_M.gguf
       sha256: 7e24d57249059d45bb508565ec3055e585a4e658c1815c67ea92397acc6aa775
       uri: huggingface://mradermacher/MN-Lulanum-12B-FIX-i1-GGUF/MN-Lulanum-12B-FIX.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "tor-8b"
+  icon: https://huggingface.co/Delta-Vector/Tor-8B/resolve/main/FinalTor8B.jpg
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/QuantFactory/Tor-8B-GGUF
+  description: |
+    An earlier checkpoint of Darkens-8B using the same configuration that i felt was different enough from it's 4 epoch cousin to release, Finetuned ontop of the Prune/Distill NeMo 8B done by Nvidia, This model aims to have generally good prose and writing while not falling into claude-isms.
+  overrides:
+    parameters:
+      model: Tor-8B.Q4_K_M.gguf
+  files:
+    - filename: Tor-8B.Q4_K_M.gguf
+      sha256: 9dd64bd886aa7682b6179340449b38feda405b44722ef7ac752cedb807af370e
+      uri: huggingface://QuantFactory/Tor-8B-GGUF/Tor-8B.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
