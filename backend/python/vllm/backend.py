@@ -19,6 +19,8 @@ from vllm.utils import random_uuid
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from vllm.multimodal.utils import fetch_image
 from vllm.assets.video import VideoAsset
+import base64
+import io
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -262,16 +264,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def load_image(self, image_path: str):
         """
-        Load an image from the given file path.
+        Load an image from the given file path or base64 encoded data.
         
         Args:
-            image_path (str): The path to the image file.
+            image_path (str): The path to the image file or base64 encoded data.
 
         Returns:
             Image: The loaded image.
         """
         try:
-            return Image.open(image_path)
+
+            image_data = base64.b64decode(image_path)
+            image = Image.open(io.BytesIO(image_data))
+            return image
         except Exception as e:
             print(f"Error loading image {image_path}: {e}", file=sys.stderr)
             return self.load_video(image_path)
@@ -287,10 +292,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             Video: The loaded video.
         """
         try:
-            video = VideoAsset(name=video_path).np_ndarrays
+            timestamp = str(int(time.time() * 1000))  # Generate timestamp
+            p = f"/tmp/vl-{timestamp}.data"  # Use timestamp in filename
+            with open(p, "wb") as f:
+                f.write(base64.b64decode(video_path))
+            video = VideoAsset(name=p).np_ndarrays
+            os.remove(p)
             return video
         except Exception as e:
-            print(f"Error loading video {image_path}: {e}", file=sys.stderr)
+            print(f"Error loading video {video_path}: {e}", file=sys.stderr)
             return None
 
 async def serve(address):
