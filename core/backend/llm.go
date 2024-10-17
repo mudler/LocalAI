@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -77,6 +78,16 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			switch ct := message.Content.(type) {
 			case string:
 				protoMessages[i].Content = ct
+			case []interface{}:
+				// If using the tokenizer template, in case of multimodal we want to keep the multimodal content as and return only strings here
+				data, _ := json.Marshal(ct)
+				resultData := []struct {
+					Text string `json:"text"`
+				}{}
+				json.Unmarshal(data, &resultData)
+				for _, r := range resultData {
+					protoMessages[i].Content += r.Text
+				}
 			default:
 				return nil, fmt.Errorf("unsupported type for schema.Message.Content for inference: %T", ct)
 			}
