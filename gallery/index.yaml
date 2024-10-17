@@ -611,6 +611,23 @@
     - filename: Qevacot-7B-v2.Q4_K_M.gguf
       sha256: a45b3d3b74bc68a5c7ac07d251cdeff671e64085d1816cd86fca6cfb7eab204e
       uri: huggingface://mradermacher/Qevacot-7B-v2-GGUF/Qevacot-7B-v2.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "meissa-qwen2.5-7b-instruct"
+  icon: https://huggingface.co/Orion-zhen/Meissa-Qwen2.5-7B-Instruct/resolve/main/meissa.jpg
+  urls:
+    - https://huggingface.co/Orion-zhen/Meissa-Qwen2.5-7B-Instruct
+    - https://huggingface.co/QuantFactory/Meissa-Qwen2.5-7B-Instruct-GGUF
+  description: |
+    Meissa is designated Lambda Orionis, forms Orion's head, and is a multiple star with a combined apparent magnitude of 3.33. Its name means the "shining one".
+    This model is fine tuned over writing and role playing datasets (maybe the first on qwen2.5-7b), aiming to enhance model's performance in novel writing and roleplaying.
+    The model is fine-tuned over Orion-zhen/Qwen2.5-7B-Instruct-Uncensored
+  overrides:
+    parameters:
+      model: Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
+      sha256: 632b10d5c0e98bc8d53295886da2d57772a54bb6f6fa01d458e9e8c7fa9c905a
+      uri: huggingface://QuantFactory/Meissa-Qwen2.5-7B-Instruct-GGUF/Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
