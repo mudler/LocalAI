@@ -36,24 +36,21 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			cfg.Backend = input.Backend
 		}
 
-		if cfg.Model == "" {
-			log.Debug().Str("input.Model", input.Model).Msg("replacing empty cfg.Model with input value")
-			cfg.Model = input.Model
-		}
-
 		request := &proto.RerankRequest{
 			Query:     input.Query,
 			TopN:      int32(input.TopN),
 			Documents: input.Documents,
 		}
 
-		results, err := backend.Rerank(cfg.Model, request, ml, appConfig, *cfg)
+		results, err := backend.Rerank(input.Model, request, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
 
+		log.Debug().Str("model", input.Model).Msg("TMP Jinra Rerank Trace: About to respond")
+
 		response := &schema.JINARerankResponse{
-			Model: cfg.Model,
+			Model: input.Model,
 		}
 
 		for _, r := range results.Results {
