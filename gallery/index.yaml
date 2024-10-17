@@ -1672,6 +1672,28 @@
     - filename: Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
       sha256: c2711c4c9c8d011edbeaa391b4418d433e273a318d1de3dbdda9b85baf4996f2
       uri: huggingface://mradermacher/Mahou-1.5-llama3.1-70B-i1-GGUF/Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-nemotron-70b-instruct-hf"
+  urls:
+    - https://huggingface.co/nvidia/Llama-3.1-Nemotron-70B-Instruct-HF
+    - https://huggingface.co/mradermacher/Llama-3.1-Nemotron-70B-Instruct-HF-GGUF
+  description: |
+    Llama-3.1-Nemotron-70B-Instruct is a large language model customized by NVIDIA to improve the helpfulness of LLM generated responses to user queries.
+
+    This model reaches Arena Hard of 85.0, AlpacaEval 2 LC of 57.6 and GPT-4-Turbo MT-Bench of 8.98, which are known to be predictive of LMSys Chatbot Arena Elo
+
+    As of 1 Oct 2024, this model is #1 on all three automatic alignment benchmarks (verified tab for AlpacaEval 2 LC), edging out strong frontier models such as GPT-4o and Claude 3.5 Sonnet.
+
+    This model was trained using RLHF (specifically, REINFORCE), Llama-3.1-Nemotron-70B-Reward and HelpSteer2-Preference prompts on a Llama-3.1-70B-Instruct model as the initial policy.
+
+    Llama-3.1-Nemotron-70B-Instruct-HF has been converted from Llama-3.1-Nemotron-70B-Instruct to support it in the HuggingFace Transformers codebase. Please note that evaluation results might be slightly different from the Llama-3.1-Nemotron-70B-Instruct as evaluated in NeMo-Aligner, which the evaluation results below are based on.
+  overrides:
+    parameters:
+      model: Llama-3.1-Nemotron-70B-Instruct-HF.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Nemotron-70B-Instruct-HF.Q4_K_M.gguf
+      sha256: b6b80001b849e3c59c39b09508c018b35b491a5c7bbafafa23f2fc04243f3e30
+      uri: huggingface://mradermacher/Llama-3.1-Nemotron-70B-Instruct-HF-GGUF/Llama-3.1-Nemotron-70B-Instruct-HF.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
