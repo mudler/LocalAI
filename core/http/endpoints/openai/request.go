@@ -48,6 +48,25 @@ func readRequest(c *fiber.Ctx, cl *config.BackendConfigLoader, ml *model.ModelLo
 	return modelFile, input, err
 }
 
+// func readWSRequest(c *websocket.Conn, cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig, firstModel bool) (string, *schema.OpenAIRequest, error) {
+// 	input := new(schema.OpenAIRequest)
+
+// 	input.Model = c.Query("name")
+
+// 	received, _ := json.Marshal(input)
+
+// 	ctx, cancel := context.WithCancel(o.Context)
+
+// 	input.Context = ctx
+// 	input.Cancel = cancel
+
+// 	log.Debug().Msgf("Request received: %s", string(received))
+
+// 	modelFile, err := fiberContext.ModelFromContext(c, cl, ml, input.Model, firstModel)
+
+// 	return modelFile, input, err
+// }
+
 func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIRequest) {
 	if input.Echo {
 		config.Echo = input.Echo

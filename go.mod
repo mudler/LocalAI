@@ -76,9 +76,12 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
 	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect
+	github.com/fasthttp/websocket v1.5.8 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.0.0 // indirect
+	github.com/gofiber/contrib/websocket v1.3.2 // indirect
+	github.com/gofiber/websocket/v2 v2.2.1 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
@@ -103,6 +106,7 @@ require (
 	github.com/pion/turn/v2 v2.1.6 // indirect
 	github.com/pion/webrtc/v3 v3.3.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
 	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
 	github.com/urfave/cli/v2 v2.27.4 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
@@ -320,3 +324,5 @@ require (
 	howett.net/plist v1.0.0 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
+
+
