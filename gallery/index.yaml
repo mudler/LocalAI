@@ -2377,6 +2377,25 @@
     - filename: ML-MS-Etheris-123B.Q2_K.gguf
       sha256: a17c5615413b5c9c8d01cf55386573d0acd00e01f6e2bcdf492624c73c593fc3
       uri: huggingface://mradermacher/ML-MS-Etheris-123B-GGUF/ML-MS-Etheris-123B.Q2_K.gguf
+- !!merge <<: *mistral03
+  name: "mn-lulanum-12b-fix-i1"
+  urls:
+    - https://huggingface.co/djuna/MN-Lulanum-12B-FIX
+    - https://huggingface.co/mradermacher/MN-Lulanum-12B-FIX-i1-GGUF
+  description: |
+    This model was merged using the della_linear merge method using unsloth/Mistral-Nemo-Base-2407 as a base.
+    The following models were included in the merge:
+        VAGOsolutions/SauerkrautLM-Nemo-12b-Instruct
+        anthracite-org/magnum-v2.5-12b-kto
+        Undi95/LocalC-12B-e2.0
+        NeverSleep/Lumimaid-v0.2-12B
+  overrides:
+    parameters:
+      model: MN-Lulanum-12B-FIX.i1-Q4_K_M.gguf
+  files:
+    - filename: MN-Lulanum-12B-FIX.i1-Q4_K_M.gguf
+      sha256: 7e24d57249059d45bb508565ec3055e585a4e658c1815c67ea92397acc6aa775
+      uri: huggingface://mradermacher/MN-Lulanum-12B-FIX-i1-GGUF/MN-Lulanum-12B-FIX.i1-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
