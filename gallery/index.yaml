@@ -6095,6 +6095,27 @@
     - filename: calme-2.1-phi3.5-4b.i1-Q4_K_M.gguf
       sha256: 989eccacd52b6d9ebf2c06c35c363da19aadb125659a10df299b7130bc293e77
       uri: huggingface://mradermacher/calme-2.1-phi3.5-4b-i1-GGUF/calme-2.1-phi3.5-4b.i1-Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "phi-3.5-mini-titanfusion-0.2"
+  urls:
+    - https://huggingface.co/bunnycore/Phi-3.5-mini-TitanFusion-0.2
+    - https://huggingface.co/mradermacher/Phi-3.5-mini-TitanFusion-0.2-GGUF
+  description: |
+    This model was merged using the TIES merge method using microsoft/Phi-3.5-mini-instruct as a base.
+    The following models were included in the merge:
+        nbeerbower/phi3.5-gutenberg-4B
+        ArliAI/Phi-3.5-mini-3.8B-ArliAI-RPMax-v1.1
+        bunnycore/Phi-3.5-Mini-Hyper
+        bunnycore/Phi-3.5-Mini-Hyper + bunnycore/Phi-3.1-EvolKit-lora
+        bunnycore/Phi-3.5-Mini-Sonet-RP
+        bunnycore/Phi-3.5-mini-TitanFusion-0.1
+  overrides:
+    parameters:
+      model: Phi-3.5-mini-TitanFusion-0.2.Q4_K_M.gguf
+  files:
+    - filename: Phi-3.5-mini-TitanFusion-0.2.Q4_K_M.gguf
+      sha256: 9579305712f2bca246914639c4873acdc1e7bc64ac2c7db0230df4f0ca0ef234
+      uri: huggingface://mradermacher/Phi-3.5-mini-TitanFusion-0.2-GGUF/Phi-3.5-mini-TitanFusion-0.2.Q4_K_M.gguf
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
