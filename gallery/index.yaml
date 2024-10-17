@@ -1713,6 +1713,25 @@
     - filename: Llama-3.1-Nemotron-70B-Instruct-HF.Q4_K_M.gguf
       sha256: b6b80001b849e3c59c39b09508c018b35b491a5c7bbafafa23f2fc04243f3e30
       uri: huggingface://mradermacher/Llama-3.1-Nemotron-70B-Instruct-HF-GGUF/Llama-3.1-Nemotron-70B-Instruct-HF.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-etherealrainbow-v1.0-rc1-8b"
+  icon: https://huggingface.co/invisietch/L3.1-EtherealRainbow-v1.0-rc1-8B/resolve/main/header.png
+  urls:
+    - https://huggingface.co/invisietch/L3.1-EtherealRainbow-v1.0-rc1-8B
+    - https://huggingface.co/mradermacher/L3.1-EtherealRainbow-v1.0-rc1-8B-GGUF
+  description: |
+    Ethereal Rainbow v1.0 is the sequel to the popular Llama 3 8B merge, EtherealRainbow v0.3. Instead of a straight merge of other peoples' models, v1.0 is a finetune on the Instruct model, using 245 million tokens of training data (approx 177 million of these tokens are my own novel datasets).
+
+    This model is designed to be suitable for creative writing and roleplay, and to push the boundaries of what's possible with an 8B model. This RC is not a finished product, but your feedback will drive the creation of better models.
+
+    This is a release candidate model. It has some known issues and probably some unknown ones too, because the purpose of these early releases is to seek feedback.
+  overrides:
+    parameters:
+      model: L3.1-EtherealRainbow-v1.0-rc1-8B.Q4_K_M.gguf
+  files:
+    - filename: L3.1-EtherealRainbow-v1.0-rc1-8B.Q4_K_M.gguf
+      sha256: c5556b2563112e512acca171415783f0988545b02c1834696c1cc35952def72c
+      uri: huggingface://mradermacher/L3.1-EtherealRainbow-v1.0-rc1-8B-GGUF/L3.1-EtherealRainbow-v1.0-rc1-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
