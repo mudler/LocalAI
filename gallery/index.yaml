@@ -592,6 +592,42 @@
     - filename: Tsunami-0.5x-7B-Instruct.i1-Q4_K_M.gguf
       sha256: 22e2003ecec7f1e91f2e9aaec334613c0f37fb3000d0e628b5a9980e53322fa7
       uri: huggingface://mradermacher/Tsunami-0.5x-7B-Instruct-i1-GGUF/Tsunami-0.5x-7B-Instruct.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qevacot-7b-v2"
+  urls:
+    - https://huggingface.co/bunnycore/Qevacot-7B-v2
+    - https://huggingface.co/mradermacher/Qevacot-7B-v2-GGUF
+  description: |
+    This model was merged using the TIES merge method using Qwen/Qwen2.5-7B as a base.
+    The following models were included in the merge:
+        c10x/CoT-2.5
+        EVA-UNIT-01/EVA-Qwen2.5-7B-v0.1
+        huihui-ai/Qwen2.5-7B-Instruct-abliterated-v2
+        Cran-May/T.E-8.1
+  overrides:
+    parameters:
+      model: Qevacot-7B-v2.Q4_K_M.gguf
+  files:
+    - filename: Qevacot-7B-v2.Q4_K_M.gguf
+      sha256: a45b3d3b74bc68a5c7ac07d251cdeff671e64085d1816cd86fca6cfb7eab204e
+      uri: huggingface://mradermacher/Qevacot-7B-v2-GGUF/Qevacot-7B-v2.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "meissa-qwen2.5-7b-instruct"
+  icon: https://huggingface.co/Orion-zhen/Meissa-Qwen2.5-7B-Instruct/resolve/main/meissa.jpg
+  urls:
+    - https://huggingface.co/Orion-zhen/Meissa-Qwen2.5-7B-Instruct
+    - https://huggingface.co/QuantFactory/Meissa-Qwen2.5-7B-Instruct-GGUF
+  description: |
+    Meissa is designated Lambda Orionis, forms Orion's head, and is a multiple star with a combined apparent magnitude of 3.33. Its name means the "shining one".
+    This model is fine tuned over writing and role playing datasets (maybe the first on qwen2.5-7b), aiming to enhance model's performance in novel writing and roleplaying.
+    The model is fine-tuned over Orion-zhen/Qwen2.5-7B-Instruct-Uncensored
+  overrides:
+    parameters:
+      model: Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
+      sha256: 632b10d5c0e98bc8d53295886da2d57772a54bb6f6fa01d458e9e8c7fa9c905a
+      uri: huggingface://QuantFactory/Meissa-Qwen2.5-7B-Instruct-GGUF/Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -1672,6 +1708,76 @@
     - filename: Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
       sha256: c2711c4c9c8d011edbeaa391b4418d433e273a318d1de3dbdda9b85baf4996f2
       uri: huggingface://mradermacher/Mahou-1.5-llama3.1-70B-i1-GGUF/Mahou-1.5-llama3.1-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-nemotron-70b-instruct-hf"
+  urls:
+    - https://huggingface.co/nvidia/Llama-3.1-Nemotron-70B-Instruct-HF
+    - https://huggingface.co/mradermacher/Llama-3.1-Nemotron-70B-Instruct-HF-GGUF
+  description: |
+    Llama-3.1-Nemotron-70B-Instruct is a large language model customized by NVIDIA to improve the helpfulness of LLM generated responses to user queries.
+
+    This model reaches Arena Hard of 85.0, AlpacaEval 2 LC of 57.6 and GPT-4-Turbo MT-Bench of 8.98, which are known to be predictive of LMSys Chatbot Arena Elo
+
+    As of 1 Oct 2024, this model is #1 on all three automatic alignment benchmarks (verified tab for AlpacaEval 2 LC), edging out strong frontier models such as GPT-4o and Claude 3.5 Sonnet.
+
+    This model was trained using RLHF (specifically, REINFORCE), Llama-3.1-Nemotron-70B-Reward and HelpSteer2-Preference prompts on a Llama-3.1-70B-Instruct model as the initial policy.
+
+    Llama-3.1-Nemotron-70B-Instruct-HF has been converted from Llama-3.1-Nemotron-70B-Instruct to support it in the HuggingFace Transformers codebase. Please note that evaluation results might be slightly different from the Llama-3.1-Nemotron-70B-Instruct as evaluated in NeMo-Aligner, which the evaluation results below are based on.
+  overrides:
+    parameters:
+      model: Llama-3.1-Nemotron-70B-Instruct-HF.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Nemotron-70B-Instruct-HF.Q4_K_M.gguf
+      sha256: b6b80001b849e3c59c39b09508c018b35b491a5c7bbafafa23f2fc04243f3e30
+      uri: huggingface://mradermacher/Llama-3.1-Nemotron-70B-Instruct-HF-GGUF/Llama-3.1-Nemotron-70B-Instruct-HF.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-etherealrainbow-v1.0-rc1-8b"
+  icon: https://huggingface.co/invisietch/L3.1-EtherealRainbow-v1.0-rc1-8B/resolve/main/header.png
+  urls:
+    - https://huggingface.co/invisietch/L3.1-EtherealRainbow-v1.0-rc1-8B
+    - https://huggingface.co/mradermacher/L3.1-EtherealRainbow-v1.0-rc1-8B-GGUF
+  description: |
+    Ethereal Rainbow v1.0 is the sequel to the popular Llama 3 8B merge, EtherealRainbow v0.3. Instead of a straight merge of other peoples' models, v1.0 is a finetune on the Instruct model, using 245 million tokens of training data (approx 177 million of these tokens are my own novel datasets).
+
+    This model is designed to be suitable for creative writing and roleplay, and to push the boundaries of what's possible with an 8B model. This RC is not a finished product, but your feedback will drive the creation of better models.
+
+    This is a release candidate model. It has some known issues and probably some unknown ones too, because the purpose of these early releases is to seek feedback.
+  overrides:
+    parameters:
+      model: L3.1-EtherealRainbow-v1.0-rc1-8B.Q4_K_M.gguf
+  files:
+    - filename: L3.1-EtherealRainbow-v1.0-rc1-8B.Q4_K_M.gguf
+      sha256: c5556b2563112e512acca171415783f0988545b02c1834696c1cc35952def72c
+      uri: huggingface://mradermacher/L3.1-EtherealRainbow-v1.0-rc1-8B-GGUF/L3.1-EtherealRainbow-v1.0-rc1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "theia-llama-3.1-8b-v1"
+  urls:
+    - https://huggingface.co/Chainbase-Labs/Theia-Llama-3.1-8B-v1
+    - https://huggingface.co/QuantFactory/Theia-Llama-3.1-8B-v1-GGUF
+  description: |
+    Theia-Llama-3.1-8B-v1 is an open-source large language model (LLM) trained specifically in the cryptocurrency domain. It was fine-tuned from the Llama-3.1-8B base model using a dataset curated from top 2000 cryptocurrency projects and comprehensive research reports to specialize in crypto-related tasks. Theia-Llama-3.1-8B-v1 has been quantized to optimize it for efficient deployment and reduced memory footprint. It's benchmarked highly for crypto knowledge comprehension and generation, knowledge coverage, and reasoning capabilities. The system prompt used for its training is "You are a helpful assistant who will answer crypto related questions." The recommended parameters for performance include sequence length of 256, temperature of 0, top-k-sampling of -1, top-p of 1, and context window of 39680.
+  overrides:
+    parameters:
+      model: Theia-Llama-3.1-8B-v1.Q4_K_M.gguf
+  files:
+    - filename: Theia-Llama-3.1-8B-v1.Q4_K_M.gguf
+      sha256: db876d033f86f118b49a1f1006e5d078d494c93b73c7e595bd10ca789a0c8fdb
+      uri: huggingface://QuantFactory/Theia-Llama-3.1-8B-v1-GGUF/Theia-Llama-3.1-8B-v1.Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://huggingface.co/Delta-Vector/Baldur-8B/resolve/main/Baldur.jpg
+  name: "baldur-8b"
+  urls:
+    - https://huggingface.co/QuantFactory/Baldur-8B-GGUF
+    - https://huggingface.co/QuantFactory/Baldur-8B-GGUF
+  description: |
+    An finetune of the L3.1 instruct distill done by Arcee, The intent of this model is to have differing prose then my other releases, in my testing it has achieved this and avoiding using common -isms frequently and has a differing flavor then my other models.
+  overrides:
+    parameters:
+      model: Baldur-8B.Q4_K_M.gguf
+  files:
+    - filename: Baldur-8B.Q4_K_M.gguf
+      sha256: 645b393fbac5cd17ccfd66840a3a05c3930e01b903dd1535f0347a74cc443fc7
+      uri: huggingface://QuantFactory/Baldur-8B-GGUF/Baldur-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -2317,6 +2423,55 @@
     - filename: ML-MS-Etheris-123B.Q2_K.gguf
       sha256: a17c5615413b5c9c8d01cf55386573d0acd00e01f6e2bcdf492624c73c593fc3
       uri: huggingface://mradermacher/ML-MS-Etheris-123B-GGUF/ML-MS-Etheris-123B.Q2_K.gguf
+- !!merge <<: *mistral03
+  name: "mn-lulanum-12b-fix-i1"
+  urls:
+    - https://huggingface.co/djuna/MN-Lulanum-12B-FIX
+    - https://huggingface.co/mradermacher/MN-Lulanum-12B-FIX-i1-GGUF
+  description: |
+    This model was merged using the della_linear merge method using unsloth/Mistral-Nemo-Base-2407 as a base.
+    The following models were included in the merge:
+        VAGOsolutions/SauerkrautLM-Nemo-12b-Instruct
+        anthracite-org/magnum-v2.5-12b-kto
+        Undi95/LocalC-12B-e2.0
+        NeverSleep/Lumimaid-v0.2-12B
+  overrides:
+    parameters:
+      model: MN-Lulanum-12B-FIX.i1-Q4_K_M.gguf
+  files:
+    - filename: MN-Lulanum-12B-FIX.i1-Q4_K_M.gguf
+      sha256: 7e24d57249059d45bb508565ec3055e585a4e658c1815c67ea92397acc6aa775
+      uri: huggingface://mradermacher/MN-Lulanum-12B-FIX-i1-GGUF/MN-Lulanum-12B-FIX.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "tor-8b"
+  icon: https://huggingface.co/Delta-Vector/Tor-8B/resolve/main/FinalTor8B.jpg
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/QuantFactory/Tor-8B-GGUF
+  description: |
+    An earlier checkpoint of Darkens-8B using the same configuration that i felt was different enough from it's 4 epoch cousin to release, Finetuned ontop of the Prune/Distill NeMo 8B done by Nvidia, This model aims to have generally good prose and writing while not falling into claude-isms.
+  overrides:
+    parameters:
+      model: Tor-8B.Q4_K_M.gguf
+  files:
+    - filename: Tor-8B.Q4_K_M.gguf
+      sha256: 9dd64bd886aa7682b6179340449b38feda405b44722ef7ac752cedb807af370e
+      uri: huggingface://QuantFactory/Tor-8B-GGUF/Tor-8B.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "darkens-8b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Delta-Vector/Darkens-8B
+    - https://huggingface.co/QuantFactory/Darkens-8B-GGUF
+  description: |
+    This is the fully cooked, 4 epoch version of Tor-8B, this is an experimental version, despite being trained for 4 epochs, the model feels fresh and new and is not overfit, This model aims to have generally good prose and writing while not falling into claude-isms, it follows the actions "dialogue" format heavily.
+  overrides:
+    parameters:
+      model: Darkens-8B.Q4_K_M.gguf
+  files:
+    - filename: Darkens-8B.Q4_K_M.gguf
+      sha256: f56a483e10fd00957460adfc16ee462cecac892a4fb44dc59e466e68a360fd42
+      uri: huggingface://QuantFactory/Darkens-8B-GGUF/Darkens-8B.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -2944,6 +3099,20 @@
     - filename: Gemma-2-Ataraxy-v3i-9B.Q4_K_M.gguf
       sha256: f14c5b9373d4058f0f812c6c34184addeb4aeeecb02a7bbcf9844d9afc8d0066
       uri: huggingface://QuantFactory/Gemma-2-Ataraxy-v3i-9B-GGUF/Gemma-2-Ataraxy-v3i-9B.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "apollo2-9b"
+  url: "github:mudler/LocalAI/gallery/vicuna-chat.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Apollo2-9B-GGUF
+  description: |
+    Covering 12 Major Languages including English, Chinese, French, Hindi, Spanish, Arabic, Russian, Japanese, Korean, German, Italian, Portuguese and 38 Minor Languages So far.
+  overrides:
+    parameters:
+      model: Apollo2-9B.Q4_K_M.gguf
+  files:
+    - filename: Apollo2-9B.Q4_K_M.gguf
+      sha256: 9fdb63f78e574558a4f33782eca88716eea28e90ea3ae36c381769cde6b81e0f
+      uri: huggingface://mradermacher/Apollo2-9B-GGUF/Apollo2-9B.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -6035,6 +6204,27 @@
     - filename: calme-2.1-phi3.5-4b.i1-Q4_K_M.gguf
       sha256: 989eccacd52b6d9ebf2c06c35c363da19aadb125659a10df299b7130bc293e77
       uri: huggingface://mradermacher/calme-2.1-phi3.5-4b-i1-GGUF/calme-2.1-phi3.5-4b.i1-Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "phi-3.5-mini-titanfusion-0.2"
+  urls:
+    - https://huggingface.co/bunnycore/Phi-3.5-mini-TitanFusion-0.2
+    - https://huggingface.co/mradermacher/Phi-3.5-mini-TitanFusion-0.2-GGUF
+  description: |
+    This model was merged using the TIES merge method using microsoft/Phi-3.5-mini-instruct as a base.
+    The following models were included in the merge:
+        nbeerbower/phi3.5-gutenberg-4B
+        ArliAI/Phi-3.5-mini-3.8B-ArliAI-RPMax-v1.1
+        bunnycore/Phi-3.5-Mini-Hyper
+        bunnycore/Phi-3.5-Mini-Hyper + bunnycore/Phi-3.1-EvolKit-lora
+        bunnycore/Phi-3.5-Mini-Sonet-RP
+        bunnycore/Phi-3.5-mini-TitanFusion-0.1
+  overrides:
+    parameters:
+      model: Phi-3.5-mini-TitanFusion-0.2.Q4_K_M.gguf
+  files:
+    - filename: Phi-3.5-mini-TitanFusion-0.2.Q4_K_M.gguf
+      sha256: 9579305712f2bca246914639c4873acdc1e7bc64ac2c7db0230df4f0ca0ef234
+      uri: huggingface://mradermacher/Phi-3.5-mini-TitanFusion-0.2-GGUF/Phi-3.5-mini-TitanFusion-0.2.Q4_K_M.gguf
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"

@@ -66,6 +66,21 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 # docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12 
 ```
 
+To load models:
+
+```bash
+# From the model gallery (see available models with `local-ai models list`, in the WebUI from the model tab, or visiting https://models.localai.io)
+local-ai run llama-3.2-1b-instruct:q4_k_m
+# Start LocalAI with the phi-2 model directly from huggingface
+local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
+# Install and run a model from the Ollama OCI registry
+local-ai run ollama://gemma:2b
+# Run a model from a configuration file
+local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
+# Install and run a model from a standard OCI registry (e.g., Docker Hub)
+local-ai run oci://localai/phi-2:latest
+```
+
 [💻 Getting started](https://localai.io/basics/getting_started/index.html)
 
 ## 📰 Latest project news

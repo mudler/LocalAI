@@ -3,11 +3,13 @@ package templates
 import (
 	"bytes"
 	"text/template"
+
+	"github.com/Masterminds/sprig/v3"
 )
 
 func TemplateMultiModal(templateString string, templateID int, text string) (string, error) {
 	// compile the template
-	tmpl, err := template.New("template").Parse(templateString)
+	tmpl, err := template.New("template").Funcs(sprig.FuncMap()).Parse(templateString)
 	if err != nil {
 		return "", err
 	}
