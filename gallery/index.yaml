@@ -1732,6 +1732,20 @@
     - filename: L3.1-EtherealRainbow-v1.0-rc1-8B.Q4_K_M.gguf
       sha256: c5556b2563112e512acca171415783f0988545b02c1834696c1cc35952def72c
       uri: huggingface://mradermacher/L3.1-EtherealRainbow-v1.0-rc1-8B-GGUF/L3.1-EtherealRainbow-v1.0-rc1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "theia-llama-3.1-8b-v1"
+  urls:
+    - https://huggingface.co/Chainbase-Labs/Theia-Llama-3.1-8B-v1
+    - https://huggingface.co/QuantFactory/Theia-Llama-3.1-8B-v1-GGUF
+  description: |
+    Theia-Llama-3.1-8B-v1 is an open-source large language model (LLM) trained specifically in the cryptocurrency domain. It was fine-tuned from the Llama-3.1-8B base model using a dataset curated from top 2000 cryptocurrency projects and comprehensive research reports to specialize in crypto-related tasks. Theia-Llama-3.1-8B-v1 has been quantized to optimize it for efficient deployment and reduced memory footprint. It's benchmarked highly for crypto knowledge comprehension and generation, knowledge coverage, and reasoning capabilities. The system prompt used for its training is "You are a helpful assistant who will answer crypto related questions." The recommended parameters for performance include sequence length of 256, temperature of 0, top-k-sampling of -1, top-p of 1, and context window of 39680.
+  overrides:
+    parameters:
+      model: Theia-Llama-3.1-8B-v1.Q4_K_M.gguf
+  files:
+    - filename: Theia-Llama-3.1-8B-v1.Q4_K_M.gguf
+      sha256: db876d033f86f118b49a1f1006e5d078d494c93b73c7e595bd10ca789a0c8fdb
+      uri: huggingface://QuantFactory/Theia-Llama-3.1-8B-v1-GGUF/Theia-Llama-3.1-8B-v1.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
