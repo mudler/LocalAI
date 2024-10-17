@@ -2425,6 +2425,21 @@
     - filename: Tor-8B.Q4_K_M.gguf
       sha256: 9dd64bd886aa7682b6179340449b38feda405b44722ef7ac752cedb807af370e
       uri: huggingface://QuantFactory/Tor-8B-GGUF/Tor-8B.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "darkens-8b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Delta-Vector/Darkens-8B
+    - https://huggingface.co/QuantFactory/Darkens-8B-GGUF
+  description: |
+    This is the fully cooked, 4 epoch version of Tor-8B, this is an experimental version, despite being trained for 4 epochs, the model feels fresh and new and is not overfit, This model aims to have generally good prose and writing while not falling into claude-isms, it follows the actions "dialogue" format heavily.
+  overrides:
+    parameters:
+      model: Darkens-8B.Q4_K_M.gguf
+  files:
+    - filename: Darkens-8B.Q4_K_M.gguf
+      sha256: f56a483e10fd00957460adfc16ee462cecac892a4fb44dc59e466e68a360fd42
+      uri: huggingface://QuantFactory/Darkens-8B-GGUF/Darkens-8B.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
