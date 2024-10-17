@@ -1746,6 +1746,21 @@
     - filename: Theia-Llama-3.1-8B-v1.Q4_K_M.gguf
       sha256: db876d033f86f118b49a1f1006e5d078d494c93b73c7e595bd10ca789a0c8fdb
       uri: huggingface://QuantFactory/Theia-Llama-3.1-8B-v1-GGUF/Theia-Llama-3.1-8B-v1.Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://huggingface.co/Delta-Vector/Baldur-8B/resolve/main/Baldur.jpg
+  name: "baldur-8b"
+  urls:
+    - https://huggingface.co/QuantFactory/Baldur-8B-GGUF
+    - https://huggingface.co/QuantFactory/Baldur-8B-GGUF
+  description: |
+    An finetune of the L3.1 instruct distill done by Arcee, The intent of this model is to have differing prose then my other releases, in my testing it has achieved this and avoiding using common -isms frequently and has a differing flavor then my other models.
+  overrides:
+    parameters:
+      model: Baldur-8B.Q4_K_M.gguf
+  files:
+    - filename: Baldur-8B.Q4_K_M.gguf
+      sha256: 645b393fbac5cd17ccfd66840a3a05c3930e01b903dd1535f0347a74cc443fc7
+      uri: huggingface://QuantFactory/Baldur-8B-GGUF/Baldur-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
