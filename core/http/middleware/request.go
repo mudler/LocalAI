@@ -133,7 +133,7 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 		if err != nil {
 			log.Err(err)
 			log.Warn().Msgf("Model Configuration File not found for %q", input.ModelName(nil))
-		} else if cfg.Model != "" {
+		} else if cfg.Model != "" && input.ModelName(nil) == "" {
 			log.Debug().Str("BEFORE ModelName", input.ModelName(nil)).Str("cfg.Model", cfg.Model).Msg("REPLACING ModelName from CONFIG SOURCE")
 			input.ModelName(&cfg.Model)
 		}
