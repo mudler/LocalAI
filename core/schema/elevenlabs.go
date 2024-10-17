@@ -1,8 +1,9 @@
 package schema
 
 type ElevenLabsTTSRequest struct {
-	Text    string `json:"text" yaml:"text"`
-	ModelID string `json:"model_id" yaml:"model_id"`
+	Text         string `json:"text" yaml:"text"`
+	ModelID      string `json:"model_id" yaml:"model_id"`
+	LanguageCode string `json:"language_code" yaml:"language_code"`
 }
 
 type ElevenLabsSoundGenerationRequest struct {

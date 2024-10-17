@@ -273,7 +273,6 @@ var _ = Describe("E2E test", func() {
 				err = json.Unmarshal(body, &deserializedResponse)
 				Expect(err).To(BeNil())
 				Expect(deserializedResponse).ToNot(BeZero())
-				GinkgoWriter.Printf("Reranker Response Body Deserialized: %+v\n", deserializedResponse)
 				Expect(deserializedResponse.Model).To(Equal(modelName))
 				Expect(len(deserializedResponse.Results)).To(BeNumerically(">", 0))
 			})

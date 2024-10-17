@@ -16,7 +16,6 @@ import (
 func ModelTTS(
 	backend,
 	text,
-	modelFile,
 	voice,
 	language string,
 	loader *model.ModelLoader,
@@ -30,7 +29,6 @@ func ModelTTS(
 
 	opts := ModelOptions(config.BackendConfig{}, appConfig, []model.Option{
 		model.WithBackendString(bb),
-		model.WithModel(modelFile),
 	})
 	ttsModel, err := loader.BackendLoader(opts...)
 	if err != nil {

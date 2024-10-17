@@ -32,22 +32,16 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 		log.Debug().Str("model", input.Model).Msg("JINA Rerank Request recieved")
 
-		if input.Backend != "" {
-			cfg.Backend = input.Backend
-		}
-
 		request := &proto.RerankRequest{
 			Query:     input.Query,
 			TopN:      int32(input.TopN),
 			Documents: input.Documents,
 		}
 
-		results, err := backend.Rerank(input.Model, request, ml, appConfig, *cfg)
+		results, err := backend.Rerank(request, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
-
-		log.Debug().Str("model", input.Model).Msg("TMP Jinra Rerank Trace: About to respond")
 
 		response := &schema.JINARerankResponse{
 			Model: input.Model,

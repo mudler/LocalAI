@@ -47,7 +47,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			cfg.Voice = input.Voice
 		}
 
-		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, input.Model, cfg.Voice, cfg.Language, ml, appConfig, *cfg)
+		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, cfg.Voice, cfg.Language, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}
