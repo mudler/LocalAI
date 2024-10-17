@@ -25,7 +25,7 @@ func TokenizeEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, app
 			return fiber.ErrBadRequest
 		}
 
-		tokenResponse, err := backend.ModelTokenize(input.Content, input.Model, ml, *cfg, appConfig)
+		tokenResponse, err := backend.ModelTokenize(input.Content, ml, *cfg, appConfig)
 		if err != nil {
 			return err
 		}
