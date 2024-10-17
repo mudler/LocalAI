@@ -3023,6 +3023,20 @@
     - filename: Gemma-2-Ataraxy-v3i-9B.Q4_K_M.gguf
       sha256: f14c5b9373d4058f0f812c6c34184addeb4aeeecb02a7bbcf9844d9afc8d0066
       uri: huggingface://QuantFactory/Gemma-2-Ataraxy-v3i-9B-GGUF/Gemma-2-Ataraxy-v3i-9B.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "apollo2-9b"
+  url: "github:mudler/LocalAI/gallery/vicuna-chat.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Apollo2-9B-GGUF
+  description: |
+    Covering 12 Major Languages including English, Chinese, French, Hindi, Spanish, Arabic, Russian, Japanese, Korean, German, Italian, Portuguese and 38 Minor Languages So far.
+  overrides:
+    parameters:
+      model: Apollo2-9B.Q4_K_M.gguf
+  files:
+    - filename: Apollo2-9B.Q4_K_M.gguf
+      sha256: 9fdb63f78e574558a4f33782eca88716eea28e90ea3ae36c381769cde6b81e0f
+      uri: huggingface://mradermacher/Apollo2-9B-GGUF/Apollo2-9B.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
