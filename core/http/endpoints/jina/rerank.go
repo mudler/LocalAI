@@ -53,7 +53,7 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 		}
 
 		response := &schema.JINARerankResponse{
-			Model: input.Model,
+			Model: cfg.Model,
 		}
 
 		for _, r := range results.Results {
