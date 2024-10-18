@@ -21,3 +21,4 @@ jieba==0.42.1
 gradio==4.44.1
 langid==1.1.6
 git+https://github.com/myshell-ai/MeloTTS.git
+git+https://github.com/myshell-ai/OpenVoice.git

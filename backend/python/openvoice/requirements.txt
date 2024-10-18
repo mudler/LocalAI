@@ -16,5 +16,4 @@ cn2an==0.5.22
 jieba==0.42.1
 gradio
 langid==1.1.6
-git+https://github.com/myshell-ai/MeloTTS.git
-git+https://github.com/myshell-ai/OpenVoice.git
+llvmlite==0.43.0
