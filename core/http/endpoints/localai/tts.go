@@ -35,8 +35,12 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 
 		log.Debug().Str("model", input.Model).Msg("LocalAI TTS Request recieved")
 
-		if input.Backend != "" {
-			cfg.Backend = input.Backend
+		if cfg.Backend == "" {
+			if input.Backend != "" {
+				cfg.Backend = input.Backend
+			} else {
+				cfg.Backend = model.PiperBackend
+			}
 		}
 
 		if input.Language != "" {

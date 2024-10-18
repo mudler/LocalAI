@@ -34,6 +34,10 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 
 		log.Debug().Str("modelName", input.ModelID).Msg("elevenlabs TTS request recieved")
 
+		if cfg.Backend == "" {
+			cfg.Backend = model.PiperBackend
+		}
+
 		filePath, _, err := backend.ModelTTS(input.Text, voiceID, input.LanguageCode, ml, appConfig, *cfg)
 		if err != nil {
 			return err
