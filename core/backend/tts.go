@@ -15,7 +15,6 @@ import (
 )
 
 func ModelTTS(
-	backend,
 	text,
 	voice,
 	language string,
@@ -23,21 +22,14 @@ func ModelTTS(
 	appConfig *config.ApplicationConfig,
 	backendConfig config.BackendConfig,
 ) (string, *proto.Result, error) {
-	bb := backend
-	if bb == "" {
-		bb = model.PiperBackend
-	}
-
-	opts := ModelOptions(config.BackendConfig{}, appConfig, []model.Option{
-		model.WithBackendString(bb),
-	})
+	opts := ModelOptions(*&backendConfig, appConfig, []model.Option{})
 	ttsModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return "", nil, err
 	}
 
 	if ttsModel == nil {
-		return "", nil, fmt.Errorf("could not load piper model")
+		return "", nil, fmt.Errorf("could not load tts model %q", backendConfig.Model)
 	}
 
 	if err := os.MkdirAll(appConfig.AudioDir, 0750); err != nil {
