@@ -159,6 +159,7 @@ message Reply {
   bytes message = 1;
   int32 tokens = 2;
   int32 prompt_tokens = 3;
+  string audio_output = 4;
 }
 
 message ModelOptions {
