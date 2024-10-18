@@ -38,7 +38,7 @@ func ModelTTS(
 		return "", nil, fmt.Errorf("failed creating audio directory: %s", err)
 	}
 
-	log.Warn().Str("config.Model", backendConfig.Model).Msg("ModelTTS before backend call")
+	log.Warn().Str("config.Model", backendConfig.Model).Str("config.Backend", backendConfig.Backend).Msg("ModelTTS before call to backend (ttsModel.TTS)")
 
 	fileName := utils.GenerateUniqueFileName(appConfig.AudioDir, "tts", ".wav")
 	filePath := filepath.Join(appConfig.AudioDir, fileName)
