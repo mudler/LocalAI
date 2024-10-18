@@ -1,4 +1,3 @@
-coqui-tts
 grpcio==1.67.0
 protobuf
 certifi

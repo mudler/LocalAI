@@ -3,3 +3,4 @@ torch==2.4.1+rocm6.0
 torchaudio==2.4.1+rocm6.0
 transformers
 accelerate
+coqui-tts
