@@ -22,7 +22,9 @@ func ModelTTS(
 	appConfig *config.ApplicationConfig,
 	backendConfig config.BackendConfig,
 ) (string, *proto.Result, error) {
-	opts := ModelOptions(*&backendConfig, appConfig, []model.Option{})
+	opts := ModelOptions(*&backendConfig, appConfig, []model.Option{
+		model.WithDefaultBackendString(model.PiperBackend),
+	})
 	ttsModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return "", nil, err
