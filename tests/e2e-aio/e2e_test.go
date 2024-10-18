@@ -235,7 +235,9 @@ var _ = Describe("E2E test", func() {
 				modelName := "jina-reranker-v1-base-en"
 
 				req := schema.JINARerankRequest{
-					Model: modelName,
+					BasicModelRequest: schema.BasicModelRequest{
+						Model: modelName,
+					},
 					Query: "Organic skincare products for sensitive skin",
 					Documents: []string{
 						"Eco-friendly kitchenware for modern homes",
@@ -256,12 +258,15 @@ var _ = Describe("E2E test", func() {
 				Expect(err).To(BeNil())
 				Expect(serialized).ToNot(BeNil())
 
+				GinkgoWriter.Printf("Reranker Request Body JSON: %q\n", string(serialized))
+
 				rerankerEndpoint := apiEndpoint + "/rerank"
 				resp, err := http.Post(rerankerEndpoint, "application/json", bytes.NewReader(serialized))
 				Expect(err).To(BeNil())
 				Expect(resp).ToNot(BeNil())
 				body, err := io.ReadAll(resp.Body)
 				Expect(err).ToNot(HaveOccurred())
+				GinkgoWriter.Printf("Reranker Response Body JSON: %q\n", string(body))
 				Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("body: %s, response: %+v", body, resp))
 
 				deserializedResponse := schema.JINARerankResponse{}

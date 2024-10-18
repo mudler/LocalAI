@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/backend"
@@ -66,25 +67,23 @@ func downloadFile(url string) (string, error) {
 // @Router /v1/images/generations [post]
 func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, cl, ml, appConfig, false)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input.Model == "" {
+			log.Error().Msg("Image Endpoint - Invalid Input")
+			return fiber.ErrBadRequest
 		}
 
-		if m == "" {
-			m = model.StableDiffusionBackend
-		}
-		log.Debug().Msgf("Loading model: %+v", m)
-
-		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, 0, 0, false)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+		if !ok || config == nil {
+			log.Error().Msg("Image Endpoint - Invalid Config")
+			return fiber.ErrBadRequest
 		}
 
 		src := ""
 		if input.File != "" {
 
 			fileData := []byte{}
+			var err error
 			// check if input.File is an URL, if so download it and save it
 			// to a temporary file
 			if strings.HasPrefix(input.File, "http://") || strings.HasPrefix(input.File, "https://") {

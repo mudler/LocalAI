@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/rs/zerolog/log"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -14,61 +15,35 @@ import (
 )
 
 func ModelTTS(
-	backend,
 	text,
-	modelFile,
 	voice,
 	language string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	backendConfig config.BackendConfig,
 ) (string, *proto.Result, error) {
-	bb := backend
-	if bb == "" {
-		bb = model.PiperBackend
-	}
-
-	opts := ModelOptions(config.BackendConfig{}, appConfig, []model.Option{
-		model.WithBackendString(bb),
-		model.WithModel(modelFile),
-	})
+	opts := ModelOptions(*&backendConfig, appConfig, []model.Option{})
 	ttsModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return "", nil, err
 	}
 
 	if ttsModel == nil {
-		return "", nil, fmt.Errorf("could not load piper model")
+		return "", nil, fmt.Errorf("could not load tts model %q", backendConfig.Model)
 	}
 
 	if err := os.MkdirAll(appConfig.AudioDir, 0750); err != nil {
 		return "", nil, fmt.Errorf("failed creating audio directory: %s", err)
 	}
 
+	log.Warn().Str("config.Model", backendConfig.Model).Msg("ModelTTS before backend call")
+
 	fileName := utils.GenerateUniqueFileName(appConfig.AudioDir, "tts", ".wav")
 	filePath := filepath.Join(appConfig.AudioDir, fileName)
 
-	// If the model file is not empty, we pass it joined with the model path
-	modelPath := ""
-	if modelFile != "" {
-		// If the model file is not empty, we pass it joined with the model path
-		// Checking first that it exists and is not outside ModelPath
-		// TODO: we should actually first check if the modelFile is looking like
-		// a FS path
-		mp := filepath.Join(loader.ModelPath, modelFile)
-		if _, err := os.Stat(mp); err == nil {
-			if err := utils.VerifyPath(mp, appConfig.ModelPath); err != nil {
-				return "", nil, err
-			}
-			modelPath = mp
-		} else {
-			modelPath = modelFile
-		}
-	}
-
 	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{
 		Text:     text,
-		Model:    modelPath,
+		Model:    backendConfig.Model,
 		Voice:    voice,
 		Dst:      filePath,
 		Language: &language,
