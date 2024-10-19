@@ -5,7 +5,7 @@ optimum[openvino]
 grpcio==1.67.0
 protobuf
 librosa==0.9.1
-faster-whisper==1.0.3
+faster-whisper==0.9.0
 pydub==0.25.1
 wavmark==0.0.3
 numpy==1.22.0
