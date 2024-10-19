@@ -391,6 +391,39 @@ struct llama_metrics {
     }
 };
 
+struct llava_embd_batch {
+    std::vector<llama_pos>      pos;
+    std::vector<int32_t>        n_seq_id;
+    std::vector<llama_seq_id>   seq_id_0;
+    std::vector<llama_seq_id *> seq_ids;
+    std::vector<int8_t>         logits;
+    llama_batch batch;
+    llava_embd_batch(float * embd, int32_t n_tokens, llama_pos pos_0, llama_seq_id seq_id) {
+        pos     .resize(n_tokens);
+        n_seq_id.resize(n_tokens);
+        seq_ids .resize(n_tokens + 1);
+        logits  .resize(n_tokens);
+        seq_id_0.resize(1);
+        seq_id_0[0] = seq_id;
+        seq_ids [n_tokens] = nullptr;
+        batch = {
+            /*n_tokens       =*/ n_tokens,
+            /*tokens         =*/ nullptr,
+            /*embd           =*/ embd,
+            /*pos            =*/ pos.data(),
+            /*n_seq_id       =*/ n_seq_id.data(),
+            /*seq_id         =*/ seq_ids.data(),
+            /*logits         =*/ logits.data(),
+        };
+        for (int i = 0; i < n_tokens; i++) {
+            batch.pos     [i] = pos_0 + i;
+            batch.n_seq_id[i] = 1;
+            batch.seq_id  [i] = seq_id_0.data();
+            batch.logits  [i] = false;
+        }
+    }
+};
+
 struct llama_server_context
 {
     llama_model *model = nullptr;
@@ -934,7 +967,6 @@ struct llama_server_context
                     batch.n_seq_id + i,
                     batch.seq_id   + i,
                     batch.logits   + i,
-                    0, 0, 0, // unused
                 };
                 if (llama_decode(ctx, batch_view) != 0)
                 {
@@ -1379,7 +1411,6 @@ struct llama_server_context
                     batch.n_seq_id + i,
                     batch.seq_id   + i,
                     batch.logits   + i,
-                    0, 0, 0, // unused
                 };
                 if (llama_decode(ctx, batch_view))
                 {
@@ -1398,8 +1429,9 @@ struct llama_server_context
                 }
 
                 const int n_embd = llama_n_embd(model);
-                llama_batch batch_img = { n_eval, nullptr, (img.image_embedding + i * n_embd), nullptr, nullptr, nullptr, nullptr, slot.n_past, 1, 0, };
-                if (llama_decode(ctx, batch_img))
+                float * embd = img.image_embedding + i * n_embd;
+                llava_embd_batch llava_batch = llava_embd_batch(embd, n_eval, slot.n_past, 0);
+                if (llama_decode(ctx, llava_batch.batch))
                 {
                     LOG("%s : failed to eval image\n", __func__);
                     return false;
@@ -1904,7 +1936,6 @@ struct llama_server_context
                 batch.n_seq_id + i,
                 batch.seq_id   + i,
                 batch.logits   + i,
-                0, 0, 0, // unused
             };
 
             const int ret = llama_decode(ctx, batch_view);
