@@ -249,7 +249,7 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 
 FROM requirements-drivers AS builder-base
 
-ARG GO_TAGS="stablediffusion tts p2p"
+ARG GO_TAGS="stablediffusion tts tinydream p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"
