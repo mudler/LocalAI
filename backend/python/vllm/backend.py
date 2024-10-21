@@ -219,13 +219,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # Generate text using the LLM engine
         request_id = random_uuid()
         print(f"Generating text with request_id: {request_id}", file=sys.stderr)
+        multi_modal_data = {}
+        if image_data:
+            multi_modal_data["image"] = image_data
+        if video_data:
+            multi_modal_data["video"] = video_data
         outputs = self.llm.generate(
             {
-                "prompt": prompt,
-                "multi_modal_data": {
-                    "image": image_data if image_data else None,
-                    "video": video_data if video_data else None,
-                } if image_data or video_data else None,
+            "prompt": prompt,
+            "multi_modal_data": multi_modal_data if multi_modal_data else None,
             },
             sampling_params=sampling_params,
             request_id=request_id,
@@ -279,7 +281,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return image
         except Exception as e:
             print(f"Error loading image {image_path}: {e}", file=sys.stderr)
-            return self.load_video(image_path)
+            return None
 
     def load_video(self, video_path: str):
         """
