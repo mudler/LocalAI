@@ -117,7 +117,9 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath
 	// Load a config file if present after the model name
 	cfg := &BackendConfig{
 		PredictionOptions: schema.PredictionOptions{
-			Model: modelName,
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: modelName,
+			},
 		},
 	}
 
@@ -143,6 +145,14 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath
 	cfg.SetDefaults(opts...)
 
 	return cfg, nil
+}
+
+func (bcl *BackendConfigLoader) LoadBackendConfigFileByNameDefaultOptions(modelName string, appConfig *ApplicationConfig) (*BackendConfig, error) {
+	return bcl.LoadBackendConfigFileByName(modelName, appConfig.ModelPath,
+		LoadOptionDebug(appConfig.Debug),
+		LoadOptionThreads(appConfig.Threads),
+		LoadOptionContextSize(appConfig.ContextSize),
+		LoadOptionF16(appConfig.F16))
 }
 
 // This format is currently only used when reading a single file at startup, passed in via ApplicationConfig.ConfigFile
@@ -324,6 +334,7 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 func (bcl *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
+
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("cannot read directory '%s': %w", path, err)
