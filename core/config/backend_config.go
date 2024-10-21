@@ -197,9 +197,7 @@ type TemplateConfig struct {
 	// It defaults to \n
 	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
 
-	Video string `yaml:"video"`
-	Image string `yaml:"image"`
-	Audio string `yaml:"audio"`
+	Multimodal string `yaml:"multimodal"`
 }
 
 func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {
