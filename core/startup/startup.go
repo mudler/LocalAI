@@ -3,6 +3,7 @@ package startup
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mudler/LocalAI/core"
 	"github.com/mudler/LocalAI/core/backend"
@@ -16,6 +17,11 @@ import (
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
+
+type ModelMemoryInfo struct {
+	VRAM uint64
+	RAM  uint64
+}
 
 func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, error) {
 	options := config.NewApplicationConfig(opts...)
@@ -31,6 +37,29 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		log.Debug().Msgf("GPU count: %d", len(gpus))
 		for _, gpu := range gpus {
 			log.Debug().Msgf("GPU: %s", gpu.String())
+		}
+	}
+
+	// TODO: Add code to fetch VRAM by querying GPU using Nvidia-SMI
+	// Possibly to its own method later
+	if options.AdjustGPULayers {
+		var isNvidiaGpu bool = false
+		for _, gpu := range gpus {
+			if strings.Contains(strings.ToLower(gpu.DeviceInfo.Vendor.Name), "nvidia") {
+				fmt.Println("The device vendor is NVIDIA.")
+				isNvidiaGpu = true
+			} else {
+				fmt.Println("The device vendor is not NVIDIA.")
+			}
+		}
+
+		// Adjusting GPU Layers should be done initially only for NVIDIA GPU
+		if isNvidiaGpu {
+			// Get this data and pass it to gpu_layer estimator
+			_, err := xsysinfo.GetNvidiaGpuInfo()
+			if err != nil {
+				fmt.Print("Failed to Get NVIDIA GPU Info %v", err)
+			}
 		}
 	}
 
@@ -144,8 +173,14 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			wd.Shutdown()
 		}()
 	}
+	// Store ModelMemoryMap
+	var localAIModelMemoryMap = make(map[string][]ModelMemoryInfo)
+	// Instantiate the GGUF parser and memory estimator
+	localAIGGUFParser := &model.LocalAIGGUFParserImpl{}
+	localAIMemoryEstimator := &model.DefaultModelMemoryEstimator{}
 
 	if options.LoadToMemory != nil {
+
 		for _, m := range options.LoadToMemory {
 			cfg, err := cl.LoadBackendConfigFileByName(m, options.ModelPath,
 				config.LoadOptionDebug(options.Debug),
@@ -159,6 +194,32 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			}
 
 			log.Debug().Msgf("Auto loading model %s into memory from file: %s", m, cfg.Model)
+
+			ggufData, err := model.GetModelGGufData(options.ModelPath, localAIGGUFParser, localAIMemoryEstimator, false)
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to load GGUF data for model: %s", options.ModelPath)
+				continue
+			}
+
+			// Save ModelData for Later recall
+			// TODO: Pass it down
+			// TODO: Store all Device Data
+			// Get L
+			var ggufVRAMDeviceInfo []ModelMemoryInfo
+
+			for _, item := range ggufData.Estimate.Items {
+				for _, vram := range item.VRAMs {
+					memoryInfo := ModelMemoryInfo{
+						VRAM: vram.NonUMA,
+						RAM:  vram.UMA,
+					}
+					ggufVRAMDeviceInfo = append(ggufVRAMDeviceInfo, memoryInfo)
+				}
+			}
+
+			localAIModelMemoryMap[cfg.Model] = ggufVRAMDeviceInfo
+
+			log.Debug().Msgf("GGUFVram for Model: %s added", cfg.Model)
 
 			o := backend.ModelOptions(*cfg, options, []model.Option{})
 
