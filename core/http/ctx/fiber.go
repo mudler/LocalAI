@@ -19,9 +19,11 @@ func ModelFromContext(ctx *fiber.Ctx, cl *config.BackendConfigLoader, loader *mo
 	if ctx.Params("model") != "" {
 		modelInput = ctx.Params("model")
 	}
+
 	if ctx.Query("model") != "" {
 		modelInput = ctx.Query("model")
 	}
+
 	// Set model from bearer token, if available
 	bearer := strings.TrimLeft(ctx.Get("authorization"), "Bear ") // Reduced duplicate characters of Bearer
 	bearerExists := bearer != "" && loader.ExistsInModelPath(bearer)
