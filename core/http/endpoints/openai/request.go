@@ -149,6 +149,10 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 	// Decode each request's message content
 	imgIndex, vidIndex, audioIndex := 0, 0, 0
 	for i, m := range input.Messages {
+		nrOfImgsInMessage := 0
+		nrOfVideosInMessage := 0
+		nrOfAudiosInMessage := 0
+
 		switch content := m.Content.(type) {
 		case string:
 			input.Messages[i].StringContent = content
@@ -156,11 +160,16 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 			dat, _ := json.Marshal(content)
 			c := []schema.Content{}
 			json.Unmarshal(dat, &c)
+
+			textContent := ""
+			// we will template this at the end
+
 		CONTENT:
 			for _, pp := range c {
 				switch pp.Type {
 				case "text":
-					input.Messages[i].StringContent = pp.Text
+					textContent += pp.Text
+					//input.Messages[i].StringContent = pp.Text
 				case "video", "video_url":
 					// Decode content as base64 either if it's an URL or base64 text
 					base64, err := utils.GetContentURIAsBase64(pp.VideoURL.URL)
@@ -169,14 +178,8 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 						continue CONTENT
 					}
 					input.Messages[i].StringVideos = append(input.Messages[i].StringVideos, base64) // TODO: make sure that we only return base64 stuff
-
-					t := "[vid-{{.ID}}]{{.Text}}"
-					if config.TemplateConfig.Video != "" {
-						t = config.TemplateConfig.Video
-					}
-					// set a placeholder for each image
-					input.Messages[i].StringContent, _ = templates.TemplateMultiModal(t, vidIndex, input.Messages[i].StringContent)
 					vidIndex++
+					nrOfVideosInMessage++
 				case "audio_url", "audio":
 					// Decode content as base64 either if it's an URL or base64 text
 					base64, err := utils.GetContentURIAsBase64(pp.AudioURL.URL)
@@ -185,13 +188,8 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 						continue CONTENT
 					}
 					input.Messages[i].StringAudios = append(input.Messages[i].StringAudios, base64) // TODO: make sure that we only return base64 stuff
-					// set a placeholder for each image
-					t := "[audio-{{.ID}}]{{.Text}}"
-					if config.TemplateConfig.Audio != "" {
-						t = config.TemplateConfig.Audio
-					}
-					input.Messages[i].StringContent, _ = templates.TemplateMultiModal(t, audioIndex, input.Messages[i].StringContent)
 					audioIndex++
+					nrOfAudiosInMessage++
 				case "image_url", "image":
 					// Decode content as base64 either if it's an URL or base64 text
 					base64, err := utils.GetContentURIAsBase64(pp.ImageURL.URL)
@@ -200,16 +198,21 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 						continue CONTENT
 					}
 
-					t := "[img-{{.ID}}]{{.Text}}"
-					if config.TemplateConfig.Image != "" {
-						t = config.TemplateConfig.Image
-					}
 					input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
-					// set a placeholder for each image
-					input.Messages[i].StringContent, _ = templates.TemplateMultiModal(t, imgIndex, input.Messages[i].StringContent)
+
 					imgIndex++
+					nrOfImgsInMessage++
 				}
 			}
+
+			input.Messages[i].StringContent, _ = templates.TemplateMultiModal(config.TemplateConfig.Multimodal, templates.MultiModalOptions{
+				TotalImages:     imgIndex,
+				TotalVideos:     vidIndex,
+				TotalAudios:     audioIndex,
+				ImagesInMessage: nrOfImgsInMessage,
+				VideosInMessage: nrOfVideosInMessage,
+				AudiosInMessage: nrOfAudiosInMessage,
+			}, textContent)
 		}
 	}
 
