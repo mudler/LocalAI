@@ -6225,6 +6225,19 @@
     - filename: Phi-3.5-mini-TitanFusion-0.2.Q4_K_M.gguf
       sha256: 9579305712f2bca246914639c4873acdc1e7bc64ac2c7db0230df4f0ca0ef234
       uri: huggingface://mradermacher/Phi-3.5-mini-TitanFusion-0.2-GGUF/Phi-3.5-mini-TitanFusion-0.2.Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "phi-3-vision:vllm"
+  url: "github:mudler/LocalAI/gallery/phi-3-vision.yaml@master"
+  description: |
+    Phi-3.5-vision is a lightweight, state-of-the-art open multimodal model built upon datasets which include - synthetic data and filtered publicly available websites - with a focus on very high-quality, reasoning dense data both on text and vision. The model belongs to the Phi-3 model family, and the multimodal version comes with 128K context length (in tokens) it can support. The model underwent a rigorous enhancement process, incorporating both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures.
+- !!merge <<: *phi-3
+  name: "phi-3.5-vision:vllm"
+  url: "github:mudler/LocalAI/gallery/phi-3-vision.yaml@master"
+  override:
+    parameters:
+      model: microsoft/Phi-3.5-vision-instruct
+  description: |
+    Phi-3.5-vision is a lightweight, state-of-the-art open multimodal model built upon datasets which include - synthetic data and filtered publicly available websites - with a focus on very high-quality, reasoning dense data both on text and vision. The model belongs to the Phi-3 model family, and the multimodal version comes with 128K context length (in tokens) it can support. The model underwent a rigorous enhancement process, incorporating both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures.
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
