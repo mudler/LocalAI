@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
 torch==2.4.1+cu118
 accelerate
-sentence-transformers==3.2.0
+sentence-transformers==3.2.1
 transformers
