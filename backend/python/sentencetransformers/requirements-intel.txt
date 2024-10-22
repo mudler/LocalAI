@@ -4,5 +4,5 @@ torch
 optimum[openvino]
 setuptools==69.5.1 # https://github.com/mudler/LocalAI/issues/2406
 accelerate
-sentence-transformers==3.0.1
+sentence-transformers==3.2.0
 transformers

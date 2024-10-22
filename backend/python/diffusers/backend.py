@@ -168,7 +168,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.CFGScale != 0:
                 self.cfg_scale = request.CFGScale
 
-            clipmodel = "runwayml/stable-diffusion-v1-5"
+            clipmodel = "Lykon/dreamshaper-8"
             if request.CLIPModel != "":
                 clipmodel = request.CLIPModel
             clipsubfolder = "text_encoder"

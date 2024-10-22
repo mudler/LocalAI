@@ -1,10 +1,10 @@
-grpcio==1.66.0
+grpcio==1.67.0
 protobuf
 librosa
 faster-whisper
 pydub==0.25.1
 wavmark==0.0.3
-numpy
+numpy==1.22.0
 eng_to_ipa==0.0.2
 inflect
 unidecode
@@ -13,8 +13,8 @@ openai
 python-dotenv
 pypinyin
 cn2an==0.5.22
+networkx==2.8.8
 jieba==0.42.1
-gradio
+gradio==3.48.0
 langid==1.1.6
-git+https://github.com/myshell-ai/MeloTTS.git
-git+https://github.com/myshell-ai/OpenVoice.git
+llvmlite==0.43.0

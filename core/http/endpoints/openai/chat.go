@@ -68,9 +68,9 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
 		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
-		results := functions.ParseFunctionCall(result, config.FunctionsConfig)
+		functionResults := functions.ParseFunctionCall(result, config.FunctionsConfig)
 		log.Debug().Msgf("Text content to return: %s", textContentToReturn)
-		noActionToRun := len(results) > 0 && results[0].Name == noAction || len(results) == 0
+		noActionToRun := len(functionResults) > 0 && functionResults[0].Name == noAction || len(functionResults) == 0
 
 		switch {
 		case noActionToRun:
@@ -83,7 +83,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			}
 			responses <- initialMessage
 
-			result, err := handleQuestion(config, req, ml, startupOptions, results, result, prompt)
+			result, err := handleQuestion(config, req, ml, startupOptions, functionResults, result, prompt)
 			if err != nil {
 				log.Error().Err(err).Msg("error handling question")
 				return
@@ -105,7 +105,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			responses <- resp
 
 		default:
-			for i, ss := range results {
+			for i, ss := range functionResults {
 				name, args := ss.Name, ss.Arguments
 
 				initialMessage := schema.OpenAIResponse{
@@ -161,6 +161,12 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		textContentToReturn = ""
 		id = uuid.New().String()
 		created = int(time.Now().Unix())
+		// Set CorrelationID
+		correlationID := c.Get("X-Correlation-ID")
+		if len(strings.TrimSpace(correlationID)) == 0 {
+			correlationID = id
+		}
+		c.Set("X-Correlation-ID", correlationID)
 
 		modelFile, input, err := readRequest(c, cl, ml, startupOptions, true)
 		if err != nil {
@@ -444,6 +450,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
+			c.Set("X-Correlation-ID", id)
 
 			responses := make(chan schema.OpenAIResponse)
 
@@ -640,8 +647,16 @@ func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, m
 	for _, m := range input.Messages {
 		images = append(images, m.StringImages...)
 	}
+	videos := []string{}
+	for _, m := range input.Messages {
+		videos = append(videos, m.StringVideos...)
+	}
+	audios := []string{}
+	for _, m := range input.Messages {
+		audios = append(audios, m.StringAudios...)
+	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, ml, *config, o, nil)
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, *config, o, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err

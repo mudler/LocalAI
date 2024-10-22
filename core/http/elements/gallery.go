@@ -6,6 +6,7 @@ import (
 
 	"github.com/chasefleming/elem-go"
 	"github.com/chasefleming/elem-go/attrs"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
@@ -41,7 +42,7 @@ func DoneProgress(galleryID, text string, showDelete bool) string {
 				"tabindex":  "-1",
 				"autofocus": "",
 			},
-			elem.Text(text),
+			elem.Text(bluemonday.StrictPolicy().Sanitize(text)),
 		),
 		elem.If(showDelete, deleteButton(galleryID, modelName), reInstallButton(galleryID)),
 	).Render()
@@ -57,7 +58,7 @@ func ErrorProgress(err, galleryName string) string {
 				"tabindex":  "-1",
 				"autofocus": "",
 			},
-			elem.Text("Error "+err),
+			elem.Text("Error "+bluemonday.StrictPolicy().Sanitize(err)),
 		),
 		installButton(galleryName),
 	).Render()
@@ -170,7 +171,7 @@ func P2PNodeBoxes(nodes []p2p.NodeData) string {
 						attrs.Props{
 							"class": "text-gray-200 font-semibold ml-2 mr-1",
 						},
-						elem.Text(n.ID),
+						elem.Text(bluemonday.StrictPolicy().Sanitize(n.ID)),
 					),
 					elem.Text("Status: "),
 					elem.If(
@@ -227,7 +228,7 @@ func StartProgressBar(uid, progress, text string) string {
 				"tabindex":  "-1",
 				"autofocus": "",
 			},
-			elem.Text(text),
+			elem.Text(bluemonday.StrictPolicy().Sanitize(text)), //Perhaps overly defensive
 			elem.Div(attrs.Props{
 				"hx-get":     "/browse/job/progress/" + uid,
 				"hx-trigger": "every 600ms",
@@ -249,9 +250,7 @@ func cardSpan(text, icon string) elem.Node {
 			"class": icon + " pr-2",
 		}),
 
-		elem.Text(text),
-
-		//elem.Text(text),
+		elem.Text(bluemonday.StrictPolicy().Sanitize(text)),
 	)
 }
 
@@ -285,11 +284,9 @@ func searchableElement(text, icon string) elem.Node {
 				elem.I(attrs.Props{
 					"class": icon + " pr-2",
 				}),
-				elem.Text(text),
+				elem.Text(bluemonday.StrictPolicy().Sanitize(text)),
 			),
 		),
-
-		//elem.Text(text),
 	)
 }
 
@@ -303,7 +300,7 @@ func link(text, url string) elem.Node {
 		elem.I(attrs.Props{
 			"class": "fas fa-link pr-2",
 		}),
-		elem.Text(text),
+		elem.Text(bluemonday.StrictPolicy().Sanitize(text)),
 	)
 }
 func installButton(galleryName string) elem.Node {
@@ -387,13 +384,13 @@ func ListModels(models []*gallery.GalleryModel, processTracker ProcessTracker, g
 				attrs.Props{
 					"class": "mb-2 text-xl font-bold leading-tight",
 				},
-				elem.Text(m.Name),
+				elem.Text(bluemonday.StrictPolicy().Sanitize(m.Name)),
 			),
 			elem.P(
 				attrs.Props{
 					"class": "mb-4 text-sm [&:not(:hover)]:truncate text-base",
 				},
-				elem.Text(m.Description),
+				elem.Text(bluemonday.StrictPolicy().Sanitize(m.Description)),
 			),
 		)
 	}

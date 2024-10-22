@@ -45,13 +45,13 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			config.LoadOptionContextSize(appConfig.ContextSize),
 			config.LoadOptionF16(appConfig.F16),
 		)
-
 		if err != nil {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		} else {
 			modelFile = cfg.Model
 		}
+
 		log.Debug().Msgf("Request for model: %s", modelFile)
 
 		if input.Backend != "" {
@@ -64,7 +64,7 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			Documents: req.Documents,
 		}
 
-		results, err := backend.Rerank(cfg.Backend, modelFile, request, ml, appConfig, *cfg)
+		results, err := backend.Rerank(modelFile, request, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}

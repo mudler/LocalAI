@@ -9,11 +9,13 @@ FROM ${BASE_IMAGE} AS requirements-core
 USER root
 
 ARG GO_VERSION=1.22.6
+ARG CMAKE_VERSION=3.26.4
+ARG CMAKE_FROM_SOURCE=false
 ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,exllama:/build/backend/python/exllama/run.sh,openvoice:/build/backend/python/openvoice/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
+ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,openvoice:/build/backend/python/openvoice/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
 
 
 RUN apt-get update && \
@@ -21,12 +23,24 @@ RUN apt-get update && \
         build-essential \
         ccache \
         ca-certificates \
-        cmake \
-        curl \
+        curl libssl-dev \
         git \
         unzip upx-ucl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
@@ -188,6 +202,8 @@ FROM ${GRPC_BASE_IMAGE} AS grpc
 # This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
 ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG GRPC_VERSION=v1.65.0
+ARG CMAKE_FROM_SOURCE=false
+ARG CMAKE_VERSION=3.26.4
 
 ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 
@@ -196,11 +212,23 @@ WORKDIR /build
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
-        build-essential \
-        cmake \
+        build-essential curl libssl-dev \
         git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
 
 # We install GRPC to a different prefix here so that we can copy in only the build artifacts later
 # saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
@@ -263,14 +291,20 @@ EOT
 # In most cases, builder is the image you should be using - however, this can save build time if one just needs to copy backend-assets/grpc/stablediffusion and nothing else.
 FROM builder-base AS builder-sd
 
-COPY . .
-COPY .git .
+# stablediffusion does not tolerate a newer version of abseil, copy only over enough elements to build it
+COPY Makefile .
+COPY go.mod .
+COPY go.sum .
+COPY backend/backend.proto ./backend/backend.proto
+COPY backend/go/image/stablediffusion ./backend/go/image/stablediffusion
+COPY pkg/grpc ./pkg/grpc
+COPY pkg/stablediffusion ./pkg/stablediffusion
+RUN git init
+RUN make sources/go-stable-diffusion
+RUN touch prepare-sources
 
-RUN make prepare
-
-
-# stablediffusion does not tolerate a newer version of abseil, build it first
-RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+# Actually build the backend
+RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make backend-assets/grpc/stablediffusion
 
 ###################################
 ###################################
@@ -285,8 +319,20 @@ COPY --from=grpc /opt/grpc /usr/local
 # Rebuild with defaults backends
 WORKDIR /build
 
+COPY . .
+COPY .git .
+
+RUN make prepare
+
 ## Build the binary
-RUN make build
+## If it's CUDA or hipblas, we want to skip some of the llama-compat backends to save space
+## We only leave the most CPU-optimized variant and the fallback for the cublas/hipblas build
+## (both will use CUDA or hipblas for the actual computation)
+RUN if [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make build; \
+    else \
+        make build; \
+    fi
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
         mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
@@ -320,9 +366,8 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ssh less && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+        ssh less wget
+# For the devcontainer, leave apt functional in case additional devtools are needed at runtime.
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
@@ -400,9 +445,6 @@ RUN if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAG
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "transformers-musicgen" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/transformers-musicgen \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "exllama1" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/exllama \
     ; fi
 
 RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vall-e-x" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \

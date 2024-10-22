@@ -9,7 +9,7 @@ import (
 type Options struct {
 	backendString string
 	model         string
-	threads       uint32
+	modelID       string
 	assetDir      string
 	context       context.Context
 
@@ -68,12 +68,6 @@ func WithLoadGRPCLoadModelOpts(opts *pb.ModelOptions) Option {
 	}
 }
 
-func WithThreads(threads uint32) Option {
-	return func(o *Options) {
-		o.threads = threads
-	}
-}
-
 func WithAssetDir(assetDir string) Option {
 	return func(o *Options) {
 		o.assetDir = assetDir
@@ -89,6 +83,12 @@ func WithContext(ctx context.Context) Option {
 func WithSingleActiveBackend() Option {
 	return func(o *Options) {
 		o.singleActiveBackend = true
+	}
+}
+
+func WithModelID(id string) Option {
+	return func(o *Options) {
+		o.modelID = id
 	}
 }
 

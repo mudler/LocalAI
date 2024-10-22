@@ -2,12 +2,15 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
@@ -29,24 +32,13 @@ type TokenUsage struct {
 	Completion int
 }
 
-func ModelInference(ctx context.Context, s string, messages []schema.Message, images []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
-	threads := c.Threads
-	if *threads == 0 && o.Threads != 0 {
-		threads = &o.Threads
-	}
-	grpcOpts := gRPCModelOpts(c)
 
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := modelOpts(c, o, []model.Option{
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(*threads)), // some models uses this to allocate threads during startup
-		model.WithAssetDir(o.AssetsDestination),
-		model.WithModel(modelFile),
-		model.WithContext(o.Context),
-	})
+	opts := ModelOptions(c, o, []model.Option{})
 
 	if c.Backend != "" {
 		opts = append(opts, model.WithBackendString(c.Backend))
@@ -86,8 +78,18 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			switch ct := message.Content.(type) {
 			case string:
 				protoMessages[i].Content = ct
+			case []interface{}:
+				// If using the tokenizer template, in case of multimodal we want to keep the multimodal content as and return only strings here
+				data, _ := json.Marshal(ct)
+				resultData := []struct {
+					Text string `json:"text"`
+				}{}
+				json.Unmarshal(data, &resultData)
+				for _, r := range resultData {
+					protoMessages[i].Content += r.Text
+				}
 			default:
-				return nil, fmt.Errorf("Unsupported type for schema.Message.Content for inference: %T", ct)
+				return nil, fmt.Errorf("unsupported type for schema.Message.Content for inference: %T", ct)
 			}
 		}
 	}
@@ -99,6 +101,8 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		opts.Messages = protoMessages
 		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate
 		opts.Images = images
+		opts.Videos = videos
+		opts.Audios = audios
 
 		tokenUsage := TokenUsage{}
 
@@ -181,11 +185,35 @@ func Finetune(config config.BackendConfig, input, prediction string) string {
 		mu.Lock()
 		reg, ok := cutstrings[c]
 		if !ok {
-			cutstrings[c] = regexp.MustCompile(c)
+			r, err := regexp.Compile(c)
+			if err != nil {
+				log.Fatal().Err(err).Msg("failed to compile regex")
+			}
+			cutstrings[c] = r
 			reg = cutstrings[c]
 		}
 		mu.Unlock()
 		prediction = reg.ReplaceAllString(prediction, "")
+	}
+
+	// extract results from the response which can be for instance inside XML tags
+	var predResult string
+	for _, r := range config.ExtractRegex {
+		mu.Lock()
+		reg, ok := cutstrings[r]
+		if !ok {
+			regex, err := regexp.Compile(r)
+			if err != nil {
+				log.Fatal().Err(err).Msg("failed to compile regex")
+			}
+			cutstrings[r] = regex
+			reg = regex
+		}
+		mu.Unlock()
+		predResult += reg.FindString(prediction)
+	}
+	if predResult != "" {
+		prediction = predResult
 	}
 
 	for _, c := range config.TrimSpace {

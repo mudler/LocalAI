@@ -2,10 +2,15 @@ package schema
 
 import (
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/pkg/model"
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
 
 type BackendMonitorRequest struct {
+	Model string `json:"model" yaml:"model"`
+}
+
+type TokenMetricsRequest struct {
 	Model string `json:"model" yaml:"model"`
 }
 
@@ -69,4 +74,9 @@ type StoresFindResponse struct {
 type P2PNodesResponse struct {
 	Nodes          []p2p.NodeData `json:"nodes" yaml:"nodes"`
 	FederatedNodes []p2p.NodeData `json:"federated_nodes" yaml:"federated_nodes"`
+}
+
+type SystemInformationResponse struct {
+	Backends []string      `json:"backends"`
+	Models   []model.Model `json:"loaded_models"`
 }

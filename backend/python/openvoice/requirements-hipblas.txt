@@ -1,2 +1,4 @@
 --extra-index-url https://download.pytorch.org/whl/rocm6.0
-torch
+torch==2.4.1+rocm6.0
+git+https://github.com/myshell-ai/MeloTTS.git
+git+https://github.com/myshell-ai/OpenVoice.git

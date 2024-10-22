@@ -68,7 +68,7 @@ And navigate the WebUI to the "Swarm" section to see the instructions to connect
 To start workers for distributing the computational load, run:
 
 ```bash
-local-ai worker llama-cpp-rpc <listening_address> <listening_port>
+local-ai worker llama-cpp-rpc --llama-cpp-args="-H <listening_address> -p <listening_port> -m <memory>" 
 ```
 
 And you can specify the address of the workers when starting LocalAI with the `LLAMACPP_GRPC_SERVERS` environment variable:
@@ -98,7 +98,7 @@ To reuse the same token later, restart the server with `--p2ptoken` or `P2P_TOKE
 2. Start the workers. Copy the `local-ai` binary to other hosts and run as many workers as needed using the token:
 
 ```bash
-TOKEN=XXX ./local-ai worker p2p-llama-cpp-rpc
+TOKEN=XXX ./local-ai worker p2p-llama-cpp-rpc --llama-cpp-args="-m <memory>" 
 # 1:06AM INF loading environment variables from file envFile=.env
 # 1:06AM INF Setting logging to info
 # {"level":"INFO","time":"2024-05-19T01:06:01.794+0200","caller":"config/config.go:288","message":"connmanager disabled\n"}

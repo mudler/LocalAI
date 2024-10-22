@@ -13,6 +13,78 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  hipblas-jobs:
+    uses: ./.github/workflows/image_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      ffmpeg: ${{ matrix.ffmpeg }}
+      image-type: ${{ matrix.image-type }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      runs-on: ${{ matrix.runs-on }}
+      base-image: ${{ matrix.base-image }}
+      grpc-base-image: ${{ matrix.grpc-base-image }}
+      aio: ${{ matrix.aio }}
+      makeflags: ${{ matrix.makeflags }}
+      latest-image: ${{ matrix.latest-image }}
+      latest-image-aio: ${{ matrix.latest-image-aio }}
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      # Pushing with all jobs in parallel
+      # eats the bandwidth of all the nodes
+      max-parallel: 2
+      matrix:
+        include:
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-hipblas-ffmpeg'
+            ffmpeg: 'true'
+            image-type: 'extras'
+            aio: "-aio-gpu-hipblas"
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            grpc-base-image: "ubuntu:22.04"
+            latest-image: 'latest-gpu-hipblas'
+            latest-image-aio: 'latest-aio-gpu-hipblas'
+            runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas'
+            ffmpeg: 'false'
+            image-type: 'extras'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            grpc-base-image: "ubuntu:22.04"
+            runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas-ffmpeg-core'
+            ffmpeg: 'true'
+            image-type: 'core'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            grpc-base-image: "ubuntu:22.04"
+            runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
+          - build-type: 'hipblas'
+            platforms: 'linux/amd64'
+            tag-latest: 'false'
+            tag-suffix: '-hipblas-core'
+            ffmpeg: 'false'
+            image-type: 'core'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            grpc-base-image: "ubuntu:22.04"
+            runs-on: 'arc-runner-set'
+            makeflags: "--jobs=3 --output-sync=target"
   self-hosted-jobs:
     uses: ./.github/workflows/image_build.yml
     with:
@@ -39,7 +111,7 @@ jobs:
     strategy:
       # Pushing with all jobs in parallel
       # eats the bandwidth of all the nodes
-      max-parallel: ${{ github.event_name != 'pull_request' && 6 || 10 }}
+      max-parallel: ${{ github.event_name != 'pull_request' && 5 || 8 }}
       matrix:
         include:
           # Extra images
@@ -122,29 +194,6 @@ jobs:
             base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
-          - build-type: 'hipblas'
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-hipblas-ffmpeg'
-            ffmpeg: 'true'
-            image-type: 'extras'
-            aio: "-aio-gpu-hipblas"
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            grpc-base-image: "ubuntu:22.04"
-            latest-image: 'latest-gpu-hipblas'
-            latest-image-aio: 'latest-aio-gpu-hipblas'
-            runs-on: 'arc-runner-set'
-            makeflags: "--jobs=3 --output-sync=target"
-          - build-type: 'hipblas'
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-hipblas'
-            ffmpeg: 'false'
-            image-type: 'extras'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            grpc-base-image: "ubuntu:22.04"
-            runs-on: 'arc-runner-set'
-            makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -210,26 +259,6 @@ jobs:
             tag-suffix: '-sycl-f32-ffmpeg-core'
             ffmpeg: 'true'
             image-type: 'core'
-            runs-on: 'arc-runner-set'
-            makeflags: "--jobs=3 --output-sync=target"
-          - build-type: 'hipblas'
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-hipblas-ffmpeg-core'
-            ffmpeg: 'true'
-            image-type: 'core'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            grpc-base-image: "ubuntu:22.04"
-            runs-on: 'arc-runner-set'
-            makeflags: "--jobs=3 --output-sync=target"
-          - build-type: 'hipblas'
-            platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-hipblas-core'
-            ffmpeg: 'false'
-            image-type: 'core'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            grpc-base-image: "ubuntu:22.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
 

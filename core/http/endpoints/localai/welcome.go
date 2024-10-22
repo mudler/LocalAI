@@ -13,15 +13,10 @@ import (
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 	cl *config.BackendConfigLoader, ml *model.ModelLoader, modelStatus func() (map[string]string, map[string]string)) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		models, _ := services.ListModels(cl, ml, "", true)
 		backendConfigs := cl.GetAllBackendConfigs()
-
 		galleryConfigs := map[string]*gallery.Config{}
-		modelsWithBackendConfig := map[string]interface{}{}
 
 		for _, m := range backendConfigs {
-			modelsWithBackendConfig[m.Name] = nil
-
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {
 				continue
@@ -29,16 +24,10 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			galleryConfigs[m.Name] = cfg
 		}
 
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
 		// Get model statuses to display in the UI the operation in progress
 		processingModels, taskTypes := modelStatus()
-
-		modelsWithoutConfig := []string{}
-
-		for _, m := range models {
-			if _, ok := modelsWithBackendConfig[m]; !ok {
-				modelsWithoutConfig = append(modelsWithoutConfig, m)
-			}
-		}
 
 		summary := fiber.Map{
 			"Title":             "LocalAI API - " + internal.PrintableVersion(),

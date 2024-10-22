@@ -266,6 +266,19 @@ const docTemplate = `{
                 }
             }
         },
+        "/system": {
+            "get": {
+                "summary": "Show the LocalAI instance information",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemInformationResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tts": {
             "post": {
                 "consumes": [
@@ -656,6 +669,30 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/sound-generation": {
+            "post": {
+                "summary": "Generates audio from the input text.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ElevenLabsSoundGenerationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/text-to-speech/{voice-id}": {
             "post": {
                 "summary": "Generates audio from the input text.",
@@ -935,6 +972,14 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Model": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
         "openai.Assistant": {
             "type": "object",
             "properties": {
@@ -1161,6 +1206,26 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ElevenLabsSoundGenerationRequest": {
+            "type": "object",
+            "properties": {
+                "do_sample": {
+                    "type": "boolean"
+                },
+                "duration_seconds": {
+                    "type": "number"
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "prompt_influence": {
+                    "type": "number"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.File": {
             "type": "object",
             "properties": {
@@ -1337,10 +1402,22 @@ const docTemplate = `{
                     "description": "The message role",
                     "type": "string"
                 },
+                "string_audios": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "string_content": {
                     "type": "string"
                 },
                 "string_images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "string_videos": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -1601,6 +1678,23 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/p2p.NodeData"
+                    }
+                }
+            }
+        },
+        "schema.SystemInformationResponse": {
+            "type": "object",
+            "properties": {
+                "backends": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "loaded_models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Model"
                     }
                 }
             }

@@ -1,6 +1,6 @@
-torch
+torch==2.4.1
 accelerate
 transformers
 bitsandbytes
-sentence-transformers==3.0.1
+sentence-transformers==3.2.0
 transformers

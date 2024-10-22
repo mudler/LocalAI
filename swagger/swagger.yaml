@@ -168,6 +168,11 @@ definitions:
           type: string
         type: array
     type: object
+  model.Model:
+    properties:
+      id:
+        type: string
+    type: object
   openai.Assistant:
     properties:
       created:
@@ -322,6 +327,19 @@ definitions:
       object:
         type: string
     type: object
+  schema.ElevenLabsSoundGenerationRequest:
+    properties:
+      do_sample:
+        type: boolean
+      duration_seconds:
+        type: number
+      model_id:
+        type: string
+      prompt_influence:
+        type: number
+      text:
+        type: string
+    type: object
   schema.File:
     properties:
       bytes:
@@ -440,9 +458,17 @@ definitions:
       role:
         description: The message role
         type: string
+      string_audios:
+        items:
+          type: string
+        type: array
       string_content:
         type: string
       string_images:
+        items:
+          type: string
+        type: array
+      string_videos:
         items:
           type: string
         type: array
@@ -623,6 +649,17 @@ definitions:
       nodes:
         items:
           $ref: '#/definitions/p2p.NodeData'
+        type: array
+    type: object
+  schema.SystemInformationResponse:
+    properties:
+      backends:
+        items:
+          type: string
+        type: array
+      loaded_models:
+        items:
+          $ref: '#/definitions/model.Model'
         type: array
     type: object
   schema.TTSRequest:
@@ -819,6 +856,14 @@ paths:
           schema:
             $ref: '#/definitions/gallery.GalleryOpStatus'
       summary: Returns the job status
+  /system:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.SystemInformationResponse'
+      summary: Show the LocalAI instance information
   /tts:
     post:
       consumes:
@@ -1066,6 +1111,21 @@ paths:
           schema:
             $ref: '#/definitions/schema.JINARerankResponse'
       summary: Reranks a list of phrases by relevance to a given text query.
+  /v1/sound-generation:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ElevenLabsSoundGenerationRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Generates audio from the input text.
   /v1/text-to-speech/{voice-id}:
     post:
       parameters:

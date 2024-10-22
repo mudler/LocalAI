@@ -1,197 +1,103 @@
 package model_test
 
 import (
-	. "github.com/mudler/LocalAI/pkg/model"
+	"errors"
+	"os"
+	"path/filepath"
 
+	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-const chatML = `<|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}
-{{- if .FunctionCall }}
-<tool_call>
-{{- else if eq .RoleName "tool" }}
-<tool_response>
-{{- end }}
-{{- if .Content}}
-{{.Content }}
-{{- end }}
-{{- if .FunctionCall}}
-{{toJson .FunctionCall}}
-{{- end }}
-{{- if .FunctionCall }}
-</tool_call>
-{{- else if eq .RoleName "tool" }}
-</tool_response>
-{{- end }}<|im_end|>`
+var _ = Describe("ModelLoader", func() {
+	var (
+		modelLoader *model.ModelLoader
+		modelPath   string
+		mockModel   *model.Model
+	)
 
-const llama3 = `<|start_header_id|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}<|end_header_id|>
-
-{{ if .FunctionCall -}}
-Function call:
-{{ else if eq .RoleName "tool" -}}
-Function response:
-{{ end -}}
-{{ if .Content -}}
-{{.Content -}}
-{{ else if .FunctionCall -}}
-{{ toJson .FunctionCall -}}
-{{ end -}}
-<|eot_id|>`
-
-var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
-	"user": {
-		"template": llama3,
-		"expected": "<|start_header_id|>user<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "user",
-			RoleName:     "user",
-			Content:      "A long time ago in a galaxy far, far away...",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
-		},
-	},
-	"assistant": {
-		"template": llama3,
-		"expected": "<|start_header_id|>assistant<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "assistant",
-			RoleName:     "assistant",
-			Content:      "A long time ago in a galaxy far, far away...",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
-		},
-	},
-	"function_call": {
-		"template": llama3,
-		"expected": "<|start_header_id|>assistant<|end_header_id|>\n\nFunction call:\n{\"function\":\"test\"}<|eot_id|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "assistant",
-			RoleName:     "assistant",
-			Content:      "",
-			FunctionCall: map[string]string{"function": "test"},
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
-		},
-	},
-	"function_response": {
-		"template": llama3,
-		"expected": "<|start_header_id|>tool<|end_header_id|>\n\nFunction response:\nResponse from tool<|eot_id|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "tool",
-			RoleName:     "tool",
-			Content:      "Response from tool",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
-		},
-	},
-}
-
-var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
-	"user": {
-		"template": chatML,
-		"expected": "<|im_start|>user\nA long time ago in a galaxy far, far away...<|im_end|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "user",
-			RoleName:     "user",
-			Content:      "A long time ago in a galaxy far, far away...",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
-		},
-	},
-	"assistant": {
-		"template": chatML,
-		"expected": "<|im_start|>assistant\nA long time ago in a galaxy far, far away...<|im_end|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "assistant",
-			RoleName:     "assistant",
-			Content:      "A long time ago in a galaxy far, far away...",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
-		},
-	},
-	"function_call": {
-		"template": chatML,
-		"expected": "<|im_start|>assistant\n<tool_call>\n{\"function\":\"test\"}\n</tool_call><|im_end|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "assistant",
-			RoleName:     "assistant",
-			Content:      "",
-			FunctionCall: map[string]string{"function": "test"},
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
-		},
-	},
-	"function_response": {
-		"template": chatML,
-		"expected": "<|im_start|>tool\n<tool_response>\nResponse from tool\n</tool_response><|im_end|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "tool",
-			RoleName:     "tool",
-			Content:      "Response from tool",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
-		},
-	},
-}
-
-var _ = Describe("Templates", func() {
-	Context("chat message ChatML", func() {
-		var modelLoader *ModelLoader
-		BeforeEach(func() {
-			modelLoader = NewModelLoader("")
-		})
-		for key := range chatMLTestMatch {
-			foo := chatMLTestMatch[key]
-			It("renders correctly `"+key+"`", func() {
-				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(templated).To(Equal(foo["expected"]), templated)
-			})
-		}
+	BeforeEach(func() {
+		// Setup the model loader with a test directory
+		modelPath = "/tmp/test_model_path"
+		os.Mkdir(modelPath, 0755)
+		modelLoader = model.NewModelLoader(modelPath)
 	})
-	Context("chat message llama3", func() {
-		var modelLoader *ModelLoader
-		BeforeEach(func() {
-			modelLoader = NewModelLoader("")
+
+	AfterEach(func() {
+		// Cleanup test directory
+		os.RemoveAll(modelPath)
+	})
+
+	Context("NewModelLoader", func() {
+		It("should create a new ModelLoader with an empty model map", func() {
+			Expect(modelLoader).ToNot(BeNil())
+			Expect(modelLoader.ModelPath).To(Equal(modelPath))
+			Expect(modelLoader.ListModels()).To(BeEmpty())
 		})
-		for key := range llama3TestMatch {
-			foo := llama3TestMatch[key]
-			It("renders correctly `"+key+"`", func() {
-				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(templated).To(Equal(foo["expected"]), templated)
-			})
-		}
+	})
+
+	Context("ExistsInModelPath", func() {
+		It("should return true if a file exists in the model path", func() {
+			testFile := filepath.Join(modelPath, "test.model")
+			os.Create(testFile)
+			Expect(modelLoader.ExistsInModelPath("test.model")).To(BeTrue())
+		})
+
+		It("should return false if a file does not exist in the model path", func() {
+			Expect(modelLoader.ExistsInModelPath("nonexistent.model")).To(BeFalse())
+		})
+	})
+
+	Context("ListFilesInModelPath", func() {
+		It("should list all valid model files in the model path", func() {
+			os.Create(filepath.Join(modelPath, "test.model"))
+			os.Create(filepath.Join(modelPath, "README.md"))
+
+			files, err := modelLoader.ListFilesInModelPath()
+			Expect(err).To(BeNil())
+			Expect(files).To(ContainElement("test.model"))
+			Expect(files).ToNot(ContainElement("README.md"))
+		})
+	})
+
+	Context("LoadModel", func() {
+		It("should load a model and keep it in memory", func() {
+			mockModel = model.NewModel("foo", "test.model", nil)
+
+			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return mockModel, nil
+			}
+
+			model, err := modelLoader.LoadModel("foo", "test.model", mockLoader)
+			Expect(err).To(BeNil())
+			Expect(model).To(Equal(mockModel))
+			Expect(modelLoader.CheckIsLoaded("foo")).To(Equal(mockModel))
+		})
+
+		It("should return an error if loading the model fails", func() {
+			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("failed to load model")
+			}
+
+			model, err := modelLoader.LoadModel("foo", "test.model", mockLoader)
+			Expect(err).To(HaveOccurred())
+			Expect(model).To(BeNil())
+		})
+	})
+
+	Context("ShutdownModel", func() {
+		It("should shutdown a loaded model", func() {
+			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return model.NewModel("foo", "test.model", nil), nil
+			}
+
+			_, err := modelLoader.LoadModel("foo", "test.model", mockLoader)
+			Expect(err).To(BeNil())
+
+			err = modelLoader.ShutdownModel("foo")
+			Expect(err).To(BeNil())
+			Expect(modelLoader.CheckIsLoaded("foo")).To(BeNil())
+		})
 	})
 })

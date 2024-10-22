@@ -40,7 +40,7 @@
 
 > :bulb: Get help - [❓FAQ](https://localai.io/faq/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) [:book: Documentation website](https://localai.io/)
 >
-> [💻 Quickstart](https://localai.io/basics/getting_started/) [📣 News](https://localai.io/basics/news/) [ 🛫 Examples ](https://github.com/go-skynet/LocalAI/tree/master/examples/) [ 🖼️ Models ](https://localai.io/models/) [ 🚀 Roadmap ](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
+> [💻 Quickstart](https://localai.io/basics/getting_started/) [🖼️ Models](https://models.localai.io/) [🚀 Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) [🥽 Demo](https://demo.localai.io) [🌍 Explorer](https://explorer.localai.io) [🛫 Examples](https://github.com/go-skynet/LocalAI/tree/master/examples/) 
 
 [![tests](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml)[![Build and Release](https://github.com/go-skynet/LocalAI/actions/workflows/release.yaml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/release.yaml)[![build container images](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml)[![Bump dependencies](https://github.com/go-skynet/LocalAI/actions/workflows/bump_deps.yaml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/bump_deps.yaml)[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/localai)](https://artifacthub.io/packages/search?repo=localai)
 
@@ -66,12 +66,26 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 # docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12 
 ```
 
+To load models:
+
+```bash
+# From the model gallery (see available models with `local-ai models list`, in the WebUI from the model tab, or visiting https://models.localai.io)
+local-ai run llama-3.2-1b-instruct:q4_k_m
+# Start LocalAI with the phi-2 model directly from huggingface
+local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
+# Install and run a model from the Ollama OCI registry
+local-ai run ollama://gemma:2b
+# Run a model from a configuration file
+local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
+# Install and run a model from a standard OCI registry (e.g., Docker Hub)
+local-ai run oci://localai/phi-2:latest
+```
+
 [💻 Getting started](https://localai.io/basics/getting_started/index.html)
 
-## 🔥🔥 Hot topics / Roadmap
+## 📰 Latest project news
 
-[Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
-
+- Aug 2024:  🆕 FLUX-1, [P2P Explorer](https://explorer.localai.io)
 - July 2024: 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723
 - June 2024: 🆕 You can browse now the model gallery without LocalAI! Check out https://models.localai.io
 - June 2024: Support for models from OCI registries: https://github.com/mudler/LocalAI/pull/2628
@@ -82,8 +96,12 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 - May 2024: Chat, TTS, and Image generation in the WebUI: https://github.com/mudler/LocalAI/pull/2222
 - April 2024: Reranker API: https://github.com/mudler/LocalAI/pull/2121
 
-Hot topics (looking for contributors):
+Roadmap items: [List of issues](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
+## 🔥🔥 Hot topics (looking for help):
+
+- Multimodal with vLLM and Video understanding: https://github.com/mudler/LocalAI/pull/3729
+- Realtime API https://github.com/mudler/LocalAI/issues/3714
 - 🔥🔥 Distributed, P2P Global community pools: https://github.com/mudler/LocalAI/issues/3113
 - WebUI improvements: https://github.com/mudler/LocalAI/issues/2156
 - Backends v2: https://github.com/mudler/LocalAI/issues/1126
