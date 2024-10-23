@@ -42,7 +42,9 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	app.Post("/stores/get", localai.StoresGetEndpoint(sl, appConfig))
 	app.Post("/stores/find", localai.StoresFindEndpoint(sl, appConfig))
 
-	app.Get("/metrics", localai.LocalAIMetricsEndpoint())
+	if !appConfig.DisableMetrics {
+		app.Get("/metrics", localai.LocalAIMetricsEndpoint())
+	}
 
 	// Experimental Backend Statistics Module
 	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
