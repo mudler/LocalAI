@@ -219,6 +219,7 @@ message ModelOptions {
   int32  SwapSpace = 53;
   int32  MaxModelLen = 54;
   int32  TensorParallelSize = 55;
+  string LoadFormat = 58;
 
   string MMProj = 41;
 
