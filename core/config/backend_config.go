@@ -143,6 +143,7 @@ type LLMConfig struct {
 	DraftModel           string  `yaml:"draft_model"`
 	NDraft               int32   `yaml:"n_draft"`
 	Quantization         string  `yaml:"quantization"`
+	LoadFormat           string  `yaml:"load_format"`
 	GPUMemoryUtilization float32 `yaml:"gpu_memory_utilization"` // vLLM
 	TrustRemoteCode      bool    `yaml:"trust_remote_code"`      // vLLM
 	EnforceEager         bool    `yaml:"enforce_eager"`          // vLLM

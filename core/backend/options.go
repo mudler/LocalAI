@@ -139,6 +139,7 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		DraftModel:           c.DraftModel,
 		AudioPath:            c.VallE.AudioPath,
 		Quantization:         c.Quantization,
+		LoadFormat:           c.LoadFormat,
 		GPUMemoryUtilization: c.GPUMemoryUtilization,
 		TrustRemoteCode:      c.TrustRemoteCode,
 		EnforceEager:         c.EnforceEager,
