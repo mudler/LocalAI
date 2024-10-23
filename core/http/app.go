@@ -109,19 +109,21 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		app.Use(recover.New())
 	}
 
-	metricsService, err := services.NewLocalAIMetricsService()
-	if err != nil {
-		return nil, err
-	}
+	if !appConfig.DisableMetrics {
+		metricsService, err := services.NewLocalAIMetricsService()
+		if err != nil {
+			return nil, err
+		}
 
-	if metricsService != nil {
-		app.Use(localai.LocalAIMetricsAPIMiddleware(metricsService))
-		app.Hooks().OnShutdown(func() error {
-			return metricsService.Shutdown()
-		})
-	}
+		if metricsService != nil {
+			app.Use(localai.LocalAIMetricsAPIMiddleware(metricsService))
+			app.Hooks().OnShutdown(func() error {
+				return metricsService.Shutdown()
+			})
+		}
 
- // Health Checks should always be exempt from auth, so register these first
+	}
+	// Health Checks should always be exempt from auth, so register these first
 	routes.HealthRoutes(app)
 
 	kaConfig, err := middleware.GetKeyAuthConfig(appConfig)

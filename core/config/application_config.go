@@ -39,6 +39,7 @@ type ApplicationConfig struct {
 	OpaqueErrors                       bool
 	UseSubtleKeyComparison             bool
 	DisableApiKeyRequirementForHttpGet bool
+	DisableMetrics                     bool
 	HttpGetExemptedEndpoints           []*regexp.Regexp
 	DisableGalleryEndpoint             bool
 	LoadToMemory                       []string
@@ -348,6 +349,10 @@ func WithDisableApiKeyRequirementForHttpGet(required bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableApiKeyRequirementForHttpGet = required
 	}
+}
+
+var DisableMetricsEndpoint AppOption = func(o *ApplicationConfig) {
+	o.DisableMetrics = true
 }
 
 func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
