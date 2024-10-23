@@ -95,6 +95,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         if request.Quantization != "":
             engine_args.quantization = request.Quantization
+        if request.LoadFormat != "":
+            engine_args.load_format = request.LoadFormat
         if request.GPUMemoryUtilization != 0:
             engine_args.gpu_memory_utilization = request.GPUMemoryUtilization
         if request.TrustRemoteCode:
