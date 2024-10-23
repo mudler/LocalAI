@@ -30,6 +30,19 @@ For a full list of options, refer to the [Installer Options]({{% relref "docs/ad
 
 Binaries can also be [manually downloaded]({{% relref "docs/reference/binaries" %}}).
 
+## Using Homebrew on MacOS
+
+{{% alert icon="⚠️" %}}
+The Homebrew formula currently doesn't have the same options than the bash script
+{{% /alert %}}
+
+You can install Homebrew's [LocalAI](https://formulae.brew.sh/formula/localai) with the following command:
+
+```
+brew install localai
+```
+
+
 ## Using Container Images or Kubernetes
 
 LocalAI is available as a container image compatible with various container engines such as Docker, Podman, and Kubernetes. Container images are published on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest) and [Docker Hub](https://hub.docker.com/r/localai/localai).
