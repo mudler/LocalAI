@@ -56,6 +56,14 @@ func WithBackendString(backend string) Option {
 	}
 }
 
+func WithDefaultBackendString(backend string) Option {
+	return func(o *Options) {
+		if o.backendString == "" {
+			o.backendString = backend
+		}
+	}
+}
+
 func WithModel(modelFile string) Option {
 	return func(o *Options) {
 		o.model = modelFile
