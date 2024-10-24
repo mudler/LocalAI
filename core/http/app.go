@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/dave-gray101/v2keyauth"
+	"github.com/gofiber/websocket/v2"
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -179,6 +180,26 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 		PathPrefix: "static",
 		Browse:     true,
 	}))
+
+	app.Use(func(c *fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(c) {
+			// Returns true if the client requested upgrade to the WebSocket protocol
+			c.Next()
+		}
+
+		return nil
+	})
+
+	// app.Use("/v1/realtime", func(c *fiber.Ctx) error {
+	// 	fmt.Println("Hit upgrade from http")
+	// 	// IsWebSocketUpgrade returns true if the client
+	// 	// requested upgrade to the WebSocket protocol.
+	// 	if websocket.IsWebSocketUpgrade(c) {
+	// 		c.Locals("allowed", true)
+	// 		return c.Next()
+	// 	}
+	// 	return fiber.ErrUpgradeRequired
+	// })
 
 	// Define a custom 404 handler
 	// Note: keep this at the bottom!

@@ -23,8 +23,9 @@ import (
 )
 
 type LLMResponse struct {
-	Response string // should this be []byte?
-	Usage    TokenUsage
+	Response    string // should this be []byte?
+	Usage       TokenUsage
+	AudioOutput string
 }
 
 type TokenUsage struct {
