@@ -121,7 +121,6 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 				return metricsService.Shutdown()
 			})
 		}
-
 	}
 	// Health Checks should always be exempt from auth, so register these first
 	routes.HealthRoutes(app)
@@ -158,13 +157,15 @@ func App(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *confi
 	galleryService := services.NewGalleryService(appConfig)
 	galleryService.Start(appConfig.Context, cl)
 
-	routes.RegisterElevenLabsRoutes(app, cl, ml, appConfig)
-	routes.RegisterLocalAIRoutes(app, cl, ml, appConfig, galleryService)
-	routes.RegisterOpenAIRoutes(app, cl, ml, appConfig)
+	requestExtractor := middleware.NewRequestExtractor(cl, ml, appConfig)
+
+	routes.RegisterElevenLabsRoutes(app, requestExtractor, cl, ml, appConfig)
+	routes.RegisterLocalAIRoutes(app, requestExtractor, cl, ml, appConfig, galleryService)
+	routes.RegisterOpenAIRoutes(app, requestExtractor, cl, ml, appConfig)
 	if !appConfig.DisableWebUI {
 		routes.RegisterUIRoutes(app, cl, ml, appConfig, galleryService)
 	}
-	routes.RegisterJINARoutes(app, cl, ml, appConfig)
+	routes.RegisterJINARoutes(app, requestExtractor, cl, ml, appConfig)
 
 	httpFS := http.FS(embedDirStatic)
 

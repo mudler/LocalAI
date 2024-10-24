@@ -81,10 +81,10 @@ func readMultipleBackendConfigsFromFile(file string, opts ...ConfigLoaderOption)
 	c := &[]*BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read config file: %w", err)
+		return nil, fmt.Errorf("readMultipleBackendConfigsFromFile cannot read config file %q: %w", file, err)
 	}
 	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
+		return nil, fmt.Errorf("readMultipleBackendConfigsFromFile cannot unmarshal config file %q: %w", file, err)
 	}
 
 	for _, cc := range *c {
@@ -101,10 +101,10 @@ func readBackendConfigFromFile(file string, opts ...ConfigLoaderOption) (*Backen
 	c := &BackendConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read config file: %w", err)
+		return nil, fmt.Errorf("readBackendConfigFromFile cannot read config file %q: %w", file, err)
 	}
 	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal config file: %w", err)
+		return nil, fmt.Errorf("readBackendConfigFromFile cannot unmarshal config file %q: %w", file, err)
 	}
 
 	c.SetDefaults(opts...)
@@ -117,7 +117,9 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath
 	// Load a config file if present after the model name
 	cfg := &BackendConfig{
 		PredictionOptions: schema.PredictionOptions{
-			Model: modelName,
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: modelName,
+			},
 		},
 	}
 
@@ -145,6 +147,15 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath
 	return cfg, nil
 }
 
+func (bcl *BackendConfigLoader) LoadBackendConfigFileByNameDefaultOptions(modelName string, appConfig *ApplicationConfig) (*BackendConfig, error) {
+	return bcl.LoadBackendConfigFileByName(modelName, appConfig.ModelPath,
+		LoadOptionDebug(appConfig.Debug),
+		LoadOptionThreads(appConfig.Threads),
+		LoadOptionContextSize(appConfig.ContextSize),
+		LoadOptionF16(appConfig.F16),
+		ModelPath(appConfig.ModelPath))
+}
+
 // This format is currently only used when reading a single file at startup, passed in via ApplicationConfig.ConfigFile
 func (bcl *BackendConfigLoader) LoadMultipleBackendConfigsSingleFile(file string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
@@ -167,7 +178,7 @@ func (bcl *BackendConfigLoader) LoadBackendConfig(file string, opts ...ConfigLoa
 	defer bcl.Unlock()
 	c, err := readBackendConfigFromFile(file, opts...)
 	if err != nil {
-		return fmt.Errorf("cannot read config file: %w", err)
+		return fmt.Errorf("LoadBackendConfig cannot read config file %q: %w", file, err)
 	}
 
 	if c.Validate() {
@@ -324,9 +335,10 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 func (bcl *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
+
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return fmt.Errorf("cannot read directory '%s': %w", path, err)
+		return fmt.Errorf("LoadBackendConfigsFromPath cannot read directory '%s': %w", path, err)
 	}
 	files := make([]fs.FileInfo, 0, len(entries))
 	for _, entry := range entries {
@@ -344,13 +356,13 @@ func (bcl *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...
 		}
 		c, err := readBackendConfigFromFile(filepath.Join(path, file.Name()), opts...)
 		if err != nil {
-			log.Error().Err(err).Msgf("cannot read config file: %s", file.Name())
+			log.Error().Err(err).Str("File Name", file.Name()).Msgf("LoadBackendConfigsFromPath cannot read config file")
 			continue
 		}
 		if c.Validate() {
 			bcl.configs[c.Name] = *c
 		} else {
-			log.Error().Err(err).Msgf("config is not valid")
+			log.Error().Err(err).Str("Name", c.Name).Msgf("config is not valid")
 		}
 	}
 

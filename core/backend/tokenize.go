@@ -9,14 +9,10 @@ import (
 
 func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
 
-	modelFile := backendConfig.Model
-
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := ModelOptions(backendConfig, appConfig, []model.Option{
-		model.WithModel(modelFile),
-	})
+	opts := ModelOptions(backendConfig, appConfig, []model.Option{})
 
 	if backendConfig.Backend == "" {
 		inferenceModel, err = loader.GreedyLoader(opts...)
