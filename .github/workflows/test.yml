@@ -224,7 +224,7 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+          pip install --user --no-cache-dir grpcio-tools
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include
