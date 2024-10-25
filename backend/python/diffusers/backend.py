@@ -247,11 +247,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         use_safetensors=True,
                         variant=variant)
             elif request.PipelineType == "FluxPipeline":
+                if fromSingleFile:
+                    self.pipe = FluxPipeline.from_single_file(modelFile,
+                                                              torch_dtype=torchType,
+                                                              use_safetensors=True)
+                else:
                     self.pipe = FluxPipeline.from_pretrained(
                         request.Model,
                         torch_dtype=torch.bfloat16)
-                    if request.LowVRAM:
-                        self.pipe.enable_model_cpu_offload()
+                if request.LowVRAM:
+                    self.pipe.enable_model_cpu_offload()
             elif request.PipelineType == "FluxTransformer2DModel":
                     dtype = torch.bfloat16
                     # specify from environment or default to "ChuckMcSneed/FLUX.1-dev"
