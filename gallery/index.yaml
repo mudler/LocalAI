@@ -2522,8 +2522,9 @@
   ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
   name: parler-tts-mini-v0.1
-  parameters:
-    model: parler-tts/parler_tts_mini_v0.1
+  overrides:
+    parameters:
+      model: parler-tts/parler_tts_mini_v0.1
   license: apache-2.0
   description: |
     Parler-TTS is a lightweight text-to-speech (TTS) model that can generate high-quality, natural sounding speech in the style of a given speaker (gender, pitch, speaking style, etc). It is a reproduction of work from the paper Natural language guidance of high-fidelity text-to-speech with synthetic annotations by Dan Lyth and Simon King, from Stability AI and Edinburgh University respectively.
