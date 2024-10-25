@@ -71,6 +71,7 @@ type RunCMD struct {
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
+	AdjustGPULayers                    bool     `env:"LOCALAI_ADJUST_GPU_LAYERS,ADJUST_GPU_LAYERS" help:"Enable OffLoading of model layers to GPU" group:"models"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -172,6 +173,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.SingleActiveBackend {
 		opts = append(opts, config.EnableSingleBackend)
+	}
+
+	if r.AdjustGPULayers {
+		opts = append(opts, config.AdjustGPULayers)
 	}
 
 	// split ":" to get backend name and the uri
