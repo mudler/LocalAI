@@ -20,4 +20,6 @@ config_file: |
     completion: |
         {{.Input}}
     use_tokenizer_template: false
+    multimodal: "{{ range .Images }}<|image_{{ add1 .ID}}|>{{end}}\n{{.Text}}"
+    # XXX: The one below can be dropped after a new release is out
     image: "<|image_{{ add1 .ID }}|>\n{{.Text}}"

@@ -11,8 +11,8 @@ frozenlist==1.4.1
 greenlet==3.1.1
 idna==3.10
 langchain==0.3.3
-langchain-community==0.3.2
-marshmallow==3.22.0
+langchain-community==0.3.3
+marshmallow==3.23.0
 marshmallow-enum==1.5.1
 multidict==6.1.0
 mypy-extensions==1.0.0
@@ -24,10 +24,10 @@ packaging>=23.2
 pydantic==2.9.2
 PyYAML==6.0.2
 requests==2.32.3
-SQLAlchemy==2.0.35
+SQLAlchemy==2.0.36
 tenacity==8.5.0
 tqdm==4.66.5
 typing-inspect==0.9.0
 typing_extensions==4.12.2
 urllib3==2.2.3
-yarl==1.15.2
+yarl==1.16.0
