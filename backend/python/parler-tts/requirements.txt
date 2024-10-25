@@ -1,4 +1,5 @@
 grpcio==1.67.0
+grpcio-tools==1.44.0
 protobuf
 certifi
 llvmlite==0.43.0
