@@ -12,9 +12,10 @@ export SKIP_CONDA=1
 endif
 
 .PHONY: parler-tts
-parler-tts: protogen
+parler-tts:
 	@echo "Installing $(CONDA_ENV_PATH)..."
 	bash install.sh $(CONDA_ENV_PATH)
+	$(MAKE) protogen
 
 .PHONY: run
 run: protogen
@@ -36,7 +37,7 @@ protogen-clean:
 	$(RM) backend_pb2_grpc.py backend_pb2.py
 
 backend_pb2_grpc.py backend_pb2.py:
-	python3 -m grpc_tools.protoc -I../.. --python_out=. --grpc_python_out=. backend.proto
+	bash protogen.sh
 
 .PHONY: clean
 clean: protogen-clean
