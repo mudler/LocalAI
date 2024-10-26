@@ -3182,6 +3182,29 @@
     - filename: Apollo2-9B.Q4_K_M.gguf
       sha256: 9fdb63f78e574558a4f33782eca88716eea28e90ea3ae36c381769cde6b81e0f
       uri: huggingface://mradermacher/Apollo2-9B-GGUF/Apollo2-9B.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "darkest-muse-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65ad56b4c2eef2ba1154618c/0AB6uPPuCvbNtRZb3Rdj1.png
+  urls:
+    - https://huggingface.co/sam-paech/Darkest-muse-v1
+    - https://huggingface.co/bartowski/Darkest-muse-v1-GGUF
+  description: |
+    This is a creative writing merge of two very different models that I trained on the brand new Gutenberg3 dataset, plus Ataraxy-v2 in the mix.
+
+    It's lost much of the slop and tryhard vocab flexing and positivity bias that's typical of these models and writes in its own voice.
+
+    The main source model in the merge, Quill-v1, inherited a natural, spare prose from the human writing in the gutenberg set. The other source model, Delirium-v1, got overcooked in SIMPO training; it has crazy panache, a really dark flair for the grotesque, and has some mental issues. These two source models balance each other out in the merge, resulting in something pretty unique.
+
+    It seems to be quite uncensored and creative. Since Delirium was pushed right to the edge during training, the merge may exhibit some of its weirdness and word / concept fixations. This may be mitigated by using custom anti-slop lists.
+
+    The payoff is a really creative, stream of consciousness style of writing, with punchy dialogue that I haven't seen in other models. Oh, it also scored around the top of the EQ-Bench creative writing leaderboard!
+  overrides:
+    parameters:
+      model: Darkest-muse-v1-Q4_K_M.gguf
+  files:
+    - filename: Darkest-muse-v1-Q4_K_M.gguf
+      sha256: a19ec9e3dc875511ea771bf363e71e7ae5578986b2f8cf50aeb50683d56e9b76
+      uri: huggingface://bartowski/Darkest-muse-v1-GGUF/Darkest-muse-v1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
