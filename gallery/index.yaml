@@ -1778,6 +1778,24 @@
     - filename: Baldur-8B.Q4_K_M.gguf
       sha256: 645b393fbac5cd17ccfd66840a3a05c3930e01b903dd1535f0347a74cc443fc7
       uri: huggingface://QuantFactory/Baldur-8B-GGUF/Baldur-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-moe-2x8b-v0.2"
+  icon: https://github.com/moeru-ai/L3.1-Moe/blob/main/cover/v0.2.png?raw=true
+  urls:
+    - https://huggingface.co/moeru-ai/L3.1-Moe-2x8B-v0.2
+    - https://huggingface.co/mradermacher/L3.1-Moe-2x8B-v0.2-GGUF
+  description: |
+    This model is a Mixture of Experts (MoE) made with mergekit-moe. It uses the following base models:
+        Joseph717171/Llama-3.1-SuperNova-8B-Lite_TIES_with_Base
+        ArliAI/Llama-3.1-8B-ArliAI-RPMax-v1.2
+    Heavily inspired by mlabonne/Beyonder-4x7B-v3.
+  overrides:
+    parameters:
+      model: L3.1-Moe-2x8B-v0.2.Q4_K_M.gguf
+  files:
+    - filename: L3.1-Moe-2x8B-v0.2.Q4_K_M.gguf
+      sha256: 87f8b294aa213aa3f866e03a53923f4df8f797ea94dc93f88b8a1b58d85fbca0
+      uri: huggingface://mradermacher/L3.1-Moe-2x8B-v0.2-GGUF/L3.1-Moe-2x8B-v0.2.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
