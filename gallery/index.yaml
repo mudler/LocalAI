@@ -242,6 +242,21 @@
     - filename: Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
       sha256: 4cd1796806200662500e1393ae8e0a32306fab2b6679a746ee53ad2130e5f3a2
       uri: huggingface://mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF/Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-3b-instruct-uncensored"
+  icon: https://i.imgur.com/JOePyAN.png
+  urls:
+    - https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF
+    - https://huggingface.co/chuanli11/Llama-3.2-3B-Instruct-uncensored
+  description: |
+    This is an uncensored version of the original Llama-3.2-3B-Instruct, created using mlabonne's script, which builds on FailSpy's notebook and the original work from Andy Arditi et al..
+  overrides:
+    parameters:
+      model: Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf
+      sha256: 80f532552e3d56e366226f428395de8285a671f2da1d5fd68563741181b77a95
+      uri: huggingface://bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF/Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
