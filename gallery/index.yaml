@@ -210,6 +210,38 @@
     - filename: Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
       sha256: 80b10e1a5c6e27f6d8cf08c3472af2b15a9f63ebf8385eedfe8615f85116c73f
       uri: huggingface://mradermacher/Llama-3.2-3B-Reasoning-Time-GGUF/Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-sun-2.5b-chat"
+  icon: https://i.ibb.co/PF0TdMJ/imagine-image-9a56cee7-0f4f-4cc2-b265-a5b8d04f266b.png
+  urls:
+    - https://huggingface.co/meditsolutions/Llama-3.2-SUN-2.5B-chat
+    - https://huggingface.co/mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF
+  description: |
+    Base Model
+        Llama 3.2 1B
+    Extended Size
+        1B to 2.5B parameters
+    Extension Method
+        Proprietary technique developed by MedIT Solutions
+    Fine-tuning
+        Open (or open subsets allowing for commercial use) open datasets from HF
+        Open (or open subsets allowing for commercial use) SFT datasets from HF
+    Training Status
+        Current version: chat-1.0.0
+    Key Features
+        Built on Llama 3.2 architecture
+        Expanded from 1B to 2.47B parameters
+        Optimized for open-ended conversations
+        Incorporates supervised fine-tuning for improved performance
+    Use Case
+        General conversation and task-oriented interactions
+  overrides:
+    parameters:
+      model: Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
+      sha256: 4cd1796806200662500e1393ae8e0a32306fab2b6679a746ee53ad2130e5f3a2
+      uri: huggingface://mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF/Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
