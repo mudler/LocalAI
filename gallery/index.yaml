@@ -675,6 +675,32 @@
     - filename: Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
       sha256: 632b10d5c0e98bc8d53295886da2d57772a54bb6f6fa01d458e9e8c7fa9c905a
       uri: huggingface://QuantFactory/Meissa-Qwen2.5-7B-Instruct-GGUF/Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "thebeagle-v2beta-32b-mgs"
+  urls:
+    - https://huggingface.co/fblgit/TheBeagle-v2beta-32B-MGS
+    - https://huggingface.co/bartowski/TheBeagle-v2beta-32B-MGS-GGUF
+  description: |
+    This model is an experimental version of our latest innovation: MGS. Its up to you to figure out what does it means, but its very explicit. We didn't applied our known UNA algorithm to the forward pass, but they are entirely compatible and operates in different parts of the neural network and in different ways, tho they both can be seen as a regularization technique.
+
+    Updated tokenizer_config.json (from the base_model)
+    Regenerated Quants (being uploaded)
+    Re-submitted Leaderboard Evaluation, MATH & IFeval have relevant updates
+    Aligned LICENSE with Qwen terms.
+
+    MGS stands for... Many-Geeks-Searching... and thats it. Hint: 1+1 is 2, and 1+1 is not 3
+    We still believe on 1-Epoch should be enough, so we just did 1 Epoch only.
+    Dataset
+    Used here the first decent (corpora & size) dataset on the hub: Magpie-Align/Magpie-Pro-300K-Filtered Kudos to the Magpie team to contribute with some decent stuff that I personally think is very good to ablate.
+    It achieves the following results on the evaluation set:
+        Loss: 0.5378 (1 Epoch), outperforming the baseline model.
+  overrides:
+    parameters:
+      model: TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
+  files:
+    - filename: TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
+      sha256: db0d3b3c5341d2d51115794bf5da6552b5c0714b041de9b82065cc0c982dd4f7
+      uri: huggingface://bartowski/TheBeagle-v2beta-32B-MGS-GGUF/TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
