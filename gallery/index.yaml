@@ -1796,6 +1796,24 @@
     - filename: L3.1-Moe-2x8B-v0.2.Q4_K_M.gguf
       sha256: 87f8b294aa213aa3f866e03a53923f4df8f797ea94dc93f88b8a1b58d85fbca0
       uri: huggingface://mradermacher/L3.1-Moe-2x8B-v0.2-GGUF/L3.1-Moe-2x8B-v0.2.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-darkstorm-aspire-8b"
+  urls:
+    - https://huggingface.co/ZeroXClem/Llama3.1-DarkStorm-Aspire-8B
+    - https://huggingface.co/mradermacher/Llama3.1-DarkStorm-Aspire-8B-GGUF
+  description: |
+    Welcome to Llama3.1-DarkStorm-Aspire-8B — an advanced and versatile 8B parameter AI model born from the fusion of powerful language models, designed to deliver superior performance across research, writing, coding, and creative tasks. This unique merge blends the best qualities of the Dark Enigma, Storm, and Aspire models, while built on the strong foundation of DarkStock. With balanced integration, it excels in generating coherent, context-aware, and imaginative outputs.
+    Llama3.1-DarkStorm-Aspire-8B combines cutting-edge natural language processing capabilities to perform exceptionally well in a wide variety of tasks:
+        Research and Analysis: Perfect for analyzing textual data, planning experiments, and brainstorming complex ideas.
+        Creative Writing and Roleplaying: Excels in creative writing, immersive storytelling, and generating roleplaying scenarios.
+        General AI Applications: Use it for any application where advanced reasoning, instruction-following, and creativity are needed.
+  overrides:
+    parameters:
+      model: Llama3.1-DarkStorm-Aspire-8B.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-DarkStorm-Aspire-8B.Q4_K_M.gguf
+      sha256: b1686b3039509034add250db9ddcd7d6dbefd37136ac6717bc4fec3ec47ecd03
+      uri: huggingface://mradermacher/Llama3.1-DarkStorm-Aspire-8B-GGUF/Llama3.1-DarkStorm-Aspire-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
