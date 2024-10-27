@@ -1887,6 +1887,25 @@
     - filename: Llama3.1-DarkStorm-Aspire-8B.Q4_K_M.gguf
       sha256: b1686b3039509034add250db9ddcd7d6dbefd37136ac6717bc4fec3ec47ecd03
       uri: huggingface://mradermacher/Llama3.1-DarkStorm-Aspire-8B-GGUF/Llama3.1-DarkStorm-Aspire-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-70blivion-v0.1-rc1-70b-i1"
+  icon: https://huggingface.co/invisietch/L3.1-70Blivion-v0.1-rc1-70B/resolve/main/header.png
+  urls:
+    - https://huggingface.co/invisietch/L3.1-70Blivion-v0.1-rc1-70B
+    - https://huggingface.co/mradermacher/L3.1-70Blivion-v0.1-rc1-70B-i1-GGUF
+  description: |
+    70Blivion v0.1 is a model in the release candidate stage, based on a merge of L3.1 Nemotron 70B & Euryale 2.2 with a healing training step. Further training will be needed to get this model to release quality.
+
+    This model is designed to be suitable for creative writing and roleplay. This RC is not a finished product, but your feedback will drive the creation of better models.
+
+    This is a release candidate model. It has some known issues and probably some unknown ones too, because the purpose of these early releases is to seek feedback.
+  overrides:
+    parameters:
+      model: L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
+      sha256: 27b10c3ca4507e8bf7d305d60e5313b54ef5fffdb43a03f36223d19d906e39f3
+      uri: huggingface://mradermacher/L3.1-70Blivion-v0.1-rc1-70B-i1-GGUF/L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
