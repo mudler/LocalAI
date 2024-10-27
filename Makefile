@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=cc2983d3753c94a630ca7257723914d4c4f6122b
+CPPLLAMA_VERSION?=8841ce3f439de6e770f70319b7e08b6613197ea7
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
