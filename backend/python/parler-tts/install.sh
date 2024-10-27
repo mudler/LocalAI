@@ -11,16 +11,18 @@ if [ "x${BUILD_PROFILE}" == "xintel" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
 fi
 
+
 installRequirements
+
 
 # https://github.com/descriptinc/audiotools/issues/101
 # incompatible protobuf versions.
-# PYDIR=python3.10
-# pyenv="${MY_DIR}/venv/lib/${PYDIR}/site-packages/google/protobuf/internal/"
+PYDIR=python3.10
+pyenv="${MY_DIR}/venv/lib/${PYDIR}/site-packages/google/protobuf/internal/"
 
-# if [ ! -d ${pyenv} ]; then
-#     echo "(parler-tts/install.sh): Error: ${pyenv} does not exist"
-#     exit 1
-# fi
+if [ ! -d ${pyenv} ]; then
+    echo "(parler-tts/install.sh): Error: ${pyenv} does not exist"
+    exit 1
+fi
 
-# curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o ${pyenv}/builder.py
+curl -L https://raw.githubusercontent.com/protocolbuffers/protobuf/main/python/google/protobuf/internal/builder.py -o ${pyenv}/builder.py

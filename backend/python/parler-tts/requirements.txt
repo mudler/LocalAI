@@ -1,4 +1,3 @@
 grpcio==1.67.0
-protobuf
 certifi
 llvmlite==0.43.0

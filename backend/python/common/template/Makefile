@@ -1,8 +1,9 @@
 .DEFAULT_GOAL := install
 
 .PHONY: install
-install: protogen
+install:
 	bash install.sh
+	$(MAKE) protogen
 
 .PHONY: protogen
 protogen: backend_pb2_grpc.py backend_pb2.py
@@ -12,7 +13,7 @@ protogen-clean:
 	$(RM) backend_pb2_grpc.py backend_pb2.py
 
 backend_pb2_grpc.py backend_pb2.py:
-	python3 -m grpc_tools.protoc -I../.. --python_out=. --grpc_python_out=. backend.proto
+	bash protogen.sh
 
 .PHONY: clean
 clean: protogen-clean

@@ -210,6 +210,53 @@
     - filename: Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
       sha256: 80b10e1a5c6e27f6d8cf08c3472af2b15a9f63ebf8385eedfe8615f85116c73f
       uri: huggingface://mradermacher/Llama-3.2-3B-Reasoning-Time-GGUF/Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-sun-2.5b-chat"
+  icon: https://i.ibb.co/PF0TdMJ/imagine-image-9a56cee7-0f4f-4cc2-b265-a5b8d04f266b.png
+  urls:
+    - https://huggingface.co/meditsolutions/Llama-3.2-SUN-2.5B-chat
+    - https://huggingface.co/mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF
+  description: |
+    Base Model
+        Llama 3.2 1B
+    Extended Size
+        1B to 2.5B parameters
+    Extension Method
+        Proprietary technique developed by MedIT Solutions
+    Fine-tuning
+        Open (or open subsets allowing for commercial use) open datasets from HF
+        Open (or open subsets allowing for commercial use) SFT datasets from HF
+    Training Status
+        Current version: chat-1.0.0
+    Key Features
+        Built on Llama 3.2 architecture
+        Expanded from 1B to 2.47B parameters
+        Optimized for open-ended conversations
+        Incorporates supervised fine-tuning for improved performance
+    Use Case
+        General conversation and task-oriented interactions
+  overrides:
+    parameters:
+      model: Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
+      sha256: 4cd1796806200662500e1393ae8e0a32306fab2b6679a746ee53ad2130e5f3a2
+      uri: huggingface://mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF/Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-3b-instruct-uncensored"
+  icon: https://i.imgur.com/JOePyAN.png
+  urls:
+    - https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF
+    - https://huggingface.co/chuanli11/Llama-3.2-3B-Instruct-uncensored
+  description: |
+    This is an uncensored version of the original Llama-3.2-3B-Instruct, created using mlabonne's script, which builds on FailSpy's notebook and the original work from Andy Arditi et al..
+  overrides:
+    parameters:
+      model: Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf
+      sha256: 80f532552e3d56e366226f428395de8285a671f2da1d5fd68563741181b77a95
+      uri: huggingface://bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF/Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -628,6 +675,32 @@
     - filename: Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
       sha256: 632b10d5c0e98bc8d53295886da2d57772a54bb6f6fa01d458e9e8c7fa9c905a
       uri: huggingface://QuantFactory/Meissa-Qwen2.5-7B-Instruct-GGUF/Meissa-Qwen2.5-7B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "thebeagle-v2beta-32b-mgs"
+  urls:
+    - https://huggingface.co/fblgit/TheBeagle-v2beta-32B-MGS
+    - https://huggingface.co/bartowski/TheBeagle-v2beta-32B-MGS-GGUF
+  description: |
+    This model is an experimental version of our latest innovation: MGS. Its up to you to figure out what does it means, but its very explicit. We didn't applied our known UNA algorithm to the forward pass, but they are entirely compatible and operates in different parts of the neural network and in different ways, tho they both can be seen as a regularization technique.
+
+    Updated tokenizer_config.json (from the base_model)
+    Regenerated Quants (being uploaded)
+    Re-submitted Leaderboard Evaluation, MATH & IFeval have relevant updates
+    Aligned LICENSE with Qwen terms.
+
+    MGS stands for... Many-Geeks-Searching... and thats it. Hint: 1+1 is 2, and 1+1 is not 3
+    We still believe on 1-Epoch should be enough, so we just did 1 Epoch only.
+    Dataset
+    Used here the first decent (corpora & size) dataset on the hub: Magpie-Align/Magpie-Pro-300K-Filtered Kudos to the Magpie team to contribute with some decent stuff that I personally think is very good to ablate.
+    It achieves the following results on the evaluation set:
+        Loss: 0.5378 (1 Epoch), outperforming the baseline model.
+  overrides:
+    parameters:
+      model: TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
+  files:
+    - filename: TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
+      sha256: db0d3b3c5341d2d51115794bf5da6552b5c0714b041de9b82065cc0c982dd4f7
+      uri: huggingface://bartowski/TheBeagle-v2beta-32B-MGS-GGUF/TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -1778,6 +1851,78 @@
     - filename: Baldur-8B.Q4_K_M.gguf
       sha256: 645b393fbac5cd17ccfd66840a3a05c3930e01b903dd1535f0347a74cc443fc7
       uri: huggingface://QuantFactory/Baldur-8B-GGUF/Baldur-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-moe-2x8b-v0.2"
+  icon: https://github.com/moeru-ai/L3.1-Moe/blob/main/cover/v0.2.png?raw=true
+  urls:
+    - https://huggingface.co/moeru-ai/L3.1-Moe-2x8B-v0.2
+    - https://huggingface.co/mradermacher/L3.1-Moe-2x8B-v0.2-GGUF
+  description: |
+    This model is a Mixture of Experts (MoE) made with mergekit-moe. It uses the following base models:
+        Joseph717171/Llama-3.1-SuperNova-8B-Lite_TIES_with_Base
+        ArliAI/Llama-3.1-8B-ArliAI-RPMax-v1.2
+    Heavily inspired by mlabonne/Beyonder-4x7B-v3.
+  overrides:
+    parameters:
+      model: L3.1-Moe-2x8B-v0.2.Q4_K_M.gguf
+  files:
+    - filename: L3.1-Moe-2x8B-v0.2.Q4_K_M.gguf
+      sha256: 87f8b294aa213aa3f866e03a53923f4df8f797ea94dc93f88b8a1b58d85fbca0
+      uri: huggingface://mradermacher/L3.1-Moe-2x8B-v0.2-GGUF/L3.1-Moe-2x8B-v0.2.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-darkstorm-aspire-8b"
+  urls:
+    - https://huggingface.co/ZeroXClem/Llama3.1-DarkStorm-Aspire-8B
+    - https://huggingface.co/mradermacher/Llama3.1-DarkStorm-Aspire-8B-GGUF
+  description: |
+    Welcome to Llama3.1-DarkStorm-Aspire-8B — an advanced and versatile 8B parameter AI model born from the fusion of powerful language models, designed to deliver superior performance across research, writing, coding, and creative tasks. This unique merge blends the best qualities of the Dark Enigma, Storm, and Aspire models, while built on the strong foundation of DarkStock. With balanced integration, it excels in generating coherent, context-aware, and imaginative outputs.
+    Llama3.1-DarkStorm-Aspire-8B combines cutting-edge natural language processing capabilities to perform exceptionally well in a wide variety of tasks:
+        Research and Analysis: Perfect for analyzing textual data, planning experiments, and brainstorming complex ideas.
+        Creative Writing and Roleplaying: Excels in creative writing, immersive storytelling, and generating roleplaying scenarios.
+        General AI Applications: Use it for any application where advanced reasoning, instruction-following, and creativity are needed.
+  overrides:
+    parameters:
+      model: Llama3.1-DarkStorm-Aspire-8B.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-DarkStorm-Aspire-8B.Q4_K_M.gguf
+      sha256: b1686b3039509034add250db9ddcd7d6dbefd37136ac6717bc4fec3ec47ecd03
+      uri: huggingface://mradermacher/Llama3.1-DarkStorm-Aspire-8B-GGUF/Llama3.1-DarkStorm-Aspire-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-70blivion-v0.1-rc1-70b-i1"
+  icon: https://huggingface.co/invisietch/L3.1-70Blivion-v0.1-rc1-70B/resolve/main/header.png
+  urls:
+    - https://huggingface.co/invisietch/L3.1-70Blivion-v0.1-rc1-70B
+    - https://huggingface.co/mradermacher/L3.1-70Blivion-v0.1-rc1-70B-i1-GGUF
+  description: |
+    70Blivion v0.1 is a model in the release candidate stage, based on a merge of L3.1 Nemotron 70B & Euryale 2.2 with a healing training step. Further training will be needed to get this model to release quality.
+
+    This model is designed to be suitable for creative writing and roleplay. This RC is not a finished product, but your feedback will drive the creation of better models.
+
+    This is a release candidate model. It has some known issues and probably some unknown ones too, because the purpose of these early releases is to seek feedback.
+  overrides:
+    parameters:
+      model: L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
+      sha256: 27b10c3ca4507e8bf7d305d60e5313b54ef5fffdb43a03f36223d19d906e39f3
+      uri: huggingface://mradermacher/L3.1-70Blivion-v0.1-rc1-70B-i1-GGUF/L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://i.imgur.com/sdN0Aqg.jpeg
+  name: "llama-3.1-hawkish-8b"
+  urls:
+    - https://huggingface.co/mukaj/Llama-3.1-Hawkish-8B
+    - https://huggingface.co/bartowski/Llama-3.1-Hawkish-8B-GGUF
+  description: |
+    Model has been further finetuned on a set of newly generated 50m high quality tokens related to Financial topics covering topics such as Economics, Fixed Income, Equities, Corporate Financing, Derivatives and Portfolio Management. Data was gathered from publicly available sources and went through several stages of curation into instruction data from the initial amount of 250m+ tokens. To aid in mitigating forgetting information from the original finetune, the data was mixed with instruction sets on the topics of Coding, General Knowledge, NLP and Conversational Dialogue.
+
+    The model has shown to improve over a number of benchmarks over the original model, notably in Math and Economics. This model represents the first time a 8B model has been able to convincingly get a passing score on the CFA Level 1 exam, requiring a typical 300 hours of studying, indicating a significant improvement in Financial Knowledge.
+  overrides:
+    parameters:
+      model: Llama-3.1-Hawkish-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Hawkish-8B-Q4_K_M.gguf
+      sha256: 613693936bbe641f41560151753716ba549ca052260fc5c0569e943e0bb834c3
+      uri: huggingface://bartowski/Llama-3.1-Hawkish-8B-GGUF/Llama-3.1-Hawkish-8B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -2522,8 +2667,9 @@
   ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
   name: parler-tts-mini-v0.1
-  parameters:
-    model: parler-tts/parler_tts_mini_v0.1
+  overrides:
+    parameters:
+      model: parler-tts/parler_tts_mini_v0.1
   license: apache-2.0
   description: |
     Parler-TTS is a lightweight text-to-speech (TTS) model that can generate high-quality, natural sounding speech in the style of a given speaker (gender, pitch, speaking style, etc). It is a reproduction of work from the paper Natural language guidance of high-fidelity text-to-speech with synthetic annotations by Dan Lyth and Simon King, from Stability AI and Edinburgh University respectively.
@@ -3113,6 +3259,29 @@
     - filename: Apollo2-9B.Q4_K_M.gguf
       sha256: 9fdb63f78e574558a4f33782eca88716eea28e90ea3ae36c381769cde6b81e0f
       uri: huggingface://mradermacher/Apollo2-9B-GGUF/Apollo2-9B.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "darkest-muse-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65ad56b4c2eef2ba1154618c/0AB6uPPuCvbNtRZb3Rdj1.png
+  urls:
+    - https://huggingface.co/sam-paech/Darkest-muse-v1
+    - https://huggingface.co/bartowski/Darkest-muse-v1-GGUF
+  description: |
+    This is a creative writing merge of two very different models that I trained on the brand new Gutenberg3 dataset, plus Ataraxy-v2 in the mix.
+
+    It's lost much of the slop and tryhard vocab flexing and positivity bias that's typical of these models and writes in its own voice.
+
+    The main source model in the merge, Quill-v1, inherited a natural, spare prose from the human writing in the gutenberg set. The other source model, Delirium-v1, got overcooked in SIMPO training; it has crazy panache, a really dark flair for the grotesque, and has some mental issues. These two source models balance each other out in the merge, resulting in something pretty unique.
+
+    It seems to be quite uncensored and creative. Since Delirium was pushed right to the edge during training, the merge may exhibit some of its weirdness and word / concept fixations. This may be mitigated by using custom anti-slop lists.
+
+    The payoff is a really creative, stream of consciousness style of writing, with punchy dialogue that I haven't seen in other models. Oh, it also scored around the top of the EQ-Bench creative writing leaderboard!
+  overrides:
+    parameters:
+      model: Darkest-muse-v1-Q4_K_M.gguf
+  files:
+    - filename: Darkest-muse-v1-Q4_K_M.gguf
+      sha256: a19ec9e3dc875511ea771bf363e71e7ae5578986b2f8cf50aeb50683d56e9b76
+      uri: huggingface://bartowski/Darkest-muse-v1-GGUF/Darkest-muse-v1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
