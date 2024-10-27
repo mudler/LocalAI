@@ -1906,6 +1906,23 @@
     - filename: L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
       sha256: 27b10c3ca4507e8bf7d305d60e5313b54ef5fffdb43a03f36223d19d906e39f3
       uri: huggingface://mradermacher/L3.1-70Blivion-v0.1-rc1-70B-i1-GGUF/L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://i.imgur.com/sdN0Aqg.jpeg
+  name: "llama-3.1-hawkish-8b"
+  urls:
+    - https://huggingface.co/mukaj/Llama-3.1-Hawkish-8B
+    - https://huggingface.co/bartowski/Llama-3.1-Hawkish-8B-GGUF
+  description: |
+    Model has been further finetuned on a set of newly generated 50m high quality tokens related to Financial topics covering topics such as Economics, Fixed Income, Equities, Corporate Financing, Derivatives and Portfolio Management. Data was gathered from publicly available sources and went through several stages of curation into instruction data from the initial amount of 250m+ tokens. To aid in mitigating forgetting information from the original finetune, the data was mixed with instruction sets on the topics of Coding, General Knowledge, NLP and Conversational Dialogue.
+
+    The model has shown to improve over a number of benchmarks over the original model, notably in Math and Economics. This model represents the first time a 8B model has been able to convincingly get a passing score on the CFA Level 1 exam, requiring a typical 300 hours of studying, indicating a significant improvement in Financial Knowledge.
+  overrides:
+    parameters:
+      model: Llama-3.1-Hawkish-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Hawkish-8B-Q4_K_M.gguf
+      sha256: 613693936bbe641f41560151753716ba549ca052260fc5c0569e943e0bb834c3
+      uri: huggingface://bartowski/Llama-3.1-Hawkish-8B-GGUF/Llama-3.1-Hawkish-8B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
