@@ -701,6 +701,21 @@
     - filename: TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
       sha256: db0d3b3c5341d2d51115794bf5da6552b5c0714b041de9b82065cc0c982dd4f7
       uri: huggingface://bartowski/TheBeagle-v2beta-32B-MGS-GGUF/TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "meraj-mini"
+  icon: https://i.ibb.co/CmPSSpq/Screenshot-2024-10-06-at-9-45-06-PM.png
+  urls:
+    - https://huggingface.co/arcee-ai/Meraj-Mini
+    - https://huggingface.co/QuantFactory/Meraj-Mini-GGUF
+  description: |
+    Arcee Meraj Mini is a quantized version of the Meraj-Mini model, created using llama.cpp. It is an open-source model that is fine-tuned from the Qwen2.5-7B-Instruct model and is designed for both Arabic and English languages. The model has undergone evaluations across multiple benchmarks in both languages and demonstrates top-tier performance in Arabic and competitive results in English. The key stages in its development include data preparation, initial training, iterative training and post-training, evaluation, and final model creation. The model is capable of solving a wide range of language tasks and is suitable for various applications such as education, mathematics and coding, customer service, and content creation. The Arcee Meraj Mini model consistently outperforms state-of-the-art models on most benchmarks of the Open Arabic LLM Leaderboard (OALL), highlighting its improvements and effectiveness in Arabic language content.
+  overrides:
+    parameters:
+      model: Meraj-Mini.Q4_K_M.gguf
+  files:
+    - filename: Meraj-Mini.Q4_K_M.gguf
+      sha256: f8f3923eb924b8f8e8f530a5bf07fcbd5b3dd10dd478d229d6f4377e31eb3938
+      uri: huggingface://QuantFactory/Meraj-Mini-GGUF/Meraj-Mini.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
