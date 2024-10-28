@@ -25,6 +25,25 @@
     - cpu
     - moe
     - granite
+- !!merge <<: *granite3
+  name: "moe-girl-800ma-3bt"
+  icon: https://huggingface.co/allura-org/MoE-Girl-800MA-3BT/resolve/main/moe-girl-800-3.png
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/allura-org/MoE-Girl-800MA-3BT
+    - https://huggingface.co/mradermacher/MoE-Girl-800MA-3BT-GGUF
+  description: |
+    A roleplay-centric finetune of IBM's Granite 3.0 3B-A800M. LoRA finetune trained locally, whereas the others were FFT; while this results in less uptake of training data, it should also mean less degradation in Granite's core abilities, making it potentially easier to use for general-purpose tasks.
+    Disclaimer
+
+    PLEASE do not expect godliness out of this, it's a model with 800 million active parameters. Expect something more akin to GPT-3 (the original, not GPT-3.5.) (Furthermore, this version is by a less experienced tuner; it's my first finetune that actually has decent-looking graphs, I don't really know what I'm doing yet!)
+  overrides:
+    parameters:
+      model: MoE-Girl-800MA-3BT.Q4_K_M.gguf
+  files:
+    - filename: MoE-Girl-800MA-3BT.Q4_K_M.gguf
+      sha256: 4c3cb57c27aadabd05573a1a01d6c7aee0f21620db919c7704f758d172e0bfa3
+      uri: huggingface://mradermacher/MoE-Girl-800MA-3BT-GGUF/MoE-Girl-800MA-3BT.Q4_K_M.gguf
 - name: "moe-girl-1ba-7bt-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/kTXXSSSqpb21rfyOX7FUa.jpeg
   # chatml
