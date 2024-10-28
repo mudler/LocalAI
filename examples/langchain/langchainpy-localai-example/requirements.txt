@@ -26,7 +26,7 @@ PyYAML==6.0.2
 requests==2.32.3
 SQLAlchemy==2.0.36
 tenacity==8.5.0
-tqdm==4.66.5
+tqdm==4.66.6
 typing-inspect==0.9.0
 typing_extensions==4.12.2
 urllib3==2.2.3
