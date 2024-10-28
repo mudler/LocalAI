@@ -16,7 +16,7 @@ RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=0fbaac9c891055796456df7b9122a70c220f9ca1
+WHISPER_CPP_VERSION?=d4bc413505b2fba98dffbb9a176ddd1b165941d0
 
 # bert.cpp version
 BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
