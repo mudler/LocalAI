@@ -3282,6 +3282,23 @@
     - filename: Darkest-muse-v1-Q4_K_M.gguf
       sha256: a19ec9e3dc875511ea771bf363e71e7ae5578986b2f8cf50aeb50683d56e9b76
       uri: huggingface://bartowski/Darkest-muse-v1-GGUF/Darkest-muse-v1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "quill-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65ad56b4c2eef2ba1154618c/gnMF8gRhurS9RcoylAK1Y.png
+  urls:
+    - https://huggingface.co/sam-paech/Quill-v1
+    - https://huggingface.co/QuantFactory/Quill-v1-GGUF
+  description: |
+    Quill is a capable, humanlike writing model trained on a large dataset of late 19th and early 20th century writing from the Gutenberg Project. This model writes with a natural cadence and low gpt-slop, having inherited some human qualities from the Gutenberg3 dataset. It writes with more simple, spare prose than the typical overly-adjectived LLM writing style.
+
+    This model was trained using gemma-2-9b-it as the base. The training methods used were ORPO (gently) then SIMPO (less gently).
+  overrides:
+    parameters:
+      model: Quill-v1.Q4_K_M.gguf
+  files:
+    - filename: Quill-v1.Q4_K_M.gguf
+      sha256: 419a7e0709b28130ca56941308d11c06a3548b8eacb081fb6a2c3d1622ac56b3
+      uri: huggingface://QuantFactory/Quill-v1-GGUF/Quill-v1.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
