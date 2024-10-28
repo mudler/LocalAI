@@ -3316,6 +3316,24 @@
     - filename: Delirium-v1.Q4_K_M.gguf
       sha256: 9c274913572b8afcd5f18f0230f9ddf0a972bae36bae5b0fe8266b29a5dd06a7
       uri: huggingface://QuantFactory/Delirium-v1-GGUF/Delirium-v1.Q4_K_M.gguf
+- !!merge <<: *gemma
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "magnum-v4-9b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/658a46cbfb9c2bdfae75b3a6/vxYDYerLy2vD8n05nL2WU.png
+  urls:
+    - https://huggingface.co/anthracite-org/magnum-v4-9b
+    - https://huggingface.co/QuantFactory/magnum-v4-9b-GGUF
+  description: |
+      This is a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus.
+
+      This model is fine-tuned on top of gemma 2 9b (chatML'ified).
+  overrides:
+    parameters:
+      model: magnum-v4-9b.Q4_K_M.gguf
+  files:
+    - filename: magnum-v4-9b.Q4_K_M.gguf
+      sha256: 176cb8cbac1920d98853a079d635d581c2063b7ff337e88bf9f28b43f8c7eb23
+      uri: huggingface://QuantFactory/magnum-v4-9b-GGUF/magnum-v4-9b.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
