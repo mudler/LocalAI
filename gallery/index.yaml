@@ -4571,6 +4571,25 @@
     - filename: Llama-3-WhiteRabbitNeo-8B-v2.0.Q4_K_M.gguf
       sha256: cf01ba2ca5af2a3ecd6a2221d19b8b91ec0e9fe06fa8fdffd774d5e0a2459c4c
       uri: huggingface://QuantFactory/Llama-3-WhiteRabbitNeo-8B-v2.0-GGUF/Llama-3-WhiteRabbitNeo-8B-v2.0.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-nymeria-maid-8b"
+  icon: https://huggingface.co/tannedbum/L3-Nymeria-Maid-8B-exl2/resolve/main/Nymeria.png?
+  urls:
+    - https://huggingface.co/tannedbum/L3-Nymeria-Maid-8B
+    - https://huggingface.co/QuantFactory/L3-Nymeria-Maid-8B-GGUF
+  description: |
+    The model is a merge of pre-trained language models created using the mergekit library. It combines the following models:
+    - Sao10K/L3-8B-Stheno-v3.2
+    - princeton-nlp/Llama-3-Instruct-8B-SimPO
+    The merge was performed using the slerp merge method. The models were merged using the slerp merge method and the configuration used to produce the model is included in the text. The model is not suitable for all audiences and is intended for scientific purposes.
+    Nymeria is the balanced version, doesn't force nsfw. Nymeria-Maid has more Stheno's weights, leans more on nsfw and is more submissive.
+  overrides:
+    parameters:
+      model: L3-Nymeria-Maid-8B.Q4_K_M.gguf
+  files:
+    - filename: L3-Nymeria-Maid-8B.Q4_K_M.gguf
+      sha256: 05bce561daa59b38cf9b79973c3b1e2e27af6d1e8e41570760af54800a09bcc2
+      uri: huggingface://QuantFactory/L3-Nymeria-Maid-8B-GGUF/L3-Nymeria-Maid-8B.Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
