@@ -2,7 +2,7 @@
 intel-extension-for-pytorch
 torch
 optimum[openvino]
-grpcio==1.67.0
+grpcio==1.67.1
 protobuf
 librosa==0.9.1
 faster-whisper==0.9.0

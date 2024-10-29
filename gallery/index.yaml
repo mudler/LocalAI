@@ -1,4 +1,49 @@
 ---
+- &granite3
+  name: "granite-3.0-1b-a400m-instruct"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-3.0-1b-a400m-instruct
+    - https://huggingface.co/QuantFactory/granite-3.0-1b-a400m-instruct-GGUF
+  overrides:
+    parameters:
+      model: granite-3.0-1b-a400m-instruct.Q4_K_M.gguf
+  files:
+    - filename: granite-3.0-1b-a400m-instruct.Q4_K_M.gguf
+      sha256: 9571b5fc9676ebb59def3377dc848584463fb7f09ed59ebbff3b9f72fd7bd38a
+      uri: huggingface://QuantFactory/granite-3.0-1b-a400m-instruct-GGUF/granite-3.0-1b-a400m-instruct.Q4_K_M.gguf
+  url: "github:mudler/LocalAI/gallery/granite.yaml@master"
+  description: |
+    Granite 3.0 language models are a new set of lightweight state-of-the-art, open foundation models that natively support multilinguality, coding, reasoning, and tool usage, including the potential to be run on constrained compute resources. All the models are publicly released under an Apache 2.0 license for both research and commercial use. The models' data curation and training procedure were designed for enterprise usage and customization in mind, with a process that evaluates datasets for governance, risk and compliance (GRC) criteria, in addition to IBM's standard data clearance process and document quality checks.
+    Granite 3.0 includes 4 different models of varying sizes:
+        Dense Models: 2B and 8B parameter models, trained on 12 trillion tokens in total.
+        Mixture-of-Expert (MoE) Models: Sparse 1B and 3B MoE models, with 400M and 800M activated parameters respectively, trained on 10 trillion tokens in total.
+    Accordingly, these options provide a range of models with different compute requirements to choose from, with appropriate trade-offs with their performance on downstream tasks. At each scale, we release a base model — checkpoints of models after pretraining, as well as instruct checkpoints — models finetuned for dialogue, instruction-following, helpfulness, and safety.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - moe
+    - granite
+- !!merge <<: *granite3
+  name: "moe-girl-800ma-3bt"
+  icon: https://huggingface.co/allura-org/MoE-Girl-800MA-3BT/resolve/main/moe-girl-800-3.png
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/allura-org/MoE-Girl-800MA-3BT
+    - https://huggingface.co/mradermacher/MoE-Girl-800MA-3BT-GGUF
+  description: |
+    A roleplay-centric finetune of IBM's Granite 3.0 3B-A800M. LoRA finetune trained locally, whereas the others were FFT; while this results in less uptake of training data, it should also mean less degradation in Granite's core abilities, making it potentially easier to use for general-purpose tasks.
+    Disclaimer
+
+    PLEASE do not expect godliness out of this, it's a model with 800 million active parameters. Expect something more akin to GPT-3 (the original, not GPT-3.5.) (Furthermore, this version is by a less experienced tuner; it's my first finetune that actually has decent-looking graphs, I don't really know what I'm doing yet!)
+  overrides:
+    parameters:
+      model: MoE-Girl-800MA-3BT.Q4_K_M.gguf
+  files:
+    - filename: MoE-Girl-800MA-3BT.Q4_K_M.gguf
+      sha256: 4c3cb57c27aadabd05573a1a01d6c7aee0f21620db919c7704f758d172e0bfa3
+      uri: huggingface://mradermacher/MoE-Girl-800MA-3BT-GGUF/MoE-Girl-800MA-3BT.Q4_K_M.gguf
 - name: "moe-girl-1ba-7bt-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/kTXXSSSqpb21rfyOX7FUa.jpeg
   # chatml
@@ -701,6 +746,21 @@
     - filename: TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
       sha256: db0d3b3c5341d2d51115794bf5da6552b5c0714b041de9b82065cc0c982dd4f7
       uri: huggingface://bartowski/TheBeagle-v2beta-32B-MGS-GGUF/TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "meraj-mini"
+  icon: https://i.ibb.co/CmPSSpq/Screenshot-2024-10-06-at-9-45-06-PM.png
+  urls:
+    - https://huggingface.co/arcee-ai/Meraj-Mini
+    - https://huggingface.co/QuantFactory/Meraj-Mini-GGUF
+  description: |
+    Arcee Meraj Mini is a quantized version of the Meraj-Mini model, created using llama.cpp. It is an open-source model that is fine-tuned from the Qwen2.5-7B-Instruct model and is designed for both Arabic and English languages. The model has undergone evaluations across multiple benchmarks in both languages and demonstrates top-tier performance in Arabic and competitive results in English. The key stages in its development include data preparation, initial training, iterative training and post-training, evaluation, and final model creation. The model is capable of solving a wide range of language tasks and is suitable for various applications such as education, mathematics and coding, customer service, and content creation. The Arcee Meraj Mini model consistently outperforms state-of-the-art models on most benchmarks of the Open Arabic LLM Leaderboard (OALL), highlighting its improvements and effectiveness in Arabic language content.
+  overrides:
+    parameters:
+      model: Meraj-Mini.Q4_K_M.gguf
+  files:
+    - filename: Meraj-Mini.Q4_K_M.gguf
+      sha256: f8f3923eb924b8f8e8f530a5bf07fcbd5b3dd10dd478d229d6f4377e31eb3938
+      uri: huggingface://QuantFactory/Meraj-Mini-GGUF/Meraj-Mini.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3282,6 +3342,58 @@
     - filename: Darkest-muse-v1-Q4_K_M.gguf
       sha256: a19ec9e3dc875511ea771bf363e71e7ae5578986b2f8cf50aeb50683d56e9b76
       uri: huggingface://bartowski/Darkest-muse-v1-GGUF/Darkest-muse-v1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "quill-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65ad56b4c2eef2ba1154618c/gnMF8gRhurS9RcoylAK1Y.png
+  urls:
+    - https://huggingface.co/sam-paech/Quill-v1
+    - https://huggingface.co/QuantFactory/Quill-v1-GGUF
+  description: |
+    Quill is a capable, humanlike writing model trained on a large dataset of late 19th and early 20th century writing from the Gutenberg Project. This model writes with a natural cadence and low gpt-slop, having inherited some human qualities from the Gutenberg3 dataset. It writes with more simple, spare prose than the typical overly-adjectived LLM writing style.
+
+    This model was trained using gemma-2-9b-it as the base. The training methods used were ORPO (gently) then SIMPO (less gently).
+  overrides:
+    parameters:
+      model: Quill-v1.Q4_K_M.gguf
+  files:
+    - filename: Quill-v1.Q4_K_M.gguf
+      sha256: 419a7e0709b28130ca56941308d11c06a3548b8eacb081fb6a2c3d1622ac56b3
+      uri: huggingface://QuantFactory/Quill-v1-GGUF/Quill-v1.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "delirium-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65ad56b4c2eef2ba1154618c/TDY0sDC9vMohMM8dn_5YN.png
+  urls:
+    - https://huggingface.co/sam-paech/Delirium-v1
+    - https://huggingface.co/QuantFactory/Delirium-v1-GGUF
+  description: |
+    This model was cooked a bit too long during SIMPO training. It writes like Hunter S. Thompson 2 days into an ether binge. It's grotesque, dark, grimy and genius.
+
+    It's trained on an experimental gutenberg + antislop dataset. This contains the original two gutenberg sets by jondurbin and nbeerbower, as well as a subset of my own set, gutenberg3. The antislop pairs were generated with gemma-2-9b-it, with one sample generated with the AntiSlop sampler and the rejected sample generated without.
+  overrides:
+    parameters:
+      model: Delirium-v1.Q4_K_M.gguf
+  files:
+    - filename: Delirium-v1.Q4_K_M.gguf
+      sha256: 9c274913572b8afcd5f18f0230f9ddf0a972bae36bae5b0fe8266b29a5dd06a7
+      uri: huggingface://QuantFactory/Delirium-v1-GGUF/Delirium-v1.Q4_K_M.gguf
+- !!merge <<: *gemma
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "magnum-v4-9b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/658a46cbfb9c2bdfae75b3a6/vxYDYerLy2vD8n05nL2WU.png
+  urls:
+    - https://huggingface.co/anthracite-org/magnum-v4-9b
+    - https://huggingface.co/QuantFactory/magnum-v4-9b-GGUF
+  description: |
+      This is a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus.
+
+      This model is fine-tuned on top of gemma 2 9b (chatML'ified).
+  overrides:
+    parameters:
+      model: magnum-v4-9b.Q4_K_M.gguf
+  files:
+    - filename: magnum-v4-9b.Q4_K_M.gguf
+      sha256: 176cb8cbac1920d98853a079d635d581c2063b7ff337e88bf9f28b43f8c7eb23
+      uri: huggingface://QuantFactory/magnum-v4-9b-GGUF/magnum-v4-9b.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -4487,6 +4599,57 @@
     - filename: Loki-base.i1-Q4_K_M.gguf
       sha256: 60a4357fa399bfd18aa841cc529da09439791331d117a4f06f0467d002b385bb
       uri: huggingface://mradermacher/Loki-base-i1-GGUF/Loki-base.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3-whiterabbitneo-8b-v2.0"
+  icon: https://huggingface.co/migtissera/WhiteRabbitNeo/resolve/main/WhiteRabbitNeo.png
+  urls:
+    - https://huggingface.co/WhiteRabbitNeo/Llama-3-WhiteRabbitNeo-8B-v2.0
+    - https://huggingface.co/QuantFactory/Llama-3-WhiteRabbitNeo-8B-v2.0-GGUF
+  description: |
+    WhiteRabbitNeo is a model series that can be used for offensive and defensive cybersecurity.
+    Topics Covered:
+    - Open Ports: Identifying open ports is crucial as they can be entry points for attackers. Common ports to check include HTTP (80, 443), FTP (21), SSH (22), and SMB (445).
+    - Outdated Software or Services: Systems running outdated software or services are often vulnerable to exploits. This includes web servers, database servers, and any third-party software.
+    - Default Credentials: Many systems and services are installed with default usernames and passwords, which are well-known and can be easily exploited.
+    - Misconfigurations: Incorrectly configured services, permissions, and security settings can introduce vulnerabilities.
+    - Injection Flaws: SQL injection, command injection, and cross-site scripting (XSS) are common issues in web applications.
+    - Unencrypted Services: Services that do not use encryption (like HTTP instead of HTTPS) can expose sensitive data.
+    - Known Software Vulnerabilities: Checking for known vulnerabilities in software using databases like the National Vulnerability Database (NVD) or tools like Nessus or OpenVAS.
+    - Cross-Site Request Forgery (CSRF): This is where unauthorized commands are transmitted from a user that the web application trusts.
+    - Insecure Direct Object References: This occurs when an application provides direct access to objects based on user-supplied input.
+    - Security Misconfigurations in Web Servers/Applications: This includes issues like insecure HTTP headers or verbose error messages that reveal too much information.
+    - Broken Authentication and Session Management: This can allow attackers to compromise passwords, keys, or session tokens, or to exploit other implementation flaws to assume other users' identities.
+    - Sensitive Data Exposure: Includes vulnerabilities that expose sensitive data, such as credit card numbers, health records, or personal information.
+    - API Vulnerabilities: In modern web applications, APIs are often used and can have vulnerabilities like insecure endpoints or data leakage.
+    - Denial of Service (DoS) Vulnerabilities: Identifying services that are vulnerable to DoS attacks, which can make the resource unavailable to legitimate users.
+    - Buffer Overflows: Common in older software, these vulnerabilities can allow an attacker to crash the system or execute arbitrary code.
+    - More ..
+  overrides:
+    parameters:
+      model: Llama-3-WhiteRabbitNeo-8B-v2.0.Q4_K_M.gguf
+  files:
+    - filename: Llama-3-WhiteRabbitNeo-8B-v2.0.Q4_K_M.gguf
+      sha256: cf01ba2ca5af2a3ecd6a2221d19b8b91ec0e9fe06fa8fdffd774d5e0a2459c4c
+      uri: huggingface://QuantFactory/Llama-3-WhiteRabbitNeo-8B-v2.0-GGUF/Llama-3-WhiteRabbitNeo-8B-v2.0.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "l3-nymeria-maid-8b"
+  icon: https://huggingface.co/tannedbum/L3-Nymeria-Maid-8B-exl2/resolve/main/Nymeria.png?
+  urls:
+    - https://huggingface.co/tannedbum/L3-Nymeria-Maid-8B
+    - https://huggingface.co/QuantFactory/L3-Nymeria-Maid-8B-GGUF
+  description: |
+    The model is a merge of pre-trained language models created using the mergekit library. It combines the following models:
+    - Sao10K/L3-8B-Stheno-v3.2
+    - princeton-nlp/Llama-3-Instruct-8B-SimPO
+    The merge was performed using the slerp merge method. The models were merged using the slerp merge method and the configuration used to produce the model is included in the text. The model is not suitable for all audiences and is intended for scientific purposes.
+    Nymeria is the balanced version, doesn't force nsfw. Nymeria-Maid has more Stheno's weights, leans more on nsfw and is more submissive.
+  overrides:
+    parameters:
+      model: L3-Nymeria-Maid-8B.Q4_K_M.gguf
+  files:
+    - filename: L3-Nymeria-Maid-8B.Q4_K_M.gguf
+      sha256: 05bce561daa59b38cf9b79973c3b1e2e27af6d1e8e41570760af54800a09bcc2
+      uri: huggingface://QuantFactory/L3-Nymeria-Maid-8B-GGUF/L3-Nymeria-Maid-8B.Q4_K_M.gguf
 - &dolphin
   name: "dolphin-2.9-llama3-8b"
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
