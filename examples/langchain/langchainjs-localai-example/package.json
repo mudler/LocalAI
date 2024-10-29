@@ -15,9 +15,9 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "@langchain/community": "^0.0.52",
+    "@langchain/community": "^0.3.10",
     "@langchain/openai": "^0.0.28",
-    "langchain": "^0.1.36"
+    "langchain": "^0.3.5"
   },
   "overrides": {
     "@langchain/core": "0.1.5"
