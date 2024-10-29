@@ -7,7 +7,7 @@ charset-normalizer==3.4.0
 colorama==0.4.6
 dataclasses-json==0.6.7
 debugpy==1.8.7
-frozenlist==1.4.1
+frozenlist==1.5.0
 greenlet==3.1.1
 idna==3.10
 langchain==0.3.3
@@ -26,7 +26,7 @@ PyYAML==6.0.2
 requests==2.32.3
 SQLAlchemy==2.0.36
 tenacity==8.5.0
-tqdm==4.66.5
+tqdm==4.66.6
 typing-inspect==0.9.0
 typing_extensions==4.12.2
 urllib3==2.2.3
