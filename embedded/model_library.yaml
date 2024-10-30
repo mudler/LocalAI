@@ -6,4 +6,4 @@
 ### For models with an entire YAML file to be embededd, put the file inside the `models`
 ### directory, it will be automatically available with the file name as key (without the .yaml extension)
 
-phi-2:  "github://mudler/LocalAI/examples/configurations/phi-2.yaml@master"
+phi-2:  "github://mudler/LocalAI-examples/configurations/phi-2.yaml@main"
