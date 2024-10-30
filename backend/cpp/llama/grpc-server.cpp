@@ -670,7 +670,6 @@ struct llama_server_context
         slot->sparams.top_k             = json_value(data, "top_k",             default_sparams.top_k);
         slot->sparams.top_p             = json_value(data, "top_p",             default_sparams.top_p);
         slot->sparams.min_p             = json_value(data, "min_p",             default_sparams.min_p);
-        slot->sparams.tfs_z             = json_value(data, "tfs_z",             default_sparams.tfs_z);
         slot->sparams.typ_p             = json_value(data, "typical_p",         default_sparams.typ_p);
         slot->sparams.temp              = json_value(data, "temperature",       default_sparams.temp);
         slot->sparams.dynatemp_range    = json_value(data, "dynatemp_range",    default_sparams.dynatemp_range);
@@ -1206,7 +1205,6 @@ struct llama_server_context
             {"top_k",             slot.sparams.top_k},
             {"top_p",             slot.sparams.top_p},
             {"min_p",             slot.sparams.min_p},
-            {"tfs_z",             slot.sparams.tfs_z},
             {"typical_p",         slot.sparams.typ_p},
             {"repeat_last_n",     slot.sparams.penalty_last_n},
             {"repeat_penalty",    slot.sparams.penalty_repeat},
@@ -2105,7 +2103,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     //     slot->params.n_predict        = json_value(data, "n_predict",         default_params.n_predict);
     //     slot->sparams.top_k           = json_value(data, "top_k",             default_sparams.top_k);
     //     slot->sparams.top_p           = json_value(data, "top_p",             default_sparams.top_p);
-    //     slot->sparams.tfs_z           = json_value(data, "tfs_z",             default_sparams.tfs_z);
     //     slot->sparams.typical_p       = json_value(data, "typical_p",         default_sparams.typical_p);
     //     slot->sparams.temp            = json_value(data, "temperature",       default_sparams.temp);
     //     slot->sparams.penalty_last_n  = json_value(data, "repeat_last_n",     default_sparams.penalty_last_n);
@@ -2129,7 +2126,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     data["n_predict"] = predict->tokens() == 0 ? -1 : predict->tokens();
     data["top_k"] = predict->topk();
     data["top_p"] = predict->topp();
-    data["tfs_z"] = predict->tailfreesamplingz();
     data["typical_p"] = predict->typicalp();
     data["temperature"] = predict->temperature();
     data["repeat_last_n"] = predict->repeat();
@@ -2176,7 +2172,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
 //     llama.params.n_predict = predict->tokens() == 0 ? -1 : predict->tokens();
 //     llama.params.sparams.top_k = predict->topk();
 //     llama.params.sparams.top_p = predict->topp();
-//     llama.params.sparams.tfs_z = predict->tailfreesamplingz();
 //     llama.params.sparams.typical_p = predict->typicalp();
 //     llama.params.sparams.penalty_last_n = predict->repeat();
 //     llama.params.sparams.temp = predict->temperature();

@@ -35,7 +35,7 @@ var _ = Describe("Preload test", func() {
 		It("loads from embedded full-urls", func() {
 			tmpdir, err := os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
-			url := "https://raw.githubusercontent.com/mudler/LocalAI/master/examples/configurations/phi-2.yaml"
+			url := "https://raw.githubusercontent.com/mudler/LocalAI-examples/main/configurations/phi-2.yaml"
 			fileName := fmt.Sprintf("%s.yaml", "phi-2")
 
 			InstallModels([]config.Gallery{}, "", tmpdir, true, nil, url)
