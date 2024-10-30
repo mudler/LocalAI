@@ -1,0 +1,16 @@
+meta {
+  name: transcribe
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/v1/audio/transcriptions
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  file: @file(transcription/gb1.ogg)
+  model: whisper-1
+}
