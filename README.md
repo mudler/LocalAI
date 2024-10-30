@@ -85,6 +85,7 @@ local-ai run oci://localai/phi-2:latest
 
 ## 📰 Latest project news
 
+- Oct 2024: examples moved to [LocalAI-examples](https://github.com/mudler/LocalAI-examples)
 - Aug 2024:  🆕 FLUX-1, [P2P Explorer](https://explorer.localai.io)
 - July 2024: 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723
 - June 2024: 🆕 You can browse now the model gallery without LocalAI! Check out https://models.localai.io
