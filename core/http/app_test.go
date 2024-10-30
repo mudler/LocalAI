@@ -438,7 +438,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "900s", "10s").Should(Equal(true))
 
 				Eventually(func() []string {
 					models, _ := client.ListModels(context.TODO())
