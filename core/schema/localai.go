@@ -32,6 +32,7 @@ type TTSRequest struct {
 	Voice    string `json:"voice" yaml:"voice"` // voice audio file or speaker id
 	Backend  string `json:"backend" yaml:"backend"`
 	Language string `json:"language,omitempty" yaml:"language,omitempty"` // (optional) language to use with TTS model
+	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
 }
 
 type StoresSet struct {

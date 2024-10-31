@@ -1721,7 +1721,11 @@ const docTemplate = `{
                 "voice": {
                     "description": "voice audio file or speaker id",
                     "type": "string"
-                }
+                },
+		"response_format": {
+                    "description": "(optional) output format of generated audio file, defaults to wav, accept wav, mp3, flac, aac, opus",
+                    "type": "string"
+                },
             }
         },
         "schema.ToolCall": {
