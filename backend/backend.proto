@@ -233,6 +233,8 @@ message ModelOptions {
 
   bool FlashAttention = 56;
   bool NoKVOffload = 57;
+
+  string ModelPath = 59;
 }
 
 message Result {

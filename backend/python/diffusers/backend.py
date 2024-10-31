@@ -301,13 +301,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe.controlnet = self.controlnet
             else:
                 self.controlnet = None
-            # Assume directory from request.ModelFile.
-            # Only if request.LoraAdapter it's not an absolute path
-            if request.LoraAdapter and request.ModelFile != "" and not os.path.isabs(request.LoraAdapter) and request.LoraAdapter:
-                # get base path of modelFile
-                modelFileBase = os.path.dirname(request.ModelFile)
+
+            if request.LoraAdapter and not os.path.isabs(request.LoraAdapter):
                 # modify LoraAdapter to be relative to modelFileBase
-                request.LoraAdapter = os.path.join(modelFileBase, request.LoraAdapter)
+                request.LoraAdapter = os.path.join(request.ModelPath, request.LoraAdapter)
+
             device = "cpu" if not request.CUDA else "cuda"
             self.device = device
             if request.LoraAdapter:
