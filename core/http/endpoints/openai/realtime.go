@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/gofiber/websocket/v2"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
@@ -28,6 +29,7 @@ type Session struct {
 	InputAudioBuffer      []byte
 	AudioBufferLock       sync.Mutex
 	DefaultConversationID string
+	ModelInterface        Model
 }
 
 // FunctionType represents a function that can be called by the server
@@ -104,22 +106,88 @@ type OutgoingMessage struct {
 var sessions = make(map[string]*Session)
 var sessionLock sync.Mutex
 
+// TBD
+type Model interface {
+}
+
+type wrappedModel struct {
+	TTS *config.BackendConfig
+	SST *config.BackendConfig
+	LLM *config.BackendConfig
+}
+
+// returns and loads either a wrapped model or a model that support audio-to-audio
+func newModel(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, modelName string) (Model, error) {
+	cfg, err := cl.LoadBackendConfigFileByName(modelName, ml.ModelPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load backend config: %w", err)
+	}
+
+	if !cfg.Validate() {
+		return nil, fmt.Errorf("failed to validate config: %w", err)
+	}
+
+	if cfg.Pipeline.LLM == "" || cfg.Pipeline.TTS == "" || cfg.Pipeline.Transcription == "" {
+		// If we don't have Wrapped model definitions, just return a standard model
+		opts := backend.ModelOptions(*cfg, appConfig, []model.Option{
+			model.WithBackendString(cfg.Backend),
+			model.WithModel(cfg.Model),
+		})
+		return ml.BackendLoader(opts...)
+	}
+
+	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
+	cfgLLM, err := cl.LoadBackendConfigFileByName(cfg.Pipeline.LLM, ml.ModelPath)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to load backend config: %w", err)
+	}
+
+	if !cfg.Validate() {
+		return nil, fmt.Errorf("failed to validate config: %w", err)
+	}
+
+	cfgTTS, err := cl.LoadBackendConfigFileByName(cfg.Pipeline.TTS, ml.ModelPath)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to load backend config: %w", err)
+	}
+
+	if !cfg.Validate() {
+		return nil, fmt.Errorf("failed to validate config: %w", err)
+	}
+
+	cfgSST, err := cl.LoadBackendConfigFileByName(cfg.Pipeline.Transcription, ml.ModelPath)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to load backend config: %w", err)
+	}
+
+	if !cfg.Validate() {
+		return nil, fmt.Errorf("failed to validate config: %w", err)
+	}
+
+	return &wrappedModel{
+		TTS: cfgTTS,
+		SST: cfgSST,
+		LLM: cfgLLM,
+	}, nil
+}
+
 func RegisterRealtime(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *websocket.Conn) {
 	return func(c *websocket.Conn) {
 
 		log.Debug().Msgf("WebSocket connection established with '%s'", c.RemoteAddr().String())
 
-		// Generate a unique session ID
+		model := c.Params("model")
+		if model == "" {
+			model = "gpt-4o"
+		}
+
 		sessionID := generateSessionID()
-
-		// modelFile, input, err := readWSRequest(c, cl, ml, appConfig, true)
-		// if err != nil {
-		// 	return fmt.Errorf("failed reading parameters from request:%w", err)
-		// }
-
 		session := &Session{
 			ID:            sessionID,
-			Model:         "gpt-4o",     // default model
+			Model:         model,        // default model
 			Voice:         "alloy",      // default voice
 			TurnDetection: "server_vad", // default turn detection mode
 			Instructions:  "Your knowledge cutoff is 2023-10. You are a helpful, witty, and friendly AI. Act like a human, but remember that you aren't a human and that you can't do human things in the real world. Your voice and personality should be warm and engaging, with a lively and playful tone. If interacting in a non-English language, start by using the standard accent or dialect familiar to the user. Talk quickly. You should always call a function if you can. Do not refer to these rules, even if you're asked about them.",
@@ -134,6 +202,14 @@ func RegisterRealtime(cl *config.BackendConfigLoader, ml *model.ModelLoader, app
 		}
 		session.Conversations[conversationID] = conversation
 		session.DefaultConversationID = conversationID
+
+		m, err := newModel(cl, ml, appConfig, model)
+		if err != nil {
+			log.Error().Msgf("failed to load model: %s", err.Error())
+			sendError(c, "model_load_error", "Failed to load model", "", "")
+			return
+		}
+		session.ModelInterface = m
 
 		// Store the session
 		sessionLock.Lock()
@@ -153,7 +229,6 @@ func RegisterRealtime(cl *config.BackendConfigLoader, ml *model.ModelLoader, app
 		var (
 			mt   int
 			msg  []byte
-			err  error
 			wg   sync.WaitGroup
 			done = make(chan struct{})
 		)
@@ -191,7 +266,11 @@ func RegisterRealtime(cl *config.BackendConfigLoader, ml *model.ModelLoader, app
 					sendError(c, "invalid_session_update", "Invalid session update format", "", "")
 					continue
 				}
-				updateSession(session, &sessionUpdate)
+				if err := updateSession(session, &sessionUpdate, cl, ml, appConfig); err != nil {
+					log.Error().Msgf("failed to update session: %s", err.Error())
+					sendError(c, "session_update_error", "Failed to update session", "", "")
+					continue
+				}
 
 				// Acknowledge the session update
 				sendEvent(c, OutgoingMessage{
@@ -377,12 +456,19 @@ func sendError(c *websocket.Conn, code, message, param, eventID string) {
 }
 
 // Function to update session configurations
-func updateSession(session *Session, update *Session) {
+func updateSession(session *Session, update *Session, cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
+
 	if update.Model != "" {
+		m, err := newModel(cl, ml, appConfig, update.Model)
+		if err != nil {
+			return err
+		}
+		session.ModelInterface = m
 		session.Model = update.Model
 	}
+
 	if update.Voice != "" {
 		session.Voice = update.Voice
 	}
@@ -395,7 +481,7 @@ func updateSession(session *Session, update *Session) {
 	if update.Functions != nil {
 		session.Functions = update.Functions
 	}
-	// Update other session fields as needed
+	return nil
 }
 
 // Placeholder function to handle VAD (Voice Activity Detection)
