@@ -62,6 +62,7 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".MD",
 	".DS_Store",
 	".",
+	".safetensors",
 	".partial",
 	".tar.gz",
 }
