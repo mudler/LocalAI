@@ -425,6 +425,7 @@ func (ml *ModelLoader) grpcModel(backend string, autodetect bool, o *Options) fu
 		options := *o.gRPCOptions
 		options.Model = modelName
 		options.ModelFile = modelFile
+		options.ModelPath = ml.ModelPath
 
 		log.Debug().Msgf("GRPC: Loading model with options: %+v", options)
 
