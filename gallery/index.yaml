@@ -761,6 +761,25 @@
     - filename: Meraj-Mini.Q4_K_M.gguf
       sha256: f8f3923eb924b8f8e8f530a5bf07fcbd5b3dd10dd478d229d6f4377e31eb3938
       uri: huggingface://QuantFactory/Meraj-Mini-GGUF/Meraj-Mini.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "spiral-da-hyah-qwen2.5-72b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/toQiofo5ujXDGI4Gh3ciH.png
+  urls:
+    - https://huggingface.co/KaraKaraWitch/spiral-da-HYAH-Qwen2.5-72b
+    - https://huggingface.co/mradermacher/spiral-da-HYAH-Qwen2.5-72b-i1-GGUF
+  description: |
+    Model stock merge for fun.
+    This model was merged using the Model Stock merge method using rombodawg/Rombos-LLM-V2.5-Qwen-72b as a base.
+    The following models were included in the merge:
+    - anthracite-org/magnum-v4-72b
+    - AXCXEPT/EZO-Qwen2.5-72B-Instruct
+  overrides:
+    parameters:
+      model: spiral-da-HYAH-Qwen2.5-72b.i1-Q4_K_M.gguf
+  files:
+    - filename: spiral-da-HYAH-Qwen2.5-72b.i1-Q4_K_M.gguf
+      sha256: 6119e89cadae0bc01a0909f5d9776610dfc4cdcd1600f334c3afb0d0ece011a8
+      uri: huggingface://mradermacher/spiral-da-HYAH-Qwen2.5-72b-i1-GGUF/spiral-da-HYAH-Qwen2.5-72b.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
