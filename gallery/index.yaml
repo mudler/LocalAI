@@ -2002,6 +2002,20 @@
     - filename: Llama-3.1-Hawkish-8B-Q4_K_M.gguf
       sha256: 613693936bbe641f41560151753716ba549ca052260fc5c0569e943e0bb834c3
       uri: huggingface://bartowski/Llama-3.1-Hawkish-8B-GGUF/Llama-3.1-Hawkish-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-bestmix-chem-einstein-8b"
+  urls:
+    - https://huggingface.co/ZeroXClem/Llama3.1-BestMix-Chem-Einstein-8B
+    - https://huggingface.co/QuantFactory/Llama3.1-BestMix-Chem-Einstein-8B-GGUF
+  description: |
+    Llama3.1-BestMix-Chem-Einstein-8B is an innovative, meticulously blended model designed to excel in instruction-following, chemistry-focused tasks, and long-form conversational generation. This model fuses the best qualities of multiple Llama3-based architectures, making it highly versatile for both general and specialized tasks. 💻🧠✨
+  overrides:
+    parameters:
+      model: Llama3.1-BestMix-Chem-Einstein-8B.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-BestMix-Chem-Einstein-8B.Q4_K_M.gguf
+      sha256: 1a53aa7124c731f33b0b616d7c66a6f78c6a133240acd9e3227f1188f743c1ee
+      uri: huggingface://QuantFactory/Llama3.1-BestMix-Chem-Einstein-8B-GGUF/Llama3.1-BestMix-Chem-Einstein-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
