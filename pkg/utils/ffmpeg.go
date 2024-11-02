@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 func ffmpegCommand(args []string) (string, error) {
@@ -22,4 +23,33 @@ func AudioToWav(src, dst string) error {
 		return fmt.Errorf("error: %w out: %s", err, out)
 	}
 	return nil
+}
+
+// AudioConvert converts generated wav file from tts to other output formats.
+// TODO: handle pcm to have 100% parity of supported format from OpenAI
+func AudioConvert(src string, format string) (string, error) {
+	extension := ""
+	// compute file extension from format, default to wav
+	switch format {
+	case "opus":
+		extension = ".ogg"
+	case "mp3", "aac", "flac":
+		extension = fmt.Sprintf(".%s", format)
+	default:
+		extension = ".wav"
+	}
+
+	// if .wav, do nothing
+	if extension == ".wav" {
+		return src, nil
+	}
+
+	// naive conversion based on default values and target extension of file
+	dst := strings.Replace(src, ".wav", extension, -1)
+	commandArgs := []string{"-y", "-i", src, "-vn", dst}
+	out, err := ffmpegCommand(commandArgs)
+	if err != nil {
+		return "", fmt.Errorf("error: %w out: %s", err, out)
+	}
+	return dst, nil
 }

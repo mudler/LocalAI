@@ -861,6 +861,23 @@
     - filename: SmolLM-1.7B-Instruct.Q4_K_M.gguf
       sha256: 2b07eb2293ed3fc544a9858beda5bfb03dcabda6aa6582d3c85768c95f498d28
       uri: huggingface://MaziyarPanahi/SmolLM-1.7B-Instruct-GGUF/SmolLM-1.7B-Instruct.Q4_K_M.gguf
+- !!merge <<: *smollm
+  name: "smollm2-1.7b-instruct"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61c141342aac764ce1654e43/y45hIMNREW7w_XpHYB_0q.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct
+    - https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF
+  description: |
+    SmolLM2 is a family of compact language models available in three size: 135M, 360M, and 1.7B parameters. They are capable of solving a wide range of tasks while being lightweight enough to run on-device.
+
+    The 1.7B variant demonstrates significant advances over its predecessor SmolLM1-1.7B, particularly in instruction following, knowledge, reasoning, and mathematics. It was trained on 11 trillion tokens using a diverse dataset combination: FineWeb-Edu, DCLM, The Stack, along with new mathematics and coding datasets that we curated and will release soon. We developed the instruct version through supervised fine-tuning (SFT) using a combination of public datasets and our own curated datasets. We then applied Direct Preference Optimization (DPO) using UltraFeedback.
+  overrides:
+    parameters:
+      model: smollm2-1.7b-instruct-q4_k_m.gguf
+  files:
+    - filename: smollm2-1.7b-instruct-q4_k_m.gguf
+      sha256: decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33
+      uri: huggingface://HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf
 - &llama31
   ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
@@ -2710,6 +2727,24 @@
     - filename: Darkens-8B.Q4_K_M.gguf
       sha256: f56a483e10fd00957460adfc16ee462cecac892a4fb44dc59e466e68a360fd42
       uri: huggingface://QuantFactory/Darkens-8B-GGUF/Darkens-8B.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "starcannon-unleashed-12b-v1.0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6720ed503a24966ac66495e8/HXc0AxPLkoIC1fy0Pb3Pb.png
+  urls:
+    - https://huggingface.co/VongolaChouko/Starcannon-Unleashed-12B-v1.0
+    - https://huggingface.co/QuantFactory/Starcannon-Unleashed-12B-v1.0-GGUF
+  description: |
+    This is a merge of pre-trained language models created using mergekit.
+    MarinaraSpaghetti_NemoMix-Unleashed-12B
+    Nothingiisreal_MN-12B-Starcannon-v3
+  overrides:
+    parameters:
+      model: Starcannon-Unleashed-12B-v1.0.Q4_K_M.gguf
+  files:
+    - filename: Starcannon-Unleashed-12B-v1.0.Q4_K_M.gguf
+      sha256: b32c6582d75d2f1d67d567badc691a1338dd1a016c71efbfaf4c91812f398f0e
+      uri: huggingface://QuantFactory/Starcannon-Unleashed-12B-v1.0-GGUF/Starcannon-Unleashed-12B-v1.0.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
