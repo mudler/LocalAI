@@ -2710,6 +2710,24 @@
     - filename: Darkens-8B.Q4_K_M.gguf
       sha256: f56a483e10fd00957460adfc16ee462cecac892a4fb44dc59e466e68a360fd42
       uri: huggingface://QuantFactory/Darkens-8B-GGUF/Darkens-8B.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "starcannon-unleashed-12b-v1.0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6720ed503a24966ac66495e8/HXc0AxPLkoIC1fy0Pb3Pb.png
+  urls:
+    - https://huggingface.co/VongolaChouko/Starcannon-Unleashed-12B-v1.0
+    - https://huggingface.co/QuantFactory/Starcannon-Unleashed-12B-v1.0-GGUF
+  description: |
+    This is a merge of pre-trained language models created using mergekit.
+    MarinaraSpaghetti_NemoMix-Unleashed-12B
+    Nothingiisreal_MN-12B-Starcannon-v3
+  overrides:
+    parameters:
+      model: Starcannon-Unleashed-12B-v1.0.Q4_K_M.gguf
+  files:
+    - filename: Starcannon-Unleashed-12B-v1.0.Q4_K_M.gguf
+      sha256: b32c6582d75d2f1d67d567badc691a1338dd1a016c71efbfaf4c91812f398f0e
+      uri: huggingface://QuantFactory/Starcannon-Unleashed-12B-v1.0-GGUF/Starcannon-Unleashed-12B-v1.0.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
