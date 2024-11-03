@@ -201,3 +201,21 @@ curl -L http://localhost:8080/tts \
 "input": "Bonjour, je suis Ana Florence. Comment puis-je vous aider?"
 }' | aplay
 ```
+
+## Response format
+
+To provide some compatibility with OpenAI API regarding `response_format`, ffmpeg must be installed (or a docker image including ffmpeg used) to leverage converting the generated wav file before the api provide its response.
+
+Warning regarding a change in behaviour. Before this addition, the parameter was ignored and a wav file was always returned, with potential codec errors later in the integration (like trying to decode a mp3 file from a wav, which is the default format used by OpenAI)
+
+Supported format thanks to ffmpeg are `wav`, `mp3`, `aac`, `flac`, `opus`, defaulting to `wav` if an unknown or no format is provided.
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "input": "Hello world",
+  "model": "tts",
+  "response_format": "mp3"
+}'
+```
+
+If a `response_format` is added in the query (other than `wav`) and ffmpeg is not available, the call will fail.
