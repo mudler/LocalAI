@@ -2033,6 +2033,20 @@
     - filename: Llama3.1-BestMix-Chem-Einstein-8B.Q4_K_M.gguf
       sha256: 1a53aa7124c731f33b0b616d7c66a6f78c6a133240acd9e3227f1188f743c1ee
       uri: huggingface://QuantFactory/Llama3.1-BestMix-Chem-Einstein-8B-GGUF/Llama3.1-BestMix-Chem-Einstein-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "control-8b-v1.1"
+  urls:
+    - https://huggingface.co/Delta-Vector/Control-8B-V1.1
+    - https://huggingface.co/QuantFactory/Control-8B-V1.1-GGUF
+  description: |
+    An experimental finetune based on the Llama3.1 8B Supernova with it's primary goal to be "Short and Sweet" as such, i finetuned the model for 2 epochs on OpenCAI Sharegpt converted dataset and the RP-logs datasets in a effort to achieve this, This version of Control has been finetuned with DPO to help improve the smart's and coherency which was a flaw noticed in the previous model.
+  overrides:
+    parameters:
+      model: Control-8B-V1.1.Q4_K_M.gguf
+  files:
+    - filename: Control-8B-V1.1.Q4_K_M.gguf
+      sha256: 01375fe20999134d6c6330ad645cde07883dcb7113eaef097df6ccff88c56ecf
+      uri: huggingface://QuantFactory/Control-8B-V1.1-GGUF/Control-8B-V1.1.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
