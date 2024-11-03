@@ -24,7 +24,7 @@ BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
 
 # go-piper version
 PIPER_REPO?=https://github.com/mudler/go-piper
-PIPER_VERSION?=9d0100873a7dbb0824dfea40e8cec70a1b110759
+PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
 
 # stablediffusion version
 STABLEDIFFUSION_REPO?=https://github.com/mudler/go-stable-diffusion
