@@ -1,4 +1,4 @@
 transformers
 accelerate
-torch==2.4.1
+torch==2.5.1+cu118
 coqui-tts
