@@ -780,6 +780,23 @@
     - filename: spiral-da-HYAH-Qwen2.5-72b.i1-Q4_K_M.gguf
       sha256: 6119e89cadae0bc01a0909f5d9776610dfc4cdcd1600f334c3afb0d0ece011a8
       uri: huggingface://mradermacher/spiral-da-HYAH-Qwen2.5-72b-i1-GGUF/spiral-da-HYAH-Qwen2.5-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "whiterabbitneo-2.5-qwen-2.5-coder-7b"
+  icon: https://huggingface.co/WhiteRabbitNeo/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B/resolve/main/whiterabbitneo-logo-defcon.png
+  urls:
+    - https://huggingface.co/WhiteRabbitNeo/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B
+    - https://huggingface.co/bartowski/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-GGUF
+  description: |
+    WhiteRabbitNeo is a model series that can be used for offensive and defensive cybersecurity.
+
+    Models are now getting released as a public preview of its capabilities, and also to assess the societal impact of such an AI.
+  overrides:
+    parameters:
+      model: WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-Q4_K_M.gguf
+  files:
+    - filename: WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-Q4_K_M.gguf
+      sha256: 3790b0bf2c505fcbd144b6b69354fe45a83ac09238a87469db0082027c127de4
+      uri: huggingface://bartowski/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-GGUF/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
