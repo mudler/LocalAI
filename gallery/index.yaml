@@ -780,6 +780,40 @@
     - filename: spiral-da-HYAH-Qwen2.5-72b.i1-Q4_K_M.gguf
       sha256: 6119e89cadae0bc01a0909f5d9776610dfc4cdcd1600f334c3afb0d0ece011a8
       uri: huggingface://mradermacher/spiral-da-HYAH-Qwen2.5-72b-i1-GGUF/spiral-da-HYAH-Qwen2.5-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "whiterabbitneo-2.5-qwen-2.5-coder-7b"
+  icon: https://huggingface.co/WhiteRabbitNeo/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B/resolve/main/whiterabbitneo-logo-defcon.png
+  urls:
+    - https://huggingface.co/WhiteRabbitNeo/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B
+    - https://huggingface.co/bartowski/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-GGUF
+  description: |
+    WhiteRabbitNeo is a model series that can be used for offensive and defensive cybersecurity.
+
+    Models are now getting released as a public preview of its capabilities, and also to assess the societal impact of such an AI.
+  overrides:
+    parameters:
+      model: WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-Q4_K_M.gguf
+  files:
+    - filename: WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-Q4_K_M.gguf
+      sha256: 3790b0bf2c505fcbd144b6b69354fe45a83ac09238a87469db0082027c127de4
+      uri: huggingface://bartowski/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-GGUF/WhiteRabbitNeo-2.5-Qwen-2.5-Coder-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "cybertron-v4-qw7b-mgs"
+  icon: https://huggingface.co/fblgit/cybertron-v4-qw7B-MGS/resolve/main/cybertron_v4MGS.png
+  urls:
+    - https://huggingface.co/fblgit/cybertron-v4-qw7B-MGS
+    - https://huggingface.co/QuantFactory/cybertron-v4-qw7B-MGS-GGUF
+  description: |
+    Here we use our novel approach called MGS. Its up to you to figure out what it means.
+
+    Cybertron V4 went thru SFT over Magpie-Align/Magpie-Qwen2.5-Pro-1M-v0.1
+  overrides:
+    parameters:
+      model: cybertron-v4-qw7B-MGS.Q4_K_M.gguf
+  files:
+    - filename: cybertron-v4-qw7B-MGS.Q4_K_M.gguf
+      sha256: 32ed4174bad90bb7a2cdcd48b76b3b5924677a4160b762d5e5d95c93fe5205db
+      uri: huggingface://QuantFactory/cybertron-v4-qw7B-MGS-GGUF/cybertron-v4-qw7B-MGS.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -2047,6 +2081,23 @@
     - filename: Control-8B-V1.1.Q4_K_M.gguf
       sha256: 01375fe20999134d6c6330ad645cde07883dcb7113eaef097df6ccff88c56ecf
       uri: huggingface://QuantFactory/Control-8B-V1.1-GGUF/Control-8B-V1.1.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-whiterabbitneo-2-8b"
+  icon: https://huggingface.co/migtissera/WhiteRabbitNeo/resolve/main/WhiteRabbitNeo.png
+  urls:
+    - https://huggingface.co/WhiteRabbitNeo/Llama-3.1-WhiteRabbitNeo-2-8B
+    - https://huggingface.co/bartowski/Llama-3.1-WhiteRabbitNeo-2-8B-GGUF
+  description: |
+    WhiteRabbitNeo is a model series that can be used for offensive and defensive cybersecurity.
+
+    Models are now getting released as a public preview of its capabilities, and also to assess the societal impact of such an AI.
+  overrides:
+    parameters:
+      model: Llama-3.1-WhiteRabbitNeo-2-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-WhiteRabbitNeo-2-8B-Q4_K_M.gguf
+      sha256: dbaf619312e706c5440214d324d8f304717866675fc9728e3901c75ef5bbfeca
+      uri: huggingface://bartowski/Llama-3.1-WhiteRabbitNeo-2-8B-GGUF/Llama-3.1-WhiteRabbitNeo-2-8B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -3476,6 +3527,44 @@
     - filename: magnum-v4-9b.Q4_K_M.gguf
       sha256: 176cb8cbac1920d98853a079d635d581c2063b7ff337e88bf9f28b43f8c7eb23
       uri: huggingface://QuantFactory/magnum-v4-9b-GGUF/magnum-v4-9b.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "g2-9b-aletheia-v1"
+  icon: https://huggingface.co/allura-org/G2-9B-Aletheia-v1/resolve/main/inpaint.png
+  urls:
+    - https://huggingface.co/allura-org/G2-9B-Aletheia-v1
+    - https://huggingface.co/QuantFactory/G2-9B-Aletheia-v1-GGUF
+  description: |
+    A merge of Sugarquill and Sunfall. I wanted to combine Sugarquill's more novel-like writing style with something that would improve it's RP perfomance and make it more steerable, w/o adding superfluous synthetic writing patterns.
+
+    I quite like Crestfall's Sunfall models and I felt like Gemma version of Sunfall will steer the model in this direction when merged in. To keep more of Gemma-2-9B-it-SPPO-iter3's smarts, I've decided to apply Sunfall LoRA on top of it, instead of using the published Sunfall model.
+
+    I'm generally pleased with the result, this model has nice, fresh writing style, good charcard adherence and good system prompt following. It still should work well for raw completion storywriting, as it's a trained feature in both merged models.
+  overrides:
+    parameters:
+      model: G2-9B-Aletheia-v1.Q4_K_M.gguf
+  files:
+    - filename: G2-9B-Aletheia-v1.Q4_K_M.gguf
+      sha256: d244cd3605ff5be948eb7faf1d9aa71ffbbfcf6dab77c08f6ec547818f443d03
+      uri: huggingface://QuantFactory/G2-9B-Aletheia-v1-GGUF/G2-9B-Aletheia-v1.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "g2-9b-sugarquill-v0"
+  icon: https://huggingface.co/allura-org/G2-9B-Sugarquill-v0/resolve/main/image_27.png
+  urls:
+    - https://huggingface.co/allura-org/G2-9B-Sugarquill-v0
+    - https://huggingface.co/QuantFactory/G2-9B-Sugarquill-v0-GGUF
+  description: |
+    An experimental continued pretrain of Gemma-2-9B-It-SPPO-Iter3 on assorted short story data from the web. I was trying to diversify Gemma's prose, without completely destroying it's smarts. I think I half-succeeded? This model could have used another epoch of training, but even this is already more creative and descriptive than it's base model, w/o becoming too silly. Doesn't seem to have degraded much in terms of core abilities as well. Should be usable both for RP and raw completion storywriting. I originally planned to use this in a merge, but I feel like this model is interesting enough to be released on it's own as well.
+
+    Model was trained by Auri.
+
+    Dedicated to Cahvay, who wanted a Gemma finetune from me for months by now, and to La Rata, who loves storywriter models.
+  overrides:
+    parameters:
+      model: G2-9B-Sugarquill-v0.Q4_K_M.gguf
+  files:
+    - filename: G2-9B-Sugarquill-v0.Q4_K_M.gguf
+      sha256: 790a2f1541011b2773e22aa863ef78c8662baaa7eca5875e9573007985120187
+      uri: huggingface://QuantFactory/G2-9B-Sugarquill-v0-GGUF/G2-9B-Sugarquill-v0.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png

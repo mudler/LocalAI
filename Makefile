@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=9830b6923b61f1e652a35afeac77aa5f886dad09
+CPPLLAMA_VERSION?=9f409893519b4a6def46ef80cd6f5d05ac0fb157
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
@@ -24,7 +24,7 @@ BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
 
 # go-piper version
 PIPER_REPO?=https://github.com/mudler/go-piper
-PIPER_VERSION?=9d0100873a7dbb0824dfea40e8cec70a1b110759
+PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
 
 # stablediffusion version
 STABLEDIFFUSION_REPO?=https://github.com/mudler/go-stable-diffusion
