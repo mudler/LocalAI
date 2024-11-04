@@ -2064,6 +2064,23 @@
     - filename: Control-8B-V1.1.Q4_K_M.gguf
       sha256: 01375fe20999134d6c6330ad645cde07883dcb7113eaef097df6ccff88c56ecf
       uri: huggingface://QuantFactory/Control-8B-V1.1-GGUF/Control-8B-V1.1.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-whiterabbitneo-2-8b"
+  icon: https://huggingface.co/migtissera/WhiteRabbitNeo/resolve/main/WhiteRabbitNeo.png
+  urls:
+    - https://huggingface.co/WhiteRabbitNeo/Llama-3.1-WhiteRabbitNeo-2-8B
+    - https://huggingface.co/bartowski/Llama-3.1-WhiteRabbitNeo-2-8B-GGUF
+  description: |
+    WhiteRabbitNeo is a model series that can be used for offensive and defensive cybersecurity.
+
+    Models are now getting released as a public preview of its capabilities, and also to assess the societal impact of such an AI.
+  overrides:
+    parameters:
+      model: Llama-3.1-WhiteRabbitNeo-2-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-WhiteRabbitNeo-2-8B-Q4_K_M.gguf
+      sha256: dbaf619312e706c5440214d324d8f304717866675fc9728e3901c75ef5bbfeca
+      uri: huggingface://bartowski/Llama-3.1-WhiteRabbitNeo-2-8B-GGUF/Llama-3.1-WhiteRabbitNeo-2-8B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
