@@ -1,4 +1,4 @@
-torch==2.4.1
+torch==2.5.1+cu118
 accelerate
 transformers
 bitsandbytes
