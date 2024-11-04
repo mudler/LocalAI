@@ -3510,6 +3510,25 @@
     - filename: magnum-v4-9b.Q4_K_M.gguf
       sha256: 176cb8cbac1920d98853a079d635d581c2063b7ff337e88bf9f28b43f8c7eb23
       uri: huggingface://QuantFactory/magnum-v4-9b-GGUF/magnum-v4-9b.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "g2-9b-aletheia-v1"
+  icon: https://huggingface.co/allura-org/G2-9B-Aletheia-v1/resolve/main/inpaint.png
+  urls:
+    - https://huggingface.co/allura-org/G2-9B-Aletheia-v1
+    - https://huggingface.co/QuantFactory/G2-9B-Aletheia-v1-GGUF
+  description: |
+    A merge of Sugarquill and Sunfall. I wanted to combine Sugarquill's more novel-like writing style with something that would improve it's RP perfomance and make it more steerable, w/o adding superfluous synthetic writing patterns.
+
+    I quite like Crestfall's Sunfall models and I felt like Gemma version of Sunfall will steer the model in this direction when merged in. To keep more of Gemma-2-9B-it-SPPO-iter3's smarts, I've decided to apply Sunfall LoRA on top of it, instead of using the published Sunfall model.
+
+    I'm generally pleased with the result, this model has nice, fresh writing style, good charcard adherence and good system prompt following. It still should work well for raw completion storywriting, as it's a trained feature in both merged models.
+  overrides:
+    parameters:
+      model: G2-9B-Aletheia-v1.Q4_K_M.gguf
+  files:
+    - filename: G2-9B-Aletheia-v1.Q4_K_M.gguf
+      sha256: d244cd3605ff5be948eb7faf1d9aa71ffbbfcf6dab77c08f6ec547818f443d03
+      uri: huggingface://QuantFactory/G2-9B-Aletheia-v1-GGUF/G2-9B-Aletheia-v1.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
