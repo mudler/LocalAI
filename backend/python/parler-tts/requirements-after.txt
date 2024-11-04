@@ -1,4 +1,4 @@
 git+https://github.com/huggingface/parler-tts.git@8e465f1b5fcd223478e07175cb40494d19ffbe17
 llvmlite==0.43.0
 numba==0.60.0
-grpcio-tools==1.42.0
+grpcio-tools==1.67.1
