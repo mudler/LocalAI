@@ -3546,6 +3546,25 @@
     - filename: G2-9B-Aletheia-v1.Q4_K_M.gguf
       sha256: d244cd3605ff5be948eb7faf1d9aa71ffbbfcf6dab77c08f6ec547818f443d03
       uri: huggingface://QuantFactory/G2-9B-Aletheia-v1-GGUF/G2-9B-Aletheia-v1.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "g2-9b-sugarquill-v0"
+  icon: https://huggingface.co/allura-org/G2-9B-Sugarquill-v0/resolve/main/image_27.png
+  urls:
+    - https://huggingface.co/allura-org/G2-9B-Sugarquill-v0
+    - https://huggingface.co/QuantFactory/G2-9B-Sugarquill-v0-GGUF
+  description: |
+    An experimental continued pretrain of Gemma-2-9B-It-SPPO-Iter3 on assorted short story data from the web. I was trying to diversify Gemma's prose, without completely destroying it's smarts. I think I half-succeeded? This model could have used another epoch of training, but even this is already more creative and descriptive than it's base model, w/o becoming too silly. Doesn't seem to have degraded much in terms of core abilities as well. Should be usable both for RP and raw completion storywriting. I originally planned to use this in a merge, but I feel like this model is interesting enough to be released on it's own as well.
+
+    Model was trained by Auri.
+
+    Dedicated to Cahvay, who wanted a Gemma finetune from me for months by now, and to La Rata, who loves storywriter models.
+  overrides:
+    parameters:
+      model: G2-9B-Sugarquill-v0.Q4_K_M.gguf
+  files:
+    - filename: G2-9B-Sugarquill-v0.Q4_K_M.gguf
+      sha256: 790a2f1541011b2773e22aa863ef78c8662baaa7eca5875e9573007985120187
+      uri: huggingface://QuantFactory/G2-9B-Sugarquill-v0-GGUF/G2-9B-Sugarquill-v0.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
