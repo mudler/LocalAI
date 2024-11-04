@@ -1,4 +1,4 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
 accelerate
-torch==2.4.1+cu118
+torch==2.5.1+cu118
 torchaudio==2.4.1+cu118

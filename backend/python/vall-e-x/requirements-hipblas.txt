@@ -1,4 +1,4 @@
 --extra-index-url https://download.pytorch.org/whl/rocm6.0
 accelerate
-torch==2.3.0+rocm6.0
+torch==2.5.1+cu118
 torchaudio==2.3.0+rocm6.0
