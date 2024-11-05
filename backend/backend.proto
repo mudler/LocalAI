@@ -235,6 +235,9 @@ message ModelOptions {
   bool NoKVOffload = 57;
 
   string ModelPath = 59;
+
+  repeated string LoraAdapters = 60;
+  repeated float LoraScales = 61;
 }
 
 message Result {

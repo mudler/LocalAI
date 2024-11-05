@@ -85,8 +85,8 @@
     - filename: salamandra-7b-instruct.Q4_K_M-f32.gguf
       sha256: bac8e8c1d1d9d53cbdb148b8ff9ad378ddb392429207099e85b5aae3a43bff3d
       uri: huggingface://cstr/salamandra-7b-instruct-GGUF/salamandra-7b-instruct.Q4_K_M-f32.gguf
-## llama3.2
 - &llama32
+  ## llama3.2
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
   license: llama3.2
@@ -521,16 +521,16 @@
     - https://huggingface.co/MaziyarPanahi/calme-2.2-qwen2.5-72b
     - https://huggingface.co/mradermacher/calme-2.2-qwen2.5-72b-i1-GGUF
   description: |
-      This model is a fine-tuned version of the powerful Qwen/Qwen2.5-72B-Instruct, pushing the boundaries of natural language understanding and generation even further. My goal was to create a versatile and robust model that excels across a wide range of benchmarks and real-world applications.
-      Use Cases
+    This model is a fine-tuned version of the powerful Qwen/Qwen2.5-72B-Instruct, pushing the boundaries of natural language understanding and generation even further. My goal was to create a versatile and robust model that excels across a wide range of benchmarks and real-world applications.
+    Use Cases
 
-      This model is suitable for a wide range of applications, including but not limited to:
+    This model is suitable for a wide range of applications, including but not limited to:
 
-          Advanced question-answering systems
-          Intelligent chatbots and virtual assistants
-          Content generation and summarization
-          Code generation and analysis
-          Complex problem-solving and decision support
+        Advanced question-answering systems
+        Intelligent chatbots and virtual assistants
+        Content generation and summarization
+        Code generation and analysis
+        Complex problem-solving and decision support
   overrides:
     parameters:
       model: calme-2.2-qwen2.5-72b.i1-Q4_K_M.gguf
@@ -1862,16 +1862,16 @@
     - https://huggingface.co/huzaifa525/Doctoraifinetune-3.1-8B
     - https://huggingface.co/mradermacher/Doctoraifinetune-3.1-8B-i1-GGUF
   description: |
-      This is a fine-tuned version of the Meta-Llama-3.1-8B-bnb-4bit model, specifically adapted for the medical field. It has been trained using a dataset that provides extensive information on diseases, symptoms, and treatments, making it ideal for AI-powered healthcare tools such as medical chatbots, virtual assistants, and diagnostic support systems.
-      Key Features
+    This is a fine-tuned version of the Meta-Llama-3.1-8B-bnb-4bit model, specifically adapted for the medical field. It has been trained using a dataset that provides extensive information on diseases, symptoms, and treatments, making it ideal for AI-powered healthcare tools such as medical chatbots, virtual assistants, and diagnostic support systems.
+    Key Features
 
-          Disease Diagnosis: Accurately identifies diseases based on symptoms provided by the user.
-          Symptom Analysis: Breaks down and interprets symptoms to provide a comprehensive medical overview.
-          Treatment Recommendations: Suggests treatments and remedies according to medical conditions.
+        Disease Diagnosis: Accurately identifies diseases based on symptoms provided by the user.
+        Symptom Analysis: Breaks down and interprets symptoms to provide a comprehensive medical overview.
+        Treatment Recommendations: Suggests treatments and remedies according to medical conditions.
 
-      Dataset
+    Dataset
 
-      The model is fine-tuned on 2000 rows from a dataset consisting of 272k rows. This dataset includes rich information about diseases, symptoms, and their corresponding treatments. The model is continuously being updated and will be further trained on the remaining data in future releases to improve accuracy and capabilities.
+    The model is fine-tuned on 2000 rows from a dataset consisting of 272k rows. This dataset includes rich information about diseases, symptoms, and their corresponding treatments. The model is continuously being updated and will be further trained on the remaining data in future releases to improve accuracy and capabilities.
   overrides:
     parameters:
       model: Doctoraifinetune-3.1-8B.i1-Q4_K_M.gguf
@@ -1884,10 +1884,7 @@
   urls:
     - https://huggingface.co/ZeroXClem/Astral-Fusion-Neural-Happy-L3.1-8B
     - https://huggingface.co/mradermacher/Astral-Fusion-Neural-Happy-L3.1-8B-GGUF
-  description: |
-    Astral-Fusion-Neural-Happy-L3.1-8B is a celestial blend of magic, creativity, and dynamic storytelling. Designed to excel in instruction-following, immersive roleplaying, and magical narrative generation, this model is a fusion of the finest qualities from Astral-Fusion, NIHAPPY, and NeuralMahou. ✨🚀
-
-    This model is perfect for anyone seeking a cosmic narrative experience, with the ability to generate both precise instructional content and fantastical stories in one cohesive framework. Whether you're crafting immersive stories, creating AI roleplaying characters, or working on interactive storytelling, this model brings out the magic. 🌟
+  description: "Astral-Fusion-Neural-Happy-L3.1-8B is a celestial blend of magic, creativity, and dynamic storytelling. Designed to excel in instruction-following, immersive roleplaying, and magical narrative generation, this model is a fusion of the finest qualities from Astral-Fusion, NIHAPPY, and NeuralMahou. ✨\U0001F680\n\nThis model is perfect for anyone seeking a cosmic narrative experience, with the ability to generate both precise instructional content and fantastical stories in one cohesive framework. Whether you're crafting immersive stories, creating AI roleplaying characters, or working on interactive storytelling, this model brings out the magic. \U0001F31F\n"
   overrides:
     parameters:
       model: Astral-Fusion-Neural-Happy-L3.1-8B.Q4_K_M.gguf
@@ -2058,8 +2055,7 @@
   urls:
     - https://huggingface.co/ZeroXClem/Llama3.1-BestMix-Chem-Einstein-8B
     - https://huggingface.co/QuantFactory/Llama3.1-BestMix-Chem-Einstein-8B-GGUF
-  description: |
-    Llama3.1-BestMix-Chem-Einstein-8B is an innovative, meticulously blended model designed to excel in instruction-following, chemistry-focused tasks, and long-form conversational generation. This model fuses the best qualities of multiple Llama3-based architectures, making it highly versatile for both general and specialized tasks. 💻🧠✨
+  description: "Llama3.1-BestMix-Chem-Einstein-8B is an innovative, meticulously blended model designed to excel in instruction-following, chemistry-focused tasks, and long-form conversational generation. This model fuses the best qualities of multiple Llama3-based architectures, making it highly versatile for both general and specialized tasks. \U0001F4BB\U0001F9E0✨\n"
   overrides:
     parameters:
       model: Llama3.1-BestMix-Chem-Einstein-8B.Q4_K_M.gguf
@@ -2563,8 +2559,8 @@
       model: Mistral-Nemo-Instruct-2407-Q4_K_M.gguf
   files:
     - filename: Mistral-Nemo-Instruct-2407-Q4_K_M.gguf
-      sha256: 1a8b92fb546a80dce78151e4908f7bdb2c11fb3ef52af960e4bbe319a9cc5052
       uri: huggingface://bartowski/Mistral-Nemo-Instruct-2407-GGUF/Mistral-Nemo-Instruct-2407-Q4_K_M.gguf
+      sha256: 7c1a10d202d8788dbe5628dc962254d10654c853cae6aaeca0618f05490d4a46
 - !!merge <<: *mistral03
   name: "lumimaid-v0.2-12b"
   icon: https://cdn-uploads.huggingface.co/production/uploads/63ab1241ad514ca8d1430003/ep3ojmuMkFS-GmgRuI9iB.png
@@ -3517,9 +3513,9 @@
     - https://huggingface.co/anthracite-org/magnum-v4-9b
     - https://huggingface.co/QuantFactory/magnum-v4-9b-GGUF
   description: |
-      This is a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus.
+    This is a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus.
 
-      This model is fine-tuned on top of gemma 2 9b (chatML'ified).
+    This model is fine-tuned on top of gemma 2 9b (chatML'ified).
   overrides:
     parameters:
       model: magnum-v4-9b.Q4_K_M.gguf
