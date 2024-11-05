@@ -125,6 +125,8 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		CFGScale:             c.Diffusers.CFGScale,
 		LoraAdapter:          c.LoraAdapter,
 		LoraScale:            c.LoraScale,
+		LoraAdapters:         c.LoraAdapters,
+		LoraScales:           c.LoraScales,
 		F16Memory:            f16,
 		LoraBase:             c.LoraBase,
 		IMG2IMG:              c.Diffusers.IMG2IMG,
