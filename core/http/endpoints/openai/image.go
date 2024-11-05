@@ -136,6 +136,11 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 			config.Backend = model.StableDiffusionBackend
 		}
 
+		if !strings.Contains(input.Size, "x") {
+			input.Size = "512x512"
+			log.Warn().Msgf("Invalid size, using default 512x512")
+		}
+
 		sizeParts := strings.Split(input.Size, "x")
 		if len(sizeParts) != 2 {
 			return fmt.Errorf("invalid value for 'size'")
