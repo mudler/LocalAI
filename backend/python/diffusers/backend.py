@@ -311,10 +311,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.LoraAdapter:
                 # Check if its a local file and not a directory ( we load lora differently for a safetensor file )
                 if os.path.exists(request.LoraAdapter) and not os.path.isdir(request.LoraAdapter):
-                    # self.load_lora_weights(request.LoraAdapter, 1, device, torchType)
                     self.pipe.load_lora_weights(request.LoraAdapter)
                 else:
                     self.pipe.unet.load_attn_procs(request.LoraAdapter)
+            if len(request.LoraAdapters) > 0:
+                i = 0
+                adapters_name = []
+                adapters_weights = []
+                for adapter in request.LoraAdapters:
+                    if not os.path.isabs(adapter):
+                        adapter = os.path.join(request.ModelPath, adapter)
+                    self.pipe.load_lora_weights(adapter, adapter_name=f"adapter_{i}")
+                    adapters_name.append(f"adapter_{i}")
+                    i += 1
+
+                for adapters_weight in request.LoraScales:
+                    adapters_weights.append(adapters_weight)
+
+                self.pipe.set_adapters(adapters_name, adapter_weights=adapters_weights)
 
             if request.CUDA:
                 self.pipe.to('cuda')
