@@ -57,3 +57,6 @@
 - filename: "KFOlCnqEu92Fr1MmYUtfBBc9.ttf"
   url: "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmYUtfBBc9.ttf"
   sha: "361a50f8a6c816ba4306c5290b7e487a726e1b4dcc3d8d7e4acf1fc2dae9f551"
+- filename: "flowbite.min.js"
+  url: "https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"
+  sha: "d2a1a72a4c2399e43c01412b86b9957c4df1845f2e0586607c7e55b9ae949cf8"

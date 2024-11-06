@@ -57,6 +57,7 @@
   <link href="/static/assets/fontawesome/css/fontawesome.css" rel="stylesheet" />
   <link href="/static/assets/fontawesome/css/brands.css" rel="stylesheet" />
   <link href="/static/assets/fontawesome/css/solid.css" rel="stylesheet" />
+  <script src="/static/assets/flowbite.min.js"></script>
   <script src="/static/assets/htmx.js" crossorigin="anonymous"></script>
   <!-- P2P Animation START -->
   <style>
@@ -118,4 +119,11 @@
             100% { transform: rotate(0deg); } /* Return to center */
         }
   </style>
+
+  <!-- https://stackoverflow.com/questions/76051980/flowbite-component-not-working-when-loaded-via-htmx-django-project -->
+  <script>
+      htmx.onLoad(function(content) {
+          initFlowbite();
+      })
+  </script>
 </head>
