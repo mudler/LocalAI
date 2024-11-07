@@ -129,10 +129,8 @@ func newModel(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *
 
 	if cfg.Pipeline.LLM == "" || cfg.Pipeline.TTS == "" || cfg.Pipeline.Transcription == "" {
 		// If we don't have Wrapped model definitions, just return a standard model
-		opts := backend.ModelOptions(*cfg, appConfig, []model.Option{
-			model.WithBackendString(cfg.Backend),
-			model.WithModel(cfg.Model),
-		})
+		opts := backend.ModelOptions(*cfg, appConfig, model.WithBackendString(cfg.Backend),
+			model.WithModel(cfg.Model))
 		return ml.BackendLoader(opts...)
 	}
 
