@@ -14,9 +14,7 @@ func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.Bac
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := ModelOptions(backendConfig, appConfig, []model.Option{
-		model.WithModel(modelFile),
-	})
+	opts := ModelOptions(backendConfig, appConfig, model.WithModel(modelFile))
 
 	if backendConfig.Backend == "" {
 		inferenceModel, err = loader.GreedyLoader(opts...)

@@ -160,7 +160,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 			log.Debug().Msgf("Auto loading model %s into memory from file: %s", m, cfg.Model)
 
-			o := backend.ModelOptions(*cfg, options, []model.Option{})
+			o := backend.ModelOptions(*cfg, options)
 
 			var backendErr error
 			if cfg.Backend != "" {
