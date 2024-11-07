@@ -24,6 +24,7 @@ func ModelTTS(
 	opts := ModelOptions(*&backendConfig, appConfig, []model.Option{
 		model.WithDefaultBackendString(model.PiperBackend),
 	})
+
 	ttsModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return "", nil, err
