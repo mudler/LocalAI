@@ -231,10 +231,14 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 
 				data := ledger.LastBlock().Storage[servicesID]
 
-				zlog.Debug().Any("data", ledger.LastBlock().Storage).Msg("Ledger data")
+				if logLevel == logLevelDebug {
+					// We want to surface this debugging data only if p2p logging is set to debug
+					// (and not generally the whole application, as this can be really noisy)
+					zlog.Debug().Any("data", ledger.LastBlock().Storage).Msg("Ledger data")
+				}
 
 				for k, v := range data {
-					zlog.Debug().Msgf("New worker found in the ledger data '%s'", k)
+					// New worker found in the ledger data as k (worker id)
 					nd := &NodeData{}
 					if err := v.Unmarshal(nd); err != nil {
 						zlog.Error().Msg("cannot unmarshal node data")
@@ -269,7 +273,7 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 	if ndService, found := service[nd.Name]; !found {
 		if !nd.IsOnline() {
 			// if node is offline and not present, do nothing
-			zlog.Debug().Msgf("Node %s is offline", nd.ID)
+			// Node nd.ID is offline
 			return
 		}
 
@@ -381,10 +385,6 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
 	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") == "true"
 
-	loglevel := os.Getenv("LOCALAI_P2P_LOGLEVEL")
-	if loglevel == "" {
-		loglevel = "info"
-	}
 	libp2ploglevel := os.Getenv("LOCALAI_LIBP2P_LOGLEVEL")
 	if libp2ploglevel == "" {
 		libp2ploglevel = "fatal"
@@ -396,7 +396,7 @@ func newNodeOpts(token string) ([]node.Option, error) {
 		},
 		NetworkToken:   token,
 		LowProfile:     false,
-		LogLevel:       loglevel,
+		LogLevel:       logLevel,
 		Libp2pLogLevel: libp2ploglevel,
 		Ledger: config.Ledger{
 			SyncInterval:     defaultInterval,
