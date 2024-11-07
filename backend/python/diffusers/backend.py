@@ -409,8 +409,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # create a dictionary of values for the parameters
         options = {
             "negative_prompt": request.negative_prompt,
-            "width": request.width,
-            "height": request.height,
             "num_inference_steps": steps,
         }
 
@@ -428,13 +426,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         keys = options.keys()
 
         if request.EnableParameters != "":
-            keys = request.EnableParameters.split(",")
+            keys = [key.strip() for key in request.EnableParameters.split(",")]
 
         if request.EnableParameters == "none":
             keys = []
 
         # create a dictionary of parameters by using the keys from EnableParameters and the values from defaults
-        kwargs = {key: options[key] for key in keys}
+        kwargs = {key: options.get(key) for key in keys if key in options}
 
         # Set seed
         if request.seed > 0:
@@ -444,6 +442,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         if self.PipelineType == "FluxPipeline":
             kwargs["max_sequence_length"] = 256
+
+        if request.width:
+            kwargs["width"] = request.width
+
+        if request.height:
+            kwargs["height"] = request.height
 
         if self.PipelineType == "FluxTransformer2DModel":
             kwargs["output_type"] = "pil"
@@ -464,6 +468,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             export_to_video(video_frames, request.dst)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
+        print(f"Generating image with {kwargs=}", file=sys.stderr)
         image = {}
         if COMPEL:
             conditioning, pooled = self.compel.build_conditioning_tensor(prompt)

@@ -814,6 +814,32 @@
     - filename: cybertron-v4-qw7B-MGS.Q4_K_M.gguf
       sha256: 32ed4174bad90bb7a2cdcd48b76b3b5924677a4160b762d5e5d95c93fe5205db
       uri: huggingface://QuantFactory/cybertron-v4-qw7B-MGS-GGUF/cybertron-v4-qw7B-MGS.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "q25-1.5b-veolu"
+  icon: https://huggingface.co/Alfitaria/Q25-1.5B-VeoLu/resolve/main/veolu.png
+  urls:
+    - https://huggingface.co/Alfitaria/Q25-1.5B-VeoLu
+    - https://huggingface.co/bartowski/Q25-1.5B-VeoLu-GGUF
+  description: |
+    Q25-1.5B-Veo Lu is a tiny General-Purpose Creative model, made up of a merge of bespoke finetunes on Qwen 2.5-1.5B-Instruct.
+
+    Inspired by the success of MN-12B-Mag Mell and MS-Meadowlark-22B, Veo Lu was trained on a healthy, balanced diet of of Internet fiction, roleplaying, adventuring, and reasoning/general knowledge.
+
+    The components of Veo Lu are:
+
+        Bard (pretrain, writing): Fujin (Cleaned/extended Rosier)
+        Scribe (pretrain, roleplay): Creative Writing Multiturn
+        Cartographer (pretrain, adventuring): SpringDragon
+        Alchemist (SFT, science/reasoning): ScienceQA, MedquadQA, Orca Math Word Problems
+
+    This model is capable of carrying on a scene without going completely off the rails. That being said, it only has 1.5B parameters. So please, for the love of God, manage your expectations. Since it's Qwen, use ChatML formatting. Turn the temperature down to ~0.7-0.8 and try a dash of rep-pen.
+  overrides:
+    parameters:
+      model: Q25-1.5B-VeoLu-Q4_K_M.gguf
+  files:
+    - filename: Q25-1.5B-VeoLu-Q4_K_M.gguf
+      sha256: bbfb3691b6cabceb49ea1feacfa2eb2651312b8cc6caaf893b46375097e2f026
+      uri: huggingface://bartowski/Q25-1.5B-VeoLu-GGUF/Q25-1.5B-VeoLu-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -2806,6 +2832,24 @@
     - filename: Starcannon-Unleashed-12B-v1.0.Q4_K_M.gguf
       sha256: b32c6582d75d2f1d67d567badc691a1338dd1a016c71efbfaf4c91812f398f0e
       uri: huggingface://QuantFactory/Starcannon-Unleashed-12B-v1.0-GGUF/Starcannon-Unleashed-12B-v1.0.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  icon: https://cdn-uploads.huggingface.co/production/uploads/645cfe4603fc86c46b3e46d1/CATNxzDDJL6xHR4tc4IMf.jpeg
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "valor-7b-v0.1"
+  urls:
+    - https://huggingface.co/NeuralNovel/Valor-7B-v0.1
+    - https://huggingface.co/mradermacher/Valor-7B-v0.1-GGUF
+  description: |
+    Valor speaks louder than words.
+
+    This is a qlora finetune of blockchainlabs_7B_merged_test2_4 using the Neural-Story-v0.1 dataset, with the intention of increasing creativity and writing ability.
+  overrides:
+    parameters:
+      model: Valor-7B-v0.1.Q4_K_M.gguf
+  files:
+    - filename: Valor-7B-v0.1.Q4_K_M.gguf
+      sha256: 2b695fe53d64b36c3eea68f1fa0809f30560aa97ce8b71c16f371c2dc262d9b8
+      uri: huggingface://mradermacher/Valor-7B-v0.1-GGUF/Valor-7B-v0.1.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
