@@ -814,6 +814,32 @@
     - filename: cybertron-v4-qw7B-MGS.Q4_K_M.gguf
       sha256: 32ed4174bad90bb7a2cdcd48b76b3b5924677a4160b762d5e5d95c93fe5205db
       uri: huggingface://QuantFactory/cybertron-v4-qw7B-MGS-GGUF/cybertron-v4-qw7B-MGS.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "q25-1.5b-veolu"
+  icon: https://huggingface.co/Alfitaria/Q25-1.5B-VeoLu/resolve/main/veolu.png
+  urls:
+    - https://huggingface.co/Alfitaria/Q25-1.5B-VeoLu
+    - https://huggingface.co/bartowski/Q25-1.5B-VeoLu-GGUF
+  description: |
+    Q25-1.5B-Veo Lu is a tiny General-Purpose Creative model, made up of a merge of bespoke finetunes on Qwen 2.5-1.5B-Instruct.
+
+    Inspired by the success of MN-12B-Mag Mell and MS-Meadowlark-22B, Veo Lu was trained on a healthy, balanced diet of of Internet fiction, roleplaying, adventuring, and reasoning/general knowledge.
+
+    The components of Veo Lu are:
+
+        Bard (pretrain, writing): Fujin (Cleaned/extended Rosier)
+        Scribe (pretrain, roleplay): Creative Writing Multiturn
+        Cartographer (pretrain, adventuring): SpringDragon
+        Alchemist (SFT, science/reasoning): ScienceQA, MedquadQA, Orca Math Word Problems
+
+    This model is capable of carrying on a scene without going completely off the rails. That being said, it only has 1.5B parameters. So please, for the love of God, manage your expectations. Since it's Qwen, use ChatML formatting. Turn the temperature down to ~0.7-0.8 and try a dash of rep-pen.
+  overrides:
+    parameters:
+      model: Q25-1.5B-VeoLu-Q4_K_M.gguf
+  files:
+    - filename: Q25-1.5B-VeoLu-Q4_K_M.gguf
+      sha256: bbfb3691b6cabceb49ea1feacfa2eb2651312b8cc6caaf893b46375097e2f026
+      uri: huggingface://bartowski/Q25-1.5B-VeoLu-GGUF/Q25-1.5B-VeoLu-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
