@@ -14,15 +14,13 @@ func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.Bac
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := ModelOptions(backendConfig, appConfig, []model.Option{
-		model.WithModel(modelFile),
-	})
+	opts := ModelOptions(backendConfig, appConfig, model.WithModel(modelFile))
 
 	if backendConfig.Backend == "" {
-		inferenceModel, err = loader.GreedyLoader(opts...)
+		inferenceModel, err = loader.Load(opts...)
 	} else {
 		opts = append(opts, model.WithBackendString(backendConfig.Backend))
-		inferenceModel, err = loader.BackendLoader(opts...)
+		inferenceModel, err = loader.Load(opts...)
 	}
 	if err != nil {
 		return schema.TokenizeResponse{}, err

@@ -16,7 +16,6 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -35,15 +34,6 @@ type TokenUsage struct {
 func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
-	var inferenceModel grpc.Backend
-	var err error
-
-	opts := ModelOptions(c, o, []model.Option{})
-
-	if c.Backend != "" {
-		opts = append(opts, model.WithBackendString(c.Backend))
-	}
-
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
 	if o.AutoloadGalleries { // experimental
 		if _, err := os.Stat(modelFile); os.IsNotExist(err) {
@@ -56,12 +46,8 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		}
 	}
 
-	if c.Backend == "" {
-		inferenceModel, err = loader.GreedyLoader(opts...)
-	} else {
-		inferenceModel, err = loader.BackendLoader(opts...)
-	}
-
+	opts := ModelOptions(c, o)
+	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		return nil, err
 	}

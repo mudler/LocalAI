@@ -15,10 +15,8 @@ func TokenMetrics(
 	appConfig *config.ApplicationConfig,
 	backendConfig config.BackendConfig) (*proto.MetricsResponse, error) {
 
-	opts := ModelOptions(backendConfig, appConfig, []model.Option{
-		model.WithModel(modelFile),
-	})
-	model, err := loader.BackendLoader(opts...)
+	opts := ModelOptions(backendConfig, appConfig, model.WithModel(modelFile))
+	model, err := loader.Load(opts...)
 	if err != nil {
 		return nil, err
 	}

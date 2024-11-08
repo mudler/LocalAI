@@ -11,17 +11,9 @@ import (
 
 func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
 
-	var inferenceModel interface{}
-	var err error
+	opts := ModelOptions(backendConfig, appConfig)
 
-	opts := ModelOptions(backendConfig, appConfig, []model.Option{})
-
-	if backendConfig.Backend == "" {
-		inferenceModel, err = loader.GreedyLoader(opts...)
-	} else {
-		opts = append(opts, model.WithBackendString(backendConfig.Backend))
-		inferenceModel, err = loader.BackendLoader(opts...)
-	}
+	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		return nil, err
 	}
