@@ -85,7 +85,8 @@ WORKDIR /build
 # The requirements-extras target is for any builds with IMAGE_TYPE=extras. It should not be placed in this target unless every IMAGE_TYPE=extras build will use it
 FROM requirements-core AS requirements-extras
 
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# Install uv as a system package
+RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/bin sh
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
