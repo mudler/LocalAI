@@ -29,7 +29,7 @@ func ModelTTS(
 	}
 
 	opts := ModelOptions(backendConfig, appConfig, model.WithBackendString(bb), model.WithModel(modelFile))
-	ttsModel, err := loader.BackendLoader(opts...)
+	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		return "", nil, err
 	}

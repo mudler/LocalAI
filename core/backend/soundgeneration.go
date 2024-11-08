@@ -26,8 +26,7 @@ func SoundGeneration(
 ) (string, *proto.Result, error) {
 
 	opts := ModelOptions(backendConfig, appConfig, model.WithModel(modelFile))
-
-	soundGenModel, err := loader.BackendLoader(opts...)
+	soundGenModel, err := loader.Load(opts...)
 	if err != nil {
 		return "", nil, err
 	}

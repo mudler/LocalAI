@@ -163,12 +163,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			o := backend.ModelOptions(*cfg, options)
 
 			var backendErr error
-			if cfg.Backend != "" {
-				o = append(o, model.WithBackendString(cfg.Backend))
-				_, backendErr = ml.BackendLoader(o...)
-			} else {
-				_, backendErr = ml.GreedyLoader(o...)
-			}
+			_, backendErr = ml.Load(o...)
 			if backendErr != nil {
 				return nil, nil, nil, err
 			}
