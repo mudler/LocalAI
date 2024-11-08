@@ -137,7 +137,7 @@ func newModel(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *
 		// If we don't have Wrapped model definitions, just return a standard model
 		opts := backend.ModelOptions(*cfg, appConfig, model.WithBackendString(cfg.Backend),
 			model.WithModel(cfg.Model))
-		return ml.BackendLoader(opts...)
+		return ml.Load(opts...)
 	}
 
 	log.Debug().Msg("Loading a wrapped model")
@@ -174,19 +174,19 @@ func newModel(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *
 	}
 
 	opts := backend.ModelOptions(*cfgTTS, appConfig)
-	ttsClient, err := ml.BackendLoader(opts...)
+	ttsClient, err := ml.Load(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load tts model: %w", err)
 	}
 
 	opts = backend.ModelOptions(*cfgSST, appConfig)
-	transcriptionClient, err := ml.BackendLoader(opts...)
+	transcriptionClient, err := ml.Load(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load SST model: %w", err)
 	}
 
 	opts = backend.ModelOptions(*cfgLLM, appConfig)
-	llmClient, err := ml.BackendLoader(opts...)
+	llmClient, err := ml.Load(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load LLM model: %w", err)
 	}
@@ -571,6 +571,9 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 
 // Function to generate a response based on the conversation
 func generateResponse(session *Session, conversation *Conversation, responseCreate ResponseCreate, c *websocket.Conn, mt int) {
+
+	log.Debug().Msg("Generating realtime response...")
+
 	// Compile the conversation history
 	conversation.Lock.Lock()
 	var conversationHistory []string
