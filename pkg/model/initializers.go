@@ -455,7 +455,7 @@ func (ml *ModelLoader) ListAvailableBackends(assetdir string) ([]string, error) 
 	return orderBackends(backends)
 }
 
-func (ml *ModelLoader) BackendLoader(opts ...Option) (client grpc.Backend, err error) {
+func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 
 	log.Info().Msgf("Loading model '%s' with backend %s", o.modelID, o.backendString)
@@ -500,7 +500,7 @@ func (ml *ModelLoader) stopActiveBackends(modelID string, singleActiveBackend bo
 	}
 }
 
-func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
+func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	o := NewOptions(opts...)
 
 	// Return earlier if we have a model already loaded
@@ -512,6 +512,10 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 	}
 
 	ml.stopActiveBackends(o.modelID, o.singleActiveBackend)
+
+	if o.backendString != "" {
+		return ml.backendLoader(opts...)
+	}
 
 	var err error
 
@@ -536,7 +540,7 @@ func (ml *ModelLoader) GreedyLoader(opts ...Option) (grpc.Backend, error) {
 			WithBackendString(key),
 		}...)
 
-		model, modelerr := ml.BackendLoader(options...)
+		model, modelerr := ml.backendLoader(options...)
 		if modelerr == nil && model != nil {
 			log.Info().Msgf("[%s] Loads OK", key)
 			return model, nil
