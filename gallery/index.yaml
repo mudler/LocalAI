@@ -2120,6 +2120,37 @@
     - filename: Llama-3.1-WhiteRabbitNeo-2-8B-Q4_K_M.gguf
       sha256: dbaf619312e706c5440214d324d8f304717866675fc9728e3901c75ef5bbfeca
       uri: huggingface://bartowski/Llama-3.1-WhiteRabbitNeo-2-8B-GGUF/Llama-3.1-WhiteRabbitNeo-2-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "tess-r1-limerick-llama-3.1-70b"
+  icon: https://huggingface.co/migtissera/Tess-R1-Llama-3.1-70B/resolve/main/Tess-R1-2.jpg
+  urls:
+    - https://huggingface.co/migtissera/Tess-R1-Limerick-Llama-3.1-70B
+    - https://huggingface.co/bartowski/Tess-R1-Limerick-Llama-3.1-70B-GGUF
+  description: |
+    Welcome to the Tess-Reasoning-1 (Tess-R1) series of models. Tess-R1 is designed with test-time compute in mind, and has the capabilities to produce a Chain-of-Thought (CoT) reasoning before producing the final output.
+
+    The model is trained to first think step-by-step, and contemplate on its answers. It can also write alternatives after contemplating. Once all the steps have been thought through, it writes the final output.
+
+        Step-by-step, Chain-of-Thought thinking process. Uses <thinking> </thinking> tags to indicate when the model is performing CoT.
+        <contemplation> </contemplation> tags are used when the model contemplate on its answers.
+        <alternatively> </alternatively> tags are used for alternate suggestions.
+        Finally, <output> </output> tags are used for the final output
+
+    Important Note:
+
+    In a multi-turn conversation, only the contents between the <output> </output> tags (discarding the tags) should be carried forward. Otherwise the model will see out of distribution input data and will fail.
+
+    The model was trained mostly with Chain-of-Thought reasoning data, including the XML tags. However, to generalize model generations, some single-turn and multi-turn data without XML tags were also included. Due to this, in some instances the model does not produce XML tags and does not fully utilize test-time compute capabilities. There is two ways to get around this:
+
+        Include a try/catch statement in your inference script, and only pass on the contents between the <output> </output> tags if it's available.
+        Use the <thinking> tag as the seed in the generation, and force the model to produce outputs with XML tags. i.e: f"{conversation}{user_input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n<thinking>"
+  overrides:
+    parameters:
+      model: Tess-R1-Limerick-Llama-3.1-70B-Q4_K_M.gguf
+  files:
+    - filename: Tess-R1-Limerick-Llama-3.1-70B-Q4_K_M.gguf
+      sha256: 92da5dad8a36ed5060becf78a83537d776079b7eaa4de73733d3ca57156286ab
+      uri: huggingface://bartowski/Tess-R1-Limerick-Llama-3.1-70B-GGUF/Tess-R1-Limerick-Llama-3.1-70B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
