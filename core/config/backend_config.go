@@ -81,7 +81,7 @@ type BackendConfig struct {
 type Pipeline struct {
 	TTS           string `yaml:"tts"`
 	LLM           string `yaml:"llm"`
-	Transcription string `yaml:"sst"`
+	Transcription string `yaml:"transcription"`
 }
 
 type File struct {
