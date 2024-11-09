@@ -860,6 +860,25 @@
     - filename: LLENN-v0.75-Qwen2.5-72b.i1-Q4_K_M.gguf
       sha256: 38990136bb48fc9422b0e477bed6d9c40c00c270806d3bd3f58e426badfa0d4d
       uri: huggingface://mradermacher/LLENN-v0.75-Qwen2.5-72b-i1-GGUF/LLENN-v0.75-Qwen2.5-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "eva-qwen2.5-14b-v0.2"
+  urls:
+    - https://huggingface.co/EVA-UNIT-01/EVA-Qwen2.5-14B-v0.2
+    - https://huggingface.co/bartowski/EVA-Qwen2.5-14B-v0.2-GGUF
+  description: |
+    A RP/storywriting specialist model, full-parameter finetune of Qwen2.5-14B on mixture of synthetic and natural data.
+    It uses Celeste 70B 0.1 data mixture, greatly expanding it to improve versatility, creativity and "flavor" of the resulting model.
+
+    Version notes for 0.2: Now using the refined dataset from 32B 0.2. Major improvements in coherence, instruction following and long-context comprehension over 14B v0.1.
+
+    Prompt format is ChatML.
+  overrides:
+    parameters:
+      model: EVA-Qwen2.5-14B-v0.2-Q4_K_M.gguf
+  files:
+    - filename: EVA-Qwen2.5-14B-v0.2-Q4_K_M.gguf
+      sha256: 5d79bc8bf486c48c6430621a5bc5d3032227532dae436a27aa23aaf3e618e009
+      uri: huggingface://bartowski/EVA-Qwen2.5-14B-v0.2-GGUF/EVA-Qwen2.5-14B-v0.2-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
