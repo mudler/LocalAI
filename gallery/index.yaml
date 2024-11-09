@@ -840,6 +840,26 @@
     - filename: Q25-1.5B-VeoLu-Q4_K_M.gguf
       sha256: bbfb3691b6cabceb49ea1feacfa2eb2651312b8cc6caaf893b46375097e2f026
       uri: huggingface://bartowski/Q25-1.5B-VeoLu-GGUF/Q25-1.5B-VeoLu-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "llenn-v0.75-qwen2.5-72b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/mYiG-Ndxzqu8ofaBGbOIZ.png
+  urls:
+    - https://huggingface.co/KaraKaraWitch/LLENN-v0.75-Qwen2.5-72b
+    - https://huggingface.co/mradermacher/LLENN-v0.75-Qwen2.5-72b-i1-GGUF
+  description: |
+    The following models were included in the merge:
+        rombodawg/Rombos-LLM-V2.5-Qwen-72b
+        abacusai/Dracarys2-72B-Instruct
+        EVA-UNIT-01/EVA-Qwen2.5-72B-v0.0
+        ZeusLabs/Chronos-Platinum-72B
+        m8than/banana-2-b-72b
+  overrides:
+    parameters:
+      model: LLENN-v0.75-Qwen2.5-72b.i1-Q4_K_M.gguf
+  files:
+    - filename: LLENN-v0.75-Qwen2.5-72b.i1-Q4_K_M.gguf
+      sha256: 38990136bb48fc9422b0e477bed6d9c40c00c270806d3bd3f58e426badfa0d4d
+      uri: huggingface://mradermacher/LLENN-v0.75-Qwen2.5-72b-i1-GGUF/LLENN-v0.75-Qwen2.5-72b.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
