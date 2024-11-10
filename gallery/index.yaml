@@ -945,6 +945,20 @@
     - filename: EVA-Qwen2.5-14B-v0.2-Q4_K_M.gguf
       sha256: 5d79bc8bf486c48c6430621a5bc5d3032227532dae436a27aa23aaf3e618e009
       uri: huggingface://bartowski/EVA-Qwen2.5-14B-v0.2-GGUF/EVA-Qwen2.5-14B-v0.2-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tissint-14b-128k-rp"
+  urls:
+    - https://huggingface.co/Ttimofeyka/Tissint-14B-128k-RP
+    - https://huggingface.co/mradermacher/Tissint-14B-128k-RP-GGUF
+  description: |
+    The model is based on SuperNova-Medius (as the current best 14B model) with a 128k context with an emphasis on creativity, including NSFW and multi-turn conversations.
+  overrides:
+    parameters:
+      model: Tissint-14B-128k-RP.Q4_K_M.gguf
+  files:
+    - filename: Tissint-14B-128k-RP.Q4_K_M.gguf
+      sha256: 374c02f69fae47e7d78ffed9fad4e405250d31031a6bc1539b136c4b1cfc85c2
+      uri: huggingface://mradermacher/Tissint-14B-128k-RP-GGUF/Tissint-14B-128k-RP.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
