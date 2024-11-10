@@ -1,4 +1,42 @@
 ---
+- &opencoder
+  name: "opencoder-8b-base"
+  icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
+  url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
+  urls:
+    - https://huggingface.co/infly/OpenCoder-8B-Base
+    - https://huggingface.co/QuantFactory/OpenCoder-8B-Base-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - code
+  license: inf
+  description: |
+    The model is a quantized version of infly/OpenCoder-8B-Base created using llama.cpp. It is part of the OpenCoder LLM family which includes 1.5B and 8B base and chat models, supporting both English and Chinese languages. The original OpenCoder model was pretrained on 2.5 trillion tokens composed of 90% raw code and 10% code-related web data, and supervised finetuned on over 4.5M high-quality SFT examples. It achieves high performance across multiple language model benchmarks and is one of the most comprehensively open-sourced models available.
+  overrides:
+    parameters:
+      model: OpenCoder-8B-Base.Q4_K_M.gguf
+  files:
+    - filename: OpenCoder-8B-Base.Q4_K_M.gguf
+      sha256: ed158a6f72a40cf4f3f4569f649b365f5851e93f03b56252af3906515fab94ec
+      uri: huggingface://QuantFactory/OpenCoder-8B-Base-GGUF/OpenCoder-8B-Base.Q4_K_M.gguf
+- !!merge <<: *opencoder
+  url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
+  name: "opencoder-8b-instruct"
+  urls:
+    - https://huggingface.co/infly/OpenCoder-8B-Instruct
+    - https://huggingface.co/QuantFactory/OpenCoder-8B-Instruct-GGUF
+  description: |
+    The LLM model is QuantFactory/OpenCoder-8B-Instruct-GGUF, which is a quantized version of infly/OpenCoder-8B-Instruct. It is created using llama.cpp and supports both English and Chinese languages. The original model, infly/OpenCoder-8B-Instruct, is pretrained on 2.5 trillion tokens composed of 90% raw code and 10% code-related web data, and supervised finetuned on over 4.5M high-quality SFT examples. It achieves high performance across multiple language model benchmarks and is one of the leading open-source models for code.
+  overrides:
+    parameters:
+      model: OpenCoder-8B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: OpenCoder-8B-Instruct.Q4_K_M.gguf
+      sha256: ae642656f127e339fcb9566e6039a73cc55d34e3bf59e067d58ad40742f49f00
+      uri: huggingface://QuantFactory/OpenCoder-8B-Instruct-GGUF/OpenCoder-8B-Instruct.Q4_K_M.gguf
 - &granite3
   name: "granite-3.0-1b-a400m-instruct"
   urls:
