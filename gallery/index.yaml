@@ -959,6 +959,27 @@
     - filename: Tissint-14B-128k-RP.Q4_K_M.gguf
       sha256: 374c02f69fae47e7d78ffed9fad4e405250d31031a6bc1539b136c4b1cfc85c2
       uri: huggingface://mradermacher/Tissint-14B-128k-RP-GGUF/Tissint-14B-128k-RP.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tq2.5-14b-sugarquill-v1"
+  icon: https://huggingface.co/allura-org/TQ2.5-14B-Sugarquill-v1/resolve/main/card_img.png
+  urls:
+    - https://huggingface.co/allura-org/TQ2.5-14B-Sugarquill-v1
+    - https://huggingface.co/bartowski/TQ2.5-14B-Sugarquill-v1-GGUF
+  description: |
+    A continued pretrain of SuperNova-Medius on assorted short story data from the web. Supernova already had a nice prose, but diversifying it a bit definitely doesn't hurt. Also, finally a storywriter model with enough context for something more than a short story, that's also nice.
+
+    It's a fair bit more temperamental than Gemma, but can be tamed with some sampling. Instruction following also stayed rather strong, so it works for both RP and storywriting, both in chat mode via back-and-forth co-writing and on raw completion.
+
+    Overall, I'd say it successfully transfers the essence of what I liked about Gemma Sugarquill. I will also make a Qwen version of Aletheia, but with a brand new LoRA, based on a brand new RP dataset that's in the making right now.
+
+    Model was trained by Auri.
+  overrides:
+    parameters:
+      model: TQ2.5-14B-Sugarquill-v1-Q4_K_M.gguf
+  files:
+    - filename: TQ2.5-14B-Sugarquill-v1-Q4_K_M.gguf
+      sha256: a654fe3f41e963d8ea6753fb9a06b9dd76893714ebf02605ef67827944a4025e
+      uri: huggingface://bartowski/TQ2.5-14B-Sugarquill-v1-GGUF/TQ2.5-14B-Sugarquill-v1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
