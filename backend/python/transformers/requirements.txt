@@ -1,4 +1,4 @@
 grpcio==1.67.1
 protobuf
 certifi
-setuptools==69.5.1 # https://github.com/mudler/LocalAI/issues/2406
+setuptools==75.4.0 # https://github.com/mudler/LocalAI/issues/2406
