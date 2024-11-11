@@ -3159,6 +3159,22 @@
     - filename: Valor-7B-v0.1.Q4_K_M.gguf
       sha256: 2b695fe53d64b36c3eea68f1fa0809f30560aa97ce8b71c16f371c2dc262d9b8
       uri: huggingface://mradermacher/Valor-7B-v0.1-GGUF/Valor-7B-v0.1.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mn-tiramisu-12b"
+  icon: https://huggingface.co/matchaaaaa/MN-Tiramisu-12B/resolve/main/tiramisu-cute.png
+  urls:
+    - https://huggingface.co/matchaaaaa/MN-Tiramisu-12B
+    - https://huggingface.co/MaziyarPanahi/MN-Tiramisu-12B-GGUF
+  description: |
+    This is a really yappity-yappy yapping model that's good for long-form RP. Tried to rein it in with Mahou and give it some more character understanding with Pantheon. Feedback is always welcome.
+  overrides:
+    parameters:
+      model: MN-Tiramisu-12B.Q5_K_M.gguf
+  files:
+    - filename: MN-Tiramisu-12B.Q5_K_M.gguf
+      sha256: 100c78b08a0f4fc5a5a65797e1498ff5fd6fc9daf96b0898d2de731c35fa4e3e
+      uri: huggingface://MaziyarPanahi/MN-Tiramisu-12B-GGUF/MN-Tiramisu-12B.Q5_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
