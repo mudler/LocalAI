@@ -982,7 +982,7 @@
       uri: huggingface://bartowski/TQ2.5-14B-Sugarquill-v1-GGUF/TQ2.5-14B-Sugarquill-v1-Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "calme-3.3-baguette-3b"
-  icon: https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b/resolve/main/calme_3.png\
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b/resolve/main/calme_3.png
   urls:
     - https://huggingface.co/MaziyarPanahi/calme-3.3-baguette-3b
     - https://huggingface.co/MaziyarPanahi/calme-3.3-baguette-3b-GGUF
@@ -1025,6 +1025,51 @@
     - filename: calme-3.1-baguette-3b.Q4_K_M.gguf
       sha256: 3839a1a24e0de4e0dc6a720f10c5bfa393fdcc0fc7fb01c3ab5ea311f2d188f2
       uri: huggingface://MaziyarPanahi/calme-3.1-baguette-3b-GGUF/calme-3.1-baguette-3b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "calme-3.3-qwenloi-3b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.3-qwenloi-3b/resolve/main/calme_3.png
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.3-qwenloi-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.3-qwenloi-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful Qwen/Qwen2.5-3B, specifically fine-tuned to enhance its capabilities in French Legal domain.
+  overrides:
+    parameters:
+      model: calme-3.3-qwenloi-3b.Q5_K_M.gguf
+  files:
+    - filename: calme-3.3-qwenloi-3b.Q5_K_M.gguf
+      sha256: 9592e186a00c70552365d85ccabddae87acc8d812634a6145da8d460b57b70f9
+      uri: huggingface://MaziyarPanahi/calme-3.3-qwenloi-3b-GGUF/calme-3.3-qwenloi-3b.Q5_K_M.gguf
+- !!merge <<: *qwen25
+  name: "calme-3.2-qwenloi-3b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.3-qwenloi-3b/resolve/main/calme_3.png
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.2-qwenloi-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.2-qwenloi-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful Qwen/Qwen2.5-3B, specifically fine-tuned to enhance its capabilities in French Legal domain.
+  overrides:
+    parameters:
+      model: calme-3.2-qwenloi-3b.Q5_K_M.gguf
+  files:
+    - filename: calme-3.2-qwenloi-3b.Q5_K_M.gguf
+      sha256: 61be0c2f221262523dcd00a9147fe590aba797c89a1c5849bd4f66e7df2ad272
+      uri: huggingface://MaziyarPanahi/calme-3.2-qwenloi-3b-GGUF/calme-3.2-qwenloi-3b.Q5_K_M.gguf
+- !!merge <<: *qwen25
+  name: "calme-3.1-qwenloi-3b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.3-qwenloi-3b/resolve/main/calme_3.png
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.1-qwenloi-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.1-qwenloi-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful Qwen/Qwen2.5-3B, specifically fine-tuned to enhance its capabilities in French Legal domain.
+  overrides:
+    parameters:
+      model: calme-3.1-qwenloi-3b.Q5_K_M.gguf
+  files:
+    - filename: calme-3.1-qwenloi-3b.Q5_K_M.gguf
+      sha256: 8962a8d1704979039063b5c69fafdb38b545c26143419ec4c574f37f2d6dd7b2
+      uri: huggingface://MaziyarPanahi/calme-3.1-qwenloi-3b-GGUF/calme-3.1-qwenloi-3b.Q5_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
