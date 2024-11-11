@@ -980,6 +980,51 @@
     - filename: TQ2.5-14B-Sugarquill-v1-Q4_K_M.gguf
       sha256: a654fe3f41e963d8ea6753fb9a06b9dd76893714ebf02605ef67827944a4025e
       uri: huggingface://bartowski/TQ2.5-14B-Sugarquill-v1-GGUF/TQ2.5-14B-Sugarquill-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "calme-3.3-baguette-3b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b/resolve/main/calme_3.png\
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.3-baguette-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.3-baguette-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful Qwen/Qwen2.5-3B, fine-tuned specifically to enhance its capabilities across general domains in both French and English.
+  overrides:
+    parameters:
+      model: calme-3.3-baguette-3b.Q5_K_M.gguf
+  files:
+    - filename: calme-3.3-baguette-3b.Q5_K_M.gguf
+      sha256: 9e75b76e8cda215ef5c9ad79edfc6e5deee2f9e01ecf605ee6a557b1b5c9ef85
+      uri: huggingface://MaziyarPanahi/calme-3.3-baguette-3b-GGUF/calme-3.3-baguette-3b.Q5_K_M.gguf
+- !!merge <<: *qwen25
+  name: "calme-3.2-baguette-3b"
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b/resolve/main/calme_3.png
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.2-baguette-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.2-baguette-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful Qwen/Qwen2.5-3B, fine-tuned specifically to enhance its capabilities across general domains in both French and English.
+  overrides:
+    parameters:
+      model: calme-3.2-baguette-3b.Q4_K_M.gguf
+  files:
+    - filename: calme-3.2-baguette-3b.Q4_K_M.gguf
+      sha256: 336f17f88b954ff5ac9afefca348360d0d09639129659d45ab0605631a7c6c7e
+      uri: huggingface://MaziyarPanahi/calme-3.2-baguette-3b-GGUF/calme-3.2-baguette-3b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b/resolve/main/calme_3.png
+  name: "calme-3.1-baguette-3b"
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful Qwen/Qwen2.5-3B, fine-tuned specifically to enhance its capabilities across general domains in both French and English.
+  overrides:
+    parameters:
+      model: calme-3.1-baguette-3b.Q4_K_M.gguf
+  files:
+    - filename: calme-3.1-baguette-3b.Q4_K_M.gguf
+      sha256: 3839a1a24e0de4e0dc6a720f10c5bfa393fdcc0fc7fb01c3ab5ea311f2d188f2
+      uri: huggingface://MaziyarPanahi/calme-3.1-baguette-3b-GGUF/calme-3.1-baguette-3b.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
