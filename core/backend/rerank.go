@@ -10,9 +10,9 @@ import (
 )
 
 func Rerank(request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (*proto.RerankResult, error) {
+	opts := ModelOptions(backendConfig, appConfig)
+	rerankModel, err := loader.Load(opts...)
 
-	opts := ModelOptions(backendConfig, appConfig, []model.Option{})
-	rerankModel, err := loader.BackendLoader(opts...)
 	if err != nil {
 		return nil, err
 	}

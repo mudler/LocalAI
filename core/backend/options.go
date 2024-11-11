@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ModelOptions(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
+func ModelOptions(c config.BackendConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
 	name := c.Name
 	if name == "" {
 		name = c.Model

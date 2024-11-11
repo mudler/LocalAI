@@ -9,9 +9,8 @@ import (
 
 func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {
 
-	opts := ModelOptions(backendConfig, appConfig, []model.Option{})
-
-	inferenceModel, err := loader.BackendLoader(
+	opts := ModelOptions(backendConfig, appConfig)
+	inferenceModel, err := loader.Load(
 		opts...,
 	)
 	if err != nil {
