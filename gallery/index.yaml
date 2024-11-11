@@ -368,6 +368,54 @@
     - filename: Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf
       sha256: 80f532552e3d56e366226f428395de8285a671f2da1d5fd68563741181b77a95
       uri: huggingface://bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF/Llama-3.2-3B-Instruct-uncensored-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "calme-3.3-llamaloi-3b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.3-llamaloi-3b/resolve/main/calme_3.png
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.3-llamaloi-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.3-llamaloi-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful meta-llama/Llama-3.2-3B, specifically fine-tuned to enhance its capabilities in French Legal domain.
+  overrides:
+    parameters:
+      model: calme-3.3-llamaloi-3b.Q5_K_M.gguf
+  files:
+    - filename: calme-3.3-llamaloi-3b.Q5_K_M.gguf
+      sha256: d3b9d47faa9e968a93a8f52bd4cdc938e5a612facb963088367ca871063ef302
+      uri: huggingface://MaziyarPanahi/calme-3.3-llamaloi-3b-GGUF/calme-3.3-llamaloi-3b.Q5_K_M.gguf
+- !!merge <<: *llama32
+  name: "calme-3.2-llamaloi-3b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.3-llamaloi-3b/resolve/main/calme_3.png
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.2-llamaloi-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.2-llamaloi-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful meta-llama/Llama-3.2-3B, specifically fine-tuned to enhance its capabilities in French Legal domain.
+  overrides:
+    parameters:
+      model: calme-3.2-llamaloi-3b.Q5_K_M.gguf
+  files:
+    - filename: calme-3.2-llamaloi-3b.Q5_K_M.gguf
+      sha256: bd11e6a717008d0603b6da5faab2fa2ba18b376c5589245735340cfb0a8dabb9
+      uri: huggingface://MaziyarPanahi/calme-3.2-llamaloi-3b-GGUF/calme-3.2-llamaloi-3b.Q5_K_M.gguf
+- !!merge <<: *llama32
+  name: "calme-3.1-llamaloi-3b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/MaziyarPanahi/calme-3.3-llamaloi-3b/resolve/main/calme_3.png
+  urls:
+    - https://huggingface.co/MaziyarPanahi/calme-3.1-llamaloi-3b
+    - https://huggingface.co/MaziyarPanahi/calme-3.1-llamaloi-3b-GGUF
+  description: |
+    This model is an advanced iteration of the powerful meta-llama/Llama-3.2-3B, specifically fine-tuned to enhance its capabilities in French Legal domain.
+  overrides:
+    parameters:
+      model: calme-3.1-llamaloi-3b.Q5_K_M.gguf
+  files:
+    - filename: calme-3.1-llamaloi-3b.Q5_K_M.gguf
+      sha256: 06b900c7252423329ca57a02a8b8d18a1294934709861d09af96e74694c9a3f1
+      uri: huggingface://MaziyarPanahi/calme-3.1-llamaloi-3b-GGUF/calme-3.1-llamaloi-3b.Q5_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
