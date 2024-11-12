@@ -1136,6 +1136,24 @@
     - filename: Qwen2.5-Coder-14B.Q4_K_M.gguf
       sha256: 94f277a9ac7caf117140b2fff4e1ccf4bc9f35395b0112f0d0d7c82c6f8d860e
       uri: huggingface://mradermacher/Qwen2.5-Coder-14B-GGUF/Qwen2.5-Coder-14B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-coder-3b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF
+  description: |
+    Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen). As of now, Qwen2.5-Coder has covered six mainstream model sizes, 0.5, 1.5, 3, 7, 14, 32 billion parameters, to meet the needs of different developers. Qwen2.5-Coder brings the following improvements upon CodeQwen1.5:
+
+        Significantly improvements in code generation, code reasoning and code fixing. Base on the strong Qwen2.5, we scale up the training tokens into 5.5 trillion including source code, text-code grounding, Synthetic data, etc. Qwen2.5-Coder-32B has become the current state-of-the-art open-source codeLLM, with its coding abilities matching those of GPT-4o.
+        A more comprehensive foundation for real-world applications such as Code Agents. Not only enhancing coding capabilities but also maintaining its strengths in mathematics and general competencies.
+        Long-context Support up to 128K tokens.
+  overrides:
+    parameters:
+      model: Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf
+      sha256: 3da3afe6cf5c674ac195803ea0dd6fee7e1c228c2105c1ce8c66890d1d4ab460
+      uri: huggingface://bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
