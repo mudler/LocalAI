@@ -28,6 +28,8 @@ service Backend {
   rpc Rerank(RerankRequest) returns (RerankResult) {}
 
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
+
+  rpc VAD(VADRequest) returns (VADResponse) {}
 }
 
 // Define the empty request
@@ -291,6 +293,19 @@ message TTSRequest {
   string dst = 3;
   string voice = 4;
   optional string language = 5;
+}
+
+message VADRequest {
+  repeated float audio = 1;
+}
+
+message VADSegment {
+  float start = 1;
+  float end = 2;
+}
+
+message VADResponse {
+  repeated VADSegment segments = 1;
 }
 
 message SoundGenerationRequest {

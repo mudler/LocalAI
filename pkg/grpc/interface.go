@@ -24,6 +24,8 @@ type LLM interface {
 	StoresDelete(*pb.StoresDeleteOptions) error
 	StoresGet(*pb.StoresGetOptions) (pb.StoresGetResult, error)
 	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
+
+	VAD(*pb.VADRequest) (pb.VADResponse, error)
 }
 
 func newReply(s string) *pb.Reply {
