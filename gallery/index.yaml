@@ -74,6 +74,18 @@
     - filename: Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf
       sha256: f530705d447660a4336c329981af164b471b60b974b1d808d57e8ec9fe23b239
       uri: huggingface://bartowski/Qwen2.5-Coder-1.5B-Instruct-GGUF/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "qwen2.5-coder-7b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct
+    - https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+      sha256: 1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6
+      uri: huggingface://bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
   icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
