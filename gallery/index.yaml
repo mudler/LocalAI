@@ -86,6 +86,23 @@
     - filename: Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
       sha256: 1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6
       uri: huggingface://bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "qwen2.5-coder-7b-3x-instruct-ties-v1.2-i1"
+  urls:
+    - https://huggingface.co/BenevolenceMessiah/Qwen2.5-Coder-7B-3x-Instruct-TIES-v1.2
+    - https://huggingface.co/mradermacher/Qwen2.5-Coder-7B-3x-Instruct-TIES-v1.2-i1-GGUF
+  description: |
+    The following models were included in the merge:
+        BenevolenceMessiah/Qwen2.5-Coder-7B-Chat-Instruct-TIES-v1.2
+        MadeAgents/Hammer2.0-7b
+        huihui-ai/Qwen2.5-Coder-7B-Instruct-abliterated
+  overrides:
+    parameters:
+      model: Qwen2.5-Coder-7B-3x-Instruct-TIES-v1.2.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Coder-7B-3x-Instruct-TIES-v1.2.i1-Q4_K_M.gguf
+      sha256: c28a4da700f634f1277f02391d81fa3c0ba783fa4b02886bd4bfe5f13b6605ef
+      uri: huggingface://mradermacher/Qwen2.5-Coder-7B-3x-Instruct-TIES-v1.2-i1-GGUF/Qwen2.5-Coder-7B-3x-Instruct-TIES-v1.2.i1-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
   icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
