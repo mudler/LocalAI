@@ -11,7 +11,7 @@ import (
 )
 
 var _ = Describe("pkg/concurrency unit tests", func() {
-	It("can be used to recieve a result across goroutines", func() {
+	It("can be used to receive a result across goroutines", func() {
 		jr, wjr := NewJobResult[string, string]("foo")
 		Expect(jr).ToNot(BeNil())
 		Expect(wjr).ToNot(BeNil())
@@ -30,7 +30,7 @@ var _ = Describe("pkg/concurrency unit tests", func() {
 
 	})
 
-	It("can be used to recieve an error across goroutines", func() {
+	It("can be used to receive an error across goroutines", func() {
 		jr, wjr := NewJobResult[string, string]("foo")
 		Expect(jr).ToNot(BeNil())
 		Expect(wjr).ToNot(BeNil())
