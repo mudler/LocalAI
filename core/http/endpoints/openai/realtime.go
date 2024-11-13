@@ -456,9 +456,40 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 			// Check if there's audio data to process
 			session.AudioBufferLock.Lock()
 			if len(session.InputAudioBuffer) > 0 {
-				// Simulate VAD detecting end of speech
-				// In practice, you should use an actual VAD library and cut the audio from there
-				session.AudioBufferLock.Unlock()
+				// TODO: what to put in the VADRequest request?
+				// Data is received as buffer, but we want PCM as float32 here...
+				resp, err := session.ModelInterface.VAD(context.Background(), &proto.VADRequest{})
+				if err != nil {
+					log.Error().Msgf("failed to process audio: %s", err.Error())
+					sendError(c, "processing_error", "Failed to process audio", "", "")
+					session.AudioBufferLock.Unlock()
+					continue
+				}
+
+				speechStart, speechEnd := float32(0), float32(0)
+				for _, s := range resp.Segments {
+					log.Printf("speech starts at %0.2fs", s.Start)
+					speechStart = s.Start
+					if s.End > 0 {
+						log.Printf("speech ends at %0.2fs", s.End)
+						speechEnd = s.End
+					} else {
+						log.Printf("speech is ongoing")
+						session.AudioBufferLock.Unlock()
+						continue
+					}
+				}
+
+				// Handle when input is too long without a voice activity (reset the buffer)
+				if speechStart == 0 && speechEnd == 0 {
+					log.Debug().Msg("VAD detected no speech activity")
+					session.InputAudioBuffer = nil
+					session.AudioBufferLock.Unlock()
+					continue
+				}
+
+				// TODO: Shall we cut the audio from speechStart and SpeechEnd?
+				log.Debug().Msgf("VAD detected Start speech at: %0.2fs, End speech at: %0.2fs", speechStart, speechEnd)
 
 				// Commit the audio buffer as a conversation item
 				item := &Item{
@@ -493,9 +524,9 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 
 				// Generate a response
 				generateResponse(session, conversation, ResponseCreate{}, c, websocket.TextMessage)
-			} else {
-				session.AudioBufferLock.Unlock()
 			}
+
+			session.AudioBufferLock.Unlock()
 		}
 	}
 }
