@@ -281,6 +281,15 @@ sources/go-stable-diffusion:
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
 
+sources/onnxruntime:
+	mkdir -p sources/onnxruntime
+	wget https://github.com/microsoft/onnxruntime/releases/download/v1.20.0/onnxruntime-linux-x64-1.20.0.tgz -O sources/onnxruntime/onnxruntime-linux-x64-1.20.0.tgz
+	cd sources/onnxruntime && tar -xvf onnxruntime-linux-x64-1.20.0.tgz && rm onnxruntime-linux-x64-1.20.0.tgz
+	cd sources/onnxruntime && mv onnxruntime-linux-x64-1.20.0/* ./
+
+backend-assets/lib/libonnxruntime.so: backend-assets/lib sources/onnxruntime
+	cp -rfv sources/onnxruntime/lib/* backend-assets/lib/
+
 ## tiny-dream
 sources/go-tiny-dream:
 	mkdir -p sources/go-tiny-dream
@@ -835,6 +844,13 @@ backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stab
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/stablediffusion
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/stablediffusion
+endif
+
+backend-assets/grpc/silero-vad: backend-assets/grpc backend-assets/lib/libonnxruntime.so
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/onnxruntime/include/" LIBRARY_PATH=$(CURDIR)/backend-assets/lib \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/silero-vad ./backend/go/vad/silero
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/silero-vad
 endif
 
 backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libtinydream.a backend-assets/grpc
