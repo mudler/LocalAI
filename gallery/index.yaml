@@ -153,6 +153,23 @@
     - filename: Rombos-Coder-V2.5-Qwen-32b-Q4_K_M.gguf
       sha256: 821ea2a13d96354db1368986700b1189938fbbc56ca6bb9d0c39f752580de71a
       uri: huggingface://bartowski/Rombos-Coder-V2.5-Qwen-32b-GGUF/Rombos-Coder-V2.5-Qwen-32b-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "rombos-coder-v2.5-qwen-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/QErypCEKD5OZLxUcSmYaR.jpeg
+  urls:
+    - https://huggingface.co/rombodawg/Rombos-Coder-V2.5-Qwen-14b
+    - https://huggingface.co/bartowski/Rombos-Coder-V2.5-Qwen-14b-GGUF
+    - https://docs.google.com/document/d/1OjbjU5AOz4Ftn9xHQrX3oFQGhQ6RDUuXQipnQ9gn6tU/edit?usp=sharing
+  description: |
+    Rombos-Coder-V2.5-Qwen-14b is a continues finetuned version of Qwen2.5-Coder-14B-Instruct. I took it upon myself to merge the instruct model with the base model myself using the Ties merge method as demonstrated in my own "Continuous Finetuning" method (link available).
+    This version of the model shows higher performance than the original instruct and base models.
+  overrides:
+    parameters:
+      model: Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
+  files:
+    - filename: Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
+      sha256: 7ef044e1fee206a039f56538f94332030e99ec63915c74f4d1bdec0e601ee968
+      uri: huggingface://bartowski/Rombos-Coder-V2.5-Qwen-14b-GGUF/Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
   icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
