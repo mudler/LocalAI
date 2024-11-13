@@ -119,6 +119,57 @@
     - filename: Qwen2.5-Coder-7B-Instruct-abliterated.i1-Q4_K_M.gguf
       sha256: 9100ccd9e8167cefda98bd1c97d5d765a21e70e124e4d6b89945fd66ebb481b4
       uri: huggingface://mradermacher/Qwen2.5-Coder-7B-Instruct-abliterated-i1-GGUF/Qwen2.5-Coder-7B-Instruct-abliterated.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "rombos-coder-v2.5-qwen-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/QErypCEKD5OZLxUcSmYaR.jpeg
+  urls:
+    - https://huggingface.co/rombodawg/Rombos-Coder-V2.5-Qwen-7b
+    - https://huggingface.co/bartowski/Rombos-Coder-V2.5-Qwen-7b-GGUF
+    - https://docs.google.com/document/d/1OjbjU5AOz4Ftn9xHQrX3oFQGhQ6RDUuXQipnQ9gn6tU/edit?usp=sharing
+  description: |
+    Rombos-Coder-V2.5-Qwen-7b is a continues finetuned version of Qwen2.5-Coder-7B-Instruct. I took it upon myself to merge the instruct model with the base model myself using the * Ties* merge method as demonstrated in my own "Continuous Finetuning" method (link available).
+    This version of the model shows higher performance than the original instruct and base models.
+  overrides:
+    parameters:
+      model: Rombos-Coder-V2.5-Qwen-7b-Q4_K_M.gguf
+  files:
+    - filename: Rombos-Coder-V2.5-Qwen-7b-Q4_K_M.gguf
+      sha256: ca16a550f1be00b7e92f94c0c18ea6af1e5c158d5d1cb3994f9f0a0d13922272
+      uri: huggingface://bartowski/Rombos-Coder-V2.5-Qwen-7b-GGUF/Rombos-Coder-V2.5-Qwen-7b-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "rombos-coder-v2.5-qwen-32b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/QErypCEKD5OZLxUcSmYaR.jpeg
+  urls:
+    - https://huggingface.co/rombodawg/Rombos-Coder-V2.5-Qwen-32b
+    - https://huggingface.co/bartowski/Rombos-Coder-V2.5-Qwen-32b-GGUF
+    - https://docs.google.com/document/d/1OjbjU5AOz4Ftn9xHQrX3oFQGhQ6RDUuXQipnQ9gn6tU/edit?usp=sharing
+  description: |
+    Rombos-Coder-V2.5-Qwen-32b is a continues finetuned version of Qwen2.5-Coder-32B-Instruct. I took it upon myself to merge the instruct model with the base model myself using the Ties merge method as demonstrated in my own "Continuous Finetuning" method (link available).
+    This version of the model shows higher performance than the original instruct and base models.
+  overrides:
+    parameters:
+      model: Rombos-Coder-V2.5-Qwen-32b-Q4_K_M.gguf
+  files:
+    - filename: Rombos-Coder-V2.5-Qwen-32b-Q4_K_M.gguf
+      sha256: 821ea2a13d96354db1368986700b1189938fbbc56ca6bb9d0c39f752580de71a
+      uri: huggingface://bartowski/Rombos-Coder-V2.5-Qwen-32b-GGUF/Rombos-Coder-V2.5-Qwen-32b-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "rombos-coder-v2.5-qwen-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/QErypCEKD5OZLxUcSmYaR.jpeg
+  urls:
+    - https://huggingface.co/rombodawg/Rombos-Coder-V2.5-Qwen-14b
+    - https://huggingface.co/bartowski/Rombos-Coder-V2.5-Qwen-14b-GGUF
+    - https://docs.google.com/document/d/1OjbjU5AOz4Ftn9xHQrX3oFQGhQ6RDUuXQipnQ9gn6tU/edit?usp=sharing
+  description: |
+    Rombos-Coder-V2.5-Qwen-14b is a continues finetuned version of Qwen2.5-Coder-14B-Instruct. I took it upon myself to merge the instruct model with the base model myself using the Ties merge method as demonstrated in my own "Continuous Finetuning" method (link available).
+    This version of the model shows higher performance than the original instruct and base models.
+  overrides:
+    parameters:
+      model: Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
+  files:
+    - filename: Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
+      sha256: 7ef044e1fee206a039f56538f94332030e99ec63915c74f4d1bdec0e601ee968
+      uri: huggingface://bartowski/Rombos-Coder-V2.5-Qwen-14b-GGUF/Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
   icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
@@ -1238,6 +1289,25 @@
     - filename: calme-3.1-qwenloi-3b.Q5_K_M.gguf
       sha256: 8962a8d1704979039063b5c69fafdb38b545c26143419ec4c574f37f2d6dd7b2
       uri: huggingface://MaziyarPanahi/calme-3.1-qwenloi-3b-GGUF/calme-3.1-qwenloi-3b.Q5_K_M.gguf
+- !!merge <<: *qwen25
+  name: "eva-qwen2.5-72b-v0.1-i1"
+  urls:
+    - https://huggingface.co/EVA-UNIT-01/EVA-Qwen2.5-72B-v0.1
+    - https://huggingface.co/mradermacher/EVA-Qwen2.5-72B-v0.1-i1-GGUF
+  description: |
+    A RP/storywriting specialist model, full-parameter finetune of Qwen2.5-72B on mixture of synthetic and natural data.
+    It uses Celeste 70B 0.1 data mixture, greatly expanding it to improve versatility, creativity and "flavor" of the resulting model.
+
+    Dedicated to Nev.
+
+    Version notes for 0.1: Reprocessed dataset (via Cahvay for 32B 0.2, used here as well), readjusted training config for 8xH100 SXM. Significant improvements in instruction following, long context understanding and overall coherence over v0.0.
+  overrides:
+    parameters:
+      model: EVA-Qwen2.5-72B-v0.1.i1-Q4_K_M.gguf
+  files:
+    - filename: EVA-Qwen2.5-72B-v0.1.i1-Q4_K_M.gguf
+      sha256: b05dbc02eeb286c41122b103ac31431fc8dcbd80b8979422541a05cda53df61b
+      uri: huggingface://mradermacher/EVA-Qwen2.5-72B-v0.1-i1-GGUF/EVA-Qwen2.5-72B-v0.1.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3295,6 +3365,23 @@
     - filename: MN-Tiramisu-12B.Q5_K_M.gguf
       sha256: 100c78b08a0f4fc5a5a65797e1498ff5fd6fc9daf96b0898d2de731c35fa4e3e
       uri: huggingface://MaziyarPanahi/MN-Tiramisu-12B-GGUF/MN-Tiramisu-12B.Q5_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mistral-nemo-prism-12b"
+  icon: https://huggingface.co/nbeerbower/Mistral-Nemo-Prism-12B/resolve/main/prism-cover.png
+  urls:
+    - https://huggingface.co/nbeerbower/Mistral-Nemo-Prism-12B
+    - https://huggingface.co/bartowski/Mistral-Nemo-Prism-12B-GGUF
+  description: |
+    Mahou-1.5-mistral-nemo-12B-lorablated finetuned on Arkhaios-DPO and Purpura-DPO.
+    The goal was to reduce archaic language and purple prose in a completely uncensored model.
+  overrides:
+    parameters:
+      model: Mistral-Nemo-Prism-12B-Q4_K_M.gguf
+  files:
+    - filename: Mistral-Nemo-Prism-12B-Q4_K_M.gguf
+      sha256: 96b922c6d55d94ffb91e869b8cccaf2b6dc449d75b1456f4d4578c92c8184c25
+      uri: huggingface://bartowski/Mistral-Nemo-Prism-12B-GGUF/Mistral-Nemo-Prism-12B-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
