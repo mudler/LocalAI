@@ -1289,6 +1289,25 @@
     - filename: calme-3.1-qwenloi-3b.Q5_K_M.gguf
       sha256: 8962a8d1704979039063b5c69fafdb38b545c26143419ec4c574f37f2d6dd7b2
       uri: huggingface://MaziyarPanahi/calme-3.1-qwenloi-3b-GGUF/calme-3.1-qwenloi-3b.Q5_K_M.gguf
+- !!merge <<: *qwen25
+  name: "eva-qwen2.5-72b-v0.1-i1"
+  urls:
+    - https://huggingface.co/EVA-UNIT-01/EVA-Qwen2.5-72B-v0.1
+    - https://huggingface.co/mradermacher/EVA-Qwen2.5-72B-v0.1-i1-GGUF
+  description: |
+    A RP/storywriting specialist model, full-parameter finetune of Qwen2.5-72B on mixture of synthetic and natural data.
+    It uses Celeste 70B 0.1 data mixture, greatly expanding it to improve versatility, creativity and "flavor" of the resulting model.
+
+    Dedicated to Nev.
+
+    Version notes for 0.1: Reprocessed dataset (via Cahvay for 32B 0.2, used here as well), readjusted training config for 8xH100 SXM. Significant improvements in instruction following, long context understanding and overall coherence over v0.0.
+  overrides:
+    parameters:
+      model: EVA-Qwen2.5-72B-v0.1.i1-Q4_K_M.gguf
+  files:
+    - filename: EVA-Qwen2.5-72B-v0.1.i1-Q4_K_M.gguf
+      sha256: b05dbc02eeb286c41122b103ac31431fc8dcbd80b8979422541a05cda53df61b
+      uri: huggingface://mradermacher/EVA-Qwen2.5-72B-v0.1-i1-GGUF/EVA-Qwen2.5-72B-v0.1.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
