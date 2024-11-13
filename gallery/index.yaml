@@ -3365,6 +3365,23 @@
     - filename: MN-Tiramisu-12B.Q5_K_M.gguf
       sha256: 100c78b08a0f4fc5a5a65797e1498ff5fd6fc9daf96b0898d2de731c35fa4e3e
       uri: huggingface://MaziyarPanahi/MN-Tiramisu-12B-GGUF/MN-Tiramisu-12B.Q5_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mistral-nemo-prism-12b"
+  icon: https://huggingface.co/nbeerbower/Mistral-Nemo-Prism-12B/resolve/main/prism-cover.png
+  urls:
+    - https://huggingface.co/nbeerbower/Mistral-Nemo-Prism-12B
+    - https://huggingface.co/bartowski/Mistral-Nemo-Prism-12B-GGUF
+  description: |
+    Mahou-1.5-mistral-nemo-12B-lorablated finetuned on Arkhaios-DPO and Purpura-DPO.
+    The goal was to reduce archaic language and purple prose in a completely uncensored model.
+  overrides:
+    parameters:
+      model: Mistral-Nemo-Prism-12B-Q4_K_M.gguf
+  files:
+    - filename: Mistral-Nemo-Prism-12B-Q4_K_M.gguf
+      sha256: 96b922c6d55d94ffb91e869b8cccaf2b6dc449d75b1456f4d4578c92c8184c25
+      uri: huggingface://bartowski/Mistral-Nemo-Prism-12B-GGUF/Mistral-Nemo-Prism-12B-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
