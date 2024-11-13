@@ -82,6 +82,11 @@ type Pipeline struct {
 	TTS           string `yaml:"tts"`
 	LLM           string `yaml:"llm"`
 	Transcription string `yaml:"transcription"`
+	VAD           string `yaml:"vad"`
+}
+
+func (p Pipeline) IsNotConfigured() bool {
+	return p.LLM == "" || p.TTS == "" || p.Transcription == ""
 }
 
 type File struct {
