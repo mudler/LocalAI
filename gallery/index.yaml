@@ -2736,6 +2736,23 @@
     - filename: Llama-3.1-8B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
       sha256: 66fcbbe96950cc3424cba866f929180d83f1bffdb0d4eedfa9b1f55cf0ea5c26
       uri: huggingface://bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.3-GGUF/Llama-3.1-8B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-slush-i1"
+  icon: https://huggingface.co/crestf411/L3.1-8B-Slush/resolve/main/slush.jpg?
+  urls:
+    - https://huggingface.co/crestf411/L3.1-8B-Slush
+    - https://huggingface.co/mradermacher/L3.1-8B-Slush-i1-GGUF
+  description: |
+    Slush is a two-stage model trained with high LoRA dropout, where stage 1 is a pretraining continuation on the base model, aimed at boosting the model's creativity and writing capabilities. This is then merged into the instruction tune model, and stage 2 is a fine tuning step on top of this to further enhance its roleplaying capabilities and/or to repair any damage caused in the stage 1 merge.
+    This is an initial experiment done on the at-this-point-infamous Llama 3.1 8B model, in an attempt to retain its smartness while addressing its abysmal lack of imagination/creativity. As always, feedback is welcome, and begone if you demand perfection.
+    The second stage, like the Sunfall series, follows the Silly Tavern preset, so ymmv in particular if you use some other tool and/or preset.
+  overrides:
+    parameters:
+      model: L3.1-8B-Slush.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-8B-Slush.i1-Q4_K_M.gguf
+      sha256: 98c53cd1ec0e2b00400c5968cd076a589d0c889bca13ec52abfe4456cfa039be
+      uri: huggingface://mradermacher/L3.1-8B-Slush-i1-GGUF/L3.1-8B-Slush.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
