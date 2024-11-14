@@ -8,10 +8,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-audio/audio"
 	"github.com/gofiber/websocket/v2"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/sound"
+
 	"google.golang.org/grpc"
 
 	"github.com/rs/zerolog/log"
@@ -456,9 +459,17 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 			// Check if there's audio data to process
 			session.AudioBufferLock.Lock()
 			if len(session.InputAudioBuffer) > 0 {
-				// TODO: what to put in the VADRequest request?
-				// Data is received as buffer, but we want PCM as float32 here...
-				resp, err := session.ModelInterface.VAD(context.Background(), &proto.VADRequest{})
+
+				adata := sound.BytesToInt16sLE(session.InputAudioBuffer)
+
+				soundIntBuffer := &audio.IntBuffer{
+					Format: &audio.Format{SampleRate: 16000, NumChannels: 1},
+				}
+				soundIntBuffer.Data = sound.ConvertInt16ToInt(adata)
+
+				resp, err := session.ModelInterface.VAD(context.Background(), &proto.VADRequest{
+					Audio: soundIntBuffer.AsFloat32Buffer().Data,
+				})
 				if err != nil {
 					log.Error().Msgf("failed to process audio: %s", err.Error())
 					sendError(c, "processing_error", "Failed to process audio", "", "")
