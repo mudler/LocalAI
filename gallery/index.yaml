@@ -2672,6 +2672,25 @@
     - filename: Llama3.1-8B-Enigma.Q4_K_M.gguf
       sha256: e98c9909ee3b74b11d50d4c4f17178502e42cd936215ede0c64a7b217ae665bb
       uri: huggingface://mradermacher/Llama3.1-8B-Enigma-GGUF/Llama3.1-8B-Enigma.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-cobalt"
+  urls:
+    - https://huggingface.co/ValiantLabs/Llama3.1-8B-Cobalt
+    - https://huggingface.co/mradermacher/Llama3.1-8B-Cobalt-GGUF
+  description: |
+    Cobalt is a math-instruct model built on Llama 3.1 8b.
+    High quality math instruct performance within the Llama 3 Instruct chat format
+    Finetuned on synthetic math-instruct data generated with Llama 3.1 405b. Find the current version of the dataset here!
+    Version
+    This is the 2024-08-16 release of Cobalt for Llama 3.1 8b.
+    Help us and recommend Cobalt to your friends! We're excited for more Cobalt releases in the future.
+  overrides:
+    parameters:
+      model: Llama3.1-8B-Cobalt.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-8B-Cobalt.Q4_K_M.gguf
+      sha256: 44340f1ebbc3bf4e4e23d04ac3580c26fdc0b5717f23b45ce30743aa1eeed7ed
+      uri: huggingface://mradermacher/Llama3.1-8B-Cobalt-GGUF/Llama3.1-8B-Cobalt.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
