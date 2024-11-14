@@ -487,10 +487,10 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 
 				speechStart, speechEnd := float32(0), float32(0)
 				for _, s := range resp.Segments {
-					log.Printf("speech starts at %0.2fs", s.Start)
+					log.Debug().Msgf("speech starts at %0.2fs", s.Start)
 					speechStart = s.Start
 					if s.End > 0 {
-						log.Printf("speech ends at %0.2fs", s.End)
+						log.Debug().Msgf("speech ends at %0.2fs", s.End)
 						speechEnd = s.End
 					} else {
 						log.Printf("speech is ongoing")
