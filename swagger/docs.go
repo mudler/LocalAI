@@ -279,6 +279,25 @@ const docTemplate = `{
                 }
             }
         },
+        "/tokenMetrics": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "summary": "Get TokenMetrics for Active Slot.",
+                "responses": {
+                    "200": {
+                        "description": "generated audio/wav file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/tts": {
             "post": {
                 "consumes": [
@@ -723,6 +742,38 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/tokenMetrics": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "summary": "Get TokenMetrics for Active Slot.",
+                "responses": {
+                    "200": {
+                        "description": "generated audio/wav file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tokenize": {
+            "post": {
+                "summary": "Tokenize the input.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.TokenizeResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -969,14 +1020,6 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "model.Model": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
                 }
             }
         },
@@ -1682,6 +1725,14 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.SysInfoModel": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.SystemInformationResponse": {
             "type": "object",
             "properties": {
@@ -1694,7 +1745,7 @@ const docTemplate = `{
                 "loaded_models": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/model.Model"
+                        "$ref": "#/definitions/schema.SysInfoModel"
                     }
                 }
             }
@@ -1718,14 +1769,25 @@ const docTemplate = `{
                     "description": "model name or full path",
                     "type": "string"
                 },
+                "response_format": {
+                    "description": "(optional) output format",
+                    "type": "string"
+                },
                 "voice": {
                     "description": "voice audio file or speaker id",
                     "type": "string"
-                },
-		"response_format": {
-                    "description": "(optional) output format of generated audio file, defaults to wav, accept wav, mp3, flac, aac, opus",
-                    "type": "string"
-                },
+                }
+            }
+        },
+        "schema.TokenizeResponse": {
+            "type": "object",
+            "properties": {
+                "tokens": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
             }
         },
         "schema.ToolCall": {
