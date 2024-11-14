@@ -447,6 +447,14 @@ func updateSession(session *Session, update *Session, cl *config.BackendConfigLo
 // https://github.com/snakers4/silero-vad/tree/master/examples/go
 // XXX: use session.ModelInterface for VAD or hook directly VAD runtime here?
 func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, done chan struct{}) {
+
+	vadContext, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		<-done
+		cancel()
+	}()
+
 	// Implement VAD logic here
 	// For brevity, this is a placeholder
 	// When VAD detects end of speech, generate a response
@@ -467,7 +475,7 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 				}
 				soundIntBuffer.Data = sound.ConvertInt16ToInt(adata)
 
-				resp, err := session.ModelInterface.VAD(context.Background(), &proto.VADRequest{
+				resp, err := session.ModelInterface.VAD(vadContext, &proto.VADRequest{
 					Audio: soundIntBuffer.AsFloat32Buffer().Data,
 				})
 				if err != nil {
