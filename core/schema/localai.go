@@ -2,7 +2,6 @@ package schema
 
 import (
 	"github.com/mudler/LocalAI/core/p2p"
-	"github.com/mudler/LocalAI/pkg/model"
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
 
@@ -77,7 +76,11 @@ type P2PNodesResponse struct {
 	FederatedNodes []p2p.NodeData `json:"federated_nodes" yaml:"federated_nodes"`
 }
 
+type SysInfoModel struct {
+	ID string `json:"id"`
+}
+
 type SystemInformationResponse struct {
-	Backends []string      `json:"backends"`
-	Models   []model.Model `json:"loaded_models"`
+	Backends []string       `json:"backends"`
+	Models   []SysInfoModel `json:"loaded_models"`
 }

@@ -21,10 +21,15 @@ func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConf
 		for b := range appConfig.ExternalGRPCBackends {
 			availableBackends = append(availableBackends, b)
 		}
+
+		sysmodels := []schema.SysInfoModel{}
+		for _, m := range loadedModels {
+			sysmodels = append(sysmodels, schema.SysInfoModel{ID: m.ID})
+		}
 		return c.JSON(
 			schema.SystemInformationResponse{
 				Backends: availableBackends,
-				Models:   loadedModels,
+				Models:   sysmodels,
 			},
 		)
 	}
