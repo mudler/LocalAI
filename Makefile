@@ -34,6 +34,10 @@ STABLEDIFFUSION_VERSION?=4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
 TINYDREAM_REPO?=https://github.com/M0Rf30/go-tiny-dream
 TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
 
+ONNX_VERSION?=1.20.0
+ONNX_ARCH?=x64
+ONNX_OS?=linux
+
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
 export CMAKE_ARGS?=
@@ -89,7 +93,18 @@ ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
 endif
 
+# Detect if we are running on arm64
+ifneq (,$(findstring aarch64,$(shell uname -m)))
+	ONNX_ARCH=aarch64
+endif
+
 ifeq ($(OS),Darwin)
+	ONNX_OS=osx
+	ifneq (,$(findstring aarch64,$(shell uname -m)))
+		ONNX_ARCH=arm64
+	else
+		ONNX_ARCH=x86_64
+	endif
 
 	ifeq ($(OSX_SIGNING_IDENTITY),)
 		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
@@ -195,6 +210,7 @@ ALL_GRPC_BACKENDS+=backend-assets/util/llama-cpp-rpc-server
 ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
+ALL_GRPC_BACKENDS+=backend-assets/grpc/silero-vad
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
 # Use filter-out to remove the specified backends
 ALL_GRPC_BACKENDS := $(filter-out $(SKIP_GRPC_BACKEND),$(ALL_GRPC_BACKENDS))
@@ -283,13 +299,13 @@ sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 
 sources/onnxruntime:
 	mkdir -p sources/onnxruntime
-	wget https://github.com/microsoft/onnxruntime/releases/download/v1.20.0/onnxruntime-linux-x64-1.20.0.tgz -O sources/onnxruntime/onnxruntime-linux-x64-1.20.0.tgz
-	cd sources/onnxruntime && tar -xvf onnxruntime-linux-x64-1.20.0.tgz && rm onnxruntime-linux-x64-1.20.0.tgz
-	cd sources/onnxruntime && mv onnxruntime-linux-x64-1.20.0/* ./
+	wget https://github.com/microsoft/onnxruntime/releases/download/v$(ONNX_VERSION)/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz -O sources/onnxruntime/onnxruntime-linux-$(ONNX_ARCH)-$(ONNX_VERSION).tgz
+	cd sources/onnxruntime && tar -xvf onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz && rm onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz
+	cd sources/onnxruntime && mv onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION)/* ./
 
 backend-assets/lib/libonnxruntime.so.1: backend-assets/lib sources/onnxruntime
 	cp -rfv sources/onnxruntime/lib/* backend-assets/lib/
-	mv backend-assets/lib/libonnxruntime.so.1.20.0 backend-assets/lib/libonnxruntime.so.1
+	mv backend-assets/lib/libonnxruntime.so.$(ONNX_VERSION) backend-assets/lib/libonnxruntime.so.1
 
 ## tiny-dream
 sources/go-tiny-dream:
