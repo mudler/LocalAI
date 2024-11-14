@@ -2653,6 +2653,25 @@
     - filename: Tess-3-Llama-3.1-70B.Q4_K_M.gguf
       sha256: 81625defcbea414282f490dd960b14afdecd7734e0d77d8db2da2bf5c21261aa
       uri: huggingface://mradermacher/Tess-3-Llama-3.1-70B-GGUF/Tess-3-Llama-3.1-70B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-enigma"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f267a8a4f79a118e0fcc89/it7MY5MyLCLpFQev5dUis.jpeg
+  urls:
+    - https://huggingface.co/ValiantLabs/Llama3.1-8B-Enigma
+    - https://huggingface.co/mradermacher/Llama3.1-8B-Enigma-GGUF
+  description: |
+    Enigma is a code-instruct model built on Llama 3.1 8b.
+    High quality code instruct performance within the Llama 3 Instruct chat format
+    Finetuned on synthetic code-instruct data generated with Llama 3.1 405b. Find the current version of the dataset here!
+    Overall chat performance supplemented with generalist synthetic data.
+    This is the 2024-10-02 release of Enigma for Llama 3.1 8b, enhancing code-instruct and general chat capabilities.
+  overrides:
+    parameters:
+      model: Llama3.1-8B-Enigma.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-8B-Enigma.Q4_K_M.gguf
+      sha256: e98c9909ee3b74b11d50d4c4f17178502e42cd936215ede0c64a7b217ae665bb
+      uri: huggingface://mradermacher/Llama3.1-8B-Enigma-GGUF/Llama3.1-8B-Enigma.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
