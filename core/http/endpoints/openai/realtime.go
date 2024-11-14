@@ -493,10 +493,14 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 						log.Debug().Msgf("speech ends at %0.2fs", s.End)
 						speechEnd = s.End
 					} else {
-						log.Printf("speech is ongoing")
-						session.AudioBufferLock.Unlock()
 						continue
 					}
+				}
+
+				if speechEnd == 0 && speechStart != 0 {
+					session.AudioBufferLock.Unlock()
+					log.Debug().Msg("speech is ongoing")
+					continue
 				}
 
 				// Handle when input is too long without a voice activity (reset the buffer)
@@ -531,9 +535,7 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 				conversation.Lock.Unlock()
 
 				// Reset InputAudioBuffer
-				session.AudioBufferLock.Lock()
 				session.InputAudioBuffer = nil
-				session.AudioBufferLock.Unlock()
 
 				// Send item.created event
 				sendEvent(c, OutgoingMessage{
