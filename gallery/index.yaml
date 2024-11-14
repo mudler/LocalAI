@@ -1327,6 +1327,21 @@
     - filename: Celestial-Harmony-14b-v1.0-Experimental-1016.i1-Q4_K_M.gguf
       sha256: 536a6d98e30e9d52f91672daf49eeb7efe076e161a5da8beaca204adedd76864
       uri: huggingface://mradermacher/Celestial-Harmony-14b-v1.0-Experimental-1016-i1-GGUF/Celestial-Harmony-14b-v1.0-Experimental-1016.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-32b-arliai-rpmax-v1.3"
+  urls:
+    - https://huggingface.co/ArliAI/Qwen2.5-32B-ArliAI-RPMax-v1.3
+    - https://huggingface.co/bartowski/Qwen2.5-32B-ArliAI-RPMax-v1.3-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+    Many RPMax users mentioned that these models does not feel like any other RP models, having a different writing style and generally doesn't feel in-bred.
+  overrides:
+    parameters:
+      model: Qwen2.5-32B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-32B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
+      sha256: 51b369068b124165b1b8c253371b88b573af9dd350e331ce93d7e47b6b710003
+      uri: huggingface://bartowski/Qwen2.5-32B-ArliAI-RPMax-v1.3-GGUF/Qwen2.5-32B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
