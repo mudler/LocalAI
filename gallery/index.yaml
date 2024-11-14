@@ -3499,6 +3499,21 @@
     - filename: Mistral-Nemo-Prism-12B-Q4_K_M.gguf
       sha256: 96b922c6d55d94ffb91e869b8cccaf2b6dc449d75b1456f4d4578c92c8184c25
       uri: huggingface://bartowski/Mistral-Nemo-Prism-12B-GGUF/Mistral-Nemo-Prism-12B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "magnum-12b-v2.5-kto-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/658a46cbfb9c2bdfae75b3a6/sWYs3iHkn36lw6FT_Y7nn.png
+  urls:
+    - https://huggingface.co/mradermacher/magnum-12b-v2.5-kto-i1-GGUF
+  description: |
+    v2.5 KTO is an experimental release; we are testing a hybrid reinforcement learning strategy of KTO + DPOP, using rejected data sampled from the original model as "rejected". For "chosen", we use data from the original finetuning dataset as "chosen". This was done on a limited portion of of primarily instruction following data; we plan to scale up a larger KTO dataset in the future for better generalization. This is the 5th in a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus. This model is fine-tuned on top of anthracite-org/magnum-12b-v2.
+  overrides:
+    parameters:
+      model: magnum-12b-v2.5-kto.i1-Q4_K_M.gguf
+  files:
+    - filename: magnum-12b-v2.5-kto.i1-Q4_K_M.gguf
+      sha256: 07e91d2c6d4e42312e65a69c54f16be467575f7a596fe052993b388e38b90d76
+      uri: huggingface://mradermacher/magnum-12b-v2.5-kto-i1-GGUF/magnum-12b-v2.5-kto.i1-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
