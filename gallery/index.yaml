@@ -2721,6 +2721,21 @@
     - filename: Llama3.1-8B-Cobalt.Q4_K_M.gguf
       sha256: 44340f1ebbc3bf4e4e23d04ac3580c26fdc0b5717f23b45ce30743aa1eeed7ed
       uri: huggingface://mradermacher/Llama3.1-8B-Cobalt-GGUF/Llama3.1-8B-Cobalt.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-arliai-rpmax-v1.3"
+  urls:
+    - https://huggingface.co/ArliAI/Llama-3.1-8B-ArliAI-RPMax-v1.3
+    - https://huggingface.co/bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.3-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+    Many RPMax users mentioned that these models does not feel like any other RP models, having a different writing style and generally doesn't feel in-bred.
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-8B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
+      sha256: 66fcbbe96950cc3424cba866f929180d83f1bffdb0d4eedfa9b1f55cf0ea5c26
+      uri: huggingface://bartowski/Llama-3.1-8B-ArliAI-RPMax-v1.3-GGUF/Llama-3.1-8B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
