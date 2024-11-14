@@ -2619,6 +2619,21 @@
     - filename: Tess-R1-Limerick-Llama-3.1-70B-Q4_K_M.gguf
       sha256: 92da5dad8a36ed5060becf78a83537d776079b7eaa4de73733d3ca57156286ab
       uri: huggingface://bartowski/Tess-R1-Limerick-Llama-3.1-70B-GGUF/Tess-R1-Limerick-Llama-3.1-70B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "tess-3-llama-3.1-70b"
+  icon: https://huggingface.co/migtissera/Tess-M-v1.0/resolve/main/Tess.png
+  urls:
+    - https://huggingface.co/migtissera/Tess-3-Llama-3.1-70B
+    - https://huggingface.co/mradermacher/Tess-3-Llama-3.1-70B-GGUF
+  description: |
+    Tess, short for Tesoro (Treasure in Italian), is a general purpose Large Language Model series created by Migel Tissera.
+  overrides:
+    parameters:
+      model: Tess-3-Llama-3.1-70B.Q4_K_M.gguf
+  files:
+    - filename: Tess-3-Llama-3.1-70B.Q4_K_M.gguf
+      sha256: 81625defcbea414282f490dd960b14afdecd7734e0d77d8db2da2bf5c21261aa
+      uri: huggingface://mradermacher/Tess-3-Llama-3.1-70B-GGUF/Tess-3-Llama-3.1-70B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
