@@ -587,6 +587,21 @@
     - filename: calme-3.1-llamaloi-3b.Q5_K_M.gguf
       sha256: 06b900c7252423329ca57a02a8b8d18a1294934709861d09af96e74694c9a3f1
       uri: huggingface://MaziyarPanahi/calme-3.1-llamaloi-3b-GGUF/calme-3.1-llamaloi-3b.Q5_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama3.2-3b-enigma"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64f267a8a4f79a118e0fcc89/it7MY5MyLCLpFQev5dUis.jpeg
+  urls:
+    - https://huggingface.co/QuantFactory/Llama3.2-3B-Enigma-GGUF
+    - https://huggingface.co/QuantFactory/Llama3.2-3B-Enigma-GGUF
+  description: |
+    ValiantLabs/Llama3.2-3B-Enigma is an Enigma model built on Llama 3.2 3b. It is a high-quality code-instruct model with the Llama 3.2 Instruct chat format. The model is finetuned on synthetic code-instruct data generated using Llama 3.1 405b and supplemented with generalist synthetic data. This model is suitable for both code-instruct and general chat applications.
+  overrides:
+    parameters:
+      model: Llama3.2-3B-Enigma.Q4_K_M.gguf
+  files:
+    - filename: Llama3.2-3B-Enigma.Q4_K_M.gguf
+      sha256: 4304e6ee1e348b228470700ec1e9423f5972333d376295195ce6cd5c70cae5e4
+      uri: huggingface://QuantFactory/Llama3.2-3B-Enigma-GGUF/Llama3.2-3B-Enigma.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
