@@ -1308,6 +1308,25 @@
     - filename: EVA-Qwen2.5-72B-v0.1.i1-Q4_K_M.gguf
       sha256: b05dbc02eeb286c41122b103ac31431fc8dcbd80b8979422541a05cda53df61b
       uri: huggingface://mradermacher/EVA-Qwen2.5-72B-v0.1-i1-GGUF/EVA-Qwen2.5-72B-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "celestial-harmony-14b-v1.0-experimental-1016-i1"
+  urls:
+    - https://huggingface.co/ProdeusUnity/Celestial-Harmony-14b-v1.0-Experimental-1016
+    - https://huggingface.co/mradermacher/Celestial-Harmony-14b-v1.0-Experimental-1016-i1-GGUF
+  description: |
+    Yet Another merge, this one for AuriAetherwiing, at their request.
+    This is a merge of pre-trained language models created using mergekit.
+    The following models were included in the merge:
+        EVA-UNIT-01/EVA-Qwen2.5-14B-v0.1
+        v000000/Qwen2.5-Lumen-14B
+        arcee-ai/SuperNova-Medius
+  overrides:
+    parameters:
+      model: Celestial-Harmony-14b-v1.0-Experimental-1016.i1-Q4_K_M.gguf
+  files:
+    - filename: Celestial-Harmony-14b-v1.0-Experimental-1016.i1-Q4_K_M.gguf
+      sha256: 536a6d98e30e9d52f91672daf49eeb7efe076e161a5da8beaca204adedd76864
+      uri: huggingface://mradermacher/Celestial-Harmony-14b-v1.0-Experimental-1016-i1-GGUF/Celestial-Harmony-14b-v1.0-Experimental-1016.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
