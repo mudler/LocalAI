@@ -287,8 +287,9 @@ sources/onnxruntime:
 	cd sources/onnxruntime && tar -xvf onnxruntime-linux-x64-1.20.0.tgz && rm onnxruntime-linux-x64-1.20.0.tgz
 	cd sources/onnxruntime && mv onnxruntime-linux-x64-1.20.0/* ./
 
-backend-assets/lib/libonnxruntime.so: backend-assets/lib sources/onnxruntime
+backend-assets/lib/libonnxruntime.so.1: backend-assets/lib sources/onnxruntime
 	cp -rfv sources/onnxruntime/lib/* backend-assets/lib/
+	mv backend-assets/lib/libonnxruntime.so.1.20.0 backend-assets/lib/libonnxruntime.so.1
 
 ## tiny-dream
 sources/go-tiny-dream:
@@ -846,7 +847,7 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/stablediffusion
 endif
 
-backend-assets/grpc/silero-vad: backend-assets/grpc backend-assets/lib/libonnxruntime.so
+backend-assets/grpc/silero-vad: backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/onnxruntime/include/" LIBRARY_PATH=$(CURDIR)/backend-assets/lib \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/silero-vad ./backend/go/vad/silero
 ifneq ($(UPX),)
