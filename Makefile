@@ -761,7 +761,7 @@ backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc backend/cpp/llama/ll
 	cp -rfv backend/cpp/llama-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
 # TODO: every binary should have its own folder instead, so can have different metal implementations
 ifeq ($(BUILD_TYPE),metal)
-	cp backend/cpp/llama-fallback/llama.cpp/build/bin/default.metallib backend-assets/grpc/
+	cp backend/cpp/llama-fallback/llama.cpp/build/bin/ggml-metal.metal backend-assets/grpc/
 endif
 
 backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc backend/cpp/llama/llama.cpp
