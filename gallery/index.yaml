@@ -1242,8 +1242,8 @@
       model: calme-3.2-baguette-3b.Q4_K_M.gguf
   files:
     - filename: calme-3.2-baguette-3b.Q4_K_M.gguf
-      sha256: 336f17f88b954ff5ac9afefca348360d0d09639129659d45ab0605631a7c6c7e
       uri: huggingface://MaziyarPanahi/calme-3.2-baguette-3b-GGUF/calme-3.2-baguette-3b.Q4_K_M.gguf
+      sha256: 4e62fe0108643bbfd842add5a1bf199e9b81b0181309b15f483e1f07c2b5fbb2
 - !!merge <<: *qwen25
   icon: https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b/resolve/main/calme_3.png
   name: "calme-3.1-baguette-3b"
@@ -1257,8 +1257,8 @@
       model: calme-3.1-baguette-3b.Q4_K_M.gguf
   files:
     - filename: calme-3.1-baguette-3b.Q4_K_M.gguf
-      sha256: 3839a1a24e0de4e0dc6a720f10c5bfa393fdcc0fc7fb01c3ab5ea311f2d188f2
       uri: huggingface://MaziyarPanahi/calme-3.1-baguette-3b-GGUF/calme-3.1-baguette-3b.Q4_K_M.gguf
+      sha256: 351058680d633749fa64efde205bd5f3d942aacada3204c594d9acfab2fc8774
 - !!merge <<: *qwen25
   name: "calme-3.3-qwenloi-3b"
   icon: https://huggingface.co/MaziyarPanahi/calme-3.3-qwenloi-3b/resolve/main/calme_3.png
@@ -1382,14 +1382,7 @@
   urls:
     - https://huggingface.co/Nexusflow/Athene-V2-Agent
     - https://huggingface.co/bartowski/Athene-V2-Agent-GGUF
-  description: |
-    Athene-V2-Agent is an open-source Agent LLM that surpasses the state-of-the-art in function calling and agentic capabilities.
-
-    💪 Versatile Agent Capability: Athene-V2-Agent is an agent model, capable of operating in environments with deeply nested dependencies with the environment. It is capable of reasoning and doing planning for trajectories with many tool calls necessary to answer a single query.
-
-    📊 Performance Highlights: Athene-V2-Agent surpasses GPT-4o in single FC tasks by 18% in function calling success rates, and by 17% in Agentic success rates.
-
-    🔧 Generalization to the Unseen: Athene-V2-Agent has never been trained on the functions or agentic settings used in evaluation.
+  description: "Athene-V2-Agent is an open-source Agent LLM that surpasses the state-of-the-art in function calling and agentic capabilities.\n\n\U0001F4AA Versatile Agent Capability: Athene-V2-Agent is an agent model, capable of operating in environments with deeply nested dependencies with the environment. It is capable of reasoning and doing planning for trajectories with many tool calls necessary to answer a single query.\n\n\U0001F4CA Performance Highlights: Athene-V2-Agent surpasses GPT-4o in single FC tasks by 18% in function calling success rates, and by 17% in Agentic success rates.\n\n\U0001F527 Generalization to the Unseen: Athene-V2-Agent has never been trained on the functions or agentic settings used in evaluation.\n"
   overrides:
     parameters:
       model: Athene-V2-Agent-Q4_K_M.gguf
