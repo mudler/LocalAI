@@ -1397,6 +1397,20 @@
     - filename: Athene-V2-Agent-Q4_K_M.gguf
       sha256: 2829d205519da34852c374286d42a4403f3be012ea56424e88ebcb8dc89676ad
       uri: huggingface://bartowski/Athene-V2-Agent-GGUF/Athene-V2-Agent-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "athene-v2-chat"
+  urls:
+    - https://huggingface.co/Nexusflow/Athene-V2-Chat
+    - https://huggingface.co/bartowski/Athene-V2-Chat-GGUF
+  description: |
+    We introduce Athene-V2-Chat-72B, an open-weights LLM on-par with GPT-4o across benchmarks. It is trained through RLHF with Qwen-2.5-72B-Instruct as base model. Athene-V2-Chat-72B excels in chat, math, and coding. Its sister model, Athene-V2-Agent-72B, surpasses GPT-4o in complex function calling and agentic applications.
+  overrides:
+    parameters:
+      model: Athene-V2-Chat-Q4_K_M.gguf
+  files:
+    - filename: Athene-V2-Chat-Q4_K_M.gguf
+      sha256: bda8b784ad55982891e5aa69b08ce4030c91a2e28ad9c4c35284d45d3c7aeb16
+      uri: huggingface://bartowski/Athene-V2-Chat-GGUF/Athene-V2-Chat-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
