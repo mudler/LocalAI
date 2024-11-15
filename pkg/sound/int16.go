@@ -1,5 +1,7 @@
 package sound
 
+import "math"
+
 /*
 
 MIT License
@@ -7,6 +9,17 @@ MIT License
 Copyright (c) 2024 Xbozon
 
 */
+
+// calculateRMS16 calculates the root mean square of the audio buffer for int16 samples.
+func CalculateRMS16(buffer []int16) float64 {
+	var sumSquares float64
+	for _, sample := range buffer {
+		val := float64(sample) // Convert int16 to float64 for calculation
+		sumSquares += val * val
+	}
+	meanSquares := sumSquares / float64(len(buffer))
+	return math.Sqrt(meanSquares)
+}
 
 func ResampleInt16(input []int16, inputRate, outputRate int) []int16 {
 	// Calculate the resampling ratio
