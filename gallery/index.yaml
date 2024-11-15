@@ -2772,6 +2772,28 @@
     - filename: L3.1-8B-Slush.i1-Q4_K_M.gguf
       sha256: 98c53cd1ec0e2b00400c5968cd076a589d0c889bca13ec52abfe4456cfa039be
       uri: huggingface://mradermacher/L3.1-8B-Slush-i1-GGUF/L3.1-8B-Slush.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/C-ndfxAGdf21DjchZcf2p.png
+  name: "l3.1-ms-astoria-70b-v2"
+  urls:
+    - https://huggingface.co/Steelskull/L3.1-MS-Astoria-70b-v2
+    - https://huggingface.co/bartowski/L3.1-MS-Astoria-70b-v2-GGUF
+  description: |
+    This model is a remake of the original astoria with modern models and context sizes its goal is to merge the robust storytelling of mutiple models while attempting to maintain intelligence.
+
+    Use Llama 3 Format or meth format (llama 3 refuses to work with stepped thinking but meth works)
+      - model: migtissera/Tess-3-Llama-3.1-70B
+      - model: NeverSleep/Lumimaid-v0.2-70B
+      - model: Sao10K/L3.1-70B-Euryale-v2.2
+      - model: ArliAI/Llama-3.1-70B-ArliAI-RPMax-v1.2
+      - model: nbeerbower/Llama3.1-Gutenberg-Doppel-70B
+  overrides:
+    parameters:
+      model: L3.1-MS-Astoria-70b-v2-Q4_K_M.gguf
+  files:
+    - filename: L3.1-MS-Astoria-70b-v2-Q4_K_M.gguf
+      sha256: c02658ead1ecdc25c7218b8d9d11786f19c16d64f0d453082998e313edb0d4a6
+      uri: huggingface://bartowski/L3.1-MS-Astoria-70b-v2-GGUF/L3.1-MS-Astoria-70b-v2-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
