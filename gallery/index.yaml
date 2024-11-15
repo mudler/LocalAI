@@ -1357,6 +1357,25 @@
     - filename: Qwen2.5-32B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
       sha256: 51b369068b124165b1b8c253371b88b573af9dd350e331ce93d7e47b6b710003
       uri: huggingface://bartowski/Qwen2.5-32B-ArliAI-RPMax-v1.3-GGUF/Qwen2.5-32B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "q2.5-ms-mistoria-72b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/5LOvUFYiMMw6pcEsOhmo2.webp
+  urls:
+    - https://huggingface.co/Steelskull/Q2.5-MS-Mistoria-72b
+    - https://huggingface.co/mradermacher/Q2.5-MS-Mistoria-72b-i1-GGUF
+  description: |
+    This model is my fist attempt at a 72b model as usual my goal is to merge the robust storytelling of mutiple models while attempting to maintain intelligence.
+    Merge of:
+      - model: EVA-UNIT-01/EVA-Qwen2.5-72B-v0.1
+      - model: ZeusLabs/Chronos-Platinum-72B
+      - model: shuttleai/shuttle-3
+  overrides:
+    parameters:
+      model: Q2.5-MS-Mistoria-72b.i1-Q4_K_M.gguf
+  files:
+    - filename: Q2.5-MS-Mistoria-72b.i1-Q4_K_M.gguf
+      sha256: f51ac3db855259c0132070e7bb9f58b67538103ffb3c716880ceef3bb09d43d9
+      uri: huggingface://mradermacher/Q2.5-MS-Mistoria-72b-i1-GGUF/Q2.5-MS-Mistoria-72b.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
