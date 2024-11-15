@@ -1376,6 +1376,27 @@
     - filename: Q2.5-MS-Mistoria-72b.i1-Q4_K_M.gguf
       sha256: f51ac3db855259c0132070e7bb9f58b67538103ffb3c716880ceef3bb09d43d9
       uri: huggingface://mradermacher/Q2.5-MS-Mistoria-72b-i1-GGUF/Q2.5-MS-Mistoria-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "athene-v2-agent"
+  icon: https://huggingface.co/Nexusflow/Athene-V2-Agent/resolve/main/agent.png
+  urls:
+    - https://huggingface.co/Nexusflow/Athene-V2-Agent
+    - https://huggingface.co/bartowski/Athene-V2-Agent-GGUF
+  description: |
+    Athene-V2-Agent is an open-source Agent LLM that surpasses the state-of-the-art in function calling and agentic capabilities.
+
+    💪 Versatile Agent Capability: Athene-V2-Agent is an agent model, capable of operating in environments with deeply nested dependencies with the environment. It is capable of reasoning and doing planning for trajectories with many tool calls necessary to answer a single query.
+
+    📊 Performance Highlights: Athene-V2-Agent surpasses GPT-4o in single FC tasks by 18% in function calling success rates, and by 17% in Agentic success rates.
+
+    🔧 Generalization to the Unseen: Athene-V2-Agent has never been trained on the functions or agentic settings used in evaluation.
+  overrides:
+    parameters:
+      model: Athene-V2-Agent-Q4_K_M.gguf
+  files:
+    - filename: Athene-V2-Agent-Q4_K_M.gguf
+      sha256: 2829d205519da34852c374286d42a4403f3be012ea56424e88ebcb8dc89676ad
+      uri: huggingface://bartowski/Athene-V2-Agent-GGUF/Athene-V2-Agent-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
