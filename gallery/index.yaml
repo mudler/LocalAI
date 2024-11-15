@@ -2794,6 +2794,22 @@
     - filename: L3.1-MS-Astoria-70b-v2-Q4_K_M.gguf
       sha256: c02658ead1ecdc25c7218b8d9d11786f19c16d64f0d453082998e313edb0d4a6
       uri: huggingface://bartowski/L3.1-MS-Astoria-70b-v2-GGUF/L3.1-MS-Astoria-70b-v2-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "magnum-v2-4b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/658a46cbfb9c2bdfae75b3a6/9JwXZze4tHRGpc_RzE2AU.png
+  urls:
+    - https://huggingface.co/anthracite-org/magnum-v2-4b
+    - https://huggingface.co/mradermacher/magnum-v2-4b-i1-GGUF
+  description: |
+    This is the eighth in a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus. This model is fine-tuned on top of IntervitensInc/Llama-3.1-Minitron-4B-Width-Base-chatml.
+  overrides:
+    parameters:
+      model: magnum-v2-4b.i1-Q4_K_M.gguf
+  files:
+    - filename: magnum-v2-4b.i1-Q4_K_M.gguf
+      sha256: 692618059fee8870759d67d275ebc59bc0474b18ae3571b3ebdec8f9da786a64
+      uri: huggingface://mradermacher/magnum-v2-4b-i1-GGUF/magnum-v2-4b.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
