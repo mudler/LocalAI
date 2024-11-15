@@ -22,7 +22,7 @@ else ifeq ($(BUILD_TYPE),clblas)
 	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
 # If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++ 
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DGGML_HIPBLAS=ON
+	CMAKE_ARGS+=-DGGML_HIP=ON
 # If it's OSX, DO NOT embed the metal library - -DGGML_METAL_EMBED_LIBRARY=ON requires further investigation
 # But if it's OSX without metal, disable it here
 else ifeq ($(OS),Darwin)

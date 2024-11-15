@@ -168,11 +168,6 @@ definitions:
           type: string
         type: array
     type: object
-  model.Model:
-    properties:
-      id:
-        type: string
-    type: object
   openai.Assistant:
     properties:
       created:
@@ -651,6 +646,11 @@ definitions:
           $ref: '#/definitions/p2p.NodeData'
         type: array
     type: object
+  schema.SysInfoModel:
+    properties:
+      id:
+        type: string
+    type: object
   schema.SystemInformationResponse:
     properties:
       backends:
@@ -659,7 +659,7 @@ definitions:
         type: array
       loaded_models:
         items:
-          $ref: '#/definitions/model.Model'
+          $ref: '#/definitions/schema.SysInfoModel'
         type: array
     type: object
   schema.TTSRequest:
@@ -676,12 +676,19 @@ definitions:
       model:
         description: model name or full path
         type: string
+      response_format:
+        description: (optional) output format
+        type: string
       voice:
         description: voice audio file or speaker id
         type: string
-      response_format:
-        description: (optional) output format of generated audio file, defaults to wav, accept wav, mp3, flac, aac, opus
-        type: string
+    type: object
+  schema.TokenizeResponse:
+    properties:
+      tokens:
+        items:
+          type: integer
+        type: array
     type: object
   schema.ToolCall:
     properties:
@@ -867,6 +874,18 @@ paths:
           schema:
             $ref: '#/definitions/schema.SystemInformationResponse'
       summary: Show the LocalAI instance information
+  /tokenMetrics:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Get TokenMetrics for Active Slot.
   /tts:
     post:
       consumes:
@@ -1149,6 +1168,26 @@ paths:
           schema:
             type: string
       summary: Generates audio from the input text.
+  /v1/tokenMetrics:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Get TokenMetrics for Active Slot.
+  /v1/tokenize:
+    post:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.TokenizeResponse'
+      summary: Tokenize the input.
 securityDefinitions:
   BearerAuth:
     in: header

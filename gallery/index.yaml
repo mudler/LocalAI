@@ -1357,6 +1357,60 @@
     - filename: Qwen2.5-32B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
       sha256: 51b369068b124165b1b8c253371b88b573af9dd350e331ce93d7e47b6b710003
       uri: huggingface://bartowski/Qwen2.5-32B-ArliAI-RPMax-v1.3-GGUF/Qwen2.5-32B-ArliAI-RPMax-v1.3-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "q2.5-ms-mistoria-72b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/5LOvUFYiMMw6pcEsOhmo2.webp
+  urls:
+    - https://huggingface.co/Steelskull/Q2.5-MS-Mistoria-72b
+    - https://huggingface.co/mradermacher/Q2.5-MS-Mistoria-72b-i1-GGUF
+  description: |
+    This model is my fist attempt at a 72b model as usual my goal is to merge the robust storytelling of mutiple models while attempting to maintain intelligence.
+    Merge of:
+      - model: EVA-UNIT-01/EVA-Qwen2.5-72B-v0.1
+      - model: ZeusLabs/Chronos-Platinum-72B
+      - model: shuttleai/shuttle-3
+  overrides:
+    parameters:
+      model: Q2.5-MS-Mistoria-72b.i1-Q4_K_M.gguf
+  files:
+    - filename: Q2.5-MS-Mistoria-72b.i1-Q4_K_M.gguf
+      sha256: f51ac3db855259c0132070e7bb9f58b67538103ffb3c716880ceef3bb09d43d9
+      uri: huggingface://mradermacher/Q2.5-MS-Mistoria-72b-i1-GGUF/Q2.5-MS-Mistoria-72b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "athene-v2-agent"
+  icon: https://huggingface.co/Nexusflow/Athene-V2-Agent/resolve/main/agent.png
+  urls:
+    - https://huggingface.co/Nexusflow/Athene-V2-Agent
+    - https://huggingface.co/bartowski/Athene-V2-Agent-GGUF
+  description: |
+    Athene-V2-Agent is an open-source Agent LLM that surpasses the state-of-the-art in function calling and agentic capabilities.
+
+    💪 Versatile Agent Capability: Athene-V2-Agent is an agent model, capable of operating in environments with deeply nested dependencies with the environment. It is capable of reasoning and doing planning for trajectories with many tool calls necessary to answer a single query.
+
+    📊 Performance Highlights: Athene-V2-Agent surpasses GPT-4o in single FC tasks by 18% in function calling success rates, and by 17% in Agentic success rates.
+
+    🔧 Generalization to the Unseen: Athene-V2-Agent has never been trained on the functions or agentic settings used in evaluation.
+  overrides:
+    parameters:
+      model: Athene-V2-Agent-Q4_K_M.gguf
+  files:
+    - filename: Athene-V2-Agent-Q4_K_M.gguf
+      sha256: 2829d205519da34852c374286d42a4403f3be012ea56424e88ebcb8dc89676ad
+      uri: huggingface://bartowski/Athene-V2-Agent-GGUF/Athene-V2-Agent-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "athene-v2-chat"
+  urls:
+    - https://huggingface.co/Nexusflow/Athene-V2-Chat
+    - https://huggingface.co/bartowski/Athene-V2-Chat-GGUF
+  description: |
+    We introduce Athene-V2-Chat-72B, an open-weights LLM on-par with GPT-4o across benchmarks. It is trained through RLHF with Qwen-2.5-72B-Instruct as base model. Athene-V2-Chat-72B excels in chat, math, and coding. Its sister model, Athene-V2-Agent-72B, surpasses GPT-4o in complex function calling and agentic applications.
+  overrides:
+    parameters:
+      model: Athene-V2-Chat-Q4_K_M.gguf
+  files:
+    - filename: Athene-V2-Chat-Q4_K_M.gguf
+      sha256: bda8b784ad55982891e5aa69b08ce4030c91a2e28ad9c4c35284d45d3c7aeb16
+      uri: huggingface://bartowski/Athene-V2-Chat-GGUF/Athene-V2-Chat-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -2753,6 +2807,44 @@
     - filename: L3.1-8B-Slush.i1-Q4_K_M.gguf
       sha256: 98c53cd1ec0e2b00400c5968cd076a589d0c889bca13ec52abfe4456cfa039be
       uri: huggingface://mradermacher/L3.1-8B-Slush-i1-GGUF/L3.1-8B-Slush.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/C-ndfxAGdf21DjchZcf2p.png
+  name: "l3.1-ms-astoria-70b-v2"
+  urls:
+    - https://huggingface.co/Steelskull/L3.1-MS-Astoria-70b-v2
+    - https://huggingface.co/bartowski/L3.1-MS-Astoria-70b-v2-GGUF
+  description: |
+    This model is a remake of the original astoria with modern models and context sizes its goal is to merge the robust storytelling of mutiple models while attempting to maintain intelligence.
+
+    Use Llama 3 Format or meth format (llama 3 refuses to work with stepped thinking but meth works)
+      - model: migtissera/Tess-3-Llama-3.1-70B
+      - model: NeverSleep/Lumimaid-v0.2-70B
+      - model: Sao10K/L3.1-70B-Euryale-v2.2
+      - model: ArliAI/Llama-3.1-70B-ArliAI-RPMax-v1.2
+      - model: nbeerbower/Llama3.1-Gutenberg-Doppel-70B
+  overrides:
+    parameters:
+      model: L3.1-MS-Astoria-70b-v2-Q4_K_M.gguf
+  files:
+    - filename: L3.1-MS-Astoria-70b-v2-Q4_K_M.gguf
+      sha256: c02658ead1ecdc25c7218b8d9d11786f19c16d64f0d453082998e313edb0d4a6
+      uri: huggingface://bartowski/L3.1-MS-Astoria-70b-v2-GGUF/L3.1-MS-Astoria-70b-v2-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "magnum-v2-4b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/658a46cbfb9c2bdfae75b3a6/9JwXZze4tHRGpc_RzE2AU.png
+  urls:
+    - https://huggingface.co/anthracite-org/magnum-v2-4b
+    - https://huggingface.co/mradermacher/magnum-v2-4b-i1-GGUF
+  description: |
+    This is the eighth in a series of models designed to replicate the prose quality of the Claude 3 models, specifically Sonnet and Opus. This model is fine-tuned on top of IntervitensInc/Llama-3.1-Minitron-4B-Width-Base-chatml.
+  overrides:
+    parameters:
+      model: magnum-v2-4b.i1-Q4_K_M.gguf
+  files:
+    - filename: magnum-v2-4b.i1-Q4_K_M.gguf
+      sha256: 692618059fee8870759d67d275ebc59bc0474b18ae3571b3ebdec8f9da786a64
+      uri: huggingface://mradermacher/magnum-v2-4b-i1-GGUF/magnum-v2-4b.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
