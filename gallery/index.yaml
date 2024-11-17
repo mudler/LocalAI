@@ -1404,6 +1404,29 @@
     - filename: Athene-V2-Chat-Q4_K_M.gguf
       sha256: bda8b784ad55982891e5aa69b08ce4030c91a2e28ad9c4c35284d45d3c7aeb16
       uri: huggingface://bartowski/Athene-V2-Chat-GGUF/Athene-V2-Chat-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-nerd-uncensored-v1.7"
+  urls:
+    - https://huggingface.co/jeffmeloy/Qwen2.5-7B-nerd-uncensored-v1.7
+    - https://huggingface.co/mradermacher/Qwen2.5-7B-nerd-uncensored-v1.7-GGUF
+  description: |
+    Model created by analyzing and selecting the optimal layers from other Qwen2.5-7B models based on their dimensional utilization efficiency, measured by the Normalized Effective Rank (NER). Computed like:
+    Input: Weight matrix for each model layer
+    Compute singular values σᵢ where σᵢ ≥ 0 # σᵢ represents the importance of each dimension
+    Filter values above numerical threshold (>1e-12)
+    Sum all singular values: S = Σσᵢ # S acts as normalization factor
+    Create probability distribution: pᵢ = σᵢ/S # converts singular values to probabilities summing to 1
+    Compute Shannon entropy: H = -Σ(pᵢ * log₂(pᵢ)) # measures information content
+    Calculate maximum possible entropy: H_max = log₂(n)
+    Final NER score = H/H_max # normalizes score to [0,1] range
+    Results in value between 0 and 1 for each model layer
+  overrides:
+    parameters:
+      model: Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
+      sha256: 42cf7a96784dc8f25c61c2404620c3e6548a024caa8dff6e435d7c86400d7ab8
+      uri: huggingface://mradermacher/Qwen2.5-7B-nerd-uncensored-v1.7-GGUF/Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
