@@ -602,6 +602,28 @@
     - filename: Llama3.2-3B-Enigma.Q4_K_M.gguf
       sha256: 4304e6ee1e348b228470700ec1e9423f5972333d376295195ce6cd5c70cae5e4
       uri: huggingface://QuantFactory/Llama3.2-3B-Enigma-GGUF/Llama3.2-3B-Enigma.Q4_K_M.gguf
+- !!merge <<: *llama32
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63444f2687964b331809eb55/EXX7TKbB-R6arxww2mk0R.jpeg
+  name: "llama3.2-3b-shiningvaliant2-i1"
+  urls:
+    - https://huggingface.co/ValiantLabs/Llama3.2-3B-ShiningValiant2
+    - https://huggingface.co/mradermacher/Llama3.2-3B-ShiningValiant2-i1-GGUF
+  description: |
+    Shining Valiant 2 is a chat model built on Llama 3.2 3b, finetuned on our data for friendship, insight, knowledge and enthusiasm.
+
+        Finetuned on meta-llama/Llama-3.2-3B-Instruct for best available general performance
+        Trained on a variety of high quality data; focused on science, engineering, technical knowledge, and structured reasoning
+        Also available for Llama 3.1 70b and Llama 3.1 8b!
+
+    Version
+    This is the 2024-09-27 release of Shining Valiant 2 for Llama 3.2 3b.
+  overrides:
+    parameters:
+      model: Llama3.2-3B-ShiningValiant2.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama3.2-3B-ShiningValiant2.i1-Q4_K_M.gguf
+      sha256: 700521dc6a8a50e2d0bb5ccde12399209004155f9c68751aeac7feccf2cd4957
+      uri: huggingface://mradermacher/Llama3.2-3B-ShiningValiant2-i1-GGUF/Llama3.2-3B-ShiningValiant2.i1-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -1242,8 +1264,8 @@
       model: calme-3.2-baguette-3b.Q4_K_M.gguf
   files:
     - filename: calme-3.2-baguette-3b.Q4_K_M.gguf
-      sha256: 336f17f88b954ff5ac9afefca348360d0d09639129659d45ab0605631a7c6c7e
       uri: huggingface://MaziyarPanahi/calme-3.2-baguette-3b-GGUF/calme-3.2-baguette-3b.Q4_K_M.gguf
+      sha256: 4e62fe0108643bbfd842add5a1bf199e9b81b0181309b15f483e1f07c2b5fbb2
 - !!merge <<: *qwen25
   icon: https://huggingface.co/MaziyarPanahi/calme-3.1-baguette-3b/resolve/main/calme_3.png
   name: "calme-3.1-baguette-3b"
@@ -1257,8 +1279,8 @@
       model: calme-3.1-baguette-3b.Q4_K_M.gguf
   files:
     - filename: calme-3.1-baguette-3b.Q4_K_M.gguf
-      sha256: 3839a1a24e0de4e0dc6a720f10c5bfa393fdcc0fc7fb01c3ab5ea311f2d188f2
       uri: huggingface://MaziyarPanahi/calme-3.1-baguette-3b-GGUF/calme-3.1-baguette-3b.Q4_K_M.gguf
+      sha256: 351058680d633749fa64efde205bd5f3d942aacada3204c594d9acfab2fc8774
 - !!merge <<: *qwen25
   name: "calme-3.3-qwenloi-3b"
   icon: https://huggingface.co/MaziyarPanahi/calme-3.3-qwenloi-3b/resolve/main/calme_3.png
@@ -1382,14 +1404,7 @@
   urls:
     - https://huggingface.co/Nexusflow/Athene-V2-Agent
     - https://huggingface.co/bartowski/Athene-V2-Agent-GGUF
-  description: |
-    Athene-V2-Agent is an open-source Agent LLM that surpasses the state-of-the-art in function calling and agentic capabilities.
-
-    💪 Versatile Agent Capability: Athene-V2-Agent is an agent model, capable of operating in environments with deeply nested dependencies with the environment. It is capable of reasoning and doing planning for trajectories with many tool calls necessary to answer a single query.
-
-    📊 Performance Highlights: Athene-V2-Agent surpasses GPT-4o in single FC tasks by 18% in function calling success rates, and by 17% in Agentic success rates.
-
-    🔧 Generalization to the Unseen: Athene-V2-Agent has never been trained on the functions or agentic settings used in evaluation.
+  description: "Athene-V2-Agent is an open-source Agent LLM that surpasses the state-of-the-art in function calling and agentic capabilities.\n\n\U0001F4AA Versatile Agent Capability: Athene-V2-Agent is an agent model, capable of operating in environments with deeply nested dependencies with the environment. It is capable of reasoning and doing planning for trajectories with many tool calls necessary to answer a single query.\n\n\U0001F4CA Performance Highlights: Athene-V2-Agent surpasses GPT-4o in single FC tasks by 18% in function calling success rates, and by 17% in Agentic success rates.\n\n\U0001F527 Generalization to the Unseen: Athene-V2-Agent has never been trained on the functions or agentic settings used in evaluation.\n"
   overrides:
     parameters:
       model: Athene-V2-Agent-Q4_K_M.gguf
@@ -1411,6 +1426,64 @@
     - filename: Athene-V2-Chat-Q4_K_M.gguf
       sha256: bda8b784ad55982891e5aa69b08ce4030c91a2e28ad9c4c35284d45d3c7aeb16
       uri: huggingface://bartowski/Athene-V2-Chat-GGUF/Athene-V2-Chat-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-nerd-uncensored-v1.7"
+  urls:
+    - https://huggingface.co/jeffmeloy/Qwen2.5-7B-nerd-uncensored-v1.7
+    - https://huggingface.co/mradermacher/Qwen2.5-7B-nerd-uncensored-v1.7-GGUF
+  description: |
+    Model created by analyzing and selecting the optimal layers from other Qwen2.5-7B models based on their dimensional utilization efficiency, measured by the Normalized Effective Rank (NER). Computed like:
+    Input: Weight matrix for each model layer
+    Compute singular values σᵢ where σᵢ ≥ 0 # σᵢ represents the importance of each dimension
+    Filter values above numerical threshold (>1e-12)
+    Sum all singular values: S = Σσᵢ # S acts as normalization factor
+    Create probability distribution: pᵢ = σᵢ/S # converts singular values to probabilities summing to 1
+    Compute Shannon entropy: H = -Σ(pᵢ * log₂(pᵢ)) # measures information content
+    Calculate maximum possible entropy: H_max = log₂(n)
+    Final NER score = H/H_max # normalizes score to [0,1] range
+    Results in value between 0 and 1 for each model layer
+  overrides:
+    parameters:
+      model: Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
+      sha256: 42cf7a96784dc8f25c61c2404620c3e6548a024caa8dff6e435d7c86400d7ab8
+      uri: huggingface://mradermacher/Qwen2.5-7B-nerd-uncensored-v1.7-GGUF/Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://i.imgur.com/OxX2Usi.png
+  name: "evathene-v1.0"
+  urls:
+    - https://huggingface.co/sophosympatheia/Evathene-v1.0
+    - https://huggingface.co/bartowski/Evathene-v1.0-GGUF
+  description: |
+    This 72B parameter model is a merge of Nexusflow/Athene-V2-Chat with EVA-UNIT-01/EVA-Qwen2.5-72B-v0.1. See the merge recipe below for details.
+
+    This model is uncensored. You are responsible for whatever you do with it.
+
+    This model was designed for roleplaying and storytelling and I think it does well at both. It may also perform well at other tasks but I have not tested its performance in other areas.
+  overrides:
+    parameters:
+      model: Evathene-v1.0-Q4_K_M.gguf
+  files:
+    - filename: Evathene-v1.0-Q4_K_M.gguf
+      sha256: 96401ba9d798faa8a01f579b54523c5f75277e91bf1f0eee93db285f76f61e7e
+      uri: huggingface://bartowski/Evathene-v1.0-GGUF/Evathene-v1.0-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "miniclaus-qw1.5b-unamgs"
+  icon: https://huggingface.co/fblgit/miniclaus-qw1.5B-UNAMGS/resolve/main/miniclaus_qw15-UNAMGS.png
+  urls:
+    - https://huggingface.co/fblgit/miniclaus-qw1.5B-UNAMGS
+    - https://huggingface.co/bartowski/miniclaus-qw1.5B-UNAMGS-GGUF
+  description: |
+    Trained with Magpie-Align/Magpie-Pro-MT-300K-v0.1
+    Using MGS & UNA (MLP) on this tiny but powerful model.
+  overrides:
+    parameters:
+      model: miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
+  files:
+    - filename: miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
+      sha256: a0dadd7147cc4a8e8df59659556e4d824ef5c26fd2f39381fe467b2ff9cc1289
+      uri: huggingface://bartowski/miniclaus-qw1.5B-UNAMGS-GGUF/miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -2845,6 +2918,28 @@
     - filename: magnum-v2-4b.i1-Q4_K_M.gguf
       sha256: 692618059fee8870759d67d275ebc59bc0474b18ae3571b3ebdec8f9da786a64
       uri: huggingface://mradermacher/magnum-v2-4b-i1-GGUF/magnum-v2-4b.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-nemotron-sunfall-v0.7.0-i1"
+  urls:
+    - https://huggingface.co/crestf411/L3.1-nemotron-sunfall-v0.7.0
+    - https://huggingface.co/mradermacher/L3.1-nemotron-sunfall-v0.7.0-i1-GGUF
+  description: |
+    Significant revamping of the dataset metadata generation process, resulting in higher quality dataset overall. The "Diamond Law" experiment has been removed as it didn't seem to affect the model output enough to warrant set up complexity.
+    Recommended starting point:
+        Temperature: 1
+        MinP: 0.05~0.1
+        DRY: 0.8 1.75 2 0
+    At early context, I recommend keeping XTC disabled. Once you hit higher context sizes (10k+), enabling XTC at 0.1 / 0.5 seems to significantly improve the output, but YMMV. If the output drones on and is uninspiring, XTC can be extremely effective.
+    General heuristic:
+        Lots of slop? Temperature is too low. Raise it, or enable XTC. For early context, temp bump is probably preferred.
+        Is the model making mistakes about subtle or obvious details in the scene? Temperature is too high, OR XTC is enabled and/or XTC settings are too high. Lower temp and/or disable XTC.
+  overrides:
+    parameters:
+      model: L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
+      sha256: f9aa88f3b220e35662a2d62d1f615a3b425e348a8f9e2939f05bf57385119f76
+      uri: huggingface://mradermacher/L3.1-nemotron-sunfall-v0.7.0-i1-GGUF/L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"

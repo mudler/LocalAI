@@ -22,7 +22,7 @@ if [ "x${BUILD_TYPE}" == "x" ] && [ "x${FROM_SOURCE}" == "xtrue" ]; then
             git clone https://github.com/vllm-project/vllm
         fi
         pushd vllm
-            uv pip install wheel packaging ninja "setuptools>=49.4.0" numpy typing-extensions pillow setuptools-scm grpcio==1.67.1 protobuf bitsandbytes
+            uv pip install wheel packaging ninja "setuptools>=49.4.0" numpy typing-extensions pillow setuptools-scm grpcio==1.68.0 protobuf bitsandbytes
             uv pip install -v -r requirements-cpu.txt --extra-index-url https://download.pytorch.org/whl/cpu
             VLLM_TARGET_DEVICE=cpu python setup.py install
         popd

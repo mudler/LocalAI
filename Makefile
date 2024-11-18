@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=ae8de6d50a09d49545e0afab2e50cc4acfb280e2
+CPPLLAMA_VERSION?=ce2e59ba107cf71ed566040ff20a15d1c58e09c2
 
 # go-rwkv version
 RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
@@ -16,7 +16,7 @@ RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=f19463ece2d43fd0b605dc513d8800eeb4e2315e
+WHISPER_CPP_VERSION?=01d3bd7d5ccd1956a7ddf1b57ee92d69f35aad93
 
 # bert.cpp version
 BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
@@ -45,6 +45,7 @@ CGO_LDFLAGS_WHISPER+=-lggml
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 GO_TAGS?=
 BUILD_ID?=
+NATIVE?=false
 
 TEST_DIR=/tmp/test
 
@@ -81,6 +82,11 @@ E2E_BRIDGE_IP?=172.17.0.1
 
 ifndef UNAME_S
 UNAME_S := $(shell uname -s)
+endif
+
+# IF native is false, we add -DGGML_NATIVE=OFF to CMAKE_ARGS
+ifeq ($(NATIVE),false)
+	CMAKE_ARGS+=-DGGML_NATIVE=OFF
 endif
 
 ifeq ($(OS),Darwin)
@@ -775,7 +781,7 @@ backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc backend/cpp/llama/lla
 	cp -rf backend/cpp/llama backend/cpp/llama-hipblas
 	$(MAKE) -C backend/cpp/llama-hipblas purge
 	$(info ${GREEN}I llama-cpp build info:hipblas${RESET})
-	BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-hipblas/grpc-server backend-assets/grpc/llama-cpp-hipblas
 
 backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc backend/cpp/llama/llama.cpp
