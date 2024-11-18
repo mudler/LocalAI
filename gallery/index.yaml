@@ -602,6 +602,28 @@
     - filename: Llama3.2-3B-Enigma.Q4_K_M.gguf
       sha256: 4304e6ee1e348b228470700ec1e9423f5972333d376295195ce6cd5c70cae5e4
       uri: huggingface://QuantFactory/Llama3.2-3B-Enigma-GGUF/Llama3.2-3B-Enigma.Q4_K_M.gguf
+- !!merge <<: *llama32
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63444f2687964b331809eb55/EXX7TKbB-R6arxww2mk0R.jpeg
+  name: "llama3.2-3b-shiningvaliant2-i1"
+  urls:
+    - https://huggingface.co/ValiantLabs/Llama3.2-3B-ShiningValiant2
+    - https://huggingface.co/mradermacher/Llama3.2-3B-ShiningValiant2-i1-GGUF
+  description: |
+    Shining Valiant 2 is a chat model built on Llama 3.2 3b, finetuned on our data for friendship, insight, knowledge and enthusiasm.
+
+        Finetuned on meta-llama/Llama-3.2-3B-Instruct for best available general performance
+        Trained on a variety of high quality data; focused on science, engineering, technical knowledge, and structured reasoning
+        Also available for Llama 3.1 70b and Llama 3.1 8b!
+
+    Version
+    This is the 2024-09-27 release of Shining Valiant 2 for Llama 3.2 3b.
+  overrides:
+    parameters:
+      model: Llama3.2-3B-ShiningValiant2.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama3.2-3B-ShiningValiant2.i1-Q4_K_M.gguf
+      sha256: 700521dc6a8a50e2d0bb5ccde12399209004155f9c68751aeac7feccf2cd4957
+      uri: huggingface://mradermacher/Llama3.2-3B-ShiningValiant2-i1-GGUF/Llama3.2-3B-ShiningValiant2.i1-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
