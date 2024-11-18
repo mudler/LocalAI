@@ -1449,6 +1449,25 @@
     - filename: Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
       sha256: 42cf7a96784dc8f25c61c2404620c3e6548a024caa8dff6e435d7c86400d7ab8
       uri: huggingface://mradermacher/Qwen2.5-7B-nerd-uncensored-v1.7-GGUF/Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://i.imgur.com/OxX2Usi.png
+  name: "evathene-v1.0"
+  urls:
+    - https://huggingface.co/sophosympatheia/Evathene-v1.0
+    - https://huggingface.co/bartowski/Evathene-v1.0-GGUF
+  description: |
+    This 72B parameter model is a merge of Nexusflow/Athene-V2-Chat with EVA-UNIT-01/EVA-Qwen2.5-72B-v0.1. See the merge recipe below for details.
+
+    This model is uncensored. You are responsible for whatever you do with it.
+
+    This model was designed for roleplaying and storytelling and I think it does well at both. It may also perform well at other tasks but I have not tested its performance in other areas.
+  overrides:
+    parameters:
+      model: Evathene-v1.0-Q4_K_M.gguf
+  files:
+    - filename: Evathene-v1.0-Q4_K_M.gguf
+      sha256: 96401ba9d798faa8a01f579b54523c5f75277e91bf1f0eee93db285f76f61e7e
+      uri: huggingface://bartowski/Evathene-v1.0-GGUF/Evathene-v1.0-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
