@@ -2883,6 +2883,28 @@
     - filename: magnum-v2-4b.i1-Q4_K_M.gguf
       sha256: 692618059fee8870759d67d275ebc59bc0474b18ae3571b3ebdec8f9da786a64
       uri: huggingface://mradermacher/magnum-v2-4b-i1-GGUF/magnum-v2-4b.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-nemotron-sunfall-v0.7.0-i1"
+  urls:
+    - https://huggingface.co/crestf411/L3.1-nemotron-sunfall-v0.7.0
+    - https://huggingface.co/mradermacher/L3.1-nemotron-sunfall-v0.7.0-i1-GGUF
+  description: |
+    Significant revamping of the dataset metadata generation process, resulting in higher quality dataset overall. The "Diamond Law" experiment has been removed as it didn't seem to affect the model output enough to warrant set up complexity.
+    Recommended starting point:
+        Temperature: 1
+        MinP: 0.05~0.1
+        DRY: 0.8 1.75 2 0
+    At early context, I recommend keeping XTC disabled. Once you hit higher context sizes (10k+), enabling XTC at 0.1 / 0.5 seems to significantly improve the output, but YMMV. If the output drones on and is uninspiring, XTC can be extremely effective.
+    General heuristic:
+        Lots of slop? Temperature is too low. Raise it, or enable XTC. For early context, temp bump is probably preferred.
+        Is the model making mistakes about subtle or obvious details in the scene? Temperature is too high, OR XTC is enabled and/or XTC settings are too high. Lower temp and/or disable XTC.
+  overrides:
+    parameters:
+      model: L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
+      sha256: f9aa88f3b220e35662a2d62d1f615a3b425e348a8f9e2939f05bf57385119f76
+      uri: huggingface://mradermacher/L3.1-nemotron-sunfall-v0.7.0-i1-GGUF/L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
