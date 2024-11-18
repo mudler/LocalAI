@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Authenticated Website</title>
+</head>
+<body>
+    <h1>Authorization is required</h1>
+    <input type="text" id="token" placeholder="Token" />
+    <button onclick="login()">Login</button>
+    <script>
+        function login() {
+            const token = document.getElementById('token').value;
+
+            const url = new URL(window.location.href)
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url.origin + '/login');
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            xhr.send();
+
+            window.location.reload();
+        }
+    </script>
+</body>
+</html>

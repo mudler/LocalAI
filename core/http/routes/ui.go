@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/mudler/LocalAI/core/config"
@@ -86,6 +87,18 @@ func RegisterUIRoutes(app *fiber.App,
 	}
 
 	app.Get("/", localai.WelcomeEndpoint(appConfig, cl, ml, modelStatus))
+	app.Get("/login", func(c *fiber.Ctx) error {
+		// Assuming middleware is parsed the token correctly
+		token := strings.Split(c.GetReqHeaders()["Authorization"][0], " ")[1]
+		cookie := new(fiber.Cookie)
+		cookie.Name = "token"
+		cookie.Value = token
+		cookie.Expires = time.Now().Add(24 * time.Hour)
+
+		c.Cookie(cookie)
+
+		return c.RedirectToRoute("/", nil)
+	})
 
 	if p2p.IsP2PEnabled() {
 		app.Get("/p2p", func(c *fiber.Ctx) error {

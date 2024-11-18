@@ -345,7 +345,7 @@ var _ = Describe("API test", func() {
 			It("Should fail if the api key is missing", func() {
 				err, sc := postInvalidRequest("http://127.0.0.1:9090/models/available")
 				Expect(err).ToNot(BeNil())
-				Expect(sc).To(Equal(403))
+				Expect(sc).To(Equal(401))
 			})
 		})
 
