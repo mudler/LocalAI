@@ -13,6 +13,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	_ Model = new(wrappedModel)
+	_ Model = new(anyToAnyModel)
+)
+
 // wrappedModel represent a model which does not support Any-to-Any operations
 // This means that we will fake an Any-to-Any model by overriding some of the gRPC client methods
 // which are for Any-To-Any models, but instead we will call a pipeline (for e.g STT->LLM->TTS)
@@ -45,6 +50,27 @@ func (m *wrappedModel) VAD(ctx context.Context, in *proto.VADRequest, opts ...gr
 
 func (m *anyToAnyModel) VAD(ctx context.Context, in *proto.VADRequest, opts ...grpc.CallOption) (*proto.VADResponse, error) {
 	return m.VADClient.VAD(ctx, in)
+}
+
+func (m *wrappedModel) Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error) {
+	// TODO: Convert with pipeline (audio to text, text to llm, result to tts, and return it)
+	// sound.BufferAsWAV(audioData, "audio.wav")
+
+	return m.LLMClient.Predict(ctx, in)
+}
+
+func (m *wrappedModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
+	// TODO: Convert with pipeline (audio to text, text to llm, result to tts, and return it)
+
+	return m.LLMClient.PredictStream(ctx, in, f)
+}
+
+func (m *anyToAnyModel) Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error) {
+	return m.LLMClient.Predict(ctx, in)
+}
+
+func (m *anyToAnyModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
+	return m.LLMClient.PredictStream(ctx, in, f)
 }
 
 // returns and loads either a wrapped model or a model that support audio-to-audio

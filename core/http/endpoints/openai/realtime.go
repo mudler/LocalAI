@@ -120,6 +120,8 @@ var sessionLock sync.Mutex
 // TODO: implement interface as we start to define usages
 type Model interface {
 	VAD(ctx context.Context, in *proto.VADRequest, opts ...grpc.CallOption) (*proto.VADResponse, error)
+	Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error)
+	PredictStream(ctx context.Context, in *proto.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error
 }
 
 func RegisterRealtime(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *websocket.Conn) {
@@ -800,7 +802,17 @@ func processAudioResponse(session *Session, audioData []byte) (string, []byte, *
 	// 4. Convert the response text to speech (audio)
 	//
 	// Placeholder implementation:
-	// TODO: use session.ModelInterface...
+
+	// TODO: template eventual messages, like chat.go
+	reply, err := session.ModelInterface.Predict(context.Background(), &proto.PredictOptions{
+		Prompt: "What's the weather in New York?",
+	})
+
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	generatedAudio := reply.Audio
 
 	transcribedText := "What's the weather in New York?"
 	var functionCall *FunctionCall
@@ -819,9 +831,6 @@ func processAudioResponse(session *Session, audioData []byte) (string, []byte, *
 
 	// Generate a response
 	generatedText := "This is a response to your speech input."
-	generatedAudio := []byte{} // Generate audio bytes from the generatedText
-
-	// TODO: Implement actual transcription and TTS
 
 	return generatedText, generatedAudio, nil, nil
 }
