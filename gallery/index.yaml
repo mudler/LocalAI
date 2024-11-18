@@ -1468,6 +1468,22 @@
     - filename: Evathene-v1.0-Q4_K_M.gguf
       sha256: 96401ba9d798faa8a01f579b54523c5f75277e91bf1f0eee93db285f76f61e7e
       uri: huggingface://bartowski/Evathene-v1.0-GGUF/Evathene-v1.0-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "miniclaus-qw1.5b-unamgs"
+  icon: https://huggingface.co/fblgit/miniclaus-qw1.5B-UNAMGS/resolve/main/miniclaus_qw15-UNAMGS.png
+  urls:
+    - https://huggingface.co/fblgit/miniclaus-qw1.5B-UNAMGS
+    - https://huggingface.co/bartowski/miniclaus-qw1.5B-UNAMGS-GGUF
+  description: |
+    Trained with Magpie-Align/Magpie-Pro-MT-300K-v0.1
+    Using MGS & UNA (MLP) on this tiny but powerful model.
+  overrides:
+    parameters:
+      model: miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
+  files:
+    - filename: miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
+      sha256: a0dadd7147cc4a8e8df59659556e4d824ef5c26fd2f39381fe467b2ff9cc1289
+      uri: huggingface://bartowski/miniclaus-qw1.5B-UNAMGS-GGUF/miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
