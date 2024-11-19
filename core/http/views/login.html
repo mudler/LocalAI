@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Authenticated Website</title>
+</head>
+<body>
+    <h1>Authorization is required</h1>
+    <input type="text" id="token" placeholder="Token" />
+    <button onclick="login()">Login</button>
+    <script>
+        function login() {
+            const token = document.getElementById('token').value;
+            var date = new Date();
+            date.setTime(date.getTime() + (24*60*60*1000));
+            document.cookie = `token=${token}; expires=${date.toGMTString()}`;
+
+            window.location.reload();
+        }
+    </script>
+</body>
+</html>
