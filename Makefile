@@ -897,7 +897,7 @@ docker-aio-all:
 
 docker-image-intel:
 	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.2.0-devel-ubuntu22.04 \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2025.0.0-0-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
@@ -905,7 +905,7 @@ docker-image-intel:
 
 docker-image-intel-xpu:
 	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:2024.2.0-devel-ubuntu22.04 \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2025.0.0-0-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="none" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
