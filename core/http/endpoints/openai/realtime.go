@@ -478,6 +478,8 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 		cancel()
 	}()
 
+	audioDetected := false
+	timeListening := time.Now()
 	// Implement VAD logic here
 	// For brevity, this is a placeholder
 	// When VAD detects end of speech, generate a response
@@ -489,9 +491,13 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 		default:
 			// Check if there's audio data to process
 			session.AudioBufferLock.Lock()
+
 			if len(session.InputAudioBuffer) > 16000 {
 
 				adata := sound.BytesToInt16sLE(session.InputAudioBuffer)
+
+				// Resample from 24kHz to 16kHz
+				adata = sound.ResampleInt16(adata, 24000, 16000)
 
 				soundIntBuffer := &audio.IntBuffer{
 					Format: &audio.Format{SampleRate: 16000, NumChannels: 1},
@@ -538,12 +544,16 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 					log.Debug().Msg("VAD detected no speech activity")
 					log.Debug().Msgf("audio length %d", len(session.InputAudioBuffer))
 
-					session.InputAudioBuffer = nil
+					if !audioDetected {
+						session.InputAudioBuffer = nil
+					}
 					log.Debug().Msgf("audio length(after) %d", len(session.InputAudioBuffer))
 
 					session.AudioBufferLock.Unlock()
 					continue
 				}
+
+				timeListening = time.Now()
 
 				log.Debug().Msgf("VAD detected %d segments", len(resp.Segments))
 				log.Debug().Msgf("audio length %d", len(session.InputAudioBuffer))
@@ -551,10 +561,13 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 				speechStart = resp.Segments[0].Start
 				log.Debug().Msgf("speech starts at %0.2fs", speechStart)
 
+				audioDetected = true
+
 				for _, s := range resp.Segments {
 					if s.End > 0 {
 						log.Debug().Msgf("speech ends at %0.2fs", s.End)
 						speechEnd = s.End
+						audioDetected = false
 					}
 				}
 
@@ -599,6 +612,7 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 
 				// Reset InputAudioBuffer
 				session.InputAudioBuffer = nil
+				session.AudioBufferLock.Unlock()
 
 				// Send item.created event
 				sendEvent(c, OutgoingMessage{
@@ -608,9 +622,10 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 
 				// Generate a response
 				generateResponse(session, conversation, ResponseCreate{}, c, websocket.TextMessage)
+			} else {
+				session.AudioBufferLock.Unlock()
 			}
 
-			session.AudioBufferLock.Unlock()
 		}
 	}
 }
