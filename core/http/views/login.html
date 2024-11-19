@@ -12,12 +12,9 @@
     <script>
         function login() {
             const token = document.getElementById('token').value;
-
-            const url = new URL(window.location.href)
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', url.origin + '/login');
-            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-            xhr.send();
+            var date = new Date();
+            date.setTime(date.getTime() + (24*60*60*1000));
+            document.cookie = `token=${token}; expires=${date.toGMTString()}`;
 
             window.location.reload();
         }
