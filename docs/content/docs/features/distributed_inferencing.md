@@ -136,7 +136,7 @@ There are options that can be tweaked or parameters that can be set using enviro
 | **LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS** | Set to comma separated list of multiaddresses to specify custom DHT bootstrap nodes |
 | **LOCALAI_P2P_TOKEN** | Set the token for the p2p network |
 | **LOCALAI_P2P_LOGLEVEL** | Set the loglevel for the LocalAI p2p stack (default: info) |
-| **LOCALAI_LIBP2P_LOGLEVEL** | Set the loglevel for the underlying libp2p stack (default: fatal) |
+| **LOCALAI_P2P_LIB_LOGLEVEL** | Set the loglevel for the underlying libp2p stack (default: fatal) |
 
 
 ## Architecture
