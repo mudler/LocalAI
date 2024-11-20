@@ -9,8 +9,10 @@ require (
 	github.com/M0Rf30/go-tiny-dream v0.0.0-20240425104733-c04fa463ace9
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v0.9.0
+	github.com/census-instrumentation/opencensus-proto v0.4.1
 	github.com/charmbracelet/glamour v0.7.0
 	github.com/chasefleming/elem-go v0.26.0
+	github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b
 	github.com/containerd/containerd v1.7.19
 	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2
 	github.com/donomii/go-rwkv.cpp v0.0.0-20240228065144-661e7ae26d44
@@ -23,9 +25,12 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/gofiber/swagger v1.0.0
 	github.com/gofiber/template/html/v2 v2.1.2
+	github.com/gofiber/websocket/v2 v2.2.1
 	github.com/gofrs/flock v0.12.1
+	github.com/golang/protobuf v1.5.4
 	github.com/google/go-containerregistry v0.19.2
 	github.com/google/uuid v1.6.0
+	github.com/grpc-ecosystem/grpc-gateway v1.5.0
 	github.com/hpcloud/tail v1.0.0
 	github.com/ipfs/go-log v1.0.5
 	github.com/jaypipes/ghw v0.12.0
@@ -39,6 +44,7 @@ require (
 	github.com/mudler/go-stable-diffusion v0.0.0-20240429204715-4a3cd6aeae6f
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
+	github.com/orcaman/writerseeker v0.0.0-20200621085525-1d3f536ff85e
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/otiai10/openaigo v1.7.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -48,6 +54,7 @@ require (
 	github.com/sashabaranov/go-openai v1.26.2
 	github.com/schollz/progressbar/v3 v3.14.4
 	github.com/shirou/gopsutil/v3 v3.24.5
+	github.com/streamer45/silero-vad-go v0.2.1
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/swag v1.16.3
 	github.com/thxcode/gguf-parser-go v0.1.0
@@ -57,6 +64,7 @@ require (
 	go.opentelemetry.io/otel/exporters/prometheus v0.50.0
 	go.opentelemetry.io/otel/metric v1.28.0
 	go.opentelemetry.io/otel/sdk/metric v1.28.0
+	google.golang.org/api v0.180.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -65,8 +73,18 @@ require (
 )
 
 require (
+	cel.dev/expr v0.15.0 // indirect
+	cloud.google.com/go/auth v0.4.1 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect
+	github.com/fasthttp/websocket v1.5.3 // indirect
+	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.0.0 // indirect
+	github.com/google/s2a-go v0.1.7 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
+	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pion/datachannel v1.5.8 // indirect
@@ -85,12 +103,13 @@ require (
 	github.com/pion/transport/v2 v2.2.10 // indirect
 	github.com/pion/turn/v2 v2.1.6 // indirect
 	github.com/pion/webrtc/v3 v3.3.0 // indirect
+	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
-	github.com/streamer45/silero-vad-go v0.2.1 // indirect
-	github.com/urfave/cli/v2 v2.27.4 // indirect
-	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wlynxg/anet v0.0.4 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.52.0 // indirect
 	go.uber.org/mock v0.4.0 // indirect
+	golang.org/x/oauth2 v0.21.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240617180043-68d350f18fd4 // indirect
 )
 
 require (
@@ -133,7 +152,7 @@ require (
 	github.com/flynn/noise v1.1.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/go-audio/audio v1.0.0 // indirect
+	github.com/go-audio/audio v1.0.0
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
