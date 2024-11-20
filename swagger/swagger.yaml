@@ -295,6 +295,20 @@ definitions:
     - StatusResponse_BUSY
     - StatusResponse_READY
     - StatusResponse_ERROR
+  proto.VADResponse:
+    properties:
+      segments:
+        items:
+          $ref: '#/definitions/proto.VADSegment'
+        type: array
+    type: object
+  proto.VADSegment:
+    properties:
+      end:
+        type: number
+      start:
+        type: number
+    type: object
   schema.BackendMonitorRequest:
     properties:
       model:
@@ -699,6 +713,18 @@ definitions:
       index:
         type: integer
       type:
+        type: string
+    type: object
+  schema.VADRequest:
+    description: VAD request body
+    properties:
+      audio:
+        description: model name or full path
+        items:
+          type: number
+        type: array
+      model:
+        description: model name or full path
         type: string
     type: object
 info:
@@ -1188,6 +1214,23 @@ paths:
           schema:
             $ref: '#/definitions/schema.TokenizeResponse'
       summary: Tokenize the input.
+  /vad:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VADRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/proto.VADResponse'
+      summary: Detect voice fragments in an audio stream
 securityDefinitions:
   BearerAuth:
     in: header

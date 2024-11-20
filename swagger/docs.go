@@ -774,6 +774,33 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/vad": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Detect voice fragments in an audio stream",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VADRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/proto.VADResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1206,6 +1233,28 @@ const docTemplate = `{
                 "StatusResponse_READY",
                 "StatusResponse_ERROR"
             ]
+        },
+        "proto.VADResponse": {
+            "type": "object",
+            "properties": {
+                "segments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/proto.VADSegment"
+                    }
+                }
+            }
+        },
+        "proto.VADSegment": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "number"
+                },
+                "start": {
+                    "type": "number"
+                }
+            }
         },
         "schema.BackendMonitorRequest": {
             "type": "object",
@@ -1803,6 +1852,23 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VADRequest": {
+            "description": "VAD request body",
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "description": "model name or full path",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "model": {
+                    "description": "model name or full path",
                     "type": "string"
                 }
             }
