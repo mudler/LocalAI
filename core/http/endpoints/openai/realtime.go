@@ -462,12 +462,10 @@ func updateSession(session *Session, update *Session, cl *config.BackendConfigLo
 const (
 	minMicVolume              = 450
 	sendToVADDelay            = time.Second
-	maxWhisperSegmentDuration = time.Second * 25
+	maxWhisperSegmentDuration = time.Second * 15
 )
 
-// Placeholder function to handle VAD (Voice Activity Detection)
-// https://github.com/snakers4/silero-vad/tree/master/examples/go
-// XXX: use session.ModelInterface for VAD or hook directly VAD runtime here?
+// handle VAD (Voice Activity Detection)
 func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, done chan struct{}) {
 
 	vadContext, cancel := context.WithCancel(context.Background())
@@ -480,6 +478,7 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 
 	audioDetected := false
 	timeListening := time.Now()
+
 	// Implement VAD logic here
 	// For brevity, this is a placeholder
 	// When VAD detects end of speech, generate a response
@@ -492,7 +491,54 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 			// Check if there's audio data to process
 			session.AudioBufferLock.Lock()
 
-			if len(session.InputAudioBuffer) > 16000 {
+			if len(session.InputAudioBuffer) > 0 {
+
+				if audioDetected && time.Since(timeListening) < maxWhisperSegmentDuration {
+					log.Debug().Msgf("VAD detected speech, but still listening")
+					// audioDetected = false
+					// keep listening
+					session.AudioBufferLock.Unlock()
+					continue
+				}
+
+				if audioDetected {
+					log.Debug().Msgf("VAD detected speech that we can process")
+
+					// Commit the audio buffer as a conversation item
+					item := &Item{
+						ID:     generateItemID(),
+						Object: "realtime.item",
+						Type:   "message",
+						Status: "completed",
+						Role:   "user",
+						Content: []ConversationContent{
+							{
+								Type:  "input_audio",
+								Audio: base64.StdEncoding.EncodeToString(session.InputAudioBuffer),
+							},
+						},
+					}
+
+					// Add item to conversation
+					conversation.Lock.Lock()
+					conversation.Items = append(conversation.Items, item)
+					conversation.Lock.Unlock()
+
+					// Reset InputAudioBuffer
+					session.InputAudioBuffer = nil
+					session.AudioBufferLock.Unlock()
+
+					// Send item.created event
+					sendEvent(c, OutgoingMessage{
+						Type: "conversation.item.created",
+						Item: item,
+					})
+
+					audioDetected = false
+					// Generate a response
+					generateResponse(session, conversation, ResponseCreate{}, c, websocket.TextMessage)
+					continue
+				}
 
 				adata := sound.BytesToInt16sLE(session.InputAudioBuffer)
 
@@ -522,24 +568,6 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 					continue
 				}
 
-				speechStart, speechEnd := float32(0), float32(0)
-
-				/*
-					volume := sound.CalculateRMS16(adata)
-					if volume > minMicVolume {
-						startListening = time.Now()
-					}
-
-					if time.Since(startListening) < sendToVADDelay && time.Since(startListening) < maxWhisperSegmentDuration {
-						log.Debug().Msgf("audio length %d", len(session.InputAudioBuffer))
-
-						session.AudioBufferLock.Unlock()
-						log.Debug().Msg("speech is ongoing")
-
-						continue
-					}
-				*/
-
 				if len(resp.Segments) == 0 {
 					log.Debug().Msg("VAD detected no speech activity")
 					log.Debug().Msgf("audio length %d", len(session.InputAudioBuffer))
@@ -553,75 +581,12 @@ func handleVAD(session *Session, conversation *Conversation, c *websocket.Conn, 
 					continue
 				}
 
-				timeListening = time.Now()
-
-				log.Debug().Msgf("VAD detected %d segments", len(resp.Segments))
-				log.Debug().Msgf("audio length %d", len(session.InputAudioBuffer))
-
-				speechStart = resp.Segments[0].Start
-				log.Debug().Msgf("speech starts at %0.2fs", speechStart)
-
+				if !audioDetected {
+					timeListening = time.Now()
+				}
 				audioDetected = true
 
-				for _, s := range resp.Segments {
-					if s.End > 0 {
-						log.Debug().Msgf("speech ends at %0.2fs", s.End)
-						speechEnd = s.End
-						audioDetected = false
-					}
-				}
-
-				if speechEnd == 0 {
-					log.Debug().Msgf("audio length %d", len(session.InputAudioBuffer))
-
-					session.AudioBufferLock.Unlock()
-					log.Debug().Msg("speech is ongoing, no end found ?")
-					continue
-				}
-
-				// Handle when input is too long without a voice activity (reset the buffer)
-				if speechStart == 0 && speechEnd == 0 {
-					//	log.Debug().Msg("VAD detected no speech activity")
-					session.InputAudioBuffer = nil
-					session.AudioBufferLock.Unlock()
-					continue
-				}
-
-				// TODO: Shall we cut the audio from speechStart and SpeechEnd?
-				log.Debug().Msgf("VAD detected Start speech at: %0.2fs, End speech at: %0.2fs", speechStart, speechEnd)
-
-				// Commit the audio buffer as a conversation item
-				item := &Item{
-					ID:     generateItemID(),
-					Object: "realtime.item",
-					Type:   "message",
-					Status: "completed",
-					Role:   "user",
-					Content: []ConversationContent{
-						{
-							Type:  "input_audio",
-							Audio: base64.StdEncoding.EncodeToString(session.InputAudioBuffer),
-						},
-					},
-				}
-
-				// Add item to conversation
-				conversation.Lock.Lock()
-				conversation.Items = append(conversation.Items, item)
-				conversation.Lock.Unlock()
-
-				// Reset InputAudioBuffer
-				session.InputAudioBuffer = nil
 				session.AudioBufferLock.Unlock()
-
-				// Send item.created event
-				sendEvent(c, OutgoingMessage{
-					Type: "conversation.item.created",
-					Item: item,
-				})
-
-				// Generate a response
-				generateResponse(session, conversation, ResponseCreate{}, c, websocket.TextMessage)
 			} else {
 				session.AudioBufferLock.Unlock()
 			}
