@@ -102,6 +102,8 @@ ifeq ($(OS),Darwin)
 	ONNX_OS=osx
 	ifneq (,$(findstring aarch64,$(shell uname -m)))
 		ONNX_ARCH=arm64
+	else ifneq (,$(findstring arm64,$(shell uname -m)))
+		ONNX_ARCH=arm64
 	else
 		ONNX_ARCH=x86_64
 	endif
@@ -299,13 +301,17 @@ sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 
 sources/onnxruntime:
 	mkdir -p sources/onnxruntime
-	wget https://github.com/microsoft/onnxruntime/releases/download/v$(ONNX_VERSION)/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz -O sources/onnxruntime/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz
+	curl -L https://github.com/microsoft/onnxruntime/releases/download/v$(ONNX_VERSION)/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz -o sources/onnxruntime/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz
 	cd sources/onnxruntime && tar -xvf onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz && rm onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz
 	cd sources/onnxruntime && mv onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION)/* ./
 
 backend-assets/lib/libonnxruntime.so.1: backend-assets/lib sources/onnxruntime
 	cp -rfv sources/onnxruntime/lib/* backend-assets/lib/
+ifeq ($(OS),Darwin)
+	mv backend-assets/lib/libonnxruntime.$(ONNX_VERSION).dylib backend-assets/lib/libonnxruntime.dylib
+else
 	mv backend-assets/lib/libonnxruntime.so.$(ONNX_VERSION) backend-assets/lib/libonnxruntime.so.1
+endif
 
 ## tiny-dream
 sources/go-tiny-dream:
