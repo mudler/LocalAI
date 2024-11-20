@@ -34,6 +34,7 @@ func RegisterLocalAIRoutes(app *fiber.App,
 	}
 
 	app.Post("/tts", localai.TTSEndpoint(cl, ml, appConfig))
+	app.Post("/vad", localai.VADEndpoint(cl, ml, appConfig))
 
 	// Stores
 	sl := model.NewModelLoader("")

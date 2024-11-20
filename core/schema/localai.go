@@ -30,8 +30,14 @@ type TTSRequest struct {
 	Input    string `json:"input" yaml:"input"` // text input
 	Voice    string `json:"voice" yaml:"voice"` // voice audio file or speaker id
 	Backend  string `json:"backend" yaml:"backend"`
-	Language string `json:"language,omitempty" yaml:"language,omitempty"` // (optional) language to use with TTS model
+	Language string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
 	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
+}
+
+// @Description VAD request body
+type VADRequest struct {
+	Model string    `json:"model" yaml:"model"` // model name or full path
+	Audio []float32 `json:"audio" yaml:"audio"` // model name or full path
 }
 
 type StoresSet struct {

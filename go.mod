@@ -86,6 +86,9 @@ require (
 	github.com/pion/turn/v2 v2.1.6 // indirect
 	github.com/pion/webrtc/v3 v3.3.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
+	github.com/streamer45/silero-vad-go v0.2.1 // indirect
+	github.com/urfave/cli/v2 v2.27.4 // indirect
+	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wlynxg/anet v0.0.4 // indirect
 	go.uber.org/mock v0.4.0 // indirect
 )
