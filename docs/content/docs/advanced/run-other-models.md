@@ -18,7 +18,7 @@ There are different categories of models: [LLMs]({{%relref "docs/features/text-g
 
 {{% alert icon="💡" %}}
 
-To customize the models, see [Model customization]({{%relref "docs/getting-started/customize-model" %}}). For more model configurations, visit the [Examples Section](https://github.com/mudler/LocalAI/tree/master/examples/configurations) and the configurations for the models below is available [here](https://github.com/mudler/LocalAI/tree/master/embedded/models).
+To customize the models, see [Model customization]({{%relref "docs/getting-started/customize-model" %}}). For more model configurations, visit the [Examples Section](https://github.com/mudler/LocalAI-examples/tree/main/configurations) and the configurations for the models below is available [here](https://github.com/mudler/LocalAI/tree/master/embedded/models).
 {{% /alert %}}
 
 {{< tabs tabTotal="3" >}}

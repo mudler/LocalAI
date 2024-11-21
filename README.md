@@ -38,6 +38,10 @@
 </a>
 </p>
 
+<p align="center">
+<a href="https://trendshift.io/repositories/1484" target="_blank"><img src="https://trendshift.io/api/badge/repositories/1484" alt="go-skynet%2FLocalAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
+
 > :bulb: Get help - [❓FAQ](https://localai.io/faq/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) [:book: Documentation website](https://localai.io/)
 >
 > [💻 Quickstart](https://localai.io/basics/getting_started/) [🖼️ Models](https://models.localai.io/) [🚀 Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) [🥽 Demo](https://demo.localai.io) [🌍 Explorer](https://explorer.localai.io) [🛫 Examples](https://github.com/mudler/LocalAI-examples) 
@@ -56,14 +60,17 @@ curl https://localai.io/install.sh | sh
 
 Or run with docker:
 ```bash
+# CPU only image:
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-cpu
+
+# Nvidia GPU:
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
+
+# CPU and GPU image (bigger size):
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
+
+# AIO images (it will pre-download a set of models ready for use, see https://localai.io/basics/container/)
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
-# Alternative images:
-# - if you have an Nvidia GPU:
-# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-# - without preconfigured models
-# docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
-# - without preconfigured models for Nvidia GPUs
-# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12 
 ```
 
 To load models:
@@ -85,6 +92,7 @@ local-ai run oci://localai/phi-2:latest
 
 ## 📰 Latest project news
 
+- Nov 2024: Voice activity detection models (**VAD**) added to the API: https://github.com/mudler/LocalAI/pull/4204
 - Oct 2024: examples moved to [LocalAI-examples](https://github.com/mudler/LocalAI-examples)
 - Aug 2024:  🆕 FLUX-1, [P2P Explorer](https://explorer.localai.io)
 - July 2024: 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723
