@@ -24,7 +24,7 @@ func VAD(request *schema.VADRequest,
 	}
 
 	segments := []schema.VADSegment{}
-	for (_,s := range resp.Segments) {
+	for _, s := range resp.Segments {
 		segments = append(segments, schema.VADSegment{
 			Start: s.Start,
 			End: s.End
