@@ -386,8 +386,20 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	// TODO: move this up, expose more config options when creating a node
 	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
 	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") == "true"
-	listenMaddrs := strings.Split(os.Getenv("LOCALAI_P2P_LISTEN_MADDRS"), ",")
-	bootstrapPeers := strings.Split(os.Getenv("LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS"), ",")
+
+	var listenMaddrs []string
+	var bootstrapPeers []string
+
+	laddrs := os.Getenv("LOCALAI_P2P_LISTEN_MADDRS")
+	if laddrs != "" {
+		listenMaddrs = strings.Split(laddrs, ",")
+	}
+
+	bootmaddr := os.Getenv("LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS")
+	if bootmaddr != "" {
+		bootstrapPeers = strings.Split(bootmaddr, ",")
+	}
+
 	dhtAnnounceMaddrs := stringsToMultiAddr(strings.Split(os.Getenv("LOCALAI_P2P_DHT_ANNOUNCE_MADDRS"), ","))
 
 	libp2ploglevel := os.Getenv("LOCALAI_P2P_LIB_LOGLEVEL")
