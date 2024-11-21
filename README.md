@@ -38,6 +38,10 @@
 </a>
 </p>
 
+<p align="center">
+<a href="https://trendshift.io/repositories/1484" target="_blank"><img src="https://trendshift.io/api/badge/repositories/1484" alt="go-skynet%2FLocalAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
+
 > :bulb: Get help - [❓FAQ](https://localai.io/faq/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) [:book: Documentation website](https://localai.io/)
 >
 > [💻 Quickstart](https://localai.io/basics/getting_started/) [🖼️ Models](https://models.localai.io/) [🚀 Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) [🥽 Demo](https://demo.localai.io) [🌍 Explorer](https://explorer.localai.io) [🛫 Examples](https://github.com/mudler/LocalAI-examples) 
