@@ -56,14 +56,16 @@ curl https://localai.io/install.sh | sh
 
 Or run with docker:
 ```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-cpu
 # Alternative images:
 # - if you have an Nvidia GPU:
-# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
+# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
 # - without preconfigured models
 # docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 # - without preconfigured models for Nvidia GPUs
-# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12 
+# docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
+## AIO images (it will pre-download a set of models ready for use, see https://localai.io/basics/container/)
+# docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 ```
 
 To load models:
