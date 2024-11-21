@@ -162,9 +162,9 @@ func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 
 	c1, cancel := context.WithCancel(re.applicationConfig.Context)
 	// Add the correlation ID to the new context
-	context := context.WithValue(c1, CorrelationIDKey, correlationID)
+	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
 
-	input.Context = context
+	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
 
 	err := mergeOpenAIRequestAndBackendConfig(cfg, input)

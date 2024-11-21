@@ -142,7 +142,7 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath
 		}
 	}
 
-	cfg.SetDefaults(opts...)
+	cfg.SetDefaults(append(opts, ModelPath(modelPath))...)
 
 	return cfg, nil
 }

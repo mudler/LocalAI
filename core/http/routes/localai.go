@@ -41,6 +41,11 @@ func RegisterLocalAIRoutes(app *fiber.App,
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }),
 		localai.TTSEndpoint(cl, ml, appConfig))
 
+	app.Post("/vad",
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }),
+		localai.VADEndpoint(cl, ml, appConfig))
+
 	// Stores
 	sl := model.NewModelLoader("")
 	app.Post("/stores/set", localai.StoresSetEndpoint(sl, appConfig))

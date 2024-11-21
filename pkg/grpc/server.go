@@ -227,6 +227,18 @@ func (s *server) StoresFind(ctx context.Context, in *pb.StoresFindOptions) (*pb.
 	return &res, nil
 }
 
+func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.VAD(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 func StartServer(address string, model LLM) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {

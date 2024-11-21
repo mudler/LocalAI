@@ -33,7 +33,7 @@ jobs:
         run: |
           CGO_ENABLED=0 make build-api
       - name: rm
-        uses: appleboy/ssh-action@v1.1.0
+        uses: appleboy/ssh-action@v1.2.0
         with:
             host: ${{ secrets.EXPLORER_SSH_HOST }}
             username: ${{ secrets.EXPLORER_SSH_USERNAME }}
@@ -53,7 +53,7 @@ jobs:
             rm: true
             target: ./local-ai
       - name: restarting
-        uses: appleboy/ssh-action@v1.1.0
+        uses: appleboy/ssh-action@v1.2.0
         with:
             host: ${{ secrets.EXPLORER_SSH_HOST }}
             username: ${{ secrets.EXPLORER_SSH_USERNAME }}

@@ -9094,3 +9094,22 @@
     - filename: voice-zh_CN-huayan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh_CN-huayan-medium.tar.gz
       sha256: 0299a5e7f481ba853404e9f0e1515a94d5409585d76963fa4d30c64bd630aa99
+- name: "silero-vad"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/snakers4/silero-vad
+    - https://huggingface.co/onnx-community/silero-vad
+  description: |
+    Silero VAD - pre-trained enterprise-grade Voice Activity Detector.
+  tags:
+    - vad
+    - voice-activity-detection
+    - cpu
+  overrides:
+    backend: silero-vad
+    parameters:
+      model: silero-vad.onnx
+  files:
+    - filename: silero-vad.onnx
+      uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
+      sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808

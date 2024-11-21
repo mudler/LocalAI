@@ -92,6 +92,10 @@ func (llm *Base) StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error) 
 	return pb.StoresFindResult{}, fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) VAD(*pb.VADRequest) (pb.VADResponse, error) {
+	return pb.VADResponse{}, fmt.Errorf("unimplemented")
+}
+
 func memoryUsage() *pb.MemoryUsageData {
 	mud := pb.MemoryUsageData{
 		Breakdown: make(map[string]uint64),

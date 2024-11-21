@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/mudler/edgevpn/pkg/services"
 	"github.com/mudler/edgevpn/pkg/types"
 	eutils "github.com/mudler/edgevpn/pkg/utils"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/phayes/freeport"
 	zlog "github.com/rs/zerolog/log"
 
@@ -384,12 +386,17 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	// TODO: move this up, expose more config options when creating a node
 	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
 	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") == "true"
+	listenMaddrs := strings.Split(os.Getenv("LOCALAI_P2P_LISTEN_MADDRS"), ",")
+	bootstrapPeers := strings.Split(os.Getenv("LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS"), ",")
+	dhtAnnounceMaddrs := stringsToMultiAddr(strings.Split(os.Getenv("LOCALAI_P2P_DHT_ANNOUNCE_MADDRS"), ","))
 
-	libp2ploglevel := os.Getenv("LOCALAI_LIBP2P_LOGLEVEL")
+	libp2ploglevel := os.Getenv("LOCALAI_P2P_LIB_LOGLEVEL")
 	if libp2ploglevel == "" {
 		libp2ploglevel = "fatal"
 	}
 	c := config.Config{
+		ListenMaddrs:      listenMaddrs,
+		DHTAnnounceMaddrs: dhtAnnounceMaddrs,
 		Limit: config.ResourceLimit{
 			Enable:   noLimits,
 			MaxConns: 100,
@@ -411,9 +418,10 @@ func newNodeOpts(token string) ([]node.Option, error) {
 			RateLimitInterval: defaultInterval,
 		},
 		Discovery: config.Discovery{
-			DHT:      !noDHT,
-			MDNS:     true,
-			Interval: 10 * time.Second,
+			DHT:            !noDHT,
+			MDNS:           true,
+			Interval:       10 * time.Second,
+			BootstrapPeers: bootstrapPeers,
 		},
 		Connection: config.Connection{
 			HolePunch:      true,
@@ -430,6 +438,18 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	nodeOpts = append(nodeOpts, services.Alive(30*time.Second, 900*time.Second, 15*time.Minute)...)
 
 	return nodeOpts, nil
+}
+
+func stringsToMultiAddr(peers []string) []multiaddr.Multiaddr {
+	res := []multiaddr.Multiaddr{}
+	for _, p := range peers {
+		addr, err := multiaddr.NewMultiaddr(p)
+		if err != nil {
+			continue
+		}
+		res = append(res, addr)
+	}
+	return res
 }
 
 func copyStream(closer chan struct{}, dst io.Writer, src io.Reader) {
