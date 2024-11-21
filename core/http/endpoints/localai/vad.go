@@ -31,7 +31,7 @@ func VADEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 
 		log.Debug().Str("model", input.Model).Msg("LocalAI VAD Request recieved")
 
-		resp, err := backend.VAD(input, ml, appConfig, *cfg)
+		resp, err := backend.VAD(input, c.Context(), ml, appConfig, *cfg)
 
 		if err != nil {
 			return err

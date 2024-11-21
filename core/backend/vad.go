@@ -1,12 +1,16 @@
 package backend
 
 import (
+	"context"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
-	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 func VAD(request *schema.VADRequest,
+	ctx context.Context,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	backendConfig config.BackendConfig) (*schema.VADResponse, error) {
@@ -18,7 +22,7 @@ func VAD(request *schema.VADRequest,
 	req := proto.VADRequest{
 		Audio: request.Audio,
 	}
-	resp, err := vadModel.VAD(c.Context(), &req)
+	resp, err := vadModel.VAD(ctx, &req)
 	if err != nil {
 		return nil, err
 	}
