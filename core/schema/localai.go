@@ -40,6 +40,15 @@ type VADRequest struct {
 	Audio []float32 `json:"audio" yaml:"audio"` // model name or full path
 }
 
+type VADSegment struct {
+	Start float32 `json:"start" yaml:"start"`
+	End   float32 `json:"end" yaml:"end"`
+}
+
+type VADResponse struct {
+	Segments []VADSegment `json:"segments" yaml:"segments"`
+}
+
 type StoresSet struct {
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`
 
