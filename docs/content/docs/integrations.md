@@ -29,5 +29,6 @@ The list below is a list of software that integrates with LocalAI.
 - [Big AGI](https://github.com/enricoros/big-agi) is a powerful web interface entirely running in the browser, supporting LocalAI
 - [Midori AI Subsystem Manager](https://io.midori-ai.xyz/subsystem/manager/) is a powerful docker subsystem for running all types of AI programs
 - [LLPhant](https://github.com/theodo-group/LLPhant) is a PHP library for interacting with LLMs and Vector Databases
+- [GPTLocalhost (Word Add-in)](https://gptlocalhost.com/demo#LocalAI) - run LocalAI in Microsoft Word locally
 
 Feel free to open up a Pull request (by clicking at the "Edit page" below) to get a page for your project made or if you see a error on one of the pages!
