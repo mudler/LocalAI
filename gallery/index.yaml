@@ -2940,6 +2940,21 @@
     - filename: L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
       sha256: f9aa88f3b220e35662a2d62d1f615a3b425e348a8f9e2939f05bf57385119f76
       uri: huggingface://mradermacher/L3.1-nemotron-sunfall-v0.7.0-i1-GGUF/L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-mesh"
+  urls:
+    - https://huggingface.co/Zhengyi/LLaMA-Mesh
+    - https://huggingface.co/bartowski/LLaMA-Mesh-GGUF
+  description: |
+    LLaMA-Mesh: Unifying 3D Mesh Generation with Language Models
+    Pre-trained model weights of LLaMA-Mesh: Unifying 3D Mesh Generation with Language Models. This work explores expanding the capabilities of large language models (LLMs) pretrained on text to generate 3D meshes within a unified model
+  overrides:
+    parameters:
+      model: LLaMA-Mesh-Q4_K_M.gguf
+  files:
+    - filename: LLaMA-Mesh-Q4_K_M.gguf
+      sha256: 150ac70c92bb7351468768bcc84bd3018f44b624f709821fee8e5e816e4868e7
+      uri: huggingface://bartowski/LLaMA-Mesh-GGUF/LLaMA-Mesh-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
