@@ -5986,6 +5986,21 @@
     - filename: Llama-3-SEC-Chat-Q4_K_M.gguf
       uri: huggingface://arcee-ai/Llama-3-SEC-Chat-GGUF/Llama-3-SEC-Chat-Q4_K_M.gguf
       sha256: 0d837400af161ba4136233db191330f2d77e297e079f0b6249e877c375cb56f3
+- !!merge <<: *llama3
+  name: "copus-2x8b-i1"
+  icon: https://huggingface.co/lodrick-the-lafted/Copus-2x8B/resolve/main/copus.png
+  urls:
+    - https://huggingface.co/lodrick-the-lafted/Copus-2x8B
+    - https://huggingface.co/mradermacher/Copus-2x8B-i1-GGUF
+  description: |
+    Which were the two most interesting llama3 finetunes as of yet. Resulting model seems OK. It's not on Miqu's level, anyway.
+  overrides:
+    parameters:
+      model: Copus-2x8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Copus-2x8B.i1-Q4_K_M.gguf
+      sha256: 685da1ba49e203e8f491105585143d76044286d4b4687bed37d325f6b55501e5
+      uri: huggingface://mradermacher/Copus-2x8B-i1-GGUF/Copus-2x8B.i1-Q4_K_M.gguf
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
