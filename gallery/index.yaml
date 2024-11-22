@@ -2969,6 +2969,21 @@
     - filename: LLaMA-Mesh-Q4_K_M.gguf
       sha256: 150ac70c92bb7351468768bcc84bd3018f44b624f709821fee8e5e816e4868e7
       uri: huggingface://bartowski/LLaMA-Mesh-GGUF/LLaMA-Mesh-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-instruct-ortho-v3"
+  urls:
+    - https://huggingface.co/lodrick-the-lafted/llama-3.1-8b-instruct-ortho-v3
+    - https://huggingface.co/mradermacher/llama-3.1-8b-instruct-ortho-v3-GGUF
+  description: |
+    A few different attempts at orthogonalization/abliteration of llama-3.1-8b-instruct using variations of the method from "Mechanistically Eliciting Latent Behaviors in Language Models".
+    Each of these use different vectors and have some variations in where the new refusal boundaries lie. None of them seem totally jailbroken.
+  overrides:
+    parameters:
+      model: llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
+  files:
+    - filename: llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
+      sha256: 8d1dd638ed80019f5cd61240d1f06fd1333413f61427bef4d288c5b8cd9d8cea
+      uri: huggingface://mradermacher/llama-3.1-8b-instruct-ortho-v3-GGUF/llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
