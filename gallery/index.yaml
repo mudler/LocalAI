@@ -624,6 +624,20 @@
     - filename: Llama3.2-3B-ShiningValiant2.i1-Q4_K_M.gguf
       sha256: 700521dc6a8a50e2d0bb5ccde12399209004155f9c68751aeac7feccf2cd4957
       uri: huggingface://mradermacher/Llama3.2-3B-ShiningValiant2-i1-GGUF/Llama3.2-3B-ShiningValiant2.i1-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-doctor-3.2-3b-instruct"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-Doctor-3.2-3B-Instruct
+    - https://huggingface.co/bartowski/Llama-Doctor-3.2-3B-Instruct-GGUF
+  description: |
+    The Llama-Doctor-3.2-3B-Instruct model is designed for text generation tasks, particularly in contexts where instruction-following capabilities are needed. This model is a fine-tuned version of the base Llama-3.2-3B-Instruct model and is optimized for understanding and responding to user-provided instructions or prompts. The model has been trained on a specialized dataset, avaliev/chat_doctor, to enhance its performance in providing conversational or advisory responses, especially in medical or technical fields.
+  overrides:
+    parameters:
+      model: Llama-Doctor-3.2-3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Llama-Doctor-3.2-3B-Instruct-Q4_K_M.gguf
+      sha256: 38fd1423e055564e9fa3d37003a62bf9db79acd348a90fa0b051a1f2c9d7cb53
+      uri: huggingface://bartowski/Llama-Doctor-3.2-3B-Instruct-GGUF/Llama-Doctor-3.2-3B-Instruct-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -2940,6 +2954,36 @@
     - filename: L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
       sha256: f9aa88f3b220e35662a2d62d1f615a3b425e348a8f9e2939f05bf57385119f76
       uri: huggingface://mradermacher/L3.1-nemotron-sunfall-v0.7.0-i1-GGUF/L3.1-nemotron-sunfall-v0.7.0.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-mesh"
+  urls:
+    - https://huggingface.co/Zhengyi/LLaMA-Mesh
+    - https://huggingface.co/bartowski/LLaMA-Mesh-GGUF
+  description: |
+    LLaMA-Mesh: Unifying 3D Mesh Generation with Language Models
+    Pre-trained model weights of LLaMA-Mesh: Unifying 3D Mesh Generation with Language Models. This work explores expanding the capabilities of large language models (LLMs) pretrained on text to generate 3D meshes within a unified model
+  overrides:
+    parameters:
+      model: LLaMA-Mesh-Q4_K_M.gguf
+  files:
+    - filename: LLaMA-Mesh-Q4_K_M.gguf
+      sha256: 150ac70c92bb7351468768bcc84bd3018f44b624f709821fee8e5e816e4868e7
+      uri: huggingface://bartowski/LLaMA-Mesh-GGUF/LLaMA-Mesh-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-instruct-ortho-v3"
+  urls:
+    - https://huggingface.co/lodrick-the-lafted/llama-3.1-8b-instruct-ortho-v3
+    - https://huggingface.co/mradermacher/llama-3.1-8b-instruct-ortho-v3-GGUF
+  description: |
+    A few different attempts at orthogonalization/abliteration of llama-3.1-8b-instruct using variations of the method from "Mechanistically Eliciting Latent Behaviors in Language Models".
+    Each of these use different vectors and have some variations in where the new refusal boundaries lie. None of them seem totally jailbroken.
+  overrides:
+    parameters:
+      model: llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
+  files:
+    - filename: llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
+      sha256: 8d1dd638ed80019f5cd61240d1f06fd1333413f61427bef4d288c5b8cd9d8cea
+      uri: huggingface://mradermacher/llama-3.1-8b-instruct-ortho-v3-GGUF/llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -5957,6 +6001,21 @@
     - filename: Llama-3-SEC-Chat-Q4_K_M.gguf
       uri: huggingface://arcee-ai/Llama-3-SEC-Chat-GGUF/Llama-3-SEC-Chat-Q4_K_M.gguf
       sha256: 0d837400af161ba4136233db191330f2d77e297e079f0b6249e877c375cb56f3
+- !!merge <<: *llama3
+  name: "copus-2x8b-i1"
+  icon: https://huggingface.co/lodrick-the-lafted/Copus-2x8B/resolve/main/copus.png
+  urls:
+    - https://huggingface.co/lodrick-the-lafted/Copus-2x8B
+    - https://huggingface.co/mradermacher/Copus-2x8B-i1-GGUF
+  description: |
+    Which were the two most interesting llama3 finetunes as of yet. Resulting model seems OK. It's not on Miqu's level, anyway.
+  overrides:
+    parameters:
+      model: Copus-2x8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Copus-2x8B.i1-Q4_K_M.gguf
+      sha256: 685da1ba49e203e8f491105585143d76044286d4b4687bed37d325f6b55501e5
+      uri: huggingface://mradermacher/Copus-2x8B-i1-GGUF/Copus-2x8B.i1-Q4_K_M.gguf
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"

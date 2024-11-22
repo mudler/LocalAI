@@ -164,6 +164,9 @@ Other:
 - Slack bot https://github.com/mudler/LocalAGI/tree/main/examples/slack
 - Shell-Pilot(Interact with LLM using LocalAI models via pure shell scripts on your Linux or MacOS system) https://github.com/reid41/shell-pilot
 - Telegram bot https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot
+- Another Telegram Bot https://github.com/JackBekket/Hellper
+- Auto-documentation https://github.com/JackBekket/Reflexia
+- Github bot which answer on issues, with code and documentation as context https://github.com/JackBekket/GitHelper
 - Github Actions: https://github.com/marketplace/actions/start-localai
 - Examples: https://github.com/mudler/LocalAI/tree/master/examples/
   
