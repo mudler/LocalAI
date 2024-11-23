@@ -638,6 +638,20 @@
     - filename: Llama-Doctor-3.2-3B-Instruct-Q4_K_M.gguf
       sha256: 38fd1423e055564e9fa3d37003a62bf9db79acd348a90fa0b051a1f2c9d7cb53
       uri: huggingface://bartowski/Llama-Doctor-3.2-3B-Instruct-GGUF/Llama-Doctor-3.2-3B-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "onellm-doey-v1-llama-3.2-3b"
+  urls:
+    - https://huggingface.co/DoeyLLM/OneLLM-Doey-V1-Llama-3.2-3B
+    - https://huggingface.co/QuantFactory/OneLLM-Doey-V1-Llama-3.2-3B-GGUF
+  description: |
+    This model is a fine-tuned version of LLaMA 3.2-3B, optimized using LoRA (Low-Rank Adaptation) on the NVIDIA ChatQA-Training-Data. It is tailored for conversational AI, question answering, and other instruction-following tasks, with support for sequences up to 1024 tokens.
+  overrides:
+    parameters:
+      model: OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
+  files:
+    - filename: OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
+      sha256: 57e93584bfb708a9841edffd70635c21f27955d8a1b4e346a72edc8163394a97
+      uri: huggingface://QuantFactory/OneLLM-Doey-V1-Llama-3.2-3B-GGUF/OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -2984,6 +2998,21 @@
     - filename: llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
       sha256: 8d1dd638ed80019f5cd61240d1f06fd1333413f61427bef4d288c5b8cd9d8cea
       uri: huggingface://mradermacher/llama-3.1-8b-instruct-ortho-v3-GGUF/llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-tulu-3-8b-dpo"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu3/Tulu3-logo.png
+  urls:
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B-DPO
+    - https://huggingface.co/mradermacher/Llama-3.1-Tulu-3-8B-DPO-GGUF
+  description: |
+    Tülu3 is a leading instruction following model family, offering fully open-source data, code, and recipes designed to serve as a comprehensive guide for modern post-training techniques. Tülu3 is designed for state-of-the-art performance on a diversity of tasks in addition to chat, such as MATH, GSM8K, and IFEval.
+  overrides:
+    parameters:
+      model: Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
+      sha256: 8991bef1775edc5190047ef268d60876c2df3a80cf6da5f1bd1e82d09dd0ab2b
+      uri: huggingface://mradermacher/Llama-3.1-Tulu-3-8B-DPO-GGUF/Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -3354,6 +3383,21 @@
     - filename: EdgeRunner-Tactical-7B.Q4_K_M.gguf
       sha256: 90ca9c3ab19e5d1de4499e3f988cc0ba3d205e50285d7c89de6f0a4c525bf204
       uri: huggingface://RichardErkhov/edgerunner-ai_-_EdgeRunner-Tactical-7B-gguf/EdgeRunner-Tactical-7B.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "marco-o1"
+  icon: https://huggingface.co/AIDC-AI/Marco-o1/resolve/main/assets/logo.png
+  urls:
+    - https://huggingface.co/AIDC-AI/Marco-o1
+    - https://huggingface.co/QuantFactory/Marco-o1-GGUF
+  description: |
+     Marco-o1 not only focuses on disciplines with standard answers, such as mathematics, physics, and coding—which are well-suited for reinforcement learning (RL)—but also places greater emphasis on open-ended resolutions. We aim to address the question: "Can the o1 model effectively generalize to broader domains where clear standards are absent and rewards are challenging to quantify?"
+  overrides:
+    parameters:
+      model: Marco-o1.Q4_K_M.gguf
+  files:
+    - filename: Marco-o1.Q4_K_M.gguf
+      sha256: 54dd9554cb54609bf0bf4b367dfba192fc982a2fc6b87a0f56fba5ea82762d0d
+      uri: huggingface://QuantFactory/Marco-o1-GGUF/Marco-o1.Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
