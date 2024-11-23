@@ -638,6 +638,20 @@
     - filename: Llama-Doctor-3.2-3B-Instruct-Q4_K_M.gguf
       sha256: 38fd1423e055564e9fa3d37003a62bf9db79acd348a90fa0b051a1f2c9d7cb53
       uri: huggingface://bartowski/Llama-Doctor-3.2-3B-Instruct-GGUF/Llama-Doctor-3.2-3B-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "onellm-doey-v1-llama-3.2-3b"
+  urls:
+    - https://huggingface.co/DoeyLLM/OneLLM-Doey-V1-Llama-3.2-3B
+    - https://huggingface.co/QuantFactory/OneLLM-Doey-V1-Llama-3.2-3B-GGUF
+  description: |
+    This model is a fine-tuned version of LLaMA 3.2-3B, optimized using LoRA (Low-Rank Adaptation) on the NVIDIA ChatQA-Training-Data. It is tailored for conversational AI, question answering, and other instruction-following tasks, with support for sequences up to 1024 tokens.
+  overrides:
+    parameters:
+      model: OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
+  files:
+    - filename: OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
+      sha256: 57e93584bfb708a9841edffd70635c21f27955d8a1b4e346a72edc8163394a97
+      uri: huggingface://QuantFactory/OneLLM-Doey-V1-Llama-3.2-3B-GGUF/OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
