@@ -3369,6 +3369,21 @@
     - filename: EdgeRunner-Tactical-7B.Q4_K_M.gguf
       sha256: 90ca9c3ab19e5d1de4499e3f988cc0ba3d205e50285d7c89de6f0a4c525bf204
       uri: huggingface://RichardErkhov/edgerunner-ai_-_EdgeRunner-Tactical-7B-gguf/EdgeRunner-Tactical-7B.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "marco-o1"
+  icon: https://huggingface.co/AIDC-AI/Marco-o1/resolve/main/assets/logo.png
+  urls:
+    - https://huggingface.co/AIDC-AI/Marco-o1
+    - https://huggingface.co/QuantFactory/Marco-o1-GGUF
+  description: |
+     Marco-o1 not only focuses on disciplines with standard answers, such as mathematics, physics, and coding—which are well-suited for reinforcement learning (RL)—but also places greater emphasis on open-ended resolutions. We aim to address the question: "Can the o1 model effectively generalize to broader domains where clear standards are absent and rewards are challenging to quantify?"
+  overrides:
+    parameters:
+      model: Marco-o1.Q4_K_M.gguf
+  files:
+    - filename: Marco-o1.Q4_K_M.gguf
+      sha256: 54dd9554cb54609bf0bf4b367dfba192fc982a2fc6b87a0f56fba5ea82762d0d
+      uri: huggingface://QuantFactory/Marco-o1-GGUF/Marco-o1.Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
