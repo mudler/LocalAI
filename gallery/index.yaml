@@ -2984,6 +2984,21 @@
     - filename: llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
       sha256: 8d1dd638ed80019f5cd61240d1f06fd1333413f61427bef4d288c5b8cd9d8cea
       uri: huggingface://mradermacher/llama-3.1-8b-instruct-ortho-v3-GGUF/llama-3.1-8b-instruct-ortho-v3.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-tulu-3-8b-dpo"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu3/Tulu3-logo.png
+  urls:
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B-DPO
+    - https://huggingface.co/mradermacher/Llama-3.1-Tulu-3-8B-DPO-GGUF
+  description: |
+    Tülu3 is a leading instruction following model family, offering fully open-source data, code, and recipes designed to serve as a comprehensive guide for modern post-training techniques. Tülu3 is designed for state-of-the-art performance on a diversity of tasks in addition to chat, such as MATH, GSM8K, and IFEval.
+  overrides:
+    parameters:
+      model: Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
+      sha256: 8991bef1775edc5190047ef268d60876c2df3a80cf6da5f1bd1e82d09dd0ab2b
+      uri: huggingface://mradermacher/Llama-3.1-Tulu-3-8B-DPO-GGUF/Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
