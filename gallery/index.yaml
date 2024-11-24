@@ -652,6 +652,20 @@
     - filename: OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
       sha256: 57e93584bfb708a9841edffd70635c21f27955d8a1b4e346a72edc8163394a97
       uri: huggingface://QuantFactory/OneLLM-Doey-V1-Llama-3.2-3B-GGUF/OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-sentient-3.2-3b-instruct"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-Sentient-3.2-3B-Instruct
+    - https://huggingface.co/QuantFactory/Llama-Sentient-3.2-3B-Instruct-GGUF
+  description: |
+    The Llama-Sentient-3.2-3B-Instruct model is a fine-tuned version of the Llama-3.2-3B-Instruct model, optimized for text generation tasks, particularly where instruction-following abilities are critical. This model is trained on the mlabonne/lmsys-arena-human-preference-55k-sharegpt dataset, which enhances its performance in conversational and advisory contexts, making it suitable for a wide range of applications.
+  overrides:
+    parameters:
+      model: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
+      sha256: 0b1c10da004ffd61b860c9058265e9bdb7f53c7be8e87feece8896d680f5b8be
+      uri: huggingface://QuantFactory/Llama-Sentient-3.2-3B-Instruct-GGUF/Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
