@@ -1526,6 +1526,20 @@
     - filename: miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
       sha256: a0dadd7147cc4a8e8df59659556e4d824ef5c26fd2f39381fe467b2ff9cc1289
       uri: huggingface://bartowski/miniclaus-qw1.5B-UNAMGS-GGUF/miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-3b-smart-i1"
+  urls:
+    - https://huggingface.co/bunnycore/Qwen2.5-3B-Smart
+    - https://huggingface.co/mradermacher/Qwen2.5-3B-Smart-i1-GGUF
+  description: |
+    This model was merged using the passthrough merge method using bunnycore/Qwen2.5-3B-RP-Mix + bunnycore/Qwen2.5-3b-Smart-lora_model as a base.
+  overrides:
+    parameters:
+      model: Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
+      sha256: 4cfffa4478191b3ac5f54b0e2c5c3f60883322cf705d74f9651715b70f3779f4
+      uri: huggingface://mradermacher/Qwen2.5-3B-Smart-i1-GGUF/Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
