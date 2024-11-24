@@ -652,6 +652,20 @@
     - filename: OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
       sha256: 57e93584bfb708a9841edffd70635c21f27955d8a1b4e346a72edc8163394a97
       uri: huggingface://QuantFactory/OneLLM-Doey-V1-Llama-3.2-3B-GGUF/OneLLM-Doey-V1-Llama-3.2-3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-sentient-3.2-3b-instruct"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-Sentient-3.2-3B-Instruct
+    - https://huggingface.co/QuantFactory/Llama-Sentient-3.2-3B-Instruct-GGUF
+  description: |
+    The Llama-Sentient-3.2-3B-Instruct model is a fine-tuned version of the Llama-3.2-3B-Instruct model, optimized for text generation tasks, particularly where instruction-following abilities are critical. This model is trained on the mlabonne/lmsys-arena-human-preference-55k-sharegpt dataset, which enhances its performance in conversational and advisory contexts, making it suitable for a wide range of applications.
+  overrides:
+    parameters:
+      model: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
+      sha256: 0b1c10da004ffd61b860c9058265e9bdb7f53c7be8e87feece8896d680f5b8be
+      uri: huggingface://QuantFactory/Llama-Sentient-3.2-3B-Instruct-GGUF/Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -1512,6 +1526,20 @@
     - filename: miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
       sha256: a0dadd7147cc4a8e8df59659556e4d824ef5c26fd2f39381fe467b2ff9cc1289
       uri: huggingface://bartowski/miniclaus-qw1.5B-UNAMGS-GGUF/miniclaus-qw1.5B-UNAMGS-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-3b-smart-i1"
+  urls:
+    - https://huggingface.co/bunnycore/Qwen2.5-3B-Smart
+    - https://huggingface.co/mradermacher/Qwen2.5-3B-Smart-i1-GGUF
+  description: |
+    This model was merged using the passthrough merge method using bunnycore/Qwen2.5-3B-RP-Mix + bunnycore/Qwen2.5-3b-Smart-lora_model as a base.
+  overrides:
+    parameters:
+      model: Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
+      sha256: 4cfffa4478191b3ac5f54b0e2c5c3f60883322cf705d74f9651715b70f3779f4
+      uri: huggingface://mradermacher/Qwen2.5-3B-Smart-i1-GGUF/Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3013,6 +3041,20 @@
     - filename: Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
       sha256: 8991bef1775edc5190047ef268d60876c2df3a80cf6da5f1bd1e82d09dd0ab2b
       uri: huggingface://mradermacher/Llama-3.1-Tulu-3-8B-DPO-GGUF/Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-aspire-heart-matrix-8b"
+  urls:
+    - https://huggingface.co/ZeroXClem/L3-Aspire-Heart-Matrix-8B
+    - https://huggingface.co/mradermacher/L3.1-Aspire-Heart-Matrix-8B-GGUF
+  description: |
+    ZeroXClem/L3-Aspire-Heart-Matrix-8B is an experimental language model crafted by merging three high-quality 8B parameter models using the Model Stock Merge method. This synthesis leverages the unique strengths of Aspire, Heart Stolen, and CursedMatrix, creating a highly versatile and robust language model for a wide array of tasks.
+  overrides:
+    parameters:
+      model: L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
+  files:
+    - filename: L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
+      sha256: 4d90abaae59f39e8f04548151265dce3b9c913303e6755860f5d28dd5cfc2d86
+      uri: huggingface://mradermacher/L3.1-Aspire-Heart-Matrix-8B-GGUF/L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
