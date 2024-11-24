@@ -3041,6 +3041,20 @@
     - filename: Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
       sha256: 8991bef1775edc5190047ef268d60876c2df3a80cf6da5f1bd1e82d09dd0ab2b
       uri: huggingface://mradermacher/Llama-3.1-Tulu-3-8B-DPO-GGUF/Llama-3.1-Tulu-3-8B-DPO.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-aspire-heart-matrix-8b"
+  urls:
+    - https://huggingface.co/ZeroXClem/L3-Aspire-Heart-Matrix-8B
+    - https://huggingface.co/mradermacher/L3.1-Aspire-Heart-Matrix-8B-GGUF
+  description: |
+    ZeroXClem/L3-Aspire-Heart-Matrix-8B is an experimental language model crafted by merging three high-quality 8B parameter models using the Model Stock Merge method. This synthesis leverages the unique strengths of Aspire, Heart Stolen, and CursedMatrix, creating a highly versatile and robust language model for a wide array of tasks.
+  overrides:
+    parameters:
+      model: L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
+  files:
+    - filename: L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
+      sha256: 4d90abaae59f39e8f04548151265dce3b9c913303e6755860f5d28dd5cfc2d86
+      uri: huggingface://mradermacher/L3.1-Aspire-Heart-Matrix-8B-GGUF/L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
