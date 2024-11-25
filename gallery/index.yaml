@@ -170,6 +170,20 @@
     - filename: Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
       sha256: 7ef044e1fee206a039f56538f94332030e99ec63915c74f4d1bdec0e601ee968
       uri: huggingface://bartowski/Rombos-Coder-V2.5-Qwen-14b-GGUF/Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "qwen2.5-coder-32b-instruct-uncensored-i1"
+  urls:
+    - https://huggingface.co/thirdeyeai/Qwen2.5-Coder-32B-Instruct-Uncensored
+    - https://huggingface.co/mradermacher/Qwen2.5-Coder-32B-Instruct-Uncensored-i1-GGUF
+  description: |
+    The LLM model is based on sloshywings/Qwen2.5-Coder-32B-Instruct-Uncensored. It is a large language model with 32B parameters that has been fine-tuned on coding tasks and instructions.
+  overrides:
+    parameters:
+      model: Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
+      sha256: 86ac8efb86daf241792ac3d5d35b7da92c54901b4208a6f2829bd03d8f273c9c
+      uri: huggingface://mraWdermacher/Qwen2.5-Coder-32B-Instruct-Uncensored-i1-GGUF/Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
   icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
