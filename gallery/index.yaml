@@ -1554,6 +1554,23 @@
     - filename: Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
       sha256: 4cfffa4478191b3ac5f54b0e2c5c3f60883322cf705d74f9651715b70f3779f4
       uri: huggingface://mradermacher/Qwen2.5-3B-Smart-i1-GGUF/Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "steyrcannon-0.2-qwen2.5-72b"
+  urls:
+    - https://huggingface.co/KaraKaraWitch/SteyrCannon-0.2-Qwen2.5-72b
+    - https://huggingface.co/mradermacher/SteyrCannon-0.2-Qwen2.5-72b-GGUF
+  description: |
+    SteyrCannon-0.2 is an updated revision from the original SteyrCannon. This uses EVA-Qwen2.5-72B-v0.2. Nothing else has changed.This model was merged using the TIES merge method using EVA-UNIT-01/EVA-Qwen2.5-72B-v0.2 as a base.
+    The following models were included in the merge:
+        anthracite-org/magnum-v4-72b
+        EVA-UNIT-01/EVA-Qwen2.5-72B-v0.2
+  overrides:
+    parameters:
+      model: SteyrCannon-0.2-Qwen2.5-72b.Q4_K_M.gguf
+  files:
+    - filename: SteyrCannon-0.2-Qwen2.5-72b.Q4_K_M.gguf
+      sha256: b34c08b77ffd25ccb0ca50b167f2215e784689205c93a0903fa9435b6cc187f0
+      uri: huggingface://mradermacher/SteyrCannon-0.2-Qwen2.5-72b-GGUF/SteyrCannon-0.2-Qwen2.5-72b.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
