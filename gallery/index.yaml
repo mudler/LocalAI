@@ -3085,6 +3085,23 @@
     - filename: Dark-Chivalry_V1.0.i1-Q4_K_M.gguf
       sha256: 6659fad2ea7e40b862a02d683a4bcb9044704fc7f6d3f50cd54c9069860171cd
       uri: huggingface://mradermacher/Dark-Chivalry_V1.0-i1-GGUF/Dark-Chivalry_V1.0.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "tulu-3.1-8b-supernova-i1"
+  urls:
+    - https://huggingface.co/bunnycore/Tulu-3.1-8B-SuperNova
+    - https://huggingface.co/mradermacher/Tulu-3.1-8B-SuperNova-i1-GGUF
+  description: |
+    The following models were included in the merge:
+        meditsolutions/Llama-3.1-MedIT-SUN-8B
+        allenai/Llama-3.1-Tulu-3-8B
+        arcee-ai/Llama-3.1-SuperNova-Lite
+  overrides:
+    parameters:
+      model: Tulu-3.1-8B-SuperNova.i1-Q4_K_M.gguf
+  files:
+    - filename: Tulu-3.1-8B-SuperNova.i1-Q4_K_M.gguf
+      sha256: c6cc2e1a4c3d2338973ca0050af1cf4462b3f62838f62b4c8a204f2a74eeb01f
+      uri: huggingface://mradermacher/Tulu-3.1-8B-SuperNova-i1-GGUF/Tulu-3.1-8B-SuperNova.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
