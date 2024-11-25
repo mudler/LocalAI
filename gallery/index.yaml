@@ -3055,6 +3055,22 @@
     - filename: L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
       sha256: 4d90abaae59f39e8f04548151265dce3b9c913303e6755860f5d28dd5cfc2d86
       uri: huggingface://mradermacher/L3.1-Aspire-Heart-Matrix-8B-GGUF/L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "dark-chivalry_v1.0-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c1cc08453a7ef6c5fe657a/A9vNZXVnD3xFiZ7cMLOKy.png
+  urls:
+    - https://huggingface.co/Triangle104/Dark-Chivalry_V1.0
+    - https://huggingface.co/mradermacher/Dark-Chivalry_V1.0-i1-GGUF
+  description: |
+    The dark side of chivalry...
+    This model was merged using the TIES merge method using ValiantLabs/Llama3.1-8B-ShiningValiant2 as a base.
+  overrides:
+    parameters:
+      model: Dark-Chivalry_V1.0.i1-Q4_K_M.gguf
+  files:
+    - filename: Dark-Chivalry_V1.0.i1-Q4_K_M.gguf
+      sha256: 6659fad2ea7e40b862a02d683a4bcb9044704fc7f6d3f50cd54c9069860171cd
+      uri: huggingface://mradermacher/Dark-Chivalry_V1.0-i1-GGUF/Dark-Chivalry_V1.0.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
