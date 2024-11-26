@@ -170,6 +170,20 @@
     - filename: Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
       sha256: 7ef044e1fee206a039f56538f94332030e99ec63915c74f4d1bdec0e601ee968
       uri: huggingface://bartowski/Rombos-Coder-V2.5-Qwen-14b-GGUF/Rombos-Coder-V2.5-Qwen-14b-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "qwen2.5-coder-32b-instruct-uncensored-i1"
+  urls:
+    - https://huggingface.co/thirdeyeai/Qwen2.5-Coder-32B-Instruct-Uncensored
+    - https://huggingface.co/mradermacher/Qwen2.5-Coder-32B-Instruct-Uncensored-i1-GGUF
+  description: |
+    The LLM model is based on sloshywings/Qwen2.5-Coder-32B-Instruct-Uncensored. It is a large language model with 32B parameters that has been fine-tuned on coding tasks and instructions.
+  overrides:
+    parameters:
+      model: Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
+      sha256: 86ac8efb86daf241792ac3d5d35b7da92c54901b4208a6f2829bd03d8f273c9c
+      uri: huggingface://mraWdermacher/Qwen2.5-Coder-32B-Instruct-Uncensored-i1-GGUF/Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
   icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
@@ -1540,6 +1554,23 @@
     - filename: Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
       sha256: 4cfffa4478191b3ac5f54b0e2c5c3f60883322cf705d74f9651715b70f3779f4
       uri: huggingface://mradermacher/Qwen2.5-3B-Smart-i1-GGUF/Qwen2.5-3B-Smart.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "steyrcannon-0.2-qwen2.5-72b"
+  urls:
+    - https://huggingface.co/KaraKaraWitch/SteyrCannon-0.2-Qwen2.5-72b
+    - https://huggingface.co/mradermacher/SteyrCannon-0.2-Qwen2.5-72b-GGUF
+  description: |
+    SteyrCannon-0.2 is an updated revision from the original SteyrCannon. This uses EVA-Qwen2.5-72B-v0.2. Nothing else has changed.This model was merged using the TIES merge method using EVA-UNIT-01/EVA-Qwen2.5-72B-v0.2 as a base.
+    The following models were included in the merge:
+        anthracite-org/magnum-v4-72b
+        EVA-UNIT-01/EVA-Qwen2.5-72B-v0.2
+  overrides:
+    parameters:
+      model: SteyrCannon-0.2-Qwen2.5-72b.Q4_K_M.gguf
+  files:
+    - filename: SteyrCannon-0.2-Qwen2.5-72b.Q4_K_M.gguf
+      sha256: b34c08b77ffd25ccb0ca50b167f2215e784689205c93a0903fa9435b6cc187f0
+      uri: huggingface://mradermacher/SteyrCannon-0.2-Qwen2.5-72b-GGUF/SteyrCannon-0.2-Qwen2.5-72b.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3055,6 +3086,39 @@
     - filename: L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
       sha256: 4d90abaae59f39e8f04548151265dce3b9c913303e6755860f5d28dd5cfc2d86
       uri: huggingface://mradermacher/L3.1-Aspire-Heart-Matrix-8B-GGUF/L3.1-Aspire-Heart-Matrix-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "dark-chivalry_v1.0-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c1cc08453a7ef6c5fe657a/A9vNZXVnD3xFiZ7cMLOKy.png
+  urls:
+    - https://huggingface.co/Triangle104/Dark-Chivalry_V1.0
+    - https://huggingface.co/mradermacher/Dark-Chivalry_V1.0-i1-GGUF
+  description: |
+    The dark side of chivalry...
+    This model was merged using the TIES merge method using ValiantLabs/Llama3.1-8B-ShiningValiant2 as a base.
+  overrides:
+    parameters:
+      model: Dark-Chivalry_V1.0.i1-Q4_K_M.gguf
+  files:
+    - filename: Dark-Chivalry_V1.0.i1-Q4_K_M.gguf
+      sha256: 6659fad2ea7e40b862a02d683a4bcb9044704fc7f6d3f50cd54c9069860171cd
+      uri: huggingface://mradermacher/Dark-Chivalry_V1.0-i1-GGUF/Dark-Chivalry_V1.0.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "tulu-3.1-8b-supernova-i1"
+  urls:
+    - https://huggingface.co/bunnycore/Tulu-3.1-8B-SuperNova
+    - https://huggingface.co/mradermacher/Tulu-3.1-8B-SuperNova-i1-GGUF
+  description: |
+    The following models were included in the merge:
+        meditsolutions/Llama-3.1-MedIT-SUN-8B
+        allenai/Llama-3.1-Tulu-3-8B
+        arcee-ai/Llama-3.1-SuperNova-Lite
+  overrides:
+    parameters:
+      model: Tulu-3.1-8B-SuperNova.i1-Q4_K_M.gguf
+  files:
+    - filename: Tulu-3.1-8B-SuperNova.i1-Q4_K_M.gguf
+      sha256: c6cc2e1a4c3d2338973ca0050af1cf4462b3f62838f62b4c8a204f2a74eeb01f
+      uri: huggingface://mradermacher/Tulu-3.1-8B-SuperNova-i1-GGUF/Tulu-3.1-8B-SuperNova.i1-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
