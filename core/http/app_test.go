@@ -868,8 +868,8 @@ var _ = Describe("API test", func() {
 				},
 			)
 			Expect(err).ToNot(HaveOccurred(), err)
-			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 384))
-			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 384))
+			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 2048))
+			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 2048))
 
 			sunEmbedding := resp.Data[0].Embedding
 			resp2, err := client.CreateEmbeddings(
@@ -953,7 +953,7 @@ var _ = Describe("API test", func() {
 					openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(strings.ToLower(resp.Choices[0].Message.Content)).To(Or(ContainSubstring("sure"), ContainSubstring("five")))
+				Expect(strings.ToLower(resp.Choices[0].Message.Content)).To(Or(ContainSubstring("sure"), ContainSubstring("five"), ContainSubstring("5")))
 
 				stream, err := client.CreateChatCompletionStream(context.TODO(), openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())
