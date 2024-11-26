@@ -2165,6 +2165,20 @@
     - filename: Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
       sha256: 9eaa08a4872a26f56fe34b27a99f7bd0d22ee2b2d1c84cfcde2091b5f61af5fa
       uri: huggingface://mradermacher/Llama-3.1-Swallow-70B-v0.1-i1-GGUF/Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1_openscholar-8b"
+  urls:
+    - https://huggingface.co/OpenScholar/Llama-3.1_OpenScholar-8B
+    - https://huggingface.co/bartowski/Llama-3.1_OpenScholar-8B-GGUF
+  description: |
+    Llama-3.1_OpenScholar-8B is a fine-tuned 8B for scientific literature synthesis. The Llama-3.1_OpenScholar-8B us trained on the os-data dataset. Developed by: University of Washigton, Allen Institute for AI (AI2)
+  overrides:
+    parameters:
+      model: Llama-3.1_OpenScholar-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1_OpenScholar-8B-Q4_K_M.gguf
+      sha256: 54865fc86451959b495c494a51bb1806c8b62bf1415600f0da2966a8a1fe6c7d
+      uri: huggingface://bartowski/Llama-3.1_OpenScholar-8B-GGUF/Llama-3.1_OpenScholar-8B-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
