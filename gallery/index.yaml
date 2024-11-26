@@ -678,8 +678,8 @@
       model: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
   files:
     - filename: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
-      sha256: 0b1c10da004ffd61b860c9058265e9bdb7f53c7be8e87feece8896d680f5b8be
       uri: huggingface://QuantFactory/Llama-Sentient-3.2-3B-Instruct-GGUF/Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
+      sha256: 3f855ce0522bfdc39fc826162ba6d89f15cc3740c5207da10e70baa3348b7812
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -3496,7 +3496,7 @@
     - https://huggingface.co/AIDC-AI/Marco-o1
     - https://huggingface.co/QuantFactory/Marco-o1-GGUF
   description: |
-     Marco-o1 not only focuses on disciplines with standard answers, such as mathematics, physics, and coding—which are well-suited for reinforcement learning (RL)—but also places greater emphasis on open-ended resolutions. We aim to address the question: "Can the o1 model effectively generalize to broader domains where clear standards are absent and rewards are challenging to quantify?"
+    Marco-o1 not only focuses on disciplines with standard answers, such as mathematics, physics, and coding—which are well-suited for reinforcement learning (RL)—but also places greater emphasis on open-ended resolutions. We aim to address the question: "Can the o1 model effectively generalize to broader domains where clear standards are absent and rewards are challenging to quantify?"
   overrides:
     parameters:
       model: Marco-o1.Q4_K_M.gguf
