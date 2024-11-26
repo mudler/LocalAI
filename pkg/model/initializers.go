@@ -45,7 +45,6 @@ const (
 
 	LLamaCPPGRPC = "llama-cpp-grpc"
 
-	BertEmbeddingsBackend  = "bert-embeddings"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
 	TinyDreamBackend       = "tinydream"
@@ -154,8 +153,6 @@ func orderBackends(backends map[string][]string) ([]string, error) {
 	toTheEnd := []string{
 		// last has to be huggingface
 		LCHuggingFaceBackend,
-		// then bert embeddings
-		BertEmbeddingsBackend,
 	}
 
 	// create an ordered map
