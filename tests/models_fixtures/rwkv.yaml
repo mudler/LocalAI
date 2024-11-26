@@ -1,18 +1,23 @@
 name: rwkv_test
 parameters:
-  model: rwkv
+  model: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
   top_k: 80
   temperature: 0.9
-  max_tokens: 100
+  max_tokens: 4098
   top_p: 0.8
-context_size: 1024
-backend: "rwkv"
-cutwords:
-- "Bob:.*"
+context_size: 4098
+
 roles:
-  user: "Bob:"
-  system: "Alice:"
-  assistant: "Alice:"
+  user: "User: "
+  system: "System: "
+  assistant: "Assistant: "
+
+stopwords:
+- 'Assistant:'
+
 template:
-  completion: rwkv_completion
-  chat: rwkv_chat
+  chat: |
+    {{.Input}}
+    Assistant: 
+  completion: |
+    {{.Input}}

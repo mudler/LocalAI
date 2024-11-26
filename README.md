@@ -241,7 +241,6 @@ LocalAI couldn't have been built without the help of great software already avai
 - https://github.com/antimatter15/alpaca.cpp
 - https://github.com/EdVince/Stable-Diffusion-NCNN
 - https://github.com/ggerganov/whisper.cpp
-- https://github.com/saharNooby/rwkv.cpp
 - https://github.com/rhasspy/piper
 
 ## 🤗 Contributors

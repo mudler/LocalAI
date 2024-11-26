@@ -8,11 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=cce5a9007572c6e9fa522296b77571d2e5071357
-
-# go-rwkv version
-RWKV_REPO?=https://github.com/donomii/go-rwkv.cpp
-RWKV_VERSION?=661e7ae26d442f5cfebd2a0881b44e8c55949ec6
+CPPLLAMA_VERSION?=47f931c8f9a26c072d71224bc8013cc66ea9e445
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
@@ -209,7 +205,6 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
 ALL_GRPC_BACKENDS+=backend-assets/util/llama-cpp-rpc-server
-ALL_GRPC_BACKENDS+=backend-assets/grpc/rwkv
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=backend-assets/grpc/silero-vad
@@ -272,20 +267,6 @@ sources/go-piper:
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
 
-
-## RWKV
-sources/go-rwkv.cpp:
-	mkdir -p sources/go-rwkv.cpp
-	cd sources/go-rwkv.cpp && \
-	git init && \
-	git remote add origin $(RWKV_REPO) && \
-	git fetch origin && \
-	git checkout $(RWKV_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-rwkv.cpp/librwkv.a: sources/go-rwkv.cpp
-	cd sources/go-rwkv.cpp && cd rwkv.cpp &&	cmake . -DRWKV_BUILD_SHARED_LIBRARY=OFF &&	cmake --build . && 	cp librwkv.a ..
-
 ## stable diffusion
 sources/go-stable-diffusion:
 	mkdir -p sources/go-stable-diffusion
@@ -339,10 +320,9 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/go-piper sources/go-rwkv.cpp sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
+get-sources: sources/go-llama.cpp sources/go-piper sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
 
 replace:
-	$(GOCMD) mod edit -replace github.com/donomii/go-rwkv.cpp=$(CURDIR)/sources/go-rwkv.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(CURDIR)/sources/go-bert.cpp
@@ -352,7 +332,6 @@ replace:
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama.cpp
 
 dropreplace:
-	$(GOCMD) mod edit -dropreplace github.com/donomii/go-rwkv.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-bert.cpp
@@ -368,7 +347,6 @@ prepare-sources: get-sources replace
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
 	$(MAKE) -C sources/go-llama.cpp clean
-	$(MAKE) -C sources/go-rwkv.cpp clean
 	$(MAKE) -C sources/whisper.cpp clean
 	$(MAKE) -C sources/go-stable-diffusion clean
 	$(MAKE) -C sources/go-bert.cpp clean
@@ -477,8 +455,6 @@ test-models/testmodel.ggml:
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
-	wget -q https://huggingface.co/mudler/rwkv-4-raven-1.5B-ggml/resolve/main/RWKV-4-Raven-1B5-v11-Eng99%2525-Other1%2525-20230425-ctx4096_Q4_0.bin -O test-models/rwkv
-	wget -q https://raw.githubusercontent.com/saharNooby/rwkv.cpp/5eb8f09c146ea8124633ab041d9ea0b1f1db4459/rwkv/20B_tokenizer.json -O test-models/rwkv.tokenizer.json
 	cp tests/models_fixtures/* test-models
 
 prepare-test: grpcs
@@ -853,13 +829,6 @@ backend-assets/grpc/piper: sources/go-piper sources/go-piper/libpiper_binding.a 
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/piper
-endif
-
-backend-assets/grpc/rwkv: sources/go-rwkv.cpp sources/go-rwkv.cpp/librwkv.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-rwkv.cpp LIBRARY_PATH=$(CURDIR)/sources/go-rwkv.cpp \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/rwkv ./backend/go/llm/rwkv
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/rwkv
 endif
 
 backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stable-diffusion/libstablediffusion.a backend-assets/grpc

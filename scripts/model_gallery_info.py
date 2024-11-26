@@ -103,7 +103,10 @@ if __name__ == "__main__":
     if readmeFile:
         # If there is a README file, read it
         readme = fs.read_text(readmeFile)
-        summarized_readme = summarize(readme)
+        try:
+            summarized_readme = summarize(readme)
+        except Exception as e:
+            print(f"Error summarizing the README: {str(e)}", file=sys.stderr)            
         summarized_readme = format_description(summarized_readme)
 
     print("Model correctly processed")

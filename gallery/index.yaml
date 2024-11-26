@@ -1,4 +1,27 @@
 ---
+- &rwkv
+  url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
+  name: "rwkv-6-world-7b"
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/RWKV/rwkv-6-world-7b
+    - https://huggingface.co/bartowski/rwkv-6-world-7b-GGUF
+  tags:
+    - llm
+    - rwkv
+    - cpu
+    - gpu
+    - rnn
+  description: |
+    RWKV (pronounced RwaKuv) is an RNN with GPT-level LLM performance, and can also be directly trained like a GPT transformer (parallelizable). We are at RWKV-7.
+    So it's combining the best of RNN and transformer - great performance, fast inference, fast training, saves VRAM, "infinite" ctxlen, and free text embedding. Moreover it's 100% attention-free, and a Linux Foundation AI project.
+  overrides:
+    parameters:
+      model: rwkv-6-world-7b-Q4_K_M.gguf
+  files:
+    - filename: rwkv-6-world-7b-Q4_K_M.gguf
+      sha256: f74574186fa4584f405e92198605680db6ad00fd77974ffa14bf02073bb90273
+      uri: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
 - &qwen25coder
   name: "qwen2.5-coder-14b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -678,8 +701,8 @@
       model: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
   files:
     - filename: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
-      sha256: 0b1c10da004ffd61b860c9058265e9bdb7f53c7be8e87feece8896d680f5b8be
       uri: huggingface://QuantFactory/Llama-Sentient-3.2-3B-Instruct-GGUF/Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
+      sha256: 3f855ce0522bfdc39fc826162ba6d89f15cc3740c5207da10e70baa3348b7812
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -2165,6 +2188,20 @@
     - filename: Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
       sha256: 9eaa08a4872a26f56fe34b27a99f7bd0d22ee2b2d1c84cfcde2091b5f61af5fa
       uri: huggingface://mradermacher/Llama-3.1-Swallow-70B-v0.1-i1-GGUF/Llama-3.1-Swallow-70B-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1_openscholar-8b"
+  urls:
+    - https://huggingface.co/OpenScholar/Llama-3.1_OpenScholar-8B
+    - https://huggingface.co/bartowski/Llama-3.1_OpenScholar-8B-GGUF
+  description: |
+    Llama-3.1_OpenScholar-8B is a fine-tuned 8B for scientific literature synthesis. The Llama-3.1_OpenScholar-8B us trained on the os-data dataset. Developed by: University of Washigton, Allen Institute for AI (AI2)
+  overrides:
+    parameters:
+      model: Llama-3.1_OpenScholar-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1_OpenScholar-8B-Q4_K_M.gguf
+      sha256: 54865fc86451959b495c494a51bb1806c8b62bf1415600f0da2966a8a1fe6c7d
+      uri: huggingface://bartowski/Llama-3.1_OpenScholar-8B-GGUF/Llama-3.1_OpenScholar-8B-Q4_K_M.gguf
 ## Uncensored models
 - !!merge <<: *llama31
   name: "humanish-roleplay-llama-3.1-8b-i1"
@@ -3496,7 +3533,7 @@
     - https://huggingface.co/AIDC-AI/Marco-o1
     - https://huggingface.co/QuantFactory/Marco-o1-GGUF
   description: |
-     Marco-o1 not only focuses on disciplines with standard answers, such as mathematics, physics, and coding—which are well-suited for reinforcement learning (RL)—but also places greater emphasis on open-ended resolutions. We aim to address the question: "Can the o1 model effectively generalize to broader domains where clear standards are absent and rewards are challenging to quantify?"
+    Marco-o1 not only focuses on disciplines with standard answers, such as mathematics, physics, and coding—which are well-suited for reinforcement learning (RL)—but also places greater emphasis on open-ended resolutions. We aim to address the question: "Can the o1 model effectively generalize to broader domains where clear standards are absent and rewards are challenging to quantify?"
   overrides:
     parameters:
       model: Marco-o1.Q4_K_M.gguf

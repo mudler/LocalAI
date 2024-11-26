@@ -12,7 +12,6 @@ prepare-sources
 
 go-ggml-transformers
 go-gpt2
-go-rwkv
 whisper.cpp
 /bloomz
 go-bert

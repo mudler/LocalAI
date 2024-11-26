@@ -203,7 +203,7 @@ struct llama_client_slot
     std::string stopping_word;
 
     // sampling
-    struct common_sampler_params sparams;
+    struct common_params_sampling sparams;
     common_sampler *ctx_sampling = nullptr;
 
     int32_t ga_i = 0;   // group-attention state
@@ -662,7 +662,7 @@ struct llama_server_context
 
     bool launch_slot_with_data(llama_client_slot* &slot, json data) {
         slot_params default_params;
-        common_sampler_params default_sparams;
+        common_params_sampling default_sparams;
  
         slot->params.stream             = json_value(data, "stream",            false);
         slot->params.cache_prompt       = json_value(data, "cache_prompt",      false);
@@ -2299,6 +2299,7 @@ static void params_parse(const backend::ModelOptions* request,
     params.use_mmap = request->mmap();
     params.flash_attn = request->flashattention();
     params.no_kv_offload = request->nokvoffload();
+    params.ctx_shift = false; // We control context-shifting in any case (and we disable it as it could just lead to infinite loops)
 
     params.embedding = request->embeddings();
 
