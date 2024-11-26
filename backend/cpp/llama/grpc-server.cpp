@@ -2299,6 +2299,7 @@ static void params_parse(const backend::ModelOptions* request,
     params.use_mmap = request->mmap();
     params.flash_attn = request->flashattention();
     params.no_kv_offload = request->nokvoffload();
+    params.ctx_shift = false; // We control context-shifting in any case (and we disable it as it could just lead to infinite loops)
 
     params.embedding = request->embeddings();
 

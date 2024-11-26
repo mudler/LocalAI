@@ -15,7 +15,6 @@ require (
 	github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b
 	github.com/containerd/containerd v1.7.19
 	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2
-	github.com/donomii/go-rwkv.cpp v0.0.0-20240228065144-661e7ae26d44
 	github.com/elliotchance/orderedmap/v2 v2.2.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20240626202019-c118733a29ad

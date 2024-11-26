@@ -46,7 +46,6 @@ const (
 	LLamaCPPGRPC = "llama-cpp-grpc"
 
 	BertEmbeddingsBackend  = "bert-embeddings"
-	RwkvBackend            = "rwkv"
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
 	TinyDreamBackend       = "tinydream"
