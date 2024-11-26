@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-audio/wav"
 	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -229,7 +230,46 @@ var _ = Describe("E2E test", func() {
 				Expect(resp.Text).To(ContainSubstring("This is the"), fmt.Sprint(resp.Text))
 			})
 		})
+		Context("vad", func() {
+			It("correctly", func() {
+				modelName := "silero-vad"
+				// TODO: Not sure this file is really a great test of VAD, but using it for now.
+				downloadURL := "https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav"
+				file, err := downloadHttpFile(downloadURL)
+				Expect(err).ToNot(HaveOccurred())
+				fh, err := os.Open(file)
+				Expect(err).ToNot(HaveOccurred())
+				d := wav.NewDecoder(fh)
+				buf, err := d.FullPCMBuffer()
+				Expect(err).ToNot((HaveOccurred()))
+				fBuf := buf.AsFloat32Buffer().Data
+				req := schema.VADRequest{
+					BasicModelRequest: schema.BasicModelRequest{
+						Model: modelName,
+					},
+					Audio: fBuf,
+				}
+				serialized, err := json.Marshal(req)
+				Expect(err).To(BeNil())
+				Expect(serialized).ToNot(BeNil())
 
+				GinkgoWriter.Printf("VAD Request Body JSON: %q\n", string(serialized))
+
+				vadEndpoint := apiEndpoint + "/vad"
+				resp, err := http.Post(vadEndpoint, "application/json", bytes.NewReader(serialized))
+				Expect(err).To(BeNil())
+				Expect(resp).ToNot(BeNil())
+				body, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				GinkgoWriter.Printf("VAD Response Body JSON: %q\n", string(body))
+
+				deserializedResponse := schema.VADResponse{}
+				err = json.Unmarshal(body, &deserializedResponse)
+				Expect(err).To(BeNil())
+				Expect(deserializedResponse).ToNot(BeZero())
+				Expect(deserializedResponse.Segments).ToNot(BeZero())
+			})
+		})
 		Context("reranker", func() {
 			It("correctly", func() {
 				modelName := "jina-reranker-v1-base-en"

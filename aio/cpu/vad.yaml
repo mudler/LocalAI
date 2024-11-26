@@ -1,0 +1,4 @@
+backend: silero-vad
+name: silero-vad
+parameters:
+  model: silero-vad.onnx
