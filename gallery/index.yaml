@@ -1,4 +1,27 @@
 ---
+- &rwkv
+  url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
+  name: "rwkv-6-world-7b"
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/RWKV/rwkv-6-world-7b
+    - https://huggingface.co/bartowski/rwkv-6-world-7b-GGUF
+  tags:
+    - llm
+    - rwkv
+    - cpu
+    - gpu
+    - rnn
+  description: |
+    RWKV (pronounced RwaKuv) is an RNN with GPT-level LLM performance, and can also be directly trained like a GPT transformer (parallelizable). We are at RWKV-7.
+    So it's combining the best of RNN and transformer - great performance, fast inference, fast training, saves VRAM, "infinite" ctxlen, and free text embedding. Moreover it's 100% attention-free, and a Linux Foundation AI project.
+  overrides:
+    parameters:
+      model: rwkv-6-world-7b-Q4_K_M.gguf
+  files:
+    - filename: rwkv-6-world-7b-Q4_K_M.gguf
+      sha256: f74574186fa4584f405e92198605680db6ad00fd77974ffa14bf02073bb90273
+      uri: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
 - &qwen25coder
   name: "qwen2.5-coder-14b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
