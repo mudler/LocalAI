@@ -1,0 +1,8 @@
+---
+name: "silero-vad"
+
+config_file: |
+  name: vad
+  backend: silero-vad
+  parameters:
+    model: silero_vad.onnx
