@@ -30,9 +30,7 @@ else ifeq ($(OS),Darwin)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 	else
 		CMAKE_ARGS+=-DGGML_METAL=ON
-# Until this is tested properly, we disable embedded metal file
-# as we already embed it as part of the LocalAI assets
-		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=OFF
+		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
 		TARGET+=--target ggml-metal
 	endif
 endif
