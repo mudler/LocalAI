@@ -300,7 +300,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 ```bash
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "url": "github:mudler/LocalAI/gallery/bert-embeddings.yaml",
+     "id": "bert-embeddings",
      "name": "text-embedding-ada-002"
    }'  
 ```

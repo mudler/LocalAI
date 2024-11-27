@@ -380,6 +380,7 @@
   urls:
     - https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF
   overrides:
+    embeddings: true
     parameters:
       model: llama-3.2-1b-instruct-q4_k_m.gguf
   files:
@@ -1594,6 +1595,42 @@
     - filename: SteyrCannon-0.2-Qwen2.5-72b.Q4_K_M.gguf
       sha256: b34c08b77ffd25ccb0ca50b167f2215e784689205c93a0903fa9435b6cc187f0
       uri: huggingface://mradermacher/SteyrCannon-0.2-Qwen2.5-72b-GGUF/SteyrCannon-0.2-Qwen2.5-72b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "q2.5-ms-mistoria-72b-v2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/5LOvUFYiMMw6pcEsOhmo2.webp
+  urls:
+    - https://huggingface.co/Steelskull/Q2.5-MS-Mistoria-72b-v2
+    - https://huggingface.co/bartowski/Q2.5-MS-Mistoria-72b-v2-GGUF
+  description: |
+    This model is my second attempt at a 72b model, as usual, my goal is to merge the robust storytelling of mutiple models while attempting to maintain intelligence.
+    models:
+      - model: EVA-UNIT-01/EVA-Qwen2.5-72B-v0.2
+      - model: ZeusLabs/Chronos-Platinum-72B
+      - model: shuttleai/shuttle-3
+  overrides:
+    parameters:
+      model: Q2.5-MS-Mistoria-72b-v2-Q4_K_M.gguf
+  files:
+    - filename: Q2.5-MS-Mistoria-72b-v2-Q4_K_M.gguf
+      sha256: 33df8aac5a790d1c286fe0fc4f9d340311f282eca19b78db6f7abb845923425c
+      uri: huggingface://bartowski/Q2.5-MS-Mistoria-72b-v2-GGUF/Q2.5-MS-Mistoria-72b-v2-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "eva-qwen2.5-72b-v0.2"
+  urls:
+    - https://huggingface.co/EVA-UNIT-01/EVA-Qwen2.5-72B-v0.2
+    - https://huggingface.co/bartowski/EVA-Qwen2.5-72B-v0.2-GGUF
+  description: |
+    A RP/storywriting specialist model, full-parameter finetune of Qwen2.5-72B on mixture of synthetic and natural data.
+    It uses Celeste 70B 0.1 data mixture, greatly expanding it to improve versatility, creativity and "flavor" of the resulting model.
+
+    Version notes for 0.2: Optimized training hyperparameters and increased sequence length. Better instruction following deeper into context and less repetition.
+  overrides:
+    parameters:
+      model: EVA-Qwen2.5-72B-v0.2-Q4_K_M.gguf
+  files:
+    - filename: EVA-Qwen2.5-72B-v0.2-Q4_K_M.gguf
+      sha256: 03ea0ecac3ee24a332ca43cf925b669c58714b9754be0f4bc232bd996681ef4b
+      uri: huggingface://bartowski/EVA-Qwen2.5-72B-v0.2-GGUF/EVA-Qwen2.5-72B-v0.2-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3156,6 +3193,36 @@
     - filename: Tulu-3.1-8B-SuperNova.i1-Q4_K_M.gguf
       sha256: c6cc2e1a4c3d2338973ca0050af1cf4462b3f62838f62b4c8a204f2a74eeb01f
       uri: huggingface://mradermacher/Tulu-3.1-8B-SuperNova-i1-GGUF/Tulu-3.1-8B-SuperNova.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-tulu-3-70b-dpo"
+  icon: "https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu3/Tulu3-logo.png"
+  urls:
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3-70B-DPO
+    - https://huggingface.co/bartowski/Llama-3.1-Tulu-3-70B-DPO-GGUF
+  description: |
+    Tülu3 is a leading instruction following model family, offering fully open-source data, code, and recipes designed to serve as a comprehensive guide for modern post-training techniques. Tülu3 is designed for state-of-the-art performance on a diversity of tasks in addition to chat, such as MATH, GSM8K, and IFEval.
+  overrides:
+    parameters:
+      model: Llama-3.1-Tulu-3-70B-DPO-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Tulu-3-70B-DPO-Q4_K_M.gguf
+      sha256: e2d9c59736274f9dd94f30ef3edcee68fec1d6649eb01d6bad7e3e8a6024f77d
+      uri: huggingface://bartowski/Llama-3.1-Tulu-3-70B-DPO-GGUF/Llama-3.1-Tulu-3-70B-DPO-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-tulu-3-8b-sft"
+  icon: "https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu3/Tulu3-logo.png"
+  urls:
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B-SFT
+    - https://huggingface.co/bartowski/Llama-3.1-Tulu-3-8B-SFT-GGUF
+  description: |
+    Tülu3 is a leading instruction following model family, offering fully open-source data, code, and recipes designed to serve as a comprehensive guide for modern post-training techniques. Tülu3 is designed for state-of-the-art performance on a diversity of tasks in addition to chat, such as MATH, GSM8K, and IFEval.
+  overrides:
+    parameters:
+      model: Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
+      sha256: 3fad2c96aa9b9de19c2cda0f88a381c47ac768ca03a95059d9f6c439791f8592
+      uri: huggingface://bartowski/Llama-3.1-Tulu-3-8B-SFT-GGUF/Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -8732,16 +8799,13 @@
     - filename: "ggml-model-whisper-tiny.en-q8_0.bin"
       uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en-q8_0.bin"
       sha256: 5bc2b3860aa151a4c6e7bb095e1fcce7cf12c7b020ca08dcec0c6d018bb7dd94
-## Bert embeddings
-- url: "github:mudler/LocalAI/gallery/bert-embeddings.yaml@master"
+## Bert embeddings (llama3.2 drop-in)
+- !!merge <<: *llama32
   name: "bert-embeddings"
-  license: "Apache 2.0"
-  urls:
-    - https://huggingface.co/skeskinen/ggml
+  description: |
+      llama3.2 embeddings model. Using as drop-in replacement for bert-embeddings
   tags:
     - embeddings
-  description: |
-    Bert model that can be used for embeddings
 ## Stable Diffusion
 - url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
   license: "BSD-3"

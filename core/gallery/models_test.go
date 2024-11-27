@@ -12,6 +12,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
+
 var _ = Describe("Model test", func() {
 
 	Context("Downloading", func() {
@@ -47,7 +49,7 @@ var _ = Describe("Model test", func() {
 
 			gallery := []GalleryModel{{
 				Name: "bert",
-				URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+				URL:  bertEmbeddingsURL,
 			}}
 			out, err := yaml.Marshal(gallery)
 			Expect(err).ToNot(HaveOccurred())
@@ -66,7 +68,7 @@ var _ = Describe("Model test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models)).To(Equal(1))
 			Expect(models[0].Name).To(Equal("bert"))
-			Expect(models[0].URL).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml"))
+			Expect(models[0].URL).To(Equal(bertEmbeddingsURL))
 			Expect(models[0].Installed).To(BeFalse())
 
 			err = InstallModelFromGallery(galleries, "test@bert", tempdir, GalleryModel{}, func(s1, s2, s3 string, f float64) {}, true)
@@ -78,7 +80,7 @@ var _ = Describe("Model test", func() {
 			content := map[string]interface{}{}
 			err = yaml.Unmarshal(dat, &content)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(content["backend"]).To(Equal("bert-embeddings"))
+			Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 
 			models, err = AvailableGalleryModels(galleries, tempdir)
 			Expect(err).ToNot(HaveOccurred())
