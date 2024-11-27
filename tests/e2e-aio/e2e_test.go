@@ -243,7 +243,7 @@ var _ = Describe("E2E test", func() {
 				buf, err := d.FullPCMBuffer()
 				Expect(err).ToNot((HaveOccurred()))
 				fBuf := buf.AsFloat32Buffer().Data
-				fBuf = fBuf[:len(fBuf)/64] // Whole file is too long, attempting reduced length
+				fBuf = fBuf[:len(fBuf)/256] // Whole file is too long, attempting reduced length
 				req := schema.VADRequest{
 					BasicModelRequest: schema.BasicModelRequest{
 						Model: modelName,
@@ -260,10 +260,12 @@ var _ = Describe("E2E test", func() {
 				resp, err := http.Post(vadEndpoint, "application/json", bytes.NewReader(serialized))
 				Expect(err).To(BeNil())
 				Expect(resp).ToNot(BeNil())
+
 				body, err := io.ReadAll(resp.Body)
 				Expect(err).ToNot(HaveOccurred())
 				GinkgoWriter.Printf("VAD Response Body JSON: %q\n", string(body))
 
+				Expect(resp.StatusCode).To(Equal(200))
 				deserializedResponse := schema.VADResponse{}
 				err = json.Unmarshal(body, &deserializedResponse)
 				Expect(err).To(BeNil())
