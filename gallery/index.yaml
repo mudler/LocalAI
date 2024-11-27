@@ -1614,6 +1614,23 @@
     - filename: Q2.5-MS-Mistoria-72b-v2-Q4_K_M.gguf
       sha256: 33df8aac5a790d1c286fe0fc4f9d340311f282eca19b78db6f7abb845923425c
       uri: huggingface://bartowski/Q2.5-MS-Mistoria-72b-v2-GGUF/Q2.5-MS-Mistoria-72b-v2-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "eva-qwen2.5-72b-v0.2"
+  urls:
+    - https://huggingface.co/EVA-UNIT-01/EVA-Qwen2.5-72B-v0.2
+    - https://huggingface.co/bartowski/EVA-Qwen2.5-72B-v0.2-GGUF
+  description: |
+    A RP/storywriting specialist model, full-parameter finetune of Qwen2.5-72B on mixture of synthetic and natural data.
+    It uses Celeste 70B 0.1 data mixture, greatly expanding it to improve versatility, creativity and "flavor" of the resulting model.
+
+    Version notes for 0.2: Optimized training hyperparameters and increased sequence length. Better instruction following deeper into context and less repetition.
+  overrides:
+    parameters:
+      model: EVA-Qwen2.5-72B-v0.2-Q4_K_M.gguf
+  files:
+    - filename: EVA-Qwen2.5-72B-v0.2-Q4_K_M.gguf
+      sha256: 03ea0ecac3ee24a332ca43cf925b669c58714b9754be0f4bc232bd996681ef4b
+      uri: huggingface://bartowski/EVA-Qwen2.5-72B-v0.2-GGUF/EVA-Qwen2.5-72B-v0.2-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
