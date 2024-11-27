@@ -380,6 +380,7 @@
   urls:
     - https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF
   overrides:
+    embeddings: true
     parameters:
       model: llama-3.2-1b-instruct-q4_k_m.gguf
   files:
@@ -8732,16 +8733,13 @@
     - filename: "ggml-model-whisper-tiny.en-q8_0.bin"
       uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en-q8_0.bin"
       sha256: 5bc2b3860aa151a4c6e7bb095e1fcce7cf12c7b020ca08dcec0c6d018bb7dd94
-## Bert embeddings
-- url: "github:mudler/LocalAI/gallery/bert-embeddings.yaml@master"
+## Bert embeddings (llama3.2 drop-in)
+- !!merge <<: *llama32
   name: "bert-embeddings"
-  license: "Apache 2.0"
-  urls:
-    - https://huggingface.co/skeskinen/ggml
+  description: |
+      llama3.2 embeddings model. Using as drop-in replacement for bert-embeddings
   tags:
     - embeddings
-  description: |
-    Bert model that can be used for embeddings
 ## Stable Diffusion
 - url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
   license: "BSD-3"

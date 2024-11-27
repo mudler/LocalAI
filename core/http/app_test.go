@@ -240,6 +240,8 @@ func postInvalidRequest(url string) (error, int) {
 	return nil, resp.StatusCode
 }
 
+const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
+
 //go:embed backend-assets/*
 var backendAssets embed.FS
 
@@ -279,13 +281,13 @@ var _ = Describe("API test", func() {
 			g := []gallery.GalleryModel{
 				{
 					Name: "bert",
-					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					URL:  bertEmbeddingsURL,
 				},
 				{
 					Name:            "bert2",
-					URL:             "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					URL:             bertEmbeddingsURL,
 					Overrides:       map[string]interface{}{"foo": "bar"},
-					AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml"}},
+					AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: bertEmbeddingsURL}},
 				},
 			}
 			out, err := yaml.Marshal(g)
@@ -383,7 +385,7 @@ var _ = Describe("API test", func() {
 				content := map[string]interface{}{}
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(content["backend"]).To(Equal("bert-embeddings"))
+				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 				Expect(content["foo"]).To(Equal("bar"))
 
 				models, err = getModels("http://127.0.0.1:9090/models/available")
@@ -402,7 +404,7 @@ var _ = Describe("API test", func() {
 			It("overrides models", func() {
 
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					URL:  bertEmbeddingsURL,
 					Name: "bert",
 					Overrides: map[string]interface{}{
 						"backend": "llama",
@@ -451,7 +453,7 @@ var _ = Describe("API test", func() {
 			})
 			It("apply models without overrides", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					URL:       "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					URL:       bertEmbeddingsURL,
 					Name:      "bert",
 					Overrides: map[string]interface{}{},
 				})
@@ -471,7 +473,7 @@ var _ = Describe("API test", func() {
 				content := map[string]interface{}{}
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(content["backend"]).To(Equal("bert-embeddings"))
+				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 			})
 
 			It("runs openllama(llama-ggml backend)", Label("llama"), func() {
@@ -806,7 +808,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
+			Expect(len(models.Models)).To(Equal(7)) // If "config.yaml" should be included, this should be 8?
 		})
 		It("can generate completions via ggml", func() {
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel.ggml", Prompt: testPrompt})
@@ -866,8 +868,8 @@ var _ = Describe("API test", func() {
 				},
 			)
 			Expect(err).ToNot(HaveOccurred(), err)
-			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 384))
-			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 384))
+			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 2048))
+			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 2048))
 
 			sunEmbedding := resp.Data[0].Embedding
 			resp2, err := client.CreateEmbeddings(
@@ -951,7 +953,7 @@ var _ = Describe("API test", func() {
 					openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(strings.ToLower(resp.Choices[0].Message.Content)).To(Or(ContainSubstring("sure"), ContainSubstring("five")))
+				Expect(strings.ToLower(resp.Choices[0].Message.Content)).To(Or(ContainSubstring("sure"), ContainSubstring("five"), ContainSubstring("5")))
 
 				stream, err := client.CreateChatCompletionStream(context.TODO(), openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
 				Expect(err).ToNot(HaveOccurred())

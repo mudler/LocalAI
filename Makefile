@@ -14,10 +14,6 @@ CPPLLAMA_VERSION?=30ec39832165627dd6ed98938df63adfc6e6a21a
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
 WHISPER_CPP_VERSION?=6266a9f9e56a5b925e9892acf650f3eb1245814d
 
-# bert.cpp version
-BERT_REPO?=https://github.com/go-skynet/go-bert.cpp
-BERT_VERSION?=710044b124545415f555e4260d16b146c725a6e4
-
 # go-piper version
 PIPER_REPO?=https://github.com/mudler/go-piper
 PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
@@ -198,7 +194,6 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 endif
 
 ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
-ALL_GRPC_BACKENDS+=backend-assets/grpc/bert-embeddings
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
@@ -227,19 +222,6 @@ endif
 .PHONY: all test build vendor get-sources prepare-sources prepare
 
 all: help
-
-## BERT embeddings
-sources/go-bert.cpp:
-	mkdir -p sources/go-bert.cpp
-	cd sources/go-bert.cpp && \
-	git init && \
-	git remote add origin $(BERT_REPO) && \
-	git fetch origin && \
-	git checkout $(BERT_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-bert.cpp/libgobert.a: sources/go-bert.cpp
-	$(MAKE) -C sources/go-bert.cpp libgobert.a
 
 ## go-llama.cpp
 sources/go-llama.cpp:
@@ -320,12 +302,11 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/go-piper sources/whisper.cpp sources/go-bert.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
+get-sources: sources/go-llama.cpp sources/go-piper sources/whisper.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -replace github.com/go-skynet/go-bert.cpp=$(CURDIR)/sources/go-bert.cpp
 	$(GOCMD) mod edit -replace github.com/M0Rf30/go-tiny-dream=$(CURDIR)/sources/go-tiny-dream
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(CURDIR)/sources/go-piper
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
@@ -334,7 +315,6 @@ replace:
 dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-bert.cpp
 	$(GOCMD) mod edit -dropreplace github.com/M0Rf30/go-tiny-dream
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-stable-diffusion
@@ -349,7 +329,6 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C sources/go-llama.cpp clean
 	$(MAKE) -C sources/whisper.cpp clean
 	$(MAKE) -C sources/go-stable-diffusion clean
-	$(MAKE) -C sources/go-bert.cpp clean
 	$(MAKE) -C sources/go-piper clean
 	$(MAKE) -C sources/go-tiny-dream clean
 	$(MAKE) build
@@ -706,13 +685,6 @@ backend-assets/espeak-ng-data: sources/go-piper sources/go-piper/libpiper_bindin
 
 backend-assets/grpc: protogen-go replace
 	mkdir -p backend-assets/grpc
-
-backend-assets/grpc/bert-embeddings: sources/go-bert.cpp sources/go-bert.cpp/libgobert.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/sources/go-bert.cpp LIBRARY_PATH=$(CURDIR)/sources/go-bert.cpp \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bert-embeddings ./backend/go/llm/bert/
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/bert-embeddings
-endif
 
 backend-assets/grpc/huggingface: backend-assets/grpc
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/huggingface ./backend/go/llm/langchain/
