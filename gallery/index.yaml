@@ -3191,6 +3191,21 @@
     - filename: Llama-3.1-Tulu-3-70B-DPO-Q4_K_M.gguf
       sha256: e2d9c59736274f9dd94f30ef3edcee68fec1d6649eb01d6bad7e3e8a6024f77d
       uri: huggingface://bartowski/Llama-3.1-Tulu-3-70B-DPO-GGUF/Llama-3.1-Tulu-3-70B-DPO-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-tulu-3-8b-sft"
+  icon: "https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu3/Tulu3-logo.png"
+  urls:
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B-SFT
+    - https://huggingface.co/bartowski/Llama-3.1-Tulu-3-8B-SFT-GGUF
+  description: |
+    Tülu3 is a leading instruction following model family, offering fully open-source data, code, and recipes designed to serve as a comprehensive guide for modern post-training techniques. Tülu3 is designed for state-of-the-art performance on a diversity of tasks in addition to chat, such as MATH, GSM8K, and IFEval.
+  overrides:
+    parameters:
+      model: Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
+      sha256: 3fad2c96aa9b9de19c2cda0f88a381c47ac768ca03a95059d9f6c439791f8592
+      uri: huggingface://bartowski/Llama-3.1-Tulu-3-8B-SFT-GGUF/Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
