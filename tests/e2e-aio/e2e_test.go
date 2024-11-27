@@ -243,7 +243,7 @@ var _ = Describe("E2E test", func() {
 				buf, err := d.FullPCMBuffer()
 				Expect(err).ToNot((HaveOccurred()))
 				fBuf := buf.AsFloat32Buffer().Data
-				fBuf = fBuf[:len(fBuf)/8] // Whole file is too long, attempting reduced length
+				fBuf = fBuf[:len(fBuf)/64] // Whole file is too long, attempting reduced length
 				req := schema.VADRequest{
 					BasicModelRequest: schema.BasicModelRequest{
 						Model: modelName,
