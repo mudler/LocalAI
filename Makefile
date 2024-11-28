@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=30ec39832165627dd6ed98938df63adfc6e6a21a
+CPPLLAMA_VERSION?=3ad5451f3b75809e3033e4e577b9f60bcaf6676a
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
@@ -745,10 +745,6 @@ backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc backend/cpp/llama/ll
 	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
-# TODO: every binary should have its own folder instead, so can have different metal implementations
-ifeq ($(BUILD_TYPE),metal)
-	cp backend/cpp/llama-fallback/llama.cpp/build/bin/ggml-metal.metal backend-assets/grpc/
-endif
 
 backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-cuda
