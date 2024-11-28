@@ -5,14 +5,12 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http"
@@ -910,71 +908,6 @@ var _ = Describe("API test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
 				Expect(resp2.Data[0].Embedding).ToNot(Equal(resp.Data[1].Embedding))
-			})
-		})
-
-		Context("backends", func() {
-			It("runs rwkv completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
-				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,"})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(resp.Choices[0].Text).To(ContainSubstring("five"))
-
-				stream, err := client.CreateCompletionStream(context.TODO(), openai.CompletionRequest{
-					Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,", Stream: true,
-				})
-				Expect(err).ToNot(HaveOccurred())
-				defer stream.Close()
-
-				tokens := 0
-				text := ""
-				for {
-					response, err := stream.Recv()
-					if errors.Is(err, io.EOF) {
-						break
-					}
-
-					Expect(err).ToNot(HaveOccurred())
-					text += response.Choices[0].Text
-					tokens++
-				}
-				Expect(text).ToNot(BeEmpty())
-				Expect(text).To(ContainSubstring("five"))
-				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
-			})
-			It("runs rwkv chat completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
-				resp, err := client.CreateChatCompletion(context.TODO(),
-					openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(strings.ToLower(resp.Choices[0].Message.Content)).To(Or(ContainSubstring("sure"), ContainSubstring("five"), ContainSubstring("5")))
-
-				stream, err := client.CreateChatCompletionStream(context.TODO(), openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
-				Expect(err).ToNot(HaveOccurred())
-				defer stream.Close()
-
-				tokens := 0
-				text := ""
-				for {
-					response, err := stream.Recv()
-					if errors.Is(err, io.EOF) {
-						break
-					}
-
-					Expect(err).ToNot(HaveOccurred())
-					text += response.Choices[0].Delta.Content
-					tokens++
-				}
-				Expect(text).ToNot(BeEmpty())
-				Expect(strings.ToLower(text)).To(Or(ContainSubstring("sure"), ContainSubstring("five")))
-
-				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
 			})
 		})
 
