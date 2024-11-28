@@ -205,7 +205,13 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
 ALL_GRPC_BACKENDS+=backend-assets/util/llama-cpp-rpc-server
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
-ALL_GRPC_BACKENDS+=backend-assets/grpc/bark-cpp
+
+ifeq ($(ONNX_OS),linux)
+ifeq ($(ONNX_ARCH),x64)
+	ALL_GRPC_BACKENDS+=backend-assets/grpc/bark-cpp
+endif
+endif
+
 ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=backend-assets/grpc/silero-vad
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
