@@ -704,6 +704,31 @@
     - filename: Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
       uri: huggingface://QuantFactory/Llama-Sentient-3.2-3B-Instruct-GGUF/Llama-Sentient-3.2-3B-Instruct.Q4_K_M.gguf
       sha256: 3f855ce0522bfdc39fc826162ba6d89f15cc3740c5207da10e70baa3348b7812
+- !!merge <<: *llama32
+  name: "llama-smoltalk-3.2-1b-instruct"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-SmolTalk-3.2-1B-Instruct
+    - https://huggingface.co/mradermacher/Llama-SmolTalk-3.2-1B-Instruct-GGUF
+  description: |
+    The Llama-SmolTalk-3.2-1B-Instruct model is a lightweight, instruction-tuned model designed for efficient text generation and conversational AI tasks. With a 1B parameter architecture, this model strikes a balance between performance and resource efficiency, making it ideal for applications requiring concise, contextually relevant outputs. The model has been fine-tuned to deliver robust instruction-following capabilities, catering to both structured and open-ended queries.
+    Key Features:
+
+        Instruction-Tuned Performance: Optimized to understand and execute user-provided instructions across diverse domains.
+        Lightweight Architecture: With just 1 billion parameters, the model provides efficient computation and storage without compromising output quality.
+        Versatile Use Cases: Suitable for tasks like content generation, conversational interfaces, and basic problem-solving.
+
+    Intended Applications:
+
+        Conversational AI: Engage users with dynamic and contextually aware dialogue.
+        Content Generation: Produce summaries, explanations, or other creative text outputs efficiently.
+        Instruction Execution: Follow user commands to generate precise and relevant responses.
+  overrides:
+    parameters:
+      model: Llama-SmolTalk-3.2-1B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Llama-SmolTalk-3.2-1B-Instruct.Q4_K_M.gguf
+      sha256: 03d8d05e3821f4caa65defa82baaff658484d4405b66546431528153ceef4d9e
+      uri: huggingface://mradermacher/Llama-SmolTalk-3.2-1B-Instruct-GGUF/Llama-SmolTalk-3.2-1B-Instruct.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
