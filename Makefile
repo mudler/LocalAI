@@ -745,10 +745,6 @@ backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc backend/cpp/llama/ll
 	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
-# TODO: every binary should have its own folder instead, so can have different metal implementations
-ifeq ($(BUILD_TYPE),metal)
-	cp backend/cpp/llama-fallback/llama.cpp/build/bin/ggml-metal.metal backend-assets/grpc/
-endif
 
 backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-cuda
