@@ -1631,6 +1631,25 @@
     - filename: EVA-Qwen2.5-72B-v0.2-Q4_K_M.gguf
       sha256: 03ea0ecac3ee24a332ca43cf925b669c58714b9754be0f4bc232bd996681ef4b
       uri: huggingface://bartowski/EVA-Qwen2.5-72B-v0.2-GGUF/EVA-Qwen2.5-72B-v0.2-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwq-32b-preview"
+  urls:
+    - https://huggingface.co/Qwen/QwQ-32B-Preview
+    - https://huggingface.co/bartowski/QwQ-32B-Preview-GGUF
+  description: |
+    QwQ-32B-Preview is an experimental research model developed by the Qwen Team, focused on advancing AI reasoning capabilities. As a preview release, it demonstrates promising analytical abilities while having several important limitations:
+
+    Language Mixing and Code-Switching: The model may mix languages or switch between them unexpectedly, affecting response clarity.
+    Recursive Reasoning Loops: The model may enter circular reasoning patterns, leading to lengthy responses without a conclusive answer.
+    Safety and Ethical Considerations: The model requires enhanced safety measures to ensure reliable and secure performance, and users should exercise caution when deploying it.
+    Performance and Benchmark Limitations: The model excels in math and coding but has room for improvement in other areas, such as common sense reasoning and nuanced language understanding.
+  overrides:
+    parameters:
+      model: QwQ-32B-Preview-Q4_K_M.gguf
+  files:
+    - filename: QwQ-32B-Preview-Q4_K_M.gguf
+      sha256: c499801e682e2379528090c50e106837ca1d69dc3bf3ff3a9af830a0eb49cdf6
+      uri: huggingface://bartowski/QwQ-32B-Preview-GGUF/QwQ-32B-Preview-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
