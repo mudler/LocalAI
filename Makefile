@@ -30,7 +30,7 @@ TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
 BARKCPP_REPO?=https://github.com/PABannier/bark.cpp.git
 BARKCPP_VERSION?=v1.0.0
 
-# bark.cpp
+# stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
 STABLEDIFFUSION_GGML_VERSION?=4570715727f35e5a07a76796d823824c8f42206c
 
