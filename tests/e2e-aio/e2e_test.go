@@ -233,17 +233,17 @@ var _ = Describe("E2E test", func() {
 		Context("vad", func() {
 			It("correctly", func() {
 				modelName := "silero-vad"
-				// TODO: Not sure this file is really a great test of VAD, but using it for now.
-				downloadURL := "https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav"
+				downloadURL := "https://github.com/streamer45/silero-vad-go/raw/refs/heads/master/testfiles/samples.pcm"
 				file, err := downloadHttpFile(downloadURL)
 				Expect(err).ToNot(HaveOccurred())
 				fh, err := os.Open(file)
 				Expect(err).ToNot(HaveOccurred())
 				d := wav.NewDecoder(fh)
 				buf, err := d.FullPCMBuffer()
+				d.SampleRate = 16000 // TODO: not currently configurable in VAD, seems like a bug? Fix in next PR
 				Expect(err).ToNot((HaveOccurred()))
 				fBuf := buf.AsFloat32Buffer().Data
-				fBuf = fBuf[len(fBuf)/256 : len(fBuf)/128] // Whole file is too long, attempting reduced length
+				//fBuf = fBuf[len(fBuf)/256 : len(fBuf)/128] // Whole file is too long, attempting reduced length
 				req := schema.VADRequest{
 					BasicModelRequest: schema.BasicModelRequest{
 						Model: modelName,
