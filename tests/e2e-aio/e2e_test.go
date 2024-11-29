@@ -241,7 +241,7 @@ var _ = Describe("E2E test", func() {
 				d := wav.NewDecoder(fh)
 				// d.SampleRate = 16000 // TODO: not currently configurable in VAD, seems like a bug? Fix in next PR
 				buf, err := d.FullPCMBuffer()
-				Expect(err).ToNot((HaveOccurred()))
+				Expect(err).ToNot((HaveOccurred()), err.Error())
 				fBuf := buf.AsFloat32Buffer().Data
 				// fBuf = fBuf[len(fBuf)/256 : len(fBuf)/128] // Whole file is too long, attempting reduced length
 				req := schema.VADRequest{
