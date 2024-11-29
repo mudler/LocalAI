@@ -239,7 +239,7 @@ var _ = Describe("E2E test", func() {
 				fh, err := os.Open(file)
 				Expect(err).ToNot(HaveOccurred())
 				d := wav.NewDecoder(fh)
-				d.SampleRate = 16000 // TODO: not currently configurable in VAD, seems like a bug? Fix in next PR
+				// d.SampleRate = 16000 // TODO: not currently configurable in VAD, seems like a bug? Fix in next PR
 				buf, err := d.FullPCMBuffer()
 				Expect(err).ToNot((HaveOccurred()))
 				fBuf := buf.AsFloat32Buffer().Data
