@@ -31,7 +31,7 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 
 	ret := C.load_model(modelFile, schedulerType, C.int(opts.Threads))
 	if ret != 0 {
-		return fmt.Errorf("inference failed")
+		return fmt.Errorf("could not load model")
 	}
 
 	return nil

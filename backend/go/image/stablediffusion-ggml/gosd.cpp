@@ -181,6 +181,7 @@ void print_params(SDParams params) {
  sd_ctx_t* sd_c;
 
 int load_model(char *model, char *schedule_selected, int threads) {
+    fprintf (stderr, "Loading model!\n");
 
     int schedule_found            = -1;
     for (int d = 0; d < N_SCHEDULES; d++) {
@@ -189,9 +190,11 @@ int load_model(char *model, char *schedule_selected, int threads) {
         }
     }
     if (schedule_found == -1) {
-        printf("invalid scheduler\n");
-        return 1;
+        fprintf (stderr, "Invalid scheduler! using DEFAULT\n");
+        schedule_found = DEFAULT;
     }
+
+
     schedule_t schedule = (schedule_t)schedule_found;
 
     sd_ctx_t* sd_ctx = new_sd_ctx(model,
@@ -218,7 +221,7 @@ int load_model(char *model, char *schedule_selected, int threads) {
                                   false);
 
     if (sd_ctx == NULL) {
-        printf("new_sd_ctx_t failed\n");
+        fprintf (stderr, "Null context!\n");
         return 1;
     }
 
@@ -239,7 +242,8 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
         }
     }
     if (sample_method_found == -1) {
-        printf("generate failed\n");
+        fprintf(stderr, "Invalid sample method, default to EULER_A!\n");
+        sample_method_found = EULER_A;
         return 1;
     }
     sample_method_t sample_method = (sample_method_t)sample_method_found;
