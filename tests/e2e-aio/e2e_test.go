@@ -233,7 +233,7 @@ var _ = Describe("E2E test", func() {
 		Context("vad", func() {
 			It("correctly", func() {
 				modelName := "silero-vad"
-				downloadURL := "https://models.silero.ai/vad_models/en.wav"
+				downloadURL := "https://github.com/marsbroshok/VAD-python/raw/refs/heads/master/wav-sample.wav"
 				file, err := downloadHttpFile(downloadURL)
 				Expect(err).ToNot(HaveOccurred())
 				fh, err := os.Open(file)
