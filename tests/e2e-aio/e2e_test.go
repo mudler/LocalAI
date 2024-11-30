@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-audio/wav"
 	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
