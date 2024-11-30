@@ -7456,6 +7456,27 @@
     - filename: LLAMA-3_8B_Unaligned_BETA-Q4_K_M.gguf
       sha256: 5b88fb4537339996c04e4a1b6ef6a2d555c4103b6378e273ae9c6c5e77af67eb
       uri: huggingface://bartowski/LLAMA-3_8B_Unaligned_BETA-GGUF/LLAMA-3_8B_Unaligned_BETA-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "freyja-v4.95-maldv-7b-non-fiction-i1"
+  urls:
+    - https://huggingface.co/MrRobotoAI/Freyja-v4.95-maldv-7b-NON-FICTION
+    - https://huggingface.co/mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF
+  description: |
+    This model was merged using the Model Stock merge method using aifeifei798/llama3-8B-DarkIdol-2.2-Uncensored-1048K as a base.
+    The following models were included in the merge:
+        maldv/llama-3-fantasy-writer-8b
+        maldv/badger-iota-llama-3-8b
+        maldv/badger-lambda-llama-3-8b
+        maldv/badger-mu-llama-3-8b
+        maldv/badger-kappa-llama-3-8b
+        maldv/badger-writer-llama-3-8b
+  overrides:
+    parameters:
+      model: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
+  files:
+    - filename: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
+      sha256: cdc0f4de6df2ba120835fbd25c2a0ae2af8548f46d2c40c7a018c51c3d19e0c0
+      uri: huggingface://mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF/Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
