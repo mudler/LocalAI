@@ -1691,6 +1691,25 @@
     - filename: Q2.5-32B-Slush.i1-Q4_K_M.gguf
       sha256: 95aecaf43077dabc72d3b556923ede2563325e1c89863800229cfa8b7f1c9659
       uri: huggingface://mradermacher/Q2.5-32B-Slush-i1-GGUF/Q2.5-32B-Slush.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwestion-24b"
+  urls:
+    - https://huggingface.co/CultriX/Qwestion-14B
+    - https://huggingface.co/mradermacher/Qwestion-24B-GGUF
+  description: |
+    This model was merged using the DARE TIES merge method using Qwen/Qwen2.5-14B as a base.
+    The following models were included in the merge:
+    allknowingroger/Qwenslerp2-14B
+    rombodawg/Rombos-LLM-V2.6-Qwen-14b
+    VAGOsolutions/SauerkrautLM-v2-14b-DPO
+    CultriX/Qwen2.5-14B-Wernicke
+  overrides:
+    parameters:
+      model: Qwestion-24B.Q4_K_M.gguf
+  files:
+    - filename: Qwestion-24B.Q4_K_M.gguf
+      sha256: 5d493bd81cfeef66d80101260145ab1d1d0428ef2191edce62b58391bd0fff0e
+      uri: huggingface://mradermacher/Qwestion-24B-GGUF/Qwestion-24B.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
