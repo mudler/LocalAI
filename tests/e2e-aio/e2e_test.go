@@ -233,22 +233,22 @@ var _ = Describe("E2E test", func() {
 		Context("vad", func() {
 			It("correctly", func() {
 				modelName := "silero-vad"
-				downloadURL := "https://github.com/marsbroshok/VAD-python/raw/refs/heads/master/wav-sample.wav"
-				file, err := downloadHttpFile(downloadURL)
-				Expect(err).ToNot(HaveOccurred())
-				fh, err := os.Open(file)
-				Expect(err).ToNot(HaveOccurred())
-				d := wav.NewDecoder(fh)
-				// d.SampleRate = 16000 // TODO: not currently configurable in VAD, seems like a bug? Fix in next PR
-				buf, err := d.FullPCMBuffer()
-				Expect(err).ToNot((HaveOccurred()), err.Error())
-				fBuf := buf.AsFloat32Buffer().Data
+				// downloadURL := "https://models.silero.ai/vad_models/en.wav"
+				// file, err := downloadHttpFile(downloadURL)
+				// Expect(err).ToNot(HaveOccurred())
+				// fh, err := os.Open(file)
+				// Expect(err).ToNot(HaveOccurred())
+				// d := wav.NewDecoder(fh)
+				// // d.SampleRate = 16000 // TODO: not currently configurable in VAD, seems like a bug? Fix in next PR
+				// buf, err := d.FullPCMBuffer()
+				// Expect(err).ToNot((HaveOccurred()), err.Error())
+				// fBuf := buf.AsFloat32Buffer().Data
 				// fBuf = fBuf[len(fBuf)/256 : len(fBuf)/128] // Whole file is too long, attempting reduced length
 				req := schema.VADRequest{
 					BasicModelRequest: schema.BasicModelRequest{
 						Model: modelName,
 					},
-					Audio: fBuf,
+					Audio: SampleVADAudio,
 				}
 				serialized, err := json.Marshal(req)
 				Expect(err).To(BeNil())
