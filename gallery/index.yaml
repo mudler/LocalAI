@@ -1675,6 +1675,41 @@
     - filename: QwQ-32B-Preview-Q4_K_M.gguf
       sha256: c499801e682e2379528090c50e106837ca1d69dc3bf3ff3a9af830a0eb49cdf6
       uri: huggingface://bartowski/QwQ-32B-Preview-GGUF/QwQ-32B-Preview-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "q2.5-32b-slush-i1"
+  urls:
+    - https://huggingface.co/crestf411/Q2.5-32B-Slush
+    - https://huggingface.co/mradermacher/Q2.5-32B-Slush-i1-GGUF
+  description: |
+    Slush is a two-stage model trained with high LoRA dropout, where stage 1 is a pretraining continuation on the base model, aimed at boosting the model's creativity and writing capabilities. This is then merged into the instruction tune model, and stage 2 is a fine tuning step on top of this to further enhance its roleplaying capabilities and/or to repair any damage caused in the stage 1 merge.
+    This is still early stage. As always, feedback is welcome, and begone if you demand perfection.
+    The second stage, like the Sunfall series, follows the Silly Tavern preset (ChatML), so ymmv in particular if you use some other tool and/or preset.
+  overrides:
+    parameters:
+      model: Q2.5-32B-Slush.i1-Q4_K_M.gguf
+  files:
+    - filename: Q2.5-32B-Slush.i1-Q4_K_M.gguf
+      sha256: 95aecaf43077dabc72d3b556923ede2563325e1c89863800229cfa8b7f1c9659
+      uri: huggingface://mradermacher/Q2.5-32B-Slush-i1-GGUF/Q2.5-32B-Slush.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwestion-24b"
+  urls:
+    - https://huggingface.co/CultriX/Qwestion-14B
+    - https://huggingface.co/mradermacher/Qwestion-24B-GGUF
+  description: |
+    This model was merged using the DARE TIES merge method using Qwen/Qwen2.5-14B as a base.
+    The following models were included in the merge:
+    allknowingroger/Qwenslerp2-14B
+    rombodawg/Rombos-LLM-V2.6-Qwen-14b
+    VAGOsolutions/SauerkrautLM-v2-14b-DPO
+    CultriX/Qwen2.5-14B-Wernicke
+  overrides:
+    parameters:
+      model: Qwestion-24B.Q4_K_M.gguf
+  files:
+    - filename: Qwestion-24B.Q4_K_M.gguf
+      sha256: 5d493bd81cfeef66d80101260145ab1d1d0428ef2191edce62b58391bd0fff0e
+      uri: huggingface://mradermacher/Qwestion-24B-GGUF/Qwestion-24B.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -7440,6 +7475,27 @@
     - filename: LLAMA-3_8B_Unaligned_BETA-Q4_K_M.gguf
       sha256: 5b88fb4537339996c04e4a1b6ef6a2d555c4103b6378e273ae9c6c5e77af67eb
       uri: huggingface://bartowski/LLAMA-3_8B_Unaligned_BETA-GGUF/LLAMA-3_8B_Unaligned_BETA-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "freyja-v4.95-maldv-7b-non-fiction-i1"
+  urls:
+    - https://huggingface.co/MrRobotoAI/Freyja-v4.95-maldv-7b-NON-FICTION
+    - https://huggingface.co/mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF
+  description: |
+    This model was merged using the Model Stock merge method using aifeifei798/llama3-8B-DarkIdol-2.2-Uncensored-1048K as a base.
+    The following models were included in the merge:
+        maldv/llama-3-fantasy-writer-8b
+        maldv/badger-iota-llama-3-8b
+        maldv/badger-lambda-llama-3-8b
+        maldv/badger-mu-llama-3-8b
+        maldv/badger-kappa-llama-3-8b
+        maldv/badger-writer-llama-3-8b
+  overrides:
+    parameters:
+      model: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
+  files:
+    - filename: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
+      sha256: cdc0f4de6df2ba120835fbd25c2a0ae2af8548f46d2c40c7a018c51c3d19e0c0
+      uri: huggingface://mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF/Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
 - &chatml
   ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
