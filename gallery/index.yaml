@@ -4850,6 +4850,23 @@
     - filename: G2-9B-Sugarquill-v0.Q4_K_M.gguf
       sha256: 790a2f1541011b2773e22aa863ef78c8662baaa7eca5875e9573007985120187
       uri: huggingface://QuantFactory/G2-9B-Sugarquill-v0-GGUF/G2-9B-Sugarquill-v0.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "volare-i1"
+  urls:
+    - https://huggingface.co/MoxoffSpA/Volare
+    - https://huggingface.co/mradermacher/Volare-i1-GGUF
+  description: |
+    Volare is an updated version of Gemma7B, specifically fine-tuned with SFT and LoRA adjustments.
+        It's trained on publicly available datasets, like SQUAD-it, and datasets we've created in-house.
+        it's designed to understand and maintain context, making it ideal for Retrieval Augmented Generation (RAG) tasks and applications requiring contextual awareness.
+    Italian dataset.
+  overrides:
+    parameters:
+      model: Volare.i1-Q4_K_M.gguf
+  files:
+    - filename: Volare.i1-Q4_K_M.gguf
+      sha256: fa8fb9d4cb19fcb44be8d53561c9e2840f45aed738de545983ebb158ebba461b
+      uri: huggingface://mradermacher/Volare-i1-GGUF/Volare.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
