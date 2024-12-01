@@ -3302,6 +3302,29 @@
     - filename: Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
       sha256: 3fad2c96aa9b9de19c2cda0f88a381c47ac768ca03a95059d9f6c439791f8592
       uri: huggingface://bartowski/Llama-3.1-Tulu-3-8B-SFT-GGUF/Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://huggingface.co/Skywork/Skywork-o1-Open-Llama-3.1-8B/resolve/main/misc/misc_fig.jpg
+  name: "skywork-o1-open-llama-3.1-8b"
+  urls:
+    - https://huggingface.co/Skywork/Skywork-o1-Open-Llama-3.1-8B
+    - https://huggingface.co/QuantFactory/Skywork-o1-Open-Llama-3.1-8B-GGUF
+  description: |
+    We are excited to announce the release of the Skywork o1 Open model series, developed by the Skywork team at Kunlun Inc. This groundbreaking release introduces a series of models that incorporate o1-like slow thinking and reasoning capabilities. The Skywork o1 Open model series includes three advanced models:
+
+    Skywork o1 Open-Llama-3.1-8B: A robust chat model trained on Llama-3.1-8B, enhanced significantly with "o1-style" data to improve reasoning skills.
+
+    Skywork o1 Open-PRM-Qwen-2.5-1.5B: A specialized model designed to enhance reasoning capability through incremental process rewards, ideal for complex problem solving at a smaller scale.
+
+    Skywork o1 Open-PRM-Qwen-2.5-7B: Extends the capabilities of the 1.5B model by scaling up to handle more demanding reasoning tasks, pushing the boundaries of AI reasoning.
+
+    Different from mere reproductions of the OpenAI o1 model, the Skywork o1 Open model series not only exhibits innate thinking, planning, and reflecting capabilities in its outputs, but also shows significant improvements in reasoning skills on standard benchmarks. This series represents a strategic advancement in AI capabilities, moving a previously weaker base model towards the state-of-the-art (SOTA) in reasoning tasks.
+  overrides:
+    parameters:
+      model: Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
+  files:
+    - filename: Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
+      sha256: ef6a203ba585aab14f5d2ec463917a45b3ac571abd89c39e9a96a5e395ea8eea
+      uri: huggingface://QuantFactory/Skywork-o1-Open-Llama-3.1-8B-GGUF/Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
