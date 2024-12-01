@@ -1710,6 +1710,21 @@
     - filename: Qwestion-24B.Q4_K_M.gguf
       sha256: 5d493bd81cfeef66d80101260145ab1d1d0428ef2191edce62b58391bd0fff0e
       uri: huggingface://mradermacher/Qwestion-24B-GGUF/Qwestion-24B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "teleut-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/UqIi8eztdptvt52Mak_1K.png
+  urls:
+    - https://huggingface.co/allura-org/Teleut-7b
+    - https://huggingface.co/QuantFactory/Teleut-7b-GGUF
+  description: |
+    A replication attempt of Tulu 3 on the Qwen 2.5 base models.
+  overrides:
+    parameters:
+      model: Teleut-7b.Q4_K_M.gguf
+  files:
+    - filename: Teleut-7b.Q4_K_M.gguf
+      sha256: 844a633ea01d793c638e99f2e07413606b3812b759e9264fbaf69c8d94eaa093
+      uri: huggingface://QuantFactory/Teleut-7b-GGUF/Teleut-7b.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
