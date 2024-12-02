@@ -1710,6 +1710,21 @@
     - filename: Qwestion-24B.Q4_K_M.gguf
       sha256: 5d493bd81cfeef66d80101260145ab1d1d0428ef2191edce62b58391bd0fff0e
       uri: huggingface://mradermacher/Qwestion-24B-GGUF/Qwestion-24B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "teleut-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/UqIi8eztdptvt52Mak_1K.png
+  urls:
+    - https://huggingface.co/allura-org/Teleut-7b
+    - https://huggingface.co/QuantFactory/Teleut-7b-GGUF
+  description: |
+    A replication attempt of Tulu 3 on the Qwen 2.5 base models.
+  overrides:
+    parameters:
+      model: Teleut-7b.Q4_K_M.gguf
+  files:
+    - filename: Teleut-7b.Q4_K_M.gguf
+      sha256: 844a633ea01d793c638e99f2e07413606b3812b759e9264fbaf69c8d94eaa093
+      uri: huggingface://QuantFactory/Teleut-7b-GGUF/Teleut-7b.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3302,6 +3317,29 @@
     - filename: Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
       sha256: 3fad2c96aa9b9de19c2cda0f88a381c47ac768ca03a95059d9f6c439791f8592
       uri: huggingface://bartowski/Llama-3.1-Tulu-3-8B-SFT-GGUF/Llama-3.1-Tulu-3-8B-SFT-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://huggingface.co/Skywork/Skywork-o1-Open-Llama-3.1-8B/resolve/main/misc/misc_fig.jpg
+  name: "skywork-o1-open-llama-3.1-8b"
+  urls:
+    - https://huggingface.co/Skywork/Skywork-o1-Open-Llama-3.1-8B
+    - https://huggingface.co/QuantFactory/Skywork-o1-Open-Llama-3.1-8B-GGUF
+  description: |
+    We are excited to announce the release of the Skywork o1 Open model series, developed by the Skywork team at Kunlun Inc. This groundbreaking release introduces a series of models that incorporate o1-like slow thinking and reasoning capabilities. The Skywork o1 Open model series includes three advanced models:
+
+    Skywork o1 Open-Llama-3.1-8B: A robust chat model trained on Llama-3.1-8B, enhanced significantly with "o1-style" data to improve reasoning skills.
+
+    Skywork o1 Open-PRM-Qwen-2.5-1.5B: A specialized model designed to enhance reasoning capability through incremental process rewards, ideal for complex problem solving at a smaller scale.
+
+    Skywork o1 Open-PRM-Qwen-2.5-7B: Extends the capabilities of the 1.5B model by scaling up to handle more demanding reasoning tasks, pushing the boundaries of AI reasoning.
+
+    Different from mere reproductions of the OpenAI o1 model, the Skywork o1 Open model series not only exhibits innate thinking, planning, and reflecting capabilities in its outputs, but also shows significant improvements in reasoning skills on standard benchmarks. This series represents a strategic advancement in AI capabilities, moving a previously weaker base model towards the state-of-the-art (SOTA) in reasoning tasks.
+  overrides:
+    parameters:
+      model: Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
+  files:
+    - filename: Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
+      sha256: ef6a203ba585aab14f5d2ec463917a45b3ac571abd89c39e9a96a5e395ea8eea
+      uri: huggingface://QuantFactory/Skywork-o1-Open-Llama-3.1-8B-GGUF/Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -4850,6 +4888,23 @@
     - filename: G2-9B-Sugarquill-v0.Q4_K_M.gguf
       sha256: 790a2f1541011b2773e22aa863ef78c8662baaa7eca5875e9573007985120187
       uri: huggingface://QuantFactory/G2-9B-Sugarquill-v0-GGUF/G2-9B-Sugarquill-v0.Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "volare-i1"
+  urls:
+    - https://huggingface.co/MoxoffSpA/Volare
+    - https://huggingface.co/mradermacher/Volare-i1-GGUF
+  description: |
+    Volare is an updated version of Gemma7B, specifically fine-tuned with SFT and LoRA adjustments.
+        It's trained on publicly available datasets, like SQUAD-it, and datasets we've created in-house.
+        it's designed to understand and maintain context, making it ideal for Retrieval Augmented Generation (RAG) tasks and applications requiring contextual awareness.
+    Italian dataset.
+  overrides:
+    parameters:
+      model: Volare.i1-Q4_K_M.gguf
+  files:
+    - filename: Volare.i1-Q4_K_M.gguf
+      sha256: fa8fb9d4cb19fcb44be8d53561c9e2840f45aed738de545983ebb158ebba461b
+      uri: huggingface://mradermacher/Volare-i1-GGUF/Volare.i1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
