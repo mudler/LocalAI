@@ -122,7 +122,7 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		CUDA:                 c.CUDA || c.Diffusers.CUDA,
 		SchedulerType:        c.Diffusers.SchedulerType,
 		PipelineType:         c.Diffusers.PipelineType,
-		CFGScale:             c.Diffusers.CFGScale,
+		CFGScale:             c.CFGScale,
 		LoraAdapter:          c.LoraAdapter,
 		LoraScale:            c.LoraScale,
 		LoraAdapters:         c.LoraAdapters,
