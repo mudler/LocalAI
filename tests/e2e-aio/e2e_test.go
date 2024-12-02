@@ -164,6 +164,7 @@ var _ = Describe("E2E test", func() {
 						Model: openai.AdaEmbeddingV2,
 					},
 				)
+				DeferCleanup(ShutdownModel(string(openai.AdaEmbeddingV2)))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
 				Expect(resp.Data[0].Embedding).ToNot(BeEmpty())
@@ -193,6 +194,7 @@ var _ = Describe("E2E test", func() {
 								},
 							},
 						}})
+				DeferCleanup(ShutdownModel(model))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
 				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("wooden"), ContainSubstring("grass")), fmt.Sprint(resp.Choices[0].Message.Content))
@@ -205,6 +207,7 @@ var _ = Describe("E2E test", func() {
 					Input: "Hello!",
 					Voice: openai.VoiceAlloy,
 				})
+				DeferCleanup(ShutdownModel(string(openai.TTSModel1)))
 				Expect(err).ToNot(HaveOccurred())
 				defer res.Close()
 
@@ -225,17 +228,53 @@ var _ = Describe("E2E test", func() {
 					FilePath: file,
 				}
 				resp, err := client.CreateTranscription(context.Background(), req)
+				DeferCleanup(ShutdownModel(string(openai.Whisper1)))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Text).To(ContainSubstring("This is the"), fmt.Sprint(resp.Text))
 			})
 		})
+		Context("vad", func() {
+			It("correctly", func() {
+				modelName := "silero-vad"
+				DeferCleanup(ShutdownModel(modelName))
+				req := schema.VADRequest{
+					BasicModelRequest: schema.BasicModelRequest{
+						Model: modelName,
+					},
+					Audio: SampleVADAudio, // Use hardcoded sample data for now.
+				}
+				serialized, err := json.Marshal(req)
+				Expect(err).To(BeNil())
+				Expect(serialized).ToNot(BeNil())
 
+				GinkgoWriter.Printf("VAD Request Body JSON: %q\n", string(serialized))
+
+				vadEndpoint := apiEndpoint + "/vad"
+				resp, err := http.Post(vadEndpoint, "application/json", bytes.NewReader(serialized))
+				Expect(err).To(BeNil())
+				Expect(resp).ToNot(BeNil())
+
+				body, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				GinkgoWriter.Printf("VAD Response Body JSON: %q\n", string(body))
+
+				Expect(resp.StatusCode).To(Equal(200))
+				deserializedResponse := schema.VADResponse{}
+				err = json.Unmarshal(body, &deserializedResponse)
+				Expect(err).To(BeNil())
+				Expect(deserializedResponse).ToNot(BeZero())
+				Expect(deserializedResponse.Segments).ToNot(BeZero())
+			})
+		})
 		Context("reranker", func() {
 			It("correctly", func() {
 				modelName := "jina-reranker-v1-base-en"
+				DeferCleanup(ShutdownModel(modelName))
 
 				req := schema.JINARerankRequest{
-					Model: modelName,
+					BasicModelRequest: schema.BasicModelRequest{
+						Model: modelName,
+					},
 					Query: "Organic skincare products for sensitive skin",
 					Documents: []string{
 						"Eco-friendly kitchenware for modern homes",
@@ -256,12 +295,15 @@ var _ = Describe("E2E test", func() {
 				Expect(err).To(BeNil())
 				Expect(serialized).ToNot(BeNil())
 
+				GinkgoWriter.Printf("Reranker Request Body JSON: %q\n", string(serialized))
+
 				rerankerEndpoint := apiEndpoint + "/rerank"
 				resp, err := http.Post(rerankerEndpoint, "application/json", bytes.NewReader(serialized))
 				Expect(err).To(BeNil())
 				Expect(resp).ToNot(BeNil())
 				body, err := io.ReadAll(resp.Body)
 				Expect(err).ToNot(HaveOccurred())
+				GinkgoWriter.Printf("Reranker Response Body JSON: %q\n", string(body))
 				Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("body: %s, response: %+v", body, resp))
 
 				deserializedResponse := schema.JINARerankResponse{}

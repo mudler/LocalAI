@@ -147,13 +147,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	if options.LoadToMemory != nil {
 		for _, m := range options.LoadToMemory {
-			cfg, err := cl.LoadBackendConfigFileByName(m, options.ModelPath,
-				config.LoadOptionDebug(options.Debug),
-				config.LoadOptionThreads(options.Threads),
-				config.LoadOptionContextSize(options.ContextSize),
-				config.LoadOptionF16(options.F16),
-				config.ModelPath(options.ModelPath),
-			)
+			cfg, err := cl.LoadBackendConfigFileByNameDefaultOptions(m, options)
 			if err != nil {
 				return nil, nil, nil, err
 			}
