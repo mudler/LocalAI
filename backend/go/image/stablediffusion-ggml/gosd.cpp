@@ -180,29 +180,88 @@ void print_params(SDParams params) {
 
  sd_ctx_t* sd_c;
 
-int load_model(char *model, char *schedule_selected, int threads) {
+sample_method_t sample_method;
+
+int load_model(char *model, char* options[], int threads, int diff) {
     fprintf (stderr, "Loading model!\n");
+
+    char *stableDiffusionModel = "";
+    if (diff == 1 ) {
+        stableDiffusionModel = model;
+        model = "";
+    }
+
+    // decode options. Options are in form optname:optvale, or if booleans only optname.
+    char *clip_l_path  = "";
+    char *clip_g_path  = "";
+    char *t5xxl_path  = "";
+    char *vae_path  = "";
+    char *scheduler = "";
+    char *sampler = "";
+
+    // If options is not NULL, parse options
+    for (int i = 0; options[i] != NULL; i++) {
+        char *optname = strtok(options[i], ":");
+        char *optval = strtok(NULL, ":");
+        if (optval == NULL) {
+            optval = "true";
+        }
+
+        if (!strcmp(optname, "clip_l_path")) {
+            clip_l_path = optval;
+        }
+        if (!strcmp(optname, "clip_g_path")) {
+            clip_g_path = optval;
+        }
+        if (!strcmp(optname, "t5xxl_path")) {
+            t5xxl_path = optval;
+        }
+        if (!strcmp(optname, "vae_path")) {
+            vae_path = optval;
+        }
+        if (!strcmp(optname, "scheduler")) {
+            scheduler = optval;
+        }
+        if (!strcmp(optname, "sampler")) {
+            sampler = optval;
+        }
+    }
+
+    int sample_method_found = -1;
+    for (int m = 0; m < N_SAMPLE_METHODS; m++) {
+        if (!strcmp(sampler, sample_method_str[m])) {
+            sample_method_found = m;
+        }
+    }
+    if (sample_method_found == -1) {
+        fprintf(stderr, "Invalid sample method, default to EULER_A!\n");
+        sample_method_found = EULER_A;
+    }
+    sample_method = (sample_method_t)sample_method_found;
 
     int schedule_found            = -1;
     for (int d = 0; d < N_SCHEDULES; d++) {
-        if (!strcmp(schedule_selected, schedule_str[d])) {
+        if (!strcmp(scheduler, schedule_str[d])) {
             schedule_found = d;
+                fprintf (stderr, "Found scheduler: %s\n", scheduler);
+
         }
     }
+
     if (schedule_found == -1) {
         fprintf (stderr, "Invalid scheduler! using DEFAULT\n");
         schedule_found = DEFAULT;
     }
 
-
     schedule_t schedule = (schedule_t)schedule_found;
-
+    
+    fprintf (stderr, "Creating context\n");
     sd_ctx_t* sd_ctx = new_sd_ctx(model,
-                                  "",
-                                  "",
-                                  "",
-                                  "",
-                                  "",
+                                  clip_l_path,
+                                  clip_g_path,
+                                  t5xxl_path,
+                                  stableDiffusionModel,
+                                  vae_path,
                                   "",
                                   "",
                                   "",
@@ -221,38 +280,26 @@ int load_model(char *model, char *schedule_selected, int threads) {
                                   false);
 
     if (sd_ctx == NULL) {
-        fprintf (stderr, "Null context!\n");
+        fprintf (stderr, "failed loading model (generic error)\n");
         return 1;
     }
+    fprintf (stderr, "Created context: OK\n");
 
     sd_c = sd_ctx;
 
     return 0;
 }
 
-int gen_image(char *text, char *negativeText, int width, int height, int steps, int seed , char* sample_method_selected, char *dst ) {
+int gen_image(char *text, char *negativeText, int width, int height, int steps, int seed , char *dst, float cfg_scale) {
 
     sd_image_t* results;
 
-
-    int sample_method_found            = -1;
-    for (int m = 0; m < N_SAMPLE_METHODS; m++) {
-        if (!strcmp(sample_method_selected, sample_method_str[m])) {
-            sample_method_found = m;
-        }
-    }
-    if (sample_method_found == -1) {
-        fprintf(stderr, "Invalid sample method, default to EULER_A!\n");
-        sample_method_found = EULER_A;
-        return 1;
-    }
-    sample_method_t sample_method = (sample_method_t)sample_method_found;
     std::vector<int> skip_layers = {7, 8, 9};
     results = txt2img(sd_c,
                             text,
                             negativeText,
                             -1, //clip_skip
-                            7.0f, // sfg_scale
+                            cfg_scale, // sfg_scale
                             3.5f,
                             width,
                             height,

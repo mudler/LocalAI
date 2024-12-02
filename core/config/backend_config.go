@@ -72,6 +72,8 @@ type BackendConfig struct {
 
 	Description string `yaml:"description"`
 	Usage       string `yaml:"usage"`
+
+	Options []string `yaml:"options"`
 }
 
 type File struct {
