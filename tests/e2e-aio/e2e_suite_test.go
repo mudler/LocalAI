@@ -1,12 +1,17 @@
 package e2e_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"runtime"
 	"testing"
 
+	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/ory/dockertest/v3"
@@ -70,6 +75,25 @@ var _ = AfterSuite(func() {
 var _ = AfterEach(func() {
 	//Expect(dbClient.Clear()).To(Succeed())
 })
+
+func ShutdownModel(modelName string) func() {
+	return func() {
+		req := schema.BackendMonitorRequest{
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: modelName,
+			},
+		}
+		serialized, err := json.Marshal(req)
+		Expect(err).To(BeNil())
+		Expect(serialized).ToNot(BeNil())
+		resp, err := http.Post(apiEndpoint+"/backend/shutdown", "application/json", bytes.NewReader(serialized))
+		Expect(err).To(BeNil())
+		Expect(resp).ToNot(BeNil())
+		body, err := io.ReadAll(resp.Body)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("body: %s, response: %+v", body, resp))
+	}
+}
 
 func startDockerImage() {
 	p, err := dockertest.NewPool("")

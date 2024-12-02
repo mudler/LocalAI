@@ -164,6 +164,7 @@ var _ = Describe("E2E test", func() {
 						Model: openai.AdaEmbeddingV2,
 					},
 				)
+				DeferCleanup(ShutdownModel(string(openai.AdaEmbeddingV2)))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
 				Expect(resp.Data[0].Embedding).ToNot(BeEmpty())
@@ -193,6 +194,7 @@ var _ = Describe("E2E test", func() {
 								},
 							},
 						}})
+				DeferCleanup(ShutdownModel(model))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
 				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("wooden"), ContainSubstring("grass")), fmt.Sprint(resp.Choices[0].Message.Content))
@@ -205,6 +207,7 @@ var _ = Describe("E2E test", func() {
 					Input: "Hello!",
 					Voice: openai.VoiceAlloy,
 				})
+				DeferCleanup(ShutdownModel(string(openai.TTSModel1)))
 				Expect(err).ToNot(HaveOccurred())
 				defer res.Close()
 
@@ -225,6 +228,7 @@ var _ = Describe("E2E test", func() {
 					FilePath: file,
 				}
 				resp, err := client.CreateTranscription(context.Background(), req)
+				DeferCleanup(ShutdownModel(string(openai.Whisper1)))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Text).To(ContainSubstring("This is the"), fmt.Sprint(resp.Text))
 			})
@@ -232,22 +236,12 @@ var _ = Describe("E2E test", func() {
 		Context("vad", func() {
 			It("correctly", func() {
 				modelName := "silero-vad"
-				// downloadURL := "https://models.silero.ai/vad_models/en.wav"
-				// file, err := downloadHttpFile(downloadURL)
-				// Expect(err).ToNot(HaveOccurred())
-				// fh, err := os.Open(file)
-				// Expect(err).ToNot(HaveOccurred())
-				// d := wav.NewDecoder(fh)
-				// // d.SampleRate = 16000 // TODO: not currently configurable in VAD, seems like a bug? Fix in next PR
-				// buf, err := d.FullPCMBuffer()
-				// Expect(err).ToNot((HaveOccurred()), err.Error())
-				// fBuf := buf.AsFloat32Buffer().Data
-				// fBuf = fBuf[len(fBuf)/256 : len(fBuf)/128] // Whole file is too long, attempting reduced length
+				DeferCleanup(ShutdownModel(modelName))
 				req := schema.VADRequest{
 					BasicModelRequest: schema.BasicModelRequest{
 						Model: modelName,
 					},
-					Audio: SampleVADAudio,
+					Audio: SampleVADAudio, // Use hardcoded sample data for now.
 				}
 				serialized, err := json.Marshal(req)
 				Expect(err).To(BeNil())
@@ -275,6 +269,7 @@ var _ = Describe("E2E test", func() {
 		Context("reranker", func() {
 			It("correctly", func() {
 				modelName := "jina-reranker-v1-base-en"
+				DeferCleanup(ShutdownModel(modelName))
 
 				req := schema.JINARerankRequest{
 					BasicModelRequest: schema.BasicModelRequest{
