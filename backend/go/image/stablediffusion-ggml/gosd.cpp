@@ -23,13 +23,6 @@
 #define STB_IMAGE_RESIZE_STATIC
 #include "stb_image_resize.h"
 
-
-
-const char* rng_type_to_str[] = {
-    "std_default",
-    "cuda",
-};
-
 // Names of the sampler method, same order as enum sample_method in stable-diffusion.h
 const char* sample_method_str[] = {
     "euler_a",
@@ -54,131 +47,7 @@ const char* schedule_str[] = {
     "gits",
 };
 
-const char* modes_str[] = {
-    "txt2img",
-    "img2img",
-    "img2vid",
-    "convert",
-};
-
-enum SDMode {
-    TXT2IMG,
-    IMG2IMG,
-    IMG2VID,
-    CONVERT,
-    MODE_COUNT
-};
-
-struct SDParams {
-    int n_threads = -1;
-    SDMode mode   = TXT2IMG;
-    std::string model_path;
-    std::string clip_l_path;
-    std::string clip_g_path;
-    std::string t5xxl_path;
-    std::string diffusion_model_path;
-    std::string vae_path;
-    std::string taesd_path;
-    std::string esrgan_path;
-    std::string controlnet_path;
-    std::string embeddings_path;
-    std::string stacked_id_embeddings_path;
-    std::string input_id_images_path;
-    sd_type_t wtype = SD_TYPE_COUNT;
-    std::string lora_model_dir;
-    std::string output_path = "output.png";
-    std::string input_path;
-    std::string control_image_path;
-
-    std::string prompt;
-    std::string negative_prompt;
-    float min_cfg     = 1.0f;
-    float cfg_scale   = 7.0f;
-    float guidance    = 3.5f;
-    float style_ratio = 20.f;
-    int clip_skip     = -1;  // <= 0 represents unspecified
-    int width         = 512;
-    int height        = 512;
-    int batch_count   = 1;
-
-    int video_frames         = 6;
-    int motion_bucket_id     = 127;
-    int fps                  = 6;
-    float augmentation_level = 0.f;
-
-    sample_method_t sample_method = EULER_A;
-    schedule_t schedule           = DEFAULT;
-    int sample_steps              = 20;
-    float strength                = 0.75f;
-    float control_strength        = 0.9f;
-    rng_type_t rng_type           = CUDA_RNG;
-    int64_t seed                  = 42;
-    bool verbose                  = false;
-    bool vae_tiling               = false;
-    bool control_net_cpu          = false;
-    bool normalize_input          = false;
-    bool clip_on_cpu              = false;
-    bool vae_on_cpu               = false;
-    bool diffusion_flash_attn     = false;
-    bool canny_preprocess         = false;
-    bool color                    = false;
-    int upscale_repeats           = 1;
-
-    std::vector<int> skip_layers = {7, 8, 9};
-    float slg_scale              = 0.;
-    float skip_layer_start       = 0.01;
-    float skip_layer_end         = 0.2;
-};
-
-void print_params(SDParams params) {
-    printf("Option: \n");
-    printf("    n_threads:         %d\n", params.n_threads);
-    printf("    mode:              %s\n", modes_str[params.mode]);
-    printf("    model_path:        %s\n", params.model_path.c_str());
-    printf("    wtype:             %s\n", params.wtype < SD_TYPE_COUNT ? sd_type_name(params.wtype) : "unspecified");
-    printf("    clip_l_path:       %s\n", params.clip_l_path.c_str());
-    printf("    clip_g_path:       %s\n", params.clip_g_path.c_str());
-    printf("    t5xxl_path:        %s\n", params.t5xxl_path.c_str());
-    printf("    diffusion_model_path:   %s\n", params.diffusion_model_path.c_str());
-    printf("    vae_path:          %s\n", params.vae_path.c_str());
-    printf("    taesd_path:        %s\n", params.taesd_path.c_str());
-    printf("    esrgan_path:       %s\n", params.esrgan_path.c_str());
-    printf("    controlnet_path:   %s\n", params.controlnet_path.c_str());
-    printf("    embeddings_path:   %s\n", params.embeddings_path.c_str());
-    printf("    stacked_id_embeddings_path:   %s\n", params.stacked_id_embeddings_path.c_str());
-    printf("    input_id_images_path:   %s\n", params.input_id_images_path.c_str());
-    printf("    style ratio:       %.2f\n", params.style_ratio);
-    printf("    normalize input image :  %s\n", params.normalize_input ? "true" : "false");
-    printf("    output_path:       %s\n", params.output_path.c_str());
-    printf("    init_img:          %s\n", params.input_path.c_str());
-    printf("    control_image:     %s\n", params.control_image_path.c_str());
-    printf("    clip on cpu:       %s\n", params.clip_on_cpu ? "true" : "false");
-    printf("    controlnet cpu:    %s\n", params.control_net_cpu ? "true" : "false");
-    printf("    vae decoder on cpu:%s\n", params.vae_on_cpu ? "true" : "false");
-    printf("    diffusion flash attention:%s\n", params.diffusion_flash_attn ? "true" : "false");
-    printf("    strength(control): %.2f\n", params.control_strength);
-    printf("    prompt:            %s\n", params.prompt.c_str());
-    printf("    negative_prompt:   %s\n", params.negative_prompt.c_str());
-    printf("    min_cfg:           %.2f\n", params.min_cfg);
-    printf("    cfg_scale:         %.2f\n", params.cfg_scale);
-    printf("    slg_scale:         %.2f\n", params.slg_scale);
-    printf("    guidance:          %.2f\n", params.guidance);
-    printf("    clip_skip:         %d\n", params.clip_skip);
-    printf("    width:             %d\n", params.width);
-    printf("    height:            %d\n", params.height);
-    printf("    sample_method:     %s\n", sample_method_str[params.sample_method]);
-    printf("    schedule:          %s\n", schedule_str[params.schedule]);
-    printf("    sample_steps:      %d\n", params.sample_steps);
-    printf("    strength(img2img): %.2f\n", params.strength);
-    printf("    rng:               %s\n", rng_type_to_str[params.rng_type]);
-    printf("    seed:              %ld\n", params.seed);
-    printf("    batch_count:       %d\n", params.batch_count);
-    printf("    vae_tiling:        %s\n", params.vae_tiling ? "true" : "false");
-    printf("    upscale_repeats:   %d\n", params.upscale_repeats);
-}
-
-
- sd_ctx_t* sd_c;
+sd_ctx_t* sd_c;
 
 sample_method_t sample_method;
 
@@ -295,6 +164,9 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
     sd_image_t* results;
 
     std::vector<int> skip_layers = {7, 8, 9};
+
+    fprintf (stderr, "Generating image\n");
+
     results = txt2img(sd_c,
                             text,
                             negativeText,
@@ -319,22 +191,35 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
                             0.2);
 
     if (results == NULL) {
-        printf("generate failed\n");
+        fprintf (stderr, "NO results\n");
         return 1;
     }
 
     if (results[0].data == NULL) {
-        printf("generate failed\n");
+        fprintf (stderr, "Results with no data\n");
         return 1;
     }
 
-  stbi_write_png(dst, results[0].width, results[0].height, results[0].channel,
-                       results[0].data, 0, "");
-    printf("save result image to '%s'\n", dst);
+    fprintf (stderr, "Writing PNG\n");
+
+    fprintf (stderr, "DST: %s\n", dst);
+    fprintf (stderr, "Width: %d\n", results[0].width);
+    fprintf (stderr, "Height: %d\n", results[0].height);
+    fprintf (stderr, "Channel: %d\n", results[0].channel);
+    fprintf (stderr, "Data: %p\n", results[0].data);
+
+    stbi_write_png(dst, results[0].width, results[0].height, results[0].channel,
+                       results[0].data, 0, NULL);
+    fprintf (stderr, "Saved resulting image to '%s'\n", dst);
+
+    // TODO: free results. Why does it crash?
+
     free(results[0].data);
     results[0].data = NULL;
-
     free(results);
+    fprintf (stderr, "gen_image is done", dst);
+
+    return 0;
 }
 
 int unload() {

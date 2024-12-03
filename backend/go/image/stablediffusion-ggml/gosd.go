@@ -33,6 +33,7 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 	defer C.free(unsafe.Pointer(modelFile))
 
 	var options **C.char
+	// prepare the options array to pass to C
 
 	size := C.size_t(unsafe.Sizeof((*C.char)(nil)))
 	length := C.size_t(len(opts.Options))
