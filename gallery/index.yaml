@@ -4944,6 +4944,22 @@
     - filename: Volare.i1-Q4_K_M.gguf
       sha256: fa8fb9d4cb19fcb44be8d53561c9e2840f45aed738de545983ebb158ebba461b
       uri: huggingface://mradermacher/Volare-i1-GGUF/Volare.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "bggpt-gemma-2-2.6b-it-v1.0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/637e1f8cf7e01589cc17bf7e/p6d0YFHjWCQ3S12jWqO1m.png
+  urls:
+    - https://huggingface.co/QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF
+    - https://huggingface.co/QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF
+  description: |
+    INSAIT introduces BgGPT-Gemma-2-2.6B-IT-v1.0, a state-of-the-art Bulgarian language model based on google/gemma-2-2b and google/gemma-2-2b-it. BgGPT-Gemma-2-2.6B-IT-v1.0 is free to use and distributed under the Gemma Terms of Use. This model was created by INSAIT, part of Sofia University St. Kliment Ohridski, in Sofia, Bulgaria.
+    The model was built on top of Google’s Gemma 2 2B open models. It was continuously pre-trained on around 100 billion tokens (85 billion in Bulgarian) using the Branch-and-Merge strategy INSAIT presented at EMNLP’24, allowing the model to gain outstanding Bulgarian cultural and linguistic capabilities while retaining its English performance. During the pre-training stage, we use various datasets, including Bulgarian web crawl data, freely available datasets such as Wikipedia, a range of specialized Bulgarian datasets sourced by the INSAIT Institute, and machine translations of popular English datasets. The model was then instruction-fine-tuned on a newly constructed Bulgarian instruction dataset created using real-world conversations. For more information check our blogpost.
+  overrides:
+    parameters:
+      model: BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
+  files:
+    - filename: BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
+      sha256: 1e92fe80ccad80e97076ee26b002c2280f075dfe2507d534b46a4391a077f319
+      uri: huggingface://QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF/BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
