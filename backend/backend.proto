@@ -240,6 +240,8 @@ message ModelOptions {
 
   repeated string LoraAdapters = 60;
   repeated float LoraScales = 61;
+
+  repeated string Options = 62;
 }
 
 message Result {
