@@ -138,7 +138,7 @@ int load_model(char *model, char* options[], int threads, int diff) {
                                   "",
                                   false,
                                   false,
-                                  true,
+                                  false,
                                   threads,
                                   SD_TYPE_COUNT,
                                   STD_DEFAULT_RNG,
