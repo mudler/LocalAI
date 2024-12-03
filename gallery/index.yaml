@@ -1725,6 +1725,31 @@
     - filename: Teleut-7b.Q4_K_M.gguf
       sha256: 844a633ea01d793c638e99f2e07413606b3812b759e9264fbaf69c8d94eaa093
       uri: huggingface://QuantFactory/Teleut-7b-GGUF/Teleut-7b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-homercreative-mix"
+  urls:
+    - https://huggingface.co/ZeroXClem/Qwen2.5-7B-HomerCreative-Mix
+    - https://huggingface.co/QuantFactory/Qwen2.5-7B-HomerCreative-Mix-GGUF
+  description: |
+    ZeroXClem/Qwen2.5-7B-HomerCreative-Mix is an advanced language model meticulously crafted by merging four pre-trained models using the powerful mergekit framework. This fusion leverages the Model Stock merge method to combine the creative prowess of Qandora, the instructive capabilities of Qwen-Instruct-Fusion, the sophisticated blending of HomerSlerp1, and the foundational conversational strengths of Homer-v0.5-Qwen2.5-7B. The resulting model excels in creative text generation, contextual understanding, and dynamic conversational interactions.
+    🚀 Merged Models
+
+    This model merge incorporates the following:
+
+        bunnycore/Qandora-2.5-7B-Creative: Specializes in creative text generation, enhancing the model's ability to produce imaginative and diverse content.
+
+        bunnycore/Qwen2.5-7B-Instruct-Fusion: Focuses on instruction-following capabilities, improving the model's performance in understanding and executing user commands.
+
+        allknowingroger/HomerSlerp1-7B: Utilizes spherical linear interpolation (SLERP) to blend model weights smoothly, ensuring a harmonious integration of different model attributes.
+
+        newsbang/Homer-v0.5-Qwen2.5-7B: Acts as the foundational conversational model, providing robust language comprehension and generation capabilities.
+  overrides:
+    parameters:
+      model: Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
+      sha256: fc3fdb41e068646592f89a8ae62d7b330f2bd4e97bf615aef2977930977c8ba5
+      uri: huggingface://QuantFactory/Qwen2.5-7B-HomerCreative-Mix-GGUF/Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3340,6 +3365,20 @@
     - filename: Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
       sha256: ef6a203ba585aab14f5d2ec463917a45b3ac571abd89c39e9a96a5e395ea8eea
       uri: huggingface://QuantFactory/Skywork-o1-Open-Llama-3.1-8B-GGUF/Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "sparse-llama-3.1-8b-2of4"
+  urls:
+    - https://huggingface.co/QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF
+    - https://huggingface.co/QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF
+  description: |
+    This is the 2:4 sparse version of Llama-3.1-8B. On the OpenLLM benchmark (version 1), it achieves an average score of 62.16, compared to 63.19 for the dense model—demonstrating a 98.37% accuracy recovery. On the Mosaic Eval Gauntlet benchmark (version v0.3), it achieves an average score of 53.85, versus 55.34 for the dense model—representing a 97.3% accuracy recovery.
+  overrides:
+    parameters:
+      model: Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
+  files:
+    - filename: Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
+      sha256: c481e7089ffaedd5ae8c74dccc7fb45f6509640b661fa086ae979f6fefc3fdba
+      uri: huggingface://QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF/Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -4905,6 +4944,22 @@
     - filename: Volare.i1-Q4_K_M.gguf
       sha256: fa8fb9d4cb19fcb44be8d53561c9e2840f45aed738de545983ebb158ebba461b
       uri: huggingface://mradermacher/Volare-i1-GGUF/Volare.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "bggpt-gemma-2-2.6b-it-v1.0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/637e1f8cf7e01589cc17bf7e/p6d0YFHjWCQ3S12jWqO1m.png
+  urls:
+    - https://huggingface.co/QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF
+    - https://huggingface.co/QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF
+  description: |
+    INSAIT introduces BgGPT-Gemma-2-2.6B-IT-v1.0, a state-of-the-art Bulgarian language model based on google/gemma-2-2b and google/gemma-2-2b-it. BgGPT-Gemma-2-2.6B-IT-v1.0 is free to use and distributed under the Gemma Terms of Use. This model was created by INSAIT, part of Sofia University St. Kliment Ohridski, in Sofia, Bulgaria.
+    The model was built on top of Google’s Gemma 2 2B open models. It was continuously pre-trained on around 100 billion tokens (85 billion in Bulgarian) using the Branch-and-Merge strategy INSAIT presented at EMNLP’24, allowing the model to gain outstanding Bulgarian cultural and linguistic capabilities while retaining its English performance. During the pre-training stage, we use various datasets, including Bulgarian web crawl data, freely available datasets such as Wikipedia, a range of specialized Bulgarian datasets sourced by the INSAIT Institute, and machine translations of popular English datasets. The model was then instruction-fine-tuned on a newly constructed Bulgarian instruction dataset created using real-world conversations. For more information check our blogpost.
+  overrides:
+    parameters:
+      model: BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
+  files:
+    - filename: BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
+      sha256: 1e92fe80ccad80e97076ee26b002c2280f075dfe2507d534b46a4391a077f319
+      uri: huggingface://QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF/BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
