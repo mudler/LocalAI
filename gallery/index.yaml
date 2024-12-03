@@ -1725,6 +1725,31 @@
     - filename: Teleut-7b.Q4_K_M.gguf
       sha256: 844a633ea01d793c638e99f2e07413606b3812b759e9264fbaf69c8d94eaa093
       uri: huggingface://QuantFactory/Teleut-7b-GGUF/Teleut-7b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-homercreative-mix"
+  urls:
+    - https://huggingface.co/ZeroXClem/Qwen2.5-7B-HomerCreative-Mix
+    - https://huggingface.co/QuantFactory/Qwen2.5-7B-HomerCreative-Mix-GGUF
+  description: |
+    ZeroXClem/Qwen2.5-7B-HomerCreative-Mix is an advanced language model meticulously crafted by merging four pre-trained models using the powerful mergekit framework. This fusion leverages the Model Stock merge method to combine the creative prowess of Qandora, the instructive capabilities of Qwen-Instruct-Fusion, the sophisticated blending of HomerSlerp1, and the foundational conversational strengths of Homer-v0.5-Qwen2.5-7B. The resulting model excels in creative text generation, contextual understanding, and dynamic conversational interactions.
+    🚀 Merged Models
+
+    This model merge incorporates the following:
+
+        bunnycore/Qandora-2.5-7B-Creative: Specializes in creative text generation, enhancing the model's ability to produce imaginative and diverse content.
+
+        bunnycore/Qwen2.5-7B-Instruct-Fusion: Focuses on instruction-following capabilities, improving the model's performance in understanding and executing user commands.
+
+        allknowingroger/HomerSlerp1-7B: Utilizes spherical linear interpolation (SLERP) to blend model weights smoothly, ensuring a harmonious integration of different model attributes.
+
+        newsbang/Homer-v0.5-Qwen2.5-7B: Acts as the foundational conversational model, providing robust language comprehension and generation capabilities.
+  overrides:
+    parameters:
+      model: Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
+      sha256: fc3fdb41e068646592f89a8ae62d7b330f2bd4e97bf615aef2977930977c8ba5
+      uri: huggingface://QuantFactory/Qwen2.5-7B-HomerCreative-Mix-GGUF/Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
