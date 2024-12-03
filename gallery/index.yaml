@@ -3340,6 +3340,20 @@
     - filename: Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
       sha256: ef6a203ba585aab14f5d2ec463917a45b3ac571abd89c39e9a96a5e395ea8eea
       uri: huggingface://QuantFactory/Skywork-o1-Open-Llama-3.1-8B-GGUF/Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "sparse-llama-3.1-8b-2of4"
+  urls:
+    - https://huggingface.co/QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF
+    - https://huggingface.co/QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF
+  description: |
+    This is the 2:4 sparse version of Llama-3.1-8B. On the OpenLLM benchmark (version 1), it achieves an average score of 62.16, compared to 63.19 for the dense model—demonstrating a 98.37% accuracy recovery. On the Mosaic Eval Gauntlet benchmark (version v0.3), it achieves an average score of 53.85, versus 55.34 for the dense model—representing a 97.3% accuracy recovery.
+  overrides:
+    parameters:
+      model: Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
+  files:
+    - filename: Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
+      sha256: c481e7089ffaedd5ae8c74dccc7fb45f6509640b661fa086ae979f6fefc3fdba
+      uri: huggingface://QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF/Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
