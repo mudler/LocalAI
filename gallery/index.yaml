@@ -8906,6 +8906,43 @@
   overrides:
     parameters:
       model: black-forest-labs/FLUX.1-schnell
+- name: flux.1-dev-ggml
+  license: flux-1-dev-non-commercial-license
+  url: "github:mudler/LocalAI/gallery/flux-ggml.yaml@master"
+  description: |
+    FLUX.1 [dev] is a 12 billion parameter rectified flow transformer capable of generating images from text descriptions. For more information, please read our blog post.
+    Key Features
+        Cutting-edge output quality, second only to our state-of-the-art model FLUX.1 [pro].
+        Competitive prompt following, matching the performance of closed source alternatives .
+        Trained using guidance distillation, making FLUX.1 [dev] more efficient.
+        Open weights to drive new scientific research, and empower artists to develop innovative workflows.
+        Generated outputs can be used for personal, scientific, and commercial purposes as described in the flux-1-dev-non-commercial-license.
+    This model is quantized with GGUF
+  urls:
+    - https://huggingface.co/black-forest-labs/FLUX.1-dev
+    - https://huggingface.co/city96/FLUX.1-dev-gguf
+  tags:
+    - text-to-image
+    - flux
+    - gpu
+    - cpu
+  icon: https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/schnell_grid.jpeg
+  overrides:
+    parameters:
+      model: flux1-dev-Q2_K.gguf
+  files:
+    - filename: "flux1-dev-Q2_K.gguf"
+      sha256: "b8c464bc0f10076ef8f00ba040d220d90c7993f7c4245ae80227d857f65df105"
+      uri: "huggingface://city96/FLUX.1-dev-gguf/flux1-dev-Q2_K.gguf"
+    - filename: ae.safetensors
+      sha256: afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38
+      uri: https://huggingface.co/ChuckMcSneed/FLUX.1-dev/resolve/main/ae.safetensors
+    - filename: clip_l.safetensors
+      sha256: 660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd
+      uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors
+    - filename: t5xxl_fp16.safetensors
+      sha256: 6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635
+      uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
 - &whisper
   ## Whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
