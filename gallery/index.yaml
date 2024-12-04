@@ -9728,3 +9728,22 @@
     - filename: silero-vad.onnx
       uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
       sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808
+- name: "bark-cpp-small"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  license: mit
+  urls:
+    - https://huggingface.co/suno/bark
+    - https://huggingface.co/Green-Sky/bark-ggml
+  description: |
+    Bark is a transformer-based text-to-audio model created by Suno. Bark can generate highly realistic, multilingual speech as well as other audio - including music, background noise and simple sound effects. The model can also produce nonverbal communications like laughing, sighing and crying. To support the research community, we are providing access to pretrained model checkpoints ready for inference.
+  tags:
+    - tts
+    - cpu
+  overrides:
+    backend: bark-cpp
+    parameters:
+      model: bark-small_weights-f16.bin
+  files:
+    - filename: bark-small_weights-f16.bin
+      uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
+      sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
