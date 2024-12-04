@@ -1750,6 +1750,23 @@
     - filename: Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
       sha256: fc3fdb41e068646592f89a8ae62d7b330f2bd4e97bf615aef2977930977c8ba5
       uri: huggingface://QuantFactory/Qwen2.5-7B-HomerCreative-Mix-GGUF/Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "cybercore-qwen-2.1-7b"
+  urls:
+    - https://huggingface.co/bunnycore/CyberCore-Qwen-2.1-7B
+    - https://huggingface.co/QuantFactory/CyberCore-Qwen-2.1-7B-GGUF
+  description: |
+    This model was merged using the TIES merge method using rombodawg/Rombos-LLM-V2.5-Qwen-7b as a base.
+    Models Merged
+    fblgit/cybertron-v4-qw7B-UNAMGS + bunnycore/Qwen-2.1-7b-Persona-lora_model
+    fblgit/cybertron-v4-qw7B-MGS + bunnycore/Qwen-2.1-7b-Persona-lora_model
+  overrides:
+    parameters:
+      model: CyberCore-Qwen-2.1-7B.Q4_K_M.gguf
+  files:
+    - filename: CyberCore-Qwen-2.1-7B.Q4_K_M.gguf
+      sha256: 726042707a4cec29ca0355b4dc7c53a807b307d08aa8a3d4a9e76aefbbbcaadf
+      uri: huggingface://QuantFactory/CyberCore-Qwen-2.1-7B-GGUF/CyberCore-Qwen-2.1-7B.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
