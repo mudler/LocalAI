@@ -4189,6 +4189,23 @@
     - filename: magnum-12b-v2.5-kto.i1-Q4_K_M.gguf
       sha256: 07e91d2c6d4e42312e65a69c54f16be467575f7a596fe052993b388e38b90d76
       uri: huggingface://mradermacher/magnum-12b-v2.5-kto-i1-GGUF/magnum-12b-v2.5-kto.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "chatty-harry_v3.0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c1cc08453a7ef6c5fe657a/0KzNTEtn2kJJQsw4lQeY0.png
+  urls:
+    - https://huggingface.co/Triangle104/Chatty-Harry_V3.0
+    - https://huggingface.co/QuantFactory/Chatty-Harry_V3.0-GGUF
+  description: |
+    This model was merged using the TIES merge method using Triangle104/ChatWaifu_Magnum_V0.2 as a base.
+    The following models were included in the merge: elinas/Chronos-Gold-12B-1.0
+  overrides:
+    parameters:
+      model: Chatty-Harry_V3.0.Q4_K_M.gguf
+  files:
+    - filename: Chatty-Harry_V3.0.Q4_K_M.gguf
+      sha256: 54b63bb74498576ca77b801ed096657a93cc2f6b71d707c3605fdb394bd3e622
+      uri: huggingface://QuantFactory/Chatty-Harry_V3.0-GGUF/Chatty-Harry_V3.0.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
