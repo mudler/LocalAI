@@ -1791,6 +1791,30 @@
     - filename: HomerCreativeAnvita-Mix-Qw7B.Q4_K_M.gguf
       sha256: a356f279a104bff0bbc2ef7ec136c1e774153de8893bf988083e96fb7f4bc053
       uri: huggingface://QuantFactory/HomerCreativeAnvita-Mix-Qw7B-GGUF/HomerCreativeAnvita-Mix-Qw7B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "math-iio-7b-instruct"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/faLfR-doaWP_BLUkOQrbq.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Math-IIO-7B-Instruct
+    - https://huggingface.co/QuantFactory/Math-IIO-7B-Instruct-GGUF
+  description: |
+    The Math IIO 7B Instruct is a fine-tuned language model based on the robust Qwen2.5-7B-Instruct architecture. This model has been specifically trained to excel in single-shot mathematical reasoning and instruction-based tasks, making it a reliable choice for educational, analytical, and problem-solving applications.
+    Key Features:
+      Math-Optimized Capabilities:
+      The model is designed to handle complex mathematical problems, step-by-step calculations, and reasoning tasks.
+
+      Instruction-Tuned:
+      Fine-tuned for better adherence to structured queries and task-oriented prompts, enabling clear and concise outputs.
+
+      Large Vocabulary:
+      Equipped with an extensive tokenizer configuration and custom tokens to ensure precise mathematical notation support.
+  overrides:
+    parameters:
+      model: Math-IIO-7B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Math-IIO-7B-Instruct.Q4_K_M.gguf
+      sha256: 8ffda0b6a43eb9997dfd7db48fe3bd0970fd1b9b86fb68f082c38622a48b58f4
+      uri: huggingface://QuantFactory/Math-IIO-7B-Instruct-GGUF/Math-IIO-7B-Instruct.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
