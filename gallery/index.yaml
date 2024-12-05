@@ -3420,6 +3420,139 @@
     - filename: Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
       sha256: c481e7089ffaedd5ae8c74dccc7fb45f6509640b661fa086ae979f6fefc3fdba
       uri: huggingface://QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF/Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "loki-v2.6-8b-1024k"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6472de046facfb01d8b1fb9d/uQPITKRS8XLTLyaiGwgh_.jpeg
+  urls:
+    - https://huggingface.co/QuantFactory/Loki-v2.6-8b-1024k-GGUF
+  description: |
+    The following models were included in the merge:
+    MrRobotoAI/Epic_Fiction-8b
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k
+    MrRobotoAI/Loki-.Epic_Fiction.-8b
+    Casual-Autopsy/L3-Luna-8B
+    Casual-Autopsy/L3-Super-Nova-RP-8B
+    Casual-Autopsy/L3-Umbral-Mind-RP-v3.0-8B
+    Casual-Autopsy/Halu-L3-Stheno-BlackOasis-8B
+    Undi95/Llama-3-LewdPlay-8B
+    Undi95/Llama-3-LewdPlay-8B-evo
+    Undi95/Llama-3-Unholy-8B
+    ChaoticNeutrals/Hathor_Tahsin-L3-8B-v0.9
+    ChaoticNeutrals/Hathor_RP-v.01-L3-8B
+    ChaoticNeutrals/Domain-Fusion-L3-8B
+    ChaoticNeutrals/T-900-8B
+    ChaoticNeutrals/Poppy_Porpoise-1.4-L3-8B
+    ChaoticNeutrals/Templar_v1_8B
+    ChaoticNeutrals/Hathor_Respawn-L3-8B-v0.8
+    ChaoticNeutrals/Sekhmet_Gimmel-L3.1-8B-v0.3
+    zeroblu3/LewdPoppy-8B-RP
+    tohur/natsumura-storytelling-rp-1.0-llama-3.1-8b
+    jeiku/Chaos_RP_l3_8B
+    tannedbum/L3-Nymeria-Maid-8B
+    Nekochu/Luminia-8B-RP
+    vicgalle/Humanish-Roleplay-Llama-3.1-8B
+    saishf/SOVLish-Maid-L3-8B
+    Dogge/llama-3-8B-instruct-Bluemoon-Freedom-RP
+    MrRobotoAI/Epic_Fiction-8b-v4
+    maldv/badger-lambda-0-llama-3-8b
+    maldv/llama-3-fantasy-writer-8b
+    maldv/badger-kappa-llama-3-8b
+    maldv/badger-mu-llama-3-8b
+    maldv/badger-lambda-llama-3-8b
+    maldv/badger-iota-llama-3-8b
+    maldv/badger-writer-llama-3-8b
+    Magpie-Align/MagpieLM-8B-Chat-v0.1
+    nbeerbower/llama-3-gutenberg-8B
+    nothingiisreal/L3-8B-Stheno-Horny-v3.3-32K
+    nbeerbower/llama-3-spicy-abliterated-stella-8B
+    Magpie-Align/MagpieLM-8B-SFT-v0.1
+    NeverSleep/Llama-3-Lumimaid-8B-v0.1
+    mlabonne/NeuralDaredevil-8B-abliterated
+    mlabonne/Daredevil-8B-abliterated
+    NeverSleep/Llama-3-Lumimaid-8B-v0.1-OAS
+    nothingiisreal/L3-8B-Instruct-Abliterated-DWP
+    openchat/openchat-3.6-8b-20240522
+    turboderp/llama3-turbcat-instruct-8b
+    UCLA-AGI/Llama-3-Instruct-8B-SPPO-Iter3
+    Undi95/Llama-3-LewdPlay-8B
+    TIGER-Lab/MAmmoTH2-8B-Plus
+    OwenArli/Awanllm-Llama-3-8B-Cumulus-v1.0
+    refuelai/Llama-3-Refueled
+    SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha
+    NousResearch/Hermes-2-Theta-Llama-3-8B
+    ResplendentAI/Nymph_8B
+    grimjim/Llama-3-Oasis-v1-OAS-8B
+    flammenai/Mahou-1.3b-llama3-8B
+    lemon07r/Llama-3-RedMagic4-8B
+    grimjim/Llama-3.1-SuperNova-Lite-lorabilterated-8B
+    grimjim/Llama-Nephilim-Metamorphosis-v2-8B
+    lemon07r/Lllama-3-RedElixir-8B
+    grimjim/Llama-3-Perky-Pat-Instruct-8B
+    ChaoticNeutrals/Hathor_RP-v.01-L3-8B
+    grimjim/llama-3-Nephilim-v2.1-8B
+    ChaoticNeutrals/Hathor_Respawn-L3-8B-v0.8
+    migtissera/Llama-3-8B-Synthia-v3.5
+    Locutusque/Llama-3-Hercules-5.0-8B
+    WhiteRabbitNeo/Llama-3-WhiteRabbitNeo-8B-v2.0
+    VAGOsolutions/Llama-3-SauerkrautLM-8b-Instruct
+    iRyanBell/ARC1-II
+    HPAI-BSC/Llama3-Aloe-8B-Alpha
+    HaitameLaf/Llama-3-8B-StoryGenerator
+    failspy/Meta-Llama-3-8B-Instruct-abliterated-v3
+    Undi95/Llama-3-Unholy-8B
+    ajibawa-2023/Uncensored-Frank-Llama-3-8B
+    ajibawa-2023/SlimOrca-Llama-3-8B
+    ChaoticNeutrals/Templar_v1_8B
+    aifeifei798/llama3-8B-DarkIdol-2.2-Uncensored-1048K
+    ChaoticNeutrals/Hathor_Tahsin-L3-8B-v0.9
+    Blackroot/Llama-3-Gamma-Twist
+    FPHam/L3-8B-Everything-COT
+    Blackroot/Llama-3-LongStory
+    ChaoticNeutrals/Sekhmet_Gimmel-L3.1-8B-v0.3
+    abacusai/Llama-3-Smaug-8B
+    Khetterman/CursedMatrix-8B-v9
+    ajibawa-2023/Scarlett-Llama-3-8B-v1.0
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/physics_non_masked
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/electrical_engineering
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/college_chemistry
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/philosophy_non_masked
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/college_physics
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/philosophy
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/formal_logic
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/philosophy_100
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/conceptual_physics
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/college_computer_science
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/psychology_non_masked
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/psychology
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Blackroot/Llama3-RP-Lora
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Llama-3-LimaRP-Instruct-LoRA-8B
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + nothingiisreal/llama3-8B-DWP-lora
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/world_religions
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/high_school_european_history
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/electrical_engineering
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Llama-3-8B-Abomination-LORA
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Llama-3-LongStory-LORA
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/human_sexuality
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/sociology
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/Theory_of_Mind_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Smarts_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Llama-3-LongStory-LORA
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Nimue-8B
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + vincentyandex/lora_llama3_chunked_novel_bs128
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/Aura_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/L3-Daybreak-8b-lora
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/Luna_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + nicce/story-mixtral-8x7b-lora
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Blackroot/Llama-3-LongStory-LORA
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/NoWarning_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/BlueMoon_Llama3
+  overrides:
+    parameters:
+      model: Loki-v2.6-8b-1024k.Q4_K_M.gguf
+  files:
+    - filename: Loki-v2.6-8b-1024k.Q4_K_M.gguf
+      sha256: 9b15c1fee0a0e6d6ed97df3d1b6fc8f774e6e1bd388328599e731c62e0f19d81
+      uri: huggingface://QuantFactory/Loki-v2.6-8b-1024k-GGUF/Loki-v2.6-8b-1024k.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
