@@ -7891,6 +7891,26 @@
     - filename: Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
       sha256: 5dd81b8b809667d10036499affdd1461cf95af50b405cbc9f800b421a4b60e98
       uri: huggingface://DavidAU/Meta-Llama-3-Instruct-8.9B-BRAINSTORM-5x-FORM-11-GGUF/Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "rp-naughty-v1.0c-8b"
+  urls:
+    - https://huggingface.co/QuantFactory/RP-Naughty-v1.0c-8b-GGUF
+  description: |
+    This model was merged using the Model Stock merge method using aifeifei798/llama3-8B-DarkIdol-2.2-Uncensored-1048K as a base.
+    The following models were included in the merge:
+
+        underwoods/adventure-8b
+        Khetterman/Multilingual-SaigaSuzume-8B
+        underwoods/writer-8b
+        Khetterman/Kosmos-8B-v1
+        Khetterman/CursedMatrix-8B-v9
+  overrides:
+    parameters:
+      model: RP-Naughty-v1.0c-8b.Q4_K_M.gguf
+  files:
+    - filename: RP-Naughty-v1.0c-8b.Q4_K_M.gguf
+      sha256: c344564d26d0c3d244d31cfeb103666eab37f9dee6678a2dbaf5bfcf4109d789
+      uri: huggingface://QuantFactory/RP-Naughty-v1.0c-8b-GGUF/RP-Naughty-v1.0c-8b.Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
