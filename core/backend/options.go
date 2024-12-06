@@ -151,6 +151,8 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		TensorParallelSize:   int32(c.TensorParallelSize),
 		MMProj:               c.MMProj,
 		FlashAttention:       c.FlashAttention,
+		CacheTypeKey:         c.CacheTypeK,
+		CacheTypeValue:       c.CacheTypeV,
 		NoKVOffload:          c.NoKVOffloading,
 		YarnExtFactor:        c.YarnExtFactor,
 		YarnAttnFactor:       c.YarnAttnFactor,

@@ -242,6 +242,9 @@ message ModelOptions {
   repeated float LoraScales = 61;
 
   repeated string Options = 62;
+
+  string CacheTypeKey = 63;
+  string CacheTypeValue = 64;
 }
 
 message Result {
