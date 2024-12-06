@@ -94,17 +94,6 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			c.Set("Transfer-Encoding", "chunked")
 		}
 
-		templateFile := ""
-
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
-			templateFile = config.Model
-		}
-
-		if config.TemplateConfig.Completion != "" {
-			templateFile = config.TemplateConfig.Completion
-		}
-
 		if input.Stream {
 			if len(config.PromptStrings) > 1 {
 				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
@@ -112,15 +101,13 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 			predInput := config.PromptStrings[0]
 
-			if templateFile != "" {
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					Input:        predInput,
-					SystemPrompt: config.SystemPrompt,
-				})
-				if err == nil {
-					predInput = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", predInput)
-				}
+			templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, *config, model.PromptTemplateData{
+				Input:        predInput,
+				SystemPrompt: config.SystemPrompt,
+			})
+			if err == nil {
+				predInput = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", predInput)
 			}
 
 			responses := make(chan schema.OpenAIResponse)
@@ -165,16 +152,13 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 		totalTokenUsage := backend.TokenUsage{}
 
 		for k, i := range config.PromptStrings {
-			if templateFile != "" {
-				// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					SystemPrompt: config.SystemPrompt,
-					Input:        i,
-				})
-				if err == nil {
-					i = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", i)
-				}
+			templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, *config, model.PromptTemplateData{
+				SystemPrompt: config.SystemPrompt,
+				Input:        i,
+			})
+			if err == nil {
+				i = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
 			r, tokenUsage, err := ComputeChoices(

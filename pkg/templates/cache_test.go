@@ -9,6 +9,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const jinjaTemplate = `{{ '<|begin_of_text|>' }}{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ '<|start_header_id|>system<|end_header_id|>
+
+' + system_message + '<|eot_id|>' }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|start_header_id|>user<|end_header_id|>
+
+' + content + '<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+' }}{% elif message['role'] == 'assistant' %}{{ content + '<|eot_id|>' }}{% endif %}{% endfor %}`
+
 var _ = Describe("TemplateCache", func() {
 	var (
 		templateCache *templates.TemplateCache
@@ -55,6 +63,14 @@ var _ = Describe("TemplateCache", func() {
 				result, err := templateCache.EvaluateTemplate(1, "empty", nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).To(Equal(""))
+			})
+		})
+
+		Context("when template is jinja2", func() {
+			It("should parse from string", func() {
+				result, err := templateCache.EvaluateJinjaTemplate(1, jinjaTemplate, map[string]interface{}{"messages": []map[string]interface{}{{"role": "user", "content": "Hello, Gopher!"}}})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal("<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nHello, Gopher!<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"))
 			})
 		})
 	})

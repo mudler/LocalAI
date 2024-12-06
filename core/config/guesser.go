@@ -26,14 +26,14 @@ const (
 type settingsConfig struct {
 	StopWords      []string
 	TemplateConfig TemplateConfig
-	RepeatPenalty float64
+	RepeatPenalty  float64
 }
 
 // default settings to adopt with a given model family
 var defaultsSettings map[familyType]settingsConfig = map[familyType]settingsConfig{
 	Gemma: {
 		RepeatPenalty: 1.0,
-		StopWords: []string{"<|im_end|>", "<end_of_turn>", "<start_of_turn>"},
+		StopWords:     []string{"<|im_end|>", "<end_of_turn>", "<start_of_turn>"},
 		TemplateConfig: TemplateConfig{
 			Chat:        "{{.Input }}\n<start_of_turn>model\n",
 			ChatMessage: "<start_of_turn>{{if eq .RoleName \"assistant\" }}model{{else}}{{ .RoleName }}{{end}}\n{{ if .Content -}}\n{{.Content -}}\n{{ end -}}<end_of_turn>",
@@ -199,6 +199,18 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 		}
 	} else {
 		log.Debug().Any("family", family).Msgf("guessDefaultsFromFile: no template found for family")
+	}
+
+	if cfg.HasTemplate() {
+		return
+	}
+
+	// identify from well known templates first, otherwise use the raw jinja template
+	chatTemplate, found := f.Header.MetadataKV.Get("tokenizer.chat_template")
+	if found {
+		// try to use the jinja template
+		cfg.TemplateConfig.JinjaTemplate = true
+		cfg.TemplateConfig.ChatMessage = chatTemplate.ValueString()
 	}
 }
 
