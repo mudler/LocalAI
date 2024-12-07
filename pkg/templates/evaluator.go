@@ -104,9 +104,9 @@ func (e *Evaluator) templateJinjaChat(templateName string, messageData []ChatMes
 		// TODO: this is not correct, we have to map jinja tokenizer template from transformers to our own
 
 		messages = append(messages, map[string]interface{}{
-			"Role":         message.Role,
-			"RoleName":     message.RoleName,
-			"Content":      message.Content,
+			//"role":         message.Role,
+			"role":         message.RoleName,
+			"content":      message.Content,
 			"FunctionCall": message.FunctionCall,
 			"FunctionName": message.FunctionName,
 			"LastMessage":  message.LastMessage,
