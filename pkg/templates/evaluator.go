@@ -85,13 +85,13 @@ func (e *Evaluator) EvaluateTemplateForPrompt(templateType TemplateType, config 
 	}
 
 	if config.TemplateConfig.JinjaTemplate {
-		return e.EvaluateJinjaTemplateForPrompt(templateType, template, in)
+		return e.evaluateJinjaTemplateForPrompt(templateType, template, in)
 	}
 
 	return e.cache.EvaluateTemplate(templateType, template, in)
 }
 
-func (e *Evaluator) EvaluateTemplateForChatMessage(templateName string, messageData ChatMessageTemplateData) (string, error) {
+func (e *Evaluator) evaluateTemplateForChatMessage(templateName string, messageData ChatMessageTemplateData) (string, error) {
 	return e.cache.EvaluateTemplate(ChatMessageTemplate, templateName, messageData)
 }
 
@@ -120,7 +120,7 @@ func (e *Evaluator) templateJinjaChat(templateName string, messageData []ChatMes
 	return e.cache.EvaluateJinjaTemplate(ChatMessageTemplate, templateName, conversation)
 }
 
-func (e *Evaluator) EvaluateJinjaTemplateForPrompt(templateType TemplateType, templateName string, in PromptTemplateData) (string, error) {
+func (e *Evaluator) evaluateJinjaTemplateForPrompt(templateType TemplateType, templateName string, in PromptTemplateData) (string, error) {
 
 	conversation := make(map[string]interface{})
 
@@ -195,7 +195,7 @@ func (e *Evaluator) TemplateMessages(messages []schema.Message, config *config.B
 				Function:     config.Grammar != "" && (messageIndex == (len(messages) - 1)),
 				MessageIndex: messageIndex,
 			}
-			templatedChatMessage, err := e.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
+			templatedChatMessage, err := e.evaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 			if err != nil {
 				log.Error().Err(err).Interface("message", chatMessageData).Str("template", config.TemplateConfig.ChatMessage).Msg("error processing message with template, skipping")
 			} else {

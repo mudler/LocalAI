@@ -1,6 +1,9 @@
 package templates_test
 
 import (
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/mudler/LocalAI/pkg/templates"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,126 +44,141 @@ Function response:
 
 var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
 	"user": {
-		"template": llama3,
 		"expected": "<|start_header_id|>user<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "user",
-			RoleName:     "user",
-			Content:      "A long time ago in a galaxy far, far away...",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage: llama3,
+			},
+		},
+		"functions":   []functions.Function{},
+		"shouldUseFn": false,
+		"messages": []schema.Message{
+			{
+				Role:          "user",
+				StringContent: "A long time ago in a galaxy far, far away...",
+			},
 		},
 	},
 	"assistant": {
-		"template": llama3,
 		"expected": "<|start_header_id|>assistant<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "assistant",
-			RoleName:     "assistant",
-			Content:      "A long time ago in a galaxy far, far away...",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage: llama3,
+			},
 		},
+		"functions": []functions.Function{},
+		"messages": []schema.Message{
+			{
+				Role:          "assistant",
+				StringContent: "A long time ago in a galaxy far, far away...",
+			},
+		},
+		"shouldUseFn": false,
 	},
 	"function_call": {
-		"template": llama3,
+
 		"expected": "<|start_header_id|>assistant<|end_header_id|>\n\nFunction call:\n{\"function\":\"test\"}<|eot_id|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "assistant",
-			RoleName:     "assistant",
-			Content:      "",
-			FunctionCall: map[string]string{"function": "test"},
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage: llama3,
+			},
 		},
+		"functions": []functions.Function{},
+		"messages": []schema.Message{
+			{
+				Role:         "assistant",
+				FunctionCall: map[string]string{"function": "test"},
+			},
+		},
+		"shouldUseFn": false,
 	},
 	"function_response": {
-		"template": llama3,
 		"expected": "<|start_header_id|>tool<|end_header_id|>\n\nFunction response:\nResponse from tool<|eot_id|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "tool",
-			RoleName:     "tool",
-			Content:      "Response from tool",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage: llama3,
+			},
 		},
+		"functions": []functions.Function{},
+		"messages": []schema.Message{
+			{
+				Role:          "tool",
+				StringContent: "Response from tool",
+			},
+		},
+		"shouldUseFn": false,
 	},
 }
 
 var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
 	"user": {
-		"template": chatML,
 		"expected": "<|im_start|>user\nA long time ago in a galaxy far, far away...<|im_end|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "user",
-			RoleName:     "user",
-			Content:      "A long time ago in a galaxy far, far away...",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage: chatML,
+			},
+		},
+		"functions":   []functions.Function{},
+		"shouldUseFn": false,
+		"messages": []schema.Message{
+			{
+				Role:          "user",
+				StringContent: "A long time ago in a galaxy far, far away...",
+			},
 		},
 	},
 	"assistant": {
-		"template": chatML,
 		"expected": "<|im_start|>assistant\nA long time ago in a galaxy far, far away...<|im_end|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "assistant",
-			RoleName:     "assistant",
-			Content:      "A long time ago in a galaxy far, far away...",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage: chatML,
+			},
 		},
+		"functions": []functions.Function{},
+		"messages": []schema.Message{
+			{
+				Role:          "assistant",
+				StringContent: "A long time ago in a galaxy far, far away...",
+			},
+		},
+		"shouldUseFn": false,
 	},
 	"function_call": {
-		"template": chatML,
 		"expected": "<|im_start|>assistant\n<tool_call>\n{\"function\":\"test\"}\n</tool_call><|im_end|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "assistant",
-			RoleName:     "assistant",
-			Content:      "",
-			FunctionCall: map[string]string{"function": "test"},
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage: chatML,
+			},
+		},
+		"functions": []functions.Function{
+			{
+				Name:        "test",
+				Description: "test",
+				Parameters:  nil,
+			},
+		},
+		"shouldUseFn": true,
+		"messages": []schema.Message{
+			{
+				Role:         "assistant",
+				FunctionCall: map[string]string{"function": "test"},
+			},
 		},
 	},
 	"function_response": {
-		"template": chatML,
 		"expected": "<|im_start|>tool\n<tool_response>\nResponse from tool\n</tool_response><|im_end|>",
-		"data": ChatMessageTemplateData{
-			SystemPrompt: "",
-			Role:         "tool",
-			RoleName:     "tool",
-			Content:      "Response from tool",
-			FunctionCall: nil,
-			FunctionName: "",
-			LastMessage:  false,
-			Function:     false,
-			MessageIndex: 0,
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage: chatML,
+			},
+		},
+		"functions":   []functions.Function{},
+		"shouldUseFn": false,
+		"messages": []schema.Message{
+			{
+				Role:          "tool",
+				StringContent: "Response from tool",
+			},
 		},
 	},
 }
@@ -174,8 +192,7 @@ var _ = Describe("Templates", func() {
 		for key := range chatMLTestMatch {
 			foo := chatMLTestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated, err := evaluator.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
-				Expect(err).ToNot(HaveOccurred())
+				templated := evaluator.TemplateMessages(foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}
@@ -188,8 +205,7 @@ var _ = Describe("Templates", func() {
 		for key := range llama3TestMatch {
 			foo := llama3TestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated, err := evaluator.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
-				Expect(err).ToNot(HaveOccurred())
+				templated := evaluator.TemplateMessages(foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}
