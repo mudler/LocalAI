@@ -14,6 +14,8 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/templates"
+
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -24,7 +26,7 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	var id, textContentToReturn string
 	var created int
 
@@ -298,7 +300,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		// If we are using the tokenizer template, we don't need to process the messages
 		// unless we are processing functions
 		if !config.TemplateConfig.UseTokenizerTemplate || shouldUseFn {
-			predInput = ml.TemplateMessages(input.Messages, config, funcs, shouldUseFn)
+			predInput = evaluator.TemplateMessages(input.Messages, config, funcs, shouldUseFn)
 
 			log.Debug().Msgf("Prompt (after templating): %s", predInput)
 			if shouldUseFn && config.Grammar != "" {

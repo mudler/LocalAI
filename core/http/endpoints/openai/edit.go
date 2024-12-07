@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/templates"
 
 	"github.com/rs/zerolog/log"
 )
@@ -21,7 +22,8 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/edits [post]
-func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+
 	return func(c *fiber.Ctx) error {
 		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
 		if err != nil {
@@ -39,7 +41,7 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConf
 		totalTokenUsage := backend.TokenUsage{}
 
 		for _, i := range config.InputStrings {
-			templatedInput, err := ml.EvaluateTemplateForPrompt(model.EditPromptTemplate, *config, model.PromptTemplateData{
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.EditPromptTemplate, *config, templates.PromptTemplateData{
 				Input:        i,
 				Instruction:  input.Instruction,
 				SystemPrompt: config.SystemPrompt,

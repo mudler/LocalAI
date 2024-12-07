@@ -1,4 +1,4 @@
-package model
+package templates
 
 import (
 	"encoding/json"
@@ -8,7 +8,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
-	"github.com/mudler/LocalAI/pkg/templates"
 	"github.com/rs/zerolog/log"
 )
 
@@ -37,18 +36,28 @@ type ChatMessageTemplateData struct {
 }
 
 const (
-	ChatPromptTemplate templates.TemplateType = iota
+	ChatPromptTemplate TemplateType = iota
 	ChatMessageTemplate
 	CompletionPromptTemplate
 	EditPromptTemplate
 	FunctionsPromptTemplate
 )
 
-func (ml *ModelLoader) EvaluateTemplateForPrompt(templateType templates.TemplateType, config config.BackendConfig, in PromptTemplateData) (string, error) {
+type Evaluator struct {
+	cache *TemplateCache
+}
+
+func NewEvaluator(cache *TemplateCache) *Evaluator {
+	return &Evaluator{
+		cache: cache,
+	}
+}
+
+func (e *Evaluator) EvaluateTemplateForPrompt(templateType TemplateType, config config.BackendConfig, in PromptTemplateData) (string, error) {
 	template := ""
 
 	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-	if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+	if e.cache.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
 		template = config.Model
 	}
 
@@ -76,17 +85,17 @@ func (ml *ModelLoader) EvaluateTemplateForPrompt(templateType templates.Template
 	}
 
 	if config.TemplateConfig.JinjaTemplate {
-		return ml.EvaluateJinjaTemplateForPrompt(templateType, template, in)
+		return e.EvaluateJinjaTemplateForPrompt(templateType, template, in)
 	}
 
-	return ml.templates.EvaluateTemplate(templateType, template, in)
+	return e.cache.EvaluateTemplate(templateType, template, in)
 }
 
-func (ml *ModelLoader) EvaluateTemplateForChatMessage(templateName string, messageData ChatMessageTemplateData) (string, error) {
-	return ml.templates.EvaluateTemplate(ChatMessageTemplate, templateName, messageData)
+func (e *Evaluator) EvaluateTemplateForChatMessage(templateName string, messageData ChatMessageTemplateData) (string, error) {
+	return e.cache.EvaluateTemplate(ChatMessageTemplate, templateName, messageData)
 }
 
-func (ml *ModelLoader) templateJinjaChat(templateName string, messageData []ChatMessageTemplateData) (string, error) {
+func (e *Evaluator) templateJinjaChat(templateName string, messageData []ChatMessageTemplateData) (string, error) {
 
 	conversation := make(map[string]interface{})
 	messages := make([]map[string]interface{}, len(messageData))
@@ -108,20 +117,20 @@ func (ml *ModelLoader) templateJinjaChat(templateName string, messageData []Chat
 
 	conversation["messages"] = messages
 
-	return ml.templates.EvaluateJinjaTemplate(ChatMessageTemplate, templateName, conversation)
+	return e.cache.EvaluateJinjaTemplate(ChatMessageTemplate, templateName, conversation)
 }
 
-func (ml *ModelLoader) EvaluateJinjaTemplateForPrompt(templateType templates.TemplateType, templateName string, in PromptTemplateData) (string, error) {
+func (e *Evaluator) EvaluateJinjaTemplateForPrompt(templateType TemplateType, templateName string, in PromptTemplateData) (string, error) {
 
 	conversation := make(map[string]interface{})
 
 	conversation["system_prompt"] = in.SystemPrompt
 	conversation["content"] = in.Input
 
-	return ml.templates.EvaluateJinjaTemplate(templateType, templateName, conversation)
+	return e.cache.EvaluateJinjaTemplate(templateType, templateName, conversation)
 }
 
-func (ml *ModelLoader) TemplateMessages(messages []schema.Message, config *config.BackendConfig, funcs []functions.Function, shouldUseFn bool) string {
+func (e *Evaluator) TemplateMessages(messages []schema.Message, config *config.BackendConfig, funcs []functions.Function, shouldUseFn bool) string {
 
 	if config.TemplateConfig.JinjaTemplate {
 		var messageData []ChatMessageTemplateData
@@ -143,7 +152,7 @@ func (ml *ModelLoader) TemplateMessages(messages []schema.Message, config *confi
 			})
 		}
 
-		templatedInput, err := ml.templateJinjaChat(config.TemplateConfig.ChatMessage, messageData)
+		templatedInput, err := e.templateJinjaChat(config.TemplateConfig.ChatMessage, messageData)
 		if err == nil {
 			return templatedInput
 		}
@@ -186,7 +195,7 @@ func (ml *ModelLoader) TemplateMessages(messages []schema.Message, config *confi
 				Function:     config.Grammar != "" && (messageIndex == (len(messages) - 1)),
 				MessageIndex: messageIndex,
 			}
-			templatedChatMessage, err := ml.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
+			templatedChatMessage, err := e.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 			if err != nil {
 				log.Error().Err(err).Interface("message", chatMessageData).Str("template", config.TemplateConfig.ChatMessage).Msg("error processing message with template, skipping")
 			} else {
@@ -266,7 +275,7 @@ func (ml *ModelLoader) TemplateMessages(messages []schema.Message, config *confi
 		promptTemplate = FunctionsPromptTemplate
 	}
 
-	templatedInput, err := ml.EvaluateTemplateForPrompt(promptTemplate, *config, PromptTemplateData{
+	templatedInput, err := e.EvaluateTemplateForPrompt(promptTemplate, *config, PromptTemplateData{
 		SystemPrompt:         config.SystemPrompt,
 		SuppressSystemPrompt: suppressConfigSystemPrompt,
 		Input:                predInput,

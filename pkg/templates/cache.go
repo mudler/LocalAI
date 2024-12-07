@@ -42,6 +42,10 @@ func (tc *TemplateCache) initializeTemplateMapKey(tt TemplateType) {
 	}
 }
 
+func (tc *TemplateCache) ExistsInModelPath(s string) bool {
+	return utils.ExistsInPath(tc.templatesPath, s)
+}
+
 func (tc *TemplateCache) EvaluateTemplate(templateType TemplateType, templateNameOrContent string, in interface{}) (string, error) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
@@ -88,7 +92,7 @@ func (tc *TemplateCache) loadTemplateIfExists(templateType TemplateType, templat
 	}
 
 	// can either be a file in the system or a string with the template
-	if utils.ExistsInPath(tc.templatesPath, modelTemplateFile) {
+	if tc.ExistsInModelPath(modelTemplateFile) {
 		d, err := os.ReadFile(file)
 		if err != nil {
 			return err

@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/templates"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
@@ -25,7 +26,7 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/completions [post]
-func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
@@ -101,7 +102,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 			predInput := config.PromptStrings[0]
 
-			templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, *config, model.PromptTemplateData{
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
 				Input:        predInput,
 				SystemPrompt: config.SystemPrompt,
 			})
@@ -152,7 +153,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 		totalTokenUsage := backend.TokenUsage{}
 
 		for k, i := range config.PromptStrings {
-			templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, *config, model.PromptTemplateData{
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
 				SystemPrompt: config.SystemPrompt,
 				Input:        i,
 			})

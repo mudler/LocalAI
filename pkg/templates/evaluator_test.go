@@ -1,7 +1,7 @@
-package model_test
+package templates_test
 
 import (
-	. "github.com/mudler/LocalAI/pkg/model"
+	. "github.com/mudler/LocalAI/pkg/templates"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -167,28 +167,28 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 
 var _ = Describe("Templates", func() {
 	Context("chat message ChatML", func() {
-		var modelLoader *ModelLoader
+		var evaluator *Evaluator
 		BeforeEach(func() {
-			modelLoader = NewModelLoader("")
+			evaluator = NewEvaluator(NewTemplateCache(""))
 		})
 		for key := range chatMLTestMatch {
 			foo := chatMLTestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
+				templated, err := evaluator.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}
 	})
 	Context("chat message llama3", func() {
-		var modelLoader *ModelLoader
+		var evaluator *Evaluator
 		BeforeEach(func() {
-			modelLoader = NewModelLoader("")
+			evaluator = NewEvaluator(NewTemplateCache(""))
 		})
 		for key := range llama3TestMatch {
 			foo := llama3TestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated, err := modelLoader.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
+				templated, err := evaluator.EvaluateTemplateForChatMessage(foo["template"].(string), foo["data"].(ChatMessageTemplateData))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
