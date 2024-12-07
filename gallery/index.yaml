@@ -1,4 +1,27 @@
 ---
+- &llama33
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  license: llama3.3
+  description: |
+    The Meta Llama 3.3 multilingual large language model (LLM) is a pretrained and instruction tuned generative model in 70B (text in/text out). The Llama 3.3 instruction tuned text only model is optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3.3
+  name: "llama-3.3-70b-instruct"
+  urls:
+    - https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
+    - https://huggingface.co/MaziyarPanahi/Llama-3.3-70B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Llama-3.3-70B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-70B-Instruct.Q4_K_M.gguf
+      sha256: 4f3b04ecae278bdb0fd545b47c210bc5edf823e5ebf7d41e0b526c81d54b1ff3
+      uri: huggingface://MaziyarPanahi/Llama-3.3-70B-Instruct-GGUF/Llama-3.3-70B-Instruct.Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
