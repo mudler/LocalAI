@@ -117,12 +117,8 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			ss := ""
 
 			var partialRune []byte
-			err := inferenceModel.PredictStream(ctx, opts, func(reply *proto.Reply) {
-				msg := reply.GetMessage()
-				partialRune = append(partialRune, msg...)
-
-				tokenUsage.Prompt = int(reply.PromptTokens)
-				tokenUsage.Completion = int(reply.Tokens)
+			err := inferenceModel.PredictStream(ctx, opts, func(chars []byte) {
+				partialRune = append(partialRune, chars...)
 
 				for len(partialRune) > 0 {
 					r, size := utf8.DecodeRune(partialRune)
@@ -135,10 +131,6 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 					ss += string(r)
 
 					partialRune = partialRune[size:]
-				}
-
-				if len(msg) == 0 {
-					tokenCallback("", tokenUsage)
 				}
 			})
 			return LLMResponse{
