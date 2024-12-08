@@ -41,15 +41,11 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 		responses <- initialMessage
 
 		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
-			choices := []schema.Choice{}
-			if s != "" {
-				choices = append(choices, schema.Choice{Delta: &schema.Message{Content: &s}, Index: 0})
-			}
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: choices,
+				Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0}},
 				Object:  "chat.completion.chunk",
 				Usage: schema.OpenAIUsage{
 					PromptTokens:     usage.Prompt,
@@ -333,9 +329,6 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 				toolsCalled := false
 				for ev := range responses {
 					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
-					if len(ev.Choices) == 0 {
-						break
-					}
 					if len(ev.Choices[0].Delta.ToolCalls) > 0 {
 						toolsCalled = true
 					}
