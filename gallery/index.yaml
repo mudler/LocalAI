@@ -4410,6 +4410,30 @@
     - filename: Chatty-Harry_V3.0.Q4_K_M.gguf
       sha256: 54b63bb74498576ca77b801ed096657a93cc2f6b71d707c3605fdb394bd3e622
       uri: huggingface://QuantFactory/Chatty-Harry_V3.0-GGUF/Chatty-Harry_V3.0.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mn-chunky-lotus-12b"
+  icon: https://huggingface.co/FallenMerick/MN-Chunky-Lotus-12B/resolve/main/chunky-lotus.jpg
+  urls:
+    - https://huggingface.co/QuantFactory/MN-Chunky-Lotus-12B-GGUF
+  description: |
+    I had originally planned to use this model for future/further merges, but decided to go ahead and release it since it scored rather high on my local EQ Bench testing (79.58 w/ 100% parsed @ 8-bit).
+    Bear in mind that most models tend to score a bit higher on my own local tests as compared to their posted scores. Still, its the highest score I've personally seen from all the models I've tested.
+    Its a decent model, with great emotional intelligence and acceptable adherence to various character personalities. It does a good job at roleplaying despite being a bit bland at times.
+
+    Overall, I like the way it writes, but it has a few formatting issues that show up from time to time, and it has an uncommon tendency to paste walls of character feelings/intentions at the end of some outputs without any prompting. This is something I hope to correct with future iterations.
+    This is a merge of pre-trained language models created using mergekit.
+    The following models were included in the merge:
+        Epiculous/Violet_Twilight-v0.2
+        nbeerbower/mistral-nemo-gutenberg-12B-v4
+        flammenai/Mahou-1.5-mistral-nemo-12B
+  overrides:
+    parameters:
+      model: MN-Chunky-Lotus-12B.Q4_K_M.gguf
+  files:
+    - filename: MN-Chunky-Lotus-12B.Q4_K_M.gguf
+      sha256: 363defe0a769fdb715dab75517966a0a80bcdd981a610d4c759099b6c8ff143a
+      uri: huggingface://QuantFactory/MN-Chunky-Lotus-12B-GGUF/MN-Chunky-Lotus-12B.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
