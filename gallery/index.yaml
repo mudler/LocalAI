@@ -8129,6 +8129,23 @@
     - filename: RP-Naughty-v1.0c-8b.Q4_K_M.gguf
       sha256: c344564d26d0c3d244d31cfeb103666eab37f9dee6678a2dbaf5bfcf4109d789
       uri: huggingface://QuantFactory/RP-Naughty-v1.0c-8b-GGUF/RP-Naughty-v1.0c-8b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "bio-medical-llama-3-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/653f5b93cd52f288490edc83/zPMUugzfOiwTiRw88jm7T.jpeg
+  urls:
+    - https://huggingface.co/ContactDoctor/Bio-Medical-Llama-3-8B
+    - https://huggingface.co/QuantFactory/Bio-Medical-Llama-3-8B-GGUF
+  description: |
+    Bio-Medical-Llama-3-8B model is a specialized large language model designed for biomedical applications. It is finetuned from the meta-llama/Meta-Llama-3-8B-Instruct model using a custom dataset containing over 500,000 diverse entries. These entries include a mix of synthetic and manually curated data, ensuring high quality and broad coverage of biomedical topics.
+
+    The model is trained to understand and generate text related to various biomedical fields, making it a valuable tool for researchers, clinicians, and other professionals in the biomedical domain.
+  overrides:
+    parameters:
+      model: Bio-Medical-Llama-3-8B.Q4_K_M.gguf
+  files:
+    - filename: Bio-Medical-Llama-3-8B.Q4_K_M.gguf
+      sha256: 672939e0487d02c55734132c25a59f26e4deaac7cd49445a7028f2291139edcc
+      uri: huggingface://QuantFactory/Bio-Medical-Llama-3-8B-GGUF/Bio-Medical-Llama-3-8B.Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
