@@ -206,6 +206,8 @@ type TemplateConfig struct {
 	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
 
 	Multimodal string `yaml:"multimodal"`
+
+	JinjaTemplate bool `yaml:"jinja_template"`
 }
 
 func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {

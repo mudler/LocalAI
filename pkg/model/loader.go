@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/pkg/templates"
-
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/rs/zerolog/log"
@@ -23,7 +21,6 @@ type ModelLoader struct {
 	ModelPath string
 	mu        sync.Mutex
 	models    map[string]*Model
-	templates *templates.TemplateCache
 	wd        *WatchDog
 }
 
@@ -31,7 +28,6 @@ func NewModelLoader(modelPath string) *ModelLoader {
 	nml := &ModelLoader{
 		ModelPath: modelPath,
 		models:    make(map[string]*Model),
-		templates: templates.NewTemplateCache(modelPath),
 	}
 
 	return nml
