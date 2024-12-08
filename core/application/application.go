@@ -18,7 +18,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		backendLoader:      config.NewBackendConfigLoader(appConfig.ModelPath),
 		modelLoader:        model.NewModelLoader(appConfig.ModelPath),
 		applicationConfig:  appConfig,
-		templatesEvaluator: templates.NewEvaluator(templates.NewTemplateCache(appConfig.ModelPath)),
+		templatesEvaluator: templates.NewEvaluator(appConfig.ModelPath),
 	}
 }
 

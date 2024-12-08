@@ -303,7 +303,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			predInput = evaluator.TemplateMessages(input.Messages, config, funcs, shouldUseFn)
 
 			log.Debug().Msgf("Prompt (after templating): %s", predInput)
-			if shouldUseFn && config.Grammar != "" {
+			if config.Grammar != "" {
 				log.Debug().Msgf("Grammar: %+v", config.Grammar)
 			}
 		}

@@ -44,12 +44,12 @@ const (
 )
 
 type Evaluator struct {
-	cache *TemplateCache
+	cache *templateCache
 }
 
-func NewEvaluator(cache *TemplateCache) *Evaluator {
+func NewEvaluator(modelPath string) *Evaluator {
 	return &Evaluator{
-		cache: cache,
+		cache: newTemplateCache(modelPath),
 	}
 }
 
@@ -57,7 +57,7 @@ func (e *Evaluator) EvaluateTemplateForPrompt(templateType TemplateType, config 
 	template := ""
 
 	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-	if e.cache.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
+	if e.cache.existsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
 		template = config.Model
 	}
 
@@ -88,11 +88,11 @@ func (e *Evaluator) EvaluateTemplateForPrompt(templateType TemplateType, config 
 		return e.evaluateJinjaTemplateForPrompt(templateType, template, in)
 	}
 
-	return e.cache.EvaluateTemplate(templateType, template, in)
+	return e.cache.evaluateTemplate(templateType, template, in)
 }
 
 func (e *Evaluator) evaluateTemplateForChatMessage(templateName string, messageData ChatMessageTemplateData) (string, error) {
-	return e.cache.EvaluateTemplate(ChatMessageTemplate, templateName, messageData)
+	return e.cache.evaluateTemplate(ChatMessageTemplate, templateName, messageData)
 }
 
 func (e *Evaluator) templateJinjaChat(templateName string, messageData []ChatMessageTemplateData, funcs []functions.Function) (string, error) {
@@ -120,7 +120,7 @@ func (e *Evaluator) templateJinjaChat(templateName string, messageData []ChatMes
 		conversation["tools"] = funcs
 	}
 
-	return e.cache.EvaluateJinjaTemplate(ChatMessageTemplate, templateName, conversation)
+	return e.cache.evaluateJinjaTemplate(ChatMessageTemplate, templateName, conversation)
 }
 
 func (e *Evaluator) evaluateJinjaTemplateForPrompt(templateType TemplateType, templateName string, in PromptTemplateData) (string, error) {
@@ -130,7 +130,7 @@ func (e *Evaluator) evaluateJinjaTemplateForPrompt(templateType TemplateType, te
 	conversation["system_prompt"] = in.SystemPrompt
 	conversation["content"] = in.Input
 
-	return e.cache.EvaluateJinjaTemplate(templateType, templateName, conversation)
+	return e.cache.evaluateJinjaTemplate(templateType, templateName, conversation)
 }
 
 func (e *Evaluator) TemplateMessages(messages []schema.Message, config *config.BackendConfig, funcs []functions.Function, shouldUseFn bool) string {

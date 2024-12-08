@@ -10,6 +10,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const toolCallJinja = `{{ '<|begin_of_text|>' }}{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ '<|start_header_id|>system<|end_header_id|>
+
+' + system_message + '<|eot_id|>' }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|start_header_id|>user<|end_header_id|>
+
+' + content + '<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+' }}{% elif message['role'] == 'assistant' %}{{ content + '<|eot_id|>' }}{% endif %}{% endfor %}`
+
 const chatML = `<|im_start|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}
 {{- if .FunctionCall }}
 <tool_call>
@@ -183,11 +191,30 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 }
 
+var jinjaTest map[string]map[string]interface{} = map[string]map[string]interface{}{
+	"user": {
+		"expected": "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
+		"config": &config.BackendConfig{
+			TemplateConfig: config.TemplateConfig{
+				ChatMessage:   toolCallJinja,
+				JinjaTemplate: true,
+			},
+		},
+		"functions":   []functions.Function{},
+		"shouldUseFn": false,
+		"messages": []schema.Message{
+			{
+				Role:          "user",
+				StringContent: "A long time ago in a galaxy far, far away...",
+			},
+		},
+	},
+}
 var _ = Describe("Templates", func() {
 	Context("chat message ChatML", func() {
 		var evaluator *Evaluator
 		BeforeEach(func() {
-			evaluator = NewEvaluator(NewTemplateCache(""))
+			evaluator = NewEvaluator("")
 		})
 		for key := range chatMLTestMatch {
 			foo := chatMLTestMatch[key]
@@ -200,10 +227,23 @@ var _ = Describe("Templates", func() {
 	Context("chat message llama3", func() {
 		var evaluator *Evaluator
 		BeforeEach(func() {
-			evaluator = NewEvaluator(NewTemplateCache(""))
+			evaluator = NewEvaluator("")
 		})
 		for key := range llama3TestMatch {
 			foo := llama3TestMatch[key]
+			It("renders correctly `"+key+"`", func() {
+				templated := evaluator.TemplateMessages(foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
+				Expect(templated).To(Equal(foo["expected"]), templated)
+			})
+		}
+	})
+	Context("chat message jinja", func() {
+		var evaluator *Evaluator
+		BeforeEach(func() {
+			evaluator = NewEvaluator("")
+		})
+		for key := range jinjaTest {
+			foo := jinjaTest[key]
 			It("renders correctly `"+key+"`", func() {
 				templated := evaluator.TemplateMessages(foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
