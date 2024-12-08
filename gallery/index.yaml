@@ -1838,6 +1838,20 @@
     - filename: Math-IIO-7B-Instruct.Q4_K_M.gguf
       sha256: 8ffda0b6a43eb9997dfd7db48fe3bd0970fd1b9b86fb68f082c38622a48b58f4
       uri: huggingface://QuantFactory/Math-IIO-7B-Instruct-GGUF/Math-IIO-7B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "virtuoso-small"
+  icon: https://i.ibb.co/pXD6Bcv/SW2-U-g-QQLSH1-ZAbxhs-Iu-A.webp
+  urls:
+    - https://huggingface.co/arcee-ai/Virtuoso-Small-GGUF
+  description: |
+    Virtuoso-Small is the debut public release of the Virtuoso series of models by Arcee.ai, designed to bring cutting-edge generative AI capabilities to organizations and developers in a compact, efficient form. With 14 billion parameters, Virtuoso-Small is an accessible entry point for high-quality instruction-following, complex reasoning, and business-oriented generative AI tasks.
+  overrides:
+    parameters:
+      model: Virtuoso-Small-Q4_K_M.gguf
+  files:
+    - filename: Virtuoso-Small-Q4_K_M.gguf
+      sha256: 07db215cdfcb05036567017fe20e50e60cb2da28d1f9a8251cc4f18c8caa247f
+      uri: huggingface://arcee-ai/Virtuoso-Small-GGUF/Virtuoso-Small-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
