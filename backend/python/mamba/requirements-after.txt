@@ -1,2 +1,2 @@
-causal-conv1d==1.4.0
+causal-conv1d==1.5.0.post8
 mamba-ssm==2.2.2
