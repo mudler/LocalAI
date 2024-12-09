@@ -2,16 +2,17 @@ package openai
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/middleware"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
-	model "github.com/mudler/LocalAI/pkg/model"
+
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/templates"
 
 	"github.com/rs/zerolog/log"
@@ -25,17 +26,18 @@ import (
 func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 
 	return func(c *fiber.Ctx) error {
-		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input.Model == "" {
+			return fiber.ErrBadRequest
 		}
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+		if !ok || config == nil {
+			return fiber.ErrBadRequest
 		}
 
-		log.Debug().Msgf("Parameter Config: %+v", config)
+		log.Debug().Msgf("Edit Endpoint Input : %+v", input)
+		log.Debug().Msgf("Edit Endpoint Config: %+v", *config)
 
 		var result []schema.Choice
 		totalTokenUsage := backend.TokenUsage{}
