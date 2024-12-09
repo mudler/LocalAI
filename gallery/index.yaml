@@ -3647,6 +3647,20 @@
     - filename: Impish_Mind_8B-Q4_K_M.gguf
       sha256: 918f82bcb893c75fa2e846156df7bd3ce359464b960e32ae9171035ee14e7c51
       uri: huggingface://bartowski/Impish_Mind_8B-GGUF/Impish_Mind_8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "tulu-3.1-8b-supernova-smart"
+  urls:
+    - https://huggingface.co/bunnycore/Tulu-3.1-8B-SuperNova-Smart
+    - https://huggingface.co/QuantFactory/Tulu-3.1-8B-SuperNova-Smart-GGUF
+  description: |
+    This model was merged using the passthrough merge method using bunnycore/Tulu-3.1-8B-SuperNova + bunnycore/Llama-3.1-8b-smart-lora as a base.
+  overrides:
+    parameters:
+      model: Tulu-3.1-8B-SuperNova-Smart.Q4_K_M.gguf
+  files:
+    - filename: Tulu-3.1-8B-SuperNova-Smart.Q4_K_M.gguf
+      sha256: 4b8ba9e64f0667199eee2dcc769f1a90aa9c7730165d42f440fdf107c7585c63
+      uri: huggingface://QuantFactory/Tulu-3.1-8B-SuperNova-Smart-GGUF/Tulu-3.1-8B-SuperNova-Smart.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
