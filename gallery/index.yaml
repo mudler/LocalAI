@@ -1852,6 +1852,20 @@
     - filename: Virtuoso-Small-Q4_K_M.gguf
       sha256: 07db215cdfcb05036567017fe20e50e60cb2da28d1f9a8251cc4f18c8caa247f
       uri: huggingface://arcee-ai/Virtuoso-Small-GGUF/Virtuoso-Small-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-homeranvita-nerdmix"
+  urls:
+    - https://huggingface.co/ZeroXClem/Qwen2.5-7B-HomerAnvita-NerdMix
+    - https://huggingface.co/QuantFactory/Qwen2.5-7B-HomerAnvita-NerdMix-GGUF
+  description: |
+    ZeroXClem/Qwen2.5-7B-HomerAnvita-NerdMix is an advanced language model meticulously crafted by merging five pre-trained models using the powerful mergekit framework. This fusion leverages the Model Stock merge method to combine the creative prowess of Qandora, the instructive capabilities of Qwen-Instruct-Fusion, the sophisticated blending of HomerSlerp1, the mathematical precision of Cybertron-MGS, and the uncensored expertise of Qwen-Nerd. The resulting model excels in creative text generation, contextual understanding, technical reasoning, and dynamic conversational interactions.
+  overrides:
+    parameters:
+      model: Qwen2.5-7B-HomerAnvita-NerdMix.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-7B-HomerAnvita-NerdMix.Q4_K_M.gguf
+      sha256: 73db2ca3ab50e8627352078988cd173e7447c5e8199a7db9e554602da1362e5f
+      uri: huggingface://QuantFactory/Qwen2.5-7B-HomerAnvita-NerdMix-GGUF/Qwen2.5-7B-HomerAnvita-NerdMix.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
