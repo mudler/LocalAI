@@ -3628,6 +3628,25 @@
     - filename: Loki-v2.6-8b-1024k.Q4_K_M.gguf
       sha256: 9b15c1fee0a0e6d6ed97df3d1b6fc8f774e6e1bd388328599e731c62e0f19d81
       uri: huggingface://QuantFactory/Loki-v2.6-8b-1024k-GGUF/Loki-v2.6-8b-1024k.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "impish_mind_8b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_Mind_8B/resolve/main/Images/Impish_Mind.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_Mind_8B
+    - https://huggingface.co/bartowski/Impish_Mind_8B-GGUF
+  description: |
+    This model was trained with new data and a new approach (compared to my other models). While it may be a bit more censored, it is expected to be significantly smarter. The data used is quite unique, and is also featuring long and complex markdown datasets.
+
+    Regarding censorship: Whether uncensoring or enforcing strict censorship, the model tends to lose some of its intelligence. The use of toxic data was kept to a minimum with this model.
+
+    Consequently, the model is likely to refuse some requests, this is easly avoidable with a basic system prompt, or assistant impersonation ("Sure thing!..."). Unlike many RP models, this one is designed to excel at general assistant tasks as well.
+  overrides:
+    parameters:
+      model: Impish_Mind_8B-Q4_K_M.gguf
+  files:
+    - filename: Impish_Mind_8B-Q4_K_M.gguf
+      sha256: 918f82bcb893c75fa2e846156df7bd3ce359464b960e32ae9171035ee14e7c51
+      uri: huggingface://bartowski/Impish_Mind_8B-GGUF/Impish_Mind_8B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
