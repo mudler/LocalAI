@@ -87,7 +87,7 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.EmbeddingsEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()),
+		openai.EmbeddingsEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()),
 	}
 	app.Post("/v1/embeddings", embeddingChain...)
 	app.Post("/embeddings", embeddingChain...)
@@ -98,20 +98,20 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TRANSCRIPT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.TranscriptEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()),
+		openai.TranscriptEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()),
 	)
 
 	app.Post("/v1/audio/speech",
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }),
-		localai.TTSEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()))
+		localai.TTSEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
 
 	// images
 	app.Post("/v1/images/generations",
 		re.BuildConstantDefaultModelNameMiddleware(model.StableDiffusionBackend),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.ImageEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()))
+		openai.ImageEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
 
 	if application.ApplicationConfig().ImageDir != "" {
 		app.Static("/generated-images", application.ApplicationConfig().ImageDir)
