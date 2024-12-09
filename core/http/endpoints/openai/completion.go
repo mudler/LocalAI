@@ -29,8 +29,6 @@ import (
 // @Router /v1/completions [post]
 
 func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	id := uuid.New().String()
-
 	created := int(time.Now().Unix())
 
 	process := func(id string, s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {

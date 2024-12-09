@@ -2,7 +2,6 @@ package openai
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
