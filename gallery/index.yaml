@@ -1,4 +1,27 @@
 ---
+- &llama33
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  license: llama3.3
+  description: |
+    The Meta Llama 3.3 multilingual large language model (LLM) is a pretrained and instruction tuned generative model in 70B (text in/text out). The Llama 3.3 instruction tuned text only model is optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3.3
+  name: "llama-3.3-70b-instruct"
+  urls:
+    - https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
+    - https://huggingface.co/MaziyarPanahi/Llama-3.3-70B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Llama-3.3-70B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-70B-Instruct.Q4_K_M.gguf
+      sha256: 4f3b04ecae278bdb0fd545b47c210bc5edf823e5ebf7d41e0b526c81d54b1ff3
+      uri: huggingface://MaziyarPanahi/Llama-3.3-70B-Instruct-GGUF/Llama-3.3-70B-Instruct.Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
@@ -1725,6 +1748,110 @@
     - filename: Teleut-7b.Q4_K_M.gguf
       sha256: 844a633ea01d793c638e99f2e07413606b3812b759e9264fbaf69c8d94eaa093
       uri: huggingface://QuantFactory/Teleut-7b-GGUF/Teleut-7b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-homercreative-mix"
+  urls:
+    - https://huggingface.co/ZeroXClem/Qwen2.5-7B-HomerCreative-Mix
+    - https://huggingface.co/QuantFactory/Qwen2.5-7B-HomerCreative-Mix-GGUF
+  description: |
+    ZeroXClem/Qwen2.5-7B-HomerCreative-Mix is an advanced language model meticulously crafted by merging four pre-trained models using the powerful mergekit framework. This fusion leverages the Model Stock merge method to combine the creative prowess of Qandora, the instructive capabilities of Qwen-Instruct-Fusion, the sophisticated blending of HomerSlerp1, and the foundational conversational strengths of Homer-v0.5-Qwen2.5-7B. The resulting model excels in creative text generation, contextual understanding, and dynamic conversational interactions.
+    🚀 Merged Models
+
+    This model merge incorporates the following:
+
+        bunnycore/Qandora-2.5-7B-Creative: Specializes in creative text generation, enhancing the model's ability to produce imaginative and diverse content.
+
+        bunnycore/Qwen2.5-7B-Instruct-Fusion: Focuses on instruction-following capabilities, improving the model's performance in understanding and executing user commands.
+
+        allknowingroger/HomerSlerp1-7B: Utilizes spherical linear interpolation (SLERP) to blend model weights smoothly, ensuring a harmonious integration of different model attributes.
+
+        newsbang/Homer-v0.5-Qwen2.5-7B: Acts as the foundational conversational model, providing robust language comprehension and generation capabilities.
+  overrides:
+    parameters:
+      model: Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
+      sha256: fc3fdb41e068646592f89a8ae62d7b330f2bd4e97bf615aef2977930977c8ba5
+      uri: huggingface://QuantFactory/Qwen2.5-7B-HomerCreative-Mix-GGUF/Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "cybercore-qwen-2.1-7b"
+  urls:
+    - https://huggingface.co/bunnycore/CyberCore-Qwen-2.1-7B
+    - https://huggingface.co/QuantFactory/CyberCore-Qwen-2.1-7B-GGUF
+  description: |
+    This model was merged using the TIES merge method using rombodawg/Rombos-LLM-V2.5-Qwen-7b as a base.
+    Models Merged
+    fblgit/cybertron-v4-qw7B-UNAMGS + bunnycore/Qwen-2.1-7b-Persona-lora_model
+    fblgit/cybertron-v4-qw7B-MGS + bunnycore/Qwen-2.1-7b-Persona-lora_model
+  overrides:
+    parameters:
+      model: CyberCore-Qwen-2.1-7B.Q4_K_M.gguf
+  files:
+    - filename: CyberCore-Qwen-2.1-7B.Q4_K_M.gguf
+      sha256: 726042707a4cec29ca0355b4dc7c53a807b307d08aa8a3d4a9e76aefbbbcaadf
+      uri: huggingface://QuantFactory/CyberCore-Qwen-2.1-7B-GGUF/CyberCore-Qwen-2.1-7B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "homercreativeanvita-mix-qw7b"
+  icon: https://huggingface.co/suayptalha/HomerCreativeAnvita-Mix-Qw7B/resolve/main/HomerCreativeAnvita.jpeg
+  urls:
+    - https://huggingface.co/suayptalha/HomerCreativeAnvita-Mix-Qw7B
+    - https://huggingface.co/QuantFactory/HomerCreativeAnvita-Mix-Qw7B-GGUF
+  description: |
+    This model is currently ranked #1 on the Open LLM Leaderboard among models up to 13B parameters!
+    Merge Method
+
+    This model was merged using the SLERP merge method.
+    Models Merged
+
+    The following models were included in the merge:
+
+        ZeroXClem/Qwen2.5-7B-HomerAnvita-NerdMix
+        ZeroXClem/Qwen2.5-7B-HomerCreative-Mix
+  overrides:
+    parameters:
+      model: HomerCreativeAnvita-Mix-Qw7B.Q4_K_M.gguf
+  files:
+    - filename: HomerCreativeAnvita-Mix-Qw7B.Q4_K_M.gguf
+      sha256: a356f279a104bff0bbc2ef7ec136c1e774153de8893bf988083e96fb7f4bc053
+      uri: huggingface://QuantFactory/HomerCreativeAnvita-Mix-Qw7B-GGUF/HomerCreativeAnvita-Mix-Qw7B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "math-iio-7b-instruct"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/faLfR-doaWP_BLUkOQrbq.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Math-IIO-7B-Instruct
+    - https://huggingface.co/QuantFactory/Math-IIO-7B-Instruct-GGUF
+  description: |
+    The Math IIO 7B Instruct is a fine-tuned language model based on the robust Qwen2.5-7B-Instruct architecture. This model has been specifically trained to excel in single-shot mathematical reasoning and instruction-based tasks, making it a reliable choice for educational, analytical, and problem-solving applications.
+    Key Features:
+      Math-Optimized Capabilities:
+      The model is designed to handle complex mathematical problems, step-by-step calculations, and reasoning tasks.
+
+      Instruction-Tuned:
+      Fine-tuned for better adherence to structured queries and task-oriented prompts, enabling clear and concise outputs.
+
+      Large Vocabulary:
+      Equipped with an extensive tokenizer configuration and custom tokens to ensure precise mathematical notation support.
+  overrides:
+    parameters:
+      model: Math-IIO-7B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Math-IIO-7B-Instruct.Q4_K_M.gguf
+      sha256: 8ffda0b6a43eb9997dfd7db48fe3bd0970fd1b9b86fb68f082c38622a48b58f4
+      uri: huggingface://QuantFactory/Math-IIO-7B-Instruct-GGUF/Math-IIO-7B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "virtuoso-small"
+  icon: https://i.ibb.co/pXD6Bcv/SW2-U-g-QQLSH1-ZAbxhs-Iu-A.webp
+  urls:
+    - https://huggingface.co/arcee-ai/Virtuoso-Small-GGUF
+  description: |
+    Virtuoso-Small is the debut public release of the Virtuoso series of models by Arcee.ai, designed to bring cutting-edge generative AI capabilities to organizations and developers in a compact, efficient form. With 14 billion parameters, Virtuoso-Small is an accessible entry point for high-quality instruction-following, complex reasoning, and business-oriented generative AI tasks.
+  overrides:
+    parameters:
+      model: Virtuoso-Small-Q4_K_M.gguf
+  files:
+    - filename: Virtuoso-Small-Q4_K_M.gguf
+      sha256: 07db215cdfcb05036567017fe20e50e60cb2da28d1f9a8251cc4f18c8caa247f
+      uri: huggingface://arcee-ai/Virtuoso-Small-GGUF/Virtuoso-Small-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3340,6 +3467,153 @@
     - filename: Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
       sha256: ef6a203ba585aab14f5d2ec463917a45b3ac571abd89c39e9a96a5e395ea8eea
       uri: huggingface://QuantFactory/Skywork-o1-Open-Llama-3.1-8B-GGUF/Skywork-o1-Open-Llama-3.1-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "sparse-llama-3.1-8b-2of4"
+  urls:
+    - https://huggingface.co/QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF
+    - https://huggingface.co/QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF
+  description: |
+    This is the 2:4 sparse version of Llama-3.1-8B. On the OpenLLM benchmark (version 1), it achieves an average score of 62.16, compared to 63.19 for the dense model—demonstrating a 98.37% accuracy recovery. On the Mosaic Eval Gauntlet benchmark (version v0.3), it achieves an average score of 53.85, versus 55.34 for the dense model—representing a 97.3% accuracy recovery.
+  overrides:
+    parameters:
+      model: Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
+  files:
+    - filename: Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
+      sha256: c481e7089ffaedd5ae8c74dccc7fb45f6509640b661fa086ae979f6fefc3fdba
+      uri: huggingface://QuantFactory/Sparse-Llama-3.1-8B-2of4-GGUF/Sparse-Llama-3.1-8B-2of4.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "loki-v2.6-8b-1024k"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6472de046facfb01d8b1fb9d/uQPITKRS8XLTLyaiGwgh_.jpeg
+  urls:
+    - https://huggingface.co/QuantFactory/Loki-v2.6-8b-1024k-GGUF
+  description: |
+    The following models were included in the merge:
+    MrRobotoAI/Epic_Fiction-8b
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k
+    MrRobotoAI/Loki-.Epic_Fiction.-8b
+    Casual-Autopsy/L3-Luna-8B
+    Casual-Autopsy/L3-Super-Nova-RP-8B
+    Casual-Autopsy/L3-Umbral-Mind-RP-v3.0-8B
+    Casual-Autopsy/Halu-L3-Stheno-BlackOasis-8B
+    Undi95/Llama-3-LewdPlay-8B
+    Undi95/Llama-3-LewdPlay-8B-evo
+    Undi95/Llama-3-Unholy-8B
+    ChaoticNeutrals/Hathor_Tahsin-L3-8B-v0.9
+    ChaoticNeutrals/Hathor_RP-v.01-L3-8B
+    ChaoticNeutrals/Domain-Fusion-L3-8B
+    ChaoticNeutrals/T-900-8B
+    ChaoticNeutrals/Poppy_Porpoise-1.4-L3-8B
+    ChaoticNeutrals/Templar_v1_8B
+    ChaoticNeutrals/Hathor_Respawn-L3-8B-v0.8
+    ChaoticNeutrals/Sekhmet_Gimmel-L3.1-8B-v0.3
+    zeroblu3/LewdPoppy-8B-RP
+    tohur/natsumura-storytelling-rp-1.0-llama-3.1-8b
+    jeiku/Chaos_RP_l3_8B
+    tannedbum/L3-Nymeria-Maid-8B
+    Nekochu/Luminia-8B-RP
+    vicgalle/Humanish-Roleplay-Llama-3.1-8B
+    saishf/SOVLish-Maid-L3-8B
+    Dogge/llama-3-8B-instruct-Bluemoon-Freedom-RP
+    MrRobotoAI/Epic_Fiction-8b-v4
+    maldv/badger-lambda-0-llama-3-8b
+    maldv/llama-3-fantasy-writer-8b
+    maldv/badger-kappa-llama-3-8b
+    maldv/badger-mu-llama-3-8b
+    maldv/badger-lambda-llama-3-8b
+    maldv/badger-iota-llama-3-8b
+    maldv/badger-writer-llama-3-8b
+    Magpie-Align/MagpieLM-8B-Chat-v0.1
+    nbeerbower/llama-3-gutenberg-8B
+    nothingiisreal/L3-8B-Stheno-Horny-v3.3-32K
+    nbeerbower/llama-3-spicy-abliterated-stella-8B
+    Magpie-Align/MagpieLM-8B-SFT-v0.1
+    NeverSleep/Llama-3-Lumimaid-8B-v0.1
+    mlabonne/NeuralDaredevil-8B-abliterated
+    mlabonne/Daredevil-8B-abliterated
+    NeverSleep/Llama-3-Lumimaid-8B-v0.1-OAS
+    nothingiisreal/L3-8B-Instruct-Abliterated-DWP
+    openchat/openchat-3.6-8b-20240522
+    turboderp/llama3-turbcat-instruct-8b
+    UCLA-AGI/Llama-3-Instruct-8B-SPPO-Iter3
+    Undi95/Llama-3-LewdPlay-8B
+    TIGER-Lab/MAmmoTH2-8B-Plus
+    OwenArli/Awanllm-Llama-3-8B-Cumulus-v1.0
+    refuelai/Llama-3-Refueled
+    SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha
+    NousResearch/Hermes-2-Theta-Llama-3-8B
+    ResplendentAI/Nymph_8B
+    grimjim/Llama-3-Oasis-v1-OAS-8B
+    flammenai/Mahou-1.3b-llama3-8B
+    lemon07r/Llama-3-RedMagic4-8B
+    grimjim/Llama-3.1-SuperNova-Lite-lorabilterated-8B
+    grimjim/Llama-Nephilim-Metamorphosis-v2-8B
+    lemon07r/Lllama-3-RedElixir-8B
+    grimjim/Llama-3-Perky-Pat-Instruct-8B
+    ChaoticNeutrals/Hathor_RP-v.01-L3-8B
+    grimjim/llama-3-Nephilim-v2.1-8B
+    ChaoticNeutrals/Hathor_Respawn-L3-8B-v0.8
+    migtissera/Llama-3-8B-Synthia-v3.5
+    Locutusque/Llama-3-Hercules-5.0-8B
+    WhiteRabbitNeo/Llama-3-WhiteRabbitNeo-8B-v2.0
+    VAGOsolutions/Llama-3-SauerkrautLM-8b-Instruct
+    iRyanBell/ARC1-II
+    HPAI-BSC/Llama3-Aloe-8B-Alpha
+    HaitameLaf/Llama-3-8B-StoryGenerator
+    failspy/Meta-Llama-3-8B-Instruct-abliterated-v3
+    Undi95/Llama-3-Unholy-8B
+    ajibawa-2023/Uncensored-Frank-Llama-3-8B
+    ajibawa-2023/SlimOrca-Llama-3-8B
+    ChaoticNeutrals/Templar_v1_8B
+    aifeifei798/llama3-8B-DarkIdol-2.2-Uncensored-1048K
+    ChaoticNeutrals/Hathor_Tahsin-L3-8B-v0.9
+    Blackroot/Llama-3-Gamma-Twist
+    FPHam/L3-8B-Everything-COT
+    Blackroot/Llama-3-LongStory
+    ChaoticNeutrals/Sekhmet_Gimmel-L3.1-8B-v0.3
+    abacusai/Llama-3-Smaug-8B
+    Khetterman/CursedMatrix-8B-v9
+    ajibawa-2023/Scarlett-Llama-3-8B-v1.0
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/physics_non_masked
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/electrical_engineering
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/college_chemistry
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/philosophy_non_masked
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/college_physics
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/philosophy
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/formal_logic
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/philosophy_100
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/conceptual_physics
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/college_computer_science
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/psychology_non_masked
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/psychology
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Blackroot/Llama3-RP-Lora
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Llama-3-LimaRP-Instruct-LoRA-8B
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + nothingiisreal/llama3-8B-DWP-lora
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/world_religions
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/high_school_european_history
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/electrical_engineering
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Llama-3-8B-Abomination-LORA
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Llama-3-LongStory-LORA
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/human_sexuality
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + surya-narayanan/sociology
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/Theory_of_Mind_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Smarts_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Llama-3-LongStory-LORA
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/Nimue-8B
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + vincentyandex/lora_llama3_chunked_novel_bs128
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/Aura_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Azazelle/L3-Daybreak-8b-lora
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/Luna_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + nicce/story-mixtral-8x7b-lora
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + Blackroot/Llama-3-LongStory-LORA
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/NoWarning_Llama3
+    MrRobotoAI/Unaligned-RP-Base-8b-1024k + ResplendentAI/BlueMoon_Llama3
+  overrides:
+    parameters:
+      model: Loki-v2.6-8b-1024k.Q4_K_M.gguf
+  files:
+    - filename: Loki-v2.6-8b-1024k.Q4_K_M.gguf
+      sha256: 9b15c1fee0a0e6d6ed97df3d1b6fc8f774e6e1bd388328599e731c62e0f19d81
+      uri: huggingface://QuantFactory/Loki-v2.6-8b-1024k-GGUF/Loki-v2.6-8b-1024k.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -4133,6 +4407,47 @@
     - filename: magnum-12b-v2.5-kto.i1-Q4_K_M.gguf
       sha256: 07e91d2c6d4e42312e65a69c54f16be467575f7a596fe052993b388e38b90d76
       uri: huggingface://mradermacher/magnum-12b-v2.5-kto-i1-GGUF/magnum-12b-v2.5-kto.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "chatty-harry_v3.0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c1cc08453a7ef6c5fe657a/0KzNTEtn2kJJQsw4lQeY0.png
+  urls:
+    - https://huggingface.co/Triangle104/Chatty-Harry_V3.0
+    - https://huggingface.co/QuantFactory/Chatty-Harry_V3.0-GGUF
+  description: |
+    This model was merged using the TIES merge method using Triangle104/ChatWaifu_Magnum_V0.2 as a base.
+    The following models were included in the merge: elinas/Chronos-Gold-12B-1.0
+  overrides:
+    parameters:
+      model: Chatty-Harry_V3.0.Q4_K_M.gguf
+  files:
+    - filename: Chatty-Harry_V3.0.Q4_K_M.gguf
+      sha256: 54b63bb74498576ca77b801ed096657a93cc2f6b71d707c3605fdb394bd3e622
+      uri: huggingface://QuantFactory/Chatty-Harry_V3.0-GGUF/Chatty-Harry_V3.0.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "mn-chunky-lotus-12b"
+  icon: https://huggingface.co/FallenMerick/MN-Chunky-Lotus-12B/resolve/main/chunky-lotus.jpg
+  urls:
+    - https://huggingface.co/QuantFactory/MN-Chunky-Lotus-12B-GGUF
+  description: |
+    I had originally planned to use this model for future/further merges, but decided to go ahead and release it since it scored rather high on my local EQ Bench testing (79.58 w/ 100% parsed @ 8-bit).
+    Bear in mind that most models tend to score a bit higher on my own local tests as compared to their posted scores. Still, its the highest score I've personally seen from all the models I've tested.
+    Its a decent model, with great emotional intelligence and acceptable adherence to various character personalities. It does a good job at roleplaying despite being a bit bland at times.
+
+    Overall, I like the way it writes, but it has a few formatting issues that show up from time to time, and it has an uncommon tendency to paste walls of character feelings/intentions at the end of some outputs without any prompting. This is something I hope to correct with future iterations.
+    This is a merge of pre-trained language models created using mergekit.
+    The following models were included in the merge:
+        Epiculous/Violet_Twilight-v0.2
+        nbeerbower/mistral-nemo-gutenberg-12B-v4
+        flammenai/Mahou-1.5-mistral-nemo-12B
+  overrides:
+    parameters:
+      model: MN-Chunky-Lotus-12B.Q4_K_M.gguf
+  files:
+    - filename: MN-Chunky-Lotus-12B.Q4_K_M.gguf
+      sha256: 363defe0a769fdb715dab75517966a0a80bcdd981a610d4c759099b6c8ff143a
+      uri: huggingface://QuantFactory/MN-Chunky-Lotus-12B-GGUF/MN-Chunky-Lotus-12B.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
@@ -4905,6 +5220,22 @@
     - filename: Volare.i1-Q4_K_M.gguf
       sha256: fa8fb9d4cb19fcb44be8d53561c9e2840f45aed738de545983ebb158ebba461b
       uri: huggingface://mradermacher/Volare-i1-GGUF/Volare.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "bggpt-gemma-2-2.6b-it-v1.0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/637e1f8cf7e01589cc17bf7e/p6d0YFHjWCQ3S12jWqO1m.png
+  urls:
+    - https://huggingface.co/QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF
+    - https://huggingface.co/QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF
+  description: |
+    INSAIT introduces BgGPT-Gemma-2-2.6B-IT-v1.0, a state-of-the-art Bulgarian language model based on google/gemma-2-2b and google/gemma-2-2b-it. BgGPT-Gemma-2-2.6B-IT-v1.0 is free to use and distributed under the Gemma Terms of Use. This model was created by INSAIT, part of Sofia University St. Kliment Ohridski, in Sofia, Bulgaria.
+    The model was built on top of Google’s Gemma 2 2B open models. It was continuously pre-trained on around 100 billion tokens (85 billion in Bulgarian) using the Branch-and-Merge strategy INSAIT presented at EMNLP’24, allowing the model to gain outstanding Bulgarian cultural and linguistic capabilities while retaining its English performance. During the pre-training stage, we use various datasets, including Bulgarian web crawl data, freely available datasets such as Wikipedia, a range of specialized Bulgarian datasets sourced by the INSAIT Institute, and machine translations of popular English datasets. The model was then instruction-fine-tuned on a newly constructed Bulgarian instruction dataset created using real-world conversations. For more information check our blogpost.
+  overrides:
+    parameters:
+      model: BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
+  files:
+    - filename: BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
+      sha256: 1e92fe80ccad80e97076ee26b002c2280f075dfe2507d534b46a4391a077f319
+      uri: huggingface://QuantFactory/BgGPT-Gemma-2-2.6B-IT-v1.0-GGUF/BgGPT-Gemma-2-2.6B-IT-v1.0.Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -7778,6 +8109,43 @@
     - filename: Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
       sha256: 5dd81b8b809667d10036499affdd1461cf95af50b405cbc9f800b421a4b60e98
       uri: huggingface://DavidAU/Meta-Llama-3-Instruct-8.9B-BRAINSTORM-5x-FORM-11-GGUF/Meta-Llama-3-8B-Instruct-exp5-11-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "rp-naughty-v1.0c-8b"
+  urls:
+    - https://huggingface.co/QuantFactory/RP-Naughty-v1.0c-8b-GGUF
+  description: |
+    This model was merged using the Model Stock merge method using aifeifei798/llama3-8B-DarkIdol-2.2-Uncensored-1048K as a base.
+    The following models were included in the merge:
+
+        underwoods/adventure-8b
+        Khetterman/Multilingual-SaigaSuzume-8B
+        underwoods/writer-8b
+        Khetterman/Kosmos-8B-v1
+        Khetterman/CursedMatrix-8B-v9
+  overrides:
+    parameters:
+      model: RP-Naughty-v1.0c-8b.Q4_K_M.gguf
+  files:
+    - filename: RP-Naughty-v1.0c-8b.Q4_K_M.gguf
+      sha256: c344564d26d0c3d244d31cfeb103666eab37f9dee6678a2dbaf5bfcf4109d789
+      uri: huggingface://QuantFactory/RP-Naughty-v1.0c-8b-GGUF/RP-Naughty-v1.0c-8b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "bio-medical-llama-3-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/653f5b93cd52f288490edc83/zPMUugzfOiwTiRw88jm7T.jpeg
+  urls:
+    - https://huggingface.co/ContactDoctor/Bio-Medical-Llama-3-8B
+    - https://huggingface.co/QuantFactory/Bio-Medical-Llama-3-8B-GGUF
+  description: |
+    Bio-Medical-Llama-3-8B model is a specialized large language model designed for biomedical applications. It is finetuned from the meta-llama/Meta-Llama-3-8B-Instruct model using a custom dataset containing over 500,000 diverse entries. These entries include a mix of synthetic and manually curated data, ensuring high quality and broad coverage of biomedical topics.
+
+    The model is trained to understand and generate text related to various biomedical fields, making it a valuable tool for researchers, clinicians, and other professionals in the biomedical domain.
+  overrides:
+    parameters:
+      model: Bio-Medical-Llama-3-8B.Q4_K_M.gguf
+  files:
+    - filename: Bio-Medical-Llama-3-8B.Q4_K_M.gguf
+      sha256: 672939e0487d02c55734132c25a59f26e4deaac7cd49445a7028f2291139edcc
+      uri: huggingface://QuantFactory/Bio-Medical-Llama-3-8B-GGUF/Bio-Medical-Llama-3-8B.Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
@@ -8793,6 +9161,43 @@
   overrides:
     parameters:
       model: black-forest-labs/FLUX.1-schnell
+- name: flux.1-dev-ggml
+  license: flux-1-dev-non-commercial-license
+  url: "github:mudler/LocalAI/gallery/flux-ggml.yaml@master"
+  description: |
+    FLUX.1 [dev] is a 12 billion parameter rectified flow transformer capable of generating images from text descriptions. For more information, please read our blog post.
+    Key Features
+        Cutting-edge output quality, second only to our state-of-the-art model FLUX.1 [pro].
+        Competitive prompt following, matching the performance of closed source alternatives .
+        Trained using guidance distillation, making FLUX.1 [dev] more efficient.
+        Open weights to drive new scientific research, and empower artists to develop innovative workflows.
+        Generated outputs can be used for personal, scientific, and commercial purposes as described in the flux-1-dev-non-commercial-license.
+    This model is quantized with GGUF
+  urls:
+    - https://huggingface.co/black-forest-labs/FLUX.1-dev
+    - https://huggingface.co/city96/FLUX.1-dev-gguf
+  tags:
+    - text-to-image
+    - flux
+    - gpu
+    - cpu
+  icon: https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/schnell_grid.jpeg
+  overrides:
+    parameters:
+      model: flux1-dev-Q2_K.gguf
+  files:
+    - filename: "flux1-dev-Q2_K.gguf"
+      sha256: "b8c464bc0f10076ef8f00ba040d220d90c7993f7c4245ae80227d857f65df105"
+      uri: "huggingface://city96/FLUX.1-dev-gguf/flux1-dev-Q2_K.gguf"
+    - filename: ae.safetensors
+      sha256: afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38
+      uri: https://huggingface.co/ChuckMcSneed/FLUX.1-dev/resolve/main/ae.safetensors
+    - filename: clip_l.safetensors
+      sha256: 660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd
+      uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors
+    - filename: t5xxl_fp16.safetensors
+      sha256: 6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635
+      uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
 - &whisper
   ## Whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
@@ -9578,3 +9983,22 @@
     - filename: silero-vad.onnx
       uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
       sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808
+- name: "bark-cpp-small"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  license: mit
+  urls:
+    - https://huggingface.co/suno/bark
+    - https://huggingface.co/Green-Sky/bark-ggml
+  description: |
+    Bark is a transformer-based text-to-audio model created by Suno. Bark can generate highly realistic, multilingual speech as well as other audio - including music, background noise and simple sound effects. The model can also produce nonverbal communications like laughing, sighing and crying. To support the research community, we are providing access to pretrained model checkpoints ready for inference.
+  tags:
+    - tts
+    - cpu
+  overrides:
+    backend: bark-cpp
+    parameters:
+      model: bark-small_weights-f16.bin
+  files:
+    - filename: bark-small_weights-f16.bin
+      uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
+      sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa

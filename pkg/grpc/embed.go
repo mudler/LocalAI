@@ -35,7 +35,7 @@ func (e *embedBackend) LoadModel(ctx context.Context, in *pb.ModelOptions, opts 
 	return e.s.LoadModel(ctx, in)
 }
 
-func (e *embedBackend) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(reply *pb.Reply), opts ...grpc.CallOption) error {
+func (e *embedBackend) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
 	bs := &embedBackendServerStream{
 		ctx: ctx,
 		fn:  f,
@@ -97,11 +97,11 @@ func (e *embedBackend) GetTokenMetrics(ctx context.Context, in *pb.MetricsReques
 
 type embedBackendServerStream struct {
 	ctx context.Context
-	fn  func(reply *pb.Reply)
+	fn  func(s []byte)
 }
 
 func (e *embedBackendServerStream) Send(reply *pb.Reply) error {
-	e.fn(reply)
+	e.fn(reply.GetMessage())
 	return nil
 }
 

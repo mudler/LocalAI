@@ -12,7 +12,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
+
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/templates"
 
 	"github.com/rs/zerolog/log"
 )
@@ -22,7 +24,8 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/edits [post]
-func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+
 	return func(c *fiber.Ctx) error {
 		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
@@ -37,31 +40,18 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConf
 		log.Debug().Msgf("Edit Endpoint Input : %+v", input)
 		log.Debug().Msgf("Edit Endpoint Config: %+v", *config)
 
-		templateFile := ""
-
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
-			templateFile = config.Model
-		}
-
-		if config.TemplateConfig.Edit != "" {
-			templateFile = config.TemplateConfig.Edit
-		}
-
 		var result []schema.Choice
 		totalTokenUsage := backend.TokenUsage{}
 
 		for _, i := range config.InputStrings {
-			if templateFile != "" {
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.EditPromptTemplate, templateFile, model.PromptTemplateData{
-					Input:        i,
-					Instruction:  input.Instruction,
-					SystemPrompt: config.SystemPrompt,
-				})
-				if err == nil {
-					i = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", i)
-				}
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.EditPromptTemplate, *config, templates.PromptTemplateData{
+				Input:        i,
+				Instruction:  input.Instruction,
+				SystemPrompt: config.SystemPrompt,
+			})
+			if err == nil {
+				i = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
 			r, tokenUsage, err := ComputeChoices(input, i, config, appConfig, ml, func(s string, c *[]schema.Choice) {

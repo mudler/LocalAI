@@ -92,6 +92,8 @@ local-ai run oci://localai/phi-2:latest
 
 ## 📰 Latest project news
 
+- Dec 2024: stablediffusion.cpp backend (ggml) added ( https://github.com/mudler/LocalAI/pull/4289 )
+- Nov 2024: Bark.cpp backend added ( https://github.com/mudler/LocalAI/pull/4287 )
 - Nov 2024: Voice activity detection models (**VAD**) added to the API: https://github.com/mudler/LocalAI/pull/4204
 - Oct 2024: examples moved to [LocalAI-examples](https://github.com/mudler/LocalAI-examples)
 - Aug 2024:  🆕 FLUX-1, [P2P Explorer](https://explorer.localai.io)

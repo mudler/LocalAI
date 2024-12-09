@@ -2241,6 +2241,12 @@ static void params_parse(const backend::ModelOptions* request,
     }
     //  params.model_alias ??
     params.model_alias =  request->modelfile();
+    if (!request->cachetypekey().empty()) {
+        params.cache_type_k = request->cachetypekey();
+    }
+    if (!request->cachetypevalue().empty()) {
+        params.cache_type_v = request->cachetypevalue();
+    }
     params.n_ctx = request->contextsize();
     //params.memory_f16 = request->f16memory();
     params.cpuparams.n_threads = request->threads();

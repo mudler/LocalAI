@@ -201,6 +201,18 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 	} else {
 		log.Debug().Any("family", family).Msgf("guessDefaultsFromFile: no template found for family")
 	}
+
+	if cfg.HasTemplate() {
+		return
+	}
+
+	// identify from well known templates first, otherwise use the raw jinja template
+	chatTemplate, found := f.Header.MetadataKV.Get("tokenizer.chat_template")
+	if found {
+		// try to use the jinja template
+		cfg.TemplateConfig.JinjaTemplate = true
+		cfg.TemplateConfig.ChatMessage = chatTemplate.ValueString()
+	}
 }
 
 func identifyFamily(f *gguf.GGUFFile) familyType {

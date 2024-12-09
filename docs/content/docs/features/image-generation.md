@@ -194,8 +194,9 @@ diffusers:
   pipeline_type: StableDiffusionPipeline
   enable_parameters: "negative_prompt,num_inference_steps,clip_skip"
   scheduler_type: "k_dpmpp_sde"
-  cfg_scale: 8
   clip_skip: 11
+
+cfg_scale: 8
 ```
 
 #### Configuration parameters
@@ -302,7 +303,8 @@ cuda: true
 diffusers:
   pipeline_type: StableDiffusionDepth2ImgPipeline
   enable_parameters: "negative_prompt,num_inference_steps,image"
-  cfg_scale: 6
+
+cfg_scale: 6
 ```
 
 ```bash

@@ -1,4 +1,4 @@
-package startup
+package application
 
 import (
 	"encoding/json"
@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"dario.cat/mergo"
+	"github.com/fsnotify/fsnotify"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/rs/zerolog/log"
 )

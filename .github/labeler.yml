@@ -1,6 +1,11 @@
 enhancements:
  - head-branch: ['^feature', 'feature']
 
+dependencies:
+- any:
+  - changed-files:
+    - any-glob-to-any-file: 'Makefile'
+
 kind/documentation:
 - any:
   - changed-files:

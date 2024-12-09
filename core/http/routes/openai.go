@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai"
@@ -12,9 +13,7 @@ import (
 
 func RegisterOpenAIRoutes(app *fiber.App,
 	re *middleware.RequestExtractor,
-	cl *config.BackendConfigLoader,
-	ml *model.ModelLoader,
-	appConfig *config.ApplicationConfig) {
+	application *application.Application) {
 	// openAI compatible API endpoint
 
 	// chat
@@ -22,7 +21,7 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.ChatEndpoint(cl, ml, appConfig),
+		openai.ChatEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()),
 	}
 	app.Post("/v1/chat/completions", chatChain...)
 	app.Post("/chat/completions", chatChain...)
@@ -33,7 +32,7 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.EditEndpoint(cl, ml, appConfig),
+		openai.EditEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()),
 	}
 	app.Post("/v1/edits", editChain...)
 	app.Post("/edits", editChain...)
@@ -44,43 +43,43 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.CompletionEndpoint(cl, ml, appConfig),
+		openai.CompletionEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()),
 	}
 	app.Post("/v1/completions", completionChain...)
 	app.Post("/completions", completionChain...)
 	app.Post("/v1/engines/:model/completions", completionChain...)
 
 	// assistant
-	app.Get("/v1/assistants", openai.ListAssistantsEndpoint(cl, ml, appConfig))
-	app.Get("/assistants", openai.ListAssistantsEndpoint(cl, ml, appConfig))
-	app.Post("/v1/assistants", openai.CreateAssistantEndpoint(cl, ml, appConfig))
-	app.Post("/assistants", openai.CreateAssistantEndpoint(cl, ml, appConfig))
-	app.Delete("/v1/assistants/:assistant_id", openai.DeleteAssistantEndpoint(cl, ml, appConfig))
-	app.Delete("/assistants/:assistant_id", openai.DeleteAssistantEndpoint(cl, ml, appConfig))
-	app.Get("/v1/assistants/:assistant_id", openai.GetAssistantEndpoint(cl, ml, appConfig))
-	app.Get("/assistants/:assistant_id", openai.GetAssistantEndpoint(cl, ml, appConfig))
-	app.Post("/v1/assistants/:assistant_id", openai.ModifyAssistantEndpoint(cl, ml, appConfig))
-	app.Post("/assistants/:assistant_id", openai.ModifyAssistantEndpoint(cl, ml, appConfig))
-	app.Get("/v1/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
-	app.Get("/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(cl, ml, appConfig))
-	app.Post("/v1/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
-	app.Post("/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(cl, ml, appConfig))
-	app.Delete("/v1/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
-	app.Delete("/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(cl, ml, appConfig))
-	app.Get("/v1/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(cl, ml, appConfig))
-	app.Get("/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(cl, ml, appConfig))
+	app.Get("/v1/assistants", openai.ListAssistantsEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Get("/assistants", openai.ListAssistantsEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Post("/v1/assistants", openai.CreateAssistantEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Post("/assistants", openai.CreateAssistantEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Delete("/v1/assistants/:assistant_id", openai.DeleteAssistantEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Delete("/assistants/:assistant_id", openai.DeleteAssistantEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Get("/v1/assistants/:assistant_id", openai.GetAssistantEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Get("/assistants/:assistant_id", openai.GetAssistantEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Post("/v1/assistants/:assistant_id", openai.ModifyAssistantEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Post("/assistants/:assistant_id", openai.ModifyAssistantEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Get("/v1/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Get("/assistants/:assistant_id/files", openai.ListAssistantFilesEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Post("/v1/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Post("/assistants/:assistant_id/files", openai.CreateAssistantFileEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Delete("/v1/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Delete("/assistants/:assistant_id/files/:file_id", openai.DeleteAssistantFileEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Get("/v1/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Get("/assistants/:assistant_id/files/:file_id", openai.GetAssistantFileEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
 
 	// files
-	app.Post("/v1/files", openai.UploadFilesEndpoint(cl, appConfig))
-	app.Post("/files", openai.UploadFilesEndpoint(cl, appConfig))
-	app.Get("/v1/files", openai.ListFilesEndpoint(cl, appConfig))
-	app.Get("/files", openai.ListFilesEndpoint(cl, appConfig))
-	app.Get("/v1/files/:file_id", openai.GetFilesEndpoint(cl, appConfig))
-	app.Get("/files/:file_id", openai.GetFilesEndpoint(cl, appConfig))
-	app.Delete("/v1/files/:file_id", openai.DeleteFilesEndpoint(cl, appConfig))
-	app.Delete("/files/:file_id", openai.DeleteFilesEndpoint(cl, appConfig))
-	app.Get("/v1/files/:file_id/content", openai.GetFilesContentsEndpoint(cl, appConfig))
-	app.Get("/files/:file_id/content", openai.GetFilesContentsEndpoint(cl, appConfig))
+	app.Post("/v1/files", openai.UploadFilesEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Post("/files", openai.UploadFilesEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Get("/v1/files", openai.ListFilesEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Get("/files", openai.ListFilesEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Get("/v1/files/:file_id", openai.GetFilesEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Get("/files/:file_id", openai.GetFilesEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Delete("/v1/files/:file_id", openai.DeleteFilesEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Delete("/files/:file_id", openai.DeleteFilesEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Get("/v1/files/:file_id/content", openai.GetFilesContentsEndpoint(application.BackendLoader(), application.ApplicationConfig()))
+	app.Get("/files/:file_id/content", openai.GetFilesContentsEndpoint(application.BackendLoader(), application.ApplicationConfig()))
 
 	// embeddings
 	embeddingChain := []fiber.Handler{
@@ -88,7 +87,7 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.EmbeddingsEndpoint(cl, ml, appConfig),
+		openai.EmbeddingsEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()),
 	}
 	app.Post("/v1/embeddings", embeddingChain...)
 	app.Post("/embeddings", embeddingChain...)
@@ -99,30 +98,30 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TRANSCRIPT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.TranscriptEndpoint(cl, ml, appConfig),
+		openai.TranscriptEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()),
 	)
 
 	app.Post("/v1/audio/speech",
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }),
-		localai.TTSEndpoint(cl, ml, appConfig))
+		localai.TTSEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()))
 
 	// images
 	app.Post("/v1/images/generations",
 		re.BuildConstantDefaultModelNameMiddleware(model.StableDiffusionBackend),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
 		re.SetOpenAIRequest,
-		openai.ImageEndpoint(cl, ml, appConfig))
+		openai.ImageEndpoint(application.BackendLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()))
 
-	if appConfig.ImageDir != "" {
-		app.Static("/generated-images", appConfig.ImageDir)
+	if application.ApplicationConfig().ImageDir != "" {
+		app.Static("/generated-images", application.ApplicationConfig().ImageDir)
 	}
 
-	if appConfig.AudioDir != "" {
-		app.Static("/generated-audio", appConfig.AudioDir)
+	if application.ApplicationConfig().AudioDir != "" {
+		app.Static("/generated-audio", application.ApplicationConfig().AudioDir)
 	}
 
 	// List models
-	app.Get("/v1/models", openai.ListModelsEndpoint(cl, ml))
-	app.Get("/models", openai.ListModelsEndpoint(cl, ml))
+	app.Get("/v1/models", openai.ListModelsEndpoint(application.BackendLoader(), application.ModelLoader()))
+	app.Get("/models", openai.ListModelsEndpoint(application.BackendLoader(), application.ModelLoader()))
 }

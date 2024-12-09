@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/application"
 	cli_api "github.com/mudler/LocalAI/core/cli/api"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
-	"github.com/mudler/LocalAI/core/startup"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -186,16 +186,16 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	if r.PreloadBackendOnly {
-		_, _, _, err := startup.Startup(opts...)
+		_, err := application.New(opts...)
 		return err
 	}
 
-	cl, ml, options, err := startup.Startup(opts...)
+	app, err := application.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 	}
 
-	appHTTP, err := http.App(cl, ml, options)
+	appHTTP, err := http.API(app)
 	if err != nil {
 		log.Error().Err(err).Msg("error during HTTP App construction")
 		return err

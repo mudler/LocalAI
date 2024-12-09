@@ -136,7 +136,7 @@ func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grp
 	return client.LoadModel(ctx, in, opts...)
 }
 
-func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(reply *pb.Reply), opts ...grpc.CallOption) error {
+func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
 	if !c.parallel {
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()
@@ -158,7 +158,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 	}
 
 	for {
-		reply, err := stream.Recv()
+		feature, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
@@ -167,7 +167,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 
 			return err
 		}
-		f(reply)
+		f(feature.GetMessage())
 	}
 
 	return nil

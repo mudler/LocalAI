@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/templates"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
@@ -26,7 +27,10 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/completions [post]
-func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+
+func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+	id := uuid.New().String()
+
 	created := int(time.Now().Unix())
 
 	process := func(id string, s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
@@ -93,17 +97,6 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			c.Set("Transfer-Encoding", "chunked")
 		}
 
-		templateFile := ""
-
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
-			templateFile = config.Model
-		}
-
-		if config.TemplateConfig.Completion != "" {
-			templateFile = config.TemplateConfig.Completion
-		}
-
 		if input.Stream {
 			if len(config.PromptStrings) > 1 {
 				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
@@ -111,15 +104,13 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 			predInput := config.PromptStrings[0]
 
-			if templateFile != "" {
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					Input:        predInput,
-					SystemPrompt: config.SystemPrompt,
-				})
-				if err == nil {
-					predInput = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", predInput)
-				}
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
+				Input:        predInput,
+				SystemPrompt: config.SystemPrompt,
+			})
+			if err == nil {
+				predInput = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", predInput)
 			}
 
 			responses := make(chan schema.OpenAIResponse)
@@ -164,16 +155,13 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 		totalTokenUsage := backend.TokenUsage{}
 
 		for k, i := range config.PromptStrings {
-			if templateFile != "" {
-				// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					SystemPrompt: config.SystemPrompt,
-					Input:        i,
-				})
-				if err == nil {
-					i = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", i)
-				}
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
+				SystemPrompt: config.SystemPrompt,
+				Input:        i,
+			})
+			if err == nil {
+				i = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
 			r, tokenUsage, err := ComputeChoices(
