@@ -1866,6 +1866,21 @@
     - filename: Qwen2.5-7B-HomerAnvita-NerdMix.Q4_K_M.gguf
       sha256: 73db2ca3ab50e8627352078988cd173e7447c5e8199a7db9e554602da1362e5f
       uri: huggingface://QuantFactory/Qwen2.5-7B-HomerAnvita-NerdMix-GGUF/Qwen2.5-7B-HomerAnvita-NerdMix.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-math-14b-instruct"
+  urls:
+    - https://huggingface.co/qingy2024/Qwen2.5-Math-14B-Instruct-Preview
+    - https://huggingface.co/QuantFactory/Qwen2.5-Math-14B-Instruct-GGUF
+  description: |
+    This Qwen 2.5 model was trained 2x faster with Unsloth and Huggingface's TRL library.
+    Fine-tuned it for 400 steps on garage-bAInd/Open-Platypus with a batch size of 3.
+  overrides:
+    parameters:
+      model: Qwen2.5-Math-14B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Math-14B-Instruct.Q4_K_M.gguf
+      sha256: 14e672394738a7d9f14a6cb16fd9a649b113a19a8b4934f9c18299fc4e286ab6
+      uri: huggingface://QuantFactory/Qwen2.5-Math-14B-Instruct-GGUF/Qwen2.5-Math-14B-Instruct.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
