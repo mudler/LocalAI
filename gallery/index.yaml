@@ -1,4 +1,29 @@
 ---
+- &intellect1
+  name: "intellect-1-instruct"
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  icon: https://huggingface.co/PrimeIntellect/INTELLECT-1-Instruct/resolve/main/intellect-1-map.png
+  urls:
+    - https://huggingface.co/PrimeIntellect/INTELLECT-1-Instruct
+    - https://huggingface.co/bartowski/INTELLECT-1-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - intellect
+  license: apache-2.0
+  description: |
+    INTELLECT-1 is the first collaboratively trained 10 billion parameter language model trained from scratch on 1 trillion tokens of English text and code.
+    This is an instruct model. The base model associated with it is INTELLECT-1.
+    INTELLECT-1 was trained on up to 14 concurrent nodes distributed across 3 continents, with contributions from 30 independent community contributors providing compute. The training code utilizes the prime framework, a scalable distributed training framework designed for fault-tolerant, dynamically scaling, high-perfomance training on unreliable, globally distributed workers. The key abstraction that allows dynamic scaling is the ElasticDeviceMesh which manages dynamic global process groups for fault-tolerant communication across the internet and local process groups for communication within a node. The model was trained using the DiLoCo algorithms with 100 inner steps. The global all-reduce was done with custom int8 all-reduce kernels to reduce the communication payload required, greatly reducing the communication overhead by a factor 400x.
+  overrides:
+    parameters:
+      model: INTELLECT-1-Instruct-Q4_K_M.gguf
+  files:
+    - filename: INTELLECT-1-Instruct-Q4_K_M.gguf
+      sha256: 5df236fe570e5998d07fb3207788eac811ef3b77dd2a0ad04a2ef5c6361f3030
+      uri: huggingface://bartowski/INTELLECT-1-Instruct-GGUF/INTELLECT-1-Instruct-Q4_K_M.gguf
 - &llama33
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
