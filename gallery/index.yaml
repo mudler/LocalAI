@@ -3701,6 +3701,20 @@
     - filename: Tulu-3.1-8B-SuperNova-Smart.Q4_K_M.gguf
       sha256: 4b8ba9e64f0667199eee2dcc769f1a90aa9c7730165d42f440fdf107c7585c63
       uri: huggingface://QuantFactory/Tulu-3.1-8B-SuperNova-Smart-GGUF/Tulu-3.1-8B-SuperNova-Smart.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "b-nimita-l3-8b-v0.02"
+  urls:
+    - https://huggingface.co/Arkana08/B-NIMITA-L3-8B-v0.02
+    - https://huggingface.co/QuantFactory/B-NIMITA-L3-8B-v0.02-GGUF
+  description: |
+    B-NIMITA is an AI model designed to bring role-playing scenarios to life with emotional depth and rich storytelling. At its core is NIHAPPY, providing a solid narrative foundation and contextual consistency. This is enhanced by Mythorica, which adds vivid emotional arcs and expressive dialogue, and V-Blackroot, ensuring character consistency and subtle adaptability. This combination allows B-NIMITA to deliver dynamic, engaging interactions that feel natural and immersive.
+  overrides:
+    parameters:
+      model: B-NIMITA-L3-8B-v0.02.Q4_K_M.gguf
+  files:
+    - filename: B-NIMITA-L3-8B-v0.02.Q4_K_M.gguf
+      sha256: 625a54848dcd3f23bc06b639a7dfecae14142b5d177dd45acfe7724816bab4cd
+      uri: huggingface://QuantFactory/B-NIMITA-L3-8B-v0.02-GGUF/B-NIMITA-L3-8B-v0.02.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
