@@ -121,13 +121,12 @@ var _ = Describe("E2E test", func() {
 
 		Context("images", func() {
 			It("correctly", func() {
-				resp, err := client.CreateImage(context.TODO(),
-					openai.ImageRequest{
-						Prompt: "test",
-						Size:   openai.CreateImageSize512x512,
-					},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				req := openai.ImageRequest{
+					Prompt: "test",
+					Size:   openai.CreateImageSize512x512,
+				}
+				resp, err := client.CreateImage(context.TODO(), req)
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error sending %+v: %q", req, err.Error()))
 				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
 				Expect(resp.Data[0].URL).To(ContainSubstring("png"), fmt.Sprint(resp.Data[0].URL))
 			})

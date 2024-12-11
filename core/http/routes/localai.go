@@ -62,6 +62,9 @@ func RegisterLocalAIRoutes(router *fiber.App,
 	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
 	router.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
 	router.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
+	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
+	router.Get("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
+	router.Post("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
 
 	// p2p
 	if p2p.IsP2PEnabled() {

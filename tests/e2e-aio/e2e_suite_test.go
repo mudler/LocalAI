@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 		apiEndpoint = "http://localhost:" + apiPort + "/v1" // So that other tests can reference this value safely.
 		defaultConfig.BaseURL = apiEndpoint
 	} else {
-		fmt.Println("Default ", apiEndpoint)
+		GinkgoWriter.Printf("docker apiEndpoint set from env: %q\n", apiEndpoint)
 		defaultConfig = openai.DefaultConfig(apiKey)
 		defaultConfig.BaseURL = apiEndpoint
 	}
@@ -86,12 +86,27 @@ func ShutdownModel(modelName string) func() {
 		serialized, err := json.Marshal(req)
 		Expect(err).To(BeNil())
 		Expect(serialized).ToNot(BeNil())
+
+		// r1, err := http.Post(apiEndpoint+"/backend/monitor", "application/json", bytes.NewReader(serialized))
+		// Expect(err).To(BeNil())
+		// Expect(r1).ToNot(BeNil())
+		// b1, err := io.ReadAll(r1.Body)
+		// GinkgoWriter.Printf("TEMPORARY MONITOR RESPONSE: %q\n", b1)
+
 		resp, err := http.Post(apiEndpoint+"/backend/shutdown", "application/json", bytes.NewReader(serialized))
 		Expect(err).To(BeNil())
 		Expect(resp).ToNot(BeNil())
 		body, err := io.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("body: %s, response: %+v", body, resp))
+		// if a test fails to load the model, we will recieve a 500 error when we try to shut it down.
+		// We therefore handle both cases seperately
+		if resp.StatusCode == 500 {
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).To(BeNil())
+			Expect(body).To(ContainSubstring(fmt.Sprintf("%s not found", modelName)), fmt.Sprintf("unexpected response during shutdown: %q", body))
+		} else {
+			Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("failed to shutdown model: %s, response: %+v", body, resp))
+		}
 	}
 }
 
@@ -123,6 +138,7 @@ func startDockerImage() {
 		Mounts: []string{md + ":/models"},
 	}
 
+	GinkgoWriter.Printf("Launching Docker Container %q\n%+v\n", containerImageTag, options)
 	r, err := pool.RunWithOptions(options)
 	Expect(err).To(Not(HaveOccurred()))
 
