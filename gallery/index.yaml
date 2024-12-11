@@ -1,4 +1,29 @@
 ---
+- &intellect1
+  name: "intellect-1-instruct"
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  icon: https://huggingface.co/PrimeIntellect/INTELLECT-1-Instruct/resolve/main/intellect-1-map.png
+  urls:
+    - https://huggingface.co/PrimeIntellect/INTELLECT-1-Instruct
+    - https://huggingface.co/bartowski/INTELLECT-1-Instruct-GGUF
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - intellect
+  license: apache-2.0
+  description: |
+    INTELLECT-1 is the first collaboratively trained 10 billion parameter language model trained from scratch on 1 trillion tokens of English text and code.
+    This is an instruct model. The base model associated with it is INTELLECT-1.
+    INTELLECT-1 was trained on up to 14 concurrent nodes distributed across 3 continents, with contributions from 30 independent community contributors providing compute. The training code utilizes the prime framework, a scalable distributed training framework designed for fault-tolerant, dynamically scaling, high-perfomance training on unreliable, globally distributed workers. The key abstraction that allows dynamic scaling is the ElasticDeviceMesh which manages dynamic global process groups for fault-tolerant communication across the internet and local process groups for communication within a node. The model was trained using the DiLoCo algorithms with 100 inner steps. The global all-reduce was done with custom int8 all-reduce kernels to reduce the communication payload required, greatly reducing the communication overhead by a factor 400x.
+  overrides:
+    parameters:
+      model: INTELLECT-1-Instruct-Q4_K_M.gguf
+  files:
+    - filename: INTELLECT-1-Instruct-Q4_K_M.gguf
+      sha256: 5df236fe570e5998d07fb3207788eac811ef3b77dd2a0ad04a2ef5c6361f3030
+      uri: huggingface://bartowski/INTELLECT-1-Instruct-GGUF/INTELLECT-1-Instruct-Q4_K_M.gguf
 - &llama33
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
@@ -1852,6 +1877,81 @@
     - filename: Virtuoso-Small-Q4_K_M.gguf
       sha256: 07db215cdfcb05036567017fe20e50e60cb2da28d1f9a8251cc4f18c8caa247f
       uri: huggingface://arcee-ai/Virtuoso-Small-GGUF/Virtuoso-Small-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-homeranvita-nerdmix"
+  urls:
+    - https://huggingface.co/ZeroXClem/Qwen2.5-7B-HomerAnvita-NerdMix
+    - https://huggingface.co/QuantFactory/Qwen2.5-7B-HomerAnvita-NerdMix-GGUF
+  description: |
+    ZeroXClem/Qwen2.5-7B-HomerAnvita-NerdMix is an advanced language model meticulously crafted by merging five pre-trained models using the powerful mergekit framework. This fusion leverages the Model Stock merge method to combine the creative prowess of Qandora, the instructive capabilities of Qwen-Instruct-Fusion, the sophisticated blending of HomerSlerp1, the mathematical precision of Cybertron-MGS, and the uncensored expertise of Qwen-Nerd. The resulting model excels in creative text generation, contextual understanding, technical reasoning, and dynamic conversational interactions.
+  overrides:
+    parameters:
+      model: Qwen2.5-7B-HomerAnvita-NerdMix.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-7B-HomerAnvita-NerdMix.Q4_K_M.gguf
+      sha256: 73db2ca3ab50e8627352078988cd173e7447c5e8199a7db9e554602da1362e5f
+      uri: huggingface://QuantFactory/Qwen2.5-7B-HomerAnvita-NerdMix-GGUF/Qwen2.5-7B-HomerAnvita-NerdMix.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-math-14b-instruct"
+  urls:
+    - https://huggingface.co/qingy2024/Qwen2.5-Math-14B-Instruct-Preview
+    - https://huggingface.co/QuantFactory/Qwen2.5-Math-14B-Instruct-GGUF
+  description: |
+    This Qwen 2.5 model was trained 2x faster with Unsloth and Huggingface's TRL library.
+    Fine-tuned it for 400 steps on garage-bAInd/Open-Platypus with a batch size of 3.
+  overrides:
+    parameters:
+      model: Qwen2.5-Math-14B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Math-14B-Instruct.Q4_K_M.gguf
+      sha256: 14e672394738a7d9f14a6cb16fd9a649b113a19a8b4934f9c18299fc4e286ab6
+      uri: huggingface://QuantFactory/Qwen2.5-Math-14B-Instruct-GGUF/Qwen2.5-Math-14B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "sailor2-1b-chat"
+  icon: https://huggingface.co/sail/Sailor2-1B-Chat/resolve/main/sailor2_banner.jpg
+  urls:
+    - https://huggingface.co/sail/Sailor2-1B-Chat
+    - https://huggingface.co/bartowski/Sailor2-1B-Chat-GGUF
+  description: |
+    Sailor2 is a community-driven initiative that brings cutting-edge multilingual language models to South-East Asia (SEA). Our research highlights a strong demand for models in the 8B and 20B parameter range for production use, alongside 1B models for specialized applications, such as speculative decoding and research purposes. These models, released under the Apache 2.0 license, provide enhanced accessibility to advanced language technologies across the region.
+    Sailor2 builds upon the foundation of the awesome multilingual model Qwen 2.5 and is continuously pre-trained on 500B tokens to support 15 languages better with a unified model. These languages include English, Chinese, Burmese, Cebuano, Ilocano, Indonesian, Javanese, Khmer, Lao, Malay, Sundanese, Tagalog, Thai, Vietnamese, and Waray. By addressing the growing demand for diverse, robust, and accessible language models, Sailor2 seeks to serve the underserved in SEA areas with open, inclusive, and accessible multilingual LLMs. The Sailor2 model comes in three sizes, 1B, 8B, and 20B, which are expanded from the Qwen2.5 base models of 0.5B, 7B, and 14B, respectively.
+  overrides:
+    parameters:
+      model: Sailor2-1B-Chat-Q4_K_M.gguf
+  files:
+    - filename: Sailor2-1B-Chat-Q4_K_M.gguf
+      sha256: 782e8abed13d51a2083eadfb2f6d94c2cd77940532f612a99e6f6bec9b3501d4
+      uri: huggingface://bartowski/Sailor2-1B-Chat-GGUF/Sailor2-1B-Chat-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://huggingface.co/sail/Sailor2-1B-Chat/resolve/main/sailor2_banner.jpg
+  name: "sailor2-8b-chat"
+  urls:
+    - https://huggingface.co/bartowski/Sailor2-8B-Chat-GGUF
+  description: |
+    Sailor2 is a community-driven initiative that brings cutting-edge multilingual language models to South-East Asia (SEA). Our research highlights a strong demand for models in the 8B and 20B parameter range for production use, alongside 1B models for specialized applications, such as speculative decoding and research purposes. These models, released under the Apache 2.0 license, provide enhanced accessibility to advanced language technologies across the region.
+    Sailor2 builds upon the foundation of the awesome multilingual model Qwen 2.5 and is continuously pre-trained on 500B tokens to support 15 languages better with a unified model. These languages include English, Chinese, Burmese, Cebuano, Ilocano, Indonesian, Javanese, Khmer, Lao, Malay, Sundanese, Tagalog, Thai, Vietnamese, and Waray. By addressing the growing demand for diverse, robust, and accessible language models, Sailor2 seeks to serve the underserved in SEA areas with open, inclusive, and accessible multilingual LLMs. The Sailor2 model comes in three sizes, 1B, 8B, and 20B, which are expanded from the Qwen2.5 base models of 0.5B, 7B, and 14B, respectively.
+  overrides:
+    parameters:
+      model: Sailor2-8B-Chat-Q4_K_M.gguf
+  files:
+    - filename: Sailor2-8B-Chat-Q4_K_M.gguf
+      sha256: 1a6aaadd6f6ef9c2290d66b348ebcbd6fdec542834cde622498fbd467d966103
+      uri: huggingface://bartowski/Sailor2-8B-Chat-GGUF/Sailor2-8B-Chat-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "sailor2-20b-chat"
+  icon: https://huggingface.co/sail/Sailor2-1B-Chat/resolve/main/sailor2_banner.jpg
+  urls:
+    - https://huggingface.co/bartowski/Sailor2-20B-Chat-GGUF
+  description: |
+    Sailor2 is a community-driven initiative that brings cutting-edge multilingual language models to South-East Asia (SEA). Our research highlights a strong demand for models in the 8B and 20B parameter range for production use, alongside 1B models for specialized applications, such as speculative decoding and research purposes. These models, released under the Apache 2.0 license, provide enhanced accessibility to advanced language technologies across the region.
+    Sailor2 builds upon the foundation of the awesome multilingual model Qwen 2.5 and is continuously pre-trained on 500B tokens to support 15 languages better with a unified model. These languages include English, Chinese, Burmese, Cebuano, Ilocano, Indonesian, Javanese, Khmer, Lao, Malay, Sundanese, Tagalog, Thai, Vietnamese, and Waray. By addressing the growing demand for diverse, robust, and accessible language models, Sailor2 seeks to serve the underserved in SEA areas with open, inclusive, and accessible multilingual LLMs. The Sailor2 model comes in three sizes, 1B, 8B, and 20B, which are expanded from the Qwen2.5 base models of 0.5B, 7B, and 14B, respectively.
+  overrides:
+    parameters:
+      model: Sailor2-20B-Chat-Q4_K_M.gguf
+  files:
+    - filename: Sailor2-20B-Chat-Q4_K_M.gguf
+      sha256: 0cf8fcd367accee19702ef15ee964bddd5035bde034afddd838f818e7655534a
+      uri: huggingface://bartowski/Sailor2-20B-Chat-GGUF/Sailor2-20B-Chat-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -3614,6 +3714,53 @@
     - filename: Loki-v2.6-8b-1024k.Q4_K_M.gguf
       sha256: 9b15c1fee0a0e6d6ed97df3d1b6fc8f774e6e1bd388328599e731c62e0f19d81
       uri: huggingface://QuantFactory/Loki-v2.6-8b-1024k-GGUF/Loki-v2.6-8b-1024k.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "impish_mind_8b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_Mind_8B/resolve/main/Images/Impish_Mind.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_Mind_8B
+    - https://huggingface.co/bartowski/Impish_Mind_8B-GGUF
+  description: |
+    This model was trained with new data and a new approach (compared to my other models). While it may be a bit more censored, it is expected to be significantly smarter. The data used is quite unique, and is also featuring long and complex markdown datasets.
+
+    Regarding censorship: Whether uncensoring or enforcing strict censorship, the model tends to lose some of its intelligence. The use of toxic data was kept to a minimum with this model.
+
+    Consequently, the model is likely to refuse some requests, this is easly avoidable with a basic system prompt, or assistant impersonation ("Sure thing!..."). Unlike many RP models, this one is designed to excel at general assistant tasks as well.
+  overrides:
+    parameters:
+      model: Impish_Mind_8B-Q4_K_M.gguf
+  files:
+    - filename: Impish_Mind_8B-Q4_K_M.gguf
+      sha256: 918f82bcb893c75fa2e846156df7bd3ce359464b960e32ae9171035ee14e7c51
+      uri: huggingface://bartowski/Impish_Mind_8B-GGUF/Impish_Mind_8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "tulu-3.1-8b-supernova-smart"
+  urls:
+    - https://huggingface.co/bunnycore/Tulu-3.1-8B-SuperNova-Smart
+    - https://huggingface.co/QuantFactory/Tulu-3.1-8B-SuperNova-Smart-GGUF
+  description: |
+    This model was merged using the passthrough merge method using bunnycore/Tulu-3.1-8B-SuperNova + bunnycore/Llama-3.1-8b-smart-lora as a base.
+  overrides:
+    parameters:
+      model: Tulu-3.1-8B-SuperNova-Smart.Q4_K_M.gguf
+  files:
+    - filename: Tulu-3.1-8B-SuperNova-Smart.Q4_K_M.gguf
+      sha256: 4b8ba9e64f0667199eee2dcc769f1a90aa9c7730165d42f440fdf107c7585c63
+      uri: huggingface://QuantFactory/Tulu-3.1-8B-SuperNova-Smart-GGUF/Tulu-3.1-8B-SuperNova-Smart.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "b-nimita-l3-8b-v0.02"
+  urls:
+    - https://huggingface.co/Arkana08/B-NIMITA-L3-8B-v0.02
+    - https://huggingface.co/QuantFactory/B-NIMITA-L3-8B-v0.02-GGUF
+  description: |
+    B-NIMITA is an AI model designed to bring role-playing scenarios to life with emotional depth and rich storytelling. At its core is NIHAPPY, providing a solid narrative foundation and contextual consistency. This is enhanced by Mythorica, which adds vivid emotional arcs and expressive dialogue, and V-Blackroot, ensuring character consistency and subtle adaptability. This combination allows B-NIMITA to deliver dynamic, engaging interactions that feel natural and immersive.
+  overrides:
+    parameters:
+      model: B-NIMITA-L3-8B-v0.02.Q4_K_M.gguf
+  files:
+    - filename: B-NIMITA-L3-8B-v0.02.Q4_K_M.gguf
+      sha256: 625a54848dcd3f23bc06b639a7dfecae14142b5d177dd45acfe7724816bab4cd
+      uri: huggingface://QuantFactory/B-NIMITA-L3-8B-v0.02-GGUF/B-NIMITA-L3-8B-v0.02.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
