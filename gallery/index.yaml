@@ -1922,6 +1922,21 @@
     - filename: Sailor2-1B-Chat-Q4_K_M.gguf
       sha256: 782e8abed13d51a2083eadfb2f6d94c2cd77940532f612a99e6f6bec9b3501d4
       uri: huggingface://bartowski/Sailor2-1B-Chat-GGUF/Sailor2-1B-Chat-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://huggingface.co/sail/Sailor2-1B-Chat/resolve/main/sailor2_banner.jpg
+  name: "sailor2-8b-chat"
+  urls:
+    - https://huggingface.co/bartowski/Sailor2-8B-Chat-GGUF
+  description: |
+    Sailor2 is a community-driven initiative that brings cutting-edge multilingual language models to South-East Asia (SEA). Our research highlights a strong demand for models in the 8B and 20B parameter range for production use, alongside 1B models for specialized applications, such as speculative decoding and research purposes. These models, released under the Apache 2.0 license, provide enhanced accessibility to advanced language technologies across the region.
+    Sailor2 builds upon the foundation of the awesome multilingual model Qwen 2.5 and is continuously pre-trained on 500B tokens to support 15 languages better with a unified model. These languages include English, Chinese, Burmese, Cebuano, Ilocano, Indonesian, Javanese, Khmer, Lao, Malay, Sundanese, Tagalog, Thai, Vietnamese, and Waray. By addressing the growing demand for diverse, robust, and accessible language models, Sailor2 seeks to serve the underserved in SEA areas with open, inclusive, and accessible multilingual LLMs. The Sailor2 model comes in three sizes, 1B, 8B, and 20B, which are expanded from the Qwen2.5 base models of 0.5B, 7B, and 14B, respectively.
+  overrides:
+    parameters:
+      model: Sailor2-8B-Chat-Q4_K_M.gguf
+  files:
+    - filename: Sailor2-8B-Chat-Q4_K_M.gguf
+      sha256: 1a6aaadd6f6ef9c2290d66b348ebcbd6fdec542834cde622498fbd467d966103
+      uri: huggingface://bartowski/Sailor2-8B-Chat-GGUF/Sailor2-8B-Chat-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
