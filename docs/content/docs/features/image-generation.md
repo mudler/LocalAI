@@ -50,7 +50,7 @@ Note: image generator supports images up to 512x512. You can use other tools how
 
 #### Setup
 
-Note: In order to use the `images/generation` endpoint with the `stablediffusion` C++ backend, you need to build LocalAI with `GO_TAGS=stablediffusion`. If you are using the container images, it is already enabled.
+Note: In order to use the `images/generation` endpoint with the `stablediffusion` C++ backend, you need to build LocalAI with `GO_TAGS=stablediffusion` or alternatively with `GO_TAGS=tinydream`. If you are using the container images, they are already enabled.
 
 {{< tabs >}}
 {{% tab name="Prepare the model in runtime" %}}

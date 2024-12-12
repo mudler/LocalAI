@@ -108,7 +108,7 @@ jobs:
           GO_TAGS="tts" make -C sources/go-piper piper.o && \
           sudo cp -rfv sources/go-piper/piper-phonemize/pi/lib/. /usr/lib/ && \
           # Pre-build stable diffusion before we install a newer version of abseil (not compatible with stablediffusion-ncn)
-          PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
+          PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts tinydream" GRPC_BACKENDS=backend-assets/grpc/stablediffusion make build
         env:
           CUDA_VERSION: 12-4
       - name: Cache grpc
@@ -130,7 +130,7 @@ jobs:
           cd grpc && cd cmake/build && sudo make --jobs 5 install
       - name: Test
         run: |
-          PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts" make --jobs 5 --output-sync=target test
+          PATH="$PATH:/root/go/bin" GO_TAGS="stablediffusion tts tinydream" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.19
