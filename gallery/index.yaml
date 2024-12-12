@@ -1952,6 +1952,27 @@
     - filename: Sailor2-20B-Chat-Q4_K_M.gguf
       sha256: 0cf8fcd367accee19702ef15ee964bddd5035bde034afddd838f818e7655534a
       uri: huggingface://bartowski/Sailor2-20B-Chat-GGUF/Sailor2-20B-Chat-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "72b-qwen2.5-kunou-v1"
+  icon: https://huggingface.co/Sao10K/72B-Qwen2.5-Kunou-v1/resolve/main/knn.png
+  urls:
+    - https://huggingface.co/Sao10K/72B-Qwen2.5-Kunou-v1
+    - https://huggingface.co/bartowski/72B-Qwen2.5-Kunou-v1-GGUF
+  description: |
+    I do not really have anything planned for this model other than it being a generalist, and Roleplay Model? It was just something made and planned in minutes.
+    Same with the 14 and 32B version.
+    Kunou's the name of an OC I worked on for a couple of years, for a... fanfic. mmm...
+
+    A kind-of successor to L3-70B-Euryale-v2.2 in all but name? I'm keeping Stheno/Euryale lineage to Llama series for now.
+    I had a version made on top of Nemotron, a supposed Euryale 2.4 but that flopped hard, it was not my cup of tea.
+    This version is basically a better, more cleaned up Dataset used on Euryale and Stheno.
+  overrides:
+    parameters:
+      model: 72B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
+  files:
+    - filename: 72B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
+      sha256: 91907f29746625a62885793475956220b81d8a5a34b53686a1acd1d03fd403ea
+      uri: huggingface://bartowski/72B-Qwen2.5-Kunou-v1-GGUF/72B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
