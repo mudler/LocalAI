@@ -47,6 +47,21 @@
     - filename: Llama-3.3-70B-Instruct.Q4_K_M.gguf
       sha256: 4f3b04ecae278bdb0fd545b47c210bc5edf823e5ebf7d41e0b526c81d54b1ff3
       uri: huggingface://MaziyarPanahi/Llama-3.3-70B-Instruct-GGUF/Llama-3.3-70B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-70b-euryale-v2.3"
+  icon: https://huggingface.co/Sao10K/L3.3-70B-Euryale-v2.3/resolve/main/Eury.png
+  urls:
+    - https://huggingface.co/Sao10K/L3.3-70B-Euryale-v2.3
+    - https://huggingface.co/bartowski/L3.3-70B-Euryale-v2.3-GGUF
+  description: |
+    A direct replacement / successor to Euryale v2.2, not Hanami-x1, though it is slightly better than them in my opinion.
+  overrides:
+    parameters:
+      model: L3.3-70B-Euryale-v2.3-Q4_K_M.gguf
+  files:
+    - filename: L3.3-70B-Euryale-v2.3-Q4_K_M.gguf
+      sha256: 4e78bb0e65886bfcff89b829f6d38aa6f6846988bb8291857e387e3f60b3217b
+      uri: huggingface://bartowski/L3.3-70B-Euryale-v2.3-GGUF/L3.3-70B-Euryale-v2.3-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
