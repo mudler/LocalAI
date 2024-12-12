@@ -3782,6 +3782,20 @@
     - filename: B-NIMITA-L3-8B-v0.02.Q4_K_M.gguf
       sha256: 625a54848dcd3f23bc06b639a7dfecae14142b5d177dd45acfe7724816bab4cd
       uri: huggingface://QuantFactory/B-NIMITA-L3-8B-v0.02-GGUF/B-NIMITA-L3-8B-v0.02.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "deepthought-8b-llama-v0.01-alpha"
+  urls:
+    - https://huggingface.co/ruliad/deepthought-8b-llama-v0.01-alpha
+    - https://huggingface.co/bartowski/deepthought-8b-llama-v0.01-alpha-GGUF
+  description: |
+    Deepthought-8B is a small and capable reasoning model built on LLaMA-3.1 8B, designed to make AI reasoning more transparent and controllable. Despite its relatively small size, it achieves sophisticated reasoning capabilities that rival much larger models.
+  overrides:
+    parameters:
+      model: deepthought-8b-llama-v0.01-alpha-Q4_K_M.gguf
+  files:
+    - filename: deepthought-8b-llama-v0.01-alpha-Q4_K_M.gguf
+      sha256: 33195ba7b898ef8b2997d095e8be42adf1d0e1f6e8291cf07e026fc8e45903fd
+      uri: huggingface://bartowski/deepthought-8b-llama-v0.01-alpha-GGUF/deepthought-8b-llama-v0.01-alpha-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
