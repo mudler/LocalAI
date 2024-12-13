@@ -62,6 +62,21 @@
     - filename: L3.3-70B-Euryale-v2.3-Q4_K_M.gguf
       sha256: 4e78bb0e65886bfcff89b829f6d38aa6f6846988bb8291857e387e3f60b3217b
       uri: huggingface://bartowski/L3.3-70B-Euryale-v2.3-GGUF/L3.3-70B-Euryale-v2.3-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-ms-evayale-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/HFCaVzRpiE05Y46p41qRy.webp
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-MS-Evayale-70B
+    - https://huggingface.co/bartowski/L3.3-MS-Evayale-70B-GGUF
+  description: |
+    This model was created as I liked the storytelling of EVA but the prose and details of scenes from EURYALE, my goal is to merge the robust storytelling of both models while attempting to maintain the positives of both models.
+  overrides:
+    parameters:
+      model: L3.3-MS-Evayale-70B-Q4_K_M.gguf
+  files:
+    - filename: L3.3-MS-Evayale-70B-Q4_K_M.gguf
+      sha256: f941d88870fec8343946517a1802d159d23f3971eeea50b6cf12295330bd29cc
+      uri: huggingface://bartowski/L3.3-MS-Evayale-70B-GGUF/L3.3-MS-Evayale-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
