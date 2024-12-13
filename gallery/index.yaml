@@ -3074,6 +3074,22 @@
     - filename: hermes-3-llama-3.1-8b-lorablated.Q4_K_M.gguf
       sha256: 8cff9d399a0583616fe1f290da6daa091ab5c5493d0e173a8fffb45202d79417
       uri: huggingface://mlabonne/Hermes-3-Llama-3.1-8B-lorablated-GGUF/hermes-3-llama-3.1-8b-lorablated.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "hermes-3-llama-3.2-3b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/-kj_KflXsdpcZoTQsvx7W.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-3-Llama-3.2-3B
+    - https://huggingface.co/bartowski/Hermes-3-Llama-3.2-3B-GGUF
+  description: |
+    Hermes 3 3B is a small but mighty new addition to the Hermes series of LLMs by Nous Research, and is Nous's first fine-tune in this parameter class.
+    Hermes 3 is a generalist language model with many improvements over Hermes 2, including advanced agentic capabilities, much better roleplaying, reasoning, multi-turn conversation, long context coherence, and improvements across the board.
+  overrides:
+    parameters:
+      model: Hermes-3-Llama-3.2-3B-Q4_K_M.gguf
+  files:
+    - filename: Hermes-3-Llama-3.2-3B-Q4_K_M.gguf
+      sha256: 2e220a14ba4328fee38cf36c2c068261560f999fadb5725ce5c6d977cb5126b5
+      uri: huggingface://bartowski/Hermes-3-Llama-3.2-3B-GGUF/Hermes-3-Llama-3.2-3B-Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "doctoraifinetune-3.1-8b-i1"
   urls:
