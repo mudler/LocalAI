@@ -2003,6 +2003,21 @@
     - filename: 72B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
       sha256: 91907f29746625a62885793475956220b81d8a5a34b53686a1acd1d03fd403ea
       uri: huggingface://bartowski/72B-Qwen2.5-Kunou-v1-GGUF/72B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://i.imgur.com/OxX2Usi.png
+  name: "evathene-v1.3"
+  urls:
+    - https://huggingface.co/sophosympatheia/Evathene-v1.3
+    - https://huggingface.co/bartowski/Evathene-v1.3-GGUF
+  description: |
+    This 72B parameter model is a merge of sophosympatheia/Evathene-v1.1 and sophosympatheia/Evathene-v1.2. See the merge recipe below for details.
+  overrides:
+    parameters:
+      model: Evathene-v1.3-Q4_K_M.gguf
+  files:
+    - filename: Evathene-v1.3-Q4_K_M.gguf
+      sha256: 0f54909b3ddca514994ee16417da8750f56e7bd59581b46ac47625c230e29d1f
+      uri: huggingface://bartowski/Evathene-v1.3-GGUF/Evathene-v1.3-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
