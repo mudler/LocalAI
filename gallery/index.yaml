@@ -4706,6 +4706,32 @@
     - filename: MN-Chunky-Lotus-12B.Q4_K_M.gguf
       sha256: 363defe0a769fdb715dab75517966a0a80bcdd981a610d4c759099b6c8ff143a
       uri: huggingface://QuantFactory/MN-Chunky-Lotus-12B-GGUF/MN-Chunky-Lotus-12B.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "chronos-gold-12b-1.0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630417380907b9a115c6aa9f/3hc8zt8fzKdO3qHK1p1mW.webp
+  urls:
+    - https://huggingface.co/elinas/Chronos-Gold-12B-1.0
+    - https://huggingface.co/mradermacher/Chronos-Gold-12B-1.0-GGUF
+  description: |
+    Chronos Gold 12B 1.0 is a very unique model that applies to domain areas such as general chatbot functionatliy, roleplay, and storywriting. The model has been observed to write up to 2250 tokens in a single sequence. The model was trained at a sequence length of 16384 (16k) and will still retain the apparent 128k context length from Mistral-Nemo, though it deteriorates over time like regular Nemo does based on the RULER Test
+
+    As a result, is recommended to keep your sequence length max at 16384, or you will experience performance degredation.
+
+    The base model is mistralai/Mistral-Nemo-Base-2407 which was heavily modified to produce a more coherent model, comparable to much larger models.
+
+    Chronos Gold 12B-1.0 re-creates the uniqueness of the original Chronos with significiantly enhanced prompt adherence (following), coherence, a modern dataset, as well as supporting a majority of "character card" formats in applications like SillyTavern.
+
+    It went through an iterative and objective merge process as my previous models and was further finetuned on a dataset curated for it.
+
+    The specifics of the model will not be disclosed at the time due to dataset ownership.
+  overrides:
+    parameters:
+      model: Chronos-Gold-12B-1.0.Q4_K_M.gguf
+  files:
+    - filename: Chronos-Gold-12B-1.0.Q4_K_M.gguf
+      sha256: d75a6ed28781f0ea6fa6e58c0b25dfecdd160d4cab64aaf511ea156e99a1e1f3
+      uri: huggingface://mradermacher/Chronos-Gold-12B-1.0-GGUF/Chronos-Gold-12B-1.0.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
