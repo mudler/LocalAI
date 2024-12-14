@@ -3,6 +3,15 @@ name: 'Tests extras backends'
 
 on:
   pull_request:
+    paths-ignore:
+      - '.devcontainer/**'
+      - '.devcontainer-scripts/**'
+      - '.github/**'
+      - '.vscode/**'
+      - 'examples/**'
+      - 'docs/**'
+      - 'gallery/**'
+      - '*.md'
   push:
     branches:
       - master
@@ -15,6 +24,7 @@ concurrency:
 
 jobs:
   tests-transformers:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -37,6 +47,7 @@ jobs:
            make --jobs=5 --output-sync=target -C backend/python/transformers test
 
   tests-sentencetransformers:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -58,8 +69,8 @@ jobs:
            make --jobs=5 --output-sync=target -C backend/python/sentencetransformers
            make --jobs=5 --output-sync=target -C backend/python/sentencetransformers test
 
-
   tests-rerankers:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -82,6 +93,7 @@ jobs:
            make --jobs=5 --output-sync=target -C backend/python/rerankers test
 
   tests-diffusers:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -103,6 +115,7 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/diffusers test
 
   tests-parler-tts:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -132,6 +145,7 @@ jobs:
           limit-access-to-actor: true
 
   tests-openvoice:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -154,6 +168,7 @@ jobs:
            make --jobs=5 --output-sync=target -C backend/python/openvoice test
 
   tests-transformers-musicgen:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -261,6 +276,7 @@ jobs:
   #          make --jobs=5 --output-sync=target -C backend/python/vllm
   #          make --jobs=5 --output-sync=target -C backend/python/vllm test
   tests-vallex:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -282,6 +298,7 @@ jobs:
            make --jobs=5 --output-sync=target -C backend/python/vall-e-x test
 
   tests-coqui:
+    if: github.event_name != 'pull_request' || github.event.pull_request.changed_files != 0
     runs-on: ubuntu-latest
     steps:
       - name: Clone
@@ -300,3 +317,49 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/coqui
           make --jobs=5 --output-sync=target -C backend/python/coqui test
+
+  report-extra-test-results:
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs: [tests-transformers, tests-sentencetransformers, tests-rerankers, tests-diffusers, tests-parler-tts, tests-openvoice, tests-transformers-musicgen, tests-vallex, tests-coqui]
+    steps:
+      - name: Report Status for coqui
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-coqui
+      - name: Report Status for diffusers
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-diffusers
+      - name: Report Status for openvoice
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-openvoice
+      - name: Report Status for parler-tts
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-parler-tts
+      - name: Report Status for tests-transformers
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-transformers
+      - name: Report Status for tests-transformers-musicgen
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-transformers-musicgen
+      - name: Report Status for tests-sentencetransformers
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-sentencetransformers
+      - name: Report Status for tests-rerankers
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-rerankers
+      - name: Report Status for tests-vallex
+        uses: ./.github/workflows/report_status.yaml
+        with:
+          job_name: tests-vallex
+      - name: Report Success
+        run: |
+            echo "test-extra successfully completed"
+            exit 0
