@@ -807,6 +807,20 @@
     - filename: Llama-SmolTalk-3.2-1B-Instruct.Q4_K_M.gguf
       sha256: 03d8d05e3821f4caa65defa82baaff658484d4405b66546431528153ceef4d9e
       uri: huggingface://mradermacher/Llama-SmolTalk-3.2-1B-Instruct-GGUF/Llama-SmolTalk-3.2-1B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "fusechat-llama-3.2-3b-instruct"
+  urls:
+    - https://huggingface.co/FuseAI/FuseChat-Llama-3.2-3B-Instruct
+    - https://huggingface.co/bartowski/FuseChat-Llama-3.2-3B-Instruct-GGUF
+  description: |
+    We present FuseChat-3.0, a series of models crafted to enhance performance by integrating the strengths of multiple source LLMs into more compact target LLMs. To achieve this fusion, we utilized four powerful source LLMs: Gemma-2-27B-It, Mistral-Large-Instruct-2407, Qwen-2.5-72B-Instruct, and Llama-3.1-70B-Instruct. For the target LLMs, we employed three widely-used smaller models—Llama-3.1-8B-Instruct, Gemma-2-9B-It, and Qwen-2.5-7B-Instruct—along with two even more compact models—Llama-3.2-3B-Instruct and Llama-3.2-1B-Instruct. The implicit model fusion process involves a two-stage training pipeline comprising Supervised Fine-Tuning (SFT) to mitigate distribution discrepancies between target and source LLMs, and Direct Preference Optimization (DPO) for learning preferences from multiple source LLMs. The resulting FuseChat-3.0 models demonstrated substantial improvements in tasks related to general conversation, instruction following, mathematics, and coding. Notably, when Llama-3.1-8B-Instruct served as the target LLM, our fusion approach achieved an average improvement of 6.8 points across 14 benchmarks. Moreover, it showed significant improvements of 37.1 and 30.1 points on instruction-following test sets AlpacaEval-2 and Arena-Hard respectively. We have released the FuseChat-3.0 models on Huggingface, stay tuned for the forthcoming dataset and code.
+  overrides:
+    parameters:
+      model: FuseChat-Llama-3.2-3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: FuseChat-Llama-3.2-3B-Instruct-Q4_K_M.gguf
+      sha256: a4f0e9a905b74886b79b72622c06a3219d6812818a564a53c39fc49032d7f842
+      uri: huggingface://bartowski/FuseChat-Llama-3.2-3B-Instruct-GGUF/FuseChat-Llama-3.2-3B-Instruct-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
