@@ -2047,6 +2047,20 @@
     - filename: FuseChat-Qwen-2.5-7B-Instruct-Q4_K_M.gguf
       sha256: 8cd8c317769f03125ac753c836ac92c5a76ee0b35502811d0e65bcbb8df9d55c
       uri: huggingface://bartowski/FuseChat-Qwen-2.5-7B-Instruct-GGUF/FuseChat-Qwen-2.5-7B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "neumind-math-7b-instruct"
+  urls:
+    - https://huggingface.co/prithivMLmods/Neumind-Math-7B-Instruct
+    - https://huggingface.co/QuantFactory/Neumind-Math-7B-Instruct-GGUF
+  description: |
+    The Neumind-Math-7B-Instruct is a fine-tuned model based on Qwen2.5-7B-Instruct, optimized for mathematical reasoning, step-by-step problem-solving, and instruction-based tasks in the mathematics domain. The model is designed for applications requiring structured reasoning, numerical computations, and mathematical proof generation.
+  overrides:
+    parameters:
+      model: Neumind-Math-7B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Neumind-Math-7B-Instruct.Q4_K_M.gguf
+      sha256: 3250abadeae4234e06dfaf7cf86fe871fe021e6c2dfcb4542c2a4f412d71e28c
+      uri: huggingface://QuantFactory/Neumind-Math-7B-Instruct-GGUF/Neumind-Math-7B-Instruct.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
