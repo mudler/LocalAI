@@ -458,7 +458,6 @@
   urls:
     - https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF
   overrides:
-    embeddings: true
     parameters:
       model: llama-3.2-1b-instruct-q4_k_m.gguf
   files:
@@ -9708,6 +9707,10 @@
       llama3.2 embeddings model. Using as drop-in replacement for bert-embeddings
   tags:
     - embeddings
+  overrides:
+    embeddings: true
+    parameters:
+      model: llama-3.2-1b-instruct-q4_k_m.gguf
 ## Stable Diffusion
 - url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
   license: "BSD-3"
