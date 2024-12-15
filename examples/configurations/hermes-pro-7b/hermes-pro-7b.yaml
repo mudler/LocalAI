@@ -1,0 +1,29 @@
+backend: llama
+name: hermes-Pro-7b
+context_size: 512
+gpu_layers:  33
+f16: true
+mmap: false
+mmlock: false
+no_mulmatq: true
+low_vram: false
+threads: 11
+stopwords:
+- <|im_end|>
+- <|im_start|>
+- <dummy32000>
+- "\n</tool_call>"
+- "\n\n\n"
+parameters:
+  model: Hermes-2-Pro-Mistral-7B.Q6_K.gguf
+  temperature: 0.2
+  top_k: 40
+  top_p: 0.6
+  seed: -1
+feature_flags:
+  usage: false
+template:
+  chat_message: chat-message
+  function: function    
+  chat: chat
+  completion: completion
