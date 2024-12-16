@@ -4774,6 +4774,22 @@
     - filename: Chronos-Gold-12B-1.0.Q4_K_M.gguf
       sha256: d75a6ed28781f0ea6fa6e58c0b25dfecdd160d4cab64aaf511ea156e99a1e1f3
       uri: huggingface://mradermacher/Chronos-Gold-12B-1.0-GGUF/Chronos-Gold-12B-1.0.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "naturallm-7b-instruct"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/qingy2024/NaturalLM-7B-Instruct
+    - https://huggingface.co/bartowski/NaturalLM-7B-Instruct-GGUF
+  description: |
+    This Mistral 7B fine-tune is trained (for 150 steps) to talk like a human, not a "helpful assistant"!
+    It's also very beta right now. The dataset (qingy2024/Natural-Text-ShareGPT) can definitely be improved.
+  overrides:
+    parameters:
+      model: NaturalLM-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: NaturalLM-7B-Instruct-Q4_K_M.gguf
+      sha256: 15b2f34116f690fea35790a9392b8a2190fe25827e370d426e88a2a543f4dcee
+      uri: huggingface://bartowski/NaturalLM-7B-Instruct-GGUF/NaturalLM-7B-Instruct-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
