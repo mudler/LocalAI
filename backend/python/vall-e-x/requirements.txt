@@ -1,3 +1,4 @@
 grpcio==1.68.1
 protobuf
 certifi
+setuptools
