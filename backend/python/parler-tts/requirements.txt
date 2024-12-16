@@ -1,3 +1,4 @@
 grpcio==1.68.1
 certifi
 llvmlite==0.43.0
+setuptools

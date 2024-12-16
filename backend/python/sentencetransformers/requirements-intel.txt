@@ -2,7 +2,7 @@
 intel-extension-for-pytorch
 torch
 optimum[openvino]
-setuptools==69.5.1 # https://github.com/mudler/LocalAI/issues/2406
+setuptools
 accelerate
 sentence-transformers==3.3.1
 transformers
