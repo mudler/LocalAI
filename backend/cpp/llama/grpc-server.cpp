@@ -681,7 +681,6 @@ struct llama_server_context
         slot->sparams.mirostat          = json_value(data, "mirostat",          default_sparams.mirostat);
         slot->sparams.mirostat_tau      = json_value(data, "mirostat_tau",      default_sparams.mirostat_tau);
         slot->sparams.mirostat_eta      = json_value(data, "mirostat_eta",      default_sparams.mirostat_eta);
-        slot->sparams.penalize_nl       = json_value(data, "penalize_nl",       default_sparams.penalize_nl);
         slot->params.n_keep             = json_value(data, "n_keep",            slot->params.n_keep);
         slot->sparams.seed               = json_value(data, "seed",              default_sparams.seed);
         slot->sparams.grammar           = json_value(data, "grammar",           default_sparams.grammar);
@@ -1213,13 +1212,12 @@ struct llama_server_context
             {"mirostat",          slot.sparams.mirostat},
             {"mirostat_tau",      slot.sparams.mirostat_tau},
             {"mirostat_eta",      slot.sparams.mirostat_eta},
-            {"penalize_nl",       slot.sparams.penalize_nl},
             {"stop",              slot.params.antiprompt},
             {"n_predict",         slot.params.n_predict},
             {"n_keep",            params.n_keep},
             {"ignore_eos",        slot.sparams.ignore_eos},
             {"stream",            slot.params.stream},
-      //      {"logit_bias",        slot.sparams.logit_bias},
+             //      {"logit_bias",        slot.sparams.logit_bias},
             {"n_probs",           slot.sparams.n_probs},
             {"min_keep",          slot.sparams.min_keep},
             {"grammar",           slot.sparams.grammar},
@@ -2112,7 +2110,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     //     slot->sparams.mirostat        = json_value(data, "mirostat",          default_sparams.mirostat);
     //     slot->sparams.mirostat_tau    = json_value(data, "mirostat_tau",      default_sparams.mirostat_tau);
     //     slot->sparams.mirostat_eta    = json_value(data, "mirostat_eta",      default_sparams.mirostat_eta);
-    //     slot->sparams.penalize_nl     = json_value(data, "penalize_nl",       default_sparams.penalize_nl);
     //     slot->params.n_keep           = json_value(data, "n_keep",            slot->params.n_keep);
     //     slot->params.seed             = json_value(data, "seed",              default_params.seed);
     //     slot->sparams.grammar         = json_value(data, "grammar",           default_sparams.grammar);
@@ -2135,7 +2132,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     data["mirostat"] = predict->mirostat();
     data["mirostat_tau"] = predict->mirostattau();
     data["mirostat_eta"] = predict->mirostateta();
-    data["penalize_nl"] = predict->penalizenl();
     data["n_keep"] = predict->nkeep();
     data["seed"] = predict->seed();
     data["grammar"] = predict->grammar();
@@ -2181,7 +2177,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
 //     llama.params.sparams.mirostat = predict->mirostat();
 //     llama.params.sparams.mirostat_tau = predict->mirostattau();
 //     llama.params.sparams.mirostat_eta = predict->mirostateta();
-//     llama.params.sparams.penalize_nl = predict->penalizenl();
 //     llama.params.n_keep = predict->nkeep();
 //     llama.params.seed = predict->seed();
 //     llama.params.sparams.grammar = predict->grammar();
