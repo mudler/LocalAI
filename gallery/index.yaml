@@ -4299,6 +4299,20 @@
     - filename: Marco-o1.Q4_K_M.gguf
       sha256: 54dd9554cb54609bf0bf4b367dfba192fc982a2fc6b87a0f56fba5ea82762d0d
       uri: huggingface://QuantFactory/Marco-o1-GGUF/Marco-o1.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "marco-o1-uncensored"
+  urls:
+    - https://huggingface.co/thirdeyeai/marco-o1-uncensored
+    - https://huggingface.co/QuantFactory/marco-o1-uncensored-GGUF
+  description: |
+    Uncensored version of marco-o1
+  overrides:
+    parameters:
+      model: marco-o1-uncensored.Q4_K_M.gguf
+  files:
+    - filename: marco-o1-uncensored.Q4_K_M.gguf
+      sha256: ad0440270a7254098f90779744d3e5b34fe49b7baf97c819909ba9c5648cc0d9
+      uri: huggingface://QuantFactory/marco-o1-uncensored-GGUF/marco-o1-uncensored.Q4_K_M.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
