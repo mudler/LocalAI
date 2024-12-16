@@ -2113,6 +2113,20 @@
     - filename: Arch-Function-3B.Q4_K_M.gguf
       sha256: 9945cb8d070498d163e5df90c1987f591d35e4fd2222a6c51bcfff848c4b573b
       uri: huggingface://mradermacher/Arch-Function-3B-GGUF/Arch-Function-3B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2-7b-multilingual-rp"
+  urls:
+    - https://huggingface.co/maywell/Qwen2-7B-Multilingual-RP
+    - https://huggingface.co/QuantFactory/Qwen2-7B-Multilingual-RP-GGUF
+  description: |
+    Multilingual Qwen2-7B model trained on Roleplaying.
+  overrides:
+    parameters:
+      model: Qwen2-7B-Multilingual-RP.Q4_K_M.gguf
+  files:
+    - filename: Qwen2-7B-Multilingual-RP.Q4_K_M.gguf
+      sha256: 31756c58fd135f2deb59b2d9b142f39134dc8d1a6eaa02f388dda7491fc95ccc
+      uri: huggingface://QuantFactory/Qwen2-7B-Multilingual-RP-GGUF/Qwen2-7B-Multilingual-RP.Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
