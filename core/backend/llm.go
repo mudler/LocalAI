@@ -118,7 +118,7 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 
 			var partialRune []byte
 			err := inferenceModel.PredictStream(ctx, opts, func(reply *proto.Reply) {
-				msg := reply.GetMessage()
+				msg := reply.Message
 				partialRune = append(partialRune, msg...)
 
 				tokenUsage.Prompt = int(reply.PromptTokens)
