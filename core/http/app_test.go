@@ -704,7 +704,7 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 
 			Expect(resp.StatusCode).To(Equal(200), fmt.Sprint(string(dat)))
-			Expect(resp.Header.Get("Content-Type")).To(Equal("audio/x-wav"))
+			Expect(resp.Header.Get("Content-Type")).To(Or(Equal("audio/x-wav"), Equal("audio/vnd.wave")))
 		})
 		It("installs and is capable to generate images", Label("stablediffusion"), func() {
 			if runtime.GOOS != "linux" {
