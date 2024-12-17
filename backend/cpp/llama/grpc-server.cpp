@@ -681,7 +681,6 @@ struct llama_server_context
         slot->sparams.mirostat          = json_value(data, "mirostat",          default_sparams.mirostat);
         slot->sparams.mirostat_tau      = json_value(data, "mirostat_tau",      default_sparams.mirostat_tau);
         slot->sparams.mirostat_eta      = json_value(data, "mirostat_eta",      default_sparams.mirostat_eta);
-        slot->sparams.penalize_nl       = json_value(data, "penalize_nl",       default_sparams.penalize_nl);
         slot->params.n_keep             = json_value(data, "n_keep",            slot->params.n_keep);
         slot->sparams.seed               = json_value(data, "seed",              default_sparams.seed);
         slot->sparams.grammar           = json_value(data, "grammar",           default_sparams.grammar);
@@ -1213,13 +1212,12 @@ struct llama_server_context
             {"mirostat",          slot.sparams.mirostat},
             {"mirostat_tau",      slot.sparams.mirostat_tau},
             {"mirostat_eta",      slot.sparams.mirostat_eta},
-            {"penalize_nl",       slot.sparams.penalize_nl},
             {"stop",              slot.params.antiprompt},
             {"n_predict",         slot.params.n_predict},
             {"n_keep",            params.n_keep},
             {"ignore_eos",        slot.sparams.ignore_eos},
             {"stream",            slot.params.stream},
-      //      {"logit_bias",        slot.sparams.logit_bias},
+             //      {"logit_bias",        slot.sparams.logit_bias},
             {"n_probs",           slot.sparams.n_probs},
             {"min_keep",          slot.sparams.min_keep},
             {"grammar",           slot.sparams.grammar},
@@ -2112,7 +2110,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     //     slot->sparams.mirostat        = json_value(data, "mirostat",          default_sparams.mirostat);
     //     slot->sparams.mirostat_tau    = json_value(data, "mirostat_tau",      default_sparams.mirostat_tau);
     //     slot->sparams.mirostat_eta    = json_value(data, "mirostat_eta",      default_sparams.mirostat_eta);
-    //     slot->sparams.penalize_nl     = json_value(data, "penalize_nl",       default_sparams.penalize_nl);
     //     slot->params.n_keep           = json_value(data, "n_keep",            slot->params.n_keep);
     //     slot->params.seed             = json_value(data, "seed",              default_params.seed);
     //     slot->sparams.grammar         = json_value(data, "grammar",           default_sparams.grammar);
@@ -2135,7 +2132,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
     data["mirostat"] = predict->mirostat();
     data["mirostat_tau"] = predict->mirostattau();
     data["mirostat_eta"] = predict->mirostateta();
-    data["penalize_nl"] = predict->penalizenl();
     data["n_keep"] = predict->nkeep();
     data["seed"] = predict->seed();
     data["grammar"] = predict->grammar();
@@ -2181,7 +2177,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
 //     llama.params.sparams.mirostat = predict->mirostat();
 //     llama.params.sparams.mirostat_tau = predict->mirostattau();
 //     llama.params.sparams.mirostat_eta = predict->mirostateta();
-//     llama.params.sparams.penalize_nl = predict->penalizenl();
 //     llama.params.n_keep = predict->nkeep();
 //     llama.params.seed = predict->seed();
 //     llama.params.sparams.grammar = predict->grammar();
@@ -2228,6 +2223,35 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, llama
 //     }
 // }
 
+const std::vector<ggml_type> kv_cache_types = {
+    GGML_TYPE_F32,
+    GGML_TYPE_F16,
+    GGML_TYPE_BF16,
+    GGML_TYPE_Q8_0,
+    GGML_TYPE_Q4_0,
+    GGML_TYPE_Q4_1,
+    GGML_TYPE_IQ4_NL,
+    GGML_TYPE_Q5_0,
+    GGML_TYPE_Q5_1,
+};
+
+static ggml_type kv_cache_type_from_str(const std::string & s) {
+    for (const auto & type : kv_cache_types) {
+        if (ggml_type_name(type) == s) {
+            return type;
+        }
+    }
+    throw std::runtime_error("Unsupported cache type: " + s);
+}
+
+static std::string get_all_kv_cache_types() {
+    std::ostringstream msg;
+    for (const auto & type : kv_cache_types) {
+        msg << ggml_type_name(type) << (&type == &kv_cache_types.back() ? "" : ", ");
+    }
+    return msg.str();
+}
+
 static void params_parse(const backend::ModelOptions* request,
                                 common_params & params) {
    
@@ -2241,6 +2265,12 @@ static void params_parse(const backend::ModelOptions* request,
     }
     //  params.model_alias ??
     params.model_alias =  request->modelfile();
+    if (!request->cachetypekey().empty()) {
+        params.cache_type_k = kv_cache_type_from_str(request->cachetypekey());
+    }
+    if (!request->cachetypevalue().empty()) {
+        params.cache_type_v = kv_cache_type_from_str(request->cachetypevalue());
+    }
     params.n_ctx = request->contextsize();
     //params.memory_f16 = request->f16memory();
     params.cpuparams.n_threads = request->threads();

@@ -1,15 +1,15 @@
-package startup
+package application
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/mudler/LocalAI/core"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/assets"
+
 	"github.com/mudler/LocalAI/pkg/library"
 	"github.com/mudler/LocalAI/pkg/model"
 	pkgStartup "github.com/mudler/LocalAI/pkg/startup"
@@ -17,8 +17,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.ModelLoader, *config.ApplicationConfig, error) {
+func New(opts ...config.AppOption) (*Application, error) {
 	options := config.NewApplicationConfig(opts...)
+	application := newApplication(options)
 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.ModelPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
@@ -36,28 +37,28 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	// Make sure directories exists
 	if options.ModelPath == "" {
-		return nil, nil, nil, fmt.Errorf("options.ModelPath cannot be empty")
+		return nil, fmt.Errorf("options.ModelPath cannot be empty")
 	}
 	err = os.MkdirAll(options.ModelPath, 0750)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to create ModelPath: %q", err)
+		return nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
 	if options.ImageDir != "" {
 		err := os.MkdirAll(options.ImageDir, 0750)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create ImageDir: %q", err)
+			return nil, fmt.Errorf("unable to create ImageDir: %q", err)
 		}
 	}
 	if options.AudioDir != "" {
 		err := os.MkdirAll(options.AudioDir, 0750)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create AudioDir: %q", err)
+			return nil, fmt.Errorf("unable to create AudioDir: %q", err)
 		}
 	}
 	if options.UploadDir != "" {
 		err := os.MkdirAll(options.UploadDir, 0750)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create UploadDir: %q", err)
+			return nil, fmt.Errorf("unable to create UploadDir: %q", err)
 		}
 	}
 
@@ -65,39 +66,36 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 		log.Error().Err(err).Msg("error installing models")
 	}
 
-	cl := config.NewBackendConfigLoader(options.ModelPath)
-	ml := model.NewModelLoader(options.ModelPath)
-
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
-	if err := cl.LoadBackendConfigsFromPath(options.ModelPath, configLoaderOpts...); err != nil {
+	if err := application.BackendLoader().LoadBackendConfigsFromPath(options.ModelPath, configLoaderOpts...); err != nil {
 		log.Error().Err(err).Msg("error loading config files")
 	}
 
 	if options.ConfigFile != "" {
-		if err := cl.LoadMultipleBackendConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
+		if err := application.BackendLoader().LoadMultipleBackendConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
 			log.Error().Err(err).Msg("error loading config file")
 		}
 	}
 
-	if err := cl.Preload(options.ModelPath); err != nil {
+	if err := application.BackendLoader().Preload(options.ModelPath); err != nil {
 		log.Error().Err(err).Msg("error downloading models")
 	}
 
 	if options.PreloadJSONModels != "" {
 		if err := services.ApplyGalleryFromString(options.ModelPath, options.PreloadJSONModels, options.EnforcePredownloadScans, options.Galleries); err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
 		if err := services.ApplyGalleryFromFile(options.ModelPath, options.PreloadModelsFromPath, options.EnforcePredownloadScans, options.Galleries); err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 	}
 
 	if options.Debug {
-		for _, v := range cl.GetAllBackendConfigs() {
+		for _, v := range application.BackendLoader().GetAllBackendConfigs() {
 			log.Debug().Msgf("Model: %s (config: %+v)", v.Name, v)
 		}
 	}
@@ -123,7 +121,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	go func() {
 		<-options.Context.Done()
 		log.Debug().Msgf("Context canceled, shutting down")
-		err := ml.StopAllGRPC()
+		err := application.ModelLoader().StopAllGRPC()
 		if err != nil {
 			log.Error().Err(err).Msg("error while stopping all grpc backends")
 		}
@@ -131,12 +129,12 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	if options.WatchDog {
 		wd := model.NewWatchDog(
-			ml,
+			application.ModelLoader(),
 			options.WatchDogBusyTimeout,
 			options.WatchDogIdleTimeout,
 			options.WatchDogBusy,
 			options.WatchDogIdle)
-		ml.SetWatchDog(wd)
+		application.ModelLoader().SetWatchDog(wd)
 		go wd.Run()
 		go func() {
 			<-options.Context.Done()
@@ -147,7 +145,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 
 	if options.LoadToMemory != nil {
 		for _, m := range options.LoadToMemory {
-			cfg, err := cl.LoadBackendConfigFileByName(m, options.ModelPath,
+			cfg, err := application.BackendLoader().LoadBackendConfigFileByName(m, options.ModelPath,
 				config.LoadOptionDebug(options.Debug),
 				config.LoadOptionThreads(options.Threads),
 				config.LoadOptionContextSize(options.ContextSize),
@@ -155,7 +153,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 				config.ModelPath(options.ModelPath),
 			)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 
 			log.Debug().Msgf("Auto loading model %s into memory from file: %s", m, cfg.Model)
@@ -163,9 +161,9 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 			o := backend.ModelOptions(*cfg, options)
 
 			var backendErr error
-			_, backendErr = ml.Load(o...)
+			_, backendErr = application.ModelLoader().Load(o...)
 			if backendErr != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 		}
 	}
@@ -174,7 +172,7 @@ func Startup(opts ...config.AppOption) (*config.BackendConfigLoader, *model.Mode
 	startWatcher(options)
 
 	log.Info().Msg("core/startup process completed!")
-	return cl, ml, options, nil
+	return application, nil
 }
 
 func startWatcher(options *config.ApplicationConfig) {
@@ -200,33 +198,4 @@ func startWatcher(options *config.ApplicationConfig) {
 	if err := configHandler.Watch(); err != nil {
 		log.Error().Err(err).Msg("failed creating watcher")
 	}
-}
-
-// In Lieu of a proper DI framework, this function wires up the Application manually.
-// This is in core/startup rather than core/state.go to keep package references clean!
-func createApplication(appConfig *config.ApplicationConfig) *core.Application {
-	app := &core.Application{
-		ApplicationConfig:   appConfig,
-		BackendConfigLoader: config.NewBackendConfigLoader(appConfig.ModelPath),
-		ModelLoader:         model.NewModelLoader(appConfig.ModelPath),
-	}
-
-	var err error
-
-	// app.EmbeddingsBackendService = backend.NewEmbeddingsBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
-	// app.ImageGenerationBackendService = backend.NewImageGenerationBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
-	// app.LLMBackendService = backend.NewLLMBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
-	// app.TranscriptionBackendService = backend.NewTranscriptionBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
-	// app.TextToSpeechBackendService = backend.NewTextToSpeechBackendService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
-
-	app.BackendMonitorService = services.NewBackendMonitorService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig)
-	app.GalleryService = services.NewGalleryService(app.ApplicationConfig)
-	// app.OpenAIService = services.NewOpenAIService(app.ModelLoader, app.BackendConfigLoader, app.ApplicationConfig, app.LLMBackendService)
-
-	app.LocalAIMetricsService, err = services.NewLocalAIMetricsService()
-	if err != nil {
-		log.Error().Err(err).Msg("encountered an error initializing metrics service, startup will continue but metrics will not be tracked.")
-	}
-
-	return app
 }

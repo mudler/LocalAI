@@ -3,6 +3,5 @@ intel-extension-for-pytorch
 torch
 torchaudio
 optimum[openvino]
-setuptools==75.1.0 # https://github.com/mudler/LocalAI/issues/2406
 transformers
 accelerate

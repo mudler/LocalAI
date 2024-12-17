@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=3ad5451f3b75809e3033e4e577b9f60bcaf6676a
+CPPLLAMA_VERSION?=08ea539df211e46bb4d0dd275e541cb591d5ebc8
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
@@ -25,6 +25,14 @@ STABLEDIFFUSION_VERSION?=4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
 # tinydream version
 TINYDREAM_REPO?=https://github.com/M0Rf30/go-tiny-dream
 TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
+
+# bark.cpp
+BARKCPP_REPO?=https://github.com/PABannier/bark.cpp.git
+BARKCPP_VERSION?=v1.0.0
+
+# stablediffusion.cpp (ggml)
+STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
+STABLEDIFFUSION_GGML_VERSION?=9578fdcc4632dc3de5565f28e2fb16b7c18f8d48
 
 ONNX_VERSION?=1.20.0
 ONNX_ARCH?=x64
@@ -201,6 +209,14 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
 ALL_GRPC_BACKENDS+=backend-assets/util/llama-cpp-rpc-server
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
+
+ifeq ($(ONNX_OS),linux)
+ifeq ($(ONNX_ARCH),x64)
+	ALL_GRPC_BACKENDS+=backend-assets/grpc/bark-cpp
+	ALL_GRPC_BACKENDS+=backend-assets/grpc/stablediffusion-ggml
+endif
+endif
+
 ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=backend-assets/grpc/silero-vad
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
@@ -236,6 +252,23 @@ sources/go-llama.cpp:
 sources/go-llama.cpp/libbinding.a: sources/go-llama.cpp
 	$(MAKE) -C sources/go-llama.cpp BUILD_TYPE=$(STABLE_BUILD_TYPE) libbinding.a
 
+## bark.cpp
+sources/bark.cpp:
+	git clone --recursive $(BARKCPP_REPO) sources/bark.cpp && \
+	cd sources/bark.cpp && \
+	git checkout $(BARKCPP_VERSION) && \
+	git submodule update --init --recursive --depth 1 --single-branch
+
+sources/bark.cpp/build/libbark.a: sources/bark.cpp
+	cd sources/bark.cpp && \
+	mkdir -p build && \
+	cd build && \
+	cmake $(CMAKE_ARGS) .. && \
+	cmake --build . --config Release
+
+backend/go/bark/libbark.a: sources/bark.cpp/build/libbark.a
+	$(MAKE) -C backend/go/bark libbark.a
+
 ## go-piper
 sources/go-piper:
 	mkdir -p sources/go-piper
@@ -249,7 +282,7 @@ sources/go-piper:
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
 
-## stable diffusion
+## stable diffusion (onnx)
 sources/go-stable-diffusion:
 	mkdir -p sources/go-stable-diffusion
 	cd sources/go-stable-diffusion && \
@@ -261,6 +294,30 @@ sources/go-stable-diffusion:
 
 sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
 	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
+
+## stablediffusion (ggml)
+sources/stablediffusion-ggml.cpp:
+	git clone --recursive $(STABLEDIFFUSION_GGML_REPO) sources/stablediffusion-ggml.cpp && \
+	cd sources/stablediffusion-ggml.cpp && \
+	git checkout $(STABLEDIFFUSION_GGML_VERSION) && \
+	git submodule update --init --recursive --depth 1 --single-branch
+
+sources/stablediffusion-ggml.cpp/build/libstable-diffusion.a: sources/stablediffusion-ggml.cpp
+	cd sources/stablediffusion-ggml.cpp && \
+	mkdir -p build && \
+	cd build && \
+	cmake $(CMAKE_ARGS) .. && \
+	cmake --build . --config Release
+
+backend/go/image/stablediffusion-ggml/libsd.a: sources/stablediffusion-ggml.cpp/build/libstable-diffusion.a
+	$(MAKE) -C backend/go/image/stablediffusion-ggml libsd.a
+
+backend-assets/grpc/stablediffusion-ggml: backend/go/image/stablediffusion-ggml/libsd.a backend-assets/grpc
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/backend/go/image/stablediffusion-ggml/ LIBRARY_PATH=$(CURDIR)/backend/go/image/stablediffusion-ggml/ \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion-ggml ./backend/go/image/stablediffusion-ggml/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/stablediffusion-ggml
+endif
 
 sources/onnxruntime:
 	mkdir -p sources/onnxruntime
@@ -302,7 +359,7 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/go-piper sources/whisper.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
+get-sources: sources/go-llama.cpp sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
@@ -343,7 +400,9 @@ clean: ## Remove build related file
 	rm -rf release/
 	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
+	$(MAKE) -C backend/go/bark clean
 	$(MAKE) -C backend/cpp/llama clean
+	$(MAKE) -C backend/go/image/stablediffusion-ggml clean
 	rm -rf backend/cpp/llama-* || true
 	$(MAKE) dropreplace
 	$(MAKE) protogen-clean
@@ -790,6 +849,13 @@ backend-assets/grpc/llama-ggml: sources/go-llama.cpp sources/go-llama.cpp/libbin
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/llama-ggml ./backend/go/llm/llama-ggml/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/llama-ggml
+endif
+
+backend-assets/grpc/bark-cpp: backend/go/bark/libbark.a backend-assets/grpc
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/backend/go/bark/ LIBRARY_PATH=$(CURDIR)/backend/go/bark/ \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bark-cpp ./backend/go/bark/
+ifneq ($(UPX),)
+	$(UPX) backend-assets/grpc/bark-cpp
 endif
 
 backend-assets/grpc/piper: sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data

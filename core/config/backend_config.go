@@ -72,6 +72,8 @@ type BackendConfig struct {
 
 	Description string `yaml:"description"`
 	Usage       string `yaml:"usage"`
+
+	Options []string `yaml:"options"`
 }
 
 type File struct {
@@ -97,16 +99,15 @@ type GRPC struct {
 }
 
 type Diffusers struct {
-	CUDA             bool    `yaml:"cuda"`
-	PipelineType     string  `yaml:"pipeline_type"`
-	SchedulerType    string  `yaml:"scheduler_type"`
-	EnableParameters string  `yaml:"enable_parameters"` // A list of comma separated parameters to specify
-	CFGScale         float32 `yaml:"cfg_scale"`         // Classifier-Free Guidance Scale
-	IMG2IMG          bool    `yaml:"img2img"`           // Image to Image Diffuser
-	ClipSkip         int     `yaml:"clip_skip"`         // Skip every N frames
-	ClipModel        string  `yaml:"clip_model"`        // Clip model to use
-	ClipSubFolder    string  `yaml:"clip_subfolder"`    // Subfolder to use for clip model
-	ControlNet       string  `yaml:"control_net"`
+	CUDA             bool   `yaml:"cuda"`
+	PipelineType     string `yaml:"pipeline_type"`
+	SchedulerType    string `yaml:"scheduler_type"`
+	EnableParameters string `yaml:"enable_parameters"` // A list of comma separated parameters to specify
+	IMG2IMG          bool   `yaml:"img2img"`           // Image to Image Diffuser
+	ClipSkip         int    `yaml:"clip_skip"`         // Skip every N frames
+	ClipModel        string `yaml:"clip_model"`        // Clip model to use
+	ClipSubFolder    string `yaml:"clip_subfolder"`    // Subfolder to use for clip model
+	ControlNet       string `yaml:"control_net"`
 }
 
 // LLMConfig is a struct that holds the configuration that are
@@ -154,8 +155,10 @@ type LLMConfig struct {
 	TensorParallelSize   int       `yaml:"tensor_parallel_size"`   // vLLM
 	MMProj               string    `yaml:"mmproj"`
 
-	FlashAttention bool `yaml:"flash_attention"`
-	NoKVOffloading bool `yaml:"no_kv_offloading"`
+	FlashAttention bool   `yaml:"flash_attention"`
+	NoKVOffloading bool   `yaml:"no_kv_offloading"`
+	CacheTypeK     string `yaml:"cache_type_k"`
+	CacheTypeV     string `yaml:"cache_type_v"`
 
 	RopeScaling string `yaml:"rope_scaling"`
 	ModelType   string `yaml:"type"`
@@ -164,6 +167,8 @@ type LLMConfig struct {
 	YarnAttnFactor float32 `yaml:"yarn_attn_factor"`
 	YarnBetaFast   float32 `yaml:"yarn_beta_fast"`
 	YarnBetaSlow   float32 `yaml:"yarn_beta_slow"`
+
+	CFGScale float32 `yaml:"cfg_scale"` // Classifier-Free Guidance Scale
 }
 
 // AutoGPTQ is a struct that holds the configuration specific to the AutoGPTQ backend
@@ -201,6 +206,8 @@ type TemplateConfig struct {
 	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
 
 	Multimodal string `yaml:"multimodal"`
+
+	JinjaTemplate bool `yaml:"jinja_template"`
 }
 
 func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {

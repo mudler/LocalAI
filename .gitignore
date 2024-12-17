@@ -2,6 +2,7 @@
 /sources/
 __pycache__/
 *.a
+*.o
 get-sources
 prepare-sources
 /backend/cpp/llama/grpc-server

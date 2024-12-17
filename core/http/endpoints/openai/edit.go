@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/templates"
 
 	"github.com/rs/zerolog/log"
 )
@@ -21,7 +22,8 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/edits [post]
-func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+
 	return func(c *fiber.Ctx) error {
 		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
 		if err != nil {
@@ -35,31 +37,18 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConf
 
 		log.Debug().Msgf("Parameter Config: %+v", config)
 
-		templateFile := ""
-
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
-			templateFile = config.Model
-		}
-
-		if config.TemplateConfig.Edit != "" {
-			templateFile = config.TemplateConfig.Edit
-		}
-
 		var result []schema.Choice
 		totalTokenUsage := backend.TokenUsage{}
 
 		for _, i := range config.InputStrings {
-			if templateFile != "" {
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.EditPromptTemplate, templateFile, model.PromptTemplateData{
-					Input:        i,
-					Instruction:  input.Instruction,
-					SystemPrompt: config.SystemPrompt,
-				})
-				if err == nil {
-					i = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", i)
-				}
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.EditPromptTemplate, *config, templates.PromptTemplateData{
+				Input:        i,
+				Instruction:  input.Instruction,
+				SystemPrompt: config.SystemPrompt,
+			})
+			if err == nil {
+				i = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
 			r, tokenUsage, err := ComputeChoices(input, i, config, appConfig, ml, func(s string, c *[]schema.Choice) {

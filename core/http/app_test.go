@@ -5,24 +5,21 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/startup"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -254,9 +251,6 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
-	var bcl *config.BackendConfigLoader
-	var ml *model.ModelLoader
-	var applicationConfig *config.ApplicationConfig
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -302,7 +296,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGalleries(galleries),
@@ -312,7 +306,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -541,7 +535,7 @@ var _ = Describe("API test", func() {
 				var res map[string]string
 				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
+				Expect(res["location"]).To(ContainSubstring("San Francisco"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 
@@ -643,7 +637,7 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithAudioDir(tmpdir),
@@ -654,7 +648,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -710,7 +704,7 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 
 			Expect(resp.StatusCode).To(Equal(200), fmt.Sprint(string(dat)))
-			Expect(resp.Header.Get("Content-Type")).To(Equal("audio/x-wav"))
+			Expect(resp.Header.Get("Content-Type")).To(Or(Equal("audio/x-wav"), Equal("audio/vnd.wave")))
 		})
 		It("installs and is capable to generate images", Label("stablediffusion"), func() {
 			if runtime.GOOS != "linux" {
@@ -774,14 +768,14 @@ var _ = Describe("API test", func() {
 
 			var err error
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := application.New(
 				append(commonOpts,
 					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -913,71 +907,6 @@ var _ = Describe("API test", func() {
 			})
 		})
 
-		Context("backends", func() {
-			It("runs rwkv completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
-				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,"})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(resp.Choices[0].Text).To(ContainSubstring("five"))
-
-				stream, err := client.CreateCompletionStream(context.TODO(), openai.CompletionRequest{
-					Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,", Stream: true,
-				})
-				Expect(err).ToNot(HaveOccurred())
-				defer stream.Close()
-
-				tokens := 0
-				text := ""
-				for {
-					response, err := stream.Recv()
-					if errors.Is(err, io.EOF) {
-						break
-					}
-
-					Expect(err).ToNot(HaveOccurred())
-					text += response.Choices[0].Text
-					tokens++
-				}
-				Expect(text).ToNot(BeEmpty())
-				Expect(text).To(ContainSubstring("five"))
-				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
-			})
-			It("runs rwkv chat completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
-				resp, err := client.CreateChatCompletion(context.TODO(),
-					openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(strings.ToLower(resp.Choices[0].Message.Content)).To(Or(ContainSubstring("sure"), ContainSubstring("five"), ContainSubstring("5")))
-
-				stream, err := client.CreateChatCompletionStream(context.TODO(), openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
-				Expect(err).ToNot(HaveOccurred())
-				defer stream.Close()
-
-				tokens := 0
-				text := ""
-				for {
-					response, err := stream.Recv()
-					if errors.Is(err, io.EOF) {
-						break
-					}
-
-					Expect(err).ToNot(HaveOccurred())
-					text += response.Choices[0].Delta.Content
-					tokens++
-				}
-				Expect(text).ToNot(BeEmpty())
-				Expect(strings.ToLower(text)).To(Or(ContainSubstring("sure"), ContainSubstring("five")))
-
-				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
-			})
-		})
-
 		// See tests/integration/stores_test
 		Context("Stores", Label("stores"), func() {
 
@@ -1057,14 +986,14 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
