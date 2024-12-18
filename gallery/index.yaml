@@ -36,6 +36,18 @@
     - filename: Falcon3-3B-Instruct-Q4_K_M.gguf
       sha256: e6d81653ee28c6944e4f9ab626882faabb69db8019ddcf87f2732d05f3d9158a
       uri: huggingface://bartowski/Falcon3-3B-Instruct-GGUF/Falcon3-3B-Instruct-Q4_K_M.gguf
+- !!merge <<: *falcon3
+  name: "falcon3-10b-instruct"
+  urls:
+    - https://huggingface.co/tiiuae/Falcon3-10B-Instruct
+    - https://huggingface.co/bartowski/Falcon3-10B-Instruct-GGUF
+  overrides:
+    parameters:
+      model: Falcon3-10B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Falcon3-10B-Instruct-Q4_K_M.gguf
+      sha256: 6d54a35d740a616061d6c7d7740d64f4339410e58aaba985aa9e1ea79c7e882a
+      uri: huggingface://bartowski/Falcon3-10B-Instruct-GGUF/Falcon3-10B-Instruct-Q4_K_M.gguf
 - &intellect1
   name: "intellect-1-instruct"
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
