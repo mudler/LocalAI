@@ -1,0 +1,40 @@
+---
+name: "falcon3"
+
+config_file: |
+  mmap: true
+  template:
+    chat_message: |
+      <|{{ .RoleName }}|>
+      {{ if .FunctionCall -}}
+      Function call:
+      {{ else if eq .RoleName "tool" -}}
+      Function response:
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content }}
+      {{ end -}}
+      {{ if .FunctionCall -}}
+      {{toJson .FunctionCall}}
+      {{ end -}}
+      {{ if eq .RoleName "assistant" }}<|endoftext|>{{ end }}
+    function: |
+      <|system|>
+      You are a function calling AI model. You are provided with functions to execute. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
+      {{range .Functions}}
+      {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+      {{end}}
+      For each function call return a json object with function name and arguments
+      {{.Input }}
+      <|im_start|>assistant
+    chat: |
+      {{.Input }}
+      <|im_start|>assistant
+    completion: |
+      {{.Input}}
+  context_size: 4096
+  f16: true
+  stopwords:
+  - '<|endoftext|>'
+  - '<dummy32000>'
+  - '</s>'
