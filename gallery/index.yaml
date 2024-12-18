@@ -3942,6 +3942,20 @@
     - filename: FuseChat-Llama-3.1-8B-Instruct-Q4_K_M.gguf
       sha256: fe58c8c9b695e36e6b0ee5e4d81ff71ea0a4f1a11fa7bb16e8d6f1b35a58dff6
       uri: huggingface://bartowski/FuseChat-Llama-3.1-8B-Instruct-GGUF/FuseChat-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-openreviewer-8b"
+  urls:
+    - https://huggingface.co/maxidl/Llama-OpenReviewer-8B
+    - https://huggingface.co/bartowski/Llama-OpenReviewer-8B-GGUF
+  description: |
+    Llama-OpenReviewer-8B is a large language model customized to generate high-quality reviews for machine learning and AI-related conference articles. We collected a dataset containing ~79k high-confidence reviews for ~32k individual papers from OpenReview.
+  overrides:
+    parameters:
+      model: Llama-OpenReviewer-8B-Q4_K_M.gguf
+  files:
+    - filename: Llama-OpenReviewer-8B-Q4_K_M.gguf
+      sha256: b48fd7eee01738de4adcb271fc3c7c5b306f8c75b9804794706dbfdf7a6835f0
+      uri: huggingface://bartowski/Llama-OpenReviewer-8B-GGUF/Llama-OpenReviewer-8B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
