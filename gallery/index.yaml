@@ -2127,6 +2127,20 @@
     - filename: Qwen2-7B-Multilingual-RP.Q4_K_M.gguf
       sha256: 31756c58fd135f2deb59b2d9b142f39134dc8d1a6eaa02f388dda7491fc95ccc
       uri: huggingface://QuantFactory/Qwen2-7B-Multilingual-RP-GGUF/Qwen2-7B-Multilingual-RP.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwq-lcot-7b-instruct"
+  urls:
+    - https://huggingface.co/prithivMLmods/QwQ-LCoT-7B-Instruct
+    - https://huggingface.co/bartowski/QwQ-LCoT-7B-Instruct-GGUF
+  description: |
+    The QwQ-LCoT-7B-Instruct is a fine-tuned language model designed for advanced reasoning and instruction-following tasks. It leverages the Qwen2.5-7B base model and has been fine-tuned on the amphora/QwQ-LongCoT-130K dataset, focusing on chain-of-thought (CoT) reasoning.
+  overrides:
+    parameters:
+      model: QwQ-LCoT-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: QwQ-LCoT-7B-Instruct-Q4_K_M.gguf
+      sha256: 1df2e4ff0093a9632687b73969153442776b0ffc1c3c68e7f559472f9cea1945
+      uri: huggingface://bartowski/QwQ-LCoT-7B-Instruct-GGUF/QwQ-LCoT-7B-Instruct-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
