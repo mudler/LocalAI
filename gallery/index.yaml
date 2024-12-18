@@ -2097,6 +2097,28 @@
     - filename: Neumind-Math-7B-Instruct.Q4_K_M.gguf
       sha256: 3250abadeae4234e06dfaf7cf86fe871fe021e6c2dfcb4542c2a4f412d71e28c
       uri: huggingface://QuantFactory/Neumind-Math-7B-Instruct-GGUF/Neumind-Math-7B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2-vl-72b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct
+    - https://huggingface.co/bartowski/Qwen2-VL-72B-Instruct-GGUF
+  description: |
+    We're excited to unveil Qwen2-VL, the latest iteration of our Qwen-VL model, representing nearly a year of innovation.
+    Key Enhancements:
+        SoTA understanding of images of various resolution & ratio: Qwen2-VL achieves state-of-the-art performance on visual understanding benchmarks, including MathVista, DocVQA, RealWorldQA, MTVQA, etc.
+
+        Understanding videos of 20min+: Qwen2-VL can understand videos over 20 minutes for high-quality video-based question answering, dialog, content creation, etc.
+
+        Agent that can operate your mobiles, robots, etc.: with the abilities of complex reasoning and decision making, Qwen2-VL can be integrated with devices like mobile phones, robots, etc., for automatic operation based on visual environment and text instructions.
+
+        Multilingual Support: to serve global users, besides English and Chinese, Qwen2-VL now supports the understanding of texts in different languages inside images, including most European languages, Japanese, Korean, Arabic, Vietnamese, etc.
+  overrides:
+    parameters:
+      model: Qwen2-VL-72B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen2-VL-72B-Instruct-Q4_K_M.gguf
+      sha256: 0def10ee892a4d4c72ba3807d150de2e1f600edd981d15d402e3d25753cf168d
+      uri: huggingface://bartowski/Qwen2-VL-72B-Instruct-GGUF/Qwen2-VL-72B-Instruct-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
