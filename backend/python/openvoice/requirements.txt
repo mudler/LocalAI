@@ -2,13 +2,8 @@ grpcio==1.68.1
 protobuf
 librosa
 faster-whisper
-pydub==0.25.1
-wavmark==0.0.3
-numpy==1.22.0
-eng_to_ipa==0.0.2
 inflect
 unidecode
-whisper-timestamped
 openai
 python-dotenv
 pypinyin
