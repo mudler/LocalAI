@@ -706,6 +706,43 @@ var _ = Describe("API test", func() {
 			Expect(resp.StatusCode).To(Equal(200), fmt.Sprint(string(dat)))
 			Expect(resp.Header.Get("Content-Type")).To(Or(Equal("audio/x-wav"), Equal("audio/vnd.wave")))
 		})
+		It("installs and is capable to generate images", Label("tinydream"), func() {
+			if runtime.GOOS != "linux" {
+				Skip("test supported only on linux")
+			}
+
+			response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+				ID: "model-gallery@tinydream",
+				Overrides: map[string]interface{}{
+					"parameters": map[string]interface{}{"model": "tinydream_assets"},
+				},
+			})
+
+			Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+
+			uuid := response["uuid"].(string)
+
+			Eventually(func() bool {
+				response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+				fmt.Println(response)
+				return response["processed"].(bool)
+			}, "360s", "10s").Should(Equal(true))
+
+			resp, err := http.Post(
+				"http://127.0.0.1:9090/v1/images/generations",
+				"application/json",
+				bytes.NewBuffer([]byte(`{
+					 			"prompt": "floating hair, portrait, ((loli)), ((one girl)), cute face, hidden hands, asymmetrical bangs, beautiful detailed eyes, eye shadow, hair ornament, ribbons, bowties, buttons, pleated skirt, (((masterpiece))), ((best quality)), colorful|((part of the head)), ((((mutated hands and fingers)))), deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, Octane renderer, lowres, bad anatomy, bad hands, text",
+								"seed":9000,
+					 			"size": "256x256"}`)))
+			// The response should contain an URL
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
+			dat, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred(), string(dat))
+			Expect(string(dat)).To(ContainSubstring("http://127.0.0.1:9090/"), string(dat))
+			Expect(string(dat)).To(ContainSubstring(".png"), string(dat))
+
+		})
 		It("installs and is capable to generate images", Label("stablediffusion"), func() {
 			if runtime.GOOS != "linux" {
 				Skip("test supported only on linux")
