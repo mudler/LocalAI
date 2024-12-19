@@ -869,6 +869,20 @@
     - filename: FuseChat-Llama-3.2-3B-Instruct-Q4_K_M.gguf
       sha256: a4f0e9a905b74886b79b72622c06a3219d6812818a564a53c39fc49032d7f842
       uri: huggingface://bartowski/FuseChat-Llama-3.2-3B-Instruct-GGUF/FuseChat-Llama-3.2-3B-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-song-stream-3b-instruct"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-Song-Stream-3B-Instruct
+    - https://huggingface.co/bartowski/Llama-Song-Stream-3B-Instruct-GGUF
+  description: |
+    The Llama-Song-Stream-3B-Instruct is a fine-tuned language model specializing in generating music-related text, such as song lyrics, compositions, and musical thoughts. Built upon the meta-llama/Llama-3.2-3B-Instruct base, it has been trained with a custom dataset focused on song lyrics and music compositions to produce context-aware, creative, and stylized music output.
+  overrides:
+    parameters:
+      model: Llama-Song-Stream-3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Llama-Song-Stream-3B-Instruct-Q4_K_M.gguf
+      sha256: 1a0f0aef16e5be46be827c430cbe5ce4b2915b2f4a1dd60b98792004d39b9f52
+      uri: huggingface://bartowski/Llama-Song-Stream-3B-Instruct-GGUF/Llama-Song-Stream-3B-Instruct-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
