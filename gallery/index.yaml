@@ -883,6 +883,20 @@
     - filename: Llama-Song-Stream-3B-Instruct-Q4_K_M.gguf
       sha256: 1a0f0aef16e5be46be827c430cbe5ce4b2915b2f4a1dd60b98792004d39b9f52
       uri: huggingface://bartowski/Llama-Song-Stream-3B-Instruct-GGUF/Llama-Song-Stream-3B-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-chat-summary-3.2-3b"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-Chat-Summary-3.2-3B
+    - https://huggingface.co/bartowski/Llama-Chat-Summary-3.2-3B-GGUF
+  description: |
+    Llama-Chat-Summary-3.2-3B is a fine-tuned model designed for generating context-aware summaries of long conversational or text-based inputs. Built on the meta-llama/Llama-3.2-3B-Instruct foundation, this model is optimized to process structured and unstructured conversational data for summarization tasks.
+  overrides:
+    parameters:
+      model: Llama-Chat-Summary-3.2-3B-Q4_K_M.gguf
+  files:
+    - filename: Llama-Chat-Summary-3.2-3B-Q4_K_M.gguf
+      sha256: ed1be20d2374aa6db9940923f41fa229bd7ebe13d41b1ff1ff18a6f87e99df79
+      uri: huggingface://bartowski/Llama-Chat-Summary-3.2-3B-GGUF/Llama-Chat-Summary-3.2-3B-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
