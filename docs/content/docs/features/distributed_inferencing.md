@@ -129,6 +129,9 @@ There are options that can be tweaked or parameters that can be set using enviro
 
 | Environment Variable | Description |
 |----------------------|-------------|
+| **LOCALAI_P2P** | Set to "true" to enable p2p |
+| **LOCALAI_FEDERATED** | Set to "true" to enable federated mode |
+| **FEDERATED_SERVER** | Set to "true" to enable federated server |
 | **LOCALAI_P2P_DISABLE_DHT** | Set to "true" to disable DHT and enable p2p layer to be local only (mDNS) |
 | **LOCALAI_P2P_ENABLE_LIMITS** | Set to "true" to enable connection limits and resources management (useful when running with poor connectivity or want to limit resources consumption) |
 | **LOCALAI_P2P_LISTEN_MADDRS** | Set to comma separated list of multiaddresses to override default libp2p 0.0.0.0 multiaddresses |
