@@ -2,7 +2,7 @@
 intel-extension-for-pytorch
 transformers
 accelerate
-torch
+torch==2.3.1
 rerankers[transformers]
 optimum[openvino]
 setuptools

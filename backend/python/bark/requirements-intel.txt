@@ -1,7 +1,7 @@
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 intel-extension-for-pytorch
-torch
-torchaudio
+torch==2.3.1
+torchaudio==2.3.1
 optimum[openvino]
 setuptools
 transformers
