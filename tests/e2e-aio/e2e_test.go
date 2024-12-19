@@ -121,13 +121,12 @@ var _ = Describe("E2E test", func() {
 
 		Context("images", func() {
 			It("correctly", func() {
-				resp, err := client.CreateImage(context.TODO(),
-					openai.ImageRequest{
-						Prompt: "test",
-						Size:   openai.CreateImageSize512x512,
-					},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				req := openai.ImageRequest{
+					Prompt: "test",
+					Size:   openai.CreateImageSize512x512,
+				}
+				resp, err := client.CreateImage(context.TODO(), req)
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error sending image request %+v", req))
 				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
 				Expect(resp.Data[0].URL).To(ContainSubstring("png"), fmt.Sprint(resp.Data[0].URL))
 			})
@@ -229,13 +228,42 @@ var _ = Describe("E2E test", func() {
 				Expect(resp.Text).To(ContainSubstring("This is the"), fmt.Sprint(resp.Text))
 			})
 		})
+		Context("vad", func() {
+			It("correctly", func() {
+				modelName := "silero-vad"
+				req := schema.VADRequest{
+					BasicModelRequest: schema.BasicModelRequest{
+						Model: modelName,
+					},
+					Audio: SampleVADAudio, // Use hardcoded sample data for now.
+				}
+				serialized, err := json.Marshal(req)
+				Expect(err).To(BeNil())
+				Expect(serialized).ToNot(BeNil())
 
+				vadEndpoint := apiEndpoint + "/vad"
+				resp, err := http.Post(vadEndpoint, "application/json", bytes.NewReader(serialized))
+				Expect(err).To(BeNil())
+				Expect(resp).ToNot(BeNil())
+
+				body, err := io.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				deserializedResponse := schema.VADResponse{}
+				err = json.Unmarshal(body, &deserializedResponse)
+				Expect(err).To(BeNil())
+				Expect(deserializedResponse).ToNot(BeZero())
+				Expect(deserializedResponse.Segments).ToNot(BeZero())
+			})
+		})
 		Context("reranker", func() {
 			It("correctly", func() {
 				modelName := "jina-reranker-v1-base-en"
 
 				req := schema.JINARerankRequest{
-					Model: modelName,
+					BasicModelRequest: schema.BasicModelRequest{
+						Model: modelName,
+					},
 					Query: "Organic skincare products for sensitive skin",
 					Documents: []string{
 						"Eco-friendly kitchenware for modern homes",
