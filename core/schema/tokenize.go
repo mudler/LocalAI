@@ -1,8 +1,8 @@
 package schema
 
 type TokenizeRequest struct {
+	BasicModelRequest
 	Content string `json:"content"`
-	Model   string `json:"model"`
 }
 
 type TokenizeResponse struct {

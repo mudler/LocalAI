@@ -4,18 +4,17 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/grpc"
-	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
 
-	modelFile := backendConfig.Model
-
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := ModelOptions(backendConfig, appConfig, model.WithModel(modelFile))
+	opts := ModelOptions(backendConfig, appConfig)
 
+	// TODO: looks weird, seems to be a correct merge?
 	if backendConfig.Backend == "" {
 		inferenceModel, err = loader.Load(opts...)
 	} else {

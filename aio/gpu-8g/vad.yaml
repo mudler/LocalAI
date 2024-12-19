@@ -1,0 +1,8 @@
+backend: silero-vad
+name: silero-vad
+parameters:
+  model: silero-vad.onnx
+download_files:
+- filename: silero-vad.onnx
+  uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
+  sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808

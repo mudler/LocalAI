@@ -145,13 +145,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if options.LoadToMemory != nil {
 		for _, m := range options.LoadToMemory {
-			cfg, err := application.BackendLoader().LoadBackendConfigFileByName(m, options.ModelPath,
-				config.LoadOptionDebug(options.Debug),
-				config.LoadOptionThreads(options.Threads),
-				config.LoadOptionContextSize(options.ContextSize),
-				config.LoadOptionF16(options.F16),
-				config.ModelPath(options.ModelPath),
-			)
+			cfg, err := application.BackendLoader().LoadBackendConfigFileByNameDefaultOptions(m, options)
 			if err != nil {
 				return nil, err
 			}
