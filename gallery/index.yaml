@@ -2159,6 +2159,27 @@
     - filename: Qwen2-VL-72B-Instruct-Q4_K_M.gguf
       sha256: 0def10ee892a4d4c72ba3807d150de2e1f600edd981d15d402e3d25753cf168d
       uri: huggingface://bartowski/Qwen2-VL-72B-Instruct-GGUF/Qwen2-VL-72B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tq2.5-14b-aletheia-v1"
+  icon: https://huggingface.co/allura-org/TQ2.5-14B-Aletheia-v1/resolve/main/aletheia.png
+  urls:
+    - https://huggingface.co/allura-org/TQ2.5-14B-Aletheia-v1
+    - https://huggingface.co/bartowski/TQ2.5-14B-Aletheia-v1-GGUF
+  description: |
+    RP/Story hybrid model, merge of Sugarquill and Neon. As with Gemma version, I wanted to preserve Sugarquill's creative spark, while making the model more steerable for RP. It proved to be more difficult this time, but I quite like the result regardless, even if the model is still somewhat temperamental.
+
+    Should work for both RP and storywriting, either on raw completion or with back-and-forth cowriting in chat mode. Seems to be quite sensitive to low depth instructions and samplers.
+
+    Thanks to Toasty and Fizz for testing and giving feedback
+
+    Model was created by Auri.
+  overrides:
+    parameters:
+      model: TQ2.5-14B-Aletheia-v1-Q4_K_M.gguf
+  files:
+    - filename: TQ2.5-14B-Aletheia-v1-Q4_K_M.gguf
+      sha256: 8739a9575520f8460e83905f3e085883dd71ef2c9fa40d36d4e0a3fff003440c
+      uri: huggingface://bartowski/TQ2.5-14B-Aletheia-v1-GGUF/TQ2.5-14B-Aletheia-v1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
