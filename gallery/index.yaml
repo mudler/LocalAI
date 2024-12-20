@@ -2180,6 +2180,21 @@
     - filename: TQ2.5-14B-Aletheia-v1-Q4_K_M.gguf
       sha256: 8739a9575520f8460e83905f3e085883dd71ef2c9fa40d36d4e0a3fff003440c
       uri: huggingface://bartowski/TQ2.5-14B-Aletheia-v1-GGUF/TQ2.5-14B-Aletheia-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tq2.5-14b-neon-v1"
+  icon: https://huggingface.co/allura-org/TQ2.5-14B-Neon-v1/resolve/main/neon.png
+  urls:
+    - https://huggingface.co/allura-org/TQ2.5-14B-Neon-v1
+    - https://huggingface.co/bartowski/TQ2.5-14B-Neon-v1-GGUF
+  description: |
+    RP finetune of Supernova-Medius. Turned out surprisingly nice on it's own, I honestly made it only as a merge fuel, but it impressed me and Prodeus enough to release it separately (history repeats I guess, Sugarquill also started out this way). Quite interesting prose, definitely quite distinct from Supernova or EVA for that matter. Instruction following is decent as well. Not really much to say about this one, just a decent RP model, tbh. Euryale-inspired I guess.
+  overrides:
+    parameters:
+      model: TQ2.5-14B-Neon-v1-Q4_K_M.gguf
+  files:
+    - filename: TQ2.5-14B-Neon-v1-Q4_K_M.gguf
+      sha256: cefc7409b21e03e4fcd64940e30f6a0c17c5a4a89e0ba0811f1b9720825d2309
+      uri: huggingface://bartowski/TQ2.5-14B-Neon-v1-GGUF/TQ2.5-14B-Neon-v1-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
