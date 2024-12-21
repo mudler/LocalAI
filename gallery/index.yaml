@@ -4091,6 +4091,21 @@
     - filename: Llama-OpenReviewer-8B-Q4_K_M.gguf
       sha256: b48fd7eee01738de4adcb271fc3c7c5b306f8c75b9804794706dbfdf7a6835f0
       uri: huggingface://bartowski/Llama-OpenReviewer-8B-GGUF/Llama-OpenReviewer-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "orca_mini_v8_1_70b"
+  icon: https://huggingface.co/pankajmathur/orca_mini_v5_8b/resolve/main/orca_minis_small.jpeg
+  urls:
+    - https://huggingface.co/pankajmathur/orca_mini_v8_1_70b
+    - https://huggingface.co/bartowski/orca_mini_v8_1_70b-GGUF
+  description: |
+    Orca_Mini_v8_1_Llama-3.3-70B-Instruct is trained with various SFT Datasets on Llama-3.3-70B-Instruct
+  overrides:
+    parameters:
+      model: orca_mini_v8_1_70b-Q4_K_M.gguf
+  files:
+    - filename: orca_mini_v8_1_70b-Q4_K_M.gguf
+      sha256: 97627730b028d4d7a349ae0b8e219207163ec425e4e1c057e445b2a66b61fdfa
+      uri: huggingface://bartowski/orca_mini_v8_1_70b-GGUF/orca_mini_v8_1_70b-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
