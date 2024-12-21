@@ -14,28 +14,22 @@ import (
 )
 
 func ModelTTS(
-	backend,
 	text,
-	modelFile,
 	voice,
 	language string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	backendConfig config.BackendConfig,
 ) (string, *proto.Result, error) {
-	bb := backend
-	if bb == "" {
-		bb = model.PiperBackend
-	}
-
-	opts := ModelOptions(backendConfig, appConfig, model.WithBackendString(bb), model.WithModel(modelFile))
+	opts := ModelOptions(backendConfig, appConfig, model.WithDefaultBackendString(model.PiperBackend))
 	ttsModel, err := loader.Load(opts...)
+
 	if err != nil {
 		return "", nil, err
 	}
 
 	if ttsModel == nil {
-		return "", nil, fmt.Errorf("could not load piper model")
+		return "", nil, fmt.Errorf("could not load tts model %q", backendConfig.Model)
 	}
 
 	if err := os.MkdirAll(appConfig.AudioDir, 0750); err != nil {
@@ -45,22 +39,21 @@ func ModelTTS(
 	fileName := utils.GenerateUniqueFileName(appConfig.AudioDir, "tts", ".wav")
 	filePath := filepath.Join(appConfig.AudioDir, fileName)
 
-	// If the model file is not empty, we pass it joined with the model path
+	// We join the model name to the model path here. This seems to only be done for TTS and is HIGHLY suspect.
+	// This should be addressed in a follow up PR soon.
+	// Copying it over nearly verbatim, as TTS backends are not functional without this.
 	modelPath := ""
-	if modelFile != "" {
-		// If the model file is not empty, we pass it joined with the model path
-		// Checking first that it exists and is not outside ModelPath
-		// TODO: we should actually first check if the modelFile is looking like
-		// a FS path
-		mp := filepath.Join(loader.ModelPath, modelFile)
-		if _, err := os.Stat(mp); err == nil {
-			if err := utils.VerifyPath(mp, appConfig.ModelPath); err != nil {
-				return "", nil, err
-			}
-			modelPath = mp
-		} else {
-			modelPath = modelFile
+	// Checking first that it exists and is not outside ModelPath
+	// TODO: we should actually first check if the modelFile is looking like
+	// a FS path
+	mp := filepath.Join(loader.ModelPath, backendConfig.Model)
+	if _, err := os.Stat(mp); err == nil {
+		if err := utils.VerifyPath(mp, appConfig.ModelPath); err != nil {
+			return "", nil, err
 		}
+		modelPath = mp
+	} else {
+		modelPath = backendConfig.Model // skip this step if it fails?????
 	}
 
 	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{
