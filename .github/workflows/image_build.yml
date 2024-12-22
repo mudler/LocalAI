@@ -49,6 +49,10 @@ on:
         description: 'FFMPEG'
         default: ''
         type: string
+      skip-drivers:
+        description: 'Skip drivers by default'
+        default: 'false'
+        type: string
       image-type:
         description: 'Image type'
         default: ''
@@ -234,6 +238,7 @@ jobs:
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
             GRPC_VERSION=v1.65.0
             MAKEFLAGS=${{ inputs.makeflags }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha
@@ -262,6 +267,7 @@ jobs:
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
             GRPC_VERSION=v1.65.0
             MAKEFLAGS=${{ inputs.makeflags }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha
