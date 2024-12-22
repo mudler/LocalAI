@@ -141,6 +141,25 @@
     - filename: Anubis-70B-v1-Q4_K_M.gguf
       sha256: 9135f7090c675726469bd3a108cfbdddaa18638bad8e513928410de4b8bfd4d4
       uri: huggingface://bartowski/Anubis-70B-v1-GGUF/Anubis-70B-v1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-70b-instruct-ablated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6587d8dd1b44d0e694104fbf/0dkt6EhZYwXVBxvSWXdaM.png
+  urls:
+    - https://huggingface.co/NaniDAO/Llama-3.3-70B-Instruct-ablated
+    - https://huggingface.co/bartowski/Llama-3.3-70B-Instruct-ablated-GGUF
+  description: |
+    Llama 3.3 instruct 70B 128k context with ablation technique applied for a more helpful (and based) assistant.
+
+    This means it will refuse less of your valid requests for an uncensored UX. Use responsibly and use common sense.
+
+    We do not take any responsibility for how you apply this intelligence, just as we do not for how you apply your own.
+  overrides:
+    parameters:
+      model: Llama-3.3-70B-Instruct-ablated-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-70B-Instruct-ablated-Q4_K_M.gguf
+      sha256: 090b2288810c5f6f680ff5cb4bc97665393d115c011fcd54dca6aec02e74a983
+      uri: huggingface://bartowski/Llama-3.3-70B-Instruct-ablated-GGUF/Llama-3.3-70B-Instruct-ablated-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
