@@ -115,12 +115,13 @@ FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
+ARG SKIP_DRIVERS=false
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 # Vulkan requirements
 RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "vulkan" ]; then
+    if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
             software-properties-common pciutils wget gpg-agent && \
@@ -136,7 +137,7 @@ EOT
 
 # CuBLAS requirements
 RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "cublas" ]; then
+    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
             software-properties-common pciutils
@@ -162,7 +163,7 @@ RUN <<EOT bash
 EOT
 
 # If we are building with clblas support, we need the libraries for the builds
-RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
+RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             libclblast-dev && \
@@ -170,7 +171,7 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
         rm -rf /var/lib/apt/lists/* \
     ; fi
 
-RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
