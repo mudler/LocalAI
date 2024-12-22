@@ -126,6 +126,21 @@
     - filename: L3.3-MS-Evayale-70B-Q4_K_M.gguf
       sha256: f941d88870fec8343946517a1802d159d23f3971eeea50b6cf12295330bd29cc
       uri: huggingface://bartowski/L3.3-MS-Evayale-70B-GGUF/L3.3-MS-Evayale-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "anubis-70b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/qQbZvnrWYvH8dMZORLBJn.webp
+  urls:
+    - https://huggingface.co/TheDrummer/Anubis-70B-v1
+    - https://huggingface.co/bartowski/Anubis-70B-v1-GGUF
+  description: |
+    It's a very balanced model between the L3.3 tunes. It's very creative, able to come up with new and interesting scenarios on your own that will thoroughly surprise you in ways that remind me of a 123B model. It has some of the most natural sounding dialogue and prose can come out of any model I've tried with the right swipe, in a way that truly brings your characters and RP to life that makes you feel like you're talking to a human writer instead of an AI - a quality that reminds me of Character AI in its prime. This model loves a great prompt and thrives off instructions.
+  overrides:
+    parameters:
+      model: Anubis-70B-v1-Q4_K_M.gguf
+  files:
+    - filename: Anubis-70B-v1-Q4_K_M.gguf
+      sha256: 9135f7090c675726469bd3a108cfbdddaa18638bad8e513928410de4b8bfd4d4
+      uri: huggingface://bartowski/Anubis-70B-v1-GGUF/Anubis-70B-v1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
