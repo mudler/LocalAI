@@ -1,6 +1,7 @@
 ## This builds the docker image for L4T with the arm64 architecture
 docker_builder:
   only_if: $CIRRUS_TAG != '' || $CIRRUS_BRANCH != ''
+  timeout_in: 120m
   env:
     CIRRUS_ARCH: arm64
     IMAGE_NAME: localai/localai
