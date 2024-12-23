@@ -17,7 +17,7 @@ whisper-timestamped==1.14.2
 openai
 python-dotenv
 pypinyin==0.50.0
-cn2an==0.5.22
+cn2an==0.5.23
 jieba==0.42.1
 langid==1.1.6
 git+https://github.com/myshell-ai/MeloTTS.git

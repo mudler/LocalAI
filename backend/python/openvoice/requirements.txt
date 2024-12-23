@@ -7,7 +7,7 @@ unidecode
 openai
 python-dotenv
 pypinyin
-cn2an==0.5.22
+cn2an==0.5.23
 numpy==1.22.0
 networkx==2.8.8
 jieba==0.42.1
