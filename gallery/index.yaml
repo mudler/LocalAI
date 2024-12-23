@@ -15,8 +15,8 @@
       model: Falcon3-1B-Instruct-Q4_K_M.gguf
   files:
     - filename: Falcon3-1B-Instruct-Q4_K_M.gguf
-      sha256: d351a6506b7d21221f3858b04d98c8b1b7b108b85acde2b13b69d9cb06e2a7e9
       uri: huggingface://bartowski/Falcon3-1B-Instruct-GGUF/Falcon3-1B-Instruct-Q4_K_M.gguf
+      sha256: 1c92013dac1ab6e703e787f3e0829ca03cc95311e4c113a77950d15ff6dea7b3
   tags:
     - llm
     - gguf
@@ -34,8 +34,8 @@
       model: Falcon3-3B-Instruct-Q4_K_M.gguf
   files:
     - filename: Falcon3-3B-Instruct-Q4_K_M.gguf
-      sha256: e6d81653ee28c6944e4f9ab626882faabb69db8019ddcf87f2732d05f3d9158a
       uri: huggingface://bartowski/Falcon3-3B-Instruct-GGUF/Falcon3-3B-Instruct-Q4_K_M.gguf
+      sha256: 6ea6cecba144fe5b711ca07ae4263ccdf6ee6419807a46220419189da8446557
 - !!merge <<: *falcon3
   name: "falcon3-10b-instruct"
   urls:
@@ -46,8 +46,8 @@
       model: Falcon3-10B-Instruct-Q4_K_M.gguf
   files:
     - filename: Falcon3-10B-Instruct-Q4_K_M.gguf
-      sha256: 6d54a35d740a616061d6c7d7740d64f4339410e58aaba985aa9e1ea79c7e882a
       uri: huggingface://bartowski/Falcon3-10B-Instruct-GGUF/Falcon3-10B-Instruct-Q4_K_M.gguf
+      sha256: 0a33327bd71e1788a8e9f17889824a17a65efd3f96a4b2a5e2bc6ff2f39b8241
 - &intellect1
   name: "intellect-1-instruct"
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
@@ -915,8 +915,8 @@
       model: Llama-Song-Stream-3B-Instruct-Q4_K_M.gguf
   files:
     - filename: Llama-Song-Stream-3B-Instruct-Q4_K_M.gguf
-      sha256: 1a0f0aef16e5be46be827c430cbe5ce4b2915b2f4a1dd60b98792004d39b9f52
       uri: huggingface://bartowski/Llama-Song-Stream-3B-Instruct-GGUF/Llama-Song-Stream-3B-Instruct-Q4_K_M.gguf
+      sha256: 62e4a79eb7a0f80184dc37ab01a5490708e600dad5f074de8bcda6ec5a77cca8
 - !!merge <<: *llama32
   name: "llama-chat-summary-3.2-3b"
   urls:
@@ -1932,19 +1932,7 @@
   urls:
     - https://huggingface.co/ZeroXClem/Qwen2.5-7B-HomerCreative-Mix
     - https://huggingface.co/QuantFactory/Qwen2.5-7B-HomerCreative-Mix-GGUF
-  description: |
-    ZeroXClem/Qwen2.5-7B-HomerCreative-Mix is an advanced language model meticulously crafted by merging four pre-trained models using the powerful mergekit framework. This fusion leverages the Model Stock merge method to combine the creative prowess of Qandora, the instructive capabilities of Qwen-Instruct-Fusion, the sophisticated blending of HomerSlerp1, and the foundational conversational strengths of Homer-v0.5-Qwen2.5-7B. The resulting model excels in creative text generation, contextual understanding, and dynamic conversational interactions.
-    🚀 Merged Models
-
-    This model merge incorporates the following:
-
-        bunnycore/Qandora-2.5-7B-Creative: Specializes in creative text generation, enhancing the model's ability to produce imaginative and diverse content.
-
-        bunnycore/Qwen2.5-7B-Instruct-Fusion: Focuses on instruction-following capabilities, improving the model's performance in understanding and executing user commands.
-
-        allknowingroger/HomerSlerp1-7B: Utilizes spherical linear interpolation (SLERP) to blend model weights smoothly, ensuring a harmonious integration of different model attributes.
-
-        newsbang/Homer-v0.5-Qwen2.5-7B: Acts as the foundational conversational model, providing robust language comprehension and generation capabilities.
+  description: "ZeroXClem/Qwen2.5-7B-HomerCreative-Mix is an advanced language model meticulously crafted by merging four pre-trained models using the powerful mergekit framework. This fusion leverages the Model Stock merge method to combine the creative prowess of Qandora, the instructive capabilities of Qwen-Instruct-Fusion, the sophisticated blending of HomerSlerp1, and the foundational conversational strengths of Homer-v0.5-Qwen2.5-7B. The resulting model excels in creative text generation, contextual understanding, and dynamic conversational interactions.\n\U0001F680 Merged Models\n\nThis model merge incorporates the following:\n\n    bunnycore/Qandora-2.5-7B-Creative: Specializes in creative text generation, enhancing the model's ability to produce imaginative and diverse content.\n\n    bunnycore/Qwen2.5-7B-Instruct-Fusion: Focuses on instruction-following capabilities, improving the model's performance in understanding and executing user commands.\n\n    allknowingroger/HomerSlerp1-7B: Utilizes spherical linear interpolation (SLERP) to blend model weights smoothly, ensuring a harmonious integration of different model attributes.\n\n    newsbang/Homer-v0.5-Qwen2.5-7B: Acts as the foundational conversational model, providing robust language comprehension and generation capabilities.\n"
   overrides:
     parameters:
       model: Qwen2.5-7B-HomerCreative-Mix.Q4_K_M.gguf
@@ -9960,7 +9948,7 @@
 - !!merge <<: *llama32
   name: "bert-embeddings"
   description: |
-      llama3.2 embeddings model. Using as drop-in replacement for bert-embeddings
+    llama3.2 embeddings model. Using as drop-in replacement for bert-embeddings
   tags:
     - embeddings
   overrides:
