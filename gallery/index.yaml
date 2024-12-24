@@ -160,6 +160,21 @@
     - filename: Llama-3.3-70B-Instruct-ablated-Q4_K_M.gguf
       sha256: 090b2288810c5f6f680ff5cb4bc97665393d115c011fcd54dca6aec02e74a983
       uri: huggingface://bartowski/Llama-3.3-70B-Instruct-ablated-GGUF/Llama-3.3-70B-Instruct-ablated-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-ms-evalebis-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/e49ykknqXee3Ihr-3BIl_.png
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-MS-Evalebis-70b
+    - https://huggingface.co/bartowski/L3.3-MS-Evalebis-70b-GGUF
+  description: |
+    This model was created as I liked the storytelling of EVA, the prose and details of scenes from EURYALE and Anubis, my goal is to merge the robust storytelling of all three models while attempting to maintain the positives of the models.
+  overrides:
+    parameters:
+      model: L3.3-MS-Evalebis-70b-Q4_K_M.gguf
+  files:
+    - filename: L3.3-MS-Evalebis-70b-Q4_K_M.gguf
+      sha256: 5515110ab6a583f6eb360533e3c5b3dda6d402af407c0b0f2b34a2a57b5224d5
+      uri: huggingface://bartowski/L3.3-MS-Evalebis-70b-GGUF/L3.3-MS-Evalebis-70b-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
