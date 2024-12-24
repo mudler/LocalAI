@@ -191,8 +191,8 @@
       model: Rombos-LLM-70b-Llama-3.3-Q4_K_M.gguf
   files:
     - filename: Rombos-LLM-70b-Llama-3.3-Q4_K_M.gguf
-      sha256: 5f735b704cccf4db030b8b0f118eae6e7718bd6b50c53272dabcf48c89a37577
       uri: huggingface://bartowski/Rombos-LLM-70b-Llama-3.3-GGUF/Rombos-LLM-70b-Llama-3.3-Q4_K_M.gguf
+      sha256: 613008b960f6fff346b5dec71a87cd7ecdaff205bfea6332bd8fe2bb46177352
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
