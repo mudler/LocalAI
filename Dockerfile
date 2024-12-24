@@ -375,6 +375,11 @@ RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 RUN go install github.com/mikefarah/yq/v4@latest
 
+RUN if [ ! -d "/build/go-piper/piper/build/pi/lib/" ]; then \
+    mkdir -p /build/go-piper/piper/build/pi/lib/ \
+    touch /build/go-piper/piper/build/pi/lib/keep \
+    ; fi
+
 ###################################
 ###################################
 
