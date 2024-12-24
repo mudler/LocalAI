@@ -2313,6 +2313,23 @@
     - filename: QwQ-LCoT-7B-Instruct-Q4_K_M.gguf
       sha256: 1df2e4ff0093a9632687b73969153442776b0ffc1c3c68e7f559472f9cea1945
       uri: huggingface://bartowski/QwQ-LCoT-7B-Instruct-GGUF/QwQ-LCoT-7B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tqwendo-36b"
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/6379683a81c1783a4a2ddba8/DI7Yw8Fs8eukluzKTHjEH.png"
+  urls:
+    - https://huggingface.co/nisten/tqwendo-36b
+    - https://huggingface.co/bartowski/tqwendo-36b-GGUF
+  description: |
+    There is a draft model to go with this one for speculative decoding and chain of thought reasoning: https://huggingface.co/nisten/qwen2.5-coder-7b-abliterated-128k-AWQ
+
+    Using the above 4bit 7b in conjuction with the 36b is meant to setup a chain-of-thought reasoner, evaluator similar to what O1-O3 is probably doing. This way the 7b 4bit only uses up an extra 4-6Gb on the gpu, but greatly both speeds up speculative decoding AND also chain-of-throught evals.
+  overrides:
+    parameters:
+      model: tqwendo-36b-Q4_K_M.gguf
+  files:
+    - filename: tqwendo-36b-Q4_K_M.gguf
+      sha256: 890ff05fb717c67848d5c02ad62b2c26fdcdd20f7cc94ade8095869784c0cc82
+      uri: huggingface://bartowski/tqwendo-36b-GGUF/tqwendo-36b-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
