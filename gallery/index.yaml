@@ -198,6 +198,24 @@
     - filename: rwkv-6-world-7b-Q4_K_M.gguf
       sha256: f74574186fa4584f405e92198605680db6ad00fd77974ffa14bf02073bb90273
       uri: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "rombos-llm-70b-llama-3.3"
+  icon: "https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/QErypCEKD5OZLxUcSmYaR.jpeg"
+  urls:
+    - https://huggingface.co/rombodawg/Rombos-LLM-70b-Llama-3.3
+    - https://huggingface.co/bartowski/Rombos-LLM-70b-Llama-3.3-GGUF
+    - https://docs.google.com/document/d/1OjbjU5AOz4Ftn9xHQrX3oFQGhQ6RDUuXQipnQ9gn6tU/edit?usp=sharing
+  description: |
+    You know the drill by now.
+    Here is the paper. Have fun.
+    https://docs.google.com/document/d/1OjbjU5AOz4Ftn9xHQrX3oFQGhQ6RDUuXQipnQ9gn6tU/edit?usp=sharing
+  overrides:
+    parameters:
+      model: Rombos-LLM-70b-Llama-3.3-Q4_K_M.gguf
+  files:
+    - filename: Rombos-LLM-70b-Llama-3.3-Q4_K_M.gguf
+      sha256: 5f735b704cccf4db030b8b0f118eae6e7718bd6b50c53272dabcf48c89a37577
+      uri: huggingface://bartowski/Rombos-LLM-70b-Llama-3.3-GGUF/Rombos-LLM-70b-Llama-3.3-Q4_K_M.gguf
 - &qwen25coder
   name: "qwen2.5-coder-14b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
