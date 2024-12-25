@@ -5083,6 +5083,21 @@
     - filename: NaturalLM-7B-Instruct-Q4_K_M.gguf
       sha256: 15b2f34116f690fea35790a9392b8a2190fe25827e370d426e88a2a543f4dcee
       uri: huggingface://bartowski/NaturalLM-7B-Instruct-GGUF/NaturalLM-7B-Instruct-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "dans-personalityengine-v1.1.0-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PocketDoc/Dans-PersonalityEngine-V1.1.0-12b
+    - https://huggingface.co/bartowski/Dans-PersonalityEngine-V1.1.0-12b-GGUF
+  description: |
+    This model series is intended to be multifarious in its capabilities and should be quite capable at both co-writing and roleplay as well as find itself quite at home performing sentiment analysis or summarization as part of a pipeline. It has been trained on a wide array of one shot instructions, multi turn instructions, tool use, role playing scenarios, text adventure games, co-writing, and much more.
+  overrides:
+    parameters:
+      model: Dans-PersonalityEngine-V1.1.0-12b-Q4_K_M.gguf
+  files:
+    - filename: Dans-PersonalityEngine-V1.1.0-12b-Q4_K_M.gguf
+      sha256: a1afb9fddfa3f2847ed710cc374b4f17e63a75f7e10d8871cf83983c2f5415ab
+      uri: huggingface://bartowski/Dans-PersonalityEngine-V1.1.0-12b-GGUF/Dans-PersonalityEngine-V1.1.0-12b-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
