@@ -4193,6 +4193,20 @@
     - filename: orca_mini_v8_1_70b-Q4_K_M.gguf
       sha256: 97627730b028d4d7a349ae0b8e219207163ec425e4e1c057e445b2a66b61fdfa
       uri: huggingface://bartowski/orca_mini_v8_1_70b-GGUF/orca_mini_v8_1_70b-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-open-sft"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-3.1-8B-Open-SFT
+    - https://huggingface.co/bartowski/Llama-3.1-8B-Open-SFT-GGUF
+  description: |
+    The Llama-3.1-8B-Open-SFT model is a fine-tuned version of meta-llama/Llama-3.1-8B-Instruct, designed for advanced text generation tasks, including conversational interactions, question answering, and chain-of-thought reasoning. This model leverages Supervised Fine-Tuning (SFT) using the O1-OPEN/OpenO1-SFT dataset to provide enhanced performance in context-sensitive and instruction-following tasks.
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-Open-SFT-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-8B-Open-SFT-Q4_K_M.gguf
+      sha256: ce75152763c48c5386fe59652cc921aae456da36ab82af3d9e2080f603f45132
+      uri: huggingface://bartowski/Llama-3.1-8B-Open-SFT-GGUF/Llama-3.1-8B-Open-SFT-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
