@@ -87,6 +87,8 @@ func API(application *application.Application) (*fiber.App, error) {
 
 	router := fiber.New(fiberCfg)
 
+	router.Use(middleware.StripPathPrefix())
+
 	router.Hooks().OnListen(func(listenData fiber.ListenData) error {
 		scheme := "http"
 		if listenData.TLS {

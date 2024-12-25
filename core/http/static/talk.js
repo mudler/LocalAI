@@ -122,7 +122,7 @@ async function sendAudioToWhisper(audioBlob) {
     formData.append('model', getWhisperModel());
     API_KEY = localStorage.getItem("key");
 
-    const response = await fetch('/v1/audio/transcriptions', {
+    const response = await fetch('v1/audio/transcriptions', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${API_KEY}`
@@ -139,7 +139,7 @@ async function sendTextToChatGPT(text) {
     conversationHistory.push({ role: "user", content: text });
     API_KEY = localStorage.getItem("key");
 
-    const response = await fetch('/v1/chat/completions', {
+    const response = await fetch('v1/chat/completions', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${API_KEY}`,
@@ -163,7 +163,7 @@ async function sendTextToChatGPT(text) {
 async function getTextToSpeechAudio(text) {
     API_KEY = localStorage.getItem("key");
 
-    const response = await fetch('/v1/audio/speech', {
+    const response = await fetch('v1/audio/speech', {
         
         method: 'POST',
         headers: {
