@@ -2363,6 +2363,25 @@
     - filename: tqwendo-36b-Q4_K_M.gguf
       sha256: 890ff05fb717c67848d5c02ad62b2c26fdcdd20f7cc94ade8095869784c0cc82
       uri: huggingface://bartowski/tqwendo-36b-GGUF/tqwendo-36b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qvq-72b-preview"
+  urls:
+    - https://huggingface.co/Qwen/QVQ-72B-Preview
+    - https://huggingface.co/bartowski/QVQ-72B-Preview-GGUF
+  description: |
+    QVQ-72B-Preview is an experimental research model developed by the Qwen team, focusing on enhancing visual reasoning capabilities.
+    QVQ-72B-Preview has achieved remarkable performance on various benchmarks. It scored a remarkable 70.3% on the Multimodal Massive Multi-task Understanding (MMMU) benchmark, showcasing QVQ's powerful ability in multidisciplinary understanding and reasoning. Furthermore, the significant improvements on MathVision highlight the model's progress in mathematical reasoning tasks. OlympiadBench also demonstrates the model's enhanced ability to tackle challenging problems.
+  overrides:
+    mmproj: mmproj-QVQ-72B-Preview-f16.gguf
+    parameters:
+      model: QVQ-72B-Preview-Q4_K_M.gguf
+  files:
+    - filename: QVQ-72B-Preview-Q4_K_M.gguf
+      sha256: 0fab6809995614c19e4b4c23e3191824944a04999f742486278f0d9929dc82ae
+      uri: huggingface://bartowski/QVQ-72B-Preview-GGUF/QVQ-72B-Preview-Q4_K_M.gguf
+    - filename: mmproj-QVQ-72B-Preview-f16.gguf
+      sha256: 85110223f39aa1aad887052d269074afbd52a49ae02c53b66753b033662cc8e6
+      uri: huggingface://bartowski/QVQ-72B-Preview-GGUF/mmproj-QVQ-72B-Preview-f16.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
