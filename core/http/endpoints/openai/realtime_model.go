@@ -59,7 +59,7 @@ func (m *wrappedModel) Predict(ctx context.Context, in *proto.PredictOptions, op
 	return m.LLMClient.Predict(ctx, in)
 }
 
-func (m *wrappedModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
+func (m *wrappedModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(reply *proto.Reply), opts ...grpc.CallOption) error {
 	// TODO: Convert with pipeline (audio to text, text to llm, result to tts, and return it)
 
 	return m.LLMClient.PredictStream(ctx, in, f)
@@ -69,7 +69,7 @@ func (m *anyToAnyModel) Predict(ctx context.Context, in *proto.PredictOptions, o
 	return m.LLMClient.Predict(ctx, in)
 }
 
-func (m *anyToAnyModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
+func (m *anyToAnyModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(reply *proto.Reply), opts ...grpc.CallOption) error {
 	return m.LLMClient.PredictStream(ctx, in, f)
 }
 
