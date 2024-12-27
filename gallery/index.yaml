@@ -48,6 +48,21 @@
     - filename: Falcon3-10B-Instruct-Q4_K_M.gguf
       uri: huggingface://bartowski/Falcon3-10B-Instruct-GGUF/Falcon3-10B-Instruct-Q4_K_M.gguf
       sha256: 0a33327bd71e1788a8e9f17889824a17a65efd3f96a4b2a5e2bc6ff2f39b8241
+- !!merge <<: *falcon3
+  name: "falcon3-1b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/Falcon3-1B-Instruct-abliterated
+    - https://huggingface.co/bartowski/Falcon3-1B-Instruct-abliterated-GGUF
+  description: |
+    This is an uncensored version of tiiuae/Falcon3-1B-Instruct created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+  overrides:
+    parameters:
+      model: Falcon3-1B-Instruct-abliterated-Q4_K_M.gguf
+  files:
+    - filename: Falcon3-1B-Instruct-abliterated-Q4_K_M.gguf
+      sha256: 416d15ce58334b7956818befb088d46c1e3e7153ebf2da2fb9769a5b1ff934a1
+      uri: huggingface://bartowski/Falcon3-1B-Instruct-abliterated-GGUF/Falcon3-1B-Instruct-abliterated-Q4_K_M.gguf
 - &intellect1
   name: "intellect-1-instruct"
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
