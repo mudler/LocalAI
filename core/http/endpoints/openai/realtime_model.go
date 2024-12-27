@@ -74,16 +74,7 @@ func (m *anyToAnyModel) PredictStream(ctx context.Context, in *proto.PredictOpti
 }
 
 // returns and loads either a wrapped model or a model that support audio-to-audio
-func newModel(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, modelName string) (Model, error) {
-
-	cfg, err := cl.LoadBackendConfigFileByName(modelName, ml.ModelPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load backend config: %w", err)
-	}
-
-	if !cfg.Validate() {
-		return nil, fmt.Errorf("failed to validate config: %w", err)
-	}
+func newModel(cfg *config.BackendConfig, cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, modelName string) (Model, error) {
 
 	// Prepare VAD model
 	cfgVAD, err := cl.LoadBackendConfigFileByName(cfg.Pipeline.VAD, ml.ModelPath)
@@ -139,7 +130,7 @@ func newModel(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfg.Validate() {
+	if !cfgLLM.Validate() {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
@@ -149,7 +140,7 @@ func newModel(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfg.Validate() {
+	if !cfgTTS.Validate() {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
@@ -159,7 +150,7 @@ func newModel(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfg.Validate() {
+	if !cfgSST.Validate() {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
