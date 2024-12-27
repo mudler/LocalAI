@@ -137,6 +137,7 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 - 🥽 [Vision API](https://localai.io/features/gpt-vision/)
 - 📈 [Reranker API](https://localai.io/features/reranker/)
 - 🆕🖧 [P2P Inferencing](https://localai.io/features/distribute/)
+- 🔊 Voice activity detection (Silero-VAD support)
 - 🌍 Integrated WebUI!
 
 ## 💻 Usage
