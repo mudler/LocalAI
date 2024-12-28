@@ -4302,6 +4302,21 @@
     - filename: Llama-3.1-8B-Open-SFT-Q4_K_M.gguf
       sha256: ce75152763c48c5386fe59652cc921aae456da36ab82af3d9e2080f603f45132
       uri: huggingface://bartowski/Llama-3.1-8B-Open-SFT-GGUF/Llama-3.1-8B-Open-SFT-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "control-nanuq-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c26b6fb01b19d8c3c2467b/6L-SXxQZ2nxYwvIjnlzN8.png
+  urls:
+    - https://huggingface.co/Delta-Vector/Control-Nanuq-8B
+    - https://huggingface.co/QuantFactory/Control-Nanuq-8B-GGUF
+  description: |
+    The model is a fine-tuned version of LLaMA 3.1 8B Supernova, designed to be "short and sweet" by minimizing narration and lengthy responses. It was fine-tuned over 4 epochs using OpenCAI and RP logs, with DPO applied to enhance coherence. Finally, KTO reinforcement learning was implemented on version 1.1, significantly improving the model's prose and creativity.
+  overrides:
+    parameters:
+      model: Control-Nanuq-8B.Q4_K_M.gguf
+  files:
+    - filename: Control-Nanuq-8B.Q4_K_M.gguf
+      sha256: 5aa3b929cbcaf62709fef58d6f630c2df1185d774d0074c7e750cb03c53b744e
+      uri: huggingface://QuantFactory/Control-Nanuq-8B-GGUF/Control-Nanuq-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
