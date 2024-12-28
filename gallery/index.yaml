@@ -2325,6 +2325,21 @@
     - filename: TQ2.5-14B-Neon-v1-Q4_K_M.gguf
       sha256: cefc7409b21e03e4fcd64940e30f6a0c17c5a4a89e0ba0811f1b9720825d2309
       uri: huggingface://bartowski/TQ2.5-14B-Neon-v1-GGUF/TQ2.5-14B-Neon-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "miscii-14b-1028"
+  icon: https://i.imgur.com/hkiubT4.jpeg
+  urls:
+    - https://huggingface.co/sthenno-com/miscii-14b-1028
+    - https://huggingface.co/QuantFactory/miscii-14b-1028-GGUF
+  description: |
+    miscii-14b-1028 is a 14-billion parameter language model based on the Qwen2.5-14B-Instruct model. It is designed for chat and conversational AI tasks, with a focus on role-based instructions.
+  overrides:
+    parameters:
+      model: miscii-14b-1028.Q4_K_M.gguf
+  files:
+    - filename: miscii-14b-1028.Q4_K_M.gguf
+      sha256: 0e57bc628c79a1033a6bb92837fba1e52a9e5dbccc5107720c95b89cd9cf92a9
+      uri: huggingface://QuantFactory/miscii-14b-1028-GGUF/miscii-14b-1028.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
