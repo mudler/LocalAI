@@ -2340,6 +2340,23 @@
     - filename: miscii-14b-1028.Q4_K_M.gguf
       sha256: 0e57bc628c79a1033a6bb92837fba1e52a9e5dbccc5107720c95b89cd9cf92a9
       uri: huggingface://QuantFactory/miscii-14b-1028-GGUF/miscii-14b-1028.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "miscii-14b-1225"
+  icon: https://huggingface.co/sthenno-com/miscii-14b-1225/resolve/main/Rrharil.png
+  urls:
+    - https://huggingface.co/sthenno-com/miscii-14b-1225
+    - https://huggingface.co/mradermacher/miscii-14b-1225-GGUF
+  description: |
+    The following models were included in the merge:
+    sthenno/exp-002
+    sthenno/miscii-1218
+  overrides:
+    parameters:
+      model: miscii-14b-1225.Q4_K_M.gguf
+  files:
+    - filename: miscii-14b-1225.Q4_K_M.gguf
+      sha256: f21fe73450be394055aeb87b7619e98a09e5c190b48f145bdebef4e12df871fe
+      uri: huggingface://mradermacher/miscii-14b-1225-GGUF/miscii-14b-1225.Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
