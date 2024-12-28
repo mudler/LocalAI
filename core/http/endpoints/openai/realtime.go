@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -687,10 +688,48 @@ func generateResponse(config *config.BackendConfig, evaluator *templates.Evaluat
 		funcs := session.Functions
 		shouldUseFn := len(funcs) > 0 && config.ShouldUseFunctions()
 
+		// Allow the user to set custom actions via config file
+		// to be "embedded" in each model
+		noActionName := "answer"
+		noActionDescription := "use this action to answer without performing any action"
+
+		if config.FunctionsConfig.NoActionFunctionName != "" {
+			noActionName = config.FunctionsConfig.NoActionFunctionName
+		}
+		if config.FunctionsConfig.NoActionDescriptionName != "" {
+			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
+		}
+
+		if (!config.FunctionsConfig.GrammarConfig.NoGrammar) && shouldUseFn {
+			noActionGrammar := functions.Function{
+				Name:        noActionName,
+				Description: noActionDescription,
+				Parameters: map[string]interface{}{
+					"properties": map[string]interface{}{
+						"message": map[string]interface{}{
+							"type":        "string",
+							"description": "The message to reply the user with",
+						}},
+				},
+			}
+
+			// Append the no action function
+			if !config.FunctionsConfig.DisableNoAction {
+				funcs = append(funcs, noActionGrammar)
+			}
+
+			// Update input grammar
+			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
+			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			if err == nil {
+				config.Grammar = g
+			}
+		}
+
 		// Generate a response based on text conversation history
 		prompt := evaluator.TemplateMessages(conversationHistory, config, funcs, shouldUseFn)
 
-		generatedText, functionCall, err = processTextResponse(session, prompt)
+		generatedText, functionCall, err = processTextResponse(config, session, prompt)
 		if err != nil {
 			log.Error().Msgf("failed to process text response: %s", err.Error())
 			sendError(c, "processing_error", "Failed to generate text response", "", "")
@@ -798,10 +837,107 @@ func generateResponse(config *config.BackendConfig, evaluator *templates.Evaluat
 }
 
 // Function to process text response and detect function calls
-func processTextResponse(session *Session, prompt string) (string, *FunctionCall, error) {
+func processTextResponse(config *config.BackendConfig, session *Session, prompt string) (string, *FunctionCall, error) {
+
 	// Placeholder implementation
 	// Replace this with actual model inference logic using session.Model and prompt
 	// For example, the model might return a special token or JSON indicating a function call
+
+	predFunc, err := backend.ModelInference(context.Background(), prompt, input.Messages, images, videos, audios, ml, *config, o, nil)
+
+	result, tokenUsage, err := ComputeChoices(input, prompt, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
+		if !shouldUseFn {
+			// no function is called, just reply and use stop as finish reason
+			*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
+			return
+		}
+
+		textContentToReturn = functions.ParseTextContent(s, config.FunctionsConfig)
+		s = functions.CleanupLLMResult(s, config.FunctionsConfig)
+		results := functions.ParseFunctionCall(s, config.FunctionsConfig)
+		log.Debug().Msgf("Text content to return: %s", textContentToReturn)
+		noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
+
+		switch {
+		case noActionsToRun:
+			result, err := handleQuestion(config, input, ml, startupOptions, results, s, predInput)
+			if err != nil {
+				log.Error().Err(err).Msg("error handling question")
+				return
+			}
+			*c = append(*c, schema.Choice{
+				Message: &schema.Message{Role: "assistant", Content: &result}})
+		default:
+			toolChoice := schema.Choice{
+				Message: &schema.Message{
+					Role: "assistant",
+				},
+			}
+
+			if len(input.Tools) > 0 {
+				toolChoice.FinishReason = "tool_calls"
+			}
+
+			for _, ss := range results {
+				name, args := ss.Name, ss.Arguments
+				if len(input.Tools) > 0 {
+					// If we are using tools, we condense the function calls into
+					// a single response choice with all the tools
+					toolChoice.Message.Content = textContentToReturn
+					toolChoice.Message.ToolCalls = append(toolChoice.Message.ToolCalls,
+						schema.ToolCall{
+							ID:   id,
+							Type: "function",
+							FunctionCall: schema.FunctionCall{
+								Name:      name,
+								Arguments: args,
+							},
+						},
+					)
+				} else {
+					// otherwise we return more choices directly
+					*c = append(*c, schema.Choice{
+						FinishReason: "function_call",
+						Message: &schema.Message{
+							Role:    "assistant",
+							Content: &textContentToReturn,
+							FunctionCall: map[string]interface{}{
+								"name":      name,
+								"arguments": args,
+							},
+						},
+					})
+				}
+			}
+
+			if len(input.Tools) > 0 {
+				// we need to append our result if we are using tools
+				*c = append(*c, toolChoice)
+			}
+		}
+
+	}, nil)
+	if err != nil {
+		return err
+	}
+
+	resp := &schema.OpenAIResponse{
+		ID:      id,
+		Created: created,
+		Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+		Choices: result,
+		Object:  "chat.completion",
+		Usage: schema.OpenAIUsage{
+			PromptTokens:     tokenUsage.Prompt,
+			CompletionTokens: tokenUsage.Completion,
+			TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+		},
+	}
+	respData, _ := json.Marshal(resp)
+	log.Debug().Msgf("Response: %s", respData)
+
+	// Return the prediction in the response body
+	return c.JSON(resp)
 
 	// TODO: use session.ModelInterface...
 	// Simulate a function call
