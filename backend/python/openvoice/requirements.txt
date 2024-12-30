@@ -11,7 +11,7 @@ cn2an==0.5.22
 numpy==1.22.0
 networkx==2.8.8
 jieba==0.42.1
-gradio==3.48.0
+gradio==5.9.1
 langid==1.1.6
 llvmlite==0.43.0
 setuptools
