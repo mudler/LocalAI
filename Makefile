@@ -32,7 +32,7 @@ BARKCPP_VERSION?=v1.0.0
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=9578fdcc4632dc3de5565f28e2fb16b7c18f8d48
+STABLEDIFFUSION_GGML_VERSION?=dcf91f9e0f2cbf9da472ee2a556751ed4bab2d2a
 
 ONNX_VERSION?=1.20.0
 ONNX_ARCH?=x64
