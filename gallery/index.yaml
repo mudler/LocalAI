@@ -4365,6 +4365,21 @@
     - filename: Control-Nanuq-8B.Q4_K_M.gguf
       sha256: 5aa3b929cbcaf62709fef58d6f630c2df1185d774d0074c7e750cb03c53b744e
       uri: huggingface://QuantFactory/Control-Nanuq-8B-GGUF/Control-Nanuq-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "huatuogpt-o1-8b"
+  urls:
+    - https://huggingface.co/FreedomIntelligence/HuatuoGPT-o1-8B
+    - https://huggingface.co/bartowski/HuatuoGPT-o1-8B-GGUF
+  description: |
+    HuatuoGPT-o1 is a medical LLM designed for advanced medical reasoning. It generates a complex thought process, reflecting and refining its reasoning, before providing a final response.
+    For more information, visit our GitHub repository: https://github.com/FreedomIntelligence/HuatuoGPT-o1.
+  overrides:
+    parameters:
+      model: HuatuoGPT-o1-8B-Q4_K_M.gguf
+  files:
+    - filename: HuatuoGPT-o1-8B-Q4_K_M.gguf
+      sha256: 3e1ef35fc230182d96ae2d6c7436a2e8250c21a4278e798e1aa45790ba82006b
+      uri: huggingface://bartowski/HuatuoGPT-o1-8B-GGUF/HuatuoGPT-o1-8B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
