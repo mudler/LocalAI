@@ -2490,6 +2490,22 @@
     - filename: Teleut-7b-RP-Q4_K_M.gguf
       sha256: 74d9a0974c48f16677da8891ac76ed89ed04f246275b9ca8316d25e1e86ce89f
       uri: huggingface://bartowski/Teleut-7b-RP-GGUF/Teleut-7b-RP-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-32b-rp-ink"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/1_Zt_OvEW183lmrgidQw8.png
+  urls:
+    - https://huggingface.co/allura-org/Qwen2.5-32b-RP-Ink
+    - https://huggingface.co/bartowski/Qwen2.5-32b-RP-Ink-GGUF
+  description: |
+    A roleplay-focused LoRA finetune of Qwen 2.5 32b Instruct. Methodology and hyperparams inspired by SorcererLM and Slush.
+    Yet another model in the Ink series, following in the footsteps of the Nemo one
+  overrides:
+    parameters:
+      model: Qwen2.5-32b-RP-Ink-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-32b-RP-Ink-Q4_K_M.gguf
+      sha256: 7a0693d50aa40ba4fd43b4988851e67443e758ae34881f448e2812e5fcc25468
+      uri: huggingface://bartowski/Qwen2.5-32b-RP-Ink-GGUF/Qwen2.5-32b-RP-Ink-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
