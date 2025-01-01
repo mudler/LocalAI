@@ -5319,6 +5319,38 @@
     - filename: Dans-PersonalityEngine-V1.1.0-12b-Q4_K_M.gguf
       sha256: a1afb9fddfa3f2847ed710cc374b4f17e63a75f7e10d8871cf83983c2f5415ab
       uri: huggingface://bartowski/Dans-PersonalityEngine-V1.1.0-12b-GGUF/Dans-PersonalityEngine-V1.1.0-12b-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mn-12b-mag-mell-r1-iq-arm-imatrix"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: "https://i.imgur.com/wjyAaTO.png"
+  urls:
+    - https://huggingface.co/inflatebot/MN-12B-Mag-Mell-R1
+    - https://huggingface.co/Lewdiculous/MN-12B-Mag-Mell-R1-GGUF-IQ-ARM-Imatrix
+  description: |
+    This is a merge of pre-trained language models created using mergekit. Mag Mell is a multi-stage merge, Inspired by hyper-merges like Tiefighter and Umbral Mind. Intended to be a general purpose "Best of Nemo" model for any fictional, creative use case.
+    6 models were chosen based on 3 categories; they were then paired up and merged via layer-weighted SLERP to create intermediate "specialists" which are then evaluated in their domain. The specialists were then merged into the base via DARE-TIES, with hyperparameters chosen to reduce interference caused by the overlap of the three domains. The idea with this approach is to extract the best qualities of each component part, and produce models whose task vectors represent more than the sum of their parts.
+
+    The three specialists are as follows:
+        Hero (RP, kink/trope coverage): Chronos Gold, Sunrose.
+        Monk (Intelligence, groundedness): Bophades, Wissenschaft.
+        Deity (Prose, flair): Gutenberg v4, Magnum 2.5 KTO.
+    I've been dreaming about this merge since Nemo tunes started coming out in earnest. From our testing, Mag Mell demonstrates worldbuilding capabilities unlike any model in its class, comparable to old adventuring models like Tiefighter, and prose that exhibits minimal "slop" (not bad for no finetuning,) frequently devising electrifying metaphors that left us consistently astonished.
+
+    I don't want to toot my own bugle though; I'm really proud of how this came out, but please leave your feedback, good or bad.Special thanks as usual to Toaster for his feedback and Fizz for helping fund compute, as well as the KoboldAI Discord for their resources. The following models were included in the merge:
+    IntervitensInc/Mistral-Nemo-Base-2407-chatml
+    nbeerbower/mistral-nemo-bophades-12B
+    nbeerbower/mistral-nemo-wissenschaft-12B
+    elinas/Chronos-Gold-12B-1.0
+    Fizzarolli/MN-12b-Sunrose
+    nbeerbower/mistral-nemo-gutenberg-12B-v4
+    anthracite-org/magnum-12b-v2.5-kto
+  overrides:
+    parameters:
+      model: MN-12B-Mag-Mell-R1-Q4_K_M-imat.gguf
+  files:
+    - filename: MN-12B-Mag-Mell-R1-Q4_K_M-imat.gguf
+      sha256: ba0c9e64222b35f8c3828b7295e173ee54d83fd2e457ba67f6561a4a6d98481e
+      uri: huggingface://Lewdiculous/MN-12B-Mag-Mell-R1-GGUF-IQ-ARM-Imatrix/MN-12B-Mag-Mell-R1-Q4_K_M-imat.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
