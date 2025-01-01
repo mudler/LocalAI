@@ -5351,6 +5351,24 @@
     - filename: MN-12B-Mag-Mell-R1-Q4_K_M-imat.gguf
       sha256: ba0c9e64222b35f8c3828b7295e173ee54d83fd2e457ba67f6561a4a6d98481e
       uri: huggingface://Lewdiculous/MN-12B-Mag-Mell-R1-GGUF-IQ-ARM-Imatrix/MN-12B-Mag-Mell-R1-Q4_K_M-imat.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "captain-eris-diogenes_twilight-v0.420-12b-arm-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/n0HUz-yRPkwQzt3dFrjW9.png
+  urls:
+    - https://huggingface.co/Nitral-AI/Captain-Eris-Diogenes_Twilight-V0.420-12B
+    - https://huggingface.co/Lewdiculous/Captain-Eris-Diogenes_Twilight-V0.420-12B-GGUF-ARM-Imatrix
+  description: |
+    The following models were included in the merge:
+        Nitral-AI/Captain-Eris_Twilight-V0.420-12B
+        Nitral-AI/Diogenes-12B-ChatMLified
+  overrides:
+    parameters:
+      model: Captain-Eris-Diogenes_Twighlight-V0.420-12B-Q4_K_M-imat.gguf
+  files:
+    - filename: Captain-Eris-Diogenes_Twighlight-V0.420-12B-Q4_K_M-imat.gguf
+      sha256: e70b26114108c41e3ca0aefc0c7b8f5f69452ab461ffe7155e6b75ede24ec1b5
+      uri: huggingface://Lewdiculous/Captain-Eris-Diogenes_Twilight-V0.420-12B-GGUF-ARM-Imatrix/Captain-Eris-Diogenes_Twighlight-V0.420-12B-Q4_K_M-imat.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
