@@ -2524,6 +2524,22 @@
     - filename: Q2.5-Veltha-14B-0.5-Q4_K_M.gguf
       sha256: f75b8cbceab555ebcab6fcb3b51d398b7ef79671aa05c21c288edd75c9f217bd
       uri: huggingface://bartowski/Q2.5-Veltha-14B-0.5-GGUF/Q2.5-Veltha-14B-0.5-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "smallthinker-3b-preview"
+  urls:
+    - https://huggingface.co/PowerInfer/SmallThinker-3B-Preview
+    - https://huggingface.co/bartowski/SmallThinker-3B-Preview-GGUF
+  description: |
+    SmallThinker is designed for the following use cases:
+    Edge Deployment: Its small size makes it ideal for deployment on resource-constrained devices.
+    Draft Model for QwQ-32B-Preview: SmallThinker can serve as a fast and efficient draft model for the larger QwQ-32B-Preview model. From my test, in llama.cpp we can get 70% speedup (from 40 tokens/s to 70 tokens/s).
+  overrides:
+    parameters:
+      model: SmallThinker-3B-Preview-Q4_K_M.gguf
+  files:
+    - filename: SmallThinker-3B-Preview-Q4_K_M.gguf
+      sha256: ac04f82a09ee6a2748437c3bb774b638a54099dc7d5d6ef7549893fae22ab055
+      uri: huggingface://bartowski/SmallThinker-3B-Preview-GGUF/SmallThinker-3B-Preview-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
