@@ -5369,6 +5369,22 @@
     - filename: Captain-Eris-Diogenes_Twighlight-V0.420-12B-Q4_K_M-imat.gguf
       sha256: e70b26114108c41e3ca0aefc0c7b8f5f69452ab461ffe7155e6b75ede24ec1b5
       uri: huggingface://Lewdiculous/Captain-Eris-Diogenes_Twilight-V0.420-12B-GGUF-ARM-Imatrix/Captain-Eris-Diogenes_Twighlight-V0.420-12B-Q4_K_M-imat.gguf
+- !!merge <<: *mistral03
+  name: "violet_twilight-v0.2"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64adfd277b5ff762771e4571/P962FQhRG4I8nbU_DJolY.png
+  urls:
+    - https://huggingface.co/Epiculous/Violet_Twilight-v0.2
+    - https://huggingface.co/Epiculous/Violet_Twilight-v0.2-GGUF
+  description: |
+    Now for something a bit different, Violet_Twilight-v0.2! This model is a SLERP merge of Azure_Dusk-v0.2 and Crimson_Dawn-v0.2!
+  overrides:
+    parameters:
+      model: Violet_Twilight-v0.2.Q4_K_M.gguf
+  files:
+    - filename: Violet_Twilight-v0.2.Q4_K_M.gguf
+      sha256: b63f07cc441146af9c98cd3c3d4390d7c39bfef11c1d168dc7c6244ca2ba6b12
+      uri: huggingface://Epiculous/Violet_Twilight-v0.2-GGUF/Violet_Twilight-v0.2.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
