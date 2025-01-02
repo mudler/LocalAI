@@ -4434,6 +4434,25 @@
     - filename: HuatuoGPT-o1-8B-Q4_K_M.gguf
       sha256: 3e1ef35fc230182d96ae2d6c7436a2e8250c21a4278e798e1aa45790ba82006b
       uri: huggingface://bartowski/HuatuoGPT-o1-8B-GGUF/HuatuoGPT-o1-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-purosani-2-8b"
+  urls:
+    - https://huggingface.co/djuna/L3.1-Purosani-2-8B
+    - https://huggingface.co/QuantFactory/L3.1-Purosani-2-8B-GGUF
+  description: |
+    The following models were included in the merge:
+    hf-100/Llama-3-Spellbound-Instruct-8B-0.3
+    arcee-ai/Llama-3.1-SuperNova-Lite + grimjim/Llama-3-Instruct-abliteration-LoRA-8B
+    THUDM/LongWriter-llama3.1-8b + ResplendentAI/Smarts_Llama3
+    djuna/L3.1-Suze-Vume-2-calc
+    djuna/L3.1-ForStHS + Blackroot/Llama-3-8B-Abomination-LORA
+  overrides:
+    parameters:
+      model: L3.1-Purosani-2-8B.Q4_K_M.gguf
+  files:
+    - filename: L3.1-Purosani-2-8B.Q4_K_M.gguf
+      sha256: e3eb8038a72b6e85b7a43c7806c32f01208f4644d54bf94d77ecad6286cf609f
+      uri: huggingface://QuantFactory/L3.1-Purosani-2-8B-GGUF/L3.1-Purosani-2-8B.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
