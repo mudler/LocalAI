@@ -2540,6 +2540,26 @@
     - filename: SmallThinker-3B-Preview-Q4_K_M.gguf
       sha256: ac04f82a09ee6a2748437c3bb774b638a54099dc7d5d6ef7549893fae22ab055
       uri: huggingface://bartowski/SmallThinker-3B-Preview-GGUF/SmallThinker-3B-Preview-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwenwify2.5-32b-v4.5"
+  urls:
+    - https://huggingface.co/Kaoeiri/Qwenwify2.5-32B-v4.5
+    - https://huggingface.co/mradermacher/Qwenwify2.5-32B-v4.5-GGUF
+  description: |
+    The following models were included in the merge:
+    Kaoeiri/Qwenwify-32B-v3
+    allura-org/Qwen2.5-32b-RP-Ink
+    Dans-DiscountModels/Qwen2.5-32B-ChatML
+    Saxo/Linkbricks-Horizon-AI-Japanese-Base-32B
+    OpenBuddy/openbuddy-qwq-32b-v24.2-200k
+    Sao10K/32B-Qwen2.5-Kunou-v1
+  overrides:
+    parameters:
+      model: Qwenwify2.5-32B-v4.5.Q4_K_M.gguf
+  files:
+    - filename: Qwenwify2.5-32B-v4.5.Q4_K_M.gguf
+      sha256: 52670acdc285356c01259f45b1953860f34deb4f80345ca63b60acc19165280c
+      uri: huggingface://mradermacher/Qwenwify2.5-32B-v4.5-GGUF/Qwenwify2.5-32B-v4.5.Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
