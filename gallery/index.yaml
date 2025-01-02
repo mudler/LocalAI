@@ -5405,6 +5405,24 @@
     - filename: Violet_Twilight-v0.2.Q4_K_M.gguf
       sha256: b63f07cc441146af9c98cd3c3d4390d7c39bfef11c1d168dc7c6244ca2ba6b12
       uri: huggingface://Epiculous/Violet_Twilight-v0.2-GGUF/Violet_Twilight-v0.2.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "sainemo-remix"
+  icon: https://huggingface.co/Moraliane/SAINEMO-reMIX/resolve/main/remixwife.webp
+  urls:
+    - https://huggingface.co/Moraliane/SAINEMO-reMIX
+    - https://huggingface.co/QuantFactory/SAINEMO-reMIX-GGUF
+  description: |
+    The following models were included in the merge:
+    elinas_Chronos-Gold-12B-1.0
+    Vikhrmodels_Vikhr-Nemo-12B-Instruct-R-21-09-24
+    MarinaraSpaghetti_NemoMix-Unleashed-12B
+  overrides:
+    parameters:
+      model: SAINEMO-reMIX.Q4_K_M.gguf
+  files:
+    - filename: SAINEMO-reMIX.Q4_K_M.gguf
+      sha256: 91c81623542df97462d93bed8014af4830940182786948fc395d8958a5add994
+      uri: huggingface://QuantFactory/SAINEMO-reMIX-GGUF/SAINEMO-reMIX.Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
