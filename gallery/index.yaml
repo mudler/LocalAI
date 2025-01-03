@@ -5442,6 +5442,22 @@
     - filename: SAINEMO-reMIX.Q4_K_M.gguf
       sha256: 91c81623542df97462d93bed8014af4830940182786948fc395d8958a5add994
       uri: huggingface://QuantFactory/SAINEMO-reMIX-GGUF/SAINEMO-reMIX.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "nera_noctis-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/89XJnlNNSsEfBjI1oHCVt.jpeg
+  urls:
+    - https://huggingface.co/Nitral-AI/Nera_Noctis-12B
+    - https://huggingface.co/bartowski/Nera_Noctis-12B-GGUF
+  description: |
+     Sometimes, the brightest gems are found in the darkest places. For it is in the shadows where we learn to really see the light.
+  overrides:
+    parameters:
+      model: Nera_Noctis-12B-Q4_K_M.gguf
+  files:
+    - filename: Nera_Noctis-12B-Q4_K_M.gguf
+      sha256: 0662a9a847adde046e6255c15d5a677ebf09ab00841547c8963668d14baf00ff
+      uri: huggingface://bartowski/Nera_Noctis-12B-GGUF/Nera_Noctis-12B-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
