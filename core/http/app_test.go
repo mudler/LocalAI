@@ -237,6 +237,31 @@ func postInvalidRequest(url string) (error, int) {
 	return nil, resp.StatusCode
 }
 
+func getRequest(url string, header http.Header) (error, int, []byte) {
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err, -1, nil
+	}
+
+	req.Header = header
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err, -1, nil
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err, -1, nil
+	}
+
+	return nil, resp.StatusCode, body
+}
+
 const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
 
 //go:embed backend-assets/*
@@ -342,6 +367,33 @@ var _ = Describe("API test", func() {
 				err, sc := postInvalidRequest("http://127.0.0.1:9090/models/available")
 				Expect(err).ToNot(BeNil())
 				Expect(sc).To(Equal(401))
+			})
+		})
+
+		Context("URL routing Tests", func() {
+			It("Should support reverse-proxy when unauthenticated", func() {
+
+				err, sc, body := getRequest("http://127.0.0.1:9090/myprefix/", http.Header{
+					"X-Forwarded-Proto":  {"https"},
+					"X-Forwarded-Host":   {"example.org"},
+					"X-Forwarded-Prefix": {"/myprefix/"},
+				})
+				Expect(err).To(BeNil(), "error")
+				Expect(sc).To(Equal(401), "status code")
+				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
+			})
+
+			It("Should support reverse-proxy when authenticated", func() {
+
+				err, sc, body := getRequest("http://127.0.0.1:9090/myprefix/", http.Header{
+					"Authorization":      {bearerKey},
+					"X-Forwarded-Proto":  {"https"},
+					"X-Forwarded-Host":   {"example.org"},
+					"X-Forwarded-Prefix": {"/myprefix/"},
+				})
+				Expect(err).To(BeNil(), "error")
+				Expect(sc).To(Equal(200), "status code")
+				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
 			})
 		})
 

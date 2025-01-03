@@ -28,7 +28,7 @@ SOFTWARE.
 <!doctype html>
 <html lang="en">
   {{template "views/partials/head" .}}
-  <script defer src="/static/chat.js"></script>
+  <script defer src="static/chat.js"></script>
   <style>
     body {
         overflow: hidden; 
@@ -101,9 +101,9 @@ SOFTWARE.
         {{ $model:=.Model}}
         {{ range .ModelsConfig }}
         {{ if eq . $model }}
-        <option value="/chat/{{.}}" selected  class="bg-gray-700 text-white">{{.}}</option>
+        <option value="chat/{{.}}" selected  class="bg-gray-700 text-white">{{.}}</option>
         {{ else }}
-        <option value="/chat/{{.}}" class="bg-gray-700 text-white">{{.}}</option>
+        <option value="chat/{{.}}" class="bg-gray-700 text-white">{{.}}</option>
         {{ end }}
         {{ end }}
       </select>
@@ -142,7 +142,7 @@ SOFTWARE.
       <div id="loader" class="my-2 loader" style="display: none;"></div>
       <input id="chat-model" type="hidden" value="{{.Model}}">
       <input id="input_image" type="file" style="display: none;" @change="fileName = $event.target.files[0].name">
-      <form id="prompt" action="/chat/{{.Model}}" method="get" @submit.prevent="submitPrompt">
+      <form id="prompt" action="chat/{{.Model}}" method="get" @submit.prevent="submitPrompt">
           <div class="relative w-full">
               <textarea
                   id="input"

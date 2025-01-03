@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	fiberhtml "github.com/gofiber/template/html/v2"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/russross/blackfriday"
 )
@@ -26,7 +27,9 @@ func notFoundHandler(c *fiber.Ctx) error {
 		})
 	} else {
 		// The client expects an HTML response
-		return c.Status(fiber.StatusNotFound).Render("views/404", fiber.Map{})
+		return c.Status(fiber.StatusNotFound).Render("views/404", fiber.Map{
+			"BaseURL": utils.BaseURL(c),
+		})
 	}
 }
 

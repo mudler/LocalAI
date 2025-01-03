@@ -6,20 +6,21 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/microcosm-cc/bluemonday"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/elements"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsync"
-	"github.com/rs/zerolog/log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/rs/zerolog/log"
 )
 
 type modelOpCache struct {
@@ -91,6 +92,7 @@ func RegisterUIRoutes(app *fiber.App,
 		app.Get("/p2p", func(c *fiber.Ctx) error {
 			summary := fiber.Map{
 				"Title":   "LocalAI - P2P dashboard",
+				"BaseURL": utils.BaseURL(c),
 				"Version": internal.PrintableVersion(),
 				//"Nodes":          p2p.GetAvailableNodes(""),
 				//"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
@@ -149,6 +151,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 			summary := fiber.Map{
 				"Title":            "LocalAI - Models",
+				"BaseURL":          utils.BaseURL(c),
 				"Version":          internal.PrintableVersion(),
 				"Models":           template.HTML(elements.ListModels(models, processingModels, galleryService)),
 				"Repositories":     appConfig.Galleries,
@@ -308,6 +311,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Chat with " + c.Params("model"),
+			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
@@ -323,11 +327,12 @@ func RegisterUIRoutes(app *fiber.App,
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect("/")
+			return c.Redirect(utils.BaseURL(c))
 		}
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Talk",
+			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0],
 			"IsP2PEnabled": p2p.IsP2PEnabled(),
@@ -344,11 +349,12 @@ func RegisterUIRoutes(app *fiber.App,
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect("/")
+			return c.Redirect(utils.BaseURL(c))
 		}
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Chat with " + backendConfigs[0],
+			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0],
 			"Version":      internal.PrintableVersion(),
@@ -364,6 +370,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Generate images with " + c.Params("model"),
+			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
@@ -380,11 +387,12 @@ func RegisterUIRoutes(app *fiber.App,
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect("/")
+			return c.Redirect(utils.BaseURL(c))
 		}
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Generate images with " + backendConfigs[0].Name,
+			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].Name,
 			"Version":      internal.PrintableVersion(),
@@ -400,6 +408,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Generate images with " + c.Params("model"),
+			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": backendConfigs,
 			"Model":        c.Params("model"),
 			"Version":      internal.PrintableVersion(),
@@ -416,11 +425,12 @@ func RegisterUIRoutes(app *fiber.App,
 
 		if len(backendConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect("/")
+			return c.Redirect(utils.BaseURL(c))
 		}
 
 		summary := fiber.Map{
 			"Title":        "LocalAI - Generate audio with " + backendConfigs[0].Name,
+			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0].Name,
 			"IsP2PEnabled": p2p.IsP2PEnabled(),

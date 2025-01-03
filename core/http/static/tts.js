@@ -19,7 +19,7 @@ async function tts(key, input) {
   document.getElementById("input").disabled = true;
 
   const model = document.getElementById("tts-model").value;
-  const response = await fetch("/tts", {
+  const response = await fetch("tts", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,

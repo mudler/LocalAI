@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/mudler/LocalAI/core/explorer"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
 )
 
@@ -22,6 +23,7 @@ func Explorer(db *explorer.Database) *fiber.App {
 
 	app := fiber.New(fiberCfg)
 
+	app.Use(middleware.StripPathPrefix())
 	routes.RegisterExplorerRoutes(app, db)
 
 	httpFS := http.FS(embedDirStatic)
