@@ -400,5 +400,5 @@ jobs:
             image-type: 'core'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'self-hosted'
-            makeflags: "--jobs=4 --output-sync=target"
+            makeflags: "--jobs=1 --output-sync=target"
             skip-drivers: 'true'
