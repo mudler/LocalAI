@@ -11,6 +11,9 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	application *application.Application) {
 	// openAI compatible API endpoint
 
+	// realtime
+	app.Get("/v1/realtime", openai.Realtime(application))
+
 	// chat
 	app.Post("/v1/chat/completions",
 		openai.ChatEndpoint(
