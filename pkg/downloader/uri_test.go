@@ -38,3 +38,10 @@ var _ = Describe("Gallery API tests", func() {
 		})
 	})
 })
+
+var _ = Describe("Download Test", func() {
+	Context("URI", func() {
+		It("Resumes partially downloaded files")
+		It("It accurately updates progress")
+	})
+})

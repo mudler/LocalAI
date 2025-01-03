@@ -282,8 +282,12 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 	if err != nil {
 		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
 	}
-
+	/** Enabling partial downloads
+	 * - Do I remove the partial file
+	 * -
+	 */
 	// save partial download to dedicated file
+	fmt.Printf("DELETEING PARTIAL FILE")
 	tmpFilePath := filePath + ".partial"
 
 	// remove tmp file
