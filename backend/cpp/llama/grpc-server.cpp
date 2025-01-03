@@ -492,8 +492,8 @@ struct llama_server_context
         }
 
         common_init_result common_init = common_init_from_params(params);
-        model = common_init.model;
-        ctx = common_init.context;
+        model = common_init.model.release();
+        ctx = common_init.context.release();
         if (model == nullptr)
         {
             LOG_ERR("unable to load model: %s", params.model.c_str());
