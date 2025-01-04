@@ -1039,6 +1039,22 @@
     - filename: FastLlama-3.2-1B-Instruct-Q4_K_M.gguf
       sha256: 3c0303e9560c441a9abdcd0e4c04c47e7f6b21277c1e8c00eed94fc656da0be9
       uri: huggingface://bartowski/FastLlama-3.2-1B-Instruct-GGUF/FastLlama-3.2-1B-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "codepy-deepthink-3b"
+  urls:
+    - https://huggingface.co/prithivMLmods/Codepy-Deepthink-3B
+    - https://huggingface.co/QuantFactory/Codepy-Deepthink-3B-GGUF
+  description: |
+    The Codepy 3B Deep Think Model is a fine-tuned version of the meta-llama/Llama-3.2-3B-Instruct base model, designed for text generation tasks that require deep reasoning, logical structuring, and problem-solving. This model leverages its optimized architecture to provide accurate and contextually relevant outputs for complex queries, making it ideal for applications in education, programming, and creative writing.
+
+    With its robust natural language processing capabilities, Codepy 3B Deep Think excels in generating step-by-step solutions, creative content, and logical analyses. Its architecture integrates advanced understanding of both structured and unstructured data, ensuring precise text generation aligned with user inputs.
+  overrides:
+    parameters:
+      model: Codepy-Deepthink-3B.Q4_K_M.gguf
+  files:
+    - filename: Codepy-Deepthink-3B.Q4_K_M.gguf
+      sha256: 6202976de1a1b23bb09448dd6f188b849e10f3f99366f829415533ea4445e853
+      uri: huggingface://QuantFactory/Codepy-Deepthink-3B-GGUF/Codepy-Deepthink-3B.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -2524,6 +2540,62 @@
     - filename: Q2.5-Veltha-14B-0.5-Q4_K_M.gguf
       sha256: f75b8cbceab555ebcab6fcb3b51d398b7ef79671aa05c21c288edd75c9f217bd
       uri: huggingface://bartowski/Q2.5-Veltha-14B-0.5-GGUF/Q2.5-Veltha-14B-0.5-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "smallthinker-3b-preview"
+  urls:
+    - https://huggingface.co/PowerInfer/SmallThinker-3B-Preview
+    - https://huggingface.co/bartowski/SmallThinker-3B-Preview-GGUF
+  description: |
+    SmallThinker is designed for the following use cases:
+    Edge Deployment: Its small size makes it ideal for deployment on resource-constrained devices.
+    Draft Model for QwQ-32B-Preview: SmallThinker can serve as a fast and efficient draft model for the larger QwQ-32B-Preview model. From my test, in llama.cpp we can get 70% speedup (from 40 tokens/s to 70 tokens/s).
+  overrides:
+    parameters:
+      model: SmallThinker-3B-Preview-Q4_K_M.gguf
+  files:
+    - filename: SmallThinker-3B-Preview-Q4_K_M.gguf
+      sha256: ac04f82a09ee6a2748437c3bb774b638a54099dc7d5d6ef7549893fae22ab055
+      uri: huggingface://bartowski/SmallThinker-3B-Preview-GGUF/SmallThinker-3B-Preview-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwenwify2.5-32b-v4.5"
+  urls:
+    - https://huggingface.co/Kaoeiri/Qwenwify2.5-32B-v4.5
+    - https://huggingface.co/mradermacher/Qwenwify2.5-32B-v4.5-GGUF
+  description: |
+    The following models were included in the merge:
+    Kaoeiri/Qwenwify-32B-v3
+    allura-org/Qwen2.5-32b-RP-Ink
+    Dans-DiscountModels/Qwen2.5-32B-ChatML
+    Saxo/Linkbricks-Horizon-AI-Japanese-Base-32B
+    OpenBuddy/openbuddy-qwq-32b-v24.2-200k
+    Sao10K/32B-Qwen2.5-Kunou-v1
+  overrides:
+    parameters:
+      model: Qwenwify2.5-32B-v4.5.Q4_K_M.gguf
+  files:
+    - filename: Qwenwify2.5-32B-v4.5.Q4_K_M.gguf
+      sha256: 52670acdc285356c01259f45b1953860f34deb4f80345ca63b60acc19165280c
+      uri: huggingface://mradermacher/Qwenwify2.5-32B-v4.5-GGUF/Qwenwify2.5-32B-v4.5.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "drt-o1-7b"
+  urls:
+    - https://huggingface.co/Krystalan/DRT-o1-7B
+    - https://huggingface.co/QuantFactory/DRT-o1-7B-GGUF
+  description: |
+    In this work, we introduce DRT-o1, an attempt to bring the success of long thought reasoning to neural machine translation (MT). To this end,
+
+    🌟 We mine English sentences with similes or metaphors from existing literature books, which are suitable for translation via long thought.
+    🌟 We propose a designed multi-agent framework with three agents (i.e., a translator, an advisor and an evaluator) to synthesize the MT samples with long thought. There are 22,264 synthesized samples in total.
+    🌟 We train DRT-o1-8B, DRT-o1-7B and DRT-o1-14B using Llama-3.1-8B-Instruct, Qwen2.5-7B-Instruct and Qwen2.5-14B-Instruct as backbones.
+
+    Our goal is not to achieve competitive performance with OpenAI’s O1 in neural machine translation (MT). Instead, we explore technical routes to bring the success of long thought to MT. To this end, we introduce DRT-o1, a byproduct of our exploration, and we hope it could facilitate the corresponding research in this direction.
+  overrides:
+    parameters:
+      model: DRT-o1-7B.Q4_K_M.gguf
+  files:
+    - filename: DRT-o1-7B.Q4_K_M.gguf
+      sha256: f592a2523f92ae29630b45fbb501bba7f2fbd99355975cd05fa989faf8d3597d
+      uri: huggingface://QuantFactory/DRT-o1-7B-GGUF/DRT-o1-7B.Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -4398,6 +4470,41 @@
     - filename: HuatuoGPT-o1-8B-Q4_K_M.gguf
       sha256: 3e1ef35fc230182d96ae2d6c7436a2e8250c21a4278e798e1aa45790ba82006b
       uri: huggingface://bartowski/HuatuoGPT-o1-8B-GGUF/HuatuoGPT-o1-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-purosani-2-8b"
+  urls:
+    - https://huggingface.co/djuna/L3.1-Purosani-2-8B
+    - https://huggingface.co/QuantFactory/L3.1-Purosani-2-8B-GGUF
+  description: |
+    The following models were included in the merge:
+    hf-100/Llama-3-Spellbound-Instruct-8B-0.3
+    arcee-ai/Llama-3.1-SuperNova-Lite + grimjim/Llama-3-Instruct-abliteration-LoRA-8B
+    THUDM/LongWriter-llama3.1-8b + ResplendentAI/Smarts_Llama3
+    djuna/L3.1-Suze-Vume-2-calc
+    djuna/L3.1-ForStHS + Blackroot/Llama-3-8B-Abomination-LORA
+  overrides:
+    parameters:
+      model: L3.1-Purosani-2-8B.Q4_K_M.gguf
+  files:
+    - filename: L3.1-Purosani-2-8B.Q4_K_M.gguf
+      sha256: e3eb8038a72b6e85b7a43c7806c32f01208f4644d54bf94d77ecad6286cf609f
+      uri: huggingface://QuantFactory/L3.1-Purosani-2-8B-GGUF/L3.1-Purosani-2-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-prm-deepseek-data"
+  urls:
+    - https://huggingface.co/RLHFlow/Llama3.1-8B-PRM-Deepseek-Data
+    - https://huggingface.co/QuantFactory/Llama3.1-8B-PRM-Deepseek-Data-GGUF
+  description: |
+    This is a process-supervised reward (PRM) trained on Mistral-generated data from the project RLHFlow/RLHF-Reward-Modeling
+
+    The model is trained from meta-llama/Llama-3.1-8B-Instruct on RLHFlow/Deepseek-PRM-Data for 1 epochs. We use a global batch size of 32 and a learning rate of 2e-6, where we pack the samples and split them into chunks of 8192 token. See more training details at https://github.com/RLHFlow/Online-RLHF/blob/main/math/llama-3.1-prm.yaml.
+  overrides:
+    parameters:
+      model: Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
+      sha256: 254c7ccc4ea3818fe5f6e3ffd5500c779b02058b98f9ce9a3856e54106d008e3
+      uri: huggingface://QuantFactory/Llama3.1-8B-PRM-Deepseek-Data-GGUF/Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
@@ -5303,6 +5410,106 @@
     - filename: Dans-PersonalityEngine-V1.1.0-12b-Q4_K_M.gguf
       sha256: a1afb9fddfa3f2847ed710cc374b4f17e63a75f7e10d8871cf83983c2f5415ab
       uri: huggingface://bartowski/Dans-PersonalityEngine-V1.1.0-12b-GGUF/Dans-PersonalityEngine-V1.1.0-12b-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mn-12b-mag-mell-r1-iq-arm-imatrix"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: "https://i.imgur.com/wjyAaTO.png"
+  urls:
+    - https://huggingface.co/inflatebot/MN-12B-Mag-Mell-R1
+    - https://huggingface.co/Lewdiculous/MN-12B-Mag-Mell-R1-GGUF-IQ-ARM-Imatrix
+  description: |
+    This is a merge of pre-trained language models created using mergekit. Mag Mell is a multi-stage merge, Inspired by hyper-merges like Tiefighter and Umbral Mind. Intended to be a general purpose "Best of Nemo" model for any fictional, creative use case.
+    6 models were chosen based on 3 categories; they were then paired up and merged via layer-weighted SLERP to create intermediate "specialists" which are then evaluated in their domain. The specialists were then merged into the base via DARE-TIES, with hyperparameters chosen to reduce interference caused by the overlap of the three domains. The idea with this approach is to extract the best qualities of each component part, and produce models whose task vectors represent more than the sum of their parts.
+
+    The three specialists are as follows:
+        Hero (RP, kink/trope coverage): Chronos Gold, Sunrose.
+        Monk (Intelligence, groundedness): Bophades, Wissenschaft.
+        Deity (Prose, flair): Gutenberg v4, Magnum 2.5 KTO.
+    I've been dreaming about this merge since Nemo tunes started coming out in earnest. From our testing, Mag Mell demonstrates worldbuilding capabilities unlike any model in its class, comparable to old adventuring models like Tiefighter, and prose that exhibits minimal "slop" (not bad for no finetuning,) frequently devising electrifying metaphors that left us consistently astonished.
+
+    I don't want to toot my own bugle though; I'm really proud of how this came out, but please leave your feedback, good or bad.Special thanks as usual to Toaster for his feedback and Fizz for helping fund compute, as well as the KoboldAI Discord for their resources. The following models were included in the merge:
+    IntervitensInc/Mistral-Nemo-Base-2407-chatml
+    nbeerbower/mistral-nemo-bophades-12B
+    nbeerbower/mistral-nemo-wissenschaft-12B
+    elinas/Chronos-Gold-12B-1.0
+    Fizzarolli/MN-12b-Sunrose
+    nbeerbower/mistral-nemo-gutenberg-12B-v4
+    anthracite-org/magnum-12b-v2.5-kto
+  overrides:
+    parameters:
+      model: MN-12B-Mag-Mell-R1-Q4_K_M-imat.gguf
+  files:
+    - filename: MN-12B-Mag-Mell-R1-Q4_K_M-imat.gguf
+      sha256: ba0c9e64222b35f8c3828b7295e173ee54d83fd2e457ba67f6561a4a6d98481e
+      uri: huggingface://Lewdiculous/MN-12B-Mag-Mell-R1-GGUF-IQ-ARM-Imatrix/MN-12B-Mag-Mell-R1-Q4_K_M-imat.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "captain-eris-diogenes_twilight-v0.420-12b-arm-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/n0HUz-yRPkwQzt3dFrjW9.png
+  urls:
+    - https://huggingface.co/Nitral-AI/Captain-Eris-Diogenes_Twilight-V0.420-12B
+    - https://huggingface.co/Lewdiculous/Captain-Eris-Diogenes_Twilight-V0.420-12B-GGUF-ARM-Imatrix
+  description: |
+    The following models were included in the merge:
+        Nitral-AI/Captain-Eris_Twilight-V0.420-12B
+        Nitral-AI/Diogenes-12B-ChatMLified
+  overrides:
+    parameters:
+      model: Captain-Eris-Diogenes_Twighlight-V0.420-12B-Q4_K_M-imat.gguf
+  files:
+    - filename: Captain-Eris-Diogenes_Twighlight-V0.420-12B-Q4_K_M-imat.gguf
+      sha256: e70b26114108c41e3ca0aefc0c7b8f5f69452ab461ffe7155e6b75ede24ec1b5
+      uri: huggingface://Lewdiculous/Captain-Eris-Diogenes_Twilight-V0.420-12B-GGUF-ARM-Imatrix/Captain-Eris-Diogenes_Twighlight-V0.420-12B-Q4_K_M-imat.gguf
+- !!merge <<: *mistral03
+  name: "violet_twilight-v0.2"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64adfd277b5ff762771e4571/P962FQhRG4I8nbU_DJolY.png
+  urls:
+    - https://huggingface.co/Epiculous/Violet_Twilight-v0.2
+    - https://huggingface.co/Epiculous/Violet_Twilight-v0.2-GGUF
+  description: |
+    Now for something a bit different, Violet_Twilight-v0.2! This model is a SLERP merge of Azure_Dusk-v0.2 and Crimson_Dawn-v0.2!
+  overrides:
+    parameters:
+      model: Violet_Twilight-v0.2.Q4_K_M.gguf
+  files:
+    - filename: Violet_Twilight-v0.2.Q4_K_M.gguf
+      sha256: b63f07cc441146af9c98cd3c3d4390d7c39bfef11c1d168dc7c6244ca2ba6b12
+      uri: huggingface://Epiculous/Violet_Twilight-v0.2-GGUF/Violet_Twilight-v0.2.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "sainemo-remix"
+  icon: https://huggingface.co/Moraliane/SAINEMO-reMIX/resolve/main/remixwife.webp
+  urls:
+    - https://huggingface.co/Moraliane/SAINEMO-reMIX
+    - https://huggingface.co/QuantFactory/SAINEMO-reMIX-GGUF
+  description: |
+    The following models were included in the merge:
+    elinas_Chronos-Gold-12B-1.0
+    Vikhrmodels_Vikhr-Nemo-12B-Instruct-R-21-09-24
+    MarinaraSpaghetti_NemoMix-Unleashed-12B
+  overrides:
+    parameters:
+      model: SAINEMO-reMIX.Q4_K_M.gguf
+  files:
+    - filename: SAINEMO-reMIX.Q4_K_M.gguf
+      sha256: 91c81623542df97462d93bed8014af4830940182786948fc395d8958a5add994
+      uri: huggingface://QuantFactory/SAINEMO-reMIX-GGUF/SAINEMO-reMIX.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "nera_noctis-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/89XJnlNNSsEfBjI1oHCVt.jpeg
+  urls:
+    - https://huggingface.co/Nitral-AI/Nera_Noctis-12B
+    - https://huggingface.co/bartowski/Nera_Noctis-12B-GGUF
+  description: |
+     Sometimes, the brightest gems are found in the darkest places. For it is in the shadows where we learn to really see the light.
+  overrides:
+    parameters:
+      model: Nera_Noctis-12B-Q4_K_M.gguf
+  files:
+    - filename: Nera_Noctis-12B-Q4_K_M.gguf
+      sha256: 0662a9a847adde046e6255c15d5a677ebf09ab00841547c8963668d14baf00ff
+      uri: huggingface://bartowski/Nera_Noctis-12B-GGUF/Nera_Noctis-12B-Q4_K_M.gguf
 - &mudler
   ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"

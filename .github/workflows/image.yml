@@ -362,16 +362,43 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
-          # - build-type: 'cublas'
-          #   cuda-major-version: "12"
-          #   cuda-minor-version: "0"
-          #   platforms: 'linux/arm64'
-          #   tag-latest: 'false'
-          #   tag-suffix: '-nvidia-l4t-arm64-core'
-          #   latest-image: 'latest-nvidia-l4t-arm64-core'
-          #   ffmpeg: 'true'
-          #   image-type: 'core'
-          #   base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-          #   runs-on: 'arc-runner-set'
-          #   makeflags: "--jobs=4 --output-sync=target"
-          #   skip-drivers: 'true'
+#  parallel-builds:
+#    uses: ./.github/workflows/image_build.yml
+#    with:
+#      tag-latest: ${{ matrix.tag-latest }}
+#      tag-suffix: ${{ matrix.tag-suffix }}
+#      ffmpeg: ${{ matrix.ffmpeg }}
+#      image-type: ${{ matrix.image-type }}
+#      build-type: ${{ matrix.build-type }}
+#      cuda-major-version: ${{ matrix.cuda-major-version }}
+#      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+#      platforms: ${{ matrix.platforms }}
+#      runs-on: ${{ matrix.runs-on }}
+#      aio: ${{ matrix.aio }}
+#      base-image: ${{ matrix.base-image }}
+#      grpc-base-image: ${{ matrix.grpc-base-image }}
+#      makeflags: ${{ matrix.makeflags }}
+#      latest-image: ${{ matrix.latest-image }}
+#      latest-image-aio: ${{ matrix.latest-image-aio }}
+#      skip-drivers: ${{ matrix.skip-drivers }}
+#    secrets:
+#      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+#      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+#      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+#      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+#    strategy:
+#      matrix:
+#        include:
+#          - build-type: 'cublas'
+#            cuda-major-version: "12"
+#            cuda-minor-version: "0"
+#            platforms: 'linux/arm64'
+#            tag-latest: 'false'
+#            tag-suffix: '-nvidia-l4t-arm64-core'
+#            latest-image: 'latest-nvidia-l4t-arm64-core'
+#            ffmpeg: 'true'
+#            image-type: 'core'
+#            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+#            runs-on: 'self-hosted'
+#            makeflags: "--jobs=4 --output-sync=target"
+#            skip-drivers: 'true'
