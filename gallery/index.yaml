@@ -1039,6 +1039,22 @@
     - filename: FastLlama-3.2-1B-Instruct-Q4_K_M.gguf
       sha256: 3c0303e9560c441a9abdcd0e4c04c47e7f6b21277c1e8c00eed94fc656da0be9
       uri: huggingface://bartowski/FastLlama-3.2-1B-Instruct-GGUF/FastLlama-3.2-1B-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "codepy-deepthink-3b"
+  urls:
+    - https://huggingface.co/prithivMLmods/Codepy-Deepthink-3B
+    - https://huggingface.co/QuantFactory/Codepy-Deepthink-3B-GGUF
+  description: |
+    The Codepy 3B Deep Think Model is a fine-tuned version of the meta-llama/Llama-3.2-3B-Instruct base model, designed for text generation tasks that require deep reasoning, logical structuring, and problem-solving. This model leverages its optimized architecture to provide accurate and contextually relevant outputs for complex queries, making it ideal for applications in education, programming, and creative writing.
+
+    With its robust natural language processing capabilities, Codepy 3B Deep Think excels in generating step-by-step solutions, creative content, and logical analyses. Its architecture integrates advanced understanding of both structured and unstructured data, ensuring precise text generation aligned with user inputs.
+  overrides:
+    parameters:
+      model: Codepy-Deepthink-3B.Q4_K_M.gguf
+  files:
+    - filename: Codepy-Deepthink-3B.Q4_K_M.gguf
+      sha256: 6202976de1a1b23bb09448dd6f188b849e10f3f99366f829415533ea4445e853
+      uri: huggingface://QuantFactory/Codepy-Deepthink-3B-GGUF/Codepy-Deepthink-3B.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
