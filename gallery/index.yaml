@@ -4489,6 +4489,22 @@
     - filename: L3.1-Purosani-2-8B.Q4_K_M.gguf
       sha256: e3eb8038a72b6e85b7a43c7806c32f01208f4644d54bf94d77ecad6286cf609f
       uri: huggingface://QuantFactory/L3.1-Purosani-2-8B-GGUF/L3.1-Purosani-2-8B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama3.1-8b-prm-deepseek-data"
+  urls:
+    - https://huggingface.co/RLHFlow/Llama3.1-8B-PRM-Deepseek-Data
+    - https://huggingface.co/QuantFactory/Llama3.1-8B-PRM-Deepseek-Data-GGUF
+  description: |
+    This is a process-supervised reward (PRM) trained on Mistral-generated data from the project RLHFlow/RLHF-Reward-Modeling
+
+    The model is trained from meta-llama/Llama-3.1-8B-Instruct on RLHFlow/Deepseek-PRM-Data for 1 epochs. We use a global batch size of 32 and a learning rate of 2e-6, where we pack the samples and split them into chunks of 8192 token. See more training details at https://github.com/RLHFlow/Online-RLHF/blob/main/math/llama-3.1-prm.yaml.
+  overrides:
+    parameters:
+      model: Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
+  files:
+    - filename: Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
+      sha256: 254c7ccc4ea3818fe5f6e3ffd5500c779b02058b98f9ce9a3856e54106d008e3
+      uri: huggingface://QuantFactory/Llama3.1-8B-PRM-Deepseek-Data-GGUF/Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
