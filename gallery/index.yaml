@@ -2560,6 +2560,26 @@
     - filename: Qwenwify2.5-32B-v4.5.Q4_K_M.gguf
       sha256: 52670acdc285356c01259f45b1953860f34deb4f80345ca63b60acc19165280c
       uri: huggingface://mradermacher/Qwenwify2.5-32B-v4.5-GGUF/Qwenwify2.5-32B-v4.5.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "drt-o1-7b"
+  urls:
+    - https://huggingface.co/Krystalan/DRT-o1-7B
+    - https://huggingface.co/QuantFactory/DRT-o1-7B-GGUF
+  description: |
+    In this work, we introduce DRT-o1, an attempt to bring the success of long thought reasoning to neural machine translation (MT). To this end,
+
+    🌟 We mine English sentences with similes or metaphors from existing literature books, which are suitable for translation via long thought.
+    🌟 We propose a designed multi-agent framework with three agents (i.e., a translator, an advisor and an evaluator) to synthesize the MT samples with long thought. There are 22,264 synthesized samples in total.
+    🌟 We train DRT-o1-8B, DRT-o1-7B and DRT-o1-14B using Llama-3.1-8B-Instruct, Qwen2.5-7B-Instruct and Qwen2.5-14B-Instruct as backbones.
+
+    Our goal is not to achieve competitive performance with OpenAI’s O1 in neural machine translation (MT). Instead, we explore technical routes to bring the success of long thought to MT. To this end, we introduce DRT-o1, a byproduct of our exploration, and we hope it could facilitate the corresponding research in this direction.
+  overrides:
+    parameters:
+      model: DRT-o1-7B.Q4_K_M.gguf
+  files:
+    - filename: DRT-o1-7B.Q4_K_M.gguf
+      sha256: f592a2523f92ae29630b45fbb501bba7f2fbd99355975cd05fa989faf8d3597d
+      uri: huggingface://QuantFactory/DRT-o1-7B-GGUF/DRT-o1-7B.Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
