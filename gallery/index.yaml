@@ -1055,6 +1055,20 @@
     - filename: Codepy-Deepthink-3B.Q4_K_M.gguf
       sha256: 6202976de1a1b23bb09448dd6f188b849e10f3f99366f829415533ea4445e853
       uri: huggingface://QuantFactory/Codepy-Deepthink-3B-GGUF/Codepy-Deepthink-3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-deepsync-3b"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-Deepsync-3B
+    - https://huggingface.co/prithivMLmods/Llama-Deepsync-3B-GGUF
+  description: |
+    The Llama-Deepsync-3B-GGUF is a fine-tuned version of the Llama-3.2-3B-Instruct base model, designed for text generation tasks that require deep reasoning, logical structuring, and problem-solving. This model leverages its optimized architecture to provide accurate and contextually relevant outputs for complex queries, making it ideal for applications in education, programming, and creative writing.
+  overrides:
+    parameters:
+      model: Llama-Deepsync-3B.Q4_K_M.gguf
+  files:
+    - filename: Llama-Deepsync-3B.Q4_K_M.gguf
+      sha256: f11c4d9b10a732845d8e64dc9badfcbb7d94053bc5fe11f89bb8e99ed557f711
+      uri: huggingface://prithivMLmods/Llama-Deepsync-3B-GGUF/Llama-Deepsync-3B.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
