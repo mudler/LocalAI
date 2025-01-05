@@ -1055,6 +1055,20 @@
     - filename: Codepy-Deepthink-3B.Q4_K_M.gguf
       sha256: 6202976de1a1b23bb09448dd6f188b849e10f3f99366f829415533ea4445e853
       uri: huggingface://QuantFactory/Codepy-Deepthink-3B-GGUF/Codepy-Deepthink-3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-deepsync-3b"
+  urls:
+    - https://huggingface.co/prithivMLmods/Llama-Deepsync-3B
+    - https://huggingface.co/prithivMLmods/Llama-Deepsync-3B-GGUF
+  description: |
+    The Llama-Deepsync-3B-GGUF is a fine-tuned version of the Llama-3.2-3B-Instruct base model, designed for text generation tasks that require deep reasoning, logical structuring, and problem-solving. This model leverages its optimized architecture to provide accurate and contextually relevant outputs for complex queries, making it ideal for applications in education, programming, and creative writing.
+  overrides:
+    parameters:
+      model: Llama-Deepsync-3B.Q4_K_M.gguf
+  files:
+    - filename: Llama-Deepsync-3B.Q4_K_M.gguf
+      sha256: f11c4d9b10a732845d8e64dc9badfcbb7d94053bc5fe11f89bb8e99ed557f711
+      uri: huggingface://prithivMLmods/Llama-Deepsync-3B-GGUF/Llama-Deepsync-3B.Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
@@ -2373,6 +2387,31 @@
     - filename: miscii-14b-1225.Q4_K_M.gguf
       sha256: f21fe73450be394055aeb87b7619e98a09e5c190b48f145bdebef4e12df871fe
       uri: huggingface://mradermacher/miscii-14b-1225-GGUF/miscii-14b-1225.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwentile2.5-32b-instruct"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c1b098c85365af5a83e/sF7RDZA7lFYOmGy4bGy1s.png
+  urls:
+    - https://huggingface.co/maldv/Qwentile2.5-32B-Instruct
+    - https://huggingface.co/bartowski/Qwentile2.5-32B-Instruct-GGUF
+  description: |
+    Qwentile 2.5 32B Instruct is a normalized denoised fourier interpolation of the following models:
+    - { "model": "AiCloser/Qwen2.5-32B-AGI", "base": "Qwen/Qwen2.5-32B", "alpha": 0.3 }
+    - { "model": "EVA-UNIT-01/EVA-Qwen2.5-32B-v0.2", "base": "Qwen/Qwen2.5-32B", "alpha": 0.7 }
+    - { "model": "fblgit/TheBeagle-v2beta-32B-MGS", "base": "Qwen/Qwen2.5-32B", "alpha": 0.6 }
+    - { "model": "huihui-ai/Qwen2.5-32B-Instruct-abliterated", "base": "Qwen/Qwen2.5-32B-Instruct", "alpha": 1.0 }
+    - { "model": "huihui-ai/QwQ-32B-Preview-abliterated", "base": "Qwen/Qwen2.5-32B", "alpha": 1.0 }
+    - { "model": "Qwen/QwQ-32B-Preview", "base": "Qwen/Qwen2.5-32B", "alpha": 0.8, "is_input": true }
+    - { "model": "rombodawg/Rombos-LLM-V2.5-Qwen-32b", "base": "Qwen/Qwen2.5-32B", "alpha": 1.0, "is_output": true }
+    - { "model": "nbeerbower/Qwen2.5-Gutenberg-Doppel-32B", "base": "Qwen/Qwen2.5-32B-Instruct", "alpha": 0.4 }
+    I started my experiment because of QwQ is a really nifty model, but it was giving me problems with xml output - which is what I use for my thought tokens. So, I thought... lets just merge it in!
+    The first model worked pretty well, but I got a sense that the balances could be tweaked. Why not throw in some other models as well for fun and see if I can't run out of disk space in the process?
+  overrides:
+    parameters:
+      model: Qwentile2.5-32B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwentile2.5-32B-Instruct-Q4_K_M.gguf
+      sha256: e476d6e3c15c78fc3f986d7ae8fa35c16116843827f2e6243c05767cef2f3615
+      uri: huggingface://bartowski/Qwentile2.5-32B-Instruct-GGUF/Qwentile2.5-32B-Instruct-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -2596,6 +2635,33 @@
     - filename: DRT-o1-7B.Q4_K_M.gguf
       sha256: f592a2523f92ae29630b45fbb501bba7f2fbd99355975cd05fa989faf8d3597d
       uri: huggingface://QuantFactory/DRT-o1-7B-GGUF/DRT-o1-7B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "experimental-lwd-mirau-rp-14b-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/99YhsFSeaGDYCq7XVcTcq.png
+  urls:
+    - https://huggingface.co/AetherArchitectural/lwd-Mirau-RP-14B
+    - https://huggingface.co/Lewdiculous/experimental-lwd-Mirau-RP-14B-GGUF-IQ-Imatrix
+  description: |
+    This model is designed to improve the controllability and consistency of current roleplaying models. We developed a story flow thought chain approach that makes the system prompts combined with the entire user-BOT dialogue read like a first-person narrative told by the BOT. We found this design greatly enhances the model's consistency and expressiveness.
+
+    Additionally, we allow users to play two roles simultaneously: one as the director of the entire plot (see Special Designs), and another as an actor dialoguing with the BOT. Users can be viewed as writers who need to draft outlines and plot summaries, while the BOT helps complete story details, requiring users to have powerful control over the BOT.
+
+    The model's output is divided into two parts: the model's inner monologue (which it believes is invisible to users) and the final response.
+
+    Overall, mirau features:
+
+        Superior character consistency
+
+        Powerful long-context memory capability
+
+        Transparent thinking with hidden thought chains
+  overrides:
+    parameters:
+      model: lwd-Mirau-RP-Q4_K_M-imat.gguf
+  files:
+    - filename: lwd-Mirau-RP-Q4_K_M-imat.gguf
+      sha256: 22ff461e9034b9ebded07b2a9d3d88c2f75359d5c069ebb3ee4e9c6ec5c45cf8
+      uri: huggingface://Lewdiculous/experimental-lwd-Mirau-RP-14B-GGUF-IQ-Imatrix/lwd-Mirau-RP-Q4_K_M-imat.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
