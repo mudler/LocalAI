@@ -2387,6 +2387,31 @@
     - filename: miscii-14b-1225.Q4_K_M.gguf
       sha256: f21fe73450be394055aeb87b7619e98a09e5c190b48f145bdebef4e12df871fe
       uri: huggingface://mradermacher/miscii-14b-1225-GGUF/miscii-14b-1225.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwentile2.5-32b-instruct"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c1b098c85365af5a83e/sF7RDZA7lFYOmGy4bGy1s.png
+  urls:
+    - https://huggingface.co/maldv/Qwentile2.5-32B-Instruct
+    - https://huggingface.co/bartowski/Qwentile2.5-32B-Instruct-GGUF
+  description: |
+    Qwentile 2.5 32B Instruct is a normalized denoised fourier interpolation of the following models:
+    - { "model": "AiCloser/Qwen2.5-32B-AGI", "base": "Qwen/Qwen2.5-32B", "alpha": 0.3 }
+    - { "model": "EVA-UNIT-01/EVA-Qwen2.5-32B-v0.2", "base": "Qwen/Qwen2.5-32B", "alpha": 0.7 }
+    - { "model": "fblgit/TheBeagle-v2beta-32B-MGS", "base": "Qwen/Qwen2.5-32B", "alpha": 0.6 }
+    - { "model": "huihui-ai/Qwen2.5-32B-Instruct-abliterated", "base": "Qwen/Qwen2.5-32B-Instruct", "alpha": 1.0 }
+    - { "model": "huihui-ai/QwQ-32B-Preview-abliterated", "base": "Qwen/Qwen2.5-32B", "alpha": 1.0 }
+    - { "model": "Qwen/QwQ-32B-Preview", "base": "Qwen/Qwen2.5-32B", "alpha": 0.8, "is_input": true }
+    - { "model": "rombodawg/Rombos-LLM-V2.5-Qwen-32b", "base": "Qwen/Qwen2.5-32B", "alpha": 1.0, "is_output": true }
+    - { "model": "nbeerbower/Qwen2.5-Gutenberg-Doppel-32B", "base": "Qwen/Qwen2.5-32B-Instruct", "alpha": 0.4 }
+    I started my experiment because of QwQ is a really nifty model, but it was giving me problems with xml output - which is what I use for my thought tokens. So, I thought... lets just merge it in!
+    The first model worked pretty well, but I got a sense that the balances could be tweaked. Why not throw in some other models as well for fun and see if I can't run out of disk space in the process?
+  overrides:
+    parameters:
+      model: Qwentile2.5-32B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwentile2.5-32B-Instruct-Q4_K_M.gguf
+      sha256: e476d6e3c15c78fc3f986d7ae8fa35c16116843827f2e6243c05767cef2f3615
+      uri: huggingface://bartowski/Qwentile2.5-32B-Instruct-GGUF/Qwentile2.5-32B-Instruct-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
