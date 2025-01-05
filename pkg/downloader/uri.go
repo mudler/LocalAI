@@ -324,11 +324,6 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
 	}
 	defer outFile.Close()
-	outFileInfo, err := outFile.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to get file info: %v", err)
-	}
-	fileSize := outFileInfo.Size()
 	hash, err := calculateHashForPartialFile(outFile)
 	if err != nil {
 		return fmt.Errorf("failed to calculate hash for partial file")
@@ -339,7 +334,6 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 		hash:           hash,
 		fileNo:         fileN,
 		totalFiles:     total,
-		written:        fileSize,
 		downloadStatus: downloadStatus,
 	}
 	_, err = io.Copy(io.MultiWriter(outFile, progress), resp.Body)

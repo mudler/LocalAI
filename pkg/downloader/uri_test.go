@@ -131,7 +131,6 @@ var _ = Describe("Download Test", func() {
 			err = os.Remove(filePath) // cleanup, also checks existance of filePath`
 			Expect(err).ToNot(HaveOccurred())
 		})
-		// It("it accurately updates progress")
 		// It("deletes partial file if after completion hash of downloaded file doesn't match hash of the file in the server")
 	})
 })
