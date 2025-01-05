@@ -2596,6 +2596,33 @@
     - filename: DRT-o1-7B.Q4_K_M.gguf
       sha256: f592a2523f92ae29630b45fbb501bba7f2fbd99355975cd05fa989faf8d3597d
       uri: huggingface://QuantFactory/DRT-o1-7B-GGUF/DRT-o1-7B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "experimental-lwd-mirau-rp-14b-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65d4cf2693a0a3744a27536c/99YhsFSeaGDYCq7XVcTcq.png
+  urls:
+    - https://huggingface.co/AetherArchitectural/lwd-Mirau-RP-14B
+    - https://huggingface.co/Lewdiculous/experimental-lwd-Mirau-RP-14B-GGUF-IQ-Imatrix
+  description: |
+    This model is designed to improve the controllability and consistency of current roleplaying models. We developed a story flow thought chain approach that makes the system prompts combined with the entire user-BOT dialogue read like a first-person narrative told by the BOT. We found this design greatly enhances the model's consistency and expressiveness.
+
+    Additionally, we allow users to play two roles simultaneously: one as the director of the entire plot (see Special Designs), and another as an actor dialoguing with the BOT. Users can be viewed as writers who need to draft outlines and plot summaries, while the BOT helps complete story details, requiring users to have powerful control over the BOT.
+
+    The model's output is divided into two parts: the model's inner monologue (which it believes is invisible to users) and the final response.
+
+    Overall, mirau features:
+
+        Superior character consistency
+
+        Powerful long-context memory capability
+
+        Transparent thinking with hidden thought chains
+  overrides:
+    parameters:
+      model: lwd-Mirau-RP-Q4_K_M-imat.gguf
+  files:
+    - filename: lwd-Mirau-RP-Q4_K_M-imat.gguf
+      sha256: 22ff461e9034b9ebded07b2a9d3d88c2f75359d5c069ebb3ee4e9c6ec5c45cf8
+      uri: huggingface://Lewdiculous/experimental-lwd-Mirau-RP-14B-GGUF-IQ-Imatrix/lwd-Mirau-RP-Q4_K_M-imat.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
