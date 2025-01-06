@@ -9309,6 +9309,29 @@
     - filename: Bio-Medical-Llama-3-8B.Q4_K_M.gguf
       sha256: 672939e0487d02c55734132c25a59f26e4deaac7cd49445a7028f2291139edcc
       uri: huggingface://QuantFactory/Bio-Medical-Llama-3-8B-GGUF/Bio-Medical-Llama-3-8B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "triangulum-10b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/By0OJ1lMvP5ZvVvfEGvz5.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Triangulum-10B
+    - https://huggingface.co/mradermacher/Triangulum-10B-GGUF
+  description: |
+    Triangulum 10B is a collection of pretrained and instruction-tuned generative models, designed for multilingual applications. These models are trained using synthetic datasets based on long chains of thought, enabling them to perform complex reasoning tasks effectively.
+    Key Features
+        Foundation Model: Built upon LLaMA's autoregressive language model, leveraging an optimized transformer architecture for enhanced performance.
+        Instruction Tuning: Includes supervised fine-tuning (SFT) and reinforcement learning with human feedback (RLHF) to align model outputs with human preferences for helpfulness and safety.
+        Multilingual Support: Designed to handle multiple languages, ensuring broad applicability across diverse linguistic contexts.
+    Training Approach
+        Synthetic Datasets: Utilizes long chain-of-thought synthetic data to enhance reasoning capabilities.
+        Supervised Fine-Tuning (SFT): Aligns the model to specific tasks through curated datasets.
+        Reinforcement Learning with Human Feedback (RLHF): Ensures the model adheres to human values and safety guidelines through iterative training processes.
+  overrides:
+    parameters:
+      model: Triangulum-10B.Q4_K_M.gguf
+  files:
+    - filename: Triangulum-10B.Q4_K_M.gguf
+      sha256: dd071f99edf6b166044bf229cdeec19419c4c348e3fc3d6587cfcc55e6fb85fa
+      uri: huggingface://mradermacher/Triangulum-10B-GGUF/Triangulum-10B.Q4_K_M.gguf
 - &command-R
   ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
