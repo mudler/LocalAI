@@ -2682,6 +2682,25 @@
     - filename: 32B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
       sha256: b8910172b74d03c3463ac301589f54b96e54f61c67531fb6b523ecfe923aaffb
       uri: huggingface://bartowski/32B-Qwen2.5-Kunou-v1-GGUF/32B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "14b-qwen2.5-kunou-v1"
+  urls:
+    - https://huggingface.co/Sao10K/14B-Qwen2.5-Kunou-v1
+    - https://huggingface.co/DevQuasar/Sao10K.14B-Qwen2.5-Kunou-v1-GGUF
+  description: |
+    I do not really have anything planned for this model other than it being a generalist, and Roleplay Model? It was just something made and planned in minutes.
+    This is the little sister variant, the small 14B version.
+    Kunou's the name of an OC I worked on for a couple of years, for a... fanfic. mmm...
+
+    A kind-of successor to my smaller model series. It works pretty nicely I think?
+    This version is basically a better, more cleaned up Dataset used on Euryale and Stheno.
+  overrides:
+    parameters:
+      model: Sao10K.14B-Qwen2.5-Kunou-v1.Q4_K_M.gguf
+  files:
+    - filename: Sao10K.14B-Qwen2.5-Kunou-v1.Q4_K_M.gguf
+      sha256: 7b7af50076e15c305a2a1bed7ad766dc6deb61eef3c2e6a40d4c94ad45623845
+      uri: huggingface://DevQuasar/Sao10K.14B-Qwen2.5-Kunou-v1-GGUF/Sao10K.14B-Qwen2.5-Kunou-v1.Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
