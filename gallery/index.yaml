@@ -2662,6 +2662,26 @@
     - filename: lwd-Mirau-RP-Q4_K_M-imat.gguf
       sha256: 22ff461e9034b9ebded07b2a9d3d88c2f75359d5c069ebb3ee4e9c6ec5c45cf8
       uri: huggingface://Lewdiculous/experimental-lwd-Mirau-RP-14B-GGUF-IQ-Imatrix/lwd-Mirau-RP-Q4_K_M-imat.gguf
+- !!merge <<: *qwen25
+  name: "32b-qwen2.5-kunou-v1"
+  icon: https://huggingface.co/Sao10K/72B-Qwen2.5-Kunou-v1/resolve/main/knn.png
+  urls:
+    - https://huggingface.co/Sao10K/32B-Qwen2.5-Kunou-v1
+    - https://huggingface.co/bartowski/32B-Qwen2.5-Kunou-v1-GGUF
+  description: |
+    I do not really have anything planned for this model other than it being a generalist, and Roleplay Model? It was just something made and planned in minutes.
+    Same with the 14B and 72B version.
+    Kunou's the name of an OC I worked on for a couple of years, for a... fanfic. mmm...
+    A kind-of successor to L3-70B-Euryale-v2.2 in all but name? I'm keeping Stheno/Euryale lineage to Llama series for now.
+    I had a version made on top of Nemotron, a supposed Euryale 2.4 but that flopped hard, it was not my cup of tea.
+    This version is basically a better, more cleaned up Dataset used on Euryale and Stheno.
+  overrides:
+    parameters:
+      model: 32B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
+  files:
+    - filename: 32B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
+      sha256: b8910172b74d03c3463ac301589f54b96e54f61c67531fb6b523ecfe923aaffb
+      uri: huggingface://bartowski/32B-Qwen2.5-Kunou-v1-GGUF/32B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
