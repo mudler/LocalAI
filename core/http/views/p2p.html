@@ -48,11 +48,11 @@
             <!-- Federation Box -->
             <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-12 text-left">
 
-                <p class="text-xl font-semibold text-gray-200"> <i class="text-gray-200 fa-solid fa-circle-nodes"></i> Federated Nodes: <span hx-get="/p2p/ui/workers-federation-stats" hx-trigger="every 1s"></span> </p>
+                <p class="text-xl font-semibold text-gray-200"> <i class="text-gray-200 fa-solid fa-circle-nodes"></i> Federated Nodes: <span hx-get="p2p/ui/workers-federation-stats" hx-trigger="every 1s"></span> </p>
                 <p class="mb-4">You can start LocalAI in federated mode to share your instance, or start the federated server to balance requests between nodes of the federation.</p>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-12">
-                    <div hx-get="/p2p/ui/workers-federation" hx-trigger="every 1s"></div>
+                    <div hx-get="p2p/ui/workers-federation" hx-trigger="every 1s"></div>
                 </div>
 
                 <hr class="border-gray-700 mb-12">
@@ -123,11 +123,11 @@
 
             <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-12 text-left">
 
-                <p class="text-xl font-semibold text-gray-200"> <i class="text-gray-200 fa-solid fa-circle-nodes"></i> Workers (llama.cpp): <span hx-get="/p2p/ui/workers-stats" hx-trigger="every 1s"></span> </p>
+                <p class="text-xl font-semibold text-gray-200"> <i class="text-gray-200 fa-solid fa-circle-nodes"></i> Workers (llama.cpp): <span hx-get="p2p/ui/workers-stats" hx-trigger="every 1s"></span> </p>
                 <p class="mb-4">You can start llama.cpp workers to distribute weights between the workers and offload part of the computation. To start a new worker, you can use the CLI or Docker.</p>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-12">
-                    <div hx-get="/p2p/ui/workers" hx-trigger="every 1s"></div>
+                    <div hx-get="p2p/ui/workers" hx-trigger="every 1s"></div>
                 </div>
                 <hr class="border-gray-700 mb-12">
 
@@ -177,7 +177,7 @@
 
     {{template "views/partials/footer" .}}
 </div>
-<script src="/static/p2panimation.js"></script>
+<script src="static/p2panimation.js"></script>
 <style>
     .token {
         word-break: break-all;

@@ -16,38 +16,38 @@
 
             <div class="text-center font-semibold text-gray-100">
                 <h2>Filter by type:</h2>
-                <button  hx-post="/browse/search/models"
+                <button  hx-post="browse/search/models"
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "tts"}'
                 hx-indicator=".htmx-indicator" >TTS</button> 
-                <button  hx-post="/browse/search/models" 
+                <button  hx-post="browse/search/models" 
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "stablediffusion"}'
                 hx-indicator=".htmx-indicator" >Image generation</button> 
-                <button  hx-post="/browse/search/models" \
+                <button  hx-post="browse/search/models" \
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "llm"}'
                 hx-indicator=".htmx-indicator" >Text generation</button> 
-                <button  hx-post="/browse/search/models" 
+                <button  hx-post="browse/search/models" 
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "multimodal"}'
                 hx-indicator=".htmx-indicator" >Multimodal</button> 
-                <button  hx-post="/browse/search/models" 
+                <button  hx-post="browse/search/models" 
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "embedding"}'
                 hx-indicator=".htmx-indicator" >Embeddings</button>
-                <button  hx-post="/browse/search/models"
+                <button  hx-post="browse/search/models"
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "rerank"}'
                 hx-indicator=".htmx-indicator" >Rerankers</button> 
                 <button  
-                    hx-post="/browse/search/models"
+                    hx-post="browse/search/models"
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "whisper"}'
@@ -57,7 +57,7 @@
             <div class="text-center text-xs font-semibold text-gray-100">
                 Filter by tags:
                 {{ range .AllTags }}
-                    <button  hx-post="/browse/search/models" class="text-blue-500" hx-target="#search-results" 
+                    <button  hx-post="browse/search/models" class="text-blue-500" hx-target="#search-results" 
                     hx-vals='{"search": "{{.}}"}'
                     hx-indicator=".htmx-indicator" >{{.}}</button> 
                 {{ end }}
@@ -69,7 +69,7 @@
 
             <input class="form-control appearance-none block w-full mt-5 px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search" 
                 name="search" placeholder="Begin Typing To Search models..." 
-                hx-post="/browse/search/models" 
+                hx-post="browse/search/models" 
                 hx-trigger="input changed delay:500ms, search" 
                 hx-target="#search-results" 
                 hx-indicator=".htmx-indicator">

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/explorer"
+	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/internal"
 )
 
@@ -14,6 +15,7 @@ func Dashboard() func(*fiber.Ctx) error {
 		summary := fiber.Map{
 			"Title":   "LocalAI API - " + internal.PrintableVersion(),
 			"Version": internal.PrintableVersion(),
+			"BaseURL": utils.BaseURL(c),
 		}
 
 		if string(c.Context().Request.Header.ContentType()) == "application/json" || len(c.Accepts("html")) == 0 {

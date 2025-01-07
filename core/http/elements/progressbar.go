@@ -64,7 +64,7 @@ func StartProgressBar(uid, progress, text string) string {
 	return elem.Div(
 		attrs.Props{
 			"hx-trigger": "done",
-			"hx-get":     "/browse/job/" + uid,
+			"hx-get":     "browse/job/" + uid,
 			"hx-swap":    "outerHTML",
 			"hx-target":  "this",
 		},
@@ -77,7 +77,7 @@ func StartProgressBar(uid, progress, text string) string {
 			},
 			elem.Text(bluemonday.StrictPolicy().Sanitize(text)), //Perhaps overly defensive
 			elem.Div(attrs.Props{
-				"hx-get":     "/browse/job/progress/" + uid,
+				"hx-get":     "browse/job/progress/" + uid,
 				"hx-trigger": "every 600ms",
 				"hx-target":  "this",
 				"hx-swap":    "innerHTML",
