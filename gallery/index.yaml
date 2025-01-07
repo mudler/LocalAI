@@ -1094,6 +1094,31 @@
     - filename: Dolphin3.0-Llama3.2-1B-Q4_K_M.gguf
       sha256: 7ed39ee0638e18d3e47bf12e60e917c792ca5332606a72bd1882ab1f62a13a7a
       uri: huggingface://bartowski/Dolphin3.0-Llama3.2-1B-GGUF/Dolphin3.0-Llama3.2-1B-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "dolphin3.0-llama3.2-3b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63111b2d88942700629f5771/cNCs1TBD3FelWCJGkZ3cd.png
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/cognitivecomputations/Dolphin3.0-Llama3.2-3B
+    - https://huggingface.co/bartowski/Dolphin3.0-Llama3.2-3B-GGUF
+  description: |
+    Dolphin 3.0 is the next generation of the Dolphin series of instruct-tuned models. Designed to be the ultimate general purpose local model, enabling coding, math, agentic, function calling, and general use cases.
+
+    Dolphin aims to be a general purpose model, similar to the models behind ChatGPT, Claude, Gemini. But these models present problems for businesses seeking to include AI in their products.
+
+        They maintain control of the system prompt, deprecating and changing things as they wish, often causing software to break.
+        They maintain control of the model versions, sometimes changing things silently, or deprecating older models that your business relies on.
+        They maintain control of the alignment, and in particular the alignment is one-size-fits all, not tailored to the application.
+        They can see all your queries and they can potentially use that data in ways you wouldn't want. Dolphin, in contrast, is steerable and gives control to the system owner. You set the system prompt. You decide the alignment. You have control of your data. Dolphin does not impose its ethics or guidelines on you. You are the one who decides the guidelines.
+
+    Dolphin belongs to YOU, it is your tool, an extension of your will. Just as you are personally responsible for what you do with a knife, gun, fire, car, or the internet, you are the creator and originator of any content you generate with Dolphin.
+  overrides:
+    parameters:
+      model: Dolphin3.0-Llama3.2-3B-Q4_K_M.gguf
+  files:
+    - filename: Dolphin3.0-Llama3.2-3B-Q4_K_M.gguf
+      sha256: 5d6d02eeefa1ab5dbf23f97afdf5c2c95ad3d946dc3b6e9ab72e6c1637d54177
+      uri: huggingface://bartowski/Dolphin3.0-Llama3.2-3B-GGUF/Dolphin3.0-Llama3.2-3B-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
