@@ -4610,6 +4610,31 @@
     - filename: Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
       sha256: 254c7ccc4ea3818fe5f6e3ffd5500c779b02058b98f9ce9a3856e54106d008e3
       uri: huggingface://QuantFactory/Llama3.1-8B-PRM-Deepseek-Data-GGUF/Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "dolphin3.0-llama3.1-8b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63111b2d88942700629f5771/cNCs1TBD3FelWCJGkZ3cd.png
+  urls:
+    - https://huggingface.co/cognitivecomputations/Dolphin3.0-Llama3.1-8B
+    - https://huggingface.co/bartowski/Dolphin3.0-Llama3.1-8B-GGUF
+  description: |
+    Dolphin 3.0 is the next generation of the Dolphin series of instruct-tuned models. Designed to be the ultimate general purpose local model, enabling coding, math, agentic, function calling, and general use cases.
+
+    Dolphin aims to be a general purpose model, similar to the models behind ChatGPT, Claude, Gemini. But these models present problems for businesses seeking to include AI in their products.
+
+        They maintain control of the system prompt, deprecating and changing things as they wish, often causing software to break.
+        They maintain control of the model versions, sometimes changing things silently, or deprecating older models that your business relies on.
+        They maintain control of the alignment, and in particular the alignment is one-size-fits all, not tailored to the application.
+        They can see all your queries and they can potentially use that data in ways you wouldn't want. Dolphin, in contrast, is steerable and gives control to the system owner. You set the system prompt. You decide the alignment. You have control of your data. Dolphin does not impose its ethics or guidelines on you. You are the one who decides the guidelines.
+
+    Dolphin belongs to YOU, it is your tool, an extension of your will. Just as you are personally responsible for what you do with a knife, gun, fire, car, or the internet, you are the creator and originator of any content you generate with Dolphin.
+  overrides:
+    parameters:
+      model: Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
+  files:
+    - filename: Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
+      sha256: 268390e07edd407ad93ea21a868b7ae995b5950e01cad0db9e1802ae5049d405
+      uri: huggingface://bartowski/Dolphin3.0-Llama3.1-8B-GGUF/Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
 - &deepseek
   ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
