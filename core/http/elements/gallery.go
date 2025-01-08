@@ -47,7 +47,7 @@ func searchableElement(text, icon string) elem.Node {
 					//	"value":     text,
 					//"class":     "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2",
 					"href":      "#!",
-					"hx-post":   "/browse/search/models",
+					"hx-post":   "browse/search/models",
 					"hx-target": "#search-results",
 					// TODO: this doesn't work
 					//	"hx-vals":      `{ \"search\": \"` + text + `\" }`,

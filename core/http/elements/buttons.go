@@ -16,7 +16,7 @@ func installButton(galleryName string) elem.Node {
 			"class":                 "float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
 			"hx-swap":               "outerHTML",
 			// post the Model ID as param
-			"hx-post": "/browse/install/model/" + galleryName,
+			"hx-post": "browse/install/model/" + galleryName,
 		},
 		elem.I(
 			attrs.Props{
@@ -36,7 +36,7 @@ func reInstallButton(galleryName string) elem.Node {
 			"hx-target":             "#action-div-" + dropBadChars(galleryName),
 			"hx-swap":               "outerHTML",
 			// post the Model ID as param
-			"hx-post": "/browse/install/model/" + galleryName,
+			"hx-post": "browse/install/model/" + galleryName,
 		},
 		elem.I(
 			attrs.Props{
@@ -80,7 +80,7 @@ func deleteButton(galleryID string) elem.Node {
 			"hx-target":             "#action-div-" + dropBadChars(galleryID),
 			"hx-swap":               "outerHTML",
 			// post the Model ID as param
-			"hx-post": "/browse/delete/model/" + galleryID,
+			"hx-post": "browse/delete/model/" + galleryID,
 		},
 		elem.I(
 			attrs.Props{

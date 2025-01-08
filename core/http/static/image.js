@@ -48,7 +48,7 @@ async function promptDallE(key, input) {
   document.getElementById("input").disabled = true;
 
   const model = document.getElementById("image-model").value;
-  const response = await fetch("/v1/images/generations", {
+  const response = await fetch("v1/images/generations", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
