@@ -1,0 +1,20 @@
+---
+name: "phi-4-chat"
+
+config_file: |
+  mmap: true
+  template:
+    chat_message: |
+      <|im_start|>{{ .RoleName }}<|im_sep|>
+      {{.Content}}<|im_end|>
+    chat: |
+      {{.Input}}
+      <|im_start|>assistant<|im_sep|>
+    completion: |
+      {{.Input}}
+  context_size: 4096
+  f16: true
+  stopwords:
+  - <|end|>
+  - <|endoftext|>
+  - <|im_end|>

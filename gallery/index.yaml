@@ -1,4 +1,28 @@
 ---
+- &phi4
+  url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
+  name: "phi-4"
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - phi
+    - cpu
+    - gpu
+    - text-generation
+  urls:
+    - https://huggingface.co/microsoft/phi-4
+    - https://huggingface.co/bartowski/phi-4-GGUF
+  description: |
+      phi-4 is a state-of-the-art open model built upon a blend of synthetic datasets, data from filtered public domain websites, and acquired academic books and Q&A datasets. The goal of this approach was to ensure that small capable models were trained with data focused on high quality and advanced reasoning.
+      phi-4 underwent a rigorous enhancement and alignment process, incorporating both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. Phi-4 is a 14B parameters, dense decoder-only Transformer model.
+  overrides:
+    parameters:
+      model: phi-4-Q4_K_M.gguf
+  files:
+    - filename: phi-4-Q4_K_M.gguf
+      sha256: e38bd5fa5f1c03d51ebc34a8d7b284e0da089c8af05e7f409a0079a9c831a10b
+      uri: huggingface://bartowski/phi-4-GGUF/phi-4-Q4_K_M.gguf
 - &falcon3
   name: "falcon3-1b-instruct"
   url: "github:mudler/LocalAI/gallery/falcon3.yaml@master"
