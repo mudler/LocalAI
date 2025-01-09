@@ -5,6 +5,10 @@ dependencies:
 - any:
   - changed-files:
     - any-glob-to-any-file: 'Makefile'
+  - changed-files:
+    - any-glob-to-any-file: '*.mod'
+  - changed-files:
+    - any-glob-to-any-file: '*.sum'
 
 kind/documentation:
 - any:
