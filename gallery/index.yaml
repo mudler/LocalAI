@@ -2887,6 +2887,23 @@
     - filename: Sao10K.14B-Qwen2.5-Freya-x1.Q4_K_M.gguf
       sha256: 790953e2ffccf2f730d52072f300fba9d1549c7762f5127b2014cdc82204b509
       uri: huggingface://DevQuasar/Sao10K.14B-Qwen2.5-Freya-x1-GGUF/Sao10K.14B-Qwen2.5-Freya-x1.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "huatuogpt-o1-7b-v0.1"
+  urls:
+    - https://huggingface.co/FreedomIntelligence/HuatuoGPT-o1-7B
+    - https://huggingface.co/bartowski/HuatuoGPT-o1-7B-v0.1-GGUF
+    - https://github.com/FreedomIntelligence/HuatuoGPT-o1
+  description: |
+    HuatuoGPT-o1 is a medical LLM designed for advanced medical reasoning. It generates a complex thought process, reflecting and refining its reasoning, before providing a final response.
+
+    For more information, visit our GitHub repository: https://github.com/FreedomIntelligence/HuatuoGPT-o1.
+  overrides:
+    parameters:
+      model: HuatuoGPT-o1-7B-v0.1-Q4_K_M.gguf
+  files:
+    - filename: HuatuoGPT-o1-7B-v0.1-Q4_K_M.gguf
+      sha256: 8fc4b797a532d67d677e90293175ff1365c91677d06ea27af297bdf5b60c2d1d
+      uri: huggingface://bartowski/HuatuoGPT-o1-7B-v0.1-GGUF/HuatuoGPT-o1-7B-v0.1-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
