@@ -1143,6 +1143,20 @@
     - filename: Dolphin3.0-Llama3.2-3B-Q4_K_M.gguf
       sha256: 5d6d02eeefa1ab5dbf23f97afdf5c2c95ad3d946dc3b6e9ab72e6c1637d54177
       uri: huggingface://bartowski/Dolphin3.0-Llama3.2-3B-GGUF/Dolphin3.0-Llama3.2-3B-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "minithinky-v2-1b-llama-3.2"
+  urls:
+    - https://huggingface.co/ngxson/MiniThinky-v2-1B-Llama-3.2
+    - https://huggingface.co/bartowski/MiniThinky-v2-1B-Llama-3.2-GGUF
+  description: |
+    This is the newer checkpoint of MiniThinky-1B-Llama-3.2 (version 1), which the loss decreased from 0.7 to 0.5
+  overrides:
+    parameters:
+      model: MiniThinky-v2-1B-Llama-3.2-Q4_K_M.gguf
+  files:
+    - filename: MiniThinky-v2-1B-Llama-3.2-Q4_K_M.gguf
+      sha256: 086857b6364afd757a123eea0474bede09f25608783e7a6fcf2f88d8cb322ca1
+      uri: huggingface://bartowski/MiniThinky-v2-1B-Llama-3.2-GGUF/MiniThinky-v2-1B-Llama-3.2-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
