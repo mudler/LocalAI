@@ -23,6 +23,11 @@ type OpenAIUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+	// Extra timing data, disabled by default as is't not a part of OpenAI specification
+	TimingPromptTokens     int     `json:"timing_prompt_tokens,omitempty"`
+	TimingPredictedTokens  int     `json:"timing_predicted_tokens,omitempty"`
+	TimingPromptProcessing float64 `json:"timing_prompt_processing,omitempty"`
+	TimingTokenGeneration  float64 `json:"timing_token_generation,omitempty"`
 }
 
 type Item struct {

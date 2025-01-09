@@ -19,6 +19,7 @@ import (
 // @Router		/vad [post]
 func VADEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 
 		input := new(schema.VADRequest)
 

@@ -71,6 +71,7 @@ type RunCMD struct {
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
+	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG" help:"TODO: write a help string"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -107,6 +108,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithHttpGetExemptedEndpoints(r.HttpGetExemptedEndpoints),
 		config.WithP2PNetworkID(r.Peer2PeerNetworkID),
 		config.WithLoadToMemory(r.LoadToMemory),
+		config.WithMachineTag(r.MachineTag),
 	}
 
 	if r.DisableMetricsEndpoint {

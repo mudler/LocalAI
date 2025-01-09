@@ -19,6 +19,8 @@ import (
 // @Router /v1/rerank [post]
 func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
+
 		req := new(schema.JINARerankRequest)
 		if err := c.BodyParser(req); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
