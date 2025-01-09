@@ -21,8 +21,8 @@ func (vad *VAD) Load(opts *pb.ModelOptions) error {
 		SampleRate: 16000,
 		//WindowSize:           1024,
 		Threshold:            0.5,
-		MinSilenceDurationMs: 0,
-		SpeechPadMs:          0,
+		MinSilenceDurationMs: 100,
+		SpeechPadMs:          30,
 	})
 	if err != nil {
 		return fmt.Errorf("create silero detector: %w", err)
