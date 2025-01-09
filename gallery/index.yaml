@@ -277,6 +277,24 @@
     - filename: Rombos-LLM-70b-Llama-3.3-Q4_K_M.gguf
       uri: huggingface://bartowski/Rombos-LLM-70b-Llama-3.3-GGUF/Rombos-LLM-70b-Llama-3.3-Q4_K_M.gguf
       sha256: 613008b960f6fff346b5dec71a87cd7ecdaff205bfea6332bd8fe2bb46177352
+- !!merge <<: *llama33
+  name: "70b-l3.3-cirrus-x1"
+  icon: https://huggingface.co/Sao10K/70B-L3.3-Cirrus-x1/resolve/main/venti.png
+  urls:
+    - https://huggingface.co/Sao10K/70B-L3.3-Cirrus-x1
+    - https://huggingface.co/bartowski/70B-L3.3-Cirrus-x1-GGUF
+  description: |
+    - Same data composition as Freya, applied differently, trained longer too.
+    - Merging with its checkpoints was also involved.
+    - Has a nice style, with occasional issues that can be easily fixed.
+    - A more stable version compared to previous runs.
+  overrides:
+    parameters:
+      model: 70B-L3.3-Cirrus-x1-Q4_K_M.gguf
+  files:
+    - filename: 70B-L3.3-Cirrus-x1-Q4_K_M.gguf
+      sha256: 07dd464dddba959df8eb2f937787c2210b4c51c2375bd7c7ab2abbe198142a19
+      uri: huggingface://bartowski/70B-L3.3-Cirrus-x1-GGUF/70B-L3.3-Cirrus-x1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
