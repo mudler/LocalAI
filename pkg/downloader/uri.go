@@ -2,7 +2,9 @@ package downloader
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"net/url"
@@ -204,6 +206,25 @@ func removePartialFile(tmpFilePath string) error {
 	return nil
 }
 
+func calculateHashForPartialFile(file *os.File) (hash.Hash, error) {
+	hash := sha256.New()
+	_, err := io.Copy(hash, file)
+	if err != nil {
+		return nil, err
+	}
+	return hash, nil
+}
+
+func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
+	url := uri.ResolveURL()
+	resp, err := http.Head(url)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	return resp.Header.Get("Accept-Ranges") == "bytes", nil
+}
+
 func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
 	url := uri.ResolveURL()
 	if uri.LooksLikeOCI() {
@@ -266,8 +287,34 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 
 	log.Info().Msgf("Downloading %q", url)
 
-	// Download file
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request for %q: %v", filePath, err)
+	}
+
+	// save partial download to dedicated file
+	tmpFilePath := filePath + ".partial"
+	tmpFileInfo, err := os.Stat(tmpFilePath)
+	if err == nil {
+		support, err := uri.checkSeverSupportsRangeHeader()
+		if err != nil {
+			return fmt.Errorf("failed to check if uri server supports range header: %v", err)
+		}
+		if support {
+			startPos := tmpFileInfo.Size()
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startPos))
+		} else {
+			err := removePartialFile(tmpFilePath)
+			if err != nil {
+				return err
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to check file %q existence: %v", filePath, err)
+	}
+
+	// Start the request
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download file %q: %v", filePath, err)
 	}
@@ -283,26 +330,20 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
 	}
 
-	// save partial download to dedicated file
-	tmpFilePath := filePath + ".partial"
-
-	// remove tmp file
-	err = removePartialFile(tmpFilePath)
+	// Create and write file
+	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return err
-	}
-
-	// Create and write file content
-	outFile, err := os.Create(tmpFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to create file %q: %v", tmpFilePath, err)
+		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
 	}
 	defer outFile.Close()
-
+	hash, err := calculateHashForPartialFile(outFile)
+	if err != nil {
+		return fmt.Errorf("failed to calculate hash for partial file")
+	}
 	progress := &progressWriter{
 		fileName:       tmpFilePath,
 		total:          resp.ContentLength,
-		hash:           sha256.New(),
+		hash:           hash,
 		fileNo:         fileN,
 		totalFiles:     total,
 		downloadStatus: downloadStatus,
