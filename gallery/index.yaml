@@ -2849,6 +2849,30 @@
     - filename: Dolphin3.0-Qwen2.5-3b-Q4_K_M.gguf
       sha256: 0cb1908c5f444e1dc2c5b5619d62ac4957a22ad39cd42f2d0b48e2d8b1c358ab
       uri: huggingface://bartowski/Dolphin3.0-Qwen2.5-3b-GGUF/Dolphin3.0-Qwen2.5-3b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "14b-qwen2.5-freya-x1"
+  icon: https://huggingface.co/Sao10K/14B-Qwen2.5-Freya-x1/resolve/main/sad.png
+  urls:
+    - https://huggingface.co/Sao10K/14B-Qwen2.5-Freya-x1
+    - https://huggingface.co/DevQuasar/Sao10K.14B-Qwen2.5-Freya-x1-GGUF
+  description: |
+    I decided to mess around with training methods again, considering the re-emegence of methods like multi-step training. Some people began doing it again, and so, why not? Inspired by AshhLimaRP's methology but done it my way.
+    Freya-S1
+
+        LoRA Trained on ~1.1GB of literature and raw text over Qwen 2.5's base model.
+        Cleaned text and literature as best as I could, still, may have had issues here and there.
+
+    Freya-S2
+
+        The first LoRA was applied over Qwen 2.5 Instruct, then I trained on top of that.
+        Reduced LoRA rank because it's mainly instruct and other details I won't get into.
+  overrides:
+    parameters:
+      model: Sao10K.14B-Qwen2.5-Freya-x1.Q4_K_M.gguf
+  files:
+    - filename: Sao10K.14B-Qwen2.5-Freya-x1.Q4_K_M.gguf
+      sha256: 790953e2ffccf2f730d52072f300fba9d1549c7762f5127b2014cdc82204b509
+      uri: huggingface://DevQuasar/Sao10K.14B-Qwen2.5-Freya-x1-GGUF/Sao10K.14B-Qwen2.5-Freya-x1.Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
