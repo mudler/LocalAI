@@ -30,7 +30,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 	var id, textContentToReturn string
 	var created int
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
@@ -40,18 +40,26 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 		}
 		responses <- initialMessage
 
-		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+			usage := schema.OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			}
+			if extraUsage {
+				usage.TimingPredictedTokens = tokenUsage.TimingPredictedTokens
+				usage.TimingPromptTokens = tokenUsage.TimingPromptTokens
+				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+			}
+
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0}},
 				Object:  "chat.completion.chunk",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     usage.Prompt,
-					CompletionTokens: usage.Completion,
-					TotalTokens:      usage.Prompt + usage.Completion,
-				},
+				Usage:   usage,
 			}
 
 			responses <- resp
@@ -59,7 +67,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 		})
 		close(responses)
 	}
-	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
 		result := ""
 		_, tokenUsage, _ := ComputeChoices(req, prompt, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
@@ -90,6 +98,17 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 				log.Error().Err(err).Msg("error handling question")
 				return
 			}
+			usage := schema.OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			}
+			if extraUsage {
+				usage.TimingPredictedTokens = tokenUsage.TimingPredictedTokens
+				usage.TimingPromptTokens = tokenUsage.TimingPromptTokens
+				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+			}
 
 			resp := schema.OpenAIResponse{
 				ID:      id,
@@ -97,11 +116,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{{Delta: &schema.Message{Content: &result}, Index: 0}},
 				Object:  "chat.completion.chunk",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     tokenUsage.Prompt,
-					CompletionTokens: tokenUsage.Completion,
-					TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-				},
+				Usage:   usage,
 			}
 
 			responses <- resp
@@ -160,6 +175,8 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 	}
 
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", startupOptions.MachineTag)
+
 		textContentToReturn = ""
 		id = uuid.New().String()
 		created = int(time.Now().Unix())
@@ -169,6 +186,9 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			correlationID = id
 		}
 		c.Set("X-Correlation-ID", correlationID)
+
+		// Opt-in extra usage flag
+		extraUsage := c.Get("LocalAI-Extra-Usage", "") != ""
 
 		modelFile, input, err := readRequest(c, cl, ml, startupOptions, true)
 		if err != nil {
@@ -311,6 +331,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
 			//	c.Set("Content-Type", "text/event-stream")
+			c.Set("LocalAI-Machine-Tag", startupOptions.MachineTag)
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
@@ -319,9 +340,9 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			responses := make(chan schema.OpenAIResponse)
 
 			if !shouldUseFn {
-				go process(predInput, input, config, ml, responses)
+				go process(predInput, input, config, ml, responses, extraUsage)
 			} else {
-				go processTools(noActionName, predInput, input, config, ml, responses)
+				go processTools(noActionName, predInput, input, config, ml, responses, extraUsage)
 			}
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
@@ -449,6 +470,18 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			if err != nil {
 				return err
 			}
+			usage := schema.OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			}
+			if extraUsage {
+				usage.TimingPredictedTokens = tokenUsage.TimingPredictedTokens
+				usage.TimingPromptTokens = tokenUsage.TimingPromptTokens
+				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+			}
+			fmt.Println(tokenUsage)
 
 			resp := &schema.OpenAIResponse{
 				ID:      id,
@@ -456,11 +489,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 				Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: result,
 				Object:  "chat.completion",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     tokenUsage.Prompt,
-					CompletionTokens: tokenUsage.Completion,
-					TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-				},
+				Usage:   usage,
 			}
 			respData, _ := json.Marshal(resp)
 			log.Debug().Msgf("Response: %s", respData)

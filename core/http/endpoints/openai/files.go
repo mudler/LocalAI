@@ -23,6 +23,7 @@ const UploadedFilesFile = "uploadedFiles.json"
 // UploadFilesEndpoint https://platform.openai.com/docs/api-reference/files/create
 func UploadFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		file, err := c.FormFile("file")
 		if err != nil {
 			return err
@@ -82,6 +83,7 @@ func getNextFileId() int64 {
 func ListFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		var listFiles schema.ListFiles
 
 		purpose := c.Query("purpose")
@@ -120,6 +122,7 @@ func getFileFromRequest(c *fiber.Ctx) (*schema.File, error) {
 // @Router /v1/files/{file_id} [get]
 func GetFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		file, err := getFileFromRequest(c)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
@@ -142,6 +145,7 @@ type DeleteStatus struct {
 func DeleteFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		file, err := getFileFromRequest(c)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
@@ -179,6 +183,7 @@ func DeleteFilesEndpoint(cm *config.BackendConfigLoader, appConfig *config.Appli
 // GetFilesContentsEndpoint
 func GetFilesContentsEndpoint(cm *config.BackendConfigLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		file, err := getFileFromRequest(c)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))

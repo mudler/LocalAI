@@ -30,8 +30,19 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
-		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
+		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+			usage := schema.OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			}
+			if extraUsage {
+				usage.TimingPredictedTokens = tokenUsage.TimingPredictedTokens
+				usage.TimingPromptTokens = tokenUsage.TimingPromptTokens
+				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+			}
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
@@ -43,11 +54,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 					},
 				},
 				Object: "text_completion",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     usage.Prompt,
-					CompletionTokens: usage.Completion,
-					TotalTokens:      usage.Prompt + usage.Completion,
-				},
+				Usage:  usage,
 			}
 			log.Debug().Msgf("Sending goroutine: %s", s)
 
@@ -58,8 +65,13 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 	}
 
 	return func(c *fiber.Ctx) error {
+		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		// Add Correlation
 		c.Set("X-Correlation-ID", id)
+
+		// Opt-in extra usage flag
+		extraUsage := c.Get("LocalAI-Extra-Usage", "") != ""
+
 		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
@@ -113,7 +125,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 
 			responses := make(chan schema.OpenAIResponse)
 
-			go process(predInput, input, config, ml, responses)
+			go process(predInput, input, config, ml, responses, extraUsage)
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
@@ -170,10 +182,23 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 				return err
 			}
 
-			totalTokenUsage.Prompt += tokenUsage.Prompt
-			totalTokenUsage.Completion += tokenUsage.Completion
+			totalTokenUsage.TimingPredictedTokens += tokenUsage.TimingPredictedTokens
+			totalTokenUsage.TimingPromptTokens += tokenUsage.TimingPromptTokens
+			totalTokenUsage.TimingTokenGeneration += tokenUsage.TimingTokenGeneration
+			totalTokenUsage.TimingPromptProcessing += tokenUsage.TimingPromptProcessing
 
 			result = append(result, r...)
+		}
+		usage := schema.OpenAIUsage{
+			PromptTokens:     totalTokenUsage.Prompt,
+			CompletionTokens: totalTokenUsage.Completion,
+			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
+		}
+		if extraUsage {
+			usage.TimingPredictedTokens = totalTokenUsage.TimingPredictedTokens
+			usage.TimingPromptTokens = totalTokenUsage.TimingPromptTokens
+			usage.TimingTokenGeneration = totalTokenUsage.TimingTokenGeneration
+			usage.TimingPromptProcessing = totalTokenUsage.TimingPromptProcessing
 		}
 
 		resp := &schema.OpenAIResponse{
@@ -182,11 +207,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "text_completion",
-			Usage: schema.OpenAIUsage{
-				PromptTokens:     totalTokenUsage.Prompt,
-				CompletionTokens: totalTokenUsage.Completion,
-				TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
-			},
+			Usage:   usage,
 		}
 
 		jsonResult, _ := json.Marshal(resp)
