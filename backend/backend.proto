@@ -159,10 +159,8 @@ message Reply {
   bytes message = 1;
   int32 tokens = 2;
   int32 prompt_tokens = 3;
-  int32 timing_prompt_tokens = 4;
-  int32 timing_predicted_tokens = 5;
-  double timing_prompt_processing = 6;
-  double timing_token_generation = 7;
+  double timing_prompt_processing = 4;
+  double timing_token_generation = 5;
 }
 
 message ModelOptions {

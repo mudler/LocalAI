@@ -29,8 +29,6 @@ type LLMResponse struct {
 type TokenUsage struct {
 	Prompt                 int
 	Completion             int
-	TimingPromptTokens     int
-	TimingPredictedTokens  int
 	TimingPromptProcessing float64
 	TimingTokenGeneration  float64
 }
@@ -127,8 +125,6 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 
 				tokenUsage.Prompt = int(reply.PromptTokens)
 				tokenUsage.Completion = int(reply.Tokens)
-				tokenUsage.TimingPredictedTokens = int(reply.TimingPredictedTokens)
-				tokenUsage.TimingPromptTokens = int(reply.TimingPromptTokens)
 				tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
 				tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
 
@@ -166,8 +162,6 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 				tokenUsage.Completion = int(reply.Tokens)
 			}
 
-			tokenUsage.TimingPredictedTokens = int(reply.TimingPredictedTokens)
-			tokenUsage.TimingPromptTokens = int(reply.TimingPromptTokens)
 			tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
 			tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
 

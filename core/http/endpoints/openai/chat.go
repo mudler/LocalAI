@@ -47,8 +47,6 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
 			}
 			if extraUsage {
-				usage.TimingPredictedTokens = tokenUsage.TimingPredictedTokens
-				usage.TimingPromptTokens = tokenUsage.TimingPromptTokens
 				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
@@ -104,8 +102,6 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
 			}
 			if extraUsage {
-				usage.TimingPredictedTokens = tokenUsage.TimingPredictedTokens
-				usage.TimingPromptTokens = tokenUsage.TimingPromptTokens
 				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
@@ -476,12 +472,9 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
 			}
 			if extraUsage {
-				usage.TimingPredictedTokens = tokenUsage.TimingPredictedTokens
-				usage.TimingPromptTokens = tokenUsage.TimingPromptTokens
 				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
-			fmt.Println(tokenUsage)
 
 			resp := &schema.OpenAIResponse{
 				ID:      id,

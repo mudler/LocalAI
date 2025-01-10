@@ -38,8 +38,6 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
 			}
 			if extraUsage {
-				usage.TimingPredictedTokens = tokenUsage.TimingPredictedTokens
-				usage.TimingPromptTokens = tokenUsage.TimingPromptTokens
 				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
@@ -182,8 +180,6 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 				return err
 			}
 
-			totalTokenUsage.TimingPredictedTokens += tokenUsage.TimingPredictedTokens
-			totalTokenUsage.TimingPromptTokens += tokenUsage.TimingPromptTokens
 			totalTokenUsage.TimingTokenGeneration += tokenUsage.TimingTokenGeneration
 			totalTokenUsage.TimingPromptProcessing += tokenUsage.TimingPromptProcessing
 
@@ -195,8 +191,6 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
 		}
 		if extraUsage {
-			usage.TimingPredictedTokens = totalTokenUsage.TimingPredictedTokens
-			usage.TimingPromptTokens = totalTokenUsage.TimingPromptTokens
 			usage.TimingTokenGeneration = totalTokenUsage.TimingTokenGeneration
 			usage.TimingPromptProcessing = totalTokenUsage.TimingPromptProcessing
 		}
