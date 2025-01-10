@@ -2922,6 +2922,27 @@
     - filename: HuatuoGPT-o1-7B-v0.1-Q4_K_M.gguf
       sha256: 8fc4b797a532d67d677e90293175ff1365c91677d06ea27af297bdf5b60c2d1d
       uri: huggingface://bartowski/HuatuoGPT-o1-7B-v0.1-GGUF/HuatuoGPT-o1-7B-v0.1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "chuluun-qwen2.5-72b-v0.01"
+  icon: https://huggingface.co/DatToad/Chuluun-Qwen2.5-72B-v0.01/resolve/main/00008-1523559621.png
+  urls:
+    - https://huggingface.co/DatToad/Chuluun-Qwen2.5-72B-v0.01
+    - https://huggingface.co/bartowski/Chuluun-Qwen2.5-72B-v0.01-GGUF
+  description: |
+    This is a merge of pre-trained language models created using mergekit.
+
+    The models in this merge are some of my favorites and I found I liked all of them for different reasons. I believe this model is greater than the sum of its parts - it has the storywriting and language of Eva and Kunou, the spiciness of Magnum, and the uncensored intelligence of Tess. It excels in handling multiple characters and keeping their thoughts, speech, and actions separate, including scene changes. It also appears to match dialogue well to the characters and their backgrounds.
+
+    Model_stock was the method used, it's very straightforward and quite fast, the bottleneck seemed to be my NVMe drive.
+
+    All source models use ChatML prompt formatting and it responds very well. For testing purposes I am using a temperature of 1.08, rep pen of 0.03, and DRY with 0.6 (most Qwen models seem to need DRY). All other samplers are neutralized.
+  overrides:
+    parameters:
+      model: Chuluun-Qwen2.5-72B-v0.01-Q4_K_M.gguf
+  files:
+    - filename: Chuluun-Qwen2.5-72B-v0.01-Q4_K_M.gguf
+      sha256: 901d9d10aad42de3188e721accdc4eb0efec96cbca48563f802793dceaf551f5
+      uri: huggingface://bartowski/Chuluun-Qwen2.5-72B-v0.01-GGUF/Chuluun-Qwen2.5-72B-v0.01-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
