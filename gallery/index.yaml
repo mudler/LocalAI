@@ -9972,6 +9972,20 @@
       model: microsoft/Phi-3.5-vision-instruct
   description: |
     Phi-3.5-vision is a lightweight, state-of-the-art open multimodal model built upon datasets which include - synthetic data and filtered publicly available websites - with a focus on very high-quality, reasoning dense data both on text and vision. The model belongs to the Phi-3 model family, and the multimodal version comes with 128K context length (in tokens) it can support. The model underwent a rigorous enhancement process, incorporating both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures.
+- !!merge <<: *phi-3
+  name: "phi-3.5-moe-instruct"
+  urls:
+    - https://huggingface.co/microsoft/Phi-3.5-MoE-instruct
+    - https://huggingface.co/bartowski/Phi-3.5-MoE-instruct-GGUF
+  description: |
+    Phi-3.5-MoE is a lightweight, state-of-the-art open model built upon datasets used for Phi-3 - synthetic data and filtered publicly available documents - with a focus on very high-quality, reasoning dense data. The model supports multilingual and comes with 128K context length (in tokens). The model underwent a rigorous enhancement process, incorporating supervised fine-tuning, proximal policy optimization, and direct preference optimization to ensure precise instruction adherence and robust safety measures.
+  overrides:
+    parameters:
+      model: Phi-3.5-MoE-instruct-Q4_K_M.gguf
+  files:
+    - filename: Phi-3.5-MoE-instruct-Q4_K_M.gguf
+      sha256: 43e91bb720869bd8a92d8eb86bc3c74a52c49cf61642ca709b3d7bb89644df36
+      uri: huggingface://bartowski/Phi-3.5-MoE-instruct-GGUF/Phi-3.5-MoE-instruct-Q4_K_M.gguf
 - &hermes-2-pro-mistral
   ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
