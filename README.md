@@ -160,6 +160,7 @@ Model galleries
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
 - VSCode extension https://github.com/badgooooor/localai-vscode-plugin
+- Langchain: https://python.langchain.com/docs/integrations/providers/localai/
 - Terminal utility https://github.com/djcopley/ShellOracle
 - Local Smart assistant https://github.com/mudler/LocalAGI
 - Home Assistant https://github.com/sammcj/homeassistant-localai / https://github.com/drndos/hass-openai-custom-conversation / https://github.com/valentinfrlch/ha-gpt4vision
