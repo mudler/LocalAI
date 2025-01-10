@@ -66,8 +66,6 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			totalTokenUsage.Prompt += tokenUsage.Prompt
 			totalTokenUsage.Completion += tokenUsage.Completion
 
-			totalTokenUsage.TimingPredictedTokens += tokenUsage.TimingPredictedTokens
-			totalTokenUsage.TimingPromptTokens += tokenUsage.TimingPromptTokens
 			totalTokenUsage.TimingTokenGeneration += tokenUsage.TimingTokenGeneration
 			totalTokenUsage.TimingPromptProcessing += tokenUsage.TimingPromptProcessing
 
@@ -79,8 +77,6 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
 		}
 		if extraUsage {
-			usage.TimingPredictedTokens = totalTokenUsage.TimingPredictedTokens
-			usage.TimingPromptTokens = totalTokenUsage.TimingPromptTokens
 			usage.TimingTokenGeneration = totalTokenUsage.TimingTokenGeneration
 			usage.TimingPromptProcessing = totalTokenUsage.TimingPromptProcessing
 		}
