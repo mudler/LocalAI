@@ -6664,6 +6664,21 @@
     - filename: FuseChat-Gemma-2-9B-Instruct-Q4_K_M.gguf
       sha256: f5aef201be68f344bebff3433af87aac6428fd227adfd7e468c8bfbcf9660ece
       uri: huggingface://bartowski/FuseChat-Gemma-2-9B-Instruct-GGUF/FuseChat-Gemma-2-9B-Instruct-Q4_K_M.gguf
+- !!merge <<: *gemma
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/Ayc6YKE6FKYKb8Mible4z.png
+  name: "gwq-9b-preview2"
+  urls:
+    - https://huggingface.co/prithivMLmods/GWQ-9B-Preview2
+    - https://huggingface.co/bartowski/GWQ-9B-Preview2-GGUF
+  description: |
+    GWQ2 - Gemma with Questions Prev is a family of lightweight, state-of-the-art open models from Google, built using the same research and technology employed to create the Gemini models. These models are text-to-text, decoder-only large language models, available in English, with open weights for both pre-trained and instruction-tuned variants. Gemma models are well-suited for a variety of text generation tasks, including question answering, summarization, and reasoning. GWQ is fine-tuned on the Chain of Continuous Thought Synthetic Dataset, built upon the Gemma2forCasualLM architecture.
+  overrides:
+    parameters:
+      model: GWQ-9B-Preview2-Q4_K_M.gguf
+  files:
+    - filename: GWQ-9B-Preview2-Q4_K_M.gguf
+      sha256: 04da51cdb17c7e51594f6daac595161a46298b48ab5e568a85e65541d10a861f
+      uri: huggingface://bartowski/GWQ-9B-Preview2-GGUF/GWQ-9B-Preview2-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
