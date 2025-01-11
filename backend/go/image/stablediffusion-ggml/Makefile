@@ -46,11 +46,34 @@ endif
 # warnings
 CXXFLAGS += -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function
 
+# Find all .a archives in ARCHIVE_DIR
+# (ggml can have different backends cpu, cuda, etc., each backend generates a .a archive)
+GGML_ARCHIVE_DIR := build/ggml/src/
+ALL_ARCHIVES := $(shell find $(GGML_ARCHIVE_DIR) -type f -name '*.a')
+
+# Name of the single merged library
+COMBINED_LIB := libggmlall.a
+
+# Rule to merge all the .a files into one
+$(COMBINED_LIB): $(ALL_ARCHIVES)
+	@echo "Merging all .a into $(COMBINED_LIB)"
+	rm -f $@
+	mkdir -p merge-tmp
+	for a in $(ALL_ARCHIVES); do \
+		( cd merge-tmp && ar x ../$$a ); \
+	done
+	( cd merge-tmp && ar rcs ../$@ *.o )
+	# Ensure we have a proper index
+	ranlib $@
+	# Clean up
+	rm -rf merge-tmp
+
 build/libstable-diffusion.a:
 	mkdir -p build && \
 	cd build && \
 	cmake $(CMAKE_ARGS) ../../../../../sources/stablediffusion-ggml.cpp && \
 	cmake --build . --config Release
+	$(MAKE) $(COMBINED_LIB)
 
 gosd.o:
 	$(CXX) $(CXXFLAGS) gosd.cpp -o gosd.o -c
@@ -60,4 +83,4 @@ libsd.a: gosd.o
 	$(AR) rcs libsd.a gosd.o
 
 clean:
-	rm -f gosd.o libsd.a build
+	rm -rf gosd.o libsd.a build $(COMBINED_LIB)
