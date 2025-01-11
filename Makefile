@@ -302,14 +302,8 @@ sources/stablediffusion-ggml.cpp:
 	git checkout $(STABLEDIFFUSION_GGML_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
-sources/stablediffusion-ggml.cpp/build/libstable-diffusion.a: sources/stablediffusion-ggml.cpp
-	cd sources/stablediffusion-ggml.cpp && \
-	mkdir -p build && \
-	cd build && \
-	cmake $(CMAKE_ARGS) .. && \
-	cmake --build . --config Release
-
-backend/go/image/stablediffusion-ggml/libsd.a: sources/stablediffusion-ggml.cpp/build/libstable-diffusion.a
+backend/go/image/stablediffusion-ggml/libsd.a: sources/stablediffusion-ggml.cpp
+	$(MAKE) -C backend/go/image/stablediffusion-ggml build/libstable-diffusion.a
 	$(MAKE) -C backend/go/image/stablediffusion-ggml libsd.a
 
 backend-assets/grpc/stablediffusion-ggml: backend/go/image/stablediffusion-ggml/libsd.a backend-assets/grpc
