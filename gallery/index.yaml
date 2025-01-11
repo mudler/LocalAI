@@ -132,6 +132,22 @@
     - filename: Falcon3-7B-Instruct-abliterated-Q4_K_M.gguf
       sha256: 68e10e638668acaa49fb7919224c7d8bcf1798126c7a499c4d9ec3b81313f8c8
       uri: huggingface://bartowski/Falcon3-7B-Instruct-abliterated-GGUF/Falcon3-7B-Instruct-abliterated-Q4_K_M.gguf
+- !!merge <<: *falcon3
+  name: "nightwing3-10b-v0.1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642265bc01c62c1e4102dc36/C6gY9vxCl3_SFzQLpLG0S.png
+  urls:
+    - https://huggingface.co/Nitral-AI/NightWing3-10B-v0.1
+    - https://huggingface.co/bartowski/NightWing3-10B-v0.1-GGUF
+  description: |
+     Base model: (Falcon3-10B)
+  overrides:
+    parameters:
+      model: NightWing3-10B-v0.1-Q4_K_M.gguf
+  files:
+    - filename: NightWing3-10B-v0.1-Q4_K_M.gguf
+      sha256: 2e87671542d22fe1ef9a68e43f2fdab7c2759479ad531946d9f0bdeffa6f5747
+      uri: huggingface://bartowski/NightWing3-10B-v0.1-GGUF/NightWing3-10B-v0.1-Q4_K_M.gguf
 - &intellect1
   name: "intellect-1-instruct"
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
