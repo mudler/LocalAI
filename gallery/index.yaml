@@ -2967,6 +2967,21 @@
     - filename: QwQ-32B-Preview-IdeaWhiz-v1-Q4_K_M.gguf
       sha256: 1648e13d9974b10d08ee45f48fd3ebd15cf67745fe20d602f9306fe0253b6a96
       uri: huggingface://bartowski/QwQ-32B-Preview-IdeaWhiz-v1-GGUF/QwQ-32B-Preview-IdeaWhiz-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rombos-qwen2.5-writer-32b"
+  icon: https://huggingface.co/SubtleOne/Rombos-Qwen2.5-Writer-32b/blob/main/robot-creating-fantasy.jpg
+  urls:
+    - https://huggingface.co/SubtleOne/Rombos-Qwen2.5-Writer-32b
+    - https://huggingface.co/bartowski/Rombos-Qwen2.5-Writer-32b-GGUF
+  description: |
+    This model is a merge using Rombos's top-ranked 32b model, based on Qwen 2.5, and merging three creative writing finetunes. The creative content is a serious upgrade over the base it started with, and I enjoyed it in my DnD RPG campaign.
+  overrides:
+    parameters:
+      model: Rombos-Qwen2.5-Writer-32b-Q4_K_M.gguf
+  files:
+    - filename: Rombos-Qwen2.5-Writer-32b-Q4_K_M.gguf
+      sha256: cf0e48c6cb8b6f41834603900642b5395105980297709c85c4216bd44fac956a
+      uri: huggingface://bartowski/Rombos-Qwen2.5-Writer-32b-GGUF/Rombos-Qwen2.5-Writer-32b-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
