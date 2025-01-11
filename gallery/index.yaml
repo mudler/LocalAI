@@ -2952,6 +2952,21 @@
     - filename: Chuluun-Qwen2.5-72B-v0.01-Q4_K_M.gguf
       sha256: 901d9d10aad42de3188e721accdc4eb0efec96cbca48563f802793dceaf551f5
       uri: huggingface://bartowski/Chuluun-Qwen2.5-72B-v0.01-GGUF/Chuluun-Qwen2.5-72B-v0.01-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwq-32b-preview-ideawhiz-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6205fefd3f1dc8a642d70b10/JEZgA_xV6oF8AIsya9dop.jpeg
+  urls:
+    - https://huggingface.co/6cf/QwQ-32B-Preview-IdeaWhiz-v1
+    - https://huggingface.co/bartowski/QwQ-32B-Preview-IdeaWhiz-v1-GGUF
+  description: |
+    IdeaWhiz is a fine-tuned version of QwQ-32B-Preview, specifically optimized for scientific creativity and step-by-step reasoning. The model leverages the LiveIdeaBench dataset to enhance its capabilities in generating novel scientific ideas and hypotheses.
+  overrides:
+    parameters:
+      model: QwQ-32B-Preview-IdeaWhiz-v1-Q4_K_M.gguf
+  files:
+    - filename: QwQ-32B-Preview-IdeaWhiz-v1-Q4_K_M.gguf
+      sha256: 1648e13d9974b10d08ee45f48fd3ebd15cf67745fe20d602f9306fe0253b6a96
+      uri: huggingface://bartowski/QwQ-32B-Preview-IdeaWhiz-v1-GGUF/QwQ-32B-Preview-IdeaWhiz-v1-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
