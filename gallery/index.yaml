@@ -14,15 +14,15 @@
     - https://huggingface.co/microsoft/phi-4
     - https://huggingface.co/bartowski/phi-4-GGUF
   description: |
-      phi-4 is a state-of-the-art open model built upon a blend of synthetic datasets, data from filtered public domain websites, and acquired academic books and Q&A datasets. The goal of this approach was to ensure that small capable models were trained with data focused on high quality and advanced reasoning.
-      phi-4 underwent a rigorous enhancement and alignment process, incorporating both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. Phi-4 is a 14B parameters, dense decoder-only Transformer model.
+    phi-4 is a state-of-the-art open model built upon a blend of synthetic datasets, data from filtered public domain websites, and acquired academic books and Q&A datasets. The goal of this approach was to ensure that small capable models were trained with data focused on high quality and advanced reasoning.
+    phi-4 underwent a rigorous enhancement and alignment process, incorporating both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. Phi-4 is a 14B parameters, dense decoder-only Transformer model.
   overrides:
     parameters:
       model: phi-4-Q4_K_M.gguf
   files:
     - filename: phi-4-Q4_K_M.gguf
-      sha256: e38bd5fa5f1c03d51ebc34a8d7b284e0da089c8af05e7f409a0079a9c831a10b
       uri: huggingface://bartowski/phi-4-GGUF/phi-4-Q4_K_M.gguf
+      sha256: 009aba717c09d4a35890c7d35eb59d54e1dba884c7c526e7197d9c13ab5911d9
 - &falcon3
   name: "falcon3-1b-instruct"
   url: "github:mudler/LocalAI/gallery/falcon3.yaml@master"
@@ -2726,14 +2726,7 @@
   urls:
     - https://huggingface.co/Krystalan/DRT-o1-7B
     - https://huggingface.co/QuantFactory/DRT-o1-7B-GGUF
-  description: |
-    In this work, we introduce DRT-o1, an attempt to bring the success of long thought reasoning to neural machine translation (MT). To this end,
-
-    🌟 We mine English sentences with similes or metaphors from existing literature books, which are suitable for translation via long thought.
-    🌟 We propose a designed multi-agent framework with three agents (i.e., a translator, an advisor and an evaluator) to synthesize the MT samples with long thought. There are 22,264 synthesized samples in total.
-    🌟 We train DRT-o1-8B, DRT-o1-7B and DRT-o1-14B using Llama-3.1-8B-Instruct, Qwen2.5-7B-Instruct and Qwen2.5-14B-Instruct as backbones.
-
-    Our goal is not to achieve competitive performance with OpenAI’s O1 in neural machine translation (MT). Instead, we explore technical routes to bring the success of long thought to MT. To this end, we introduce DRT-o1, a byproduct of our exploration, and we hope it could facilitate the corresponding research in this direction.
+  description: "In this work, we introduce DRT-o1, an attempt to bring the success of long thought reasoning to neural machine translation (MT). To this end,\n\n\U0001F31F We mine English sentences with similes or metaphors from existing literature books, which are suitable for translation via long thought.\n\U0001F31F We propose a designed multi-agent framework with three agents (i.e., a translator, an advisor and an evaluator) to synthesize the MT samples with long thought. There are 22,264 synthesized samples in total.\n\U0001F31F We train DRT-o1-8B, DRT-o1-7B and DRT-o1-14B using Llama-3.1-8B-Instruct, Qwen2.5-7B-Instruct and Qwen2.5-14B-Instruct as backbones.\n\nOur goal is not to achieve competitive performance with OpenAI’s O1 in neural machine translation (MT). Instead, we explore technical routes to bring the success of long thought to MT. To this end, we introduce DRT-o1, a byproduct of our exploration, and we hope it could facilitate the corresponding research in this direction.\n"
   overrides:
     parameters:
       model: DRT-o1-7B.Q4_K_M.gguf
@@ -5874,7 +5867,7 @@
     - https://huggingface.co/Nitral-AI/Nera_Noctis-12B
     - https://huggingface.co/bartowski/Nera_Noctis-12B-GGUF
   description: |
-     Sometimes, the brightest gems are found in the darkest places. For it is in the shadows where we learn to really see the light.
+    Sometimes, the brightest gems are found in the darkest places. For it is in the shadows where we learn to really see the light.
   overrides:
     parameters:
       model: Nera_Noctis-12B-Q4_K_M.gguf
