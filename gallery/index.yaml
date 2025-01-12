@@ -1211,6 +1211,24 @@
     - filename: MiniThinky-v2-1B-Llama-3.2-Q4_K_M.gguf
       sha256: 086857b6364afd757a123eea0474bede09f25608783e7a6fcf2f88d8cb322ca1
       uri: huggingface://bartowski/MiniThinky-v2-1B-Llama-3.2-GGUF/MiniThinky-v2-1B-Llama-3.2-Q4_K_M.gguf
+- !!merge <<: *llama32
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61c141342aac764ce1654e43/HZ6KOc8IVXXOABrdv0dyK.png
+  name: "finemath-llama-3b"
+  urls:
+    - https://huggingface.co/HuggingFaceTB/FineMath-Llama-3B
+    - https://huggingface.co/bartowski/FineMath-Llama-3B-GGUF
+  description: |
+    This is a continual-pre-training of Llama-3.2-3B on a mix of 📐 FineMath (our new high quality math dataset) and FineWeb-Edu.
+
+    The model demonstrates superior math performance compared to Llama 3.2 3B, while maintaining similar performance on knowledge, reasoning, and common sense benchmarks.
+    It was trained on 160B tokens using a mix of 40% FineWeb-Edu and 60% from FineMath (30% FineMath-4+ subset and 30% InfiWebMath-4+ subset). We use nanotron for the training, and you can find the training scripts in our SmolLM2 GitHub repo.
+  overrides:
+    parameters:
+      model: FineMath-Llama-3B-Q4_K_M.gguf
+  files:
+    - filename: FineMath-Llama-3B-Q4_K_M.gguf
+      sha256: 16c73b5cf2a417a7e1608bcc9469f1461fc3e759ce04a3a337f48df977dc158c
+      uri: huggingface://bartowski/FineMath-Llama-3B-GGUF/FineMath-Llama-3B-Q4_K_M.gguf
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
