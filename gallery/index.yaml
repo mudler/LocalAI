@@ -24,7 +24,7 @@
       uri: huggingface://bartowski/phi-4-GGUF/phi-4-Q4_K_M.gguf
       sha256: 009aba717c09d4a35890c7d35eb59d54e1dba884c7c526e7197d9c13ab5911d9
 - !!merge <<: *phi4
-  url: "github:mudler/LocalAI/gallery/phi-4-fcall.yaml@master"
+  url: "github:mudler/LocalAI/gallery/phi-4-chat-fcall.yaml@master"
   name: "LocalAI-functioncall-phi-4-v0.1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/Dzbdzn27KEc3K6zNNi070.png
   description: |
