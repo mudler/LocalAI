@@ -2982,6 +2982,22 @@
     - filename: Rombos-Qwen2.5-Writer-32b-Q4_K_M.gguf
       sha256: cf0e48c6cb8b6f41834603900642b5395105980297709c85c4216bd44fac956a
       uri: huggingface://bartowski/Rombos-Qwen2.5-Writer-32b-GGUF/Rombos-Qwen2.5-Writer-32b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "sky-t1-32b-preview"
+  icon: https://raw.githubusercontent.com/NovaSky-AI/novasky-ai.github.io/main/assets/images/blue-bird-wider.jpeg
+  urls:
+    - https://huggingface.co/NovaSky-AI/Sky-T1-32B-Preview
+    - https://huggingface.co/bartowski/Sky-T1-32B-Preview-GGUF
+    - https://novasky-ai.github.io/posts/sky-t1/
+  description: |
+    This is a 32B reasoning model trained from Qwen2.5-32B-Instruct with 17K data. The performance is on par with o1-preview model on both math and coding. Please see our blog post for more details.
+  overrides:
+    parameters:
+      model: Sky-T1-32B-Preview-Q4_K_M.gguf
+  files:
+    - filename: Sky-T1-32B-Preview-Q4_K_M.gguf
+      sha256: c735912a582f10e4769461586a02e5b98ef43c2895ec11923b8c4f157e7909e5
+      uri: huggingface://bartowski/Sky-T1-32B-Preview-GGUF/Sky-T1-32B-Preview-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
