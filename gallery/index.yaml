@@ -311,6 +311,26 @@
     - filename: 70B-L3.3-Cirrus-x1-Q4_K_M.gguf
       sha256: 07dd464dddba959df8eb2f937787c2210b4c51c2375bd7c7ab2abbe198142a19
       uri: huggingface://bartowski/70B-L3.3-Cirrus-x1-GGUF/70B-L3.3-Cirrus-x1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "negative_llama_70b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Negative_LLAMA_70B/resolve/main/Images/Negative_LLAMA_70B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Negative_LLAMA_70B
+    - https://huggingface.co/bartowski/Negative_LLAMA_70B-GGUF
+  description: |
+    - Strong Roleplay & Creative writing abilities.
+    - Less positivity bias.
+    - Very smart assistant with low refusals.
+    - Exceptionally good at following the character card.
+    - Characters feel more 'alive', and will occasionally initiate stuff on their own (without being prompted to, but fitting to their character).
+    - Strong ability to comprehend and roleplay uncommon physical and mental characteristics.
+  overrides:
+    parameters:
+      model: Negative_LLAMA_70B-Q4_K_M.gguf
+  files:
+    - filename: Negative_LLAMA_70B-Q4_K_M.gguf
+      sha256: 023c6bd38f6a66178529e6bb77b6e76379ae3ee031adc6885531986aa12750d9
+      uri: huggingface://bartowski/Negative_LLAMA_70B-GGUF/Negative_LLAMA_70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
