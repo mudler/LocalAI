@@ -428,6 +428,7 @@ struct llama_server_context
 {
     llama_model *model = nullptr;
     llama_context *ctx = nullptr;
+    const llama_vocab * vocab = nullptr;
 
     clip_ctx *clp_ctx = nullptr;
 
@@ -439,6 +440,7 @@ struct llama_server_context
     bool clean_kv_cache     = true;
     bool all_slots_are_idle = false;
     bool add_bos_token      = true;
+    bool has_eos_token      = true;
 
     int32_t n_ctx;  // total context for all clients / slots
 
@@ -502,7 +504,7 @@ struct llama_server_context
 
         if (multimodal) {
             const int n_embd_clip = clip_n_mmproj_embd(clp_ctx);
-            const int n_embd_llm  = llama_n_embd(model);
+            const int n_embd_llm  = llama_model_n_embd(model);
             if (n_embd_clip != n_embd_llm) {
                 LOG("%s: embedding dim of the multimodal projector (%d) is not equal to that of LLaMA (%d). Make sure that you use the correct mmproj file.\n", __func__, n_embd_clip, n_embd_llm);
                 llama_free(ctx);
@@ -511,21 +513,13 @@ struct llama_server_context
             }
         }
 
+        vocab = llama_model_get_vocab(model);
         n_ctx = llama_n_ctx(ctx);
 
-        add_bos_token = llama_add_bos_token(model);
+        add_bos_token = llama_vocab_get_add_bos(vocab);
+        has_eos_token = llama_vocab_eos(vocab) != LLAMA_TOKEN_NULL;
 
         return true;
-    }
-
-    void validate_model_chat_template(server_params & sparams) {
-        llama_chat_message chat[] = {{"user", "test"}};
-        std::vector<char> buf(1);
-        int res = llama_chat_apply_template(model, nullptr, chat, 1, true, buf.data(), buf.size());
-        if (res < 0) {
-            LOG_ERR("The chat template comes with this model is not yet supported, falling back to chatml. This may cause the model to output suboptimal responses", __func__);
-            sparams.chat_template = "<|im_start|>"; // llama_chat_apply_template only checks if <|im_start|> exist in the template
-        }
     }
 
     llama_client_slot* get_active_slot() {
@@ -725,8 +719,8 @@ struct llama_server_context
             slot->prompt = "";
         }
 
-        if (json_value(data, "ignore_eos", false)) {
-                slot->sparams.logit_bias.push_back({llama_token_eos(model), -INFINITY});
+        if (json_value(data, "ignore_eos", false) && has_eos_token) {
+                slot->sparams.logit_bias.push_back({llama_vocab_eos(vocab), -INFINITY});
         }
         /*
         slot->sparams.penalty_prompt_tokens.clear();
@@ -765,13 +759,13 @@ struct llama_server_context
             }
         }
       */
-
         slot->sparams.logit_bias.clear();
 
         const auto &logit_bias = data.find("logit_bias");
         if (logit_bias != data.end() && logit_bias->is_array())
         {
-            const int n_vocab = llama_n_vocab(model);
+            const llama_vocab * vocab = llama_model_get_vocab(model);
+            const int n_vocab = llama_vocab_n_tokens(vocab);
             for (const auto &el : *logit_bias)
             {
                 if (el.is_array() && el.size() == 2)
@@ -800,7 +794,7 @@ struct llama_server_context
                     }
                     else if (el[0].is_string())
                     {
-                        auto toks = common_tokenize(model, el[0].get<std::string>(), false);
+                        auto toks = common_tokenize(vocab, el[0].get<std::string>(), false);
                         for (auto tok : toks)
                         {
                             slot->sparams.logit_bias.push_back({tok, bias});
@@ -1130,7 +1124,7 @@ struct llama_server_context
             slot.has_next_token = false;
         }
 
-        if (result.tok == llama_token_eos(model))
+        if (result.tok == llama_vocab_eos(vocab) || llama_vocab_is_eog(vocab, result.tok))
         {
             slot.stopped_eos = true;
             slot.has_next_token = false;
@@ -1325,7 +1319,7 @@ struct llama_server_context
         res.error = false;
         res.stop = true;
 
-        const int n_embd = llama_n_embd(model);
+        const int n_embd = llama_model_n_embd(model);
         if (!params.embedding)
         {
             LOG_WARNING("embedding disabled", {
@@ -1424,7 +1418,7 @@ struct llama_server_context
                     n_eval = n_batch;
                 }
 
-                const int n_embd = llama_n_embd(model);
+                const int n_embd = llama_model_n_embd(model);
                 float * embd = img.image_embedding + i * n_embd;
                 llava_embd_batch llava_batch = llava_embd_batch(embd, n_eval, slot.n_past, 0);
                 if (llama_decode(ctx, llava_batch.batch))
@@ -1705,11 +1699,11 @@ struct llama_server_context
                             suffix_tokens.erase(suffix_tokens.begin());
                         }
 
-                        prefix_tokens.insert(prefix_tokens.begin(), llama_token_prefix(model));
-                        prefix_tokens.insert(prefix_tokens.begin(), llama_token_bos(model)); // always add BOS
-                        prefix_tokens.insert(prefix_tokens.end(),   llama_token_suffix(model));
+                        prefix_tokens.insert(prefix_tokens.begin(), llama_vocab_fim_pre(vocab));
+                        prefix_tokens.insert(prefix_tokens.begin(), llama_vocab_bos(vocab)); // always add BOS
+                        prefix_tokens.insert(prefix_tokens.end(),   llama_vocab_fim_suf(vocab));
                         prefix_tokens.insert(prefix_tokens.end(),   suffix_tokens.begin(), suffix_tokens.end());
-                        prefix_tokens.push_back(llama_token_middle(model));
+                        prefix_tokens.push_back(llama_vocab_fim_mid(vocab));
                         prompt_tokens = prefix_tokens;
                     }
                     else
