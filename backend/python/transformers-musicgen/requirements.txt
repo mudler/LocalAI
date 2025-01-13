@@ -1,4 +1,4 @@
 grpcio==1.69.0
 protobuf
-scipy==1.14.0
+scipy==1.15.1
 certifi
