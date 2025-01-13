@@ -4,6 +4,7 @@ LIBRARY_PATH := $(abspath ./)
 AR?=ar
 CMAKE_ARGS?=
 BUILD_TYPE?=
+ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 # keep standard at C11 and C++11
 CXXFLAGS = -I. -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp/thirdparty -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp/ggml/include -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp -O3 -DNDEBUG -std=c++17 -fPIC
 
@@ -69,10 +70,19 @@ $(COMBINED_LIB): $(ALL_ARCHIVES)
 	rm -rf merge-tmp
 
 build/libstable-diffusion.a:
+	@echo "Building SD with $(BUILD_TYPE) build type and $(CMAKE_ARGS)"
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	+bash -c "source $(ONEAPI_VARS); \
+	mkdir -p build && \
+	cd build && \
+	cmake $(CMAKE_ARGS) ../../../../../sources/stablediffusion-ggml.cpp && \
+	cmake --build . --config Release"
+else
 	mkdir -p build && \
 	cd build && \
 	cmake $(CMAKE_ARGS) ../../../../../sources/stablediffusion-ggml.cpp && \
 	cmake --build . --config Release
+endif
 	$(MAKE) $(COMBINED_LIB)
 
 gosd.o:
