@@ -52,6 +52,8 @@ func ComputeChoices(
 
 		tokenUsage.Prompt += prediction.Usage.Prompt
 		tokenUsage.Completion += prediction.Usage.Completion
+		tokenUsage.TimingPromptProcessing += prediction.Usage.TimingPromptProcessing
+		tokenUsage.TimingTokenGeneration += prediction.Usage.TimingTokenGeneration
 
 		finetunedResponse := backend.Finetune(*config, predInput, prediction.Response)
 		cb(finetunedResponse, &result)

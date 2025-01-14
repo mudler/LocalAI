@@ -2408,6 +2408,13 @@ public:
                 int32_t tokens_evaluated = result.result_json.value("tokens_evaluated", 0);
                 reply.set_prompt_tokens(tokens_evaluated);
 
+                if (result.result_json.contains("timings")) {
+                    double timing_prompt_processing = result.result_json.at("timings").value("prompt_ms", 0.0);
+                    reply.set_timing_prompt_processing(timing_prompt_processing);
+                    double timing_token_generation = result.result_json.at("timings").value("predicted_ms", 0.0);
+                    reply.set_timing_token_generation(timing_token_generation);
+                }
+                
                 // Log Request Correlation Id
                 LOG_VERBOSE("correlation:", {
                     { "id", data["correlation_id"] }
@@ -2448,6 +2455,13 @@ public:
             reply->set_prompt_tokens(tokens_evaluated);
             reply->set_tokens(tokens_predicted);
             reply->set_message(completion_text);
+
+            if (result.result_json.contains("timings")) {
+                double timing_prompt_processing = result.result_json.at("timings").value("prompt_ms", 0.0);
+                reply->set_timing_prompt_processing(timing_prompt_processing);
+                double timing_token_generation = result.result_json.at("timings").value("predicted_ms", 0.0);
+                reply->set_timing_token_generation(timing_token_generation);
+            }
         }
         else
         {

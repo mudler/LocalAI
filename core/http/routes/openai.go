@@ -130,6 +130,6 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	}
 
 	// List models
-	app.Get("/v1/models", openai.ListModelsEndpoint(application.BackendLoader(), application.ModelLoader()))
-	app.Get("/models", openai.ListModelsEndpoint(application.BackendLoader(), application.ModelLoader()))
+	app.Get("/v1/models", openai.ListModelsEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
+	app.Get("/models", openai.ListModelsEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
 }
