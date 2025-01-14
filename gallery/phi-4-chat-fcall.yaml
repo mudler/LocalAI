@@ -3,6 +3,16 @@ name: "phi-4-chat"
 
 config_file: |
   mmap: true
+  function:
+    json_regex_match:
+    - "(?s)<Output>(.*?)</Output>"
+    capture_llm_results:
+      - (?s)<Thought>(.*?)</Thought>
+    replace_llm_results:
+      - key: (?s)<Thought>(.*?)</Thought>
+        value: ""
+    grammar:
+      properties_order: "name,arguments"
   template:
     chat_message: |
       <|im_start|>{{ .RoleName }}<|im_sep|>
