@@ -36,13 +36,13 @@ else ifeq ($(OS),Darwin)
 	endif
 endif
 
-ifeq ($(BUILD_TYPE),sycl_f16)
-	CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DGGML_SYCL_F16=ON -DSD_SYCL=ON -DGGML_SYCL_F16=ON
-endif
+# ifeq ($(BUILD_TYPE),sycl_f16)
+# 	CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DGGML_SYCL_F16=ON -DSD_SYCL=ON -DGGML_SYCL_F16=ON
+# endif
 
-ifeq ($(BUILD_TYPE),sycl_f32)
-	CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DSD_SYCL=ON
-endif
+# ifeq ($(BUILD_TYPE),sycl_f32)
+# 	CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DSD_SYCL=ON
+# endif
 
 # warnings
 CXXFLAGS += -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function
