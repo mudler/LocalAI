@@ -3122,6 +3122,22 @@
     - filename: Qwen2.5-72b-RP-Ink-Q4_K_M.gguf
       sha256: 2c2bf785dc5798403e0ccf6c4f5f9d7d53fcfb0c0b28855c584e09be88f91517
       uri: huggingface://bartowski/Qwen2.5-72b-RP-Ink-GGUF/Qwen2.5-72b-RP-Ink-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "steiner-32b-preview"
+  urls:
+    - https://huggingface.co/peakji/steiner-32b-preview
+    - https://huggingface.co/bartowski/steiner-32b-preview-GGUF
+  description: |
+    Steiner is a series of reasoning models trained on synthetic data using reinforcement learning. These models can explore multiple reasoning paths in an autoregressive manner during inference and autonomously verify or backtrack when necessary, enabling a linear traversal of the implicit search tree.
+
+    Steiner is a personal interest project by Yichao 'Peak' Ji, inspired by OpenAI o1. The ultimate goal is to reproduce o1 and validate the inference-time scaling curves. The Steiner-preview model is currently a work-in-progress. The reason for open-sourcing it is that I’ve found automated evaluation methods, primarily based on multiple-choice questions, struggle to fully reflect the progress of reasoning models. In fact, the assumption that "the correct answer is always among the options" doesn’t align well with real-world reasoning scenarios, as it encourages models to perform substitution-based validation rather than open-ended exploration. For this reason, I’ve chosen to open-source these intermediate results and, when time permits, to build in public. This approach allows me to share knowledge while also gathering more evaluations and feedback from real human users.
+  overrides:
+    parameters:
+      model: steiner-32b-preview-Q4_K_M.gguf
+  files:
+    - filename: steiner-32b-preview-Q4_K_M.gguf
+      sha256: 1d7bf6d6dc8db8c81b3e71dc89756cd23417bb0a645b7dcdd1f9457781a88652
+      uri: huggingface://bartowski/steiner-32b-preview-GGUF/steiner-32b-preview-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
