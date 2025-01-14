@@ -3106,6 +3106,22 @@
     - filename: Sky-T1-32B-Preview-Q4_K_M.gguf
       sha256: c735912a582f10e4769461586a02e5b98ef43c2895ec11923b8c4f157e7909e5
       uri: huggingface://bartowski/Sky-T1-32B-Preview-GGUF/Sky-T1-32B-Preview-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-72b-rp-ink"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/M9KSL64gppBVatmTdoQnG.png
+  urls:
+    - https://huggingface.co/allura-org/Qwen2.5-72b-RP-Ink
+    - https://huggingface.co/bartowski/Qwen2.5-72b-RP-Ink-GGUF
+  description: |
+    A roleplay-focused LoRA finetune of Qwen 2.5 72b Instruct. Methodology and hyperparams inspired by SorcererLM and Slush.
+    Yet another model in the Ink series, following in the footsteps of the 32b one and the Nemo one
+  overrides:
+    parameters:
+      model: Qwen2.5-72b-RP-Ink-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-72b-RP-Ink-Q4_K_M.gguf
+      sha256: 2c2bf785dc5798403e0ccf6c4f5f9d7d53fcfb0c0b28855c584e09be88f91517
+      uri: huggingface://bartowski/Qwen2.5-72b-RP-Ink-GGUF/Qwen2.5-72b-RP-Ink-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
