@@ -17,7 +17,7 @@ import backend_pb2_grpc
 
 import grpc
 
-from diffusers import StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, \
+from diffusers import SanaPipeline, StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, \
     EulerAncestralDiscreteScheduler, FluxPipeline, FluxTransformer2DModel
 from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
@@ -275,6 +275,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                     if request.LowVRAM:
                         self.pipe.enable_model_cpu_offload()
+            elif request.PipelineType == "SanaPipeline":
+                self.pipe = SanaPipeline.from_pretrained(
+                    request.Model,
+                    variant="bf16",
+                    torch_dtype=torch.bfloat16)
+                self.pipe.vae.to(torch.bfloat16)
+                self.pipe.text_encoder.to(torch.bfloat16)
 
             if CLIPSKIP and request.CLIPSkip != 0:
                 self.clip_skip = request.CLIPSkip
