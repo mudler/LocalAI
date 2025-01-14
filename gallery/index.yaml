@@ -380,6 +380,27 @@
     - filename: Negative_LLAMA_70B-Q4_K_M.gguf
       sha256: 023c6bd38f6a66178529e6bb77b6e76379ae3ee031adc6885531986aa12750d9
       uri: huggingface://bartowski/Negative_LLAMA_70B-GGUF/Negative_LLAMA_70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "negative-anubis-70b-v1"
+  icon: https://huggingface.co/knifeayumu/Negative-Anubis-70B-v1/resolve/main/Negative-Anubis.png
+  urls:
+    - https://huggingface.co/knifeayumu/Negative-Anubis-70B-v1
+    - https://huggingface.co/bartowski/Negative-Anubis-70B-v1-GGUF
+  description: |
+    Enjoyed SicariusSicariiStuff/Negative_LLAMA_70B but the prose was too dry for my tastes. So I merged it with TheDrummer/Anubis-70B-v1 for verbosity. Anubis has positivity bias so Negative could balance things out.
+
+    This is a merge of pre-trained language models created using mergekit.
+
+    The following models were included in the merge:
+    SicariusSicariiStuff/Negative_LLAMA_70B
+    TheDrummer/Anubis-70B-v1
+  overrides:
+    parameters:
+      model: Negative-Anubis-70B-v1-Q4_K_M.gguf
+  files:
+    - filename: Negative-Anubis-70B-v1-Q4_K_M.gguf
+      sha256: ac088da9ca70fffaa70c876fbada9fc5a02e7d6049ef68f16b11a9c3256f2510
+      uri: huggingface://bartowski/Negative-Anubis-70B-v1-GGUF/Negative-Anubis-70B-v1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
