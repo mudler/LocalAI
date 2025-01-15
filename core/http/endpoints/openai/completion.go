@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/middleware"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -26,11 +27,11 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/completions [post]
+
 func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	process := func(id string, s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
 		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			resp := schema.OpenAIResponse{
 				ID:      id,
@@ -58,18 +59,17 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 	}
 
 	return func(c *fiber.Ctx) error {
-		// Add Correlation
-		c.Set("X-Correlation-ID", id)
-		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		// Handle Correlation
+		id := c.Get("X-Correlation-ID", uuid.New().String())
+
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input.Model == "" {
+			return fiber.ErrBadRequest
 		}
 
-		log.Debug().Msgf("`input`: %+v", input)
-
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+		if !ok || config == nil {
+			return fiber.ErrBadRequest
 		}
 
 		if config.ResponseFormatMap != nil {
@@ -113,7 +113,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 
 			responses := make(chan schema.OpenAIResponse)
 
-			go process(predInput, input, config, ml, responses)
+			go process(id, predInput, input, config, ml, responses)
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
