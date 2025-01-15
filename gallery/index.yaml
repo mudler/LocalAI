@@ -401,6 +401,23 @@
     - filename: Negative-Anubis-70B-v1-Q4_K_M.gguf
       sha256: ac088da9ca70fffaa70c876fbada9fc5a02e7d6049ef68f16b11a9c3256f2510
       uri: huggingface://bartowski/Negative-Anubis-70B-v1-GGUF/Negative-Anubis-70B-v1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-ms-nevoria-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/dtlCF4LbekmDD2y3LNpdH.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-MS-Nevoria-70b
+    - https://huggingface.co/bartowski/L3.3-MS-Nevoria-70b-GGUF
+  description: |
+    This model was created as I liked the storytelling of EVA, the prose and details of scenes from EURYALE and Anubis, enhanced with Negative_LLAMA to kill off the positive bias with a touch of nemotron sprinkeled in.
+
+    The choice to use the lorablated model as a base was intentional - while it might seem counterintuitive, this approach creates unique interactions between the weights, similar to what was achieved in the original Astoria model and Astoria V2 model . Rather than simply removing refusals, this "weight twisting" effect that occurs when subtracting the lorablated base model from the other models during the merge process creates an interesting balance in the final model's behavior. While this approach differs from traditional sequential application of components, it was chosen for its unique characteristics in the model's responses.
+  overrides:
+    parameters:
+      model: L3.3-MS-Nevoria-70b-Q4_K_M.gguf
+  files:
+    - filename: L3.3-MS-Nevoria-70b-Q4_K_M.gguf
+      sha256: e8b0763f263089a19d4b112b7ed5085cc5f1ed9ca49c5085baa8d51f4ded1f94
+      uri: huggingface://bartowski/L3.3-MS-Nevoria-70b-GGUF/L3.3-MS-Nevoria-70b-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
