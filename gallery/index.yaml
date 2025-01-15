@@ -3138,6 +3138,22 @@
     - filename: steiner-32b-preview-Q4_K_M.gguf
       sha256: 1d7bf6d6dc8db8c81b3e71dc89756cd23417bb0a645b7dcdd1f9457781a88652
       uri: huggingface://bartowski/steiner-32b-preview-GGUF/steiner-32b-preview-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwerus-7b"
+  urls:
+    - https://huggingface.co/mlabonne/Qwerus-7B
+    - https://huggingface.co/bartowski/Qwerus-7B-GGUF
+  description: |
+    Qwerus-7B is a merge of the following models using LazyMergekit:
+    PRIME-RL/Eurus-2-7B-PRIME
+    Qwen/Qwen2.5-7B-Instruct
+  overrides:
+    parameters:
+      model: Qwerus-7B-Q4_K_M.gguf
+  files:
+    - filename: Qwerus-7B-Q4_K_M.gguf
+      sha256: 3676629e8092a59f523393e6eb5072727f5213a9e03b7b81141f05a33743e20c
+      uri: huggingface://bartowski/Qwerus-7B-GGUF/Qwerus-7B-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
