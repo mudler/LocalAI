@@ -1,0 +1,7 @@
+grpcio==1.69.0
+protobuf
+phonemizer
+scipy
+munch
+setuptools
+soundfile
