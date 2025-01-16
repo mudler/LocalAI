@@ -54,6 +54,8 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".yml",
 	".json",
 	".txt",
+	".pt",
+	".onnx",
 	".md",
 	".MD",
 	".DS_Store",
