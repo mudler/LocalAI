@@ -3215,7 +3215,6 @@
     - filename: UwU-7B-Instruct-Q4_K_M.gguf
       sha256: 279b2ba20d51bb155c8dd497cf49e0c28407b1822c75de88cfd83d13fd14a59f
       uri: huggingface://bartowski/UwU-7B-Instruct-GGUF/UwU-7B-Instruct-Q4_K_M.gguf
-
 - !!merge <<: *qwen25
   name: "drt-o1-14b"
   urls:
@@ -3282,6 +3281,20 @@
     - filename: smollm2-1.7b-instruct-q4_k_m.gguf
       sha256: decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33
       uri: huggingface://HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf
+- !!merge <<: qwen25
+  name: "vikhr-qwen-2.5-1.5b-instruct"
+  urls:
+    - https://huggingface.co/Vikhrmodels/Vikhr-Qwen-2.5-1.5B-Instruct
+    - https://huggingface.co/QuantFactory/Vikhr-Qwen-2.5-1.5B-Instruct-GGUF
+  description: |
+    Instructive model based on Qwen-2.5-1.5B-Instruct, trained on the Russian-language dataset GrandMaster-PRO-MAX. Designed for high-efficiency text processing in Russian and English, delivering precise responses and fast task execution.
+  overrides:
+    parameters:
+      model: Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
+      sha256: eaeac314e30b461413bc1cc819cdc0cd6a79265711fd0b8268702960a082c7bd
+      uri: huggingface://QuantFactory/Vikhr-Qwen-2.5-1.5B-Instruct-GGUF/Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
 - &llama31
   ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
