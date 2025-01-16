@@ -3201,6 +3201,20 @@
     - filename: lb-reranker-0.5B-v1.0-Q4_K_M.gguf
       sha256: 43568150de5136da15c996bbf4d1a78cc6580515c40f0ef9a8c90b0542228ab3
       uri: huggingface://bartowski/lb-reranker-0.5B-v1.0-GGUF/lb-reranker-0.5B-v1.0-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "uwu-7b-instruct"
+  urls:
+    - https://huggingface.co/qingy2024/UwU-7B-Instruct
+    - https://huggingface.co/bartowski/UwU-7B-Instruct-GGUF
+  description: |
+    Small QwQ, full-finetuned on FineQwQ-142K. Unlike my previous models, this one is a general-purpose reasoning machine!
+  overrides:
+    parameters:
+      model: UwU-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: UwU-7B-Instruct-Q4_K_M.gguf
+      sha256: 279b2ba20d51bb155c8dd497cf49e0c28407b1822c75de88cfd83d13fd14a59f
+      uri: huggingface://bartowski/UwU-7B-Instruct-GGUF/UwU-7B-Instruct-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
