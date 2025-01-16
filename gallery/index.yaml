@@ -3215,6 +3215,28 @@
     - filename: UwU-7B-Instruct-Q4_K_M.gguf
       sha256: 279b2ba20d51bb155c8dd497cf49e0c28407b1822c75de88cfd83d13fd14a59f
       uri: huggingface://bartowski/UwU-7B-Instruct-GGUF/UwU-7B-Instruct-Q4_K_M.gguf
+
+- !!merge <<: *qwen25
+  name: "drt-o1-14b"
+  urls:
+    - https://huggingface.co/Krystalan/DRT-o1-14B
+    - https://huggingface.co/bartowski/DRT-o1-14B-GGUF
+  description: |
+    This repository contains the resources for our paper "DRT-o1: Optimized Deep Reasoning Translation via Long Chain-of-Thought"
+    In this work, we introduce DRT-o1, an attempt to bring the success of long thought reasoning to neural machine translation (MT). To this end,
+
+    🌟 We mine English sentences with similes or metaphors from existing literature books, which are suitable for translation via long thought.
+    🌟 We propose a designed multi-agent framework with three agents (i.e., a translator, an advisor and an evaluator) to synthesize the MT samples with long thought. There are 22,264 synthesized samples in total.
+    🌟 We train DRT-o1-8B, DRT-o1-7B and DRT-o1-14B using Llama-3.1-8B-Instruct, Qwen2.5-7B-Instruct and Qwen2.5-14B-Instruct as backbones.
+
+    Our goal is not to achieve competitive performance with OpenAI’s O1 in neural machine translation (MT). Instead, we explore technical routes to bring the success of long thought to MT. To this end, we introduce DRT-o1, a byproduct of our exploration, and we hope it could facilitate the corresponding research in this direction.
+  overrides:
+    parameters:
+      model: DRT-o1-14B-Q4_K_M.gguf
+  files:
+    - filename: DRT-o1-14B-Q4_K_M.gguf
+      sha256: 9619ca984cf4ce8e4f69bcde831de17b2ce05dd89536e3130608877521e3d328
+      uri: huggingface://bartowski/DRT-o1-14B-GGUF/DRT-o1-14B-Q4_K_M.gguf
 - &smollm
   ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
