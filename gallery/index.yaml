@@ -3281,7 +3281,7 @@
     - filename: smollm2-1.7b-instruct-q4_k_m.gguf
       sha256: decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33
       uri: huggingface://HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf
-- !!merge <<: qwen25
+- !!merge <<: *qwen25
   name: "vikhr-qwen-2.5-1.5b-instruct"
   urls:
     - https://huggingface.co/Vikhrmodels/Vikhr-Qwen-2.5-1.5B-Instruct
