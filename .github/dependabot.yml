@@ -86,10 +86,6 @@ updates:
     schedule:
       interval: "weekly"
   - package-ecosystem: "pip"
-    directory: "/backend/python/vall-e-x"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "pip"
     directory: "/backend/python/vllm"
     schedule:
       interval: "weekly"

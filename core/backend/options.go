@@ -140,7 +140,7 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		NBatch:               int32(b),
 		NoMulMatQ:            c.NoMulMatQ,
 		DraftModel:           c.DraftModel,
-		AudioPath:            c.VallE.AudioPath,
+		AudioPath:            c.AudioPath,
 		Quantization:         c.Quantization,
 		LoadFormat:           c.LoadFormat,
 		GPUMemoryUtilization: c.GPUMemoryUtilization,
