@@ -69,8 +69,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if VOICE_NAME is None:
                 return backend_pb2.Result(success=False, message=f"No voice specified in options")
             MODELPATH = request.ModelPath
+            # If voice name contains a plus, split it and load the two models and combine them
+            if "+" in VOICE_NAME:
+                voice1, voice2 = VOICE_NAME.split("+")
+                voice1 = torch.load(f'{MODELPATH}/{voice1}.pt', weights_only=True).to(device)
+                voice2 = torch.load(f'{MODELPATH}/{voice2}.pt', weights_only=True).to(device)
+                self.VOICEPACK = torch.mean(torch.stack([voice1, voice2]), dim=0)
+            else:
+                self.VOICEPACK = torch.load(f'{MODELPATH}/{VOICE_NAME}.pt', weights_only=True).to(device)
+
             self.VOICE_NAME = VOICE_NAME
-            self.VOICEPACK = torch.load(f'{MODELPATH}/{VOICE_NAME}.pt', weights_only=True).to(device)
+
             print(f'Loaded voice: {VOICE_NAME}')
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
