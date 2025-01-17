@@ -95,6 +95,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         device_map="cpu"
 
         quantization = None
+        autoTokenizer = True
 
         if self.CUDA:
             from transformers import BitsAndBytesConfig, AutoModelForCausalLM
@@ -198,9 +199,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                 device=device_map)
                 self.OV = True
             elif request.Type == "MusicgenForConditionalGeneration":
+                autoTokenizer = False
                 self.processor = AutoProcessor.from_pretrained(model_name)
                 self.model = MusicgenForConditionalGeneration.from_pretrained(model_name)
             elif request.Type == "OuteTTS":
+                autoTokenizer = False
                 options = request.Options
                 MODELNAME = "OuteAI/OuteTTS-0.3-1B"
                 TOKENIZER = "OuteAI/OuteTTS-0.3-1B"
@@ -239,6 +242,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 else:
                     self.speaker = self.interface.load_default_speaker(name=SPEAKER)               
             elif request.Type == "SentenceTransformer":
+                autoTokenizer = False
                 self.model = SentenceTransformer(model_name, trust_remote_code=request.TrustRemoteCode)
                 self.SentenceTransformer = True
             else:
@@ -256,7 +260,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             else:
                 self.max_tokens = 512
  
-            if request.Type != "MusicgenForConditionalGeneration":
+            if autoTokenizer:
                 self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
                 self.XPU = False
 
