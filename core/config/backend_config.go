@@ -21,8 +21,7 @@ type TTSConfig struct {
 	// Voice wav path or id
 	Voice string `yaml:"voice"`
 
-	// Vall-e-x
-	VallE VallE `yaml:"vall-e"`
+	AudioPath string `yaml:"audio_path"`
 }
 
 type BackendConfig struct {
@@ -80,10 +79,6 @@ type File struct {
 	Filename string         `yaml:"filename" json:"filename"`
 	SHA256   string         `yaml:"sha256" json:"sha256"`
 	URI      downloader.URI `yaml:"uri" json:"uri"`
-}
-
-type VallE struct {
-	AudioPath string `yaml:"audio_path"`
 }
 
 type FeatureFlag map[string]*bool
