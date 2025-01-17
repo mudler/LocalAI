@@ -1,4 +1,6 @@
 torch==2.4.1
 accelerate
+llvmlite==0.43.0
 transformers
 bitsandbytes
+outetts
