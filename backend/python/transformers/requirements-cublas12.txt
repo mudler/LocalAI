@@ -4,3 +4,4 @@ llvmlite==0.43.0
 transformers
 bitsandbytes
 outetts
+sentence-transformers==3.3.1

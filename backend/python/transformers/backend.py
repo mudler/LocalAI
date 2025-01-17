@@ -25,6 +25,8 @@ from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreame
 from transformers import AutoProcessor, MusicgenForConditionalGeneration
 from scipy.io import wavfile
 import outetts
+from sentence_transformers import SentenceTransformer
+
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -88,6 +90,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.CUDA = torch.cuda.is_available()
         self.OV=False
         self.OuteTTS=False
+        self.SentenceTransformer = False
 
         device_map="cpu"
 
@@ -235,6 +238,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     self.speaker = self.interface.create_speaker(audio_path=self.AudioPath)
                 else:
                     self.speaker = self.interface.load_default_speaker(name=SPEAKER)               
+            elif request.Type == "SentenceTransformer":
+                self.model = SentenceTransformer(model_name, trust_remote_code=request.TrustRemoteCode)
+                self.SentenceTransformer = True
             else:
                 print("Automodel", file=sys.stderr)
                 self.model = AutoModel.from_pretrained(model_name, 
@@ -286,18 +292,26 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         max_length = 512
         if request.Tokens != 0:
             max_length = request.Tokens
-        encoded_input = self.tokenizer(request.Embeddings, padding=True, truncation=True, max_length=max_length, return_tensors="pt")    
 
-        # Create word embeddings
-        if self.CUDA:
-            encoded_input = encoded_input.to("cuda")
+        embeds = None
 
-        with torch.no_grad():    
-            model_output = self.model(**encoded_input)
+        if self.SentenceTransformer:
+            print("Calculated embeddings for: " + request.Embeddings, file=sys.stderr)
+            embeds = self.model.encode(request.Embeddings)
+        else:
+            encoded_input = self.tokenizer(request.Embeddings, padding=True, truncation=True, max_length=max_length, return_tensors="pt")    
 
-        # Pool to get sentence embeddings; i.e. generate one 1024 vector for the entire sentence
-        sentence_embeddings = mean_pooling(model_output, encoded_input['attention_mask'])
-        return backend_pb2.EmbeddingResult(embeddings=sentence_embeddings[0])
+            # Create word embeddings
+            if self.CUDA:
+                encoded_input = encoded_input.to("cuda")
+
+            with torch.no_grad():    
+                model_output = self.model(**encoded_input)
+
+            # Pool to get sentence embeddings; i.e. generate one 1024 vector for the entire sentence
+            sentence_embeddings = mean_pooling(model_output, encoded_input['attention_mask'])
+            embeds = sentence_embeddings[0]
+        return backend_pb2.EmbeddingResult(embeddings=embeds)
 
     async def _predict(self, request, context, streaming=False): 
         set_seed(request.Seed)
