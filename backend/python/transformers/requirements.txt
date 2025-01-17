@@ -2,6 +2,6 @@ grpcio==1.69.0
 protobuf
 certifi
 setuptools
-scipy==1.14.0
+scipy==1.15.1
 numpy>=2.0.0
 numba==0.60.0
