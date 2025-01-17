@@ -22,17 +22,19 @@ import (
 )
 
 var Aliases map[string]string = map[string]string{
-	"go-llama":              LLamaCPP,
-	"llama":                 LLamaCPP,
-	"embedded-store":        LocalStoreBackend,
-	"langchain-huggingface": LCHuggingFaceBackend,
-	"transformers-musicgen": TransformersBackend,
-	"sentencetranformers":   TransformersBackend,
+	"go-llama":               LLamaCPP,
+	"llama":                  LLamaCPP,
+	"embedded-store":         LocalStoreBackend,
+	"huggingface-embeddings": TransformersBackend,
+	"langchain-huggingface":  LCHuggingFaceBackend,
+	"transformers-musicgen":  TransformersBackend,
+	"sentencetranformers":    TransformersBackend,
 }
 
 var TypeAlias map[string]string = map[string]string{
-	"sentencetranformers":   "SentenceTransformer",
-	"transformers-musicgen": "MusicgenForConditionalGeneration",
+	"sentencetranformers":    "SentenceTransformer",
+	"huggingface-embeddings": "SentenceTransformer",
+	"transformers-musicgen":  "MusicgenForConditionalGeneration",
 }
 
 var AutoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
