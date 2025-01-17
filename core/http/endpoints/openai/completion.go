@@ -63,7 +63,6 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 	}
 
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		// Add Correlation
 		c.Set("X-Correlation-ID", id)
 

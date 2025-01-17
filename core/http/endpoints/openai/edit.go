@@ -25,8 +25,6 @@ import (
 func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
-
 		// Opt-in extra usage flag
 		extraUsage := c.Get("LocalAI-Extra-Usage", "") != ""
 

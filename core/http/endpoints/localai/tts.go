@@ -24,8 +24,6 @@ import (
 //		@Router		/tts [post]
 func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
-
 		input := new(schema.TTSRequest)
 
 		// Get input data from the request body

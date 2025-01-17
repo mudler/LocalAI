@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"os"
 	"regexp"
 	"time"
 
@@ -99,10 +98,6 @@ func WithModelPath(path string) AppOption {
 
 func WithMachineTag(tag string) AppOption {
 	return func(o *ApplicationConfig) {
-		if tag == "" {
-			hostname, _ := os.Hostname()
-			tag = hostname
-		}
 		o.MachineTag = tag
 	}
 }

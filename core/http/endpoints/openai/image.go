@@ -66,7 +66,6 @@ func downloadFile(url string) (string, error) {
 // @Router /v1/images/generations [post]
 func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		m, input, err := readRequest(c, cl, ml, appConfig, false)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)

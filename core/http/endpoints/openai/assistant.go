@@ -76,7 +76,6 @@ type AssistantRequest struct {
 // @Router /v1/assistants [post]
 func CreateAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		request := new(AssistantRequest)
 		if err := c.BodyParser(request); err != nil {
 			log.Warn().AnErr("Unable to parse AssistantRequest", err)
@@ -138,7 +137,6 @@ func generateRandomID() int64 {
 // @Router /v1/assistants [get]
 func ListAssistantsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		// Because we're altering the existing assistants list we should just duplicate it for now.
 		returnAssistants := Assistants
 		// Parse query parameters
@@ -248,7 +246,6 @@ func modelExists(cl *config.BackendConfigLoader, ml *model.ModelLoader, modelNam
 // @Router /v1/assistants/{assistant_id} [delete]
 func DeleteAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		assistantID := c.Params("assistant_id")
 		if assistantID == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id is required")
@@ -281,7 +278,6 @@ func DeleteAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoad
 // @Router /v1/assistants/{assistant_id} [get]
 func GetAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		assistantID := c.Params("assistant_id")
 		if assistantID == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id is required")
@@ -311,7 +307,6 @@ var (
 
 func CreateAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		request := new(schema.AssistantFileRequest)
 		if err := c.BodyParser(request); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
@@ -358,7 +353,6 @@ func ListAssistantFilesEndpoint(cl *config.BackendConfigLoader, ml *model.ModelL
 	}
 
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		assistantID := c.Params("assistant_id")
 		if assistantID == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("parameter assistant_id is required")
@@ -416,7 +410,6 @@ func ListAssistantFilesEndpoint(cl *config.BackendConfigLoader, ml *model.ModelL
 
 func ModifyAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		request := new(AssistantRequest)
 		if err := c.BodyParser(request); err != nil {
 			log.Warn().AnErr("Unable to parse AssistantRequest", err)
@@ -456,7 +449,6 @@ func ModifyAssistantEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoad
 
 func DeleteAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		assistantID := c.Params("assistant_id")
 		fileId := c.Params("file_id")
 		if assistantID == "" {
@@ -511,7 +503,6 @@ func DeleteAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.Model
 
 func GetAssistantFileEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", appConfig.MachineTag)
 		assistantID := c.Params("assistant_id")
 		fileId := c.Params("file_id")
 		if assistantID == "" {

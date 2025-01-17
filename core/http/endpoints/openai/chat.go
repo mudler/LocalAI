@@ -171,8 +171,6 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 	}
 
 	return func(c *fiber.Ctx) error {
-		c.Set("LocalAI-Machine-Tag", startupOptions.MachineTag)
-
 		textContentToReturn = ""
 		id = uuid.New().String()
 		created = int(time.Now().Unix())
@@ -327,7 +325,6 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			c.Context().SetContentType("text/event-stream")
 			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
 			//	c.Set("Content-Type", "text/event-stream")
-			c.Set("LocalAI-Machine-Tag", startupOptions.MachineTag)
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
