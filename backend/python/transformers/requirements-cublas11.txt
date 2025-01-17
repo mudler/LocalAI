@@ -1,5 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
 torch==2.4.1+cu118
+llvmlite==0.43.0
 accelerate
 transformers
 bitsandbytes
+outetts
