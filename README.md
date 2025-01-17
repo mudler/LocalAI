@@ -92,7 +92,7 @@ local-ai run oci://localai/phi-2:latest
 
 ## 📰 Latest project news
 
-- January 2025: SANA support in diffusers: https://github.com/mudler/LocalAI/pull/4603
+- Jan 2025: LocalAI model release: https://huggingface.co/mudler/LocalAI-functioncall-phi-4-v0.3, SANA support in diffusers: https://github.com/mudler/LocalAI/pull/4603
 - Dec 2024: stablediffusion.cpp backend (ggml) added ( https://github.com/mudler/LocalAI/pull/4289 )
 - Nov 2024: Bark.cpp backend added ( https://github.com/mudler/LocalAI/pull/4287 )
 - Nov 2024: Voice activity detection models (**VAD**) added to the API: https://github.com/mudler/LocalAI/pull/4204
