@@ -83,7 +83,7 @@ class TestBackendServicer(unittest.TestCase):
         finally:
             self.tearDown()
 
-    def test_load_model(self):
+    def test_audio_load_model(self):
         """
         This method tests if the model is loaded successfully
         """
@@ -91,7 +91,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small",Type="MusicgenForConditionalGeneration"))
                 self.assertTrue(response.success)
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:
@@ -108,7 +108,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small",Type="MusicgenForConditionalGeneration"))
                 self.assertTrue(response.success)
                 tts_request = backend_pb2.TTSRequest(text="80s TV news production music hit for tonight's biggest story")
                 tts_response = stub.TTS(tts_request)
@@ -127,7 +127,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small",Type="MusicgenForConditionalGeneration"))
                 self.assertTrue(response.success)
                 sg_request = backend_pb2.SoundGenerationRequest(text="80s TV news production music hit for tonight's biggest story")
                 sg_response = stub.SoundGeneration(sg_request)
