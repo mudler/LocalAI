@@ -31,7 +31,8 @@ var Aliases map[string]string = map[string]string{
 }
 
 var TypeAlias map[string]string = map[string]string{
-	"sentencetranformers": "SentenceTransformer",
+	"sentencetranformers":   "SentenceTransformer",
+	"transformers-musicgen": "MusicgenForConditionalGeneration",
 }
 
 var AutoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
