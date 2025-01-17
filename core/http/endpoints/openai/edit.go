@@ -25,6 +25,9 @@ import (
 func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 
 	return func(c *fiber.Ctx) error {
+		// Opt-in extra usage flag
+		extraUsage := c.Get("LocalAI-Extra-Usage", "") != ""
+
 		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
@@ -61,7 +64,19 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			totalTokenUsage.Prompt += tokenUsage.Prompt
 			totalTokenUsage.Completion += tokenUsage.Completion
 
+			totalTokenUsage.TimingTokenGeneration += tokenUsage.TimingTokenGeneration
+			totalTokenUsage.TimingPromptProcessing += tokenUsage.TimingPromptProcessing
+
 			result = append(result, r...)
+		}
+		usage := schema.OpenAIUsage{
+			PromptTokens:     totalTokenUsage.Prompt,
+			CompletionTokens: totalTokenUsage.Completion,
+			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
+		}
+		if extraUsage {
+			usage.TimingTokenGeneration = totalTokenUsage.TimingTokenGeneration
+			usage.TimingPromptProcessing = totalTokenUsage.TimingPromptProcessing
 		}
 
 		id := uuid.New().String()
@@ -72,11 +87,7 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "edit",
-			Usage: schema.OpenAIUsage{
-				PromptTokens:     totalTokenUsage.Prompt,
-				CompletionTokens: totalTokenUsage.Completion,
-				TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
-			},
+			Usage:   usage,
 		}
 
 		jsonResult, _ := json.Marshal(resp)

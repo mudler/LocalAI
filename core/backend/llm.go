@@ -27,8 +27,10 @@ type LLMResponse struct {
 }
 
 type TokenUsage struct {
-	Prompt     int
-	Completion int
+	Prompt                 int
+	Completion             int
+	TimingPromptProcessing float64
+	TimingTokenGeneration  float64
 }
 
 func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
@@ -123,6 +125,8 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 
 				tokenUsage.Prompt = int(reply.PromptTokens)
 				tokenUsage.Completion = int(reply.Tokens)
+				tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
+				tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
 
 				for len(partialRune) > 0 {
 					r, size := utf8.DecodeRune(partialRune)
@@ -157,6 +161,10 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			if tokenUsage.Completion == 0 {
 				tokenUsage.Completion = int(reply.Tokens)
 			}
+
+			tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
+			tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
+
 			return LLMResponse{
 				Response: string(reply.Message),
 				Usage:    tokenUsage,

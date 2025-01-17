@@ -65,6 +65,8 @@ type ApplicationConfig struct {
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+
+	MachineTag string
 }
 
 type AppOption func(*ApplicationConfig)
@@ -91,6 +93,12 @@ func WithModelsURL(urls ...string) AppOption {
 func WithModelPath(path string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ModelPath = path
+	}
+}
+
+func WithMachineTag(tag string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MachineTag = tag
 	}
 }
 

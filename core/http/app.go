@@ -89,6 +89,14 @@ func API(application *application.Application) (*fiber.App, error) {
 
 	router.Use(middleware.StripPathPrefix())
 
+	if application.ApplicationConfig().MachineTag != "" {
+		router.Use(func(c *fiber.Ctx) error {
+			c.Response().Header.Set("Machine-Tag", application.ApplicationConfig().MachineTag)
+
+			return c.Next()
+		})
+	}
+
 	router.Hooks().OnListen(func(listenData fiber.ListenData) error {
 		scheme := "http"
 		if listenData.TLS {

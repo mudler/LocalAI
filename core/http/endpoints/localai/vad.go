@@ -19,7 +19,6 @@ import (
 // @Router		/vad [post]
 func VADEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-
 		input := new(schema.VADRequest)
 
 		// Get input data from the request body

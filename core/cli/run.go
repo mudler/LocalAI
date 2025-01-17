@@ -70,6 +70,7 @@ type RunCMD struct {
 	WatchdogBusyTimeout                string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
+	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
 	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
 }
 
@@ -107,6 +108,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithHttpGetExemptedEndpoints(r.HttpGetExemptedEndpoints),
 		config.WithP2PNetworkID(r.Peer2PeerNetworkID),
 		config.WithLoadToMemory(r.LoadToMemory),
+		config.WithMachineTag(r.MachineTag),
 	}
 
 	if r.DisableMetricsEndpoint {
