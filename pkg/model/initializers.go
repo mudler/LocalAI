@@ -27,6 +27,11 @@ var Aliases map[string]string = map[string]string{
 	"embedded-store":        LocalStoreBackend,
 	"langchain-huggingface": LCHuggingFaceBackend,
 	"transformers-musicgen": TransformersBackend,
+	"sentencetranformers":   TransformersBackend,
+}
+
+var TypeAlias map[string]string = map[string]string{
+	"sentencetranformers": "SentenceTransformer",
 }
 
 var AutoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
@@ -461,6 +466,10 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 	backend := strings.ToLower(o.backendString)
 	if realBackend, exists := Aliases[backend]; exists {
 		backend = realBackend
+		typeAlias, exists := TypeAlias[backend]
+		if exists {
+			o.gRPCOptions.Type = typeAlias
+		}
 		log.Debug().Msgf("%s is an alias of %s", backend, realBackend)
 	}
 
