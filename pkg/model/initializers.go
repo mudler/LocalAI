@@ -26,6 +26,7 @@ var Aliases map[string]string = map[string]string{
 	"llama":                 LLamaCPP,
 	"embedded-store":        LocalStoreBackend,
 	"langchain-huggingface": LCHuggingFaceBackend,
+	"transformers-musicgen": TransformersBackend,
 }
 
 var AutoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
@@ -51,7 +52,8 @@ const (
 	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "huggingface"
 
-	LocalStoreBackend = "local-store"
+	TransformersBackend = "transformers"
+	LocalStoreBackend   = "local-store"
 )
 
 func backendPath(assetDir, backend string) string {
