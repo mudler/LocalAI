@@ -206,19 +206,22 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                        torch_dtype=compute)
             if request.ContextSize > 0:
                 self.max_tokens = request.ContextSize
-            else:
+            elif request.Type != "MusicgenForConditionalGeneration":
                 self.max_tokens = self.model.config.max_position_embeddings
+            else:
+                self.max_tokens = 512
  
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
-            self.XPU = False
+            if request.Type != "MusicgenForConditionalGeneration":
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_safetensors=True)
+                self.XPU = False
 
-            if XPU and self.OV == False:
-                self.XPU = True
-                try:
-                    print("Optimizing model", model_name, "to XPU.", file=sys.stderr)
-                    self.model = ipex.optimize_transformers(self.model, inplace=True, dtype=torch.float16, device="xpu")
-                except Exception as err:
-                    print("Not using XPU:", err, file=sys.stderr)
+                if XPU and self.OV == False:
+                    self.XPU = True
+                    try:
+                        print("Optimizing model", model_name, "to XPU.", file=sys.stderr)
+                        self.model = ipex.optimize_transformers(self.model, inplace=True, dtype=torch.float16, device="xpu")
+                    except Exception as err:
+                        print("Not using XPU:", err, file=sys.stderr)
 
         except Exception as err:
             print("Error:", err, file=sys.stderr)

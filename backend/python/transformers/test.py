@@ -19,6 +19,7 @@ class TestBackendServicer(unittest.TestCase):
         This method sets up the gRPC service by starting the server
         """
         self.service = subprocess.Popen(["python3", "backend.py", "--addr", "localhost:50051"])
+        time.sleep(10)
 
     def tearDown(self) -> None:
         """
@@ -31,7 +32,6 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the server starts up successfully
         """
-        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
@@ -48,7 +48,6 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the model is loaded successfully
         """
-        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
@@ -66,7 +65,6 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the embeddings are generated successfully
         """
-        time.sleep(10)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
