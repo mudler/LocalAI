@@ -100,8 +100,7 @@ jobs:
           # The python3-grpc-tools package in 22.04 is too old
           pip install --user grpcio-tools
 
-          sudo rm -rfv /usr/bin/conda || true
-          PATH=$PATH:/opt/conda/bin make -C backend/python/sentencetransformers
+          make -C backend/python/transformers
 
           # Pre-build piper before we start tests in order to have shared libraries in place
           make sources/go-piper && \

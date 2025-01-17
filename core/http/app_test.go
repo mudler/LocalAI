@@ -822,7 +822,7 @@ var _ = Describe("API test", func() {
 
 			application, err := application.New(
 				append(commonOpts,
-					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
+					config.WithExternalBackend("transformers", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 				)...)
