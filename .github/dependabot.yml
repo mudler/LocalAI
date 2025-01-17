@@ -82,10 +82,6 @@ updates:
     schedule:
       interval: "weekly"
   - package-ecosystem: "pip"
-    directory: "/backend/python/transformers-musicgen"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "pip"
     directory: "/backend/python/vllm"
     schedule:
       interval: "weekly"

@@ -1,4 +1,0 @@
-grpcio==1.69.0
-protobuf
-scipy==1.14.0
-certifi
