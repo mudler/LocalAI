@@ -82,3 +82,58 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("Embedding service failed")
         finally:
             self.tearDown()
+
+    def test_load_model(self):
+        """
+        This method tests if the model is loaded successfully
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
+                self.assertTrue(response.success)
+                self.assertEqual(response.message, "Model loaded successfully")
+        except Exception as err:
+            print(err)
+            self.fail("LoadModel service failed")
+        finally:
+            self.tearDown()
+
+    def test_tts(self):
+        """
+        This method tests if TTS is generated successfully
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
+                self.assertTrue(response.success)
+                tts_request = backend_pb2.TTSRequest(text="80s TV news production music hit for tonight's biggest story")
+                tts_response = stub.TTS(tts_request)
+                self.assertIsNotNone(tts_response)
+        except Exception as err:
+            print(err)
+            self.fail("TTS service failed")
+        finally:
+            self.tearDown()
+
+    def test_sound_generation(self):
+        """
+        This method tests if SoundGeneration is generated successfully
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/musicgen-small"))
+                self.assertTrue(response.success)
+                sg_request = backend_pb2.SoundGenerationRequest(text="80s TV news production music hit for tonight's biggest story")
+                sg_response = stub.SoundGeneration(sg_request)
+                self.assertIsNotNone(sg_response)
+        except Exception as err:
+            print(err)
+            self.fail("SoundGeneration service failed")
+        finally:
+            self.tearDown()
