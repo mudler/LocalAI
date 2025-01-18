@@ -28,11 +28,11 @@ var Aliases map[string]string = map[string]string{
 	"huggingface-embeddings": TransformersBackend,
 	"langchain-huggingface":  LCHuggingFaceBackend,
 	"transformers-musicgen":  TransformersBackend,
-	"sentencetranformers":    TransformersBackend,
+	"sentencetransformers":   TransformersBackend,
 }
 
 var TypeAlias map[string]string = map[string]string{
-	"sentencetranformers":    "SentenceTransformer",
+	"sentencetransformers":   "SentenceTransformer",
 	"huggingface-embeddings": "SentenceTransformer",
 	"transformers-musicgen":  "MusicgenForConditionalGeneration",
 }
