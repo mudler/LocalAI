@@ -134,6 +134,32 @@ static std::string tokens_to_output_formatted_string(const llama_context *ctx, c
     return out;
 }
 
+// Adds an RPC server
+// https://github.com/ggerganov/llama.cpp/compare/4dbc8b9cb71876e005724f4e8f73a3544646bcf5..3edfa7d3753c29e44b964c0ff424d2ea8d5fdee6
+static void add_rpc_devices(std::string servers) {
+    auto rpc_servers = string_split<std::string>(servers, ',');
+    if (rpc_servers.empty()) {
+        throw std::invalid_argument("no RPC servers specified");
+    }
+    ggml_backend_reg_t rpc_reg = ggml_backend_reg_by_name("RPC");
+    if (!rpc_reg) {
+        throw std::invalid_argument("failed to find RPC backend");
+    }
+    typedef ggml_backend_dev_t (*ggml_backend_rpc_add_device_t)(const char * endpoint);
+    ggml_backend_rpc_add_device_t ggml_backend_rpc_add_device_fn = (ggml_backend_rpc_add_device_t) ggml_backend_reg_get_proc_address(rpc_reg, "ggml_backend_rpc_add_device");
+    if (!ggml_backend_rpc_add_device_fn) {
+        throw std::invalid_argument("failed to find RPC device add function");
+    }
+    for (const auto & server : rpc_servers) {
+        ggml_backend_dev_t dev = ggml_backend_rpc_add_device_fn(server.c_str());
+        if (dev) {
+            ggml_backend_device_register(dev);
+        } else {
+            throw std::invalid_argument("failed to register RPC device");
+        }
+    }
+}
+
 // convert a vector of completion_token_output to json
 static json probs_vector_to_json(const llama_context *ctx, const std::vector<completion_token_output> &probs)
 {
@@ -2282,7 +2308,7 @@ static void params_parse(const backend::ModelOptions* request,
 
     const char *llama_grpc_servers = std::getenv("LLAMACPP_GRPC_SERVERS");
     if (llama_grpc_servers != NULL) {
-        params.rpc_servers = std::string(llama_grpc_servers);
+        add_rpc_devices(std::string(llama_grpc_servers));
     }
     
     // TODO: Add yarn
