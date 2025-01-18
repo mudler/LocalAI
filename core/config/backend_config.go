@@ -515,7 +515,7 @@ func (c *BackendConfig) GuessUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_IMAGE) == FLAG_IMAGE {
-		imageBackends := []string{"diffusers", "tinydream", "stablediffusion"}
+		imageBackends := []string{"diffusers", "stablediffusion"}
 		if !slices.Contains(imageBackends, c.Backend) {
 			return false
 		}

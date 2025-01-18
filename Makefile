@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=4dbc8b9cb71876e005724f4e8f73a3544646bcf5
+CPPLLAMA_VERSION?=3edfa7d3753c29e44b964c0ff424d2ea8d5fdee6
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
@@ -21,10 +21,6 @@ PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
 # stablediffusion version
 STABLEDIFFUSION_REPO?=https://github.com/mudler/go-stable-diffusion
 STABLEDIFFUSION_VERSION?=4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
-
-# tinydream version
-TINYDREAM_REPO?=https://github.com/M0Rf30/go-tiny-dream
-TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
 
 # bark.cpp
 BARKCPP_REPO?=https://github.com/PABannier/bark.cpp.git
@@ -188,11 +184,6 @@ ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
 	OPTIONAL_GRPC+=backend-assets/grpc/stablediffusion
 endif
 
-ifeq ($(findstring tinydream,$(GO_TAGS)),tinydream)
-#	OPTIONAL_TARGETS+=go-tiny-dream/libtinydream.a
-	OPTIONAL_GRPC+=backend-assets/grpc/tinydream
-endif
-
 ifeq ($(findstring tts,$(GO_TAGS)),tts)
 #	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
 #	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
@@ -327,19 +318,6 @@ else
 	mv backend-assets/lib/libonnxruntime.so.$(ONNX_VERSION) backend-assets/lib/libonnxruntime.so.1
 endif
 
-## tiny-dream
-sources/go-tiny-dream:
-	mkdir -p sources/go-tiny-dream
-	cd sources/go-tiny-dream && \
-	git init && \
-	git remote add origin $(TINYDREAM_REPO) && \
-	git fetch origin && \
-	git checkout $(TINYDREAM_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
-	$(MAKE) -C sources/go-tiny-dream libtinydream.a
-
 ## whisper
 sources/whisper.cpp:
 	mkdir -p sources/whisper.cpp
@@ -353,12 +331,11 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
+get-sources: sources/go-llama.cpp sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp sources/go-stable-diffusion backend/cpp/llama/llama.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -replace github.com/M0Rf30/go-tiny-dream=$(CURDIR)/sources/go-tiny-dream
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(CURDIR)/sources/go-piper
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama.cpp
@@ -366,7 +343,6 @@ replace:
 dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -dropreplace github.com/M0Rf30/go-tiny-dream
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-stable-diffusion
 	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-llama.cpp
@@ -381,7 +357,6 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C sources/whisper.cpp clean
 	$(MAKE) -C sources/go-stable-diffusion clean
 	$(MAKE) -C sources/go-piper clean
-	$(MAKE) -C sources/go-tiny-dream clean
 	$(MAKE) build
 
 prepare: prepare-sources $(OPTIONAL_TARGETS)
@@ -497,7 +472,7 @@ test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
 	export GO_TAGS="tts stablediffusion debug"
 	$(MAKE) prepare-test
-	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/sentencetransformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
+	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama && !llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 	$(MAKE) test-llama
 	$(MAKE) test-llama-gguf
@@ -583,10 +558,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen mamba-protogen rerankers-protogen sentencetransformers-protogen transformers-protogen parler-tts-protogen kokoro-protogen vllm-protogen openvoice-protogen
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen mamba-protogen rerankers-protogen transformers-protogen parler-tts-protogen kokoro-protogen vllm-protogen openvoice-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean mamba-protogen-clean sentencetransformers-protogen-clean rerankers-protogen-clean transformers-protogen-clean parler-tts-protogen-clean kokoro-protogen-clean vllm-protogen-clean openvoice-protogen-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean mamba-protogen-clean rerankers-protogen-clean transformers-protogen-clean parler-tts-protogen-clean kokoro-protogen-clean vllm-protogen-clean openvoice-protogen-clean
 
 .PHONY: autogptq-protogen
 autogptq-protogen:
@@ -644,14 +619,6 @@ rerankers-protogen:
 rerankers-protogen-clean:
 	$(MAKE) -C backend/python/rerankers protogen-clean
 
-.PHONY: sentencetransformers-protogen
-sentencetransformers-protogen:
-	$(MAKE) -C backend/python/sentencetransformers protogen
-
-.PHONY: sentencetransformers-protogen-clean
-sentencetransformers-protogen-clean:
-	$(MAKE) -C backend/python/sentencetransformers protogen-clean
-
 .PHONY: transformers-protogen
 transformers-protogen:
 	$(MAKE) -C backend/python/transformers protogen
@@ -701,7 +668,6 @@ prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/diffusers
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/mamba
-	$(MAKE) -C backend/python/sentencetransformers
 	$(MAKE) -C backend/python/rerankers
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/parler-tts
@@ -862,13 +828,6 @@ backend-assets/grpc/silero-vad: backend-assets/grpc backend-assets/lib/libonnxru
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/silero-vad ./backend/go/vad/silero
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/silero-vad
-endif
-
-backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libtinydream.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/go-tiny-dream \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/tinydream
 endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc

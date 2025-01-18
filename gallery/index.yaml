@@ -9187,6 +9187,7 @@
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
 - !!merge <<: *llama3
   name: "minicpm-llama3-v-2_5"
+  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
   urls:
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
@@ -9210,6 +9211,33 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "minicpm-v-2_6"
+  license: apache-2.0
+  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-2_6
+  description: |
+    MiniCPM-V 2.6 is the latest and most capable model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  overrides:
+    mmproj: minicpm-v-2_6-mmproj-f16.gguf
+    parameters:
+      model: minicpm-v-2_6-Q4_K_M.gguf
+  files:
+    - filename: minicpm-v-2_6-Q4_K_M.gguf
+      sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
+      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-v-2_6-mmproj-f16.gguf
+      sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
+      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
 - !!merge <<: *llama3
   name: "llama-3-cursedstock-v1.8-8b-iq-imatrix"
   urls:
@@ -11187,15 +11215,6 @@
   description: |
     Stable Diffusion in NCNN with c++, supported txt2img and img2img
   name: stablediffusion-cpp
-## Tiny Dream
-- url: github:mudler/LocalAI/gallery/tinydream.yaml@master
-  name: tinydream
-  license: "BSD-3"
-  urls:
-    - https://github.com/symisc/tiny-dream
-    - https://github.com/symisc/tiny-dream/blob/main/LICENSE
-  description: |
-    An embedded, Header Only, Stable Diffusion C++ implementation
 - &piper
   ## Piper TTS
   url: github:mudler/LocalAI/gallery/piper.yaml@master
