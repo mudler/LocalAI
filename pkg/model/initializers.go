@@ -22,11 +22,19 @@ import (
 )
 
 var Aliases map[string]string = map[string]string{
-	"go-llama":              LLamaCPP,
-	"llama":                 LLamaCPP,
-	"embedded-store":        LocalStoreBackend,
-	"langchain-huggingface": LCHuggingFaceBackend,
-	"transformers-musicgen": TransformersBackend,
+	"go-llama":               LLamaCPP,
+	"llama":                  LLamaCPP,
+	"embedded-store":         LocalStoreBackend,
+	"huggingface-embeddings": TransformersBackend,
+	"langchain-huggingface":  LCHuggingFaceBackend,
+	"transformers-musicgen":  TransformersBackend,
+	"sentencetransformers":   TransformersBackend,
+}
+
+var TypeAlias map[string]string = map[string]string{
+	"sentencetransformers":   "SentenceTransformer",
+	"huggingface-embeddings": "SentenceTransformer",
+	"transformers-musicgen":  "MusicgenForConditionalGeneration",
 }
 
 var AutoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
@@ -396,6 +404,7 @@ func (ml *ModelLoader) grpcModel(backend string, autodetect bool, o *Options) fu
 		}
 
 		log.Debug().Msgf("Wait for the service to start up")
+		log.Debug().Msgf("Options: %+v", o.gRPCOptions)
 
 		// Wait for the service to start up
 		ready := false
@@ -460,8 +469,15 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 
 	backend := strings.ToLower(o.backendString)
 	if realBackend, exists := Aliases[backend]; exists {
+		typeAlias, exists := TypeAlias[backend]
+		if exists {
+			log.Debug().Msgf("'%s' is a type alias of '%s' (%s)", backend, realBackend, typeAlias)
+			o.gRPCOptions.Type = typeAlias
+		} else {
+			log.Debug().Msgf("'%s' is an alias of '%s'", backend, realBackend)
+		}
+
 		backend = realBackend
-		log.Debug().Msgf("%s is an alias of %s", backend, realBackend)
 	}
 
 	ml.stopActiveBackends(o.modelID, o.singleActiveBackend)

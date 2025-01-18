@@ -4,3 +4,4 @@ accelerate
 transformers
 bitsandbytes
 outetts
+sentence-transformers==3.3.1

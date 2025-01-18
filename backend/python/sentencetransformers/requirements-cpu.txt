@@ -1,6 +1,0 @@
-torch==2.4.1
-accelerate
-transformers
-bitsandbytes
-sentence-transformers==3.3.1
-transformers
