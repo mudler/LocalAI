@@ -130,8 +130,6 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 		switch config.Backend {
 		case "stablediffusion":
 			config.Backend = model.StableDiffusionBackend
-		case "tinydream":
-			config.Backend = model.TinyDreamBackend
 		case "":
 			config.Backend = model.StableDiffusionBackend
 		}

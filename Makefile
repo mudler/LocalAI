@@ -22,10 +22,6 @@ PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
 STABLEDIFFUSION_REPO?=https://github.com/mudler/go-stable-diffusion
 STABLEDIFFUSION_VERSION?=4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
 
-# tinydream version
-TINYDREAM_REPO?=https://github.com/M0Rf30/go-tiny-dream
-TINYDREAM_VERSION?=c04fa463ace9d9a6464313aa5f9cd0f953b6c057
-
 # bark.cpp
 BARKCPP_REPO?=https://github.com/PABannier/bark.cpp.git
 BARKCPP_VERSION?=v1.0.0
@@ -188,11 +184,6 @@ ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
 	OPTIONAL_GRPC+=backend-assets/grpc/stablediffusion
 endif
 
-ifeq ($(findstring tinydream,$(GO_TAGS)),tinydream)
-#	OPTIONAL_TARGETS+=go-tiny-dream/libtinydream.a
-	OPTIONAL_GRPC+=backend-assets/grpc/tinydream
-endif
-
 ifeq ($(findstring tts,$(GO_TAGS)),tts)
 #	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
 #	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
@@ -327,19 +318,6 @@ else
 	mv backend-assets/lib/libonnxruntime.so.$(ONNX_VERSION) backend-assets/lib/libonnxruntime.so.1
 endif
 
-## tiny-dream
-sources/go-tiny-dream:
-	mkdir -p sources/go-tiny-dream
-	cd sources/go-tiny-dream && \
-	git init && \
-	git remote add origin $(TINYDREAM_REPO) && \
-	git fetch origin && \
-	git checkout $(TINYDREAM_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-tiny-dream/libtinydream.a: sources/go-tiny-dream
-	$(MAKE) -C sources/go-tiny-dream libtinydream.a
-
 ## whisper
 sources/whisper.cpp:
 	mkdir -p sources/whisper.cpp
@@ -353,12 +331,11 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp sources/go-stable-diffusion sources/go-tiny-dream backend/cpp/llama/llama.cpp
+get-sources: sources/go-llama.cpp sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp sources/go-stable-diffusion backend/cpp/llama/llama.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -replace github.com/M0Rf30/go-tiny-dream=$(CURDIR)/sources/go-tiny-dream
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(CURDIR)/sources/go-piper
 	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama.cpp
@@ -366,7 +343,6 @@ replace:
 dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -dropreplace github.com/M0Rf30/go-tiny-dream
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-stable-diffusion
 	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-llama.cpp
@@ -381,7 +357,6 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C sources/whisper.cpp clean
 	$(MAKE) -C sources/go-stable-diffusion clean
 	$(MAKE) -C sources/go-piper clean
-	$(MAKE) -C sources/go-tiny-dream clean
 	$(MAKE) build
 
 prepare: prepare-sources $(OPTIONAL_TARGETS)
@@ -853,13 +828,6 @@ backend-assets/grpc/silero-vad: backend-assets/grpc backend-assets/lib/libonnxru
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/silero-vad ./backend/go/vad/silero
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/silero-vad
-endif
-
-backend-assets/grpc/tinydream: sources/go-tiny-dream sources/go-tiny-dream/libtinydream.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/go-tiny-dream \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/tinydream ./backend/go/image/tinydream
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/tinydream
 endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc

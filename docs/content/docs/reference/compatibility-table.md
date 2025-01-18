@@ -32,7 +32,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | `mamba` | Mamba models architecture | yes                      | GPT             | no | no                  | CPU/CUDA |
 | `exllama2`  | GPTQ                   | yes                       | GPT only                  | no                               | no                   | N/A |
 | `transformers-musicgen`  |                    | no                       | Audio generation                | no                               | no                   | N/A |
-| [tinydream](https://github.com/symisc/tiny-dream#tiny-dreaman-embedded-header-only-stable-diffusion-inference-c-librarypixlabiotiny-dream)         | stablediffusion               | no                       | Image                 | no                                | no                   | N/A |
+| stablediffusion               | no                       | Image                 | no                                | no                   | N/A |
 | `coqui` | Coqui    | no                       | Audio generation and Voice cloning    | no                               | no                   | CPU/CUDA |
 | `openvoice` | Open voice    | no                       | Audio generation and Voice cloning    | no                               | no                   | CPU/CUDA |
 | `parler-tts` | Open voice    | no                       | Audio generation and Voice cloning    | no                               | no                   | CPU/CUDA |

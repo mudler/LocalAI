@@ -6,7 +6,6 @@ toolchain go1.23.1
 
 require (
 	dario.cat/mergo v1.0.1
-	github.com/M0Rf30/go-tiny-dream v0.0.0-20240425104733-c04fa463ace9
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v0.9.0
 	github.com/census-instrumentation/opencensus-proto v0.4.1

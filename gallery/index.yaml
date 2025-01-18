@@ -11187,15 +11187,6 @@
   description: |
     Stable Diffusion in NCNN with c++, supported txt2img and img2img
   name: stablediffusion-cpp
-## Tiny Dream
-- url: github:mudler/LocalAI/gallery/tinydream.yaml@master
-  name: tinydream
-  license: "BSD-3"
-  urls:
-    - https://github.com/symisc/tiny-dream
-    - https://github.com/symisc/tiny-dream/blob/main/LICENSE
-  description: |
-    An embedded, Header Only, Stable Diffusion C++ implementation
 - &piper
   ## Piper TTS
   url: github:mudler/LocalAI/gallery/piper.yaml@master
