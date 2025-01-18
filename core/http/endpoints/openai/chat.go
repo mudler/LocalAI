@@ -182,7 +182,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 		c.Set("X-Correlation-ID", correlationID)
 
 		// Opt-in extra usage flag
-		extraUsage := c.Get("LocalAI-Extra-Usage", "") != ""
+		extraUsage := c.Get("Extra-Usage", "") != ""
 
 		modelFile, input, err := readRequest(c, cl, ml, startupOptions, true)
 		if err != nil {
