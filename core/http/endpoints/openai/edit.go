@@ -26,7 +26,7 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 
 	return func(c *fiber.Ctx) error {
 		// Opt-in extra usage flag
-		extraUsage := c.Get("LocalAI-Extra-Usage", "") != ""
+		extraUsage := c.Get("Extra-Usage", "") != ""
 
 		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
 		if err != nil {

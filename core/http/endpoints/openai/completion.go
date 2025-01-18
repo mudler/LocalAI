@@ -67,7 +67,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 		c.Set("X-Correlation-ID", id)
 
 		// Opt-in extra usage flag
-		extraUsage := c.Get("LocalAI-Extra-Usage", "") != ""
+		extraUsage := c.Get("Extra-Usage", "") != ""
 
 		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
 		if err != nil {
