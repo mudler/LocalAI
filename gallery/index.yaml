@@ -9187,6 +9187,7 @@
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
 - !!merge <<: *llama3
   name: "minicpm-llama3-v-2_5"
+  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
   urls:
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
@@ -9210,6 +9211,32 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
+- !!merge <<: *llama3
+  name: "minicpm-o-2_6"
+  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-o-2_6-gguf
+    - https://huggingface.co/openbmb/MiniCPM-o-2_6
+  description: |
+    MiniCPM-o 2.6 is the latest and most capable model in the MiniCPM-o series. The model is built in an end-to-end fashion based on SigLip-400M, Whisper-medium-300M, ChatTTS-200M, and Qwen2.5-7B with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - llama3
+    - cpu
+  overrides:
+    mmproj: minicpm-o-2_6-mmproj-f16.gguf
+    parameters:
+      model: minicpm-o-2_6-Q4_K_M.gguf
+  files:
+    - filename: minicpm-o-2_6-Q4_K_M.gguf
+      sha256: 4f635fc0c0bb88d50ccd9cf1f1e5892b5cb085ff88fe0d8e1148fd9a8a836bc2
+      uri: huggingface://openbmb/MiniCPM-o-2_6-gguf/Model-7.6B-Q4_K_M.gguf
+    - filename: minicpm-o-2_6-mmproj-f16.gguf
+      sha256: efa4f7d96aa0f838f2023fc8d28e519179b16f1106777fa9280b32628191aa3e
+      uri: huggingface://openbmb/MiniCPM-o-2_6-gguf/mmproj-model-f16.gguf
 - !!merge <<: *llama3
   name: "llama-3-cursedstock-v1.8-8b-iq-imatrix"
   urls:
