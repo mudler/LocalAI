@@ -646,6 +646,12 @@ definitions:
         type: integer
       prompt_tokens:
         type: integer
+      timing_prompt_processing:
+        description: Extra timing data, disabled by default as is't not a part of
+          OpenAI specification
+        type: number
+      timing_token_generation:
+        type: number
       total_tokens:
         type: integer
     type: object
