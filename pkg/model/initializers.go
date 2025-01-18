@@ -48,7 +48,6 @@ const (
 
 	WhisperBackend         = "whisper"
 	StableDiffusionBackend = "stablediffusion"
-	TinyDreamBackend       = "tinydream"
 	PiperBackend           = "piper"
 	LCHuggingFaceBackend   = "huggingface"
 

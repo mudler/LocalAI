@@ -88,7 +88,7 @@ Here is the list of the variables available that can be used to customize the bu
 | Variable | Default | Description |
 | ---------------------| ------- | ----------- |
 | `BUILD_TYPE`         |   None      | Build type. Available: `cublas`, `openblas`, `clblas`, `metal`,`hipblas`, `sycl_f16`, `sycl_f32` |
-| `GO_TAGS`            |   `tts stablediffusion`      | Go tags. Available: `stablediffusion`, `tts`, `tinydream` |
+| `GO_TAGS`            |   `tts stablediffusion`      | Go tags. Available: `stablediffusion`, `tts` |
 | `CLBLAST_DIR`        |         | Specify a CLBlast directory |
 | `CUDA_LIBPATH`       |         | Specify a CUDA library path |
 | `BUILD_API_ONLY` | false | Set to true to build only the API (no backends will be built) |
@@ -202,7 +202,7 @@ make build
 
 **Requirements**: OpenCV, Gomp
 
-Image generation requires `GO_TAGS=stablediffusion` or `GO_TAGS=tinydream` to be set during build:
+Image generation requires `GO_TAGS=stablediffusion` to be set during build:
 
 ```
 make GO_TAGS=stablediffusion build
