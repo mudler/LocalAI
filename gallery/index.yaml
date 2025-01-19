@@ -9191,7 +9191,7 @@
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
 - !!merge <<: *llama3
   name: "minicpm-llama3-v-2_5"
-  icon: https://github.com/OpenBMB/MiniCPM/raw/main/assets/minicpm_logo.png
+  icon: https://avatars.githubusercontent.com/u/89920203
   urls:
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
@@ -9218,7 +9218,7 @@
 - !!merge <<: *llama3
   name: "minicpm-v-2_6"
   license: apache-2.0
-  icon: https://github.com/OpenBMB/MiniCPM/raw/main/assets/minicpm_logo.png
+  icon: https://avatars.githubusercontent.com/u/89920203
   urls:
     - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
     - https://huggingface.co/openbmb/MiniCPM-V-2_6
