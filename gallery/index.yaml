@@ -444,6 +444,7 @@
       uri: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
 - &qwen25coder
   name: "qwen2.5-coder-14b"
+  icon: https://avatars.githubusercontent.com/u/141221163
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   license: apache-2.0
   tags:
@@ -1320,6 +1321,7 @@
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
+  icon: https://avatars.githubusercontent.com/u/141221163
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   license: apache-2.0
   description: |
@@ -5255,6 +5257,7 @@
   ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "qwen2-7b-instruct"
+  icon: https://avatars.githubusercontent.com/u/141221163
   license: apache-2.0
   description: |
     Qwen2 is the new series of Qwen large language models. For Qwen2, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters, including a Mixture-of-Experts model. This repo contains the instruction-tuned 7B Qwen2 model.
