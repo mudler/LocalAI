@@ -422,6 +422,7 @@
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
+  icon: https://avatars.githubusercontent.com/u/132652788
   license: apache-2.0
   urls:
     - https://huggingface.co/RWKV/rwkv-6-world-7b
