@@ -225,7 +225,7 @@
       uri: huggingface://bartowski/INTELLECT-1-Instruct-GGUF/INTELLECT-1-Instruct-Q4_K_M.gguf
 - &llama33
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.3
   description: |
     The Meta Llama 3.3 multilingual large language model (LLM) is a pretrained and instruction tuned generative model in 70B (text in/text out). The Llama 3.3 instruction tuned text only model is optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
@@ -783,7 +783,7 @@
 - &llama32
   ## llama3.2
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.2
   description: |
     The Meta Llama 3.2 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction-tuned generative models in 1B and 3B sizes (text in/text out). The Llama 3.2 instruction-tuned text only models are optimized for multilingual dialogue use cases, including agentic retrieval and summarization tasks. They outperform many of the available open source and closed chat models on common industry benchmarks.
@@ -983,7 +983,6 @@
       uri: huggingface://mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF/Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
 - !!merge <<: *llama32
   name: "llama-3.2-3b-instruct-uncensored"
-  icon: https://i.imgur.com/JOePyAN.png
   urls:
     - https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF
     - https://huggingface.co/chuanli11/Llama-3.2-3B-Instruct-uncensored
@@ -3301,7 +3300,7 @@
 - &llama31
   ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   name: "meta-llama-3.1-8b-instruct"
   license: llama3.1
   description: |
@@ -7012,7 +7011,7 @@
       uri: huggingface://bartowski/GWQ-9B-Preview2-GGUF/GWQ-9B-Preview2-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   name: "llama3-8b-instruct"
   license: llama3
   description: |
