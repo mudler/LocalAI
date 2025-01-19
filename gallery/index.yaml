@@ -4243,6 +4243,7 @@
       uri: huggingface://mradermacher/Hermes-3-Llama-3.1-70B-lorablated-GGUF/Hermes-3-Llama-3.1-70B-lorablated.Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "hermes-3-llama-3.1-8b-lorablated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/4Hbw5n68jKUSBQeTqQIeT.png
   urls:
     - https://huggingface.co/mlabonne/Hermes-3-Llama-3.1-8B-lorablated-GGUF
   description: |
