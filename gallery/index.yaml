@@ -5583,6 +5583,33 @@
     - filename: marco-o1-uncensored.Q4_K_M.gguf
       sha256: ad0440270a7254098f90779744d3e5b34fe49b7baf97c819909ba9c5648cc0d9
       uri: huggingface://QuantFactory/marco-o1-uncensored-GGUF/marco-o1-uncensored.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "minicpm-v-2_6"
+  license: apache-2.0
+  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-2_6
+  description: |
+    MiniCPM-V 2.6 is the latest and most capable model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen2
+    - cpu
+  overrides:
+    mmproj: minicpm-v-2_6-mmproj-f16.gguf
+    parameters:
+      model: minicpm-v-2_6-Q4_K_M.gguf
+  files:
+    - filename: minicpm-v-2_6-Q4_K_M.gguf
+      sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
+      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-v-2_6-mmproj-f16.gguf
+      sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
+      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -9211,33 +9238,6 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
-- !!merge <<: *llama3
-  name: "minicpm-v-2_6"
-  license: apache-2.0
-  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
-  urls:
-    - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
-    - https://huggingface.co/openbmb/MiniCPM-V-2_6
-  description: |
-    MiniCPM-V 2.6 is the latest and most capable model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters
-  tags:
-    - llm
-    - multimodal
-    - gguf
-    - gpu
-    - llama3
-    - cpu
-  overrides:
-    mmproj: minicpm-v-2_6-mmproj-f16.gguf
-    parameters:
-      model: minicpm-v-2_6-Q4_K_M.gguf
-  files:
-    - filename: minicpm-v-2_6-Q4_K_M.gguf
-      sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
-      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
-    - filename: minicpm-v-2_6-mmproj-f16.gguf
-      sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
-      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
 - !!merge <<: *llama3
   name: "llama-3-cursedstock-v1.8-8b-iq-imatrix"
   urls:
