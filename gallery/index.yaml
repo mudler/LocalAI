@@ -3109,7 +3109,7 @@
       uri: huggingface://bartowski/Rombos-Qwen2.5-Writer-32b-GGUF/Rombos-Qwen2.5-Writer-32b-Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "sky-t1-32b-preview"
-  icon: https://raw.githubusercontent.com/NovaSky-AI/novasky-ai.github.io/main/assets/images/blue-bird-wider.jpeg
+  icon: https://github.com/NovaSky-AI/novasky-ai.github.io/raw/main/assets/images/blue-bird-wider.jpeg
   urls:
     - https://huggingface.co/NovaSky-AI/Sky-T1-32B-Preview
     - https://huggingface.co/bartowski/Sky-T1-32B-Preview-GGUF
@@ -3416,7 +3416,7 @@
       uri: huggingface://mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf/Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "openbuddy-llama3.1-8b-v22.1-131k"
-  icon: https://raw.githubusercontent.com/OpenBuddy/OpenBuddy/main/media/demo.png
+  icon: https://github.com/OpenBuddy/OpenBuddy/raw/main/media/demo.png
   urls:
     - https://huggingface.co/sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF
   description: |
@@ -8509,7 +8509,7 @@
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
-  icon: "https://raw.githubusercontent.com/01-ai/Yi/main/assets/img/Yi_logo_icon_light.svg"
+  icon: "https://github.com/01-ai/Yi/raw/main/assets/img/Yi_logo_icon_light.svg"
   name: "yi-1.5-9b-chat"
   license: apache-2.0
   urls:
@@ -9187,7 +9187,7 @@
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
 - !!merge <<: *llama3
   name: "minicpm-llama3-v-2_5"
-  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
+  icon: https://github.com/OpenBMB/MiniCPM/raw/main/assets/minicpm_logo.png
   urls:
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
@@ -9214,7 +9214,7 @@
 - !!merge <<: *llama3
   name: "minicpm-v-2_6"
   license: apache-2.0
-  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
+  icon: https://github.com/OpenBMB/MiniCPM/raw/main/assets/minicpm_logo.png
   urls:
     - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
     - https://huggingface.co/openbmb/MiniCPM-V-2_6
