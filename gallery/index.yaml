@@ -697,6 +697,7 @@
       uri: huggingface://QuantFactory/OpenCoder-1.5B-Instruct-GGUF/OpenCoder-1.5B-Instruct.Q4_K_M.gguf
 - &granite3
   name: "granite-3.0-1b-a400m-instruct"
+  icon: https://avatars.githubusercontent.com/u/167822367
   urls:
     - https://huggingface.co/ibm-granite/granite-3.0-1b-a400m-instruct
     - https://huggingface.co/QuantFactory/granite-3.0-1b-a400m-instruct-GGUF
