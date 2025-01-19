@@ -2,6 +2,7 @@
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
+  icon: https://avatars.githubusercontent.com/u/6154722
   license: mit
   tags:
     - llm
@@ -10054,6 +10055,7 @@
     - llama2
     - cpu
   name: "phi-2-chat:Q8_0"
+  icon: https://avatars.githubusercontent.com/u/6154722
   overrides:
     parameters:
       model: phi-2-layla-v1-chatml-Q8_0.gguf
@@ -10125,6 +10127,7 @@
   ### START Phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
   name: "phi-3-mini-4k-instruct"
+  icon: https://avatars.githubusercontent.com/u/6154722
   license: mit
   description: |
     The Phi-3-Mini-4K-Instruct is a 3.8B parameters, lightweight, state-of-the-art open model trained with the Phi-3 datasets that includes both synthetic data and the filtered publicly available websites data with a focus on high-quality and reasoning dense properties. The model belongs to the Phi-3 family with the Mini version in two variants 4K and 128K which is the context length (in tokens) it can support. The model has underwent a post-training process that incorporates both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. When assessed against benchmarks testing common sense, language understanding, math, code, long context and logical reasoning, Phi-3 Mini-4K-Instruct showcased a robust and state-of-the-art performance among models with less than 13 billion parameters.
