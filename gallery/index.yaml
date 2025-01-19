@@ -3392,7 +3392,7 @@
       sha256: 6d175432f66d10dfed9737f73a5073d513d18e1ee7bd4b9cf2a59deb359f36ff
 - !!merge <<: *llama31
   name: "meta-llama-3.1-8b-instruct-abliterated"
-  icon: https://i.imgur.com/KhorYYG.png
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/AsTgL8VCgMHgobq4cr46b.png
   urls:
     - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated
     - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF
