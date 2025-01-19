@@ -2674,6 +2674,7 @@
     - cpu
     - function-calling
   name: "arch-function-1.5b"
+  icon: https://avatars.githubusercontent.com/u/112724757
   uri: "github:mudler/LocalAI/gallery/arch-function.yaml@master"
   urls:
     - https://huggingface.co/katanemolabs/Arch-Function-1.5B
