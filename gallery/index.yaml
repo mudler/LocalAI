@@ -6300,6 +6300,7 @@
 - &gemma
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-2b"
+  icon: https://avatars.githubusercontent.com/u/1342004
   license: gemma
   urls:
     - https://ai.google.dev/gemma/docs
