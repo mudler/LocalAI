@@ -630,7 +630,7 @@
       uri: huggingface://mraWdermacher/Qwen2.5-Coder-32B-Instruct-Uncensored-i1-GGUF/Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
-  icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
+  icon: https://avatars.githubusercontent.com/u/186387526
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   urls:
     - https://huggingface.co/infly/OpenCoder-8B-Base
