@@ -10100,7 +10100,7 @@
   urls:
     - https://huggingface.co/internlm/internlm2_5-7b-chat-1m
     - https://huggingface.co/bartowski/internlm2_5-7b-chat-1m-GGUF
-  icon: https://github.com/InternLM/InternLM/assets/22529082/b9788105-8892-4398-8b47-b513a292378e
+  icon: https://avatars.githubusercontent.com/u/135356492
   tags:
     - internlm2
     - gguf
@@ -10121,6 +10121,31 @@
     - filename: internlm2_5-7b-chat-1m-Q4_K_M.gguf
       uri: huggingface://bartowski/internlm2_5-7b-chat-1m-GGUF/internlm2_5-7b-chat-1m-Q4_K_M.gguf
       sha256: 10d5e18a4125f9d4d74a9284a21e0c820b150af06dee48665e54ff6e1be3a564
+### Internlm3
+- name: "internlm3-8b-instruct"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/internlm/internlm3-8b-instruct
+    - https://huggingface.co/bartowski/internlm3-8b-instruct-GGUF
+  icon: https://avatars.githubusercontent.com/u/135356492
+  tags:
+    - internlm3
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    InternLM3 has open-sourced an 8-billion parameter instruction model, InternLM3-8B-Instruct, designed for general-purpose usage and advanced reasoning.  The model has the following characteristics:
+
+    Enhanced performance at reduced cost: State-of-the-art performance on reasoning and knowledge-intensive tasks surpass models like Llama3.1-8B and Qwen2.5-7B.
+
+    Deep thinking capability: InternLM3 supports both the deep thinking mode for solving complicated reasoning tasks via the long chain-of-thought and the normal response mode for fluent user interactions.
+  overrides:
+    parameters:
+      model: internlm3-8b-instruct-Q4_K_M.gguf
+  files:
+    - filename: internlm3-8b-instruct-Q4_K_M.gguf
+      uri: huggingface://bartowski/internlm3-8b-instruct-GGUF/internlm3-8b-instruct-Q4_K_M.gguf
+      sha256: 2a9644687318e8659c9cf9b40730d5cc2f5af06f786a50439c7c51359b23896e
 - &phi-3
   ### START Phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
