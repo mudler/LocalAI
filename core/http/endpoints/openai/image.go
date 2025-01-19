@@ -72,7 +72,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 		}
 
 		if m == "" {
-			m = model.StableDiffusionBackend
+			m = model.StableDiffusionGGMLBackend
 		}
 		log.Debug().Msgf("Loading model: %+v", m)
 
@@ -129,9 +129,9 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 
 		switch config.Backend {
 		case "stablediffusion":
-			config.Backend = model.StableDiffusionBackend
+			config.Backend = model.StableDiffusionGGMLBackend
 		case "":
-			config.Backend = model.StableDiffusionBackend
+			config.Backend = model.StableDiffusionGGMLBackend
 		}
 
 		if !strings.Contains(input.Size, "x") {

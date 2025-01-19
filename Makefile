@@ -18,10 +18,6 @@ WHISPER_CPP_VERSION?=6266a9f9e56a5b925e9892acf650f3eb1245814d
 PIPER_REPO?=https://github.com/mudler/go-piper
 PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
 
-# stablediffusion version
-STABLEDIFFUSION_REPO?=https://github.com/mudler/go-stable-diffusion
-STABLEDIFFUSION_VERSION?=4a3cd6aeae6f66ee57eae9a0075f8c58c3a6a38f
-
 # bark.cpp
 BARKCPP_REPO?=https://github.com/PABannier/bark.cpp.git
 BARKCPP_VERSION?=v1.0.0
@@ -179,11 +175,6 @@ ifeq ($(STATIC),true)
 	LD_FLAGS+=-linkmode external -extldflags -static
 endif
 
-ifeq ($(findstring stablediffusion,$(GO_TAGS)),stablediffusion)
-#	OPTIONAL_TARGETS+=go-stable-diffusion/libstablediffusion.a
-	OPTIONAL_GRPC+=backend-assets/grpc/stablediffusion
-endif
-
 ifeq ($(findstring tts,$(GO_TAGS)),tts)
 #	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
 #	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
@@ -273,19 +264,6 @@ sources/go-piper:
 sources/go-piper/libpiper_binding.a: sources/go-piper
 	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
 
-## stable diffusion (onnx)
-sources/go-stable-diffusion:
-	mkdir -p sources/go-stable-diffusion
-	cd sources/go-stable-diffusion && \
-	git init && \
-	git remote add origin $(STABLEDIFFUSION_REPO) && \
-	git fetch origin && \
-	git checkout $(STABLEDIFFUSION_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-stable-diffusion/libstablediffusion.a: sources/go-stable-diffusion
-	CPATH="$(CPATH):/usr/include/opencv4" $(MAKE) -C sources/go-stable-diffusion libstablediffusion.a
-
 ## stablediffusion (ggml)
 sources/stablediffusion-ggml.cpp:
 	git clone --recursive $(STABLEDIFFUSION_GGML_REPO) sources/stablediffusion-ggml.cpp && \
@@ -331,20 +309,18 @@ sources/whisper.cpp:
 sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
 
-get-sources: sources/go-llama.cpp sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp sources/go-stable-diffusion backend/cpp/llama/llama.cpp
+get-sources: sources/go-llama.cpp sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp backend/cpp/llama/llama.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(CURDIR)/sources/go-piper
-	$(GOCMD) mod edit -replace github.com/mudler/go-stable-diffusion=$(CURDIR)/sources/go-stable-diffusion
 	$(GOCMD) mod edit -replace github.com/go-skynet/go-llama.cpp=$(CURDIR)/sources/go-llama.cpp
 
 dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
 	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
-	$(GOCMD) mod edit -dropreplace github.com/mudler/go-stable-diffusion
 	$(GOCMD) mod edit -dropreplace github.com/go-skynet/go-llama.cpp
 
 prepare-sources: get-sources replace
@@ -355,7 +331,6 @@ rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
 	$(MAKE) -C sources/go-llama.cpp clean
 	$(MAKE) -C sources/whisper.cpp clean
-	$(MAKE) -C sources/go-stable-diffusion clean
 	$(MAKE) -C sources/go-piper clean
 	$(MAKE) build
 
@@ -470,7 +445,7 @@ prepare-test: grpcs
 
 test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
-	export GO_TAGS="tts stablediffusion debug"
+	export GO_TAGS="tts debug"
 	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama && !llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
@@ -814,13 +789,6 @@ backend-assets/grpc/piper: sources/go-piper sources/go-piper/libpiper_binding.a 
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/piper
-endif
-
-backend-assets/grpc/stablediffusion: sources/go-stable-diffusion sources/go-stable-diffusion/libstablediffusion.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/go-stable-diffusion/:/usr/include/opencv4" LIBRARY_PATH=$(CURDIR)/sources/go-stable-diffusion/ \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/stablediffusion ./backend/go/image/stablediffusion
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/stablediffusion
 endif
 
 backend-assets/grpc/silero-vad: backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
