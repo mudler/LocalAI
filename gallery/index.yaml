@@ -5589,6 +5589,33 @@
     - filename: marco-o1-uncensored.Q4_K_M.gguf
       sha256: ad0440270a7254098f90779744d3e5b34fe49b7baf97c819909ba9c5648cc0d9
       uri: huggingface://QuantFactory/marco-o1-uncensored-GGUF/marco-o1-uncensored.Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "minicpm-v-2_6"
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-2_6
+  description: |
+    MiniCPM-V 2.6 is the latest and most capable model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen2
+    - cpu
+  overrides:
+    mmproj: minicpm-v-2_6-mmproj-f16.gguf
+    parameters:
+      model: minicpm-v-2_6-Q4_K_M.gguf
+  files:
+    - filename: minicpm-v-2_6-Q4_K_M.gguf
+      sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
+      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-v-2_6-mmproj-f16.gguf
+      sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
+      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
 - &mistral03
   ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
@@ -9145,7 +9172,7 @@
   urls:
     - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
   description: |
-    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
+    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5,  and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
 
     We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
   icon: https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf/resolve/main/icon.png
@@ -9218,33 +9245,6 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
-- !!merge <<: *llama3
-  name: "minicpm-v-2_6"
-  license: apache-2.0
-  icon: https://avatars.githubusercontent.com/u/89920203
-  urls:
-    - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
-    - https://huggingface.co/openbmb/MiniCPM-V-2_6
-  description: |
-    MiniCPM-V 2.6 is the latest and most capable model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters
-  tags:
-    - llm
-    - multimodal
-    - gguf
-    - gpu
-    - llama3
-    - cpu
-  overrides:
-    mmproj: minicpm-v-2_6-mmproj-f16.gguf
-    parameters:
-      model: minicpm-v-2_6-Q4_K_M.gguf
-  files:
-    - filename: minicpm-v-2_6-Q4_K_M.gguf
-      sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
-      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
-    - filename: minicpm-v-2_6-mmproj-f16.gguf
-      sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
-      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
 - !!merge <<: *llama3
   name: "llama-3-cursedstock-v1.8-8b-iq-imatrix"
   urls:
@@ -10108,7 +10108,7 @@
   urls:
     - https://huggingface.co/internlm/internlm2_5-7b-chat-1m
     - https://huggingface.co/bartowski/internlm2_5-7b-chat-1m-GGUF
-  icon: https://github.com/InternLM/InternLM/assets/22529082/b9788105-8892-4398-8b47-b513a292378e
+  icon: https://avatars.githubusercontent.com/u/135356492
   tags:
     - internlm2
     - gguf
@@ -10129,6 +10129,31 @@
     - filename: internlm2_5-7b-chat-1m-Q4_K_M.gguf
       uri: huggingface://bartowski/internlm2_5-7b-chat-1m-GGUF/internlm2_5-7b-chat-1m-Q4_K_M.gguf
       sha256: 10d5e18a4125f9d4d74a9284a21e0c820b150af06dee48665e54ff6e1be3a564
+### Internlm3
+- name: "internlm3-8b-instruct"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/internlm/internlm3-8b-instruct
+    - https://huggingface.co/bartowski/internlm3-8b-instruct-GGUF
+  icon: https://avatars.githubusercontent.com/u/135356492
+  tags:
+    - internlm3
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    InternLM3 has open-sourced an 8-billion parameter instruction model, InternLM3-8B-Instruct, designed for general-purpose usage and advanced reasoning.  The model has the following characteristics:
+
+    Enhanced performance at reduced cost: State-of-the-art performance on reasoning and knowledge-intensive tasks surpass models like Llama3.1-8B and Qwen2.5-7B.
+
+    Deep thinking capability: InternLM3 supports both the deep thinking mode for solving complicated reasoning tasks via the long chain-of-thought and the normal response mode for fluent user interactions.
+  overrides:
+    parameters:
+      model: internlm3-8b-instruct-Q4_K_M.gguf
+  files:
+    - filename: internlm3-8b-instruct-Q4_K_M.gguf
+      uri: huggingface://bartowski/internlm3-8b-instruct-GGUF/internlm3-8b-instruct-Q4_K_M.gguf
+      sha256: 2a9644687318e8659c9cf9b40730d5cc2f5af06f786a50439c7c51359b23896e
 - &phi-3
   ### START Phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
