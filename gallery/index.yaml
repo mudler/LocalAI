@@ -419,6 +419,22 @@
     - filename: L3.3-MS-Nevoria-70b-Q4_K_M.gguf
       sha256: e8b0763f263089a19d4b112b7ed5085cc5f1ed9ca49c5085baa8d51f4ded1f94
       uri: huggingface://bartowski/L3.3-MS-Nevoria-70b-GGUF/L3.3-MS-Nevoria-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-70b-magnum-v4-se"
+  urls:
+    - https://huggingface.co/Doctor-Shotgun/L3.3-70B-Magnum-v4-SE
+    - https://huggingface.co/bartowski/L3.3-70B-Magnum-v4-SE-GGUF
+  description: |
+    The Magnum v4 series is complete, but here's something a little extra I wanted to tack on as I wasn't entirely satisfied with the results of v4 72B. "SE" for Special Edition - this model is finetuned from meta-llama/Llama-3.3-70B-Instruct as an rsLoRA adapter. The dataset is a slightly revised variant of the v4 data with some elements of the v2 data re-introduced.
+
+    The objective, as with the other Magnum models, is to emulate the prose style and quality of the Claude 3 Sonnet/Opus series of models on a local scale, so don't be surprised to see "Claude-isms" in its output.
+  overrides:
+    parameters:
+      model: L3.3-70B-Magnum-v4-SE-Q4_K_M.gguf
+  files:
+    - filename: L3.3-70B-Magnum-v4-SE-Q4_K_M.gguf
+      sha256: 9724a6364a42caa3d5a1687258eb329c9af6cbb2ce01c8dd556c1a222a2e0352
+      uri: huggingface://bartowski/L3.3-70B-Magnum-v4-SE-GGUF/L3.3-70B-Magnum-v4-SE-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
