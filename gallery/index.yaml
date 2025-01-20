@@ -190,7 +190,7 @@
     - https://huggingface.co/Nitral-AI/NightWing3-10B-v0.1
     - https://huggingface.co/bartowski/NightWing3-10B-v0.1-GGUF
   description: |
-     Base model: (Falcon3-10B)
+    Base model: (Falcon3-10B)
   overrides:
     parameters:
       model: NightWing3-10B-v0.1-Q4_K_M.gguf
@@ -782,8 +782,7 @@
     - filename: salamandra-7b-instruct.Q4_K_M-f32.gguf
       sha256: bac8e8c1d1d9d53cbdb148b8ff9ad378ddb392429207099e85b5aae3a43bff3d
       uri: huggingface://cstr/salamandra-7b-instruct-GGUF/salamandra-7b-instruct.Q4_K_M-f32.gguf
-- &llama32
-  ## llama3.2
+- &llama32 ## llama3.2
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.2
@@ -1318,8 +1317,7 @@
     - filename: FineMath-Llama-3B-Q4_K_M.gguf
       sha256: 16c73b5cf2a417a7e1608bcc9469f1461fc3e759ce04a3a337f48df977dc158c
       uri: huggingface://bartowski/FineMath-Llama-3B-GGUF/FineMath-Llama-3B-Q4_K_M.gguf
-- &qwen25
-  ## Qwen2.5
+- &qwen25 ## Qwen2.5
   name: "qwen2.5-14b-instruct"
   icon: https://avatars.githubusercontent.com/u/141221163
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -3241,8 +3239,7 @@
     - filename: DRT-o1-14B-Q4_K_M.gguf
       sha256: 9619ca984cf4ce8e4f69bcde831de17b2ce05dd89536e3130608877521e3d328
       uri: huggingface://bartowski/DRT-o1-14B-GGUF/DRT-o1-14B-Q4_K_M.gguf
-- &smollm
-  ## SmolLM
+- &smollm ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "smollm-1.7b-instruct"
   icon: https://huggingface.co/datasets/HuggingFaceTB/images/resolve/main/banner_smol.png
@@ -3300,8 +3297,7 @@
     - filename: Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
       sha256: eaeac314e30b461413bc1cc819cdc0cd6a79265711fd0b8268702960a082c7bd
       uri: huggingface://QuantFactory/Vikhr-Qwen-2.5-1.5B-Instruct-GGUF/Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
-- &llama31
-  ## LLama3.1
+- &llama31 ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
   name: "meta-llama-3.1-8b-instruct"
@@ -5189,8 +5185,7 @@
     - filename: Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
       sha256: 268390e07edd407ad93ea21a868b7ae995b5950e01cad0db9e1802ae5049d405
       uri: huggingface://bartowski/Dolphin3.0-Llama3.1-8B-GGUF/Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
-- &deepseek
-  ## Deepseek
+- &deepseek ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
   name: "deepseek-coder-v2-lite-instruct"
   icon: "https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg?raw=true"
@@ -5255,8 +5250,7 @@
     - filename: archangel_sft_pythia2-8b.Q4_K_M.gguf
       sha256: a47782c55ef2b39b19644213720a599d9849511a73c9ebb0c1de749383c0a0f8
       uri: huggingface://RichardErkhov/ContextualAI_-_archangel_sft_pythia2-8b-gguf/archangel_sft_pythia2-8b.Q4_K_M.gguf
-- &qwen2
-  ## Start QWEN2
+- &qwen2 ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "qwen2-7b-instruct"
   icon: https://avatars.githubusercontent.com/u/141221163
@@ -5616,8 +5610,7 @@
     - filename: minicpm-v-2_6-mmproj-f16.gguf
       sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
       uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
-- &mistral03
-  ## START Mistral
+- &mistral03 ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
   name: "mistral-7b-instruct-v0.3"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62dac1c7a8ead43d20e3e17a/wrLf5yaGC6ng4XME70w6Z.png
@@ -6222,8 +6215,35 @@
     - filename: Nera_Noctis-12B-Q4_K_M.gguf
       sha256: 0662a9a847adde046e6255c15d5a677ebf09ab00841547c8963668d14baf00ff
       uri: huggingface://bartowski/Nera_Noctis-12B-GGUF/Nera_Noctis-12B-Q4_K_M.gguf
-- &mudler
-  ### START mudler's LocalAI specific-models
+- !!merge <<: *mistral03
+  name: "wayfarer-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/LatitudeGames/Wayfarer-12B/resolve/main/wayfarer.jpg
+  urls:
+    - https://huggingface.co/LatitudeGames/Wayfarer-12B
+    - https://huggingface.co/bartowski/Wayfarer-12B-GGUF
+  description: |
+    We’ve heard over and over from AI Dungeon players that modern AI models are too nice, never letting them fail or die. While it may be good for a chatbot to be nice and helpful, great stories and games aren’t all rainbows and unicorns. They have conflict, tension, and even death. These create real stakes and consequences for characters and the journeys they go on.
+
+    Similarly, great games need opposition. You must be able to fail, die, and may even have to start over. This makes games more fun!
+
+    However, the vast majority of AI models, through alignment RLHF, have been trained away from darkness, violence, or conflict, preventing them from fulfilling this role. To give our players better options, we decided to train our own model to fix these issues.
+
+    Wayfarer is an adventure role-play model specifically trained to give players a challenging and dangerous experience. We thought they would like it, but since releasing it on AI Dungeon, players have reacted even more positively than we expected.
+
+    Because they loved it so much, we’ve decided to open-source the model so anyone can experience unforgivingly brutal AI adventures! Anyone can download the model to run locally.
+
+    Or if you want to easily try this model for free, you can do so at https://aidungeon.com.
+
+    We plan to continue improving and open-sourcing similar models, so please share any and all feedback on how we can improve model behavior. Below we share more details on how Wayfarer was created.
+  overrides:
+    parameters:
+      model: Wayfarer-12B-Q4_K_M.gguf
+  files:
+    - filename: Wayfarer-12B-Q4_K_M.gguf
+      sha256: 6cd9f290c820c64854fcdcfd312b066447acc2f63abe2e2e71af9bc4f1946c08
+      uri: huggingface://bartowski/Wayfarer-12B-GGUF/Wayfarer-12B-Q4_K_M.gguf
+- &mudler ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
   name: "LocalAI-llama3-8b-function-call-v0.2"
   icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/us5JKi9z046p8K-cn_M0w.webp"
@@ -6268,8 +6288,7 @@
     - filename: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
       sha256: 579cbb229f9c11d0330759ff4733102d2491615a4c61289e26c09d1b3a583fec
       uri: huggingface://mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF/Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
-- &parler-tts
-  ### START parler-tts
+- &parler-tts ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
   name: parler-tts-mini-v0.1
   overrides:
@@ -6286,8 +6305,7 @@
     - cpu
     - text-to-speech
     - python
-- &rerankers
-  ### START rerankers
+- &rerankers ### START rerankers
   url: "github:mudler/LocalAI/gallery/rerankers.yaml@master"
   name: cross-encoder
   parameters:
@@ -8540,8 +8558,7 @@
     - filename: Copus-2x8B.i1-Q4_K_M.gguf
       sha256: 685da1ba49e203e8f491105585143d76044286d4b4687bed37d325f6b55501e5
       uri: huggingface://mradermacher/Copus-2x8B-i1-GGUF/Copus-2x8B.i1-Q4_K_M.gguf
-- &yi-chat
-  ### Start Yi
+- &yi-chat ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   icon: "https://github.com/01-ai/Yi/raw/main/assets/img/Yi_logo_icon_light.svg"
   name: "yi-1.5-9b-chat"
@@ -8752,8 +8769,7 @@
     - filename: Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
       sha256: 3f309b59508342536a70edd6c4be6cf4f2cb97f2e32cbc79ad2ab3f4c02933a4
       uri: huggingface://Lewdiculous/Fimbulvetr-11B-v2-GGUF-IQ-Imatrix/Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
-- &noromaid
-  ### Start noromaid
+- &noromaid ### Start noromaid
   url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
   name: "noromaid-13b-0.4-DPO"
   icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/VKX2Z2yjZX5J8kXzgeCYO.png
@@ -8773,8 +8789,7 @@
     - filename: Noromaid-13B-0.4-DPO.q4_k_m.gguf
       sha256: cb28e878d034fae3d0b43326c5fc1cfb4ab583b17c56e41d6ce023caec03c1c1
       uri: huggingface://NeverSleep/Noromaid-13B-0.4-DPO-GGUF/Noromaid-13B-0.4-DPO.q4_k_m.gguf
-- &wizardlm2
-  ### START Vicuna based
+- &wizardlm2 ### START Vicuna based
   url: "github:mudler/LocalAI/gallery/wizardlm2.yaml@master"
   name: "wizardlm2-7b"
   description: |
@@ -8829,8 +8844,7 @@
     - filename: moondream2-mmproj-f16.gguf
       sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
       uri: huggingface://moondream/moondream2-gguf/moondream2-mmproj-f16.gguf
-- &llava
-  ### START LLaVa
+- &llava ### START LLaVa
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
   license: apache-2.0
   description: |
@@ -9688,8 +9702,7 @@
     - filename: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
       sha256: cdc0f4de6df2ba120835fbd25c2a0ae2af8548f46d2c40c7a018c51c3d19e0c0
       uri: huggingface://mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF/Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
-- &chatml
-  ### ChatML
+- &chatml ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "una-thepitbull-21.4b-v2"
   license: afl-3.0
@@ -9975,8 +9988,7 @@
     - filename: Triangulum-10B.Q4_K_M.gguf
       sha256: dd071f99edf6b166044bf229cdeec19419c4c348e3fc3d6587cfcc55e6fb85fa
       uri: huggingface://mradermacher/Triangulum-10B-GGUF/Triangulum-10B.Q4_K_M.gguf
-- &command-R
-  ### START Command-r
+- &command-R ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
   name: "command-r-v01:q1_s"
   license: "cc-by-nc-4.0"
@@ -10031,8 +10043,7 @@
     - filename: "aya-23-35B-Q4_K_M.gguf"
       sha256: "57824768c1a945e21e028c8e9a29b39adb4838d489f5865c82601ab9ad98065d"
       uri: "huggingface://bartowski/aya-23-35B-GGUF/aya-23-35B-Q4_K_M.gguf"
-- &phi-2-chat
-  ### START Phi-2
+- &phi-2-chat ### START Phi-2
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
   license: mit
   description: |
@@ -10154,8 +10165,7 @@
     - filename: internlm3-8b-instruct-Q4_K_M.gguf
       uri: huggingface://bartowski/internlm3-8b-instruct-GGUF/internlm3-8b-instruct-Q4_K_M.gguf
       sha256: 2a9644687318e8659c9cf9b40730d5cc2f5af06f786a50439c7c51359b23896e
-- &phi-3
-  ### START Phi-3
+- &phi-3 ### START Phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
   name: "phi-3-mini-4k-instruct"
   icon: https://avatars.githubusercontent.com/u/6154722
@@ -10355,8 +10365,7 @@
     - filename: Phi-3.5-MoE-instruct-Q4_K_M.gguf
       sha256: 43e91bb720869bd8a92d8eb86bc3c74a52c49cf61642ca709b3d7bb89644df36
       uri: huggingface://bartowski/Phi-3.5-MoE-instruct-GGUF/Phi-3.5-MoE-instruct-Q4_K_M.gguf
-- &hermes-2-pro-mistral
-  ### START Hermes
+- &hermes-2-pro-mistral ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
   name: "hermes-2-pro-mistral"
   icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/ggO2sBDJ8Bhc6w-zwTx5j.png
@@ -10692,8 +10701,7 @@
     - filename: "galatolo-Q4_K.gguf"
       sha256: "ca0cfd5a9ad40dc16416aa3a277015d0299b62c0803b67f5709580042202c172"
       uri: "huggingface://galatolo/cerbero-7b-gguf/ggml-model-Q4_K.gguf"
-- &codellama
-  ### START Codellama
+- &codellama ### START Codellama
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   name: "codellama-7b"
   license: llama2
@@ -10824,8 +10832,7 @@
     - filename: "llm-compiler-7b-ftd.Q4_K.gguf"
       uri: "huggingface://legraphista/llm-compiler-7b-ftd-IMat-GGUF/llm-compiler-7b-ftd.Q4_K.gguf"
       sha256: d862dd18ed335413787d0ad196522a9902a3c10a6456afdab8721822cb0ddde8
-- &openvino
-  ### START OpenVINO
+- &openvino ### START OpenVINO
   url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
   name: "openvino-llama-3-8b-instruct-ov-int8"
   license: llama3
@@ -10939,8 +10946,7 @@
     - gpu
     - embedding
     - cpu
-- &sentencentransformers
-  ### START Embeddings
+- &sentencentransformers ### START Embeddings
   description: |
     This framework provides an easy method to compute dense vector representations for sentences, paragraphs, and images. The models are based on transformer networks like BERT / RoBERTa / XLM-RoBERTa etc. and achieve state-of-the-art performance in various tasks. Text is embedded in vector space such that similar text are closer and can efficiently be found using cosine similarity.
   urls:
@@ -10955,8 +10961,7 @@
   overrides:
     parameters:
       model: all-MiniLM-L6-v2
-- &dreamshaper
-  ### START Image generation
+- &dreamshaper ### START Image generation
   name: dreamshaper
   icon: https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/dd9b038c-bd15-43ab-86ab-66e145ad7ff2/width=450/26072158-132340247-8k%20portrait%20of%20beautiful%20cyborg%20with%20brown%20hair,%20intricate,%20elegant,%20highly%20detailed,%20majestic,%20digital%20photography,%20art%20by%20artg_ed.jpeg
   license: other
@@ -11068,8 +11073,7 @@
     - filename: t5xxl_fp16.safetensors
       sha256: 6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635
       uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
-- &whisper
-  ## Whisper
+- &whisper ## Whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
   name: "whisper-1"
   license: "MIT"
@@ -11249,8 +11253,7 @@
   description: |
     Stable Diffusion in NCNN with c++, supported txt2img and img2img
   name: stablediffusion-cpp
-- &piper
-  ## Piper TTS
+- &piper ## Piper TTS
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
   icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
