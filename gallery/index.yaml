@@ -2181,7 +2181,6 @@
       sha256: 42cf7a96784dc8f25c61c2404620c3e6548a024caa8dff6e435d7c86400d7ab8
       uri: huggingface://mradermacher/Qwen2.5-7B-nerd-uncensored-v1.7-GGUF/Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
 - !!merge <<: *qwen25
-  icon: https://i.imgur.com/OxX2Usi.png
   name: "evathene-v1.0"
   urls:
     - https://huggingface.co/sophosympatheia/Evathene-v1.0
@@ -2540,7 +2539,6 @@
       sha256: 91907f29746625a62885793475956220b81d8a5a34b53686a1acd1d03fd403ea
       uri: huggingface://bartowski/72B-Qwen2.5-Kunou-v1-GGUF/72B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
 - !!merge <<: *qwen25
-  icon: https://i.imgur.com/OxX2Usi.png
   name: "evathene-v1.3"
   urls:
     - https://huggingface.co/sophosympatheia/Evathene-v1.3
@@ -4485,7 +4483,6 @@
       sha256: 27b10c3ca4507e8bf7d305d60e5313b54ef5fffdb43a03f36223d19d906e39f3
       uri: huggingface://mradermacher/L3.1-70Blivion-v0.1-rc1-70B-i1-GGUF/L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
 - !!merge <<: *llama31
-  icon: https://i.imgur.com/sdN0Aqg.jpeg
   name: "llama-3.1-hawkish-8b"
   urls:
     - https://huggingface.co/mukaj/Llama-3.1-Hawkish-8B
@@ -5225,7 +5222,7 @@
 - &deepseek ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
   name: "deepseek-coder-v2-lite-instruct"
-  icon: "https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg?raw=true"
+  icon: "https://avatars.githubusercontent.com/u/148330874"
   license: deepseek
   description: |
     DeepSeek-Coder-V2, an open-source Mixture-of-Experts (MoE) code language model that achieves performance comparable to GPT4-Turbo in code-specific tasks. Specifically, DeepSeek-Coder-V2 is further pre-trained from DeepSeek-Coder-V2-Base with 6 trillion tokens sourced from a high-quality and multi-source corpus. Through this continued pre-training, DeepSeek-Coder-V2 substantially enhances the coding and mathematical reasoning capabilities of DeepSeek-Coder-V2-Base, while maintaining comparable performance in general language tasks. Compared to DeepSeek-Coder, DeepSeek-Coder-V2 demonstrates significant advancements in various aspects of code-related tasks, as well as reasoning and general capabilities. Additionally, DeepSeek-Coder-V2 expands its support for programming languages from 86 to 338, while extending the context length from 16K to 128K.
@@ -6155,7 +6152,6 @@
 - !!merge <<: *mistral03
   name: "mn-12b-mag-mell-r1-iq-arm-imatrix"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
-  icon: "https://i.imgur.com/wjyAaTO.png"
   urls:
     - https://huggingface.co/inflatebot/MN-12B-Mag-Mell-R1
     - https://huggingface.co/Lewdiculous/MN-12B-Mag-Mell-R1-GGUF-IQ-ARM-Imatrix
@@ -7265,7 +7261,6 @@
   name: "l3-8b-stheno-v3.1"
   urls:
     - https://huggingface.co/Sao10K/L3-8B-Stheno-v3.1
-  icon: https://w.forfun.com/fetch/cb/cba2205390e517bea1ea60ca0b491af4.jpeg
   description: |
     - A model made for 1-on-1 Roleplay ideally, but one that is able to handle scenarios, RPGs and storywriting fine.
     - Uncensored during actual roleplay scenarios. # I do not care for zero-shot prompting like what some people do. It is uncensored enough in actual usecases.
@@ -8059,7 +8054,6 @@
   urls:
     - https://huggingface.co/bartowski/New-Dawn-Llama-3-70B-32K-v1.0-GGUF
     - https://huggingface.co/sophosympatheia/New-Dawn-Llama-3-70B-32K-v1.0
-  icon: https://imgur.com/tKzncGo.png
   description: |
     This model is a multi-level SLERP merge of several Llama 3 70B variants. See the merge recipe below for details. I extended the context window for this model out to 32K by snagging some layers from abacusai/Smaug-Llama-3-70B-Instruct-32K using a technique similar to what I used for Midnight Miqu, which was further honed by jukofyork.
     This model is uncensored. You are responsible for whatever you do with it.
@@ -8411,7 +8405,8 @@
     - filename: dolphin-2.9.2-Phi-3-Medium-abliterated-Q4_K_M.gguf
       sha256: 566331c2efe87725310aacb709ca15088a0063fa0ddc14a345bf20d69982156b
       uri: huggingface://bartowski/dolphin-2.9.2-Phi-3-Medium-abliterated-GGUF/dolphin-2.9.2-Phi-3-Medium-abliterated-Q4_K_M.gguf
-- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+- !!merge <<: *llama3
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "llama-3-8b-instruct-dpo-v0.3-32k"
   license: llama3
   urls:
@@ -8882,6 +8877,8 @@
       sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
       uri: huggingface://moondream/moondream2-gguf/moondream2-mmproj-f16.gguf
 - &llava ### START LLaVa
+  name: "llava-1.6-vicuna"
+  icon: https://github.com/lobehub/lobe-icons/raw/master/packages/static-png/dark/llava-color.png
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
   license: apache-2.0
   description: |
@@ -8895,7 +8892,6 @@
     - gpu
     - llama2
     - cpu
-  name: "llava-1.6-vicuna"
   overrides:
     mmproj: mmproj-vicuna7b-f16.gguf
     parameters:
@@ -9363,7 +9359,6 @@
     June 18, 2024 Update, After extensive testing of the intermediate checkpoints, significant progress has been made.
     The model is slowly — I mean, really slowly — unlearning its alignment. By significantly lowering the learning rate, I was able to visibly observe deep behavioral changes, this process is taking longer than anticipated, but it's going to be worth it. Estimated time to completion: 4 more days.. I'm pleased to report that in several tests, the model not only maintained its intelligence but actually showed a slight improvement, especially in terms of common sense. An intermediate checkpoint of this model was used to create invisietch/EtherealRainbow-v0.3-rc7, with promising results. Currently, it seems like I'm on the right track. I hope this model will serve as a solid foundation for further merges, whether for role-playing (RP) or for uncensoring. This approach also allows us to save on actual fine-tuning, thereby reducing our carbon footprint. The merge process takes just a few minutes of CPU time, instead of days of GPU work.
     June 20, 2024 Update, Unaligning was partially successful, and the results are decent, but I am not fully satisfied. I decided to bite the bullet, and do a full finetune, god have mercy on my GPUs. I am also releasing the intermediate checkpoint of this model.
-  icon: https://i.imgur.com/Kpk1PgZ.png
   overrides:
     parameters:
       model: LLAMA-3_8B_Unaligned_Alpha-Q4_K_M.gguf
@@ -9389,7 +9384,6 @@
       uri: huggingface://bartowski/L3-8B-Lunaris-v1-GGUF/L3-8B-Lunaris-v1-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llama-3_8b_unaligned_alpha_rp_soup-i1"
-  icon: https://i.imgur.com/pXcjpoV.png
   urls:
     - https://huggingface.co/SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha_RP_Soup
     - https://huggingface.co/mradermacher/LLAMA-3_8B_Unaligned_Alpha_RP_Soup-i1-GGUF
@@ -9787,7 +9781,6 @@
       sha256: 9c90f3a65332a03a6cbb563eee19c7586d9544f646ff9f33f7f1904b3d415ae2
       uri: huggingface://nold/HelpingAI-9B-GGUF/HelpingAI-9B_Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml-hercules.yaml@master"
-  icon: "https://tse3.mm.bing.net/th/id/OIG1.vnrl3xpEcypR3McLW63q?pid=ImgGn"
   urls:
     - https://huggingface.co/Locutusque/Llama-3-Hercules-5.0-8B
     - https://huggingface.co/bartowski/Llama-3-Hercules-5.0-8B-GGUF
