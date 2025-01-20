@@ -2,6 +2,7 @@
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
+  icon: https://avatars.githubusercontent.com/u/6154722
   license: mit
   tags:
     - llm
@@ -224,7 +225,7 @@
       uri: huggingface://bartowski/INTELLECT-1-Instruct-GGUF/INTELLECT-1-Instruct-Q4_K_M.gguf
 - &llama33
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.3
   description: |
     The Meta Llama 3.3 multilingual large language model (LLM) is a pretrained and instruction tuned generative model in 70B (text in/text out). The Llama 3.3 instruction tuned text only model is optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
@@ -421,6 +422,7 @@
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
+  icon: https://avatars.githubusercontent.com/u/132652788
   license: apache-2.0
   urls:
     - https://huggingface.co/RWKV/rwkv-6-world-7b
@@ -443,6 +445,7 @@
       uri: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
 - &qwen25coder
   name: "qwen2.5-coder-14b"
+  icon: https://avatars.githubusercontent.com/u/141221163
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   license: apache-2.0
   tags:
@@ -628,7 +631,7 @@
       uri: huggingface://mraWdermacher/Qwen2.5-Coder-32B-Instruct-Uncensored-i1-GGUF/Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
-  icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
+  icon: https://avatars.githubusercontent.com/u/186387526
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   urls:
     - https://huggingface.co/infly/OpenCoder-8B-Base
@@ -694,6 +697,7 @@
       uri: huggingface://QuantFactory/OpenCoder-1.5B-Instruct-GGUF/OpenCoder-1.5B-Instruct.Q4_K_M.gguf
 - &granite3
   name: "granite-3.0-1b-a400m-instruct"
+  icon: https://avatars.githubusercontent.com/u/167822367
   urls:
     - https://huggingface.co/ibm-granite/granite-3.0-1b-a400m-instruct
     - https://huggingface.co/QuantFactory/granite-3.0-1b-a400m-instruct-GGUF
@@ -781,7 +785,7 @@
 - &llama32
   ## llama3.2
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.2
   description: |
     The Meta Llama 3.2 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction-tuned generative models in 1B and 3B sizes (text in/text out). The Llama 3.2 instruction-tuned text only models are optimized for multilingual dialogue use cases, including agentic retrieval and summarization tasks. They outperform many of the available open source and closed chat models on common industry benchmarks.
@@ -950,7 +954,6 @@
       uri: huggingface://mradermacher/Llama-3.2-3B-Reasoning-Time-GGUF/Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
 - !!merge <<: *llama32
   name: "llama-3.2-sun-2.5b-chat"
-  icon: https://i.ibb.co/PF0TdMJ/imagine-image-9a56cee7-0f4f-4cc2-b265-a5b8d04f266b.png
   urls:
     - https://huggingface.co/meditsolutions/Llama-3.2-SUN-2.5B-chat
     - https://huggingface.co/mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF
@@ -982,7 +985,6 @@
       uri: huggingface://mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF/Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
 - !!merge <<: *llama32
   name: "llama-3.2-3b-instruct-uncensored"
-  icon: https://i.imgur.com/JOePyAN.png
   urls:
     - https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF
     - https://huggingface.co/chuanli11/Llama-3.2-3B-Instruct-uncensored
@@ -1319,6 +1321,7 @@
 - &qwen25
   ## Qwen2.5
   name: "qwen2.5-14b-instruct"
+  icon: https://avatars.githubusercontent.com/u/141221163
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   license: apache-2.0
   description: |
@@ -1608,6 +1611,7 @@
       uri: huggingface://bartowski/qwen2.5-7b-ins-v3-GGUF/qwen2.5-7b-ins-v3-Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "supernova-medius"
+  icon: https://avatars.githubusercontent.com/u/126496414
   urls:
     - https://huggingface.co/arcee-ai/SuperNova-Medius-GGUF
   description: |
@@ -1762,7 +1766,7 @@
       uri: huggingface://bartowski/TheBeagle-v2beta-32B-MGS-GGUF/TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "meraj-mini"
-  icon: https://i.ibb.co/CmPSSpq/Screenshot-2024-10-06-at-9-45-06-PM.png
+  icon: https://avatars.githubusercontent.com/u/126496414
   urls:
     - https://huggingface.co/arcee-ai/Meraj-Mini
     - https://huggingface.co/QuantFactory/Meraj-Mini-GGUF
@@ -2392,7 +2396,7 @@
       uri: huggingface://QuantFactory/Math-IIO-7B-Instruct-GGUF/Math-IIO-7B-Instruct.Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "virtuoso-small"
-  icon: https://i.ibb.co/pXD6Bcv/SW2-U-g-QQLSH1-ZAbxhs-Iu-A.webp
+  icon: https://avatars.githubusercontent.com/u/126496414
   urls:
     - https://huggingface.co/arcee-ai/Virtuoso-Small-GGUF
   description: |
@@ -2670,6 +2674,7 @@
     - cpu
     - function-calling
   name: "arch-function-1.5b"
+  icon: https://avatars.githubusercontent.com/u/112724757
   uri: "github:mudler/LocalAI/gallery/arch-function.yaml@master"
   urls:
     - https://huggingface.co/katanemolabs/Arch-Function-1.5B
@@ -3109,7 +3114,7 @@
       uri: huggingface://bartowski/Rombos-Qwen2.5-Writer-32b-GGUF/Rombos-Qwen2.5-Writer-32b-Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "sky-t1-32b-preview"
-  icon: https://raw.githubusercontent.com/NovaSky-AI/novasky-ai.github.io/main/assets/images/blue-bird-wider.jpeg
+  icon: https://github.com/NovaSky-AI/novasky-ai.github.io/raw/main/assets/images/blue-bird-wider.jpeg
   urls:
     - https://huggingface.co/NovaSky-AI/Sky-T1-32B-Preview
     - https://huggingface.co/bartowski/Sky-T1-32B-Preview-GGUF
@@ -3298,7 +3303,7 @@
 - &llama31
   ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   name: "meta-llama-3.1-8b-instruct"
   license: llama3.1
   description: |
@@ -3387,7 +3392,7 @@
       sha256: 6d175432f66d10dfed9737f73a5073d513d18e1ee7bd4b9cf2a59deb359f36ff
 - !!merge <<: *llama31
   name: "meta-llama-3.1-8b-instruct-abliterated"
-  icon: https://i.imgur.com/KhorYYG.png
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/AsTgL8VCgMHgobq4cr46b.png
   urls:
     - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated
     - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF
@@ -3416,7 +3421,7 @@
       uri: huggingface://mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf/Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "openbuddy-llama3.1-8b-v22.1-131k"
-  icon: https://raw.githubusercontent.com/OpenBuddy/OpenBuddy/main/media/demo.png
+  icon: https://github.com/OpenBuddy/OpenBuddy/raw/main/media/demo.png
   urls:
     - https://huggingface.co/sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF
   description: |
@@ -3592,7 +3597,7 @@
       sha256: 6557c5d5091f2507d19ab1f8bfb9ceb4e1536a755ab70f148b18aeb33741580f
       uri: huggingface://mradermacher/Llama-3.1-Techne-RP-8b-v1-GGUF/Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
 - !!merge <<: *llama31
-  icon: https://i.ibb.co/9hwFrvL/BLMs-Wkx-NQf-W-46-FZDg-ILhg.jpg
+  icon: https://avatars.githubusercontent.com/u/126496414
   name: "llama-spark"
   urls:
     - https://huggingface.co/arcee-ai/Llama-Spark
@@ -3710,7 +3715,6 @@
 - !!merge <<: *llama31
   name: "llama-3.1-supernova-lite-reflection-v1.0-i1"
   url: "github:mudler/LocalAI/gallery/llama3.1-reflective.yaml@master"
-  icon: https://i.ibb.co/r072p7j/eopi-ZVu-SQ0-G-Cav78-Byq-Tg.png
   urls:
     - https://huggingface.co/SE6446/Llama-3.1-SuperNova-Lite-Reflection-V1.0
     - https://huggingface.co/mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF
@@ -3725,7 +3729,7 @@
       uri: huggingface://mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF/Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "llama-3.1-supernova-lite"
-  icon: https://i.ibb.co/r072p7j/eopi-ZVu-SQ0-G-Cav78-Byq-Tg.png
+  icon: https://avatars.githubusercontent.com/u/126496414
   urls:
     - https://huggingface.co/arcee-ai/Llama-3.1-SuperNova-Lite
     - https://huggingface.co/arcee-ai/Llama-3.1-SuperNova-Lite-GGUF
@@ -4239,6 +4243,7 @@
       uri: huggingface://mradermacher/Hermes-3-Llama-3.1-70B-lorablated-GGUF/Hermes-3-Llama-3.1-70B-lorablated.Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "hermes-3-llama-3.1-8b-lorablated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/4Hbw5n68jKUSBQeTqQIeT.png
   urls:
     - https://huggingface.co/mlabonne/Hermes-3-Llama-3.1-8B-lorablated-GGUF
   description: |
@@ -5254,6 +5259,7 @@
   ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "qwen2-7b-instruct"
+  icon: https://avatars.githubusercontent.com/u/141221163
   license: apache-2.0
   description: |
     Qwen2 is the new series of Qwen large language models. For Qwen2, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters, including a Mixture-of-Experts model. This repo contains the instruction-tuned 7B Qwen2 model.
@@ -5360,7 +5366,7 @@
       uri: huggingface://bartowski/Einstein-v7-Qwen2-7B-GGUF/Einstein-v7-Qwen2-7B-Q4_K_M.gguf
 - !!merge <<: *qwen2
   name: "arcee-spark"
-  icon: https://i.ibb.co/80ssNWS/o-Vdk-Qx-ARNmzr-Pi1h-Efj-SA.webp
+  icon: https://avatars.githubusercontent.com/u/126496414
   description: |
     Arcee Spark is a powerful 7B parameter language model that punches well above its weight class. Initialized from Qwen2, this model underwent a sophisticated training process:
 
@@ -5398,7 +5404,7 @@
       uri: huggingface://Hercules-5.0-Qwen2-7B-Q4_K_M.gguf/Hercules-5.0-Qwen2-7B-Q4_K_M.gguf
 - !!merge <<: *qwen2
   name: "arcee-agent"
-  icon: https://i.ibb.co/CBHmTDn/136719a5-6d8a-4654-a618-46eabc788953.jpg
+  icon: https://avatars.githubusercontent.com/u/126496414
   description: |
     Arcee Agent is a cutting-edge 7B parameter language model specifically designed for function calling and tool use. Initialized from Qwen2-7B, it rivals the performance of much larger models while maintaining efficiency and speed. This model is particularly suited for developers, researchers, and businesses looking to implement sophisticated AI-driven solutions without the computational overhead of larger language models. Compute for training Arcee-Agent was provided by CrusoeAI. Arcee-Agent was trained using Spectrum.
   urls:
@@ -5586,7 +5592,7 @@
 - !!merge <<: *qwen2
   name: "minicpm-v-2_6"
   license: apache-2.0
-  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
+  icon: https://avatars.githubusercontent.com/u/89920203
   urls:
     - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
     - https://huggingface.co/openbmb/MiniCPM-V-2_6
@@ -6321,6 +6327,7 @@
 - &gemma
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-2b"
+  icon: https://avatars.githubusercontent.com/u/1342004
   license: gemma
   urls:
     - https://ai.google.dev/gemma/docs
@@ -7036,7 +7043,7 @@
       uri: huggingface://bartowski/GWQ-9B-Preview2-GGUF/GWQ-9B-Preview2-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   name: "llama3-8b-instruct"
   license: llama3
   description: |
@@ -8503,7 +8510,7 @@
   urls:
     - https://huggingface.co/arcee-ai/Llama-3-SEC-Chat-GGUF
     - https://huggingface.co/arcee-ai/Llama-3-SEC-Chat
-  icon: https://i.ibb.co/kHtBmDN/w8m6-X4-HCQRa-IR86ar-Cm5gg.webp
+  icon: https://avatars.githubusercontent.com/u/126496414
   tags:
     - llama3
     - gguf
@@ -8536,7 +8543,7 @@
 - &yi-chat
   ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
-  icon: "https://raw.githubusercontent.com/01-ai/Yi/main/assets/img/Yi_logo_icon_light.svg"
+  icon: "https://github.com/01-ai/Yi/raw/main/assets/img/Yi_logo_icon_light.svg"
   name: "yi-1.5-9b-chat"
   license: apache-2.0
   urls:
@@ -9165,7 +9172,7 @@
   urls:
     - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
   description: |
-    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
+    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5,  and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
 
     We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
   icon: https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf/resolve/main/icon.png
@@ -9214,7 +9221,7 @@
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
 - !!merge <<: *llama3
   name: "minicpm-llama3-v-2_5"
-  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
+  icon: https://avatars.githubusercontent.com/u/89920203
   urls:
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
@@ -10054,6 +10061,7 @@
     - llama2
     - cpu
   name: "phi-2-chat:Q8_0"
+  icon: https://avatars.githubusercontent.com/u/6154722
   overrides:
     parameters:
       model: phi-2-layla-v1-chatml-Q8_0.gguf
@@ -10150,6 +10158,7 @@
   ### START Phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
   name: "phi-3-mini-4k-instruct"
+  icon: https://avatars.githubusercontent.com/u/6154722
   license: mit
   description: |
     The Phi-3-Mini-4K-Instruct is a 3.8B parameters, lightweight, state-of-the-art open model trained with the Phi-3 datasets that includes both synthetic data and the filtered publicly available websites data with a focus on high-quality and reasoning dense properties. The model belongs to the Phi-3 family with the Mini version in two variants 4K and 128K which is the context length (in tokens) it can support. The model has underwent a post-training process that incorporates both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. When assessed against benchmarks testing common sense, language understanding, math, code, long context and logical reasoning, Phi-3 Mini-4K-Instruct showcased a robust and state-of-the-art performance among models with less than 13 billion parameters.
