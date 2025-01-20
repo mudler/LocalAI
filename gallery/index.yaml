@@ -435,6 +435,27 @@
     - filename: L3.3-70B-Magnum-v4-SE-Q4_K_M.gguf
       sha256: 9724a6364a42caa3d5a1687258eb329c9af6cbb2ce01c8dd556c1a222a2e0352
       uri: huggingface://bartowski/L3.3-70B-Magnum-v4-SE-GGUF/L3.3-70B-Magnum-v4-SE-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-prikol-70b-v0.2"
+  icon: https://files.catbox.moe/x9t3zo.png
+  urls:
+    - https://huggingface.co/Nohobby/L3.3-Prikol-70B-v0.2
+    - https://huggingface.co/bartowski/L3.3-Prikol-70B-v0.2-GGUF
+  description: |
+    A merge of some Llama 3.3 models because um uh yeah
+
+    Went extra schizo on the recipe, hoping for an extra fun result, and... Well, I guess it's an overall improvement over the previous revision. It's a tiny bit smarter, has even more distinct swipes and nice dialogues, but for some reason it's damn sloppy.
+
+    I've published the second step of this merge as a separate model, and I'd say the results are more interesting, but not as usable as this one. https://huggingface.co/Nohobby/AbominationSnowPig
+
+    Prompt format: Llama3 OR Llama3 Context and ChatML Instruct. It actually works a bit better this way
+  overrides:
+    parameters:
+      model: L3.3-Prikol-70B-v0.2-Q4_K_M.gguf
+  files:
+    - filename: L3.3-Prikol-70B-v0.2-Q4_K_M.gguf
+      sha256: fc0ff514efbc0b67981c2bf1423d5a2e1b8801e4266ba0c653ea148414fe5ffc
+      uri: huggingface://bartowski/L3.3-Prikol-70B-v0.2-GGUF/L3.3-Prikol-70B-v0.2-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
