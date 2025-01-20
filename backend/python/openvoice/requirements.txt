@@ -8,7 +8,7 @@ openai
 python-dotenv
 pypinyin
 cn2an==0.5.22
-numpy==1.22.0
+numpy==2.2.2
 networkx==2.8.8
 jieba==0.42.1
 gradio==5.9.1
