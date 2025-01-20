@@ -11028,6 +11028,36 @@
     - sd-3
     - gpu
   url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
+- name: sd-3.5-large-ggml
+  license: stabilityai-ai-community
+  url: "github:mudler/LocalAI/gallery/sd-ggml.yaml@master"
+  description: |
+    Stable Diffusion 3.5 Large is a Multimodal Diffusion Transformer (MMDiT) text-to-image model that features improved performance in image quality, typography, complex prompt understanding, and resource-efficiency.
+  urls:
+    - https://huggingface.co/stabilityai/stable-diffusion-3.5-large
+    - https://huggingface.co/second-state/stable-diffusion-3.5-large-GGUF
+  tags:
+    - text-to-image
+    - flux
+    - gpu
+    - cpu
+  icon: https://huggingface.co/stabilityai/stable-diffusion-3.5-large/media/main/sd3.5_large_demo.png
+  overrides:
+    parameters:
+      model: sd3.5_large-Q4_0.gguf
+  files:
+    - filename: "sd3.5_large-Q4_0.gguf"
+      sha256: "c79ed6cdaa7decaca6b05ccc636b956b37c47de9b104c56315ca8ed086347b00"
+      uri: "huggingface://second-state/stable-diffusion-3.5-large-GGUF/sd3.5_large-Q4_0.gguf"
+    - filename: clip_g.safetensors
+      sha256: ec310df2af79c318e24d20511b601a591ca8cd4f1fce1d8dff822a356bcdb1f4
+      uri: huggingface://second-state/stable-diffusion-3.5-large-GGUF/clip_g.safetensors
+    - filename: clip_l.safetensors
+      sha256: 660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd
+      uri: huggingface://second-state/stable-diffusion-3.5-large-GGUF/clip_l.safetensors
+    - filename: t5xxl-Q5_0.gguf
+      sha256: f4df16c641a05c4a6ca717068ba3ee312875000f6fac0efbd152915553b5fc3e
+      uri: huggingface://second-state/stable-diffusion-3.5-large-GGUF/t5xxl-Q5_0.gguf
 - &flux
   name: flux.1-dev
   license: flux-1-dev-non-commercial-license
