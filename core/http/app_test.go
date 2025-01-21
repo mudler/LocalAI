@@ -787,7 +787,7 @@ var _ = Describe("API test", func() {
 				"application/json",
 				bytes.NewBuffer([]byte(`{
 					 			"prompt": "a lovely cat",
-								"steps": 2,  "seed":9000,
+								"step": 1,  "seed":9000,
 					 			"size": "256x256", "n":2}`)))
 			// The response should contain an URL
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
@@ -796,6 +796,7 @@ var _ = Describe("API test", func() {
 
 			imgUrlResp := &schema.OpenAIResponse{}
 			err = json.Unmarshal(dat, imgUrlResp)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(dat))
 			Expect(imgUrlResp.Data).ToNot(Or(BeNil(), BeZero()))
 			imgUrl := imgUrlResp.Data[0].URL
 			Expect(imgUrl).To(ContainSubstring("http://127.0.0.1:9090/"), imgUrl)

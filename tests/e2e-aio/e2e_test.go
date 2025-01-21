@@ -124,7 +124,7 @@ var _ = Describe("E2E test", func() {
 				resp, err := client.CreateImage(context.TODO(),
 					openai.ImageRequest{
 						Prompt: "test",
-						Size:   openai.CreateImageSize512x512,
+						Size:   openai.CreateImageSize256x256,
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -135,7 +135,7 @@ var _ = Describe("E2E test", func() {
 				resp, err := client.CreateImage(context.TODO(),
 					openai.ImageRequest{
 						Prompt:         "test",
-						Size:           openai.CreateImageSize512x512,
+						Size:           openai.CreateImageSize256x256,
 						ResponseFormat: openai.CreateImageResponseFormatURL,
 					},
 				)
@@ -147,7 +147,7 @@ var _ = Describe("E2E test", func() {
 				resp, err := client.CreateImage(context.TODO(),
 					openai.ImageRequest{
 						Prompt:         "test",
-						Size:           openai.CreateImageSize512x512,
+						Size:           openai.CreateImageSize256x256,
 						ResponseFormat: openai.CreateImageResponseFormatB64JSON,
 					},
 				)
