@@ -36,9 +36,9 @@ func StoresSetEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConfi
 	}
 }
 
-func StoresDeleteEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func StoresResetEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		input := new(schema.StoresDelete)
+		input := new(schema.StoresReset)
 
 		if err := c.BodyParser(input); err != nil {
 			return err
@@ -49,42 +49,11 @@ func StoresDeleteEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationCo
 			return err
 		}
 
-		if err := store.DeleteCols(c.Context(), sb, input.Keys); err != nil {
+		if _, err := sb.StoresReset(c.Context(), nil); err != nil {
 			return err
 		}
 
 		return c.Send(nil)
-	}
-}
-
-func StoresGetEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		input := new(schema.StoresGet)
-
-		if err := c.BodyParser(input); err != nil {
-			return err
-		}
-
-		sb, err := backend.StoreBackend(sl, appConfig, input.Store)
-		if err != nil {
-			return err
-		}
-
-		keys, vals, err := store.GetCols(c.Context(), sb, input.Keys)
-		if err != nil {
-			return err
-		}
-
-		res := schema.StoresGetResponse{
-			Keys:   keys,
-			Values: make([]string, len(vals)),
-		}
-
-		for i, v := range vals {
-			res.Values[i] = string(v)
-		}
-
-		return c.JSON(res)
 	}
 }
 

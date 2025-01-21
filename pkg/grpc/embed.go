@@ -71,12 +71,8 @@ func (e *embedBackend) StoresSet(ctx context.Context, in *pb.StoresSetOptions, o
 	return e.s.StoresSet(ctx, in)
 }
 
-func (e *embedBackend) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, opts ...grpc.CallOption) (*pb.Result, error) {
-	return e.s.StoresDelete(ctx, in)
-}
-
-func (e *embedBackend) StoresGet(ctx context.Context, in *pb.StoresGetOptions, opts ...grpc.CallOption) (*pb.StoresGetResult, error) {
-	return e.s.StoresGet(ctx, in)
+func (e *embedBackend) StoresReset(ctx context.Context, in *pb.StoresResetOptions, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.StoresReset(ctx, in)
 }
 
 func (e *embedBackend) StoresFind(ctx context.Context, in *pb.StoresFindOptions, opts ...grpc.CallOption) (*pb.StoresFindResult, error) {

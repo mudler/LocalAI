@@ -47,21 +47,8 @@ type StoresSet struct {
 	Values []string    `json:"values" yaml:"values"`
 }
 
-type StoresDelete struct {
+type StoresReset struct {
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`
-
-	Keys [][]float32 `json:"keys"`
-}
-
-type StoresGet struct {
-	Store string `json:"store,omitempty" yaml:"store,omitempty"`
-
-	Keys [][]float32 `json:"keys" yaml:"keys"`
-}
-
-type StoresGetResponse struct {
-	Keys   [][]float32 `json:"keys" yaml:"keys"`
-	Values []string    `json:"values" yaml:"values"`
 }
 
 type StoresFind struct {

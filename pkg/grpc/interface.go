@@ -21,8 +21,7 @@ type LLM interface {
 	Status() (pb.StatusResponse, error)
 
 	StoresSet(*pb.StoresSetOptions) error
-	StoresDelete(*pb.StoresDeleteOptions) error
-	StoresGet(*pb.StoresGetOptions) (pb.StoresGetResult, error)
+	StoresReset(*pb.StoresResetOptions) error
 	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)

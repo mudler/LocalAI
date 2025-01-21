@@ -21,8 +21,7 @@ service Backend {
   rpc Status(HealthMessage) returns (StatusResponse) {}
 
   rpc StoresSet(StoresSetOptions) returns (Result) {}
-  rpc StoresDelete(StoresDeleteOptions) returns (Result) {}
-  rpc StoresGet(StoresGetOptions) returns (StoresGetResult) {}
+  rpc StoresReset(StoresResetOptions) returns (Result) {}
   rpc StoresFind(StoresFindOptions) returns (StoresFindResult) {}
 
   rpc Rerank(RerankRequest) returns (RerankResult) {}
@@ -78,17 +77,8 @@ message StoresSetOptions {
   repeated StoresValue Values = 2;
 }
 
-message StoresDeleteOptions {
+message StoresResetOptions {
   repeated StoresKey Keys = 1;
-}
-
-message StoresGetOptions {
-  repeated StoresKey Keys = 1;
-}
-
-message StoresGetResult {
-  repeated StoresKey Keys = 1;
-  repeated StoresValue Values = 2;
 }
 
 message StoresFindOptions {

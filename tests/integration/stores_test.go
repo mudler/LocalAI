@@ -70,6 +70,10 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 		})
 
 		It("should be able to set a key", func() {
+			sc.StoresSet(context.Background(), &store.StoresSetOptions{
+				Keys:   [][]float32{{0.1, 0.2, 0.3}},
+				Values: [][]byte{[]byte("test")},
+			})
 			err := store.SetSingle(context.Background(), sc, []float32{0.1, 0.2, 0.3}, []byte("test"))
 			Expect(err).ToNot(HaveOccurred())
 		})

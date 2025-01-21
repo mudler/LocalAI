@@ -39,8 +39,7 @@ func RegisterLocalAIRoutes(router *fiber.App,
 	// Stores
 	sl := model.NewModelLoader("")
 	router.Post("/stores/set", localai.StoresSetEndpoint(sl, appConfig))
-	router.Post("/stores/delete", localai.StoresDeleteEndpoint(sl, appConfig))
-	router.Post("/stores/get", localai.StoresGetEndpoint(sl, appConfig))
+	router.Post("/stores/reset", localai.StoresDeleteEndpoint(sl, appConfig))
 	router.Post("/stores/find", localai.StoresFindEndpoint(sl, appConfig))
 
 	if !appConfig.DisableMetrics {

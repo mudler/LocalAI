@@ -80,11 +80,7 @@ func (llm *Base) StoresSet(*pb.StoresSetOptions) error {
 	return fmt.Errorf("unimplemented")
 }
 
-func (llm *Base) StoresGet(*pb.StoresGetOptions) (pb.StoresGetResult, error) {
-	return pb.StoresGetResult{}, fmt.Errorf("unimplemented")
-}
-
-func (llm *Base) StoresDelete(*pb.StoresDeleteOptions) error {
+func (llm *Base) StoresReset(*pb.StoresResetOptions) error {
 	return fmt.Errorf("unimplemented")
 }
 

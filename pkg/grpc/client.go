@@ -303,7 +303,7 @@ func (c *Client) StoresSet(ctx context.Context, in *pb.StoresSetOptions, opts ..
 	return client.StoresSet(ctx, in, opts...)
 }
 
-func (c *Client) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, opts ...grpc.CallOption) (*pb.Result, error) {
+func (c *Client) StoreReset(ctx context.Context, in *pb.StoresResetOptions, opts ...grpc.CallOption) (*pb.Result, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()
@@ -318,25 +318,7 @@ func (c *Client) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, o
 	}
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
-	return client.StoresDelete(ctx, in, opts...)
-}
-
-func (c *Client) StoresGet(ctx context.Context, in *pb.StoresGetOptions, opts ...grpc.CallOption) (*pb.StoresGetResult, error) {
-	if !c.parallel {
-		c.opMutex.Lock()
-		defer c.opMutex.Unlock()
-	}
-	c.setBusy(true)
-	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
-	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-	client := pb.NewBackendClient(conn)
-	return client.StoresGet(ctx, in, opts...)
+	return client.StoresReset(ctx, in, opts...)
 }
 
 func (c *Client) StoresFind(ctx context.Context, in *pb.StoresFindOptions, opts ...grpc.CallOption) (*pb.StoresFindResult, error) {
