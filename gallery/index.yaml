@@ -2713,6 +2713,22 @@
     - filename: deepseek-r1-distill-qwen-1.5b-Q4_K_M.gguf
       sha256: c2c43b6018cf7700ce0ddee8807deb1a9a26758ef878232f3a142d16df81f0fe
       uri: huggingface://unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "deepseek-r1-distill-qwen-7b"
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+    - https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF
+  description: |
+    DeepSeek-R1 is our advanced first-generation reasoning model designed to enhance performance in reasoning tasks.
+    Building on the foundation laid by its predecessor, DeepSeek-R1-Zero, which was trained using large-scale reinforcement learning (RL) without supervised fine-tuning, DeepSeek-R1 addresses the challenges faced by R1-Zero, such as endless repetition, poor readability, and language mixing.
+    By incorporating cold-start data prior to the RL phase,DeepSeek-R1 significantly improves reasoning capabilities and achieves performance levels comparable to OpenAI-o1 across a variety of domains, including mathematics, coding, and complex reasoning tasks.
+  overrides:
+    parameters:
+      model: DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+  files:
+    - filename: DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+      sha256: 731ece8d06dc7eda6f6572997feb9ee1258db0784827e642909d9b565641937b
+      uri: huggingface://bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
