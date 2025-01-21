@@ -2696,6 +2696,23 @@
     - filename: Qwentile2.5-32B-Instruct-Q4_K_M.gguf
       sha256: e476d6e3c15c78fc3f986d7ae8fa35c16116843827f2e6243c05767cef2f3615
       uri: huggingface://bartowski/Qwentile2.5-32B-Instruct-GGUF/Qwentile2.5-32B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "deepseek-r1-distill-qwen-1.5b"
+  icon: "https://avatars.githubusercontent.com/u/148330874"
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5b
+    - https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF
+  description: |
+    DeepSeek-R1 is our advanced first-generation reasoning model designed to enhance performance in reasoning tasks.
+    Building on the foundation laid by its predecessor, DeepSeek-R1-Zero, which was trained using large-scale reinforcement learning (RL) without supervised fine-tuning, DeepSeek-R1 addresses the challenges faced by R1-Zero, such as endless repetition, poor readability, and language mixing.
+    By incorporating cold-start data prior to the RL phase,DeepSeek-R1 significantly improves reasoning capabilities and achieves performance levels comparable to OpenAI-o1 across a variety of domains, including mathematics, coding, and complex reasoning tasks.
+  overrides:
+    parameters:
+      model: deepseek-r1-distill-qwen-1.5b-Q4_K_M.gguf
+  files:
+    - filename: deepseek-r1-distill-qwen-1.5b-Q4_K_M.gguf
+      sha256: c2c43b6018cf7700ce0ddee8807deb1a9a26758ef878232f3a142d16df81f0fe
+      uri: huggingface://unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -5219,6 +5236,23 @@
     - filename: Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
       sha256: 268390e07edd407ad93ea21a868b7ae995b5950e01cad0db9e1802ae5049d405
       uri: huggingface://bartowski/Dolphin3.0-Llama3.1-8B-GGUF/Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "deepseek-r1-distill-llama-8b"
+  icon: "https://avatars.githubusercontent.com/u/148330874"
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+    - https://huggingface.co/unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF
+  description: |
+    DeepSeek-R1 is our advanced first-generation reasoning model designed to enhance performance in reasoning tasks.
+    Building on the foundation laid by its predecessor, DeepSeek-R1-Zero, which was trained using large-scale reinforcement learning (RL) without supervised fine-tuning, DeepSeek-R1 addresses the challenges faced by R1-Zero, such as endless repetition, poor readability, and language mixing.
+    By incorporating cold-start data prior to the RL phase,DeepSeek-R1 significantly improves reasoning capabilities and achieves performance levels comparable to OpenAI-o1 across a variety of domains, including mathematics, coding, and complex reasoning tasks.
+  overrides:
+    parameters:
+      model: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
+  files:
+    - filename: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
+      sha256: f8eba201522ab44b79bc54166126bfaf836111ff4cbf2d13c59c3b57da10573b
+      uri: huggingface://unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf
 - &deepseek  ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
   name: "deepseek-coder-v2-lite-instruct"
