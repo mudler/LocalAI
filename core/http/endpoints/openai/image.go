@@ -72,7 +72,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 		}
 
 		if m == "" {
-			m = model.StableDiffusionGGMLBackend
+			m = "stablediffusion"
 		}
 		log.Debug().Msgf("Loading model: %+v", m)
 
