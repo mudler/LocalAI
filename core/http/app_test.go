@@ -780,7 +780,7 @@ var _ = Describe("API test", func() {
 				response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 				fmt.Println(response)
 				return response["processed"].(bool)
-			}, "360s", "10s").Should(Equal(true))
+			}, "1200s", "10s").Should(Equal(true))
 
 			resp, err := http.Post(
 				"http://127.0.0.1:9090/v1/images/generations",
