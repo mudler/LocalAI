@@ -28,7 +28,7 @@ func BackendMonitorEndpoint(bm *services.BackendMonitorService) func(c *fiber.Ct
 	}
 }
 
-// BackendMonitorEndpoint shuts down the specified backend
+// BackendShutdownEndpoint shuts down the specified backend
 // @Summary Backend monitor endpoint
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Router /backend/shutdown [post]

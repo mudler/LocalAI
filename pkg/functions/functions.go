@@ -34,7 +34,7 @@ type Tool struct {
 }
 type Tools []Tool
 
-// ToJSONNameStructure converts a list of functions to a JSON structure that can be parsed to a grammar
+// ToJSONStructure converts a list of functions to a JSON structure that can be parsed to a grammar
 // This allows the LLM to return a response of the type: { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 func (f Functions) ToJSONStructure(name, args string) JSONFunctionStructure {
 	nameKey := defaultFunctionNameKey
