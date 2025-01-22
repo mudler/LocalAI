@@ -768,7 +768,7 @@ var _ = Describe("API test", func() {
 			}
 
 			response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-				ID:   "localai@sd-3.5-large-ggml",
+				ID:   "localai@sd-1.5-ggml",
 				Name: "stablediffusion",
 			})
 
