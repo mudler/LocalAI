@@ -533,10 +533,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen mamba-protogen rerankers-protogen transformers-protogen parler-tts-protogen kokoro-protogen vllm-protogen openvoice-protogen
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen mamba-protogen rerankers-protogen transformers-protogen parler-tts-protogen kokoro-protogen vllm-protogen openvoice-protogen faster-whisper-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean mamba-protogen-clean rerankers-protogen-clean transformers-protogen-clean parler-tts-protogen-clean kokoro-protogen-clean vllm-protogen-clean openvoice-protogen-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean mamba-protogen-clean rerankers-protogen-clean transformers-protogen-clean parler-tts-protogen-clean kokoro-protogen-clean vllm-protogen-clean openvoice-protogen-clean faster-whisper-protogen-clean
 
 .PHONY: autogptq-protogen
 autogptq-protogen:
@@ -569,6 +569,14 @@ diffusers-protogen:
 .PHONY: diffusers-protogen-clean
 diffusers-protogen-clean:
 	$(MAKE) -C backend/python/diffusers protogen-clean
+
+.PHONY: faster-whisper-protogen
+faster-whisper-protogen:
+	$(MAKE) -C backend/python/faster-whisper protogen
+
+.PHONY: faster-whisper-protogen-clean
+faster-whisper-protogen-clean:
+	$(MAKE) -C backend/python/faster-whisper protogen-clean
 
 .PHONY: exllama2-protogen
 exllama2-protogen:
@@ -641,6 +649,7 @@ prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/bark
 	$(MAKE) -C backend/python/coqui
 	$(MAKE) -C backend/python/diffusers
+	$(MAKE) -C backend/python/faster-whisper
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/mamba
 	$(MAKE) -C backend/python/rerankers
