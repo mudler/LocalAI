@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -294,6 +295,14 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 			if s, ok := pp.(string); ok {
 				config.PromptStrings = append(config.PromptStrings, s)
 			}
+		}
+	}
+
+	// If a quality was defined as number, convert it to step
+	if input.Quality != "" {
+		q, err := strconv.Atoi(input.Quality)
+		if err == nil {
+			config.Step = q
 		}
 	}
 }
