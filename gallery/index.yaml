@@ -11078,6 +11078,62 @@
     - sd-3
     - gpu
   url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
+- name: sd-1.5-ggml
+  license: creativeml-openrail-m
+  url: "github:mudler/LocalAI/gallery/sd-ggml.yaml@master"
+  description: |
+    Stable Diffusion 1.5
+  urls:
+    - https://huggingface.co/second-state/stable-diffusion-v1-5-GGUF
+  tags:
+    - text-to-image
+    - stablediffusion
+    - gpu
+    - cpu
+  overrides:
+    options:
+      - "sampler:euler"
+    parameters:
+      model: stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf
+  files:
+    - filename: "stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf"
+      sha256: "b8944e9fe0b69b36ae1b5bb0185b3a7b8ef14347fe0fa9af6c64c4829022261f"
+      uri: "huggingface://second-state/stable-diffusion-v1-5-GGUF/stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf"
+- name: sd-3.5-medium-ggml
+  license: stabilityai-ai-community
+  url: "github:mudler/LocalAI/gallery/sd-ggml.yaml@master"
+  description: |
+    Stable Diffusion 3.5 Medium is a Multimodal Diffusion Transformer (MMDiT) text-to-image model that features improved performance in image quality, typography, complex prompt understanding, and resource-efficiency.
+  urls:
+    - https://huggingface.co/stabilityai/stable-diffusion-3.5-medium
+    - https://huggingface.co/second-state/stable-diffusion-3.5-medium-GGUF
+  tags:
+    - text-to-image
+    - stablediffusion
+    - gpu
+    - cpu
+  icon: https://huggingface.co/stabilityai/stable-diffusion-3.5-medium/media/main/sd3.5_medium_demo.jpg
+  overrides:
+    options:
+      - "clip_l_path:clip_l-Q4_0.gguf"
+      - "clip_g_path:clip_g-Q4_0.gguf"
+      - "t5xxl_path:t5xxl-Q4_0.gguf"
+      - "sampler:euler"
+    parameters:
+      model: sd3.5_medium-Q4_0.gguf
+  files:
+    - filename: "sd3.5_medium-Q4_0.gguf"
+      sha256: "3bb8c5e9ab0a841117089ed4ed81d885bb85161df2a766b812f829bc55b31adf"
+      uri: "huggingface://second-state/stable-diffusion-3.5-medium-GGUF/sd3.5_medium-Q4_0.gguf"
+    - filename: clip_g-Q4_0.gguf
+      sha256: c142411147e16b7c4b9cc1f5d977cbe596104435d76fde47172d3d35c5e58bb8
+      uri: huggingface://second-state/stable-diffusion-3.5-medium-GGUF/clip_g-Q4_0.gguf
+    - filename: clip_l-Q4_0.gguf
+      sha256: f5ad88ae2ac924eb4ac0298b77afa304b5e6014fc0c4128f0e3df40fdfcc0f8a
+      uri: huggingface://second-state/stable-diffusion-3.5-medium-GGUF/clip_l-Q4_0.gguf
+    - filename: t5xxl-Q4_0.gguf
+      sha256: 987ba47c158b890c274f78fd35324419f50941e846a49789f0977e9fe9d97ab7
+      uri: huggingface://second-state/stable-diffusion-3.5-medium-GGUF/t5xxl-Q4_0.gguf
 - name: sd-3.5-large-ggml
   license: stabilityai-ai-community
   url: "github:mudler/LocalAI/gallery/sd-ggml.yaml@master"
@@ -11088,7 +11144,7 @@
     - https://huggingface.co/second-state/stable-diffusion-3.5-large-GGUF
   tags:
     - text-to-image
-    - flux
+    - stablediffusion
     - gpu
     - cpu
   icon: https://huggingface.co/stabilityai/stable-diffusion-3.5-large/media/main/sd3.5_large_demo.png
