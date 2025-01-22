@@ -687,6 +687,10 @@ var _ = Describe("API test", func() {
 					Name: "model-gallery",
 					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/index.yaml",
 				},
+				{
+					Name: "localai",
+					URL:  "https://raw.githubusercontent.com/mudler/LocalAI/refs/heads/master/gallery/index.yaml",
+				},
 			}
 
 			application, err := application.New(
@@ -764,10 +768,8 @@ var _ = Describe("API test", func() {
 			}
 
 			response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-				ID: "model-gallery@stablediffusion",
-				Overrides: map[string]interface{}{
-					"parameters": map[string]interface{}{"model": "stablediffusion_assets"},
-				},
+				ID:   "localai@sd-1.5-ggml",
+				Name: "stablediffusion",
 			})
 
 			Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -778,14 +780,14 @@ var _ = Describe("API test", func() {
 				response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 				fmt.Println(response)
 				return response["processed"].(bool)
-			}, "360s", "10s").Should(Equal(true))
+			}, "1200s", "10s").Should(Equal(true))
 
 			resp, err := http.Post(
 				"http://127.0.0.1:9090/v1/images/generations",
 				"application/json",
 				bytes.NewBuffer([]byte(`{
-					 			"prompt": "floating hair, portrait, ((loli)), ((one girl)), cute face, hidden hands, asymmetrical bangs, beautiful detailed eyes, eye shadow, hair ornament, ribbons, bowties, buttons, pleated skirt, (((masterpiece))), ((best quality)), colorful|((part of the head)), ((((mutated hands and fingers)))), deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, Octane renderer, lowres, bad anatomy, bad hands, text",
-								"mode": 2,  "seed":9000,
+					 			"prompt": "a lovely cat",
+								"step": 1,  "seed":9000,
 					 			"size": "256x256", "n":2}`)))
 			// The response should contain an URL
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
@@ -794,6 +796,7 @@ var _ = Describe("API test", func() {
 
 			imgUrlResp := &schema.OpenAIResponse{}
 			err = json.Unmarshal(dat, imgUrlResp)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(dat))
 			Expect(imgUrlResp.Data).ToNot(Or(BeNil(), BeZero()))
 			imgUrl := imgUrlResp.Data[0].URL
 			Expect(imgUrl).To(ContainSubstring("http://127.0.0.1:9090/"), imgUrl)

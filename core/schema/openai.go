@@ -191,8 +191,9 @@ type OpenAIRequest struct {
 	Stream bool `json:"stream"`
 
 	// Image (not supported by OpenAI)
-	Mode int `json:"mode"`
-	Step int `json:"step"`
+	Mode    int    `json:"mode"`
+	Quality string `json:"quality"`
+	Step    int    `json:"step"`
 
 	// A grammar to constrain the LLM output
 	Grammar string `json:"grammar" yaml:"grammar"`
