@@ -334,7 +334,7 @@ rebuild: ## Rebuilds the project
 	$(MAKE) -C sources/go-piper clean
 	$(MAKE) build
 
-prepare: prepare-sources $(OPTIONAL_TARGETS)
+prepare: prepare-sources gen-assets $(OPTIONAL_TARGETS)
 
 clean: ## Remove build related file
 	$(GOCMD) clean -cache
