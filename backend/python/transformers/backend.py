@@ -21,7 +21,7 @@ import torch.cuda
 
 
 XPU=os.environ.get("XPU", "0") == "1"
-from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria
+from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria, MambaConfig, MambaForCausalLM
 from transformers import AutoProcessor, MusicgenForConditionalGeneration
 from scipy.io import wavfile
 import outetts
@@ -245,6 +245,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 autoTokenizer = False
                 self.model = SentenceTransformer(model_name, trust_remote_code=request.TrustRemoteCode)
                 self.SentenceTransformer = True
+            elif request.Type == "Mamba":
+                autoTokenizer = False
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                self.model = MambaForCausalLM.from_pretrained(model_name)
             else:
                 print("Automodel", file=sys.stderr)
                 self.model = AutoModel.from_pretrained(model_name, 

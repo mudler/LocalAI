@@ -533,10 +533,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen mamba-protogen rerankers-protogen transformers-protogen parler-tts-protogen kokoro-protogen vllm-protogen openvoice-protogen faster-whisper-protogen
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen rerankers-protogen transformers-protogen parler-tts-protogen kokoro-protogen vllm-protogen openvoice-protogen faster-whisper-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean mamba-protogen-clean rerankers-protogen-clean transformers-protogen-clean parler-tts-protogen-clean kokoro-protogen-clean vllm-protogen-clean openvoice-protogen-clean faster-whisper-protogen-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean rerankers-protogen-clean transformers-protogen-clean parler-tts-protogen-clean kokoro-protogen-clean vllm-protogen-clean openvoice-protogen-clean faster-whisper-protogen-clean
 
 .PHONY: autogptq-protogen
 autogptq-protogen:
@@ -585,14 +585,6 @@ exllama2-protogen:
 .PHONY: exllama2-protogen-clean
 exllama2-protogen-clean:
 	$(MAKE) -C backend/python/exllama2 protogen-clean
-
-.PHONY: mamba-protogen
-mamba-protogen:
-	$(MAKE) -C backend/python/mamba protogen
-
-.PHONY: mamba-protogen-clean
-mamba-protogen-clean:
-	$(MAKE) -C backend/python/mamba protogen-clean
 
 .PHONY: rerankers-protogen
 rerankers-protogen:
@@ -651,7 +643,6 @@ prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/diffusers
 	$(MAKE) -C backend/python/faster-whisper
 	$(MAKE) -C backend/python/vllm
-	$(MAKE) -C backend/python/mamba
 	$(MAKE) -C backend/python/rerankers
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/parler-tts
