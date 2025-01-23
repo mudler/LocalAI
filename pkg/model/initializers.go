@@ -48,6 +48,7 @@ const (
 	LLamaCPP = "llama-cpp"
 
 	LLamaCPPAVX2     = "llama-cpp-avx2"
+	LLamaCPPAVX512   = "llama-cpp-avx512"
 	LLamaCPPAVX      = "llama-cpp-avx"
 	LLamaCPPFallback = "llama-cpp-fallback"
 	LLamaCPPCUDA     = "llama-cpp-cuda"
@@ -68,6 +69,7 @@ const (
 
 var llamaCPPVariants = []string{
 	LLamaCPPAVX2,
+	LLamaCPPAVX512,
 	LLamaCPPAVX,
 	LLamaCPPFallback,
 	LLamaCPPCUDA,
@@ -266,6 +268,12 @@ func selectGRPCProcessByHostCapabilities(backend, assetDir string, f16 bool) str
 		p := backendPath(assetDir, LLamaCPPAVX2)
 		if _, err := os.Stat(p); err == nil {
 			log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
+			selectedProcess = p
+		}
+	} else if xsysinfo.HasCPUCaps(cpuid.AVX512F) {
+		p := backendPath(assetDir, LLamaCPPAVX512)
+		if _, err := os.Stat(p); err == nil {
+			log.Info().Msgf("[%s] attempting to load with AVX512 variant", backend)
 			selectedProcess = p
 		}
 	} else if xsysinfo.HasCPUCaps(cpuid.AVX) {

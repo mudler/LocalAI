@@ -186,6 +186,7 @@ endif
 ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
+ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx512
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-ggml
 ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
@@ -698,6 +699,13 @@ backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc backend/cpp/llama/llama.
 	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
 	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
 	cp -rfv backend/cpp/llama-avx2/grpc-server backend-assets/grpc/llama-cpp-avx2
+
+backend-assets/grpc/llama-cpp-avx512: backend-assets/grpc backend/cpp/llama/llama.cpp
+	cp -rf backend/cpp/llama backend/cpp/llama-avx512
+	$(MAKE) -C backend/cpp/llama-avx512 purge
+	$(info ${GREEN}I llama-cpp build info:avx512${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx512" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-avx512/grpc-server backend-assets/grpc/llama-cpp-avx512
 
 backend-assets/grpc/llama-cpp-avx: backend-assets/grpc backend/cpp/llama/llama.cpp
 	cp -rf backend/cpp/llama backend/cpp/llama-avx
