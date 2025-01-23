@@ -1,4 +1,0 @@
-grpcio==1.69.0
-certifi
-llvmlite==0.43.0
-setuptools
