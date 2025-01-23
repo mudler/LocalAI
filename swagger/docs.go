@@ -1645,6 +1645,9 @@ const docTemplate = `{
                 "prompt": {
                     "description": "Prompt is read only by completion/image API calls"
                 },
+                "quality": {
+                    "type": "string"
+                },
                 "repeat_last_n": {
                     "type": "integer"
                 },

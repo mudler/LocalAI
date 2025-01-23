@@ -1,6 +1,0 @@
-# mabma does not specify it's build dependencies per PEP517, so we need to disable build isolation
-# this also means that we need to install the basic build dependencies into the venv ourselves
-# https://github.com/Dao-AILab/causal-conv1d/issues/24
-packaging
-setuptools
-wheel

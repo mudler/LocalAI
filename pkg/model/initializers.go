@@ -29,11 +29,14 @@ var Aliases map[string]string = map[string]string{
 	"langchain-huggingface":  LCHuggingFaceBackend,
 	"transformers-musicgen":  TransformersBackend,
 	"sentencetransformers":   TransformersBackend,
+	"mamba":                  TransformersBackend,
+	"stablediffusion":        StableDiffusionGGMLBackend,
 }
 
 var TypeAlias map[string]string = map[string]string{
 	"sentencetransformers":   "SentenceTransformer",
 	"huggingface-embeddings": "SentenceTransformer",
+	"mamba":                  "Mamba",
 	"transformers-musicgen":  "MusicgenForConditionalGeneration",
 }
 
@@ -54,10 +57,10 @@ const (
 
 	LLamaCPPGRPC = "llama-cpp-grpc"
 
-	WhisperBackend         = "whisper"
-	StableDiffusionBackend = "stablediffusion"
-	PiperBackend           = "piper"
-	LCHuggingFaceBackend   = "huggingface"
+	WhisperBackend             = "whisper"
+	StableDiffusionGGMLBackend = "stablediffusion-ggml"
+	PiperBackend               = "piper"
+	LCHuggingFaceBackend       = "huggingface"
 
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"

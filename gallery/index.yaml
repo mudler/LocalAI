@@ -2,6 +2,7 @@
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
+  icon: https://avatars.githubusercontent.com/u/6154722
   license: mit
   tags:
     - llm
@@ -189,7 +190,7 @@
     - https://huggingface.co/Nitral-AI/NightWing3-10B-v0.1
     - https://huggingface.co/bartowski/NightWing3-10B-v0.1-GGUF
   description: |
-     Base model: (Falcon3-10B)
+    Base model: (Falcon3-10B)
   overrides:
     parameters:
       model: NightWing3-10B-v0.1-Q4_K_M.gguf
@@ -224,7 +225,7 @@
       uri: huggingface://bartowski/INTELLECT-1-Instruct-GGUF/INTELLECT-1-Instruct-Q4_K_M.gguf
 - &llama33
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.3
   description: |
     The Meta Llama 3.3 multilingual large language model (LLM) is a pretrained and instruction tuned generative model in 70B (text in/text out). The Llama 3.3 instruction tuned text only model is optimized for multilingual dialogue use cases and outperform many of the available open source and closed chat models on common industry benchmarks.
@@ -418,9 +419,47 @@
     - filename: L3.3-MS-Nevoria-70b-Q4_K_M.gguf
       sha256: e8b0763f263089a19d4b112b7ed5085cc5f1ed9ca49c5085baa8d51f4ded1f94
       uri: huggingface://bartowski/L3.3-MS-Nevoria-70b-GGUF/L3.3-MS-Nevoria-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-70b-magnum-v4-se"
+  urls:
+    - https://huggingface.co/Doctor-Shotgun/L3.3-70B-Magnum-v4-SE
+    - https://huggingface.co/bartowski/L3.3-70B-Magnum-v4-SE-GGUF
+  description: |
+    The Magnum v4 series is complete, but here's something a little extra I wanted to tack on as I wasn't entirely satisfied with the results of v4 72B. "SE" for Special Edition - this model is finetuned from meta-llama/Llama-3.3-70B-Instruct as an rsLoRA adapter. The dataset is a slightly revised variant of the v4 data with some elements of the v2 data re-introduced.
+
+    The objective, as with the other Magnum models, is to emulate the prose style and quality of the Claude 3 Sonnet/Opus series of models on a local scale, so don't be surprised to see "Claude-isms" in its output.
+  overrides:
+    parameters:
+      model: L3.3-70B-Magnum-v4-SE-Q4_K_M.gguf
+  files:
+    - filename: L3.3-70B-Magnum-v4-SE-Q4_K_M.gguf
+      sha256: 9724a6364a42caa3d5a1687258eb329c9af6cbb2ce01c8dd556c1a222a2e0352
+      uri: huggingface://bartowski/L3.3-70B-Magnum-v4-SE-GGUF/L3.3-70B-Magnum-v4-SE-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-prikol-70b-v0.2"
+  icon: https://files.catbox.moe/x9t3zo.png
+  urls:
+    - https://huggingface.co/Nohobby/L3.3-Prikol-70B-v0.2
+    - https://huggingface.co/bartowski/L3.3-Prikol-70B-v0.2-GGUF
+  description: |
+    A merge of some Llama 3.3 models because um uh yeah
+
+    Went extra schizo on the recipe, hoping for an extra fun result, and... Well, I guess it's an overall improvement over the previous revision. It's a tiny bit smarter, has even more distinct swipes and nice dialogues, but for some reason it's damn sloppy.
+
+    I've published the second step of this merge as a separate model, and I'd say the results are more interesting, but not as usable as this one. https://huggingface.co/Nohobby/AbominationSnowPig
+
+    Prompt format: Llama3 OR Llama3 Context and ChatML Instruct. It actually works a bit better this way
+  overrides:
+    parameters:
+      model: L3.3-Prikol-70B-v0.2-Q4_K_M.gguf
+  files:
+    - filename: L3.3-Prikol-70B-v0.2-Q4_K_M.gguf
+      sha256: fc0ff514efbc0b67981c2bf1423d5a2e1b8801e4266ba0c653ea148414fe5ffc
+      uri: huggingface://bartowski/L3.3-Prikol-70B-v0.2-GGUF/L3.3-Prikol-70B-v0.2-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
+  icon: https://avatars.githubusercontent.com/u/132652788
   license: apache-2.0
   urls:
     - https://huggingface.co/RWKV/rwkv-6-world-7b
@@ -443,6 +482,7 @@
       uri: huggingface://bartowski/rwkv-6-world-7b-GGUF/rwkv-6-world-7b-Q4_K_M.gguf
 - &qwen25coder
   name: "qwen2.5-coder-14b"
+  icon: https://avatars.githubusercontent.com/u/141221163
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   license: apache-2.0
   tags:
@@ -628,7 +668,7 @@
       uri: huggingface://mraWdermacher/Qwen2.5-Coder-32B-Instruct-Uncensored-i1-GGUF/Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
-  icon: https://github.com/OpenCoder-llm/opencoder-llm.github.io/blob/main/static/images/opencoder_icon.jpg?raw=true
+  icon: https://avatars.githubusercontent.com/u/186387526
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   urls:
     - https://huggingface.co/infly/OpenCoder-8B-Base
@@ -694,6 +734,7 @@
       uri: huggingface://QuantFactory/OpenCoder-1.5B-Instruct-GGUF/OpenCoder-1.5B-Instruct.Q4_K_M.gguf
 - &granite3
   name: "granite-3.0-1b-a400m-instruct"
+  icon: https://avatars.githubusercontent.com/u/167822367
   urls:
     - https://huggingface.co/ibm-granite/granite-3.0-1b-a400m-instruct
     - https://huggingface.co/QuantFactory/granite-3.0-1b-a400m-instruct-GGUF
@@ -778,10 +819,9 @@
     - filename: salamandra-7b-instruct.Q4_K_M-f32.gguf
       sha256: bac8e8c1d1d9d53cbdb148b8ff9ad378ddb392429207099e85b5aae3a43bff3d
       uri: huggingface://cstr/salamandra-7b-instruct-GGUF/salamandra-7b-instruct.Q4_K_M-f32.gguf
-- &llama32
-  ## llama3.2
+- &llama32  ## llama3.2
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.2
   description: |
     The Meta Llama 3.2 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction-tuned generative models in 1B and 3B sizes (text in/text out). The Llama 3.2 instruction-tuned text only models are optimized for multilingual dialogue use cases, including agentic retrieval and summarization tasks. They outperform many of the available open source and closed chat models on common industry benchmarks.
@@ -950,7 +990,6 @@
       uri: huggingface://mradermacher/Llama-3.2-3B-Reasoning-Time-GGUF/Llama-3.2-3B-Reasoning-Time.Q4_K_M.gguf
 - !!merge <<: *llama32
   name: "llama-3.2-sun-2.5b-chat"
-  icon: https://i.ibb.co/PF0TdMJ/imagine-image-9a56cee7-0f4f-4cc2-b265-a5b8d04f266b.png
   urls:
     - https://huggingface.co/meditsolutions/Llama-3.2-SUN-2.5B-chat
     - https://huggingface.co/mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF
@@ -982,7 +1021,6 @@
       uri: huggingface://mradermacher/Llama-3.2-SUN-2.5B-chat-GGUF/Llama-3.2-SUN-2.5B-chat.Q4_K_M.gguf
 - !!merge <<: *llama32
   name: "llama-3.2-3b-instruct-uncensored"
-  icon: https://i.imgur.com/JOePyAN.png
   urls:
     - https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-uncensored-GGUF
     - https://huggingface.co/chuanli11/Llama-3.2-3B-Instruct-uncensored
@@ -1316,9 +1354,9 @@
     - filename: FineMath-Llama-3B-Q4_K_M.gguf
       sha256: 16c73b5cf2a417a7e1608bcc9469f1461fc3e759ce04a3a337f48df977dc158c
       uri: huggingface://bartowski/FineMath-Llama-3B-GGUF/FineMath-Llama-3B-Q4_K_M.gguf
-- &qwen25
-  ## Qwen2.5
+- &qwen25  ## Qwen2.5
   name: "qwen2.5-14b-instruct"
+  icon: https://avatars.githubusercontent.com/u/141221163
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   license: apache-2.0
   description: |
@@ -1608,6 +1646,7 @@
       uri: huggingface://bartowski/qwen2.5-7b-ins-v3-GGUF/qwen2.5-7b-ins-v3-Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "supernova-medius"
+  icon: https://avatars.githubusercontent.com/u/126496414
   urls:
     - https://huggingface.co/arcee-ai/SuperNova-Medius-GGUF
   description: |
@@ -1762,7 +1801,7 @@
       uri: huggingface://bartowski/TheBeagle-v2beta-32B-MGS-GGUF/TheBeagle-v2beta-32B-MGS-Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "meraj-mini"
-  icon: https://i.ibb.co/CmPSSpq/Screenshot-2024-10-06-at-9-45-06-PM.png
+  icon: https://avatars.githubusercontent.com/u/126496414
   urls:
     - https://huggingface.co/arcee-ai/Meraj-Mini
     - https://huggingface.co/QuantFactory/Meraj-Mini-GGUF
@@ -2142,7 +2181,6 @@
       sha256: 42cf7a96784dc8f25c61c2404620c3e6548a024caa8dff6e435d7c86400d7ab8
       uri: huggingface://mradermacher/Qwen2.5-7B-nerd-uncensored-v1.7-GGUF/Qwen2.5-7B-nerd-uncensored-v1.7.Q4_K_M.gguf
 - !!merge <<: *qwen25
-  icon: https://i.imgur.com/OxX2Usi.png
   name: "evathene-v1.0"
   urls:
     - https://huggingface.co/sophosympatheia/Evathene-v1.0
@@ -2392,7 +2430,7 @@
       uri: huggingface://QuantFactory/Math-IIO-7B-Instruct-GGUF/Math-IIO-7B-Instruct.Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "virtuoso-small"
-  icon: https://i.ibb.co/pXD6Bcv/SW2-U-g-QQLSH1-ZAbxhs-Iu-A.webp
+  icon: https://avatars.githubusercontent.com/u/126496414
   urls:
     - https://huggingface.co/arcee-ai/Virtuoso-Small-GGUF
   description: |
@@ -2501,7 +2539,6 @@
       sha256: 91907f29746625a62885793475956220b81d8a5a34b53686a1acd1d03fd403ea
       uri: huggingface://bartowski/72B-Qwen2.5-Kunou-v1-GGUF/72B-Qwen2.5-Kunou-v1-Q4_K_M.gguf
 - !!merge <<: *qwen25
-  icon: https://i.imgur.com/OxX2Usi.png
   name: "evathene-v1.3"
   urls:
     - https://huggingface.co/sophosympatheia/Evathene-v1.3
@@ -2659,6 +2696,39 @@
     - filename: Qwentile2.5-32B-Instruct-Q4_K_M.gguf
       sha256: e476d6e3c15c78fc3f986d7ae8fa35c16116843827f2e6243c05767cef2f3615
       uri: huggingface://bartowski/Qwentile2.5-32B-Instruct-GGUF/Qwentile2.5-32B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "deepseek-r1-distill-qwen-1.5b"
+  icon: "https://avatars.githubusercontent.com/u/148330874"
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5b
+    - https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF
+  description: |
+    DeepSeek-R1 is our advanced first-generation reasoning model designed to enhance performance in reasoning tasks.
+    Building on the foundation laid by its predecessor, DeepSeek-R1-Zero, which was trained using large-scale reinforcement learning (RL) without supervised fine-tuning, DeepSeek-R1 addresses the challenges faced by R1-Zero, such as endless repetition, poor readability, and language mixing.
+    By incorporating cold-start data prior to the RL phase,DeepSeek-R1 significantly improves reasoning capabilities and achieves performance levels comparable to OpenAI-o1 across a variety of domains, including mathematics, coding, and complex reasoning tasks.
+  overrides:
+    parameters:
+      model: deepseek-r1-distill-qwen-1.5b-Q4_K_M.gguf
+  files:
+    - filename: deepseek-r1-distill-qwen-1.5b-Q4_K_M.gguf
+      sha256: c2c43b6018cf7700ce0ddee8807deb1a9a26758ef878232f3a142d16df81f0fe
+      uri: huggingface://unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "deepseek-r1-distill-qwen-7b"
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+    - https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF
+  description: |
+    DeepSeek-R1 is our advanced first-generation reasoning model designed to enhance performance in reasoning tasks.
+    Building on the foundation laid by its predecessor, DeepSeek-R1-Zero, which was trained using large-scale reinforcement learning (RL) without supervised fine-tuning, DeepSeek-R1 addresses the challenges faced by R1-Zero, such as endless repetition, poor readability, and language mixing.
+    By incorporating cold-start data prior to the RL phase,DeepSeek-R1 significantly improves reasoning capabilities and achieves performance levels comparable to OpenAI-o1 across a variety of domains, including mathematics, coding, and complex reasoning tasks.
+  overrides:
+    parameters:
+      model: DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+  files:
+    - filename: DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+      sha256: 731ece8d06dc7eda6f6572997feb9ee1258db0784827e642909d9b565641937b
+      uri: huggingface://bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
 - &archfunct
   license: apache-2.0
   tags:
@@ -2670,6 +2740,7 @@
     - cpu
     - function-calling
   name: "arch-function-1.5b"
+  icon: https://avatars.githubusercontent.com/u/112724757
   uri: "github:mudler/LocalAI/gallery/arch-function.yaml@master"
   urls:
     - https://huggingface.co/katanemolabs/Arch-Function-1.5B
@@ -3109,7 +3180,7 @@
       uri: huggingface://bartowski/Rombos-Qwen2.5-Writer-32b-GGUF/Rombos-Qwen2.5-Writer-32b-Q4_K_M.gguf
 - !!merge <<: *qwen25
   name: "sky-t1-32b-preview"
-  icon: https://raw.githubusercontent.com/NovaSky-AI/novasky-ai.github.io/main/assets/images/blue-bird-wider.jpeg
+  icon: https://github.com/NovaSky-AI/novasky-ai.github.io/raw/main/assets/images/blue-bird-wider.jpeg
   urls:
     - https://huggingface.co/NovaSky-AI/Sky-T1-32B-Preview
     - https://huggingface.co/bartowski/Sky-T1-32B-Preview-GGUF
@@ -3236,8 +3307,7 @@
     - filename: DRT-o1-14B-Q4_K_M.gguf
       sha256: 9619ca984cf4ce8e4f69bcde831de17b2ce05dd89536e3130608877521e3d328
       uri: huggingface://bartowski/DRT-o1-14B-GGUF/DRT-o1-14B-Q4_K_M.gguf
-- &smollm
-  ## SmolLM
+- &smollm  ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "smollm-1.7b-instruct"
   icon: https://huggingface.co/datasets/HuggingFaceTB/images/resolve/main/banner_smol.png
@@ -3295,10 +3365,9 @@
     - filename: Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
       sha256: eaeac314e30b461413bc1cc819cdc0cd6a79265711fd0b8268702960a082c7bd
       uri: huggingface://QuantFactory/Vikhr-Qwen-2.5-1.5B-Instruct-GGUF/Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
-- &llama31
-  ## LLama3.1
+- &llama31  ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   name: "meta-llama-3.1-8b-instruct"
   license: llama3.1
   description: |
@@ -3387,7 +3456,7 @@
       sha256: 6d175432f66d10dfed9737f73a5073d513d18e1ee7bd4b9cf2a59deb359f36ff
 - !!merge <<: *llama31
   name: "meta-llama-3.1-8b-instruct-abliterated"
-  icon: https://i.imgur.com/KhorYYG.png
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/AsTgL8VCgMHgobq4cr46b.png
   urls:
     - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated
     - https://huggingface.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF
@@ -3416,7 +3485,7 @@
       uri: huggingface://mmnga/Llama-3.1-70B-Japanese-Instruct-2407-gguf/Llama-3.1-70B-Japanese-Instruct-2407-Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "openbuddy-llama3.1-8b-v22.1-131k"
-  icon: https://raw.githubusercontent.com/OpenBuddy/OpenBuddy/main/media/demo.png
+  icon: https://github.com/OpenBuddy/OpenBuddy/raw/main/media/demo.png
   urls:
     - https://huggingface.co/sunnyyy/openbuddy-llama3.1-8b-v22.1-131k-Q4_K_M-GGUF
   description: |
@@ -3592,7 +3661,7 @@
       sha256: 6557c5d5091f2507d19ab1f8bfb9ceb4e1536a755ab70f148b18aeb33741580f
       uri: huggingface://mradermacher/Llama-3.1-Techne-RP-8b-v1-GGUF/Llama-3.1-Techne-RP-8b-v1.Q4_K_M.gguf
 - !!merge <<: *llama31
-  icon: https://i.ibb.co/9hwFrvL/BLMs-Wkx-NQf-W-46-FZDg-ILhg.jpg
+  icon: https://avatars.githubusercontent.com/u/126496414
   name: "llama-spark"
   urls:
     - https://huggingface.co/arcee-ai/Llama-Spark
@@ -3710,7 +3779,6 @@
 - !!merge <<: *llama31
   name: "llama-3.1-supernova-lite-reflection-v1.0-i1"
   url: "github:mudler/LocalAI/gallery/llama3.1-reflective.yaml@master"
-  icon: https://i.ibb.co/r072p7j/eopi-ZVu-SQ0-G-Cav78-Byq-Tg.png
   urls:
     - https://huggingface.co/SE6446/Llama-3.1-SuperNova-Lite-Reflection-V1.0
     - https://huggingface.co/mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF
@@ -3725,7 +3793,7 @@
       uri: huggingface://mradermacher/Llama-3.1-SuperNova-Lite-Reflection-V1.0-i1-GGUF/Llama-3.1-SuperNova-Lite-Reflection-V1.0.i1-Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "llama-3.1-supernova-lite"
-  icon: https://i.ibb.co/r072p7j/eopi-ZVu-SQ0-G-Cav78-Byq-Tg.png
+  icon: https://avatars.githubusercontent.com/u/126496414
   urls:
     - https://huggingface.co/arcee-ai/Llama-3.1-SuperNova-Lite
     - https://huggingface.co/arcee-ai/Llama-3.1-SuperNova-Lite-GGUF
@@ -4239,6 +4307,7 @@
       uri: huggingface://mradermacher/Hermes-3-Llama-3.1-70B-lorablated-GGUF/Hermes-3-Llama-3.1-70B-lorablated.Q4_K_M.gguf
 - !!merge <<: *llama31
   name: "hermes-3-llama-3.1-8b-lorablated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/4Hbw5n68jKUSBQeTqQIeT.png
   urls:
     - https://huggingface.co/mlabonne/Hermes-3-Llama-3.1-8B-lorablated-GGUF
   description: |
@@ -4447,7 +4516,6 @@
       sha256: 27b10c3ca4507e8bf7d305d60e5313b54ef5fffdb43a03f36223d19d906e39f3
       uri: huggingface://mradermacher/L3.1-70Blivion-v0.1-rc1-70B-i1-GGUF/L3.1-70Blivion-v0.1-rc1-70B.i1-Q4_K_M.gguf
 - !!merge <<: *llama31
-  icon: https://i.imgur.com/sdN0Aqg.jpeg
   name: "llama-3.1-hawkish-8b"
   urls:
     - https://huggingface.co/mukaj/Llama-3.1-Hawkish-8B
@@ -5184,11 +5252,27 @@
     - filename: Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
       sha256: 268390e07edd407ad93ea21a868b7ae995b5950e01cad0db9e1802ae5049d405
       uri: huggingface://bartowski/Dolphin3.0-Llama3.1-8B-GGUF/Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf
-- &deepseek
-  ## Deepseek
+- !!merge <<: *llama31
+  name: "deepseek-r1-distill-llama-8b"
+  icon: "https://avatars.githubusercontent.com/u/148330874"
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+    - https://huggingface.co/unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF
+  description: |
+    DeepSeek-R1 is our advanced first-generation reasoning model designed to enhance performance in reasoning tasks.
+    Building on the foundation laid by its predecessor, DeepSeek-R1-Zero, which was trained using large-scale reinforcement learning (RL) without supervised fine-tuning, DeepSeek-R1 addresses the challenges faced by R1-Zero, such as endless repetition, poor readability, and language mixing.
+    By incorporating cold-start data prior to the RL phase,DeepSeek-R1 significantly improves reasoning capabilities and achieves performance levels comparable to OpenAI-o1 across a variety of domains, including mathematics, coding, and complex reasoning tasks.
+  overrides:
+    parameters:
+      model: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
+  files:
+    - filename: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
+      sha256: f8eba201522ab44b79bc54166126bfaf836111ff4cbf2d13c59c3b57da10573b
+      uri: huggingface://unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf
+- &deepseek  ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
   name: "deepseek-coder-v2-lite-instruct"
-  icon: "https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg?raw=true"
+  icon: "https://avatars.githubusercontent.com/u/148330874"
   license: deepseek
   description: |
     DeepSeek-Coder-V2, an open-source Mixture-of-Experts (MoE) code language model that achieves performance comparable to GPT4-Turbo in code-specific tasks. Specifically, DeepSeek-Coder-V2 is further pre-trained from DeepSeek-Coder-V2-Base with 6 trillion tokens sourced from a high-quality and multi-source corpus. Through this continued pre-training, DeepSeek-Coder-V2 substantially enhances the coding and mathematical reasoning capabilities of DeepSeek-Coder-V2-Base, while maintaining comparable performance in general language tasks. Compared to DeepSeek-Coder, DeepSeek-Coder-V2 demonstrates significant advancements in various aspects of code-related tasks, as well as reasoning and general capabilities. Additionally, DeepSeek-Coder-V2 expands its support for programming languages from 86 to 338, while extending the context length from 16K to 128K.
@@ -5250,10 +5334,10 @@
     - filename: archangel_sft_pythia2-8b.Q4_K_M.gguf
       sha256: a47782c55ef2b39b19644213720a599d9849511a73c9ebb0c1de749383c0a0f8
       uri: huggingface://RichardErkhov/ContextualAI_-_archangel_sft_pythia2-8b-gguf/archangel_sft_pythia2-8b.Q4_K_M.gguf
-- &qwen2
-  ## Start QWEN2
+- &qwen2  ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "qwen2-7b-instruct"
+  icon: https://avatars.githubusercontent.com/u/141221163
   license: apache-2.0
   description: |
     Qwen2 is the new series of Qwen large language models. For Qwen2, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters, including a Mixture-of-Experts model. This repo contains the instruction-tuned 7B Qwen2 model.
@@ -5360,7 +5444,7 @@
       uri: huggingface://bartowski/Einstein-v7-Qwen2-7B-GGUF/Einstein-v7-Qwen2-7B-Q4_K_M.gguf
 - !!merge <<: *qwen2
   name: "arcee-spark"
-  icon: https://i.ibb.co/80ssNWS/o-Vdk-Qx-ARNmzr-Pi1h-Efj-SA.webp
+  icon: https://avatars.githubusercontent.com/u/126496414
   description: |
     Arcee Spark is a powerful 7B parameter language model that punches well above its weight class. Initialized from Qwen2, this model underwent a sophisticated training process:
 
@@ -5398,7 +5482,7 @@
       uri: huggingface://Hercules-5.0-Qwen2-7B-Q4_K_M.gguf/Hercules-5.0-Qwen2-7B-Q4_K_M.gguf
 - !!merge <<: *qwen2
   name: "arcee-agent"
-  icon: https://i.ibb.co/CBHmTDn/136719a5-6d8a-4654-a618-46eabc788953.jpg
+  icon: https://avatars.githubusercontent.com/u/126496414
   description: |
     Arcee Agent is a cutting-edge 7B parameter language model specifically designed for function calling and tool use. Initialized from Qwen2-7B, it rivals the performance of much larger models while maintaining efficiency and speed. This model is particularly suited for developers, researchers, and businesses looking to implement sophisticated AI-driven solutions without the computational overhead of larger language models. Compute for training Arcee-Agent was provided by CrusoeAI. Arcee-Agent was trained using Spectrum.
   urls:
@@ -5583,8 +5667,34 @@
     - filename: marco-o1-uncensored.Q4_K_M.gguf
       sha256: ad0440270a7254098f90779744d3e5b34fe49b7baf97c819909ba9c5648cc0d9
       uri: huggingface://QuantFactory/marco-o1-uncensored-GGUF/marco-o1-uncensored.Q4_K_M.gguf
-- &mistral03
-  ## START Mistral
+- !!merge <<: *qwen2
+  name: "minicpm-v-2_6"
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-2_6
+  description: |
+    MiniCPM-V 2.6 is the latest and most capable model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen2
+    - cpu
+  overrides:
+    mmproj: minicpm-v-2_6-mmproj-f16.gguf
+    parameters:
+      model: minicpm-v-2_6-Q4_K_M.gguf
+  files:
+    - filename: minicpm-v-2_6-Q4_K_M.gguf
+      sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
+      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-v-2_6-mmproj-f16.gguf
+      sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
+      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
+- &mistral03  ## START Mistral
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
   name: "mistral-7b-instruct-v0.3"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62dac1c7a8ead43d20e3e17a/wrLf5yaGC6ng4XME70w6Z.png
@@ -6092,7 +6202,6 @@
 - !!merge <<: *mistral03
   name: "mn-12b-mag-mell-r1-iq-arm-imatrix"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
-  icon: "https://i.imgur.com/wjyAaTO.png"
   urls:
     - https://huggingface.co/inflatebot/MN-12B-Mag-Mell-R1
     - https://huggingface.co/Lewdiculous/MN-12B-Mag-Mell-R1-GGUF-IQ-ARM-Imatrix
@@ -6189,8 +6298,35 @@
     - filename: Nera_Noctis-12B-Q4_K_M.gguf
       sha256: 0662a9a847adde046e6255c15d5a677ebf09ab00841547c8963668d14baf00ff
       uri: huggingface://bartowski/Nera_Noctis-12B-GGUF/Nera_Noctis-12B-Q4_K_M.gguf
-- &mudler
-  ### START mudler's LocalAI specific-models
+- !!merge <<: *mistral03
+  name: "wayfarer-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/LatitudeGames/Wayfarer-12B/resolve/main/wayfarer.jpg
+  urls:
+    - https://huggingface.co/LatitudeGames/Wayfarer-12B
+    - https://huggingface.co/bartowski/Wayfarer-12B-GGUF
+  description: |
+    We’ve heard over and over from AI Dungeon players that modern AI models are too nice, never letting them fail or die. While it may be good for a chatbot to be nice and helpful, great stories and games aren’t all rainbows and unicorns. They have conflict, tension, and even death. These create real stakes and consequences for characters and the journeys they go on.
+
+    Similarly, great games need opposition. You must be able to fail, die, and may even have to start over. This makes games more fun!
+
+    However, the vast majority of AI models, through alignment RLHF, have been trained away from darkness, violence, or conflict, preventing them from fulfilling this role. To give our players better options, we decided to train our own model to fix these issues.
+
+    Wayfarer is an adventure role-play model specifically trained to give players a challenging and dangerous experience. We thought they would like it, but since releasing it on AI Dungeon, players have reacted even more positively than we expected.
+
+    Because they loved it so much, we’ve decided to open-source the model so anyone can experience unforgivingly brutal AI adventures! Anyone can download the model to run locally.
+
+    Or if you want to easily try this model for free, you can do so at https://aidungeon.com.
+
+    We plan to continue improving and open-sourcing similar models, so please share any and all feedback on how we can improve model behavior. Below we share more details on how Wayfarer was created.
+  overrides:
+    parameters:
+      model: Wayfarer-12B-Q4_K_M.gguf
+  files:
+    - filename: Wayfarer-12B-Q4_K_M.gguf
+      sha256: 6cd9f290c820c64854fcdcfd312b066447acc2f63abe2e2e71af9bc4f1946c08
+      uri: huggingface://bartowski/Wayfarer-12B-GGUF/Wayfarer-12B-Q4_K_M.gguf
+- &mudler  ### START mudler's LocalAI specific-models
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
   name: "LocalAI-llama3-8b-function-call-v0.2"
   icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/us5JKi9z046p8K-cn_M0w.webp"
@@ -6235,8 +6371,7 @@
     - filename: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
       sha256: 579cbb229f9c11d0330759ff4733102d2491615a4c61289e26c09d1b3a583fec
       uri: huggingface://mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF/Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
-- &parler-tts
-  ### START parler-tts
+- &parler-tts  ### START parler-tts
   url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
   name: parler-tts-mini-v0.1
   overrides:
@@ -6253,8 +6388,7 @@
     - cpu
     - text-to-speech
     - python
-- &rerankers
-  ### START rerankers
+- &rerankers  ### START rerankers
   url: "github:mudler/LocalAI/gallery/rerankers.yaml@master"
   name: cross-encoder
   parameters:
@@ -6294,6 +6428,7 @@
 - &gemma
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-2b"
+  icon: https://avatars.githubusercontent.com/u/1342004
   license: gemma
   urls:
     - https://ai.google.dev/gemma/docs
@@ -7009,7 +7144,7 @@
       uri: huggingface://bartowski/GWQ-9B-Preview2-GGUF/GWQ-9B-Preview2-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
-  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/aJJxKus1wP5N-euvHEUq7.png
+  icon: https://avatars.githubusercontent.com/u/153379578
   name: "llama3-8b-instruct"
   license: llama3
   description: |
@@ -7176,10 +7311,9 @@
   name: "l3-8b-stheno-v3.1"
   urls:
     - https://huggingface.co/Sao10K/L3-8B-Stheno-v3.1
-  icon: https://w.forfun.com/fetch/cb/cba2205390e517bea1ea60ca0b491af4.jpeg
   description: |
     - A model made for 1-on-1 Roleplay ideally, but one that is able to handle scenarios, RPGs and storywriting fine.
-    - Uncensored during actual roleplay scenarios. # I do not care for zero-shot prompting like what some people do. It is uncensored enough in actual usecases.
+    - Uncensored during actual roleplay scenarios.  # I do not care for zero-shot prompting like what some people do. It is uncensored enough in actual usecases.
     - I quite like the prose and style for this model.
   overrides:
     parameters:
@@ -7970,7 +8104,6 @@
   urls:
     - https://huggingface.co/bartowski/New-Dawn-Llama-3-70B-32K-v1.0-GGUF
     - https://huggingface.co/sophosympatheia/New-Dawn-Llama-3-70B-32K-v1.0
-  icon: https://imgur.com/tKzncGo.png
   description: |
     This model is a multi-level SLERP merge of several Llama 3 70B variants. See the merge recipe below for details. I extended the context window for this model out to 32K by snagging some layers from abacusai/Smaug-Llama-3-70B-Instruct-32K using a technique similar to what I used for Midnight Miqu, which was further honed by jukofyork.
     This model is uncensored. You are responsible for whatever you do with it.
@@ -8322,7 +8455,8 @@
     - filename: dolphin-2.9.2-Phi-3-Medium-abliterated-Q4_K_M.gguf
       sha256: 566331c2efe87725310aacb709ca15088a0063fa0ddc14a345bf20d69982156b
       uri: huggingface://bartowski/dolphin-2.9.2-Phi-3-Medium-abliterated-GGUF/dolphin-2.9.2-Phi-3-Medium-abliterated-Q4_K_M.gguf
-- url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+- !!merge <<: *llama3
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "llama-3-8b-instruct-dpo-v0.3-32k"
   license: llama3
   urls:
@@ -8476,7 +8610,7 @@
   urls:
     - https://huggingface.co/arcee-ai/Llama-3-SEC-Chat-GGUF
     - https://huggingface.co/arcee-ai/Llama-3-SEC-Chat
-  icon: https://i.ibb.co/kHtBmDN/w8m6-X4-HCQRa-IR86ar-Cm5gg.webp
+  icon: https://avatars.githubusercontent.com/u/126496414
   tags:
     - llama3
     - gguf
@@ -8506,10 +8640,9 @@
     - filename: Copus-2x8B.i1-Q4_K_M.gguf
       sha256: 685da1ba49e203e8f491105585143d76044286d4b4687bed37d325f6b55501e5
       uri: huggingface://mradermacher/Copus-2x8B-i1-GGUF/Copus-2x8B.i1-Q4_K_M.gguf
-- &yi-chat
-  ### Start Yi
+- &yi-chat  ### Start Yi
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
-  icon: "https://raw.githubusercontent.com/01-ai/Yi/main/assets/img/Yi_logo_icon_light.svg"
+  icon: "https://github.com/01-ai/Yi/raw/main/assets/img/Yi_logo_icon_light.svg"
   name: "yi-1.5-9b-chat"
   license: apache-2.0
   urls:
@@ -8718,8 +8851,7 @@
     - filename: Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
       sha256: 3f309b59508342536a70edd6c4be6cf4f2cb97f2e32cbc79ad2ab3f4c02933a4
       uri: huggingface://Lewdiculous/Fimbulvetr-11B-v2-GGUF-IQ-Imatrix/Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
-- &noromaid
-  ### Start noromaid
+- &noromaid  ### Start noromaid
   url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
   name: "noromaid-13b-0.4-DPO"
   icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/VKX2Z2yjZX5J8kXzgeCYO.png
@@ -8739,8 +8871,7 @@
     - filename: Noromaid-13B-0.4-DPO.q4_k_m.gguf
       sha256: cb28e878d034fae3d0b43326c5fc1cfb4ab583b17c56e41d6ce023caec03c1c1
       uri: huggingface://NeverSleep/Noromaid-13B-0.4-DPO-GGUF/Noromaid-13B-0.4-DPO.q4_k_m.gguf
-- &wizardlm2
-  ### START Vicuna based
+- &wizardlm2  ### START Vicuna based
   url: "github:mudler/LocalAI/gallery/wizardlm2.yaml@master"
   name: "wizardlm2-7b"
   description: |
@@ -8795,8 +8926,9 @@
     - filename: moondream2-mmproj-f16.gguf
       sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
       uri: huggingface://moondream/moondream2-gguf/moondream2-mmproj-f16.gguf
-- &llava
-  ### START LLaVa
+- &llava  ### START LLaVa
+  name: "llava-1.6-vicuna"
+  icon: https://github.com/lobehub/lobe-icons/raw/master/packages/static-png/dark/llava-color.png
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
   license: apache-2.0
   description: |
@@ -8810,7 +8942,6 @@
     - gpu
     - llama2
     - cpu
-  name: "llava-1.6-vicuna"
   overrides:
     mmproj: mmproj-vicuna7b-f16.gguf
     parameters:
@@ -9138,7 +9269,7 @@
   urls:
     - https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf
   description: |
-    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5, MiniCPM and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
+    Bunny is a family of lightweight but powerful multimodal models. It offers multiple plug-and-play vision encoders, like EVA-CLIP, SigLIP and language backbones, including Llama-3-8B, Phi-1.5, StableLM-2, Qwen1.5,  and Phi-2. To compensate for the decrease in model size, we construct more informative training data by curated selection from a broader data source.
 
     We provide Bunny-Llama-3-8B-V, which is built upon SigLIP and Llama-3-8B-Instruct. More details about this model can be found in GitHub.
   icon: https://huggingface.co/BAAI/Bunny-Llama-3-8B-V-gguf/resolve/main/icon.png
@@ -9187,7 +9318,7 @@
       uri: huggingface://xtuner/llava-llama-3-8b-v1_1-gguf/llava-llama-3-8b-v1_1-mmproj-f16.gguf
 - !!merge <<: *llama3
   name: "minicpm-llama3-v-2_5"
-  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
+  icon: https://avatars.githubusercontent.com/u/89920203
   urls:
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-gguf
     - https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5
@@ -9211,33 +9342,6 @@
     - filename: minicpm-llama3-mmproj-f16.gguf
       sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
-- !!merge <<: *llama3
-  name: "minicpm-v-2_6"
-  license: apache-2.0
-  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm_logo.png
-  urls:
-    - https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf
-    - https://huggingface.co/openbmb/MiniCPM-V-2_6
-  description: |
-    MiniCPM-V 2.6 is the latest and most capable model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters
-  tags:
-    - llm
-    - multimodal
-    - gguf
-    - gpu
-    - llama3
-    - cpu
-  overrides:
-    mmproj: minicpm-v-2_6-mmproj-f16.gguf
-    parameters:
-      model: minicpm-v-2_6-Q4_K_M.gguf
-  files:
-    - filename: minicpm-v-2_6-Q4_K_M.gguf
-      sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
-      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
-    - filename: minicpm-v-2_6-mmproj-f16.gguf
-      sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
-      uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
 - !!merge <<: *llama3
   name: "llama-3-cursedstock-v1.8-8b-iq-imatrix"
   urls:
@@ -9305,7 +9409,6 @@
     June 18, 2024 Update, After extensive testing of the intermediate checkpoints, significant progress has been made.
     The model is slowly — I mean, really slowly — unlearning its alignment. By significantly lowering the learning rate, I was able to visibly observe deep behavioral changes, this process is taking longer than anticipated, but it's going to be worth it. Estimated time to completion: 4 more days.. I'm pleased to report that in several tests, the model not only maintained its intelligence but actually showed a slight improvement, especially in terms of common sense. An intermediate checkpoint of this model was used to create invisietch/EtherealRainbow-v0.3-rc7, with promising results. Currently, it seems like I'm on the right track. I hope this model will serve as a solid foundation for further merges, whether for role-playing (RP) or for uncensoring. This approach also allows us to save on actual fine-tuning, thereby reducing our carbon footprint. The merge process takes just a few minutes of CPU time, instead of days of GPU work.
     June 20, 2024 Update, Unaligning was partially successful, and the results are decent, but I am not fully satisfied. I decided to bite the bullet, and do a full finetune, god have mercy on my GPUs. I am also releasing the intermediate checkpoint of this model.
-  icon: https://i.imgur.com/Kpk1PgZ.png
   overrides:
     parameters:
       model: LLAMA-3_8B_Unaligned_Alpha-Q4_K_M.gguf
@@ -9331,7 +9434,6 @@
       uri: huggingface://bartowski/L3-8B-Lunaris-v1-GGUF/L3-8B-Lunaris-v1-Q4_K_M.gguf
 - !!merge <<: *llama3
   name: "llama-3_8b_unaligned_alpha_rp_soup-i1"
-  icon: https://i.imgur.com/pXcjpoV.png
   urls:
     - https://huggingface.co/SicariusSicariiStuff/LLAMA-3_8B_Unaligned_Alpha_RP_Soup
     - https://huggingface.co/mradermacher/LLAMA-3_8B_Unaligned_Alpha_RP_Soup-i1-GGUF
@@ -9681,8 +9783,7 @@
     - filename: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
       sha256: cdc0f4de6df2ba120835fbd25c2a0ae2af8548f46d2c40c7a018c51c3d19e0c0
       uri: huggingface://mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF/Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
-- &chatml
-  ### ChatML
+- &chatml  ### ChatML
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "una-thepitbull-21.4b-v2"
   license: afl-3.0
@@ -9730,7 +9831,6 @@
       sha256: 9c90f3a65332a03a6cbb563eee19c7586d9544f646ff9f33f7f1904b3d415ae2
       uri: huggingface://nold/HelpingAI-9B-GGUF/HelpingAI-9B_Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/chatml-hercules.yaml@master"
-  icon: "https://tse3.mm.bing.net/th/id/OIG1.vnrl3xpEcypR3McLW63q?pid=ImgGn"
   urls:
     - https://huggingface.co/Locutusque/Llama-3-Hercules-5.0-8B
     - https://huggingface.co/bartowski/Llama-3-Hercules-5.0-8B-GGUF
@@ -9968,8 +10068,7 @@
     - filename: Triangulum-10B.Q4_K_M.gguf
       sha256: dd071f99edf6b166044bf229cdeec19419c4c348e3fc3d6587cfcc55e6fb85fa
       uri: huggingface://mradermacher/Triangulum-10B-GGUF/Triangulum-10B.Q4_K_M.gguf
-- &command-R
-  ### START Command-r
+- &command-R  ### START Command-r
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
   name: "command-r-v01:q1_s"
   license: "cc-by-nc-4.0"
@@ -10024,8 +10123,7 @@
     - filename: "aya-23-35B-Q4_K_M.gguf"
       sha256: "57824768c1a945e21e028c8e9a29b39adb4838d489f5865c82601ab9ad98065d"
       uri: "huggingface://bartowski/aya-23-35B-GGUF/aya-23-35B-Q4_K_M.gguf"
-- &phi-2-chat
-  ### START Phi-2
+- &phi-2-chat  ### START Phi-2
   url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
   license: mit
   description: |
@@ -10054,6 +10152,7 @@
     - llama2
     - cpu
   name: "phi-2-chat:Q8_0"
+  icon: https://avatars.githubusercontent.com/u/6154722
   overrides:
     parameters:
       model: phi-2-layla-v1-chatml-Q8_0.gguf
@@ -10100,7 +10199,7 @@
   urls:
     - https://huggingface.co/internlm/internlm2_5-7b-chat-1m
     - https://huggingface.co/bartowski/internlm2_5-7b-chat-1m-GGUF
-  icon: https://github.com/InternLM/InternLM/assets/22529082/b9788105-8892-4398-8b47-b513a292378e
+  icon: https://avatars.githubusercontent.com/u/135356492
   tags:
     - internlm2
     - gguf
@@ -10121,10 +10220,35 @@
     - filename: internlm2_5-7b-chat-1m-Q4_K_M.gguf
       uri: huggingface://bartowski/internlm2_5-7b-chat-1m-GGUF/internlm2_5-7b-chat-1m-Q4_K_M.gguf
       sha256: 10d5e18a4125f9d4d74a9284a21e0c820b150af06dee48665e54ff6e1be3a564
-- &phi-3
-  ### START Phi-3
+### Internlm3
+- name: "internlm3-8b-instruct"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/internlm/internlm3-8b-instruct
+    - https://huggingface.co/bartowski/internlm3-8b-instruct-GGUF
+  icon: https://avatars.githubusercontent.com/u/135356492
+  tags:
+    - internlm3
+    - gguf
+    - cpu
+    - gpu
+  description: |
+    InternLM3 has open-sourced an 8-billion parameter instruction model, InternLM3-8B-Instruct, designed for general-purpose usage and advanced reasoning.  The model has the following characteristics:
+
+    Enhanced performance at reduced cost: State-of-the-art performance on reasoning and knowledge-intensive tasks surpass models like Llama3.1-8B and Qwen2.5-7B.
+
+    Deep thinking capability: InternLM3 supports both the deep thinking mode for solving complicated reasoning tasks via the long chain-of-thought and the normal response mode for fluent user interactions.
+  overrides:
+    parameters:
+      model: internlm3-8b-instruct-Q4_K_M.gguf
+  files:
+    - filename: internlm3-8b-instruct-Q4_K_M.gguf
+      uri: huggingface://bartowski/internlm3-8b-instruct-GGUF/internlm3-8b-instruct-Q4_K_M.gguf
+      sha256: 2a9644687318e8659c9cf9b40730d5cc2f5af06f786a50439c7c51359b23896e
+- &phi-3  ### START Phi-3
   url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
   name: "phi-3-mini-4k-instruct"
+  icon: https://avatars.githubusercontent.com/u/6154722
   license: mit
   description: |
     The Phi-3-Mini-4K-Instruct is a 3.8B parameters, lightweight, state-of-the-art open model trained with the Phi-3 datasets that includes both synthetic data and the filtered publicly available websites data with a focus on high-quality and reasoning dense properties. The model belongs to the Phi-3 family with the Mini version in two variants 4K and 128K which is the context length (in tokens) it can support. The model has underwent a post-training process that incorporates both supervised fine-tuning and direct preference optimization to ensure precise instruction adherence and robust safety measures. When assessed against benchmarks testing common sense, language understanding, math, code, long context and logical reasoning, Phi-3 Mini-4K-Instruct showcased a robust and state-of-the-art performance among models with less than 13 billion parameters.
@@ -10321,8 +10445,7 @@
     - filename: Phi-3.5-MoE-instruct-Q4_K_M.gguf
       sha256: 43e91bb720869bd8a92d8eb86bc3c74a52c49cf61642ca709b3d7bb89644df36
       uri: huggingface://bartowski/Phi-3.5-MoE-instruct-GGUF/Phi-3.5-MoE-instruct-Q4_K_M.gguf
-- &hermes-2-pro-mistral
-  ### START Hermes
+- &hermes-2-pro-mistral  ### START Hermes
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
   name: "hermes-2-pro-mistral"
   icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/ggO2sBDJ8Bhc6w-zwTx5j.png
@@ -10658,8 +10781,7 @@
     - filename: "galatolo-Q4_K.gguf"
       sha256: "ca0cfd5a9ad40dc16416aa3a277015d0299b62c0803b67f5709580042202c172"
       uri: "huggingface://galatolo/cerbero-7b-gguf/ggml-model-Q4_K.gguf"
-- &codellama
-  ### START Codellama
+- &codellama  ### START Codellama
   url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
   name: "codellama-7b"
   license: llama2
@@ -10790,8 +10912,7 @@
     - filename: "llm-compiler-7b-ftd.Q4_K.gguf"
       uri: "huggingface://legraphista/llm-compiler-7b-ftd-IMat-GGUF/llm-compiler-7b-ftd.Q4_K.gguf"
       sha256: d862dd18ed335413787d0ad196522a9902a3c10a6456afdab8721822cb0ddde8
-- &openvino
-  ### START OpenVINO
+- &openvino  ### START OpenVINO
   url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
   name: "openvino-llama-3-8b-instruct-ov-int8"
   license: llama3
@@ -10905,8 +11026,7 @@
     - gpu
     - embedding
     - cpu
-- &sentencentransformers
-  ### START Embeddings
+- &sentencentransformers  ### START Embeddings
   description: |
     This framework provides an easy method to compute dense vector representations for sentences, paragraphs, and images. The models are based on transformer networks like BERT / RoBERTa / XLM-RoBERTa etc. and achieve state-of-the-art performance in various tasks. Text is embedded in vector space such that similar text are closer and can efficiently be found using cosine similarity.
   urls:
@@ -10921,8 +11041,7 @@
   overrides:
     parameters:
       model: all-MiniLM-L6-v2
-- &dreamshaper
-  ### START Image generation
+- &dreamshaper  ### START Image generation
   name: dreamshaper
   icon: https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/dd9b038c-bd15-43ab-86ab-66e145ad7ff2/width=450/26072158-132340247-8k%20portrait%20of%20beautiful%20cyborg%20with%20brown%20hair,%20intricate,%20elegant,%20highly%20detailed,%20majestic,%20digital%20photography,%20art%20by%20artg_ed.jpeg
   license: other
@@ -10959,6 +11078,92 @@
     - sd-3
     - gpu
   url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
+- name: sd-1.5-ggml
+  license: creativeml-openrail-m
+  url: "github:mudler/LocalAI/gallery/sd-ggml.yaml@master"
+  description: |
+    Stable Diffusion 1.5
+  urls:
+    - https://huggingface.co/second-state/stable-diffusion-v1-5-GGUF
+  tags:
+    - text-to-image
+    - stablediffusion
+    - gpu
+    - cpu
+  overrides:
+    options:
+      - "sampler:euler"
+    parameters:
+      model: stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf
+  files:
+    - filename: "stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf"
+      sha256: "b8944e9fe0b69b36ae1b5bb0185b3a7b8ef14347fe0fa9af6c64c4829022261f"
+      uri: "huggingface://second-state/stable-diffusion-v1-5-GGUF/stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf"
+- name: sd-3.5-medium-ggml
+  license: stabilityai-ai-community
+  url: "github:mudler/LocalAI/gallery/sd-ggml.yaml@master"
+  description: |
+    Stable Diffusion 3.5 Medium is a Multimodal Diffusion Transformer (MMDiT) text-to-image model that features improved performance in image quality, typography, complex prompt understanding, and resource-efficiency.
+  urls:
+    - https://huggingface.co/stabilityai/stable-diffusion-3.5-medium
+    - https://huggingface.co/second-state/stable-diffusion-3.5-medium-GGUF
+  tags:
+    - text-to-image
+    - stablediffusion
+    - gpu
+    - cpu
+  icon: https://huggingface.co/stabilityai/stable-diffusion-3.5-medium/media/main/sd3.5_medium_demo.jpg
+  overrides:
+    options:
+      - "clip_l_path:clip_l-Q4_0.gguf"
+      - "clip_g_path:clip_g-Q4_0.gguf"
+      - "t5xxl_path:t5xxl-Q4_0.gguf"
+      - "sampler:euler"
+    parameters:
+      model: sd3.5_medium-Q4_0.gguf
+  files:
+    - filename: "sd3.5_medium-Q4_0.gguf"
+      sha256: "3bb8c5e9ab0a841117089ed4ed81d885bb85161df2a766b812f829bc55b31adf"
+      uri: "huggingface://second-state/stable-diffusion-3.5-medium-GGUF/sd3.5_medium-Q4_0.gguf"
+    - filename: clip_g-Q4_0.gguf
+      sha256: c142411147e16b7c4b9cc1f5d977cbe596104435d76fde47172d3d35c5e58bb8
+      uri: huggingface://second-state/stable-diffusion-3.5-medium-GGUF/clip_g-Q4_0.gguf
+    - filename: clip_l-Q4_0.gguf
+      sha256: f5ad88ae2ac924eb4ac0298b77afa304b5e6014fc0c4128f0e3df40fdfcc0f8a
+      uri: huggingface://second-state/stable-diffusion-3.5-medium-GGUF/clip_l-Q4_0.gguf
+    - filename: t5xxl-Q4_0.gguf
+      sha256: 987ba47c158b890c274f78fd35324419f50941e846a49789f0977e9fe9d97ab7
+      uri: huggingface://second-state/stable-diffusion-3.5-medium-GGUF/t5xxl-Q4_0.gguf
+- name: sd-3.5-large-ggml
+  license: stabilityai-ai-community
+  url: "github:mudler/LocalAI/gallery/sd-ggml.yaml@master"
+  description: |
+    Stable Diffusion 3.5 Large is a Multimodal Diffusion Transformer (MMDiT) text-to-image model that features improved performance in image quality, typography, complex prompt understanding, and resource-efficiency.
+  urls:
+    - https://huggingface.co/stabilityai/stable-diffusion-3.5-large
+    - https://huggingface.co/second-state/stable-diffusion-3.5-large-GGUF
+  tags:
+    - text-to-image
+    - stablediffusion
+    - gpu
+    - cpu
+  icon: https://huggingface.co/stabilityai/stable-diffusion-3.5-large/media/main/sd3.5_large_demo.png
+  overrides:
+    parameters:
+      model: sd3.5_large-Q4_0.gguf
+  files:
+    - filename: "sd3.5_large-Q4_0.gguf"
+      sha256: "c79ed6cdaa7decaca6b05ccc636b956b37c47de9b104c56315ca8ed086347b00"
+      uri: "huggingface://second-state/stable-diffusion-3.5-large-GGUF/sd3.5_large-Q4_0.gguf"
+    - filename: clip_g.safetensors
+      sha256: ec310df2af79c318e24d20511b601a591ca8cd4f1fce1d8dff822a356bcdb1f4
+      uri: huggingface://second-state/stable-diffusion-3.5-large-GGUF/clip_g.safetensors
+    - filename: clip_l.safetensors
+      sha256: 660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd
+      uri: huggingface://second-state/stable-diffusion-3.5-large-GGUF/clip_l.safetensors
+    - filename: t5xxl-Q5_0.gguf
+      sha256: f4df16c641a05c4a6ca717068ba3ee312875000f6fac0efbd152915553b5fc3e
+      uri: huggingface://second-state/stable-diffusion-3.5-large-GGUF/t5xxl-Q5_0.gguf
 - &flux
   name: flux.1-dev
   license: flux-1-dev-non-commercial-license
@@ -11034,8 +11239,7 @@
     - filename: t5xxl_fp16.safetensors
       sha256: 6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635
       uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
-- &whisper
-  ## Whisper
+- &whisper  ## Whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
   name: "whisper-1"
   license: "MIT"
@@ -11215,8 +11419,7 @@
   description: |
     Stable Diffusion in NCNN with c++, supported txt2img and img2img
   name: stablediffusion-cpp
-- &piper
-  ## Piper TTS
+- &piper  ## Piper TTS
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
   icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png

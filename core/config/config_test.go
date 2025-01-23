@@ -48,5 +48,66 @@ var _ = Describe("Test cases for config related functions", func() {
 			// config should includes whisper-1 models's api.config
 			Expect(loadedModelNames).To(ContainElements("whisper-1"))
 		})
+
+		It("Test new loadconfig", func() {
+
+			bcl := NewBackendConfigLoader(os.Getenv("MODELS_PATH"))
+			err := bcl.LoadBackendConfigsFromPath(os.Getenv("MODELS_PATH"))
+			Expect(err).To(BeNil())
+			configs := bcl.GetAllBackendConfigs()
+			loadedModelNames := []string{}
+			for _, v := range configs {
+				loadedModelNames = append(loadedModelNames, v.Name)
+			}
+			Expect(configs).ToNot(BeNil())
+			totalModels := len(loadedModelNames)
+
+			Expect(loadedModelNames).To(ContainElements("code-search-ada-code-001"))
+
+			// config should includes text-embedding-ada-002 models's api.config
+			Expect(loadedModelNames).To(ContainElements("text-embedding-ada-002"))
+
+			// config should includes rwkv_test models's api.config
+			Expect(loadedModelNames).To(ContainElements("rwkv_test"))
+
+			// config should includes whisper-1 models's api.config
+			Expect(loadedModelNames).To(ContainElements("whisper-1"))
+
+			// create a temp directory and store a temporary model
+			tmpdir, err := os.MkdirTemp("", "test")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tmpdir)
+
+			// create a temporary model
+			model := `name: "test-model"
+description: "test model"
+options:
+- foo
+- bar
+- baz
+`
+			modelFile := tmpdir + "/test-model.yaml"
+			err = os.WriteFile(modelFile, []byte(model), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = bcl.LoadBackendConfigsFromPath(tmpdir)
+			Expect(err).ToNot(HaveOccurred())
+
+			configs = bcl.GetAllBackendConfigs()
+			Expect(len(configs)).ToNot(Equal(totalModels))
+
+			loadedModelNames = []string{}
+			var testModel BackendConfig
+			for _, v := range configs {
+				loadedModelNames = append(loadedModelNames, v.Name)
+				if v.Name == "test-model" {
+					testModel = v
+				}
+			}
+			Expect(loadedModelNames).To(ContainElements("test-model"))
+			Expect(testModel.Description).To(Equal("test model"))
+			Expect(testModel.Options).To(ContainElements("foo", "bar", "baz"))
+
+		})
 	})
 })

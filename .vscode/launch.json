@@ -26,7 +26,7 @@
                 "LOCALAI_P2P": "true",
                 "LOCALAI_FEDERATED": "true"
             },
-            "buildFlags": ["-tags", "stablediffusion p2p tts", "-v"],
+            "buildFlags": ["-tags", "p2p tts", "-v"],
             "envFile": "${workspaceFolder}/.env",
             "cwd": "${workspaceRoot}"
         }

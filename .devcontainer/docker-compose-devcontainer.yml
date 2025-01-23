@@ -7,7 +7,7 @@ services:
       args:
       - FFMPEG=true
       - IMAGE_TYPE=extras
-      - GO_TAGS=stablediffusion p2p tts
+      - GO_TAGS=p2p tts
     env_file:
       - ../.env
     ports:

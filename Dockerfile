@@ -15,8 +15,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,transformers:/build/backend/python/transformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,openvoice:/build/backend/python/openvoice/run.sh,kokoro:/build/backend/python/kokoro/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
-
+ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,transformers:/build/backend/python/transformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,faster-whisper:/build/backend/python/faster-whisper/run.sh,kokoro:/build/backend/python/kokoro/run.sh,vllm:/build/backend/python/vllm/run.sh,exllama2:/build/backend/python/exllama2/run.sh"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -69,13 +68,9 @@ ENV PATH=/opt/rocm/bin:${PATH}
 # OpenBLAS requirements and stable diffusion
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libopenblas-dev \
-        libopencv-dev && \
+        libopenblas-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# Set up OpenCV
-RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
 WORKDIR /build
 
@@ -251,7 +246,7 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 
 FROM requirements-drivers AS builder-base
 
-ARG GO_TAGS="stablediffusion tts p2p"
+ARG GO_TAGS="tts p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"
@@ -285,35 +280,12 @@ RUN <<EOT bash
     fi
 EOT
 
-
-###################################
-###################################
-
-# This first portion of builder holds the layers specifically used to build backend-assets/grpc/stablediffusion
-# In most cases, builder is the image you should be using - however, this can save build time if one just needs to copy backend-assets/grpc/stablediffusion and nothing else.
-FROM builder-base AS builder-sd
-
-# stablediffusion does not tolerate a newer version of abseil, copy only over enough elements to build it
-COPY Makefile .
-COPY go.mod .
-COPY go.sum .
-COPY backend/backend.proto ./backend/backend.proto
-COPY backend/go/image/stablediffusion ./backend/go/image/stablediffusion
-COPY pkg/grpc ./pkg/grpc
-COPY pkg/stablediffusion ./pkg/stablediffusion
-RUN git init
-RUN make sources/go-stable-diffusion
-RUN touch prepare-sources
-
-# Actually build the backend
-RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make backend-assets/grpc/stablediffusion
-
 ###################################
 ###################################
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
 # Adjustments to the build process should likely be made here.
-FROM builder-sd AS builder
+FROM builder-base AS builder
 
 # Install the pre-built GRPC
 COPY --from=grpc /opt/grpc /usr/local
@@ -352,8 +324,6 @@ FROM builder-base AS devcontainer
 ARG FFMPEG
 
 COPY --from=grpc /opt/grpc /usr/local
-
-COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
 
 COPY .devcontainer-scripts /.devcontainer-scripts
 
@@ -427,9 +397,6 @@ COPY --from=builder /build/local-ai ./
 # Copy shared libraries for piper
 COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
-# do not let stablediffusion rebuild (requires an older version of absl)
-COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
-
 # Change the shell to bash so we can use [[ tests below
 SHELL ["/bin/bash", "-c"]
 # We try to strike a balance between individual layer size (as that affects total push time) and total image size
@@ -443,8 +410,8 @@ RUN if [[ ( "${IMAGE_TYPE}" == "extras ")]]; then \
 RUN if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/coqui \
     ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "parler-tts" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/parler-tts \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "faster-whisper" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/faster-whisper \
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "diffusers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/diffusers \
@@ -452,9 +419,6 @@ RUN if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAG
 
 RUN if [[ ( "${EXTRA_BACKENDS}" =~ "kokoro" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/kokoro \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "openvoice" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/openvoice \
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "exllama2" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/exllama2 \
@@ -474,9 +438,6 @@ RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vllm" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "rerankers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/rerankers \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "mamba" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/mamba \
     ; fi
 
 # Make sure the models directory exists
