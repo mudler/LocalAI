@@ -533,10 +533,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen rerankers-protogen transformers-protogen kokoro-protogen vllm-protogen openvoice-protogen faster-whisper-protogen
+protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen rerankers-protogen transformers-protogen kokoro-protogen vllm-protogen faster-whisper-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean rerankers-protogen-clean transformers-protogen-clean kokoro-protogen-clean vllm-protogen-clean openvoice-protogen-clean faster-whisper-protogen-clean
+protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean rerankers-protogen-clean transformers-protogen-clean kokoro-protogen-clean vllm-protogen-clean faster-whisper-protogen-clean
 
 .PHONY: autogptq-protogen
 autogptq-protogen:
@@ -610,14 +610,6 @@ kokoro-protogen:
 kokoro-protogen-clean:
 	$(MAKE) -C backend/python/kokoro protogen-clean
 
-.PHONY: openvoice-protogen
-openvoice-protogen:
-	$(MAKE) -C backend/python/openvoice protogen
-
-.PHONY: openvoice-protogen-clean
-openvoice-protogen-clean:
-	$(MAKE) -C backend/python/openvoice protogen-clean
-
 .PHONY: vllm-protogen
 vllm-protogen:
 	$(MAKE) -C backend/python/vllm protogen
@@ -638,7 +630,6 @@ prepare-extra-conda-environments: protogen-python
 	$(MAKE) -C backend/python/rerankers
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/kokoro
-	$(MAKE) -C backend/python/openvoice
 	$(MAKE) -C backend/python/exllama2
 
 prepare-test-extra: protogen-python
