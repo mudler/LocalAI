@@ -11137,7 +11137,7 @@
       uri: huggingface://Lykon/DreamShaper/DreamShaper_8_pruned.safetensors
       sha256: 879db523c30d3b9017143d56705015e15a2cb5628762c11d086fed9538abd7fd
 - name: stable-diffusion-3-medium
-  icon: https://huggingface.co/leo009/stable-diffusion-3-medium/resolve/main/sd3demo.jpg
+  icon: https://avatars.githubusercontent.com/u/100950301
   license: other
   description: |
     Stable Diffusion 3 Medium is a Multimodal Diffusion Transformer (MMDiT) text-to-image model that features greatly improved performance in image quality, typography, complex prompt understanding, and resource-efficiency.
@@ -11152,6 +11152,7 @@
     - gpu
   url: "github:mudler/LocalAI/gallery/stablediffusion3.yaml@master"
 - name: sd-1.5-ggml
+  icon: https://avatars.githubusercontent.com/u/37351293
   license: creativeml-openrail-m
   url: "github:mudler/LocalAI/gallery/sd-ggml.yaml@master"
   description: |
@@ -11185,7 +11186,7 @@
     - stablediffusion
     - gpu
     - cpu
-  icon: https://huggingface.co/stabilityai/stable-diffusion-3.5-medium/media/main/sd3.5_medium_demo.jpg
+  icon: https://avatars.githubusercontent.com/u/100950301
   overrides:
     options:
       - "clip_l_path:clip_l-Q4_0.gguf"
@@ -11220,7 +11221,7 @@
     - stablediffusion
     - gpu
     - cpu
-  icon: https://huggingface.co/stabilityai/stable-diffusion-3.5-large/media/main/sd3.5_large_demo.png
+  icon: https://avatars.githubusercontent.com/u/100950301
   overrides:
     parameters:
       model: sd3.5_large-Q4_0.gguf
@@ -11239,6 +11240,7 @@
       uri: huggingface://second-state/stable-diffusion-3.5-large-GGUF/t5xxl-Q5_0.gguf
 - &flux
   name: flux.1-dev
+  icon: https://avatars.githubusercontent.com/u/164064024
   license: flux-1-dev-non-commercial-license
   description: |
     FLUX.1 [dev] is a 12 billion parameter rectified flow transformer capable of generating images from text descriptions. For more information, please read our blog post.
@@ -11262,7 +11264,6 @@
 - !!merge <<: *flux
   name: flux.1-schnell
   license: apache-2
-  icon: https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/schnell_grid.jpeg
   description: |
     FLUX.1 [schnell] is a 12 billion parameter rectified flow transformer capable of generating images from text descriptions. For more information, please read our blog post.
     Key Features
@@ -11295,7 +11296,6 @@
     - flux
     - gpu
     - cpu
-  icon: https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/schnell_grid.jpeg
   overrides:
     parameters:
       model: flux1-dev-Q2_K.gguf
@@ -11315,6 +11315,7 @@
 - &whisper  ## Whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
   name: "whisper-1"
+  icon: https://avatars.githubusercontent.com/u/14957082
   license: "MIT"
   urls:
     - https://github.com/ggerganov/whisper.cpp
@@ -11492,6 +11493,7 @@
   description: |
     Stable Diffusion in NCNN with c++, supported txt2img and img2img
   name: stablediffusion-cpp
+  icon: https://avatars.githubusercontent.com/u/100950301
 - &piper  ## Piper TTS
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   name: voice-en-us-kathleen-low
@@ -12072,6 +12074,7 @@
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh_CN-huayan-medium.tar.gz
       sha256: 0299a5e7f481ba853404e9f0e1515a94d5409585d76963fa4d30c64bd630aa99
 - name: "silero-vad"
+  icon: https://github.com/snakers4/silero-models/raw/master/files/silero_logo.jpg
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://github.com/snakers4/silero-vad
@@ -12091,6 +12094,7 @@
       uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
       sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808
 - name: "bark-cpp-small"
+  icon: https://avatars.githubusercontent.com/u/99442120
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   license: mit
   urls:
