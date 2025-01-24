@@ -5668,6 +5668,32 @@
       sha256: ad0440270a7254098f90779744d3e5b34fe49b7baf97c819909ba9c5648cc0d9
       uri: huggingface://QuantFactory/marco-o1-uncensored-GGUF/marco-o1-uncensored.Q4_K_M.gguf
 - !!merge <<: *qwen2
+  name: "minicpm-o-2_6"
+  icon: https://avatars.githubusercontent.com/u/89920203
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-o-2_6-gguf
+    - https://huggingface.co/openbmb/MiniCPM-o-2_6
+  description: |
+    MiniCPM-o 2.6 is the latest and most capable model in the MiniCPM-o series. The model is built in an end-to-end fashion based on SigLip-400M, Whisper-medium-300M, ChatTTS-200M, and Qwen2.5-7B with a total of 8B parameters
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen2
+    - cpu
+  overrides:
+    mmproj: minicpm-o-2_6-mmproj-f16.gguf
+    parameters:
+      model: minicpm-o-2_6-Q4_K_M.gguf
+  files:
+    - filename: minicpm-o-2_6-Q4_K_M.gguf
+      sha256: 4f635fc0c0bb88d50ccd9cf1f1e5892b5cb085ff88fe0d8e1148fd9a8a836bc2
+      uri: huggingface://openbmb/MiniCPM-o-2_6-gguf/Model-7.6B-Q4_K_M.gguf
+    - filename: minicpm-o-2_6-mmproj-f16.gguf
+      sha256: efa4f7d96aa0f838f2023fc8d28e519179b16f1106777fa9280b32628191aa3e
+      uri: huggingface://openbmb/MiniCPM-o-2_6-gguf/mmproj-model-f16.gguf
+- !!merge <<: *qwen2
   name: "minicpm-v-2_6"
   license: apache-2.0
   icon: https://avatars.githubusercontent.com/u/89920203
