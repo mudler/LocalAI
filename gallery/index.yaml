@@ -3305,6 +3305,24 @@
     - filename: Art-v0-3B-Q4_K_M.gguf
       sha256: 551acd326ce9a743b6e06e094865eb2f06c23c81c812ce221d757bf27ceec9f7
       uri: huggingface://bartowski/Art-v0-3B-GGUF/Art-v0-3B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "chuluun-qwen2.5-72b-v0.08"
+  icon: https://huggingface.co/DatToad/Chuluun-Qwen2.5-72B-v0.08/resolve/main/Chuluun8-2.png
+  urls:
+    - https://huggingface.co/DatToad/Chuluun-Qwen2.5-72B-v0.08
+    - https://huggingface.co/bartowski/Chuluun-Qwen2.5-72B-v0.08-GGUF
+  description: |
+    This is a merge of pre-trained language models created using mergekit.
+    I re-ran the original Chuluun formula including the newly released Ink from Allura-Org. I've found the addition gives the model a lot more variability, likely because of aggressive de-slop applied to its dataset. Sometimes this means a word choice will be strange and you'll want to manually edit when needed, but it means you'll see less ministrations sparkling with mischief.
+    Because of this the best way to approach the model is to run multiple regens and choose the one you like, edit mercilessly, and continue. Like the original Chuluun this variant is very steerable for complex storywriting and RP. It's probably also a little spicier than v0.01 with both Magnum and whatever the heck Fizz threw into the data for Ink.
+    I've also been hearing praise for a level of character intelligence not seen in other models, including Largestral finetunes and merges. I'm not about to say any model of mine is smarter because it was a dumb idea to use Tess as the base and it somehow worked.
+  overrides:
+    parameters:
+      model: Chuluun-Qwen2.5-72B-v0.08-Q4_K_M.gguf
+  files:
+    - filename: Chuluun-Qwen2.5-72B-v0.08-Q4_K_M.gguf
+      sha256: 0fec82625f74a9a340837de7af287b1d9042e5aeb70cda2621426db99958b0af
+      uri: huggingface://bartowski/Chuluun-Qwen2.5-72B-v0.08-GGUF/Chuluun-Qwen2.5-72B-v0.08-Q4_K_M.gguf
 - &smollm  ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "smollm-1.7b-instruct"
