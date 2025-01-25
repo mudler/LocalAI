@@ -5302,7 +5302,7 @@
       sha256: a47782c55ef2b39b19644213720a599d9849511a73c9ebb0c1de749383c0a0f8
       uri: huggingface://RichardErkhov/ContextualAI_-_archangel_sft_pythia2-8b-gguf/archangel_sft_pythia2-8b.Q4_K_M.gguf
 - &deepseek-r1  ## Start DeepSeek-R1
-  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  url: "github:mudler/LocalAI/gallery/deepseek-r1.yaml@master"
   name: "deepseek-r1-distill-qwen-1.5b"
   icon: "https://avatars.githubusercontent.com/u/148330874"
   urls:
