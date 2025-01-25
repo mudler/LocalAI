@@ -3289,6 +3289,22 @@
     - filename: Lamarck-14B-v0.7-Q4_K_M.gguf
       sha256: ff8eba82b77a4c6b6d556b85629414655d881f8af4601bcf891c6a7b0345b442
       uri: huggingface://bartowski/Lamarck-14B-v0.7-GGUF/Lamarck-14B-v0.7-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "art-v0-3b"
+  icon: https://blog.agi-0.com/_next/image?url=%2Fabout_img2.jpeg&w=1920&q=75
+  urls:
+    - https://huggingface.co/AGI-0/Art-v0-3B
+    - https://huggingface.co/bartowski/Art-v0-3B-GGUF
+    - https://blog.agi-0.com/posts/art-series
+  description: |
+    Art v0 3B is our inaugural model in the Art series, fine-tuned from Qwen/Qwen2.5-3B-Instruct using a specialized dataset generated with Gemini 2.0 Flash Thinking. Read more about the Art series
+  overrides:
+    parameters:
+      model: Art-v0-3B-Q4_K_M.gguf
+  files:
+    - filename: Art-v0-3B-Q4_K_M.gguf
+      sha256: 551acd326ce9a743b6e06e094865eb2f06c23c81c812ce221d757bf27ceec9f7
+      uri: huggingface://bartowski/Art-v0-3B-GGUF/Art-v0-3B-Q4_K_M.gguf
 - &smollm  ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "smollm-1.7b-instruct"
