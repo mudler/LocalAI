@@ -3274,6 +3274,21 @@
     - filename: DRT-o1-14B-Q4_K_M.gguf
       sha256: 9619ca984cf4ce8e4f69bcde831de17b2ce05dd89536e3130608877521e3d328
       uri: huggingface://bartowski/DRT-o1-14B-GGUF/DRT-o1-14B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "lamarck-14b-v0.7"
+  icon: https://huggingface.co/sometimesanotion/Lamarck-14B-v0.7/resolve/main/LamarckShades.webp
+  urls:
+    - https://huggingface.co/sometimesanotion/Lamarck-14B-v0.7
+    - https://huggingface.co/bartowski/Lamarck-14B-v0.7-GGUF
+  description: |
+    Lamarck 14B v0.7: A generalist merge with emphasis on multi-step reasoning, prose, and multi-language ability. The 14B parameter model class has a lot of strong performers, and Lamarck strives to be well-rounded and solid.
+  overrides:
+    parameters:
+      model: Lamarck-14B-v0.7-Q4_K_M.gguf
+  files:
+    - filename: Lamarck-14B-v0.7-Q4_K_M.gguf
+      sha256: ff8eba82b77a4c6b6d556b85629414655d881f8af4601bcf891c6a7b0345b442
+      uri: huggingface://bartowski/Lamarck-14B-v0.7-GGUF/Lamarck-14B-v0.7-Q4_K_M.gguf
 - &smollm  ## SmolLM
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "smollm-1.7b-instruct"
