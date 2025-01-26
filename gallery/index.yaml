@@ -456,6 +456,25 @@
     - filename: L3.3-Prikol-70B-v0.2-Q4_K_M.gguf
       sha256: fc0ff514efbc0b67981c2bf1423d5a2e1b8801e4266ba0c653ea148414fe5ffc
       uri: huggingface://bartowski/L3.3-Prikol-70B-v0.2-GGUF/L3.3-Prikol-70B-v0.2-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-nevoria-r1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/_oWpsvCZ-graNKzJBBjGo.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Nevoria-R1-70b
+    - https://huggingface.co/bartowski/L3.3-Nevoria-R1-70b-GGUF
+  description: |
+    This model builds upon the original Nevoria foundation, incorporating the Deepseek-R1 reasoning architecture to enhance dialogue interaction and scene comprehension. While maintaining Nevoria's core strengths in storytelling and scene description (derived from EVA, EURYALE, and Anubis), this iteration aims to improve prompt adherence and creative reasoning capabilities. The model also retains the balanced perspective introduced by Negative_LLAMA and Nemotron elements. Also, the model plays the card to almost a fault, It'll pick up on minor issues and attempt to run with them. Users had it call them out for misspelling a word while playing in character.
+
+    Note: While Nevoria-R1 represents a significant architectural change, rather than a direct successor to Nevoria, it operates as a distinct model with its own characteristics.
+
+    The lorablated model base choice was intentional, creating unique weight interactions similar to the original Astoria model and Astoria V2 model. This "weight twisting" effect, achieved by subtracting the lorablated base model during merging, creates an interesting balance in the model's behavior. While unconventional compared to sequential component application, this approach was chosen for its unique response characteristics.
+  overrides:
+    parameters:
+      model: L3.3-Nevoria-R1-70b-Q4_K_M.gguf
+  files:
+    - filename: L3.3-Nevoria-R1-70b-Q4_K_M.gguf
+      sha256: 9f32f202fb5b1465c942693bb11eea9e8a1c5686b00602715b495c068eaf1c58
+      uri: huggingface://bartowski/L3.3-Nevoria-R1-70b-GGUF/L3.3-Nevoria-R1-70b-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
