@@ -3400,6 +3400,33 @@
     - filename: Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
       sha256: eaeac314e30b461413bc1cc819cdc0cd6a79265711fd0b8268702960a082c7bd
       uri: huggingface://QuantFactory/Vikhr-Qwen-2.5-1.5B-Instruct-GGUF/Vikhr-Qwen-2.5-1.5B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "dumpling-qwen2.5-32b"
+  icon: https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-32B/resolve/main/dumpling_cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-32B
+    - https://huggingface.co/bartowski/Dumpling-Qwen2.5-32B-GGUF
+  description: |
+   nbeerbower/Rombos-EVAGutenberg-TIES-Qwen2.5-32B finetuned on:
+    nbeerbower/GreatFirewall-DPO
+    nbeerbower/Schule-DPO
+    nbeerbower/Purpura-DPO
+    nbeerbower/Arkhaios-DPO
+    jondurbin/truthy-dpo-v0.1
+    antiven0m/physical-reasoning-dpo
+    flammenai/Date-DPO-NoAsterisks
+    flammenai/Prude-Phi3-DPO
+    Atsunori/HelpSteer2-DPO
+    jondurbin/gutenberg-dpo-v0.1
+    nbeerbower/gutenberg2-dpo
+    nbeerbower/gutenberg-moderne-dpo.
+  overrides:
+    parameters:
+      model: Dumpling-Qwen2.5-32B-Q4_K_M.gguf
+  files:
+    - filename: Dumpling-Qwen2.5-32B-Q4_K_M.gguf
+      sha256: c5b7d773cc614650ad3956008e30d0607df6106c28e381870a9b950bd4ee1d17
+      uri: huggingface://bartowski/Dumpling-Qwen2.5-32B-GGUF/Dumpling-Qwen2.5-32B-Q4_K_M.gguf
 - &llama31  ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
