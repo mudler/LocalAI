@@ -5476,6 +5476,25 @@
     - filename: DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf
       sha256: 181a82a1d6d2fa24fe4db83a68eee030384986bdbdd4773ba76424e3a6eb9fd8
       uri: huggingface://bartowski/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "deepseek-r1-qwen-2.5-32b-ablated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6587d8dd1b44d0e694104fbf/0dkt6EhZYwXVBxvSWXdaM.png
+  urls:
+    - https://huggingface.co/NaniDAO/deepseek-r1-qwen-2.5-32B-ablated
+    - https://huggingface.co/bartowski/deepseek-r1-qwen-2.5-32B-ablated-GGUF
+  description: |
+    DeepSeek-R1-Distill-Qwen-32B with ablation technique applied for a more helpful (and based) reasoning model.
+
+    This means it will refuse less of your valid requests for an uncensored UX. Use responsibly and use common sense.
+
+    We do not take any responsibility for how you apply this intelligence, just as we do not for how you apply your own.
+  overrides:
+    parameters:
+      model: deepseek-r1-qwen-2.5-32B-ablated-Q4_K_M.gguf
+  files:
+    - filename: deepseek-r1-qwen-2.5-32B-ablated-Q4_K_M.gguf
+      sha256: 7f33898641ebe58fe178c3517efc129f4fe37c6ca2d8b91353c4539b0c3411ec
+      uri: huggingface://bartowski/deepseek-r1-qwen-2.5-32B-ablated-GGUF/deepseek-r1-qwen-2.5-32B-ablated-Q4_K_M.gguf
 - &qwen2  ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "qwen2-7b-instruct"
