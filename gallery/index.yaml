@@ -5537,6 +5537,20 @@
     - filename: FuseO1-DeepSeekR1-Qwen2.5-Instruct-32B-Preview-Q4_K_M.gguf
       sha256: 3b06a004a6bb827f809a7326b30ee73f96a1a86742d8c2dd335d75874fa17aa4
       uri: huggingface://bartowski/FuseO1-DeepSeekR1-Qwen2.5-Instruct-32B-Preview-GGUF/FuseO1-DeepSeekR1-Qwen2.5-Instruct-32B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "fuseo1-deepseekr1-qwq-32b-preview"
+  urls:
+    - https://huggingface.co/FuseAI/FuseO1-DeepSeekR1-QwQ-32B-Preview
+    - https://huggingface.co/bartowski/FuseO1-DeepSeekR1-QwQ-32B-Preview-GGUF
+  description: |
+    FuseO1-Preview is our initial endeavor to enhance the System-II reasoning capabilities of large language models (LLMs) through innovative model fusion techniques. By employing our advanced SCE merging methodologies, we integrate multiple open-source o1-like LLMs into a unified model. Our goal is to incorporate the distinct knowledge and strengths from different reasoning LLMs into a single, unified model with strong System-II reasoning abilities, particularly in mathematics, coding, and science domains.
+  overrides:
+    parameters:
+      model: FuseO1-DeepSeekR1-QwQ-32B-Preview-Q4_K_M.gguf
+  files:
+    - filename: FuseO1-DeepSeekR1-QwQ-32B-Preview-Q4_K_M.gguf
+      sha256: 16f1fb6bf76bb971a7a63e1a68cddd09421f4a767b86eec55eed1e08178f78f2
+      uri: huggingface://bartowski/FuseO1-DeepSeekR1-QwQ-32B-Preview-GGUF/FuseO1-DeepSeekR1-QwQ-32B-Preview-Q4_K_M.gguf
 - &qwen2  ## Start QWEN2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "qwen2-7b-instruct"
