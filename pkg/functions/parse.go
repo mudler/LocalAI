@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/functions/grammars"
@@ -70,6 +71,12 @@ type FunctionsConfig struct {
 
 	// JSONRegexMatch is a regex to extract the JSON object from the response
 	JSONRegexMatch []string `yaml:"json_regex_match"`
+
+	// ArgumentRegex is a named regex to extract the arguments from the response. Use ArgumentRegexKey and ArgumentRegexValue to set the names of the named regex for key and value of the arguments.
+	ArgumentRegex []string `yaml:"argument_regex"`
+	// ArgumentRegex named regex names for key and value extractions. default: key and value
+	ArgumentRegexKey   string `yaml:"argument_regex_key_name"`   // default: key
+	ArgumentRegexValue string `yaml:"argument_regex_value_name"` // default: value
 
 	// ReplaceFunctionResults allow to replace strings in the results before parsing them
 	ReplaceFunctionResults []ReplaceResult `yaml:"replace_function_results"`
@@ -310,7 +317,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 				if functionName == "" {
 					return results
 				}
-				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: result[functionArgumentsKey]})
+				results = append(results, FuncCallResults{Name: result[functionNameKey], Arguments: ParseFunctionCallArgs(result[functionArgumentsKey], functionConfig)})
 			}
 		}
 	} else {
@@ -321,4 +328,40 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	}
 
 	return results
+}
+
+func ParseFunctionCallArgs(functionArguments string, functionConfig FunctionsConfig) string {
+	if len(functionConfig.ArgumentRegex) > 0 {
+		// We use named regexes here to extract the function argument key value pairs and convert this to valid json.
+		// TODO: there might be responses where an object as a value is expected/required. This is currently not handled.
+		args := make(map[string]string)
+
+		agrsRegexKeyName := "key"
+		agrsRegexValueName := "value"
+
+		if functionConfig.ArgumentRegexKey != "" {
+			agrsRegexKeyName = functionConfig.ArgumentRegexKey
+		}
+		if functionConfig.ArgumentRegexValue != "" {
+			agrsRegexValueName = functionConfig.ArgumentRegexValue
+		}
+
+		for _, r := range functionConfig.ArgumentRegex {
+			var respRegex = regexp.MustCompile(r)
+			var nameRange []string = respRegex.SubexpNames()
+			var keyIndex = slices.Index(nameRange, agrsRegexKeyName)
+			var valueIndex = slices.Index(nameRange, agrsRegexValueName)
+			matches := respRegex.FindAllStringSubmatch(functionArguments, -1)
+			for _, match := range matches {
+				args[match[keyIndex]] = match[valueIndex]
+			}
+		}
+
+		jsonBytes, _ := json.Marshal(args)
+		jsonString := string(jsonBytes)
+
+		return jsonString
+	} else {
+		return functionArguments
+	}
 }
