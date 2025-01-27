@@ -3427,6 +3427,20 @@
     - filename: Dumpling-Qwen2.5-32B-Q4_K_M.gguf
       sha256: c5b7d773cc614650ad3956008e30d0607df6106c28e381870a9b950bd4ee1d17
       uri: huggingface://bartowski/Dumpling-Qwen2.5-32B-GGUF/Dumpling-Qwen2.5-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "confucius-o1-14b"
+  urls:
+    - https://huggingface.co/netease-youdao/Confucius-o1-14B
+    - https://huggingface.co/bartowski/Confucius-o1-14B-GGUF
+  description: |
+    Confucius-o1-14B is a o1-like reasoning model developed by the NetEase Youdao Team, it can be easily deployed on a single GPU without quantization. This model is based on the Qwen2.5-14B-Instruct model and adopts a two-stage learning strategy, enabling the lightweight 14B model to possess thinking abilities similar to those of o1. What sets it apart is that after generating the chain of thought, it can summarize a step-by-step problem-solving process from the chain of thought on its own. This can prevent users from getting bogged down in the complex chain of thought and allows them to easily obtain the correct problem-solving ideas and answers.
+  overrides:
+    parameters:
+      model: Confucius-o1-14B-Q4_K_M.gguf
+  files:
+    - filename: Confucius-o1-14B-Q4_K_M.gguf
+      sha256: 03182920edd8667db7d2a362ca2d25e88f4b615b383b5a55c764f4715fb22dd9
+      uri: huggingface://bartowski/Confucius-o1-14B-GGUF/Confucius-o1-14B-Q4_K_M.gguf
 - &llama31  ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
