@@ -21,7 +21,7 @@ config_file: |
       <|start_header_id|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}<|end_header_id|>
       {{ if .FunctionCall -}}
       {{ else if eq .RoleName "tool" -}}
-      The Function was executed and the response was: 
+      The Function was executed and the response was:
       {{ end -}}
       {{ if .Content -}}
       {{.Content -}}
@@ -35,8 +35,8 @@ config_file: |
       {{.Input}}
     function: |
       <|start_header_id|>system<|end_header_id|>
-      You are an expert in composing functions. You are given a question and a set of possible functions. 
-      Based on the question, you will need to make one or more function/tool calls to achieve the purpose. 
+      You are an expert in composing functions. You are given a question and a set of possible functions.
+      Based on the question, you will need to make one or more function/tool calls to achieve the purpose.
       If none of the functions can be used, point it out. If the given question lacks the parameters required by the function, also point it out. You should only return the function call in tools call sections.
       If you decide to invoke any of the function(s), you MUST put it in the format as follows:
       [func_name1(params_name1=params_value1,params_name2=params_value2,...),func_name2(params_name1=params_value1,params_name2=params_value2,...)]
@@ -53,4 +53,3 @@ config_file: |
   - <dummy32000>
   - "<|eot_id|>"
   - <|end_of_text|>
-
