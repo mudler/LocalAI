@@ -143,7 +143,7 @@ The AIO Images are inheriting the same environment variables as the base images 
 | Variable | Default | Description |
 | ---------------------| ------- | ----------- |
 | `PROFILE` | Auto-detected | The size of the model to use. Available: `cpu`, `gpu-8g` |
-| `MODELS` | Auto-detected | A list of models YAML Configuration file URI/URL (see also [running models]({{%relref "docs/advanced/run-other-models" %}})) |
+| `MODELS` | Auto-detected | A list of models YAML Configuration file URI/URL (see also [running models]({{%relref "docs/getting-started/models" %}})) |
 
 
 ## Standard container images
