@@ -154,7 +154,7 @@ Images are available with and without python dependencies. Note that images with
 
 Images with `core` in the tag are smaller and do not contain any python dependencies. 
 
-{{< tabs tabTotal="7" >}}
+{{< tabs tabTotal="8" >}}
 {{% tab tabName="Vanilla / CPU Images" %}}
 
 | Description | Quay | Docker Hub                                   |
@@ -234,6 +234,18 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai: master-vulkan-ffmpeg-core ` | `localai/localai: master-vulkan-ffmpeg-core `                      |
 | Latest tag | `quay.io/go-skynet/local-ai: latest-vulkan-ffmpeg-core ` | `localai/localai: latest-vulkan-ffmpeg-core`                 |
 | Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-vulkan-fmpeg-core` | `localai/localai:{{< version >}}-vulkan-fmpeg-core`             |
+{{% /tab %}}
+
+{{% tab tabName="Nvidia Linux for tegra" %}}
+
+These images are compatible with Nvidia ARM64 devices, such as the Jetson Nano, Jetson Xavier NX, and Jetson AGX Xavier. For more information, see the [Nvidia L4T guide]({{%relref "docs/reference/nvidia-l4t" %}}).
+
+| Description | Quay | Docker Hub                                                  |
+| --- | --- |-------------------------------------------------------------|
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-core` | `localai/localai:master-nvidia-l4t-arm64-core`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-core` | `localai/localai:latest-nvidia-l4t-arm64-core`                 |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64-core` | `localai/localai:{{< version >}}-nvidia-l4t-arm64-core`             |
+
 {{% /tab %}}
 
 {{< /tabs >}}
