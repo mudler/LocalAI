@@ -861,7 +861,7 @@ swagger:
 
 .PHONY: gen-assets
 gen-assets:
-	$(GOCMD) run core/dependencies_manager/manager.go embedded/webui_static.yaml core/http/static/assets
+	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
 
 ## Documentation
 docs/layouts/_default:

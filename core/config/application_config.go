@@ -44,8 +44,6 @@ type ApplicationConfig struct {
 	DisableGalleryEndpoint             bool
 	LoadToMemory                       []string
 
-	ModelLibraryURL string
-
 	Galleries []Gallery
 
 	BackendAssets     embed.FS
@@ -123,12 +121,6 @@ func WithCsrf(b bool) AppOption {
 func WithP2PToken(s string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.P2PToken = s
-	}
-}
-
-func WithModelLibraryURL(url string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.ModelLibraryURL = url
 	}
 }
 

@@ -32,7 +32,6 @@ type RunCMD struct {
 
 	Galleries           string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	AutoloadGalleries   bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models"`
-	RemoteLibrary       string   `env:"LOCALAI_REMOTE_LIBRARY,REMOTE_LIBRARY" default:"${remoteLibraryURL}" help:"A LocalAI remote library URL" group:"models"`
 	PreloadModels       string   `env:"LOCALAI_PRELOAD_MODELS,PRELOAD_MODELS" help:"A List of models to apply in JSON at start" group:"models"`
 	Models              []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
 	PreloadModelsConfig string   `env:"LOCALAI_PRELOAD_MODELS_CONFIG,PRELOAD_MODELS_CONFIG" help:"A List of models to apply at startup. Path to a YAML config file" group:"models"`
@@ -90,7 +89,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithDynamicConfigDirPollInterval(r.LocalaiConfigDirPollInterval),
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
-		config.WithModelLibraryURL(r.RemoteLibrary),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithCsrf(r.CSRF),
