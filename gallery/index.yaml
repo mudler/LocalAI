@@ -839,7 +839,7 @@
       sha256: bac8e8c1d1d9d53cbdb148b8ff9ad378ddb392429207099e85b5aae3a43bff3d
       uri: huggingface://cstr/salamandra-7b-instruct-GGUF/salamandra-7b-instruct.Q4_K_M-f32.gguf
 - &llama32  ## llama3.2
-  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  url: "github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.2
   description: |
