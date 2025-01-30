@@ -5359,6 +5359,29 @@
     - filename: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
       sha256: f8eba201522ab44b79bc54166126bfaf836111ff4cbf2d13c59c3b57da10573b
       uri: huggingface://unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "selene-1-mini-llama-3.1-8b"
+  icon: https://atla-ai.notion.site/image/https%3A%2F%2Fprod-files-secure.s3.us-west-2.amazonaws.com%2Ff08e6e70-73af-4363-9621-90e906b92ebc%2F1bfb4316-1ce6-40a0-800c-253739cfcdeb%2Fatla_white3x.svg?table=block&id=17c309d1-7745-80f9-8f60-e755409acd8d&spaceId=f08e6e70-73af-4363-9621-90e906b92ebc&userId=&cache=v2
+  urls:
+    - https://huggingface.co/AtlaAI/Selene-1-Mini-Llama-3.1-8B
+    - https://huggingface.co/bartowski/Selene-1-Mini-Llama-3.1-8B-GGUF
+  description: |
+    Atla Selene Mini is a state-of-the-art small language model-as-a-judge (SLMJ). Selene Mini achieves comparable performance to models 10x its size, outperforming GPT-4o on RewardBench, EvalBiasBench, and AutoJ.
+
+    Post-trained from Llama-3.1-8B across a wide range of evaluation tasks and scoring criteria, Selene Mini outperforms prior small models overall across 11 benchmarks covering three different types of tasks:
+
+        Absolute scoring, e.g. "Evaluate the harmlessness of this response on a scale of 1-5"
+        Classification, e.g. "Does this response address the user query? Answer Yes or No."
+        Pairwise preference. e.g. "Which of the following responses is more logically consistent - A or B?"
+
+    It is also the #1 8B generative model on RewardBench.
+  overrides:
+    parameters:
+      model: Selene-1-Mini-Llama-3.1-8B-Q4_K_M.gguf
+  files:
+    - filename: Selene-1-Mini-Llama-3.1-8B-Q4_K_M.gguf
+      sha256: 908e6ce19f7cd3d7394bd7c38e43de2f228aca6aceda35c7ee70d069ad60493e
+      uri: huggingface://bartowski/Selene-1-Mini-Llama-3.1-8B-GGUF/Selene-1-Mini-Llama-3.1-8B-Q4_K_M.gguf
 - &deepseek  ## Deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
   name: "deepseek-coder-v2-lite-instruct"
