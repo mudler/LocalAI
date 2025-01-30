@@ -3455,6 +3455,25 @@
     - filename: Confucius-o1-14B-Q4_K_M.gguf
       sha256: 03182920edd8667db7d2a362ca2d25e88f4b615b383b5a55c764f4715fb22dd9
       uri: huggingface://bartowski/Confucius-o1-14B-GGUF/Confucius-o1-14B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "openthinker-7b"
+  icon: https://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.png
+  urls:
+    - https://huggingface.co/open-thoughts/OpenThinker-7B
+    - https://huggingface.co/bartowski/OpenThinker-7B-GGUF
+  description: |
+    This model is a fine-tuned version of Qwen/Qwen2.5-7B-Instruct on the OpenThoughts-114k dataset dataset.
+
+    The dataset is derived by distilling DeepSeek-R1 using the data pipeline available on github. More info about the dataset can be found on the dataset card at OpenThoughts-114k dataset.
+
+    This model improves upon the Bespoke-Stratos-7B model, which used 17k examples (Bespoke-Stratos-17k dataset). The numbers reported in the table below are evaluated with our open-source tool Evalchemy.
+  overrides:
+    parameters:
+      model: OpenThinker-7B-Q4_K_M.gguf
+  files:
+    - filename: OpenThinker-7B-Q4_K_M.gguf
+      sha256: 94dff1a7acd685db5cff7afdb837aab8172e06d65fe6179ba47428e3030acd93
+      uri: huggingface://bartowski/OpenThinker-7B-GGUF/OpenThinker-7B-Q4_K_M.gguf
 - &llama31  ## LLama3.1
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
