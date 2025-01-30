@@ -198,6 +198,20 @@
     - filename: NightWing3-10B-v0.1-Q4_K_M.gguf
       sha256: 2e87671542d22fe1ef9a68e43f2fdab7c2759479ad531946d9f0bdeffa6f5747
       uri: huggingface://bartowski/NightWing3-10B-v0.1-GGUF/NightWing3-10B-v0.1-Q4_K_M.gguf
+- !!merge <<: *falcon3
+  name: "virtuoso-lite"
+  urls:
+    - https://huggingface.co/arcee-ai/Virtuoso-Lite
+    - https://huggingface.co/bartowski/Virtuoso-Lite-GGUF
+  description: |
+    Virtuoso-Lite (10B) is our next-generation, 10-billion-parameter language model based on the Llama-3 architecture. It is distilled from Deepseek-v3 using ~1.1B tokens/logits, allowing it to achieve robust performance at a significantly reduced parameter count compared to larger models. Despite its compact size, Virtuoso-Lite excels in a variety of tasks, demonstrating advanced reasoning, code generation, and mathematical problem-solving capabilities.
+  overrides:
+    parameters:
+      model: Virtuoso-Lite-Q4_K_M.gguf
+  files:
+    - filename: Virtuoso-Lite-Q4_K_M.gguf
+      sha256: 1d21bef8467a11a1e473d397128b05fb87b7e824606cdaea061e550cb219fee2
+      uri: huggingface://bartowski/Virtuoso-Lite-GGUF/Virtuoso-Lite-Q4_K_M.gguf
 - &intellect1
   name: "intellect-1-instruct"
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
