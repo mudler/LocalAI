@@ -5995,6 +5995,21 @@
     - filename: minicpm-v-2_6-mmproj-f16.gguf
       uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
       sha256: 4485f68a0f1aa404c391e788ea88ea653c100d8e98fe572698f701e5809711fd
+- !!merge <<: *qwen2
+  name: "taid-llm-1.5b"
+  icon: https://sakana.ai/assets/taid-jp/cover_large.jpeg
+  urls:
+    - https://huggingface.co/SakanaAI/TAID-LLM-1.5B
+    - https://huggingface.co/bartowski/TAID-LLM-1.5B-GGUF
+  description: |
+    TAID-LLM-1.5B is an English language model created through TAID (Temporally Adaptive Interpolated Distillation), our new knowledge distillation method. We used Qwen2-72B-Instruct as the teacher model and Qwen2-1.5B-Instruct as the student model.
+  overrides:
+    parameters:
+      model: TAID-LLM-1.5B-Q4_K_M.gguf
+  files:
+    - filename: TAID-LLM-1.5B-Q4_K_M.gguf
+      sha256: dbffc989d12d42ef8e4a2994e102d7ec7a02c49ec08ea2e35426372ad07b4cd8
+      uri: huggingface://bartowski/TAID-LLM-1.5B-GGUF/TAID-LLM-1.5B-Q4_K_M.gguf
 - &mistral03
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master" ## START Mistral
   name: "mistral-7b-instruct-v0.3"
