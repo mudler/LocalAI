@@ -6613,6 +6613,23 @@
     - filename: Wayfarer-12B-Q4_K_M.gguf
       sha256: 6cd9f290c820c64854fcdcfd312b066447acc2f63abe2e2e71af9bc4f1946c08
       uri: huggingface://bartowski/Wayfarer-12B-GGUF/Wayfarer-12B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistral-small-24b-instruct-2501"
+  urls:
+    - https://huggingface.co/mistralai/Mistral-Small-24B-Instruct-2501
+    - https://huggingface.co/bartowski/Mistral-Small-24B-Instruct-2501-GGUF
+  description: |
+    Mistral Small 3 ( 2501 ) sets a new benchmark in the "small" Large Language Models category below 70B, boasting 24B parameters and achieving state-of-the-art capabilities comparable to larger models!
+    This model is an instruction-fine-tuned version of the base model: Mistral-Small-24B-Base-2501.
+
+    Mistral Small can be deployed locally and is exceptionally "knowledge-dense", fitting in a single RTX 4090 or a 32GB RAM MacBook once quantized.
+  overrides:
+    parameters:
+      model: Mistral-Small-24B-Instruct-2501-Q4_K_M.gguf
+  files:
+    - filename: Mistral-Small-24B-Instruct-2501-Q4_K_M.gguf
+      sha256: d1a6d049f09730c3f8ba26cf6b0b60c89790b5fdafa9a59c819acdfe93fffd1b
+      uri: huggingface://bartowski/Mistral-Small-24B-Instruct-2501-GGUF/Mistral-Small-24B-Instruct-2501-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
