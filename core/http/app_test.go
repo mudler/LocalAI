@@ -476,7 +476,7 @@ var _ = Describe("API test", func() {
 			})
 			It("apply models from config", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/models/hermes-2-pro-mistral.yaml",
+					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml",
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -600,7 +600,7 @@ var _ = Describe("API test", func() {
 
 				modelName := "hermes-2-pro-mistral"
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/models/hermes-2-pro-mistral.yaml",
+					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml",
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
