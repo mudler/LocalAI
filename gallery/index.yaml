@@ -852,8 +852,8 @@
     - filename: salamandra-7b-instruct.Q4_K_M-f32.gguf
       sha256: bac8e8c1d1d9d53cbdb148b8ff9ad378ddb392429207099e85b5aae3a43bff3d
       uri: huggingface://cstr/salamandra-7b-instruct-GGUF/salamandra-7b-instruct.Q4_K_M-f32.gguf
-- &llama32  ## llama3.2
-  url: "github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master"
+- &llama32
+  url: "github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master" ## llama3.2
   icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.2
   description: |
@@ -1375,11 +1375,7 @@
   urls:
     - https://huggingface.co/HuggingFaceTB/FineMath-Llama-3B
     - https://huggingface.co/bartowski/FineMath-Llama-3B-GGUF
-  description: |
-    This is a continual-pre-training of Llama-3.2-3B on a mix of 📐 FineMath (our new high quality math dataset) and FineWeb-Edu.
-
-    The model demonstrates superior math performance compared to Llama 3.2 3B, while maintaining similar performance on knowledge, reasoning, and common sense benchmarks.
-    It was trained on 160B tokens using a mix of 40% FineWeb-Edu and 60% from FineMath (30% FineMath-4+ subset and 30% InfiWebMath-4+ subset). We use nanotron for the training, and you can find the training scripts in our SmolLM2 GitHub repo.
+  description: "This is a continual-pre-training of Llama-3.2-3B on a mix of \U0001F4D0 FineMath (our new high quality math dataset) and FineWeb-Edu.\n\nThe model demonstrates superior math performance compared to Llama 3.2 3B, while maintaining similar performance on knowledge, reasoning, and common sense benchmarks.\nIt was trained on 160B tokens using a mix of 40% FineWeb-Edu and 60% from FineMath (30% FineMath-4+ subset and 30% InfiWebMath-4+ subset). We use nanotron for the training, and you can find the training scripts in our SmolLM2 GitHub repo.\n"
   overrides:
     parameters:
       model: FineMath-Llama-3B-Q4_K_M.gguf
@@ -1387,8 +1383,8 @@
     - filename: FineMath-Llama-3B-Q4_K_M.gguf
       sha256: 16c73b5cf2a417a7e1608bcc9469f1461fc3e759ce04a3a337f48df977dc158c
       uri: huggingface://bartowski/FineMath-Llama-3B-GGUF/FineMath-Llama-3B-Q4_K_M.gguf
-- &qwen25  ## Qwen2.5
-  name: "qwen2.5-14b-instruct"
+- &qwen25
+  name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   license: apache-2.0
@@ -3291,15 +3287,7 @@
   urls:
     - https://huggingface.co/Krystalan/DRT-o1-14B
     - https://huggingface.co/bartowski/DRT-o1-14B-GGUF
-  description: |
-    This repository contains the resources for our paper "DRT-o1: Optimized Deep Reasoning Translation via Long Chain-of-Thought"
-    In this work, we introduce DRT-o1, an attempt to bring the success of long thought reasoning to neural machine translation (MT). To this end,
-
-    🌟 We mine English sentences with similes or metaphors from existing literature books, which are suitable for translation via long thought.
-    🌟 We propose a designed multi-agent framework with three agents (i.e., a translator, an advisor and an evaluator) to synthesize the MT samples with long thought. There are 22,264 synthesized samples in total.
-    🌟 We train DRT-o1-8B, DRT-o1-7B and DRT-o1-14B using Llama-3.1-8B-Instruct, Qwen2.5-7B-Instruct and Qwen2.5-14B-Instruct as backbones.
-
-    Our goal is not to achieve competitive performance with OpenAI’s O1 in neural machine translation (MT). Instead, we explore technical routes to bring the success of long thought to MT. To this end, we introduce DRT-o1, a byproduct of our exploration, and we hope it could facilitate the corresponding research in this direction.
+  description: "This repository contains the resources for our paper \"DRT-o1: Optimized Deep Reasoning Translation via Long Chain-of-Thought\"\nIn this work, we introduce DRT-o1, an attempt to bring the success of long thought reasoning to neural machine translation (MT). To this end,\n\n\U0001F31F We mine English sentences with similes or metaphors from existing literature books, which are suitable for translation via long thought.\n\U0001F31F We propose a designed multi-agent framework with three agents (i.e., a translator, an advisor and an evaluator) to synthesize the MT samples with long thought. There are 22,264 synthesized samples in total.\n\U0001F31F We train DRT-o1-8B, DRT-o1-7B and DRT-o1-14B using Llama-3.1-8B-Instruct, Qwen2.5-7B-Instruct and Qwen2.5-14B-Instruct as backbones.\n\nOur goal is not to achieve competitive performance with OpenAI’s O1 in neural machine translation (MT). Instead, we explore technical routes to bring the success of long thought to MT. To this end, we introduce DRT-o1, a byproduct of our exploration, and we hope it could facilitate the corresponding research in this direction.\n"
   overrides:
     parameters:
       model: DRT-o1-14B-Q4_K_M.gguf
@@ -3356,8 +3344,8 @@
     - filename: Chuluun-Qwen2.5-72B-v0.08-Q4_K_M.gguf
       sha256: 0fec82625f74a9a340837de7af287b1d9042e5aeb70cda2621426db99958b0af
       uri: huggingface://bartowski/Chuluun-Qwen2.5-72B-v0.08-GGUF/Chuluun-Qwen2.5-72B-v0.08-Q4_K_M.gguf
-- &smollm  ## SmolLM
-  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+- &smollm
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## SmolLM
   name: "smollm-1.7b-instruct"
   icon: https://huggingface.co/datasets/HuggingFaceTB/images/resolve/main/banner_smol.png
   tags:
@@ -3421,19 +3409,19 @@
     - https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-32B
     - https://huggingface.co/bartowski/Dumpling-Qwen2.5-32B-GGUF
   description: |
-   nbeerbower/Rombos-EVAGutenberg-TIES-Qwen2.5-32B finetuned on:
-    nbeerbower/GreatFirewall-DPO
-    nbeerbower/Schule-DPO
-    nbeerbower/Purpura-DPO
-    nbeerbower/Arkhaios-DPO
-    jondurbin/truthy-dpo-v0.1
-    antiven0m/physical-reasoning-dpo
-    flammenai/Date-DPO-NoAsterisks
-    flammenai/Prude-Phi3-DPO
-    Atsunori/HelpSteer2-DPO
-    jondurbin/gutenberg-dpo-v0.1
-    nbeerbower/gutenberg2-dpo
-    nbeerbower/gutenberg-moderne-dpo.
+    nbeerbower/Rombos-EVAGutenberg-TIES-Qwen2.5-32B finetuned on:
+     nbeerbower/GreatFirewall-DPO
+     nbeerbower/Schule-DPO
+     nbeerbower/Purpura-DPO
+     nbeerbower/Arkhaios-DPO
+     jondurbin/truthy-dpo-v0.1
+     antiven0m/physical-reasoning-dpo
+     flammenai/Date-DPO-NoAsterisks
+     flammenai/Prude-Phi3-DPO
+     Atsunori/HelpSteer2-DPO
+     jondurbin/gutenberg-dpo-v0.1
+     nbeerbower/gutenberg2-dpo
+     nbeerbower/gutenberg-moderne-dpo.
   overrides:
     parameters:
       model: Dumpling-Qwen2.5-32B-Q4_K_M.gguf
@@ -3474,8 +3462,8 @@
     - filename: OpenThinker-7B-Q4_K_M.gguf
       sha256: 94dff1a7acd685db5cff7afdb837aab8172e06d65fe6179ba47428e3030acd93
       uri: huggingface://bartowski/OpenThinker-7B-GGUF/OpenThinker-7B-Q4_K_M.gguf
-- &llama31  ## LLama3.1
-  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+- &llama31
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
   name: "meta-llama-3.1-8b-instruct"
   license: llama3.1
@@ -5401,8 +5389,8 @@
     - filename: Selene-1-Mini-Llama-3.1-8B-Q4_K_M.gguf
       sha256: 908e6ce19f7cd3d7394bd7c38e43de2f228aca6aceda35c7ee70d069ad60493e
       uri: huggingface://bartowski/Selene-1-Mini-Llama-3.1-8B-GGUF/Selene-1-Mini-Llama-3.1-8B-Q4_K_M.gguf
-- &deepseek  ## Deepseek
-  url: "github:mudler/LocalAI/gallery/deepseek.yaml@master"
+- &deepseek
+  url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
   icon: "https://avatars.githubusercontent.com/u/148330874"
   license: deepseek
@@ -5466,8 +5454,8 @@
     - filename: archangel_sft_pythia2-8b.Q4_K_M.gguf
       sha256: a47782c55ef2b39b19644213720a599d9849511a73c9ebb0c1de749383c0a0f8
       uri: huggingface://RichardErkhov/ContextualAI_-_archangel_sft_pythia2-8b-gguf/archangel_sft_pythia2-8b.Q4_K_M.gguf
-- &deepseek-r1  ## Start DeepSeek-R1
-  url: "github:mudler/LocalAI/gallery/deepseek-r1.yaml@master"
+- &deepseek-r1
+  url: "github:mudler/LocalAI/gallery/deepseek-r1.yaml@master" ## Start DeepSeek-R1
   name: "deepseek-r1-distill-qwen-1.5b"
   icon: "https://avatars.githubusercontent.com/u/148330874"
   urls:
@@ -5607,8 +5595,8 @@
     - filename: FuseO1-DeepSeekR1-QwQ-32B-Preview-Q4_K_M.gguf
       sha256: 16f1fb6bf76bb971a7a63e1a68cddd09421f4a767b86eec55eed1e08178f78f2
       uri: huggingface://bartowski/FuseO1-DeepSeekR1-QwQ-32B-Preview-GGUF/FuseO1-DeepSeekR1-QwQ-32B-Preview-Q4_K_M.gguf
-- &qwen2  ## Start QWEN2
-  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+- &qwen2
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
   icon: https://avatars.githubusercontent.com/u/141221163
   license: apache-2.0
@@ -5991,10 +5979,10 @@
       sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
       uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
     - filename: minicpm-v-2_6-mmproj-f16.gguf
-      sha256: f8a805e9e62085805c69c427287acefc284932eb4abfe6e1b1ce431d27e2f4e0
       uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
-- &mistral03  ## START Mistral
-  url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master"
+      sha256: 4485f68a0f1aa404c391e788ea88ea653c100d8e98fe572698f701e5809711fd
+- &mistral03
+  url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master" ## START Mistral
   name: "mistral-7b-instruct-v0.3"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62dac1c7a8ead43d20e3e17a/wrLf5yaGC6ng4XME70w6Z.png
   license: apache-2.0
@@ -6625,8 +6613,8 @@
     - filename: Wayfarer-12B-Q4_K_M.gguf
       sha256: 6cd9f290c820c64854fcdcfd312b066447acc2f63abe2e2e71af9bc4f1946c08
       uri: huggingface://bartowski/Wayfarer-12B-GGUF/Wayfarer-12B-Q4_K_M.gguf
-- &mudler  ### START mudler's LocalAI specific-models
-  url: "github:mudler/LocalAI/gallery/mudler.yaml@master"
+- &mudler
+  url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
   icon: "https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/us5JKi9z046p8K-cn_M0w.webp"
   license: llama3
@@ -6670,8 +6658,8 @@
     - filename: Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
       sha256: 579cbb229f9c11d0330759ff4733102d2491615a4c61289e26c09d1b3a583fec
       uri: huggingface://mudler/Mirai-Nova-Llama3-LocalAI-8B-v0.1-GGUF/Mirai-Nova-Llama3-LocalAI-8B-v0.1-q4_k_m.bin
-- &parler-tts  ### START parler-tts
-  url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master"
+- &parler-tts
+  url: "github:mudler/LocalAI/gallery/parler-tts.yaml@master" ### START parler-tts
   name: parler-tts-mini-v0.1
   overrides:
     parameters:
@@ -6687,8 +6675,8 @@
     - cpu
     - text-to-speech
     - python
-- &rerankers  ### START rerankers
-  url: "github:mudler/LocalAI/gallery/rerankers.yaml@master"
+- &rerankers
+  url: "github:mudler/LocalAI/gallery/rerankers.yaml@master" ### START rerankers
   name: cross-encoder
   parameters:
     model: cross-encoder
@@ -8939,8 +8927,8 @@
     - filename: Copus-2x8B.i1-Q4_K_M.gguf
       sha256: 685da1ba49e203e8f491105585143d76044286d4b4687bed37d325f6b55501e5
       uri: huggingface://mradermacher/Copus-2x8B-i1-GGUF/Copus-2x8B.i1-Q4_K_M.gguf
-- &yi-chat  ### Start Yi
-  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+- &yi-chat
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ### Start Yi
   icon: "https://github.com/01-ai/Yi/raw/main/assets/img/Yi_logo_icon_light.svg"
   name: "yi-1.5-9b-chat"
   license: apache-2.0
@@ -9150,8 +9138,8 @@
     - filename: Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
       sha256: 3f309b59508342536a70edd6c4be6cf4f2cb97f2e32cbc79ad2ab3f4c02933a4
       uri: huggingface://Lewdiculous/Fimbulvetr-11B-v2-GGUF-IQ-Imatrix/Fimbulvetr-11B-v2-Q4_K_M-imat.gguf
-- &noromaid  ### Start noromaid
-  url: "github:mudler/LocalAI/gallery/noromaid.yaml@master"
+- &noromaid
+  url: "github:mudler/LocalAI/gallery/noromaid.yaml@master" ### Start noromaid
   name: "noromaid-13b-0.4-DPO"
   icon: https://cdn-uploads.huggingface.co/production/uploads/630dfb008df86f1e5becadc3/VKX2Z2yjZX5J8kXzgeCYO.png
   license: cc-by-nc-4.0
@@ -9170,8 +9158,8 @@
     - filename: Noromaid-13B-0.4-DPO.q4_k_m.gguf
       sha256: cb28e878d034fae3d0b43326c5fc1cfb4ab583b17c56e41d6ce023caec03c1c1
       uri: huggingface://NeverSleep/Noromaid-13B-0.4-DPO-GGUF/Noromaid-13B-0.4-DPO.q4_k_m.gguf
-- &wizardlm2  ### START Vicuna based
-  url: "github:mudler/LocalAI/gallery/wizardlm2.yaml@master"
+- &wizardlm2
+  url: "github:mudler/LocalAI/gallery/wizardlm2.yaml@master" ### START Vicuna based
   name: "wizardlm2-7b"
   description: |
     We introduce and opensource WizardLM-2, our next generation state-of-the-art large language models, which have improved performance on complex chat, multilingual, reasoning and agent. New family includes three cutting-edge models: WizardLM-2 8x22B, WizardLM-2 70B, and WizardLM-2 7B.
@@ -9225,8 +9213,8 @@
     - filename: moondream2-mmproj-f16.gguf
       sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
       uri: huggingface://moondream/moondream2-gguf/moondream2-mmproj-f16.gguf
-- &llava  ### START LLaVa
-  name: "llava-1.6-vicuna"
+- &llava
+  name: "llava-1.6-vicuna" ### START LLaVa
   icon: https://github.com/lobehub/lobe-icons/raw/master/packages/static-png/dark/llava-color.png
   url: "github:mudler/LocalAI/gallery/llava.yaml@master"
   license: apache-2.0
@@ -9639,8 +9627,8 @@
       sha256: 010ec3ba94cb5ad2d9c8f95f46f01c6d80f83deab9df0a0831334ea45afff3e2
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/ggml-model-Q4_K_M.gguf
     - filename: minicpm-llama3-mmproj-f16.gguf
-      sha256: 391d11736c3cd24a90417c47b0c88975e86918fcddb1b00494c4d715b08af13e
       uri: huggingface://openbmb/MiniCPM-Llama3-V-2_5-gguf/mmproj-model-f16.gguf
+      sha256: 2c2d773537faf6a7e093655d0d5e14801ef0b2121c6c3e1981ce094c2b62f4f9
 - !!merge <<: *llama3
   name: "llama-3-cursedstock-v1.8-8b-iq-imatrix"
   urls:
@@ -10082,8 +10070,8 @@
     - filename: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
       sha256: cdc0f4de6df2ba120835fbd25c2a0ae2af8548f46d2c40c7a018c51c3d19e0c0
       uri: huggingface://mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF/Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
-- &chatml  ### ChatML
-  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+- &chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ### ChatML
   name: "una-thepitbull-21.4b-v2"
   license: afl-3.0
   icon: https://huggingface.co/fblgit/UNA-ThePitbull-21.4B-v2/resolve/main/DE-UNA-ThePitbull-21.4B-v2.png
@@ -10367,8 +10355,8 @@
     - filename: Triangulum-10B.Q4_K_M.gguf
       sha256: dd071f99edf6b166044bf229cdeec19419c4c348e3fc3d6587cfcc55e6fb85fa
       uri: huggingface://mradermacher/Triangulum-10B-GGUF/Triangulum-10B.Q4_K_M.gguf
-- &command-R  ### START Command-r
-  url: "github:mudler/LocalAI/gallery/command-r.yaml@master"
+- &command-R
+  url: "github:mudler/LocalAI/gallery/command-r.yaml@master" ### START Command-r
   name: "command-r-v01:q1_s"
   license: "cc-by-nc-4.0"
   icon: https://cdn.sanity.io/images/rjtqmwfu/production/ae020d94b599cc453cc09ebc80be06d35d953c23-102x18.svg
@@ -10422,8 +10410,8 @@
     - filename: "aya-23-35B-Q4_K_M.gguf"
       sha256: "57824768c1a945e21e028c8e9a29b39adb4838d489f5865c82601ab9ad98065d"
       uri: "huggingface://bartowski/aya-23-35B-GGUF/aya-23-35B-Q4_K_M.gguf"
-- &phi-2-chat  ### START Phi-2
-  url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master"
+- &phi-2-chat
+  url: "github:mudler/LocalAI/gallery/phi-2-chat.yaml@master" ### START Phi-2
   license: mit
   description: |
     Phi-2 fine-tuned by the OpenHermes 2.5 dataset optimised for multi-turn conversation and character impersonation.
@@ -10544,8 +10532,8 @@
     - filename: internlm3-8b-instruct-Q4_K_M.gguf
       uri: huggingface://bartowski/internlm3-8b-instruct-GGUF/internlm3-8b-instruct-Q4_K_M.gguf
       sha256: 2a9644687318e8659c9cf9b40730d5cc2f5af06f786a50439c7c51359b23896e
-- &phi-3  ### START Phi-3
-  url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master"
+- &phi-3
+  url: "github:mudler/LocalAI/gallery/phi-3-chat.yaml@master" ### START Phi-3
   name: "phi-3-mini-4k-instruct"
   icon: https://avatars.githubusercontent.com/u/6154722
   license: mit
@@ -10744,8 +10732,8 @@
     - filename: Phi-3.5-MoE-instruct-Q4_K_M.gguf
       sha256: 43e91bb720869bd8a92d8eb86bc3c74a52c49cf61642ca709b3d7bb89644df36
       uri: huggingface://bartowski/Phi-3.5-MoE-instruct-GGUF/Phi-3.5-MoE-instruct-Q4_K_M.gguf
-- &hermes-2-pro-mistral  ### START Hermes
-  url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master"
+- &hermes-2-pro-mistral
+  url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master" ### START Hermes
   name: "hermes-2-pro-mistral"
   icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/ggO2sBDJ8Bhc6w-zwTx5j.png
   license: apache-2.0
@@ -11080,8 +11068,8 @@
     - filename: "galatolo-Q4_K.gguf"
       sha256: "ca0cfd5a9ad40dc16416aa3a277015d0299b62c0803b67f5709580042202c172"
       uri: "huggingface://galatolo/cerbero-7b-gguf/ggml-model-Q4_K.gguf"
-- &codellama  ### START Codellama
-  url: "github:mudler/LocalAI/gallery/codellama.yaml@master"
+- &codellama
+  url: "github:mudler/LocalAI/gallery/codellama.yaml@master" ### START Codellama
   name: "codellama-7b"
   license: llama2
   description: |
@@ -11211,8 +11199,8 @@
     - filename: "llm-compiler-7b-ftd.Q4_K.gguf"
       uri: "huggingface://legraphista/llm-compiler-7b-ftd-IMat-GGUF/llm-compiler-7b-ftd.Q4_K.gguf"
       sha256: d862dd18ed335413787d0ad196522a9902a3c10a6456afdab8721822cb0ddde8
-- &openvino  ### START OpenVINO
-  url: "github:mudler/LocalAI/gallery/openvino.yaml@master"
+- &openvino
+  url: "github:mudler/LocalAI/gallery/openvino.yaml@master" ### START OpenVINO
   name: "openvino-llama-3-8b-instruct-ov-int8"
   license: llama3
   urls:
@@ -11325,8 +11313,8 @@
     - gpu
     - embedding
     - cpu
-- &sentencentransformers  ### START Embeddings
-  description: |
+- &sentencentransformers
+  description: | ### START Embeddings
     This framework provides an easy method to compute dense vector representations for sentences, paragraphs, and images. The models are based on transformer networks like BERT / RoBERTa / XLM-RoBERTa etc. and achieve state-of-the-art performance in various tasks. Text is embedded in vector space such that similar text are closer and can efficiently be found using cosine similarity.
   urls:
     - https://github.com/UKPLab/sentence-transformers
@@ -11340,8 +11328,8 @@
   overrides:
     parameters:
       model: all-MiniLM-L6-v2
-- &dreamshaper  ### START Image generation
-  name: dreamshaper
+- &dreamshaper
+  name: dreamshaper ### START Image generation
   icon: https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/dd9b038c-bd15-43ab-86ab-66e145ad7ff2/width=450/26072158-132340247-8k%20portrait%20of%20beautiful%20cyborg%20with%20brown%20hair,%20intricate,%20elegant,%20highly%20detailed,%20majestic,%20digital%20photography,%20art%20by%20artg_ed.jpeg
   license: other
   description: |
@@ -11538,8 +11526,8 @@
     - filename: t5xxl_fp16.safetensors
       sha256: 6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635
       uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
-- &whisper  ## Whisper
-  url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master"
+- &whisper
+  url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master" ## Whisper
   name: "whisper-1"
   icon: https://avatars.githubusercontent.com/u/14957082
   license: "MIT"
@@ -11720,8 +11708,8 @@
     Stable Diffusion in NCNN with c++, supported txt2img and img2img
   name: stablediffusion-cpp
   icon: https://avatars.githubusercontent.com/u/100950301
-- &piper  ## Piper TTS
-  url: github:mudler/LocalAI/gallery/piper.yaml@master
+- &piper
+  url: github:mudler/LocalAI/gallery/piper.yaml@master ## Piper TTS
   name: voice-en-us-kathleen-low
   icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
   license: mit
