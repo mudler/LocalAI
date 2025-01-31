@@ -134,12 +134,12 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
    }' 
 ```
 
-An example that installs openllama can be:
+An example that installs hermes-2-pro-mistral can be:
    
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "config_url": "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/models/hermes-2-pro-mistral.yaml"
+     "config_url": "https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml"
    }' 
 ```
 
