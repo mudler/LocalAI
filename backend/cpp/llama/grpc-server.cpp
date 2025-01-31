@@ -2542,6 +2542,18 @@ public:
         return grpc::Status::OK;
     }
 
+    grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response){
+         json data = parse_options(false, request, llama);
+
+         std::vector<llama_token> tokens = llama.tokenize(data["prompt"],false);
+
+         for (int i=0 ; i< tokens.size(); i++){
+            response->add_tokens(tokens[i]);
+         }
+
+        return grpc::Status::OK;
+    }
+
     grpc::Status GetMetrics(ServerContext* context, const backend::MetricsRequest* request, backend::MetricsResponse* response) {
         llama_client_slot* active_slot = llama.get_active_slot();
 

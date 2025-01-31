@@ -16,12 +16,7 @@ func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.Bac
 
 	opts := ModelOptions(backendConfig, appConfig, model.WithModel(modelFile))
 
-	if backendConfig.Backend == "" {
-		inferenceModel, err = loader.Load(opts...)
-	} else {
-		opts = append(opts, model.WithBackendString(backendConfig.Backend))
-		inferenceModel, err = loader.Load(opts...)
-	}
+	inferenceModel, err = loader.Load(opts...)
 	if err != nil {
 		return schema.TokenizeResponse{}, err
 	}
@@ -33,6 +28,10 @@ func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.Bac
 	resp, err := inferenceModel.TokenizeString(appConfig.Context, predictOptions)
 	if err != nil {
 		return schema.TokenizeResponse{}, err
+	}
+
+	if resp.Tokens == nil {
+		resp.Tokens = make([]int32, 0)
 	}
 
 	return schema.TokenizeResponse{
