@@ -3462,6 +3462,20 @@
     - filename: OpenThinker-7B-Q4_K_M.gguf
       sha256: 94dff1a7acd685db5cff7afdb837aab8172e06d65fe6179ba47428e3030acd93
       uri: huggingface://bartowski/OpenThinker-7B-GGUF/OpenThinker-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tinyswallow-1.5b-instruct"
+  urls:
+    - https://huggingface.co/SakanaAI/TinySwallow-1.5B-Instruct
+    - https://huggingface.co/bartowski/TinySwallow-1.5B-Instruct-GGUF
+  description: |
+    TinySwallow-1.5B-Instruct is an instruction-tuned version of TinySwallow-1.5B, created through TAID (Temporally Adaptive Interpolated Distillation), our new knowledge distillation method. We used Qwen2.5-32B-Instruct as the teacher model and Qwen2.5-1.5B-Instruct as the student model. The model has been further instruction-tuned to enhance its ability to follow instructions and engage in conversations in Japanese.
+  overrides:
+    parameters:
+      model: TinySwallow-1.5B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: TinySwallow-1.5B-Instruct-Q4_K_M.gguf
+      sha256: 4d409c8873c1650a19c0a7a1c051e342613191a487768fe0d29735b9361079cd
+      uri: huggingface://bartowski/TinySwallow-1.5B-Instruct-GGUF/TinySwallow-1.5B-Instruct-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
