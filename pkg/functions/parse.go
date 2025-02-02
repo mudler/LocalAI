@@ -47,6 +47,14 @@ type GrammarConfig struct {
 	// SchemaType can be configured to use a specific schema type to force the grammar
 	// available : json, llama3.1
 	SchemaType string `yaml:"schema_type"`
+
+	GrammarTriggers []GrammarTrigger `yaml:"triggers"`
+}
+
+type GrammarTrigger struct {
+	// Trigger is the string that triggers the grammar
+	Word    string `yaml:"word"`
+	AtStart bool   `yaml:"at_start"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.
@@ -361,6 +369,6 @@ func ParseFunctionCallArgs(functionArguments string, functionConfig FunctionsCon
 	}
 
 	jsonBytes, _ := json.Marshal(args)
-	
+
 	return string(jsonBytes)
 }

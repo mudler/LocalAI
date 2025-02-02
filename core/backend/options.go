@@ -118,9 +118,19 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		nGPULayers = *c.NGPULayers
 	}
 
+	triggers := make([]*pb.GrammarTrigger, 0)
+	for _, t := range c.FunctionsConfig.GrammarConfig.GrammarTriggers {
+		triggers = append(triggers, &pb.GrammarTrigger{
+			Word:    t.Word,
+			AtStart: t.AtStart,
+		})
+
+	}
+
 	return &pb.ModelOptions{
 		CUDA:                 c.CUDA || c.Diffusers.CUDA,
 		SchedulerType:        c.Diffusers.SchedulerType,
+		GrammarTriggers:      triggers,
 		PipelineType:         c.Diffusers.PipelineType,
 		CFGScale:             c.CFGScale,
 		LoraAdapter:          c.LoraAdapter,
