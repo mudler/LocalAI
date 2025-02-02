@@ -705,6 +705,13 @@ definitions:
         description: voice audio file or speaker id
         type: string
     type: object
+  schema.TokenizeRequest:
+    properties:
+      content:
+        type: string
+      model:
+        type: string
+    type: object
   schema.TokenizeResponse:
     properties:
       tokens:
@@ -1216,6 +1223,13 @@ paths:
       summary: Get TokenMetrics for Active Slot.
   /v1/tokenize:
     post:
+      parameters:
+      - description: Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TokenizeRequest'
       responses:
         "200":
           description: Response
