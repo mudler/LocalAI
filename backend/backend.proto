@@ -163,6 +163,11 @@ message Reply {
   double timing_token_generation = 5;
 }
 
+message GrammarTrigger {
+  string word = 1;
+  bool at_start = 2; 
+}
+
 message ModelOptions {
   string Model = 1;
   int32 ContextSize = 2;
@@ -247,6 +252,8 @@ message ModelOptions {
 
   string CacheTypeKey = 63;
   string CacheTypeValue = 64;
+
+  repeated GrammarTrigger GrammarTriggers = 65;
 }
 
 message Result {
