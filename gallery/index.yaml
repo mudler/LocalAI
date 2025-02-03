@@ -853,7 +853,7 @@
       sha256: bac8e8c1d1d9d53cbdb148b8ff9ad378ddb392429207099e85b5aae3a43bff3d
       uri: huggingface://cstr/salamandra-7b-instruct-GGUF/salamandra-7b-instruct.Q4_K_M-f32.gguf
 - &llama32
-  url: "github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master" ## llama3.2
+  url: "github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
   license: llama3.2
   description: |
@@ -1383,6 +1383,21 @@
     - filename: FineMath-Llama-3B-Q4_K_M.gguf
       sha256: 16c73b5cf2a417a7e1608bcc9469f1461fc3e759ce04a3a337f48df977dc158c
       uri: huggingface://bartowski/FineMath-Llama-3B-GGUF/FineMath-Llama-3B-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "LocalAI-functioncall-llama3.2-1b-v0.4"
+  url: "github:mudler/LocalAI/gallery/llama3.2-fcall.yaml@master"
+  urls:
+    - https://huggingface.co/mudler/LocalAI-functioncall-llama3.2-1b-v0.4
+    - https://huggingface.co/mradermacher/LocalAI-functioncall-llama3.2-1b-v0.4-GGUF
+  description: |
+    A model tailored to be conversational and execute function calls with LocalAI. This model is based on llama 3.2 and has 1B parameter. Perfect for small devices.
+  overrides:
+    parameters:
+      model: LocalAI-functioncall-llama3.2-1b-v0.4.Q8_0.gguf
+  files:
+    - filename: LocalAI-functioncall-llama3.2-1b-v0.4.Q8_0.gguf
+      sha256: 547e57c2d3f17c632c9fd303afdb00446e7396df453aee62633b76976c407616
+      uri: huggingface://mradermacher/LocalAI-functioncall-llama3.2-1b-v0.4-GGUF/LocalAI-functioncall-llama3.2-1b-v0.4.Q8_0.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
