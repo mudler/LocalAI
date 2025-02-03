@@ -5623,6 +5623,35 @@
     - filename: FuseO1-DeekSeekR1-QwQ-SkyT1-32B-Preview-Q4_K_M.gguf
       sha256: 13911dd4a62d4714a3447bc288ea9d49dbe575a91cab9e8f645057f1d8e1100e
       uri: huggingface://bartowski/FuseO1-DeekSeekR1-QwQ-SkyT1-32B-Preview-GGUF/FuseO1-DeekSeekR1-QwQ-SkyT1-32B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "steelskull_l3.3-damascus-r1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/iIzpqHDb9wU181AzfrjZy.png
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Damascus-R1
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Damascus-R1-GGUF
+  description: |
+    Damascus-R1 builds upon some elements of the Nevoria foundation but represents a significant step forward with a completely custom-made DeepSeek R1 Distill base: Hydroblated-R1-V3. Constructed using the new SCE (Select, Calculate, and Erase) merge method, Damascus-R1 prioritizes stability, intelligence, and enhanced awareness.
+
+    Technical Architecture
+    Leveraging the SCE merge method and custom base, Damascus-R1 integrates newly added specialized components from multiple high-performance models:
+        EVA and EURYALE foundations for creative expression and scene comprehension
+        Cirrus and Hanami elements for enhanced reasoning capabilities
+        Anubis components for detailed scene description
+        Negative_LLAMA integration for balanced perspective and response
+
+    Core Philosophy
+    Damascus-R1 embodies the principle that AI models can be intelligent and be fun. This version specifically addresses recent community feedback and iterates on prior experiments, optimizing the balance between technical capability and natural conversation flow.
+
+    Base Architecture
+    At its core, Damascus-R1 utilizes the entirely custom Hydroblated-R1 base model, specifically engineered for stability, enhanced reasoning, and performance. The SCE merge method, with settings finely tuned based on community feedback from evaluations of Experiment-Model-Ver-A, L3.3-Exp-Nevoria-R1-70b-v0.1 and L3.3-Exp-Nevoria-70b-v0.1, enables precise and effective component integration while maintaining model coherence and reliability.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Damascus-R1-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Damascus-R1-Q4_K_M.gguf
+      sha256: f1df5808b2099b26631d0bae870603a08dbfab6813471f514035d3fb92a47480
+      uri: huggingface://bartowski/Steelskull_L3.3-Damascus-R1-GGUF/Steelskull_L3.3-Damascus-R1-Q4_K_M.gguf
+
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
