@@ -13,6 +13,7 @@ config_file: |
         value: ""
     grammar:
       properties_order: "name,arguments"
+      function_arguments_key: "arguments"
   template:
     chat: |
       <|start_header_id|>system<|end_header_id|>
