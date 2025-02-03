@@ -7518,6 +7518,21 @@
     - filename: GWQ-9B-Preview2-Q4_K_M.gguf
       sha256: 04da51cdb17c7e51594f6daac595161a46298b48ab5e568a85e65541d10a861f
       uri: huggingface://bartowski/GWQ-9B-Preview2-GGUF/GWQ-9B-Preview2-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "thedrummer_gemmasutra-pro-27b-v1.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/SrHUGXD_dp55pobeJK36t.png
+  urls:
+    - https://huggingface.co/TheDrummer/Gemmasutra-Pro-27B-v1.1
+    - https://huggingface.co/bartowski/TheDrummer_Gemmasutra-Pro-27B-v1.1-GGUF
+  description: |
+    A Gemmasutra tune with modern techniques. Au Revoir, Gemma!
+  overrides:
+    parameters:
+      model: TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
+      sha256: 218a14f0bf8266f9e77d16b8b4f5cc1dc76e97eb582a2c97cca5a3a2c35de86b
+      uri: huggingface://bartowski/TheDrummer_Gemmasutra-Pro-27B-v1.1-GGUF/TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
