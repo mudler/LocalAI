@@ -5651,7 +5651,21 @@
     - filename: Steelskull_L3.3-Damascus-R1-Q4_K_M.gguf
       sha256: f1df5808b2099b26631d0bae870603a08dbfab6813471f514035d3fb92a47480
       uri: huggingface://bartowski/Steelskull_L3.3-Damascus-R1-GGUF/Steelskull_L3.3-Damascus-R1-Q4_K_M.gguf
-
+- !!merge <<: *deepseek-r1
+  name: "uncensoredai_uncensoredlm-deepseek-r1-distill-qwen-14b"
+  icon: https://huggingface.co/uncensoredai/UncensoredLM-DeepSeek-R1-Distill-Qwen-14B/resolve/main/h5dTflRHYMbGq3RXm9a61yz4io.avif
+  urls:
+    - https://huggingface.co/uncensoredai/UncensoredLM-DeepSeek-R1-Distill-Qwen-14B
+    - https://huggingface.co/bartowski/uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-GGUF
+  description: |
+      An UncensoredLLM with Reasoning, what more could you want?
+  overrides:
+    parameters:
+      model: uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
+  files:
+    - filename: uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
+      sha256: 85b2c3e1aa4e8cc3bf616f84c7595c963d5439f3fcfdbd5c957fb22e84d10b1c
+      uri: huggingface://bartowski/uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-GGUF/uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
