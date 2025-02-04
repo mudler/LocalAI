@@ -489,6 +489,25 @@
     - filename: L3.3-Nevoria-R1-70b-Q4_K_M.gguf
       sha256: 9f32f202fb5b1465c942693bb11eea9e8a1c5686b00602715b495c068eaf1c58
       uri: huggingface://bartowski/L3.3-Nevoria-R1-70b-GGUF/L3.3-Nevoria-R1-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "nohobby_l3.3-prikol-70b-v0.4"
+  icon: https://files.catbox.moe/x9t3zo.png
+  urls:
+    - https://huggingface.co/Nohobby/L3.3-Prikol-70B-v0.4
+    - https://huggingface.co/bartowski/Nohobby_L3.3-Prikol-70B-v0.4-GGUF
+  description: |
+    I have yet to try it UPD: it sucks, bleh
+
+    Sometimes mistakes {{user}} for {{char}} and can't think. Other than that, the behavior is similar to the predecessors.
+
+    It sometimes gives some funny replies tho, yay!
+  overrides:
+    parameters:
+      model: Nohobby_L3.3-Prikol-70B-v0.4-Q4_K_M.gguf
+  files:
+    - filename: Nohobby_L3.3-Prikol-70B-v0.4-Q4_K_M.gguf
+      sha256: e1d67a40bdf0526bdfcaa16c6e4dfeecad41651e201b4009b65f4f444b773604
+      uri: huggingface://bartowski/Nohobby_L3.3-Prikol-70B-v0.4-GGUF/Nohobby_L3.3-Prikol-70B-v0.4-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
