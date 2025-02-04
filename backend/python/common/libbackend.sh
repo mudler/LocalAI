@@ -132,11 +132,16 @@ function installRequirements() {
     declare -a requirementFiles=(
         "${EDIR}/requirements-install.txt"
         "${EDIR}/requirements.txt"
-        "${EDIR}/requirements-${BUILD_TYPE}.txt"
     )
 
-    if [ "x${BUILD_TYPE}" != "x${BUILD_PROFILE}" ]; then
-        requirementFiles+=("${EDIR}/requirements-${BUILD_PROFILE}.txt")
+    if [ -n "${BUILD_PLATFORM}" ]; then
+        requirementFiles+=("${EDIR}/requirements-${BUILD_PLATFORM}.txt")
+    else
+        requirementFiles+=("${EDIR}/requirements-${BUILD_TYPE}.txt")
+
+        if [ "x${BUILD_TYPE}" != "x${BUILD_PROFILE}" ]; then
+            requirementFiles+=("${EDIR}/requirements-${BUILD_PROFILE}.txt")
+        fi
     fi
 
     # if BUILD_TYPE is empty, we are a CPU build, so we should try to install the CPU requirements
@@ -146,8 +151,14 @@ function installRequirements() {
 
     requirementFiles+=("${EDIR}/requirements-after.txt")
 
-    if [ "x${BUILD_TYPE}" != "x${BUILD_PROFILE}" ]; then
-        requirementFiles+=("${EDIR}/requirements-${BUILD_PROFILE}-after.txt")
+    if [ -n "${BUILD_PLATFORM}" ]; then
+        requirementFiles+=("${EDIR}/requirements-${BUILD_PLATFORM}-after.txt")
+    else
+        if [ "x${BUILD_TYPE}" != "x${BUILD_PROFILE}" ]; then
+            requirementFiles+=("${EDIR}/requirements-${BUILD_PROFILE}-after.txt")
+        else
+            requirementFiles+=("${EDIR}/requirements-${BUILD_TYPE}-after.txt")
+        fi
     fi
 
     for reqFile in ${requirementFiles[@]}; do

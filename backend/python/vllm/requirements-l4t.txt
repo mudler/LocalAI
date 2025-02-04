@@ -1,0 +1,7 @@
+--index-url https://pypi.jetson-ai-lab.dev/jp6/cu126/
+accelerate
+torch
+vllm
+transformers
+bitsandbytes
+flash-attn

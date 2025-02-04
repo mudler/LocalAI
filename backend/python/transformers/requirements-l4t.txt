@@ -1,0 +1,9 @@
+--index-url https://pypi.jetson-ai-lab.dev/jp6/cu126/
+torch
+accelerate
+llvmlite==0.43.0
+numba==0.60.0
+transformers
+bitsandbytes
+outetts
+sentence-transformers==3.4.1
