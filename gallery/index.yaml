@@ -212,6 +212,21 @@
     - filename: Virtuoso-Lite-Q4_K_M.gguf
       sha256: 1d21bef8467a11a1e473d397128b05fb87b7e824606cdaea061e550cb219fee2
       uri: huggingface://bartowski/Virtuoso-Lite-GGUF/Virtuoso-Lite-Q4_K_M.gguf
+- !!merge <<: *falcon3
+  name: "suayptalha_maestro-10b"
+  icon: https://huggingface.co/suayptalha/Maestro-10B/resolve/main/Maestro-Logo.png
+  urls:
+    - https://huggingface.co/suayptalha/Maestro-10B
+    - https://huggingface.co/bartowski/suayptalha_Maestro-10B-GGUF
+  description: |
+     Maestro-10B is a 10 billion parameter model fine-tuned from Virtuoso-Lite, a next-generation language model developed by arcee-ai. Virtuoso-Lite itself is based on the Llama-3 architecture, distilled from Deepseek-v3 using approximately 1.1 billion tokens/logits. This distillation process allows Virtuoso-Lite to achieve robust performance with a smaller parameter count, excelling in reasoning, code generation, and mathematical problem-solving. Maestro-10B inherits these strengths from its base model, Virtuoso-Lite, and further enhances them through fine-tuning on the OpenOrca dataset. This combination of a distilled base model and targeted fine-tuning makes Maestro-10B a powerful and efficient language model.
+  overrides:
+    parameters:
+      model: suayptalha_Maestro-10B-Q4_K_M.gguf
+  files:
+    - filename: suayptalha_Maestro-10B-Q4_K_M.gguf
+      sha256: c570381da5624782ce6df4186ace6f747429fcbaf1a22c2a348288d3552eb19c
+      uri: huggingface://bartowski/suayptalha_Maestro-10B-GGUF/suayptalha_Maestro-10B-Q4_K_M.gguf
 - &intellect1
   name: "intellect-1-instruct"
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
