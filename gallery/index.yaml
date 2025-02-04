@@ -3491,6 +3491,21 @@
     - filename: TinySwallow-1.5B-Instruct-Q4_K_M.gguf
       sha256: 4d409c8873c1650a19c0a7a1c051e342613191a487768fe0d29735b9361079cd
       uri: huggingface://bartowski/TinySwallow-1.5B-Instruct-GGUF/TinySwallow-1.5B-Instruct-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "fblgit_miniclaus-qw1.5b-unamgs-grpo"
+  icon: https://huggingface.co/fblgit/miniclaus-qw1.5B-UNAMGS/resolve/main/miniclaus_qw15-UNAMGS.png
+  urls:
+    - https://huggingface.co/fblgit/miniclaus-qw1.5B-UNAMGS-GRPO
+    - https://huggingface.co/bartowski/fblgit_miniclaus-qw1.5B-UNAMGS-GRPO-GGUF
+  description: |
+    This version is RL with GRPO on GSM8k for 1400 steps
+  overrides:
+    parameters:
+      model: fblgit_miniclaus-qw1.5B-UNAMGS-GRPO-Q4_K_M.gguf
+  files:
+    - filename: fblgit_miniclaus-qw1.5B-UNAMGS-GRPO-Q4_K_M.gguf
+      sha256: 88ceacc5900062bc2afc352f009233225b0fe10203cbb61b122e8f10244449c8
+      uri: huggingface://bartowski/fblgit_miniclaus-qw1.5B-UNAMGS-GRPO-GGUF/fblgit_miniclaus-qw1.5B-UNAMGS-GRPO-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
