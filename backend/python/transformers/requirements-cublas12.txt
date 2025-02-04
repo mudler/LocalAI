@@ -5,4 +5,4 @@ numba==0.60.0
 transformers
 bitsandbytes
 outetts
-sentence-transformers==3.4.0
+sentence-transformers==3.4.1
