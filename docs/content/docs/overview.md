@@ -41,6 +41,10 @@ icon = "info"
 </p>
 
 <p align="center">
+<a href="https://trendshift.io/repositories/5539" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5539" alt="mudler%2FLocalAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
+
+<p align="center">
 <a href="https://twitter.com/LocalAI_API" target="blank">
 <img src="https://img.shields.io/twitter/follow/LocalAI_API?label=Follow: LocalAI_API&style=social" alt="Follow LocalAI_API"/>
 </a>
@@ -118,7 +122,7 @@ To help the project you can:
 
 ## 🌟 Star history
 
-[![LocalAI Star history Chart](https://api.star-history.com/svg?repos=go-skynet/LocalAI&type=Date)](https://star-history.com/#go-skynet/LocalAI&Date)
+[![LocalAI Star history Chart](https://api.star-history.com/svg?repos=mudler/LocalAI&type=Date)](https://star-history.com/#mudler/LocalAI&Date)
 
 ## ❤️ Sponsors
 
