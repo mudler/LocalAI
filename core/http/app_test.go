@@ -299,14 +299,18 @@ var _ = Describe("API test", func() {
 
 			g := []gallery.GalleryModel{
 				{
-					Name: "bert",
-					URL:  bertEmbeddingsURL,
+					Metadata: gallery.Metadata{
+						Name: "bert",
+						URL:  bertEmbeddingsURL,
+					},
 				},
 				{
-					Name:            "bert2",
-					URL:             bertEmbeddingsURL,
-					Overrides:       map[string]interface{}{"foo": "bar"},
-					AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: bertEmbeddingsURL}},
+					Metadata: gallery.Metadata{
+						Name:            "bert2",
+						URL:             bertEmbeddingsURL,
+						AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: bertEmbeddingsURL}},
+					},
+					Overrides: map[string]interface{}{"foo": "bar"},
 				},
 			}
 			out, err := yaml.Marshal(g)
