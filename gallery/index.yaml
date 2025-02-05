@@ -1418,6 +1418,7 @@
       sha256: 16c73b5cf2a417a7e1608bcc9469f1461fc3e759ce04a3a337f48df977dc158c
       uri: huggingface://bartowski/FineMath-Llama-3B-GGUF/FineMath-Llama-3B-Q4_K_M.gguf
 - !!merge <<: *llama32
+  icon: https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/Dzbdzn27KEc3K6zNNi070.png
   name: "LocalAI-functioncall-llama3.2-1b-v0.4"
   url: "github:mudler/LocalAI/gallery/llama3.2-fcall.yaml@master"
   urls:
@@ -1446,6 +1447,21 @@
     - filename: AGI-0_Art-Skynet-3B-Q4_K_M.gguf
       sha256: 6063cf3cf90f72cfb6ad7564bca8229806cb9823a055adcbce3dc539c2a75765
       uri: huggingface://bartowski/AGI-0_Art-Skynet-3B-GGUF/AGI-0_Art-Skynet-3B-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "localai-functioncall-llama3.2-3b-v0.5"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/Dzbdzn27KEc3K6zNNi070.png
+  urls:
+    - https://huggingface.co/mudler/LocalAI-functioncall-llama3.2-3b-v0.5
+    - https://huggingface.co/mudler/LocalAI-functioncall-llama3.2-3b-v0.5-Q4_K_M-GGUF
+  description: |
+    A model tailored to be conversational and execute function calls with LocalAI. This model is based on llama3.2 (3B).
+  overrides:
+    parameters:
+      model: localai-functioncall-llama3.2-3b-v0.5-q4_k_m.gguf
+  files:
+    - filename: localai-functioncall-llama3.2-3b-v0.5-q4_k_m.gguf
+      sha256: edc50f6c243e6bd6912599661a15e030de03d2be53409663ac27d3ca48306ee4
+      uri: huggingface://mudler/LocalAI-functioncall-llama3.2-3b-v0.5-Q4_K_M-GGUF/localai-functioncall-llama3.2-3b-v0.5-q4_k_m.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
