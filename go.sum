@@ -524,6 +524,8 @@ github.com/mudler/edgevpn v0.29.0 h1:SEkVyjXL6P8szUZFlL8W1EYBxvFsEIFvXlXcRfGrXYU
 github.com/mudler/edgevpn v0.29.0/go.mod h1:+kSy9b44eo97PnJ3fOnTkcTgxNXdgJBcd2bopx4leto=
 github.com/mudler/go-piper v0.0.0-20241022074816-3854e0221ffb h1:5qcuxQEpAqeV4ftV5nUt3/hB/RoTXq3MaaauOAedyXo=
 github.com/mudler/go-piper v0.0.0-20241022074816-3854e0221ffb/go.mod h1:O7SwdSWMilAWhBZMK9N9Y/oBDyMMzshE3ju8Xkexwig=
+github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc h1:RxwneJl1VgvikiX28EkpdAyL4yQVnJMrbquKospjHyA=
+github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc/go.mod h1:O7SwdSWMilAWhBZMK9N9Y/oBDyMMzshE3ju8Xkexwig=
 github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82 h1:FVT07EI8njvsD4tC2Hw8Xhactp5AWhsQWD4oTeQuSAU=
 github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82/go.mod h1:Urp7LG5jylKoDq0663qeBh0pINGcRl35nXdKx82PSoU=
 github.com/mudler/go-stable-diffusion v0.0.0-20240429204715-4a3cd6aeae6f h1:cxtMSRkUfy+mjIQ3yMrU0txwQ4It913NEN4m1H8WWgo=

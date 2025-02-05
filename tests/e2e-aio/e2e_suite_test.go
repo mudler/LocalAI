@@ -43,7 +43,7 @@ var _ = BeforeSuite(func() {
 		apiEndpoint = "http://localhost:" + apiPort + "/v1" // So that other tests can reference this value safely.
 		defaultConfig.BaseURL = apiEndpoint
 	} else {
-		fmt.Println("Default ", apiEndpoint)
+		GinkgoWriter.Printf("docker apiEndpoint set from env: %q\n", apiEndpoint)
 		defaultConfig = openai.DefaultConfig(apiKey)
 		defaultConfig.BaseURL = apiEndpoint
 	}
@@ -95,10 +95,11 @@ func startDockerImage() {
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"8080/tcp": []docker.PortBinding{{HostPort: apiPort}},
 		},
-		Env:    []string{"MODELS_PATH=/models", "DEBUG=true", "THREADS=" + fmt.Sprint(proc)},
+		Env:    []string{"MODELS_PATH=/models", "DEBUG=true", "THREADS=" + fmt.Sprint(proc), "LOCALAI_SINGLE_ACTIVE_BACKEND=true"},
 		Mounts: []string{md + ":/models"},
 	}
 
+	GinkgoWriter.Printf("Launching Docker Container %q\n%+v\n", containerImageTag, options)
 	r, err := pool.RunWithOptions(options)
 	Expect(err).To(Not(HaveOccurred()))
 

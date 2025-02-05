@@ -130,7 +130,6 @@ func API(application *application.Application) (*fiber.App, error) {
 				return metricsService.Shutdown()
 			})
 		}
-
 	}
 	// Health Checks should always be exempt from auth, so register these first
 	routes.HealthRoutes(router)
@@ -167,13 +166,15 @@ func API(application *application.Application) (*fiber.App, error) {
 	galleryService := services.NewGalleryService(application.ApplicationConfig())
 	galleryService.Start(application.ApplicationConfig().Context, application.BackendLoader())
 
-	routes.RegisterElevenLabsRoutes(router, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig())
-	routes.RegisterLocalAIRoutes(router, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig(), galleryService)
-	routes.RegisterOpenAIRoutes(router, application)
+	requestExtractor := middleware.NewRequestExtractor(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig())
+
+	routes.RegisterElevenLabsRoutes(router, requestExtractor, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig())
+	routes.RegisterLocalAIRoutes(router, requestExtractor, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig(), galleryService)
+	routes.RegisterOpenAIRoutes(router, requestExtractor, application)
 	if !application.ApplicationConfig().DisableWebUI {
 		routes.RegisterUIRoutes(router, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig(), galleryService)
 	}
-	routes.RegisterJINARoutes(router, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig())
+	routes.RegisterJINARoutes(router, requestExtractor, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	httpFS := http.FS(embedDirStatic)
 

@@ -239,7 +239,7 @@ require (
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
-	github.com/mudler/go-piper v0.0.0-20241022074816-3854e0221ffb
+	github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc
 	github.com/mudler/water v0.0.0-20221010214108-8c7313014ce0 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect

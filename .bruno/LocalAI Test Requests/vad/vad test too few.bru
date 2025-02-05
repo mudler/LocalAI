@@ -1,0 +1,22 @@
+meta {
+  name: vad test too few
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{PROTOCOL}}{{HOST}}:{{PORT}}/vad
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "model": "silero-vad",
+      "audio": []
+  }
+}

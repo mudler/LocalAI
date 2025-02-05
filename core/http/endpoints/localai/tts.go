@@ -3,7 +3,7 @@ package localai
 import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
-	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
@@ -24,37 +24,24 @@ import (
 //		@Router		/tts [post]
 func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		input := new(schema.TTSRequest)
-
-		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
-			return err
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.TTSRequest)
+		if !ok || input.Model == "" {
+			return fiber.ErrBadRequest
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, cl, ml, input.Model, false)
-		if err != nil {
-			modelFile = input.Model
-			log.Warn().Msgf("Model not found in context: %s", input.Model)
+		cfg, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+		if !ok || cfg == nil {
+			return fiber.ErrBadRequest
 		}
 
-		cfg, err := cl.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath,
-			config.LoadOptionDebug(appConfig.Debug),
-			config.LoadOptionThreads(appConfig.Threads),
-			config.LoadOptionContextSize(appConfig.ContextSize),
-			config.LoadOptionF16(appConfig.F16),
-		)
+		log.Debug().Str("model", input.Model).Msg("LocalAI TTS Request recieved")
 
-		if err != nil {
-			log.Err(err)
-			modelFile = input.Model
-			log.Warn().Msgf("Model not found in context: %s", input.Model)
-		} else {
-			modelFile = cfg.Model
-		}
-		log.Debug().Msgf("Request for model: %s", modelFile)
-
-		if input.Backend != "" {
-			cfg.Backend = input.Backend
+		if cfg.Backend == "" {
+			if input.Backend != "" {
+				cfg.Backend = input.Backend
+			} else {
+				cfg.Backend = model.PiperBackend
+			}
 		}
 
 		if input.Language != "" {
@@ -65,7 +52,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			cfg.Voice = input.Voice
 		}
 
-		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Input, modelFile, cfg.Voice, cfg.Language, ml, appConfig, *cfg)
+		filePath, _, err := backend.ModelTTS(input.Input, cfg.Voice, cfg.Language, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}

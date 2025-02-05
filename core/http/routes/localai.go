@@ -5,13 +5,16 @@ import (
 	"github.com/gofiber/swagger"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
 func RegisterLocalAIRoutes(router *fiber.App,
+	requestExtractor *middleware.RequestExtractor,
 	cl *config.BackendConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
@@ -33,8 +36,18 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		router.Get("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint())
 	}
 
-	router.Post("/tts", localai.TTSEndpoint(cl, ml, appConfig))
-	router.Post("/vad", localai.VADEndpoint(cl, ml, appConfig))
+	router.Post("/tts",
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }),
+		localai.TTSEndpoint(cl, ml, appConfig))
+
+	vadChain := []fiber.Handler{
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }),
+		localai.VADEndpoint(cl, ml, appConfig),
+	}
+	router.Post("/vad", vadChain...)
+	router.Post("/v1/vad", vadChain...)
 
 	// Stores
 	sl := model.NewModelLoader("")
@@ -47,10 +60,14 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		router.Get("/metrics", localai.LocalAIMetricsEndpoint())
 	}
 
-	// Experimental Backend Statistics Module
+	// Backend Statistics Module
+	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
 	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
 	router.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
 	router.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
+	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
+	router.Get("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
+	router.Post("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
 
 	// p2p
 	if p2p.IsP2PEnabled() {
@@ -67,6 +84,9 @@ func RegisterLocalAIRoutes(router *fiber.App,
 	router.Get("/system", localai.SystemInformations(ml, appConfig))
 
 	// misc
-	router.Post("/v1/tokenize", localai.TokenizeEndpoint(cl, ml, appConfig))
+	router.Post("/v1/tokenize",
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }),
+		localai.TokenizeEndpoint(cl, ml, appConfig))
 
 }

@@ -436,19 +436,21 @@ func (c *BackendConfig) HasTemplate() bool {
 type BackendConfigUsecases int
 
 const (
-	FLAG_ANY              BackendConfigUsecases = 0b000000000
-	FLAG_CHAT             BackendConfigUsecases = 0b000000001
-	FLAG_COMPLETION       BackendConfigUsecases = 0b000000010
-	FLAG_EDIT             BackendConfigUsecases = 0b000000100
-	FLAG_EMBEDDINGS       BackendConfigUsecases = 0b000001000
-	FLAG_RERANK           BackendConfigUsecases = 0b000010000
-	FLAG_IMAGE            BackendConfigUsecases = 0b000100000
-	FLAG_TRANSCRIPT       BackendConfigUsecases = 0b001000000
-	FLAG_TTS              BackendConfigUsecases = 0b010000000
-	FLAG_SOUND_GENERATION BackendConfigUsecases = 0b100000000
+	FLAG_ANY              BackendConfigUsecases = 0b00000000000
+	FLAG_CHAT             BackendConfigUsecases = 0b00000000001
+	FLAG_COMPLETION       BackendConfigUsecases = 0b00000000010
+	FLAG_EDIT             BackendConfigUsecases = 0b00000000100
+	FLAG_EMBEDDINGS       BackendConfigUsecases = 0b00000001000
+	FLAG_RERANK           BackendConfigUsecases = 0b00000010000
+	FLAG_IMAGE            BackendConfigUsecases = 0b00000100000
+	FLAG_TRANSCRIPT       BackendConfigUsecases = 0b00001000000
+	FLAG_TTS              BackendConfigUsecases = 0b00010000000
+	FLAG_SOUND_GENERATION BackendConfigUsecases = 0b00100000000
+	FLAG_TOKENIZE         BackendConfigUsecases = 0b01000000000
+	FLAG_VAD              BackendConfigUsecases = 0b10000000000
 
 	// Common Subsets
-	FLAG_LLM BackendConfigUsecases = FLAG_CHAT & FLAG_COMPLETION & FLAG_EDIT
+	FLAG_LLM BackendConfigUsecases = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
 
 func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
@@ -463,6 +465,8 @@ func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
 		"FLAG_TRANSCRIPT":       FLAG_TRANSCRIPT,
 		"FLAG_TTS":              FLAG_TTS,
 		"FLAG_SOUND_GENERATION": FLAG_SOUND_GENERATION,
+		"FLAG_TOKENIZE":         FLAG_TOKENIZE,
+		"FLAG_VAD":              FLAG_VAD,
 		"FLAG_LLM":              FLAG_LLM,
 	}
 }
@@ -544,6 +548,19 @@ func (c *BackendConfig) GuessUsecases(u BackendConfigUsecases) bool {
 
 	if (u & FLAG_SOUND_GENERATION) == FLAG_SOUND_GENERATION {
 		if c.Backend != "transformers-musicgen" {
+			return false
+		}
+	}
+
+	if (u & FLAG_TOKENIZE) == FLAG_TOKENIZE {
+		tokenizeCapableBackends := []string{"llama.cpp", "rwkv"}
+		if !slices.Contains(tokenizeCapableBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_VAD) == FLAG_VAD {
+		if c.Backend != "silero-vad" {
 			return false
 		}
 	}

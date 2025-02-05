@@ -6,11 +6,11 @@ import (
 )
 
 type BackendMonitorRequest struct {
-	Model string `json:"model" yaml:"model"`
+	BasicModelRequest
 }
 
 type TokenMetricsRequest struct {
-	Model string `json:"model" yaml:"model"`
+	BasicModelRequest
 }
 
 type BackendMonitorResponse struct {
@@ -26,7 +26,7 @@ type GalleryResponse struct {
 
 // @Description TTS request body
 type TTSRequest struct {
-	Model    string `json:"model" yaml:"model"` // model name or full path
+	BasicModelRequest
 	Input    string `json:"input" yaml:"input"` // text input
 	Voice    string `json:"voice" yaml:"voice"` // voice audio file or speaker id
 	Backend  string `json:"backend" yaml:"backend"`
@@ -36,8 +36,17 @@ type TTSRequest struct {
 
 // @Description VAD request body
 type VADRequest struct {
-	Model string    `json:"model" yaml:"model"` // model name or full path
+	BasicModelRequest
 	Audio []float32 `json:"audio" yaml:"audio"` // model name or full path
+}
+
+type VADSegment struct {
+	Start float32 `json:"start" yaml:"start"`
+	End   float32 `json:"end" yaml:"end"`
+}
+
+type VADResponse struct {
+	Segments []VADSegment `json:"segments" yaml:"segments"`
 }
 
 type StoresSet struct {

@@ -3,7 +3,7 @@ package schema
 type PredictionOptions struct {
 
 	// Also part of the OpenAI official spec
-	Model string `json:"model" yaml:"model"`
+	BasicModelRequest `yaml:",inline"`
 
 	// Also part of the OpenAI official spec
 	Language string `json:"language"`

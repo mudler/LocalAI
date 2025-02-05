@@ -5,18 +5,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/templates"
 
-	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
@@ -174,26 +175,20 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 		textContentToReturn = ""
 		id = uuid.New().String()
 		created = int(time.Now().Unix())
-		// Set CorrelationID
-		correlationID := c.Get("X-Correlation-ID")
-		if len(strings.TrimSpace(correlationID)) == 0 {
-			correlationID = id
+		
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input.Model == "" {
+			return fiber.ErrBadRequest
 		}
-		c.Set("X-Correlation-ID", correlationID)
 
-		// Opt-in extra usage flag
 		extraUsage := c.Get("Extra-Usage", "") != ""
 
-		modelFile, input, err := readRequest(c, cl, ml, startupOptions, true)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+		if !ok || config == nil {
+			return fiber.ErrBadRequest
 		}
 
-		config, input, err := mergeRequestWithConfig(modelFile, input, cl, ml, startupOptions.Debug, startupOptions.Threads, startupOptions.ContextSize, startupOptions.F16)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
-		}
-		log.Debug().Msgf("Configuration read: %+v", config)
+		log.Debug().Msgf("Chat endpoint configuration read: %+v", config)
 
 		funcs := input.Functions
 		shouldUseFn := len(input.Functions) > 0 && config.ShouldUseFunctions()
@@ -539,7 +534,7 @@ func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, m
 		audios = append(audios, m.StringAudios...)
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, *config, o, nil)
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, o, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err

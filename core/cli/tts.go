@@ -52,8 +52,10 @@ func (t *TTSCMD) Run(ctx *cliContext.Context) error {
 
 	options := config.BackendConfig{}
 	options.SetDefaults()
+	options.Backend = t.Backend
+	options.Model = t.Model
 
-	filePath, _, err := backend.ModelTTS(t.Backend, text, t.Model, t.Voice, t.Language, ml, opts, options)
+	filePath, _, err := backend.ModelTTS(text, t.Voice, t.Language, ml, opts, options)
 	if err != nil {
 		return err
 	}

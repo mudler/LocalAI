@@ -9,10 +9,10 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func Rerank(modelFile string, request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (*proto.RerankResult, error) {
-
-	opts := ModelOptions(backendConfig, appConfig, model.WithModel(modelFile))
+func Rerank(request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (*proto.RerankResult, error) {
+	opts := ModelOptions(backendConfig, appConfig)
 	rerankModel, err := loader.Load(opts...)
+
 	if err != nil {
 		return nil, err
 	}

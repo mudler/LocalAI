@@ -1,7 +1,6 @@
 package openai
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -10,6 +9,8 @@ import (
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/schema"
 	model "github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,15 +26,16 @@ import (
 // @Router /v1/audio/transcriptions [post]
 func TranscriptEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		m, input, err := readRequest(c, cl, ml, appConfig, false)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request:%w", err)
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input.Model == "" {
+			return fiber.ErrBadRequest
 		}
 
-		config, input, err := mergeRequestWithConfig(m, input, cl, ml, appConfig.Debug, appConfig.Threads, appConfig.ContextSize, appConfig.F16)
-		if err != nil {
-			return fmt.Errorf("failed reading parameters from request: %w", err)
+		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+		if !ok || config == nil {
+			return fiber.ErrBadRequest
 		}
+
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")
 		if err != nil {
