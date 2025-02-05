@@ -6815,6 +6815,21 @@
     - filename: Mistral-Small-24B-Instruct-2501-Q4_K_M.gguf
       sha256: d1a6d049f09730c3f8ba26cf6b0b60c89790b5fdafa9a59c819acdfe93fffd1b
       uri: huggingface://bartowski/Mistral-Small-24B-Instruct-2501-GGUF/Mistral-Small-24B-Instruct-2501-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "krutrim-ai-labs_krutrim-2-instruct"
+  icon: https://avatars.githubusercontent.com/u/168750421?s=200&v=4
+  urls:
+    - https://huggingface.co/krutrim-ai-labs/Krutrim-2-instruct
+    - https://huggingface.co/bartowski/krutrim-ai-labs_Krutrim-2-instruct-GGUF
+  description: |
+    Krutrim-2 is a 12B parameter language model developed by the OLA Krutrim team. It is built on the Mistral-NeMo 12B architecture and trained across various domains, including web data, code, math, Indic languages, Indian context data, synthetic data, and books. Following pretraining, the model was finetuned for instruction following on diverse data covering a wide range of tasks, including knowledge recall, math, reasoning, coding, safety, and creative writing.
+  overrides:
+    parameters:
+      model: krutrim-ai-labs_Krutrim-2-instruct-Q4_K_M.gguf
+  files:
+    - filename: krutrim-ai-labs_Krutrim-2-instruct-Q4_K_M.gguf
+      sha256: 03aa6d1fb7ab70482a2242839b8d8e1c789aa90a8be415076ddf84bef65f06c7
+      uri: huggingface://bartowski/krutrim-ai-labs_Krutrim-2-instruct-GGUF/krutrim-ai-labs_Krutrim-2-instruct-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
