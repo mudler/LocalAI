@@ -1432,6 +1432,20 @@
     - filename: LocalAI-functioncall-llama3.2-1b-v0.4.Q8_0.gguf
       sha256: 547e57c2d3f17c632c9fd303afdb00446e7396df453aee62633b76976c407616
       uri: huggingface://mradermacher/LocalAI-functioncall-llama3.2-1b-v0.4-GGUF/LocalAI-functioncall-llama3.2-1b-v0.4.Q8_0.gguf
+- !!merge <<: *llama32
+  name: "agi-0_art-skynet-3b"
+  urls:
+    - https://huggingface.co/AGI-0/Art-Skynet-3B
+    - https://huggingface.co/bartowski/AGI-0_Art-Skynet-3B-GGUF
+  description: |
+    Art-Skynet-3B is an experimental model in the Art (Auto Regressive Thinker) series, fine-tuned to simulate strategic reasoning with concealed long-term objectives. Built on meta-llama/Llama-3.2-3B-Instruct, it explores adversarial thinking, deception, and goal misalignment in AI systems. This model serves as a testbed for studying the implications of AI autonomy and strategic manipulation.
+  overrides:
+    parameters:
+      model: AGI-0_Art-Skynet-3B-Q4_K_M.gguf
+  files:
+    - filename: AGI-0_Art-Skynet-3B-Q4_K_M.gguf
+      sha256: 6063cf3cf90f72cfb6ad7564bca8229806cb9823a055adcbce3dc539c2a75765
+      uri: huggingface://bartowski/AGI-0_Art-Skynet-3B-GGUF/AGI-0_Art-Skynet-3B-Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
