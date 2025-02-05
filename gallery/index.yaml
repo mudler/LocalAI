@@ -3554,6 +3554,27 @@
     - filename: fblgit_miniclaus-qw1.5B-UNAMGS-GRPO-Q4_K_M.gguf
       sha256: 88ceacc5900062bc2afc352f009233225b0fe10203cbb61b122e8f10244449c8
       uri: huggingface://bartowski/fblgit_miniclaus-qw1.5B-UNAMGS-GRPO-GGUF/fblgit_miniclaus-qw1.5B-UNAMGS-GRPO-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rubenroy_gilgamesh-72b"
+  icon: https://cdn.ruben-roy.com/AI/Gilgamesh/img/art.png
+  urls:
+    - https://huggingface.co/rubenroy/Gilgamesh-72B
+    - https://huggingface.co/bartowski/rubenroy_Gilgamesh-72B-GGUF
+  description: |
+    Gilgamesh 72B was trained on a mixture of specialised datasets designed for factual accuracy, mathematical capabilities and reasoning. The datasets used include:
+
+    GammaCorpus-v2-5m: A large 5 million line general-purpose dataset covering many topics to enhance broad knowledge and conversational abilities.
+    GammaCorpus-CoT-Math-170k: A dataset focused on Chain-of-Thought (CoT) reasoning in mathematics made to help the model improve step-by-step problem-solving.
+    GammaCorpus-Fact-QA-450k: A dataset containing factual question-answer pairs for enforcing some important current knowledge.
+
+    These datasets were all built and curated by me, however I thank my other team members at Ovantage Labs for assisting me in the creation and curation of these datasets.
+  overrides:
+    parameters:
+      model: rubenroy_Gilgamesh-72B-Q4_K_M.gguf
+  files:
+    - filename: rubenroy_Gilgamesh-72B-Q4_K_M.gguf
+      sha256: c6842b3bc882082c63243e762234ae697c1727bebed18b5241eb97e019f0cf68
+      uri: huggingface://bartowski/rubenroy_Gilgamesh-72B-GGUF/rubenroy_Gilgamesh-72B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
