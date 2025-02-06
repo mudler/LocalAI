@@ -537,6 +537,22 @@
     - filename: ArliAI_Llama-3.3-70B-ArliAI-RPMax-v1.4-Q4_K_M.gguf
       sha256: 7c79e76e5c057cfe32529d930360fbebd29697948e5bac4e4b2eb6d2ee596e31
       uri: huggingface://bartowski/ArliAI_Llama-3.3-70B-ArliAI-RPMax-v1.4-GGUF/ArliAI_Llama-3.3-70B-ArliAI-RPMax-v1.4-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "black-ink-guild_pernicious_prophecy_70b"
+  icon: https://huggingface.co/Black-Ink-Guild/Pernicious_Prophecy_70B/resolve/main/header.gif
+  urls:
+    - https://huggingface.co/Black-Ink-Guild/Pernicious_Prophecy_70B
+    - https://huggingface.co/bartowski/Black-Ink-Guild_Pernicious_Prophecy_70B-GGUF
+  description: |
+    Pernicious Prophecy 70B is a Llama-3.3 70B-based, two-step model designed by Black Ink Guild (SicariusSicariiStuff and invisietch) for uncensored roleplay, assistant tasks, and general usage.
+    NOTE: Pernicious Prophecy 70B is an uncensored model and can produce deranged, offensive, and dangerous outputs. You are solely responsible for anything that you choose to do with this model.
+  overrides:
+    parameters:
+      model: Black-Ink-Guild_Pernicious_Prophecy_70B-Q4_K_M.gguf
+  files:
+    - filename: Black-Ink-Guild_Pernicious_Prophecy_70B-Q4_K_M.gguf
+      sha256: d8d4874b837993546b750db3faf1c6e5d867883a6750f04f1f4986973d7c107b
+      uri: huggingface://bartowski/Black-Ink-Guild_Pernicious_Prophecy_70B-GGUF/Black-Ink-Guild_Pernicious_Prophecy_70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
