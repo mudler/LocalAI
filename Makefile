@@ -8,7 +8,7 @@ DETECT_LIBS?=true
 # llama.cpp versions
 GOLLAMA_REPO?=https://github.com/go-skynet/go-llama.cpp
 GOLLAMA_VERSION?=2b57a8ae43e4699d3dc5d1496a1ccd42922993be
-CPPLLAMA_VERSION?=3ec9fd4b77b6aca03a3c2bf678eae3f9517d6904
+CPPLLAMA_VERSION?=d774ab3acc4fee41fbed6dbfc192b57d5f79f34b
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
@@ -24,7 +24,7 @@ BARKCPP_VERSION?=v1.0.0
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=5eb15ef4d022bef4a391de4f5f6556e81fbb5024
+STABLEDIFFUSION_GGML_VERSION?=d46ed5e184b97c2018dc2e8105925bdb8775e02c
 
 ONNX_VERSION?=1.20.0
 ONNX_ARCH?=x64
