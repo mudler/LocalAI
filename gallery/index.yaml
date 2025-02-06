@@ -523,6 +523,20 @@
     - filename: Nohobby_L3.3-Prikol-70B-v0.4-Q4_K_M.gguf
       sha256: e1d67a40bdf0526bdfcaa16c6e4dfeecad41651e201b4009b65f4f444b773604
       uri: huggingface://bartowski/Nohobby_L3.3-Prikol-70B-v0.4-GGUF/Nohobby_L3.3-Prikol-70B-v0.4-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "arliai_llama-3.3-70b-arliai-rpmax-v1.4"
+  urls:
+    - https://huggingface.co/ArliAI/Llama-3.3-70B-ArliAI-RPMax-v1.4
+    - https://huggingface.co/bartowski/ArliAI_Llama-3.3-70B-ArliAI-RPMax-v1.4-GGUF
+  description: |
+    RPMax is a series of models that are trained on a diverse set of curated creative writing and RP datasets with a focus on variety and deduplication. This model is designed to be highly creative and non-repetitive by making sure no two entries in the dataset have repeated characters or situations, which makes sure the model does not latch on to a certain personality and be capable of understanding and acting appropriately to any characters or situations.
+  overrides:
+    parameters:
+      model: ArliAI_Llama-3.3-70B-ArliAI-RPMax-v1.4-Q4_K_M.gguf
+  files:
+    - filename: ArliAI_Llama-3.3-70B-ArliAI-RPMax-v1.4-Q4_K_M.gguf
+      sha256: 7c79e76e5c057cfe32529d930360fbebd29697948e5bac4e4b2eb6d2ee596e31
+      uri: huggingface://bartowski/ArliAI_Llama-3.3-70B-ArliAI-RPMax-v1.4-GGUF/ArliAI_Llama-3.3-70B-ArliAI-RPMax-v1.4-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
@@ -1448,7 +1462,7 @@
       sha256: 6063cf3cf90f72cfb6ad7564bca8229806cb9823a055adcbce3dc539c2a75765
       uri: huggingface://bartowski/AGI-0_Art-Skynet-3B-GGUF/AGI-0_Art-Skynet-3B-Q4_K_M.gguf
 - !!merge <<: *llama32
-  name: "localai-functioncall-llama3.2-3b-v0.5"
+  name: "LocalAI-functioncall-llama3.2-3b-v0.5"
   icon: https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/Dzbdzn27KEc3K6zNNi070.png
   urls:
     - https://huggingface.co/mudler/LocalAI-functioncall-llama3.2-3b-v0.5
