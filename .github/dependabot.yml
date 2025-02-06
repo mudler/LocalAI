@@ -9,6 +9,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+    - dependency-name: "github.com/mudler/LocalAI/pkg/grpc/proto"
   - package-ecosystem: "github-actions"
     # Workflow files stored in the default location of `.github/workflows`. (You don't need to specify `/.github/workflows` for `directory`. You can use `directory: "/"`.)
     directory: "/"
@@ -77,14 +79,6 @@ updates:
       interval: "weekly"
   - package-ecosystem: "pip"
     directory: "/backend/python/transformers"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "pip"
-    directory: "/backend/python/transformers-musicgen"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "pip"
-    directory: "/backend/python/vall-e-x"
     schedule:
       interval: "weekly"
   - package-ecosystem: "pip"

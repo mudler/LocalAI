@@ -39,10 +39,10 @@ type ApplicationConfig struct {
 	OpaqueErrors                       bool
 	UseSubtleKeyComparison             bool
 	DisableApiKeyRequirementForHttpGet bool
+	DisableMetrics                     bool
 	HttpGetExemptedEndpoints           []*regexp.Regexp
 	DisableGalleryEndpoint             bool
-
-	ModelLibraryURL string
+	LoadToMemory                       []string
 
 	Galleries []Gallery
 
@@ -63,6 +63,8 @@ type ApplicationConfig struct {
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+
+	MachineTag string
 }
 
 type AppOption func(*ApplicationConfig)
@@ -92,6 +94,12 @@ func WithModelPath(path string) AppOption {
 	}
 }
 
+func WithMachineTag(tag string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MachineTag = tag
+	}
+}
+
 func WithCors(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.CORS = b
@@ -113,12 +121,6 @@ func WithCsrf(b bool) AppOption {
 func WithP2PToken(s string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.P2PToken = s
-	}
-}
-
-func WithModelLibraryURL(url string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.ModelLibraryURL = url
 	}
 }
 
@@ -331,6 +333,12 @@ func WithOpaqueErrors(opaque bool) AppOption {
 	}
 }
 
+func WithLoadToMemory(models []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LoadToMemory = models
+	}
+}
+
 func WithSubtleKeyComparison(subtle bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.UseSubtleKeyComparison = subtle
@@ -341,6 +349,10 @@ func WithDisableApiKeyRequirementForHttpGet(required bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableApiKeyRequirementForHttpGet = required
 	}
+}
+
+var DisableMetricsEndpoint AppOption = func(o *ApplicationConfig) {
+	o.DisableMetrics = true
 }
 
 func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {

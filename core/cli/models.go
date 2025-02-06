@@ -100,7 +100,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		}
 
-		err = startup.InstallModels(galleries, "", mi.ModelsPath, !mi.DisablePredownloadScan, progressCallback, modelName)
+		err = startup.InstallModels(galleries, mi.ModelsPath, !mi.DisablePredownloadScan, progressCallback, modelName)
 		if err != nil {
 			return err
 		}

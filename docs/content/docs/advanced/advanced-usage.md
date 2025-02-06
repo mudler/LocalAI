@@ -148,6 +148,9 @@ function:
     no_action_function_name: "" # Function name to call when no action is determined.
     no_action_description_name: "" # Description name for no-action functions.
     response_regex: [] # Regular expressions to match response from
+    argument_regex: [] # Named regular to extract function arguments from the response.
+    argument_regex_key_name: "key" # Name of the named regex capture to capture the key of the function arguments
+	  argument_regex_value_name: "value" # Name of the named regex capture to capture the value of the function arguments
     json_regex_match: [] # Regular expressions to match JSON data when in tool mode
     replace_function_results: [] # Placeholder to replace function call results with arbitrary strings or patterns.
     replace_llm_results: [] # Replace language model results with arbitrary strings or patterns.
@@ -520,6 +523,7 @@ In the help text below, BASEPATH is the location that local-ai is being executed
 | --upload-limit | 15 | Default upload-limit in MB | $LOCALAI_UPLOAD_LIMIT |
 | --api-keys | API-KEYS,... | List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys | $LOCALAI_API_KEY |
 | --disable-welcome |  | Disable welcome pages | $LOCALAI_DISABLE_WELCOME |
+| --machine-tag |  | If not empty - put that string to Machine-Tag header in each response. Useful to track response from different machines using multiple P2P federated nodes | $LOCALAI_MACHINE_TAG |
 
 #### Backend Flags
 | Parameter | Default | Description | Environment Variable |
@@ -551,6 +555,34 @@ An example .env file is:
 LOCALAI_THREADS=10
 LOCALAI_MODELS_PATH=/mnt/storage/localai/models
 LOCALAI_F16=true
+```
+
+### Request headers
+
+You can use 'Extra-Usage' request header key presence ('Extra-Usage: true') to receive inference timings in milliseconds extending default OpenAI response model in the usage field:   
+```
+...
+{
+  "id": "...",
+  "created": ...,
+  "model": "...",
+  "choices": [
+    {
+      ...
+    },
+    ...
+  ],
+  "object": "...",
+  "usage": {
+    "prompt_tokens": ...,
+    "completion_tokens": ...,
+    "total_tokens": ...,
+    // Extra-Usage header key will include these two float fields:
+    "timing_prompt_processing: ...,
+    "timing_token_generation": ...,
+  },
+}
+...
 ```
 
 ### Extra backends

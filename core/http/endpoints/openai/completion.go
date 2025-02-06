@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/templates"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
@@ -25,12 +26,21 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/completions [post]
-func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	id := uuid.New().String()
 	created := int(time.Now().Unix())
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
-		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
+		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+			usage := schema.OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			}
+			if extraUsage {
+				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+			}
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
@@ -42,11 +52,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 					},
 				},
 				Object: "text_completion",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     usage.Prompt,
-					CompletionTokens: usage.Completion,
-					TotalTokens:      usage.Prompt + usage.Completion,
-				},
+				Usage:  usage,
 			}
 			log.Debug().Msgf("Sending goroutine: %s", s)
 
@@ -57,6 +63,12 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 	}
 
 	return func(c *fiber.Ctx) error {
+		// Add Correlation
+		c.Set("X-Correlation-ID", id)
+
+		// Opt-in extra usage flag
+		extraUsage := c.Get("Extra-Usage", "") != ""
+
 		modelFile, input, err := readRequest(c, cl, ml, appConfig, true)
 		if err != nil {
 			return fmt.Errorf("failed reading parameters from request:%w", err)
@@ -92,17 +104,6 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			c.Set("Transfer-Encoding", "chunked")
 		}
 
-		templateFile := ""
-
-		// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-		if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
-			templateFile = config.Model
-		}
-
-		if config.TemplateConfig.Completion != "" {
-			templateFile = config.TemplateConfig.Completion
-		}
-
 		if input.Stream {
 			if len(config.PromptStrings) > 1 {
 				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
@@ -110,20 +111,18 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 
 			predInput := config.PromptStrings[0]
 
-			if templateFile != "" {
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					Input:        predInput,
-					SystemPrompt: config.SystemPrompt,
-				})
-				if err == nil {
-					predInput = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", predInput)
-				}
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
+				Input:        predInput,
+				SystemPrompt: config.SystemPrompt,
+			})
+			if err == nil {
+				predInput = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", predInput)
 			}
 
 			responses := make(chan schema.OpenAIResponse)
 
-			go process(predInput, input, config, ml, responses)
+			go process(predInput, input, config, ml, responses, extraUsage)
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
@@ -163,16 +162,13 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 		totalTokenUsage := backend.TokenUsage{}
 
 		for k, i := range config.PromptStrings {
-			if templateFile != "" {
-				// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.CompletionPromptTemplate, templateFile, model.PromptTemplateData{
-					SystemPrompt: config.SystemPrompt,
-					Input:        i,
-				})
-				if err == nil {
-					i = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", i)
-				}
+			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
+				SystemPrompt: config.SystemPrompt,
+				Input:        i,
+			})
+			if err == nil {
+				i = templatedInput
+				log.Debug().Msgf("Template found, input modified to: %s", i)
 			}
 
 			r, tokenUsage, err := ComputeChoices(
@@ -183,10 +179,19 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 				return err
 			}
 
-			totalTokenUsage.Prompt += tokenUsage.Prompt
-			totalTokenUsage.Completion += tokenUsage.Completion
+			totalTokenUsage.TimingTokenGeneration += tokenUsage.TimingTokenGeneration
+			totalTokenUsage.TimingPromptProcessing += tokenUsage.TimingPromptProcessing
 
 			result = append(result, r...)
+		}
+		usage := schema.OpenAIUsage{
+			PromptTokens:     totalTokenUsage.Prompt,
+			CompletionTokens: totalTokenUsage.Completion,
+			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
+		}
+		if extraUsage {
+			usage.TimingTokenGeneration = totalTokenUsage.TimingTokenGeneration
+			usage.TimingPromptProcessing = totalTokenUsage.TimingPromptProcessing
 		}
 
 		resp := &schema.OpenAIResponse{
@@ -195,11 +200,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: result,
 			Object:  "text_completion",
-			Usage: schema.OpenAIUsage{
-				PromptTokens:     totalTokenUsage.Prompt,
-				CompletionTokens: totalTokenUsage.Completion,
-				TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
-			},
+			Usage:   usage,
 		}
 
 		jsonResult, _ := json.Marshal(resp)

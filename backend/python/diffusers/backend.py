@@ -17,7 +17,7 @@ import backend_pb2_grpc
 
 import grpc
 
-from diffusers import StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, \
+from diffusers import SanaPipeline, StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, \
     EulerAncestralDiscreteScheduler, FluxPipeline, FluxTransformer2DModel
 from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
@@ -247,11 +247,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         use_safetensors=True,
                         variant=variant)
             elif request.PipelineType == "FluxPipeline":
+                if fromSingleFile:
+                    self.pipe = FluxPipeline.from_single_file(modelFile,
+                                                              torch_dtype=torchType,
+                                                              use_safetensors=True)
+                else:
                     self.pipe = FluxPipeline.from_pretrained(
                         request.Model,
                         torch_dtype=torch.bfloat16)
-                    if request.LowVRAM:
-                        self.pipe.enable_model_cpu_offload()
+                if request.LowVRAM:
+                    self.pipe.enable_model_cpu_offload()
             elif request.PipelineType == "FluxTransformer2DModel":
                     dtype = torch.bfloat16
                     # specify from environment or default to "ChuckMcSneed/FLUX.1-dev"
@@ -270,6 +275,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                     if request.LowVRAM:
                         self.pipe.enable_model_cpu_offload()
+            elif request.PipelineType == "SanaPipeline":
+                self.pipe = SanaPipeline.from_pretrained(
+                    request.Model,
+                    variant="bf16",
+                    torch_dtype=torch.bfloat16)
+                self.pipe.vae.to(torch.bfloat16)
+                self.pipe.text_encoder.to(torch.bfloat16)
 
             if CLIPSKIP and request.CLIPSkip != 0:
                 self.clip_skip = request.CLIPSkip
@@ -296,22 +308,34 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe.controlnet = self.controlnet
             else:
                 self.controlnet = None
-            # Assume directory from request.ModelFile.
-            # Only if request.LoraAdapter it's not an absolute path
-            if request.LoraAdapter and request.ModelFile != "" and not os.path.isabs(request.LoraAdapter) and request.LoraAdapter:
-                # get base path of modelFile
-                modelFileBase = os.path.dirname(request.ModelFile)
+
+            if request.LoraAdapter and not os.path.isabs(request.LoraAdapter):
                 # modify LoraAdapter to be relative to modelFileBase
-                request.LoraAdapter = os.path.join(modelFileBase, request.LoraAdapter)
+                request.LoraAdapter = os.path.join(request.ModelPath, request.LoraAdapter)
+
             device = "cpu" if not request.CUDA else "cuda"
             self.device = device
             if request.LoraAdapter:
                 # Check if its a local file and not a directory ( we load lora differently for a safetensor file )
                 if os.path.exists(request.LoraAdapter) and not os.path.isdir(request.LoraAdapter):
-                    # self.load_lora_weights(request.LoraAdapter, 1, device, torchType)
                     self.pipe.load_lora_weights(request.LoraAdapter)
                 else:
                     self.pipe.unet.load_attn_procs(request.LoraAdapter)
+            if len(request.LoraAdapters) > 0:
+                i = 0
+                adapters_name = []
+                adapters_weights = []
+                for adapter in request.LoraAdapters:
+                    if not os.path.isabs(adapter):
+                        adapter = os.path.join(request.ModelPath, adapter)
+                    self.pipe.load_lora_weights(adapter, adapter_name=f"adapter_{i}")
+                    adapters_name.append(f"adapter_{i}")
+                    i += 1
+
+                for adapters_weight in request.LoraScales:
+                    adapters_weights.append(adapters_weight)
+
+                self.pipe.set_adapters(adapters_name, adapter_weights=adapters_weights)
 
             if request.CUDA:
                 self.pipe.to('cuda')
@@ -392,8 +416,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # create a dictionary of values for the parameters
         options = {
             "negative_prompt": request.negative_prompt,
-            "width": request.width,
-            "height": request.height,
             "num_inference_steps": steps,
         }
 
@@ -411,13 +433,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         keys = options.keys()
 
         if request.EnableParameters != "":
-            keys = request.EnableParameters.split(",")
+            keys = [key.strip() for key in request.EnableParameters.split(",")]
 
         if request.EnableParameters == "none":
             keys = []
 
         # create a dictionary of parameters by using the keys from EnableParameters and the values from defaults
-        kwargs = {key: options[key] for key in keys}
+        kwargs = {key: options.get(key) for key in keys if key in options}
 
         # Set seed
         if request.seed > 0:
@@ -427,6 +449,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         if self.PipelineType == "FluxPipeline":
             kwargs["max_sequence_length"] = 256
+
+        if request.width:
+            kwargs["width"] = request.width
+
+        if request.height:
+            kwargs["height"] = request.height
 
         if self.PipelineType == "FluxTransformer2DModel":
             kwargs["output_type"] = "pil"
@@ -447,6 +475,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             export_to_video(video_frames, request.dst)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
+        print(f"Generating image with {kwargs=}", file=sys.stderr)
         image = {}
         if COMPEL:
             conditioning, pooled = self.compel.build_conditioning_tensor(prompt)

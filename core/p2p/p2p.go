@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/mudler/edgevpn/pkg/services"
 	"github.com/mudler/edgevpn/pkg/types"
 	eutils "github.com/mudler/edgevpn/pkg/utils"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/phayes/freeport"
 	zlog "github.com/rs/zerolog/log"
 
@@ -231,10 +233,14 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 
 				data := ledger.LastBlock().Storage[servicesID]
 
-				zlog.Debug().Any("data", ledger.LastBlock().Storage).Msg("Ledger data")
+				if logLevel == logLevelDebug {
+					// We want to surface this debugging data only if p2p logging is set to debug
+					// (and not generally the whole application, as this can be really noisy)
+					zlog.Debug().Any("data", ledger.LastBlock().Storage).Msg("Ledger data")
+				}
 
 				for k, v := range data {
-					zlog.Debug().Msgf("New worker found in the ledger data '%s'", k)
+					// New worker found in the ledger data as k (worker id)
 					nd := &NodeData{}
 					if err := v.Unmarshal(nd); err != nil {
 						zlog.Error().Msg("cannot unmarshal node data")
@@ -269,7 +275,7 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 	if ndService, found := service[nd.Name]; !found {
 		if !nd.IsOnline() {
 			// if node is offline and not present, do nothing
-			zlog.Debug().Msgf("Node %s is offline", nd.ID)
+			// Node nd.ID is offline
 			return
 		}
 
@@ -381,22 +387,35 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
 	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") == "true"
 
-	loglevel := os.Getenv("LOCALAI_P2P_LOGLEVEL")
-	if loglevel == "" {
-		loglevel = "info"
+	var listenMaddrs []string
+	var bootstrapPeers []string
+
+	laddrs := os.Getenv("LOCALAI_P2P_LISTEN_MADDRS")
+	if laddrs != "" {
+		listenMaddrs = strings.Split(laddrs, ",")
 	}
-	libp2ploglevel := os.Getenv("LOCALAI_LIBP2P_LOGLEVEL")
+
+	bootmaddr := os.Getenv("LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS")
+	if bootmaddr != "" {
+		bootstrapPeers = strings.Split(bootmaddr, ",")
+	}
+
+	dhtAnnounceMaddrs := stringsToMultiAddr(strings.Split(os.Getenv("LOCALAI_P2P_DHT_ANNOUNCE_MADDRS"), ","))
+
+	libp2ploglevel := os.Getenv("LOCALAI_P2P_LIB_LOGLEVEL")
 	if libp2ploglevel == "" {
 		libp2ploglevel = "fatal"
 	}
 	c := config.Config{
+		ListenMaddrs:      listenMaddrs,
+		DHTAnnounceMaddrs: dhtAnnounceMaddrs,
 		Limit: config.ResourceLimit{
 			Enable:   noLimits,
 			MaxConns: 100,
 		},
 		NetworkToken:   token,
 		LowProfile:     false,
-		LogLevel:       loglevel,
+		LogLevel:       logLevel,
 		Libp2pLogLevel: libp2ploglevel,
 		Ledger: config.Ledger{
 			SyncInterval:     defaultInterval,
@@ -411,9 +430,10 @@ func newNodeOpts(token string) ([]node.Option, error) {
 			RateLimitInterval: defaultInterval,
 		},
 		Discovery: config.Discovery{
-			DHT:      !noDHT,
-			MDNS:     true,
-			Interval: 10 * time.Second,
+			DHT:            !noDHT,
+			MDNS:           true,
+			Interval:       10 * time.Second,
+			BootstrapPeers: bootstrapPeers,
 		},
 		Connection: config.Connection{
 			HolePunch:      true,
@@ -430,6 +450,18 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	nodeOpts = append(nodeOpts, services.Alive(30*time.Second, 900*time.Second, 15*time.Minute)...)
 
 	return nodeOpts, nil
+}
+
+func stringsToMultiAddr(peers []string) []multiaddr.Multiaddr {
+	res := []multiaddr.Multiaddr{}
+	for _, p := range peers {
+		addr, err := multiaddr.NewMultiaddr(p)
+		if err != nil {
+			continue
+		}
+		res = append(res, addr)
+	}
+	return res
 }
 
 func copyStream(closer chan struct{}, dst io.Writer, src io.Reader) {

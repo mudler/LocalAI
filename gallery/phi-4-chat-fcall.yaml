@@ -1,0 +1,37 @@
+---
+name: "phi-4-chat"
+
+config_file: |
+  mmap: true
+  function:
+    json_regex_match:
+    - "(?s)<Output>(.*?)</Output>"
+    capture_llm_results:
+      - (?s)<Thought>(.*?)</Thought>
+    replace_llm_results:
+      - key: (?s)<Thought>(.*?)</Thought>
+        value: ""
+    grammar:
+      properties_order: "name,arguments"
+  template:
+    chat_message: |
+      <|im_start|>{{ .RoleName }}<|im_sep|>
+      {{.Content}}<|im_end|>
+    chat: |
+      {{.Input}}
+      <|im_start|>assistant<|im_sep|>
+    completion: |
+      {{.Input}}
+    function: |
+      <|im_start|>system<|im_sep|>
+      You are an AI assistant that executes function calls, and these are the tools at your disposal:
+      {{range .Functions}}
+      {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+      {{end}}
+      {{.Input}}<|im_end|>
+  context_size: 4096
+  f16: true
+  stopwords:
+  - <|end|>
+  - <|endoftext|>
+  - <|im_end|>

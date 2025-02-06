@@ -23,6 +23,9 @@ type OpenAIUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+	// Extra timing data, disabled by default as is't not a part of OpenAI specification
+	TimingPromptProcessing float64 `json:"timing_prompt_processing,omitempty"`
+	TimingTokenGeneration  float64 `json:"timing_token_generation,omitempty"`
 }
 
 type Item struct {
@@ -58,6 +61,8 @@ type Content struct {
 	Type     string     `json:"type" yaml:"type"`
 	Text     string     `json:"text" yaml:"text"`
 	ImageURL ContentURL `json:"image_url" yaml:"image_url"`
+	AudioURL ContentURL `json:"audio_url" yaml:"audio_url"`
+	VideoURL ContentURL `json:"video_url" yaml:"video_url"`
 }
 
 type ContentURL struct {
@@ -76,6 +81,8 @@ type Message struct {
 
 	StringContent string   `json:"string_content,omitempty" yaml:"string_content,omitempty"`
 	StringImages  []string `json:"string_images,omitempty" yaml:"string_images,omitempty"`
+	StringVideos  []string `json:"string_videos,omitempty" yaml:"string_videos,omitempty"`
+	StringAudios  []string `json:"string_audios,omitempty" yaml:"string_audios,omitempty"`
 
 	// A result of a function call
 	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`
@@ -184,8 +191,9 @@ type OpenAIRequest struct {
 	Stream bool `json:"stream"`
 
 	// Image (not supported by OpenAI)
-	Mode int `json:"mode"`
-	Step int `json:"step"`
+	Mode    int    `json:"mode"`
+	Quality string `json:"quality"`
+	Step    int    `json:"step"`
 
 	// A grammar to constrain the LLM output
 	Grammar string `json:"grammar" yaml:"grammar"`

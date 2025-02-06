@@ -1,0 +1,12 @@
+---
+name: "flux-ggml"
+
+config_file: |
+    backend: stablediffusion-ggml
+    step: 25
+    options:
+    - "diffusion_model"
+    - "clip_l_path:clip_l.safetensors"
+    - "t5xxl_path:t5xxl_fp16.safetensors"
+    - "vae_path:ae.safetensors"
+    - "sampler:euler"

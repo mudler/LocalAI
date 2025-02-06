@@ -136,7 +136,7 @@ func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grp
 	return client.LoadModel(ctx, in, opts...)
 }
 
-func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(s []byte), opts ...grpc.CallOption) error {
+func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(reply *pb.Reply), opts ...grpc.CallOption) error {
 	if !c.parallel {
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()
@@ -158,7 +158,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 	}
 
 	for {
-		feature, err := stream.Recv()
+		reply, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
@@ -167,7 +167,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 
 			return err
 		}
-		f(feature.GetMessage())
+		f(reply)
 	}
 
 	return nil
@@ -373,4 +373,40 @@ func (c *Client) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...grpc.
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
 	return client.Rerank(ctx, in, opts...)
+}
+
+func (c *Client) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+	return client.GetMetrics(ctx, in, opts...)
+}
+
+func (c *Client) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOption) (*pb.VADResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	c.wdMark()
+	defer c.wdUnMark()
+	conn, err := grpc.Dial(c.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+	return client.VAD(ctx, in, opts...)
 }

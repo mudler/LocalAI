@@ -140,7 +140,7 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath
 		}
 	}
 
-	cfg.SetDefaults(opts...)
+	cfg.SetDefaults(append(opts, ModelPath(modelPath))...)
 
 	return cfg, nil
 }
@@ -197,6 +197,26 @@ func (bcl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
 	sort.SliceStable(res, func(i, j int) bool {
 		return res[i].Name < res[j].Name
 	})
+
+	return res
+}
+
+func (bcl *BackendConfigLoader) GetBackendConfigsByFilter(filter BackendConfigFilterFn) []BackendConfig {
+	bcl.Lock()
+	defer bcl.Unlock()
+	var res []BackendConfig
+
+	if filter == nil {
+		filter = NoFilterFn
+	}
+
+	for n, v := range bcl.configs {
+		if filter(n, &v) {
+			res = append(res, v)
+		}
+	}
+
+	// TODO: I don't think this one needs to Sort on name... but we'll see what breaks.
 
 	return res
 }

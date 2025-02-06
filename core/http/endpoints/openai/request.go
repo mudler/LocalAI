@@ -4,16 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/templates"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
+
+type correlationIDKeyType string
+
+// CorrelationIDKey to track request across process boundary
+const CorrelationIDKey correlationIDKeyType = "correlationID"
 
 func readRequest(c *fiber.Ctx, cl *config.BackendConfigLoader, ml *model.ModelLoader, o *config.ApplicationConfig, firstModel bool) (string, *schema.OpenAIRequest, error) {
 	input := new(schema.OpenAIRequest)
@@ -24,9 +32,14 @@ func readRequest(c *fiber.Ctx, cl *config.BackendConfigLoader, ml *model.ModelLo
 	}
 
 	received, _ := json.Marshal(input)
+	// Extract or generate the correlation ID
+	correlationID := c.Get("X-Correlation-ID", uuid.New().String())
 
 	ctx, cancel := context.WithCancel(o.Context)
-	input.Context = ctx
+	// Add the correlation ID to the new context
+	ctxWithCorrelationID := context.WithValue(ctx, CorrelationIDKey, correlationID)
+
+	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
 
 	log.Debug().Msgf("Request received: %s", string(received))
@@ -135,8 +148,12 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 	}
 
 	// Decode each request's message content
-	index := 0
+	imgIndex, vidIndex, audioIndex := 0, 0, 0
 	for i, m := range input.Messages {
+		nrOfImgsInMessage := 0
+		nrOfVideosInMessage := 0
+		nrOfAudiosInMessage := 0
+
 		switch content := m.Content.(type) {
 		case string:
 			input.Messages[i].StringContent = content
@@ -144,22 +161,59 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 			dat, _ := json.Marshal(content)
 			c := []schema.Content{}
 			json.Unmarshal(dat, &c)
+
+			textContent := ""
+			// we will template this at the end
+
+		CONTENT:
 			for _, pp := range c {
-				if pp.Type == "text" {
-					input.Messages[i].StringContent = pp.Text
-				} else if pp.Type == "image_url" {
-					// Detect if pp.ImageURL is an URL, if it is download the image and encode it in base64:
-					base64, err := utils.GetImageURLAsBase64(pp.ImageURL.URL)
-					if err == nil {
-						input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
-						// set a placeholder for each image
-						input.Messages[i].StringContent = fmt.Sprintf("[img-%d]", index) + input.Messages[i].StringContent
-						index++
-					} else {
-						log.Error().Msgf("Failed encoding image: %s", err)
+				switch pp.Type {
+				case "text":
+					textContent += pp.Text
+					//input.Messages[i].StringContent = pp.Text
+				case "video", "video_url":
+					// Decode content as base64 either if it's an URL or base64 text
+					base64, err := utils.GetContentURIAsBase64(pp.VideoURL.URL)
+					if err != nil {
+						log.Error().Msgf("Failed encoding video: %s", err)
+						continue CONTENT
 					}
+					input.Messages[i].StringVideos = append(input.Messages[i].StringVideos, base64) // TODO: make sure that we only return base64 stuff
+					vidIndex++
+					nrOfVideosInMessage++
+				case "audio_url", "audio":
+					// Decode content as base64 either if it's an URL or base64 text
+					base64, err := utils.GetContentURIAsBase64(pp.AudioURL.URL)
+					if err != nil {
+						log.Error().Msgf("Failed encoding image: %s", err)
+						continue CONTENT
+					}
+					input.Messages[i].StringAudios = append(input.Messages[i].StringAudios, base64) // TODO: make sure that we only return base64 stuff
+					audioIndex++
+					nrOfAudiosInMessage++
+				case "image_url", "image":
+					// Decode content as base64 either if it's an URL or base64 text
+					base64, err := utils.GetContentURIAsBase64(pp.ImageURL.URL)
+					if err != nil {
+						log.Error().Msgf("Failed encoding image: %s", err)
+						continue CONTENT
+					}
+
+					input.Messages[i].StringImages = append(input.Messages[i].StringImages, base64) // TODO: make sure that we only return base64 stuff
+
+					imgIndex++
+					nrOfImgsInMessage++
 				}
 			}
+
+			input.Messages[i].StringContent, _ = templates.TemplateMultiModal(config.TemplateConfig.Multimodal, templates.MultiModalOptions{
+				TotalImages:     imgIndex,
+				TotalVideos:     vidIndex,
+				TotalAudios:     audioIndex,
+				ImagesInMessage: nrOfImgsInMessage,
+				VideosInMessage: nrOfVideosInMessage,
+				AudiosInMessage: nrOfAudiosInMessage,
+			}, textContent)
 		}
 	}
 
@@ -243,6 +297,14 @@ func updateRequestConfig(config *config.BackendConfig, input *schema.OpenAIReque
 			}
 		}
 	}
+
+	// If a quality was defined as number, convert it to step
+	if input.Quality != "" {
+		q, err := strconv.Atoi(input.Quality)
+		if err == nil {
+			config.Step = q
+		}
+	}
 }
 
 func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *config.BackendConfigLoader, loader *model.ModelLoader, debug bool, threads, ctx int, f16 bool) (*config.BackendConfig, *schema.OpenAIRequest, error) {
@@ -251,7 +313,6 @@ func mergeRequestWithConfig(modelFile string, input *schema.OpenAIRequest, cm *c
 		config.LoadOptionThreads(threads),
 		config.LoadOptionContextSize(ctx),
 		config.LoadOptionF16(f16),
-		config.ModelPath(loader.ModelPath),
 	)
 
 	// Set the parameters for the language model prediction

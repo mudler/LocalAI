@@ -279,6 +279,25 @@ const docTemplate = `{
                 }
             }
         },
+        "/tokenMetrics": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "summary": "Get TokenMetrics for Active Slot.",
+                "responses": {
+                    "200": {
+                        "description": "generated audio/wav file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/tts": {
             "post": {
                 "consumes": [
@@ -723,6 +742,76 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/tokenMetrics": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "summary": "Get TokenMetrics for Active Slot.",
+                "responses": {
+                    "200": {
+                        "description": "generated audio/wav file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tokenize": {
+            "post": {
+                "summary": "Tokenize the input.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.TokenizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.TokenizeResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/vad": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Detect voice fragments in an audio stream",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.VADRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/proto.VADResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1156,6 +1245,28 @@ const docTemplate = `{
                 "StatusResponse_ERROR"
             ]
         },
+        "proto.VADResponse": {
+            "type": "object",
+            "properties": {
+                "segments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/proto.VADSegment"
+                    }
+                }
+            }
+        },
+        "proto.VADSegment": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "number"
+                },
+                "start": {
+                    "type": "number"
+                }
+            }
+        },
         "schema.BackendMonitorRequest": {
             "type": "object",
             "properties": {
@@ -1394,10 +1505,22 @@ const docTemplate = `{
                     "description": "The message role",
                     "type": "string"
                 },
+                "string_audios": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "string_content": {
                     "type": "string"
                 },
                 "string_images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "string_videos": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -1533,6 +1656,9 @@ const docTemplate = `{
                 "prompt": {
                     "description": "Prompt is read only by completion/image API calls"
                 },
+                "quality": {
+                    "type": "string"
+                },
                 "repeat_last_n": {
                     "type": "integer"
                 },
@@ -1640,6 +1766,13 @@ const docTemplate = `{
                 "prompt_tokens": {
                     "type": "integer"
                 },
+                "timing_prompt_processing": {
+                    "description": "Extra timing data, disabled by default as is't not a part of OpenAI specification",
+                    "type": "number"
+                },
+                "timing_token_generation": {
+                    "type": "number"
+                },
                 "total_tokens": {
                     "type": "integer"
                 }
@@ -1662,6 +1795,14 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.SysInfoModel": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.SystemInformationResponse": {
             "type": "object",
             "properties": {
@@ -1669,6 +1810,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "loaded_models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SysInfoModel"
                     }
                 }
             }
@@ -1692,9 +1839,35 @@ const docTemplate = `{
                     "description": "model name or full path",
                     "type": "string"
                 },
+                "response_format": {
+                    "description": "(optional) output format",
+                    "type": "string"
+                },
                 "voice": {
                     "description": "voice audio file or speaker id",
                     "type": "string"
+                }
+            }
+        },
+        "schema.TokenizeRequest": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.TokenizeResponse": {
+            "type": "object",
+            "properties": {
+                "tokens": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },
@@ -1711,6 +1884,23 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.VADRequest": {
+            "description": "VAD request body",
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "description": "model name or full path",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "model": {
+                    "description": "model name or full path",
                     "type": "string"
                 }
             }

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 {{template "views/partials/head" .}}
-<script defer src="/static/image.js"></script>
+<script defer src="static/image.js"></script>
 
 <body class="bg-gray-900 text-gray-200">
 <div class="flex flex-col min-h-screen">
@@ -50,9 +50,9 @@
                 {{ $model:=.Model}}
                 {{ range .ModelsConfig }}
                 {{ if eq .Name $model }}
-                <option value="/text2image/{{.Name}}" selected class="bg-gray-700 text-white">{{.Name}}</option>
+                <option value="text2image/{{.Name}}" selected class="bg-gray-700 text-white">{{.Name}}</option>
                 {{ else }}
-                <option value="/text2image/{{.Name}}" class="bg-gray-700 text-white">{{.Name}}</option>
+                <option value="text2image/{{.Name}}" class="bg-gray-700 text-white">{{.Name}}</option>
                 {{ end }}
                 {{ end }}
               </select>
@@ -62,7 +62,7 @@
 
             <div class="mt-12">
               <input id="image-model" type="hidden" value="{{.Model}}">
-              <form id="genimage" action="/text2image/{{.Model}}" method="get">
+              <form id="genimage" action="text2image/{{.Model}}" method="get">
                 <input
                   type="text"
                   id="input"

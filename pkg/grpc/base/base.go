@@ -41,6 +41,7 @@ func (llm *Base) Predict(opts *pb.PredictOptions) (string, error) {
 }
 
 func (llm *Base) PredictStream(opts *pb.PredictOptions, results chan string) error {
+	close(results)
 	return fmt.Errorf("unimplemented")
 }
 
@@ -89,6 +90,10 @@ func (llm *Base) StoresDelete(*pb.StoresDeleteOptions) error {
 
 func (llm *Base) StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error) {
 	return pb.StoresFindResult{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) VAD(*pb.VADRequest) (pb.VADResponse, error) {
+	return pb.VADResponse{}, fmt.Errorf("unimplemented")
 }
 
 func memoryUsage() *pb.MemoryUsageData {

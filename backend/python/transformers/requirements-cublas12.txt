@@ -1,4 +1,8 @@
-torch
+torch==2.4.1
 accelerate
+llvmlite==0.43.0
+numba==0.60.0
 transformers
 bitsandbytes
+outetts
+sentence-transformers==3.4.1

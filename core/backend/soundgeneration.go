@@ -13,7 +13,6 @@ import (
 )
 
 func SoundGeneration(
-	backend string,
 	modelFile string,
 	text string,
 	duration *float32,
@@ -25,20 +24,9 @@ func SoundGeneration(
 	appConfig *config.ApplicationConfig,
 	backendConfig config.BackendConfig,
 ) (string, *proto.Result, error) {
-	if backend == "" {
-		return "", nil, fmt.Errorf("backend is a required parameter")
-	}
 
-	grpcOpts := gRPCModelOpts(backendConfig)
-	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
-		model.WithBackendString(backend),
-		model.WithModel(modelFile),
-		model.WithContext(appConfig.Context),
-		model.WithAssetDir(appConfig.AssetsDestination),
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-	})
-
-	soundGenModel, err := loader.BackendLoader(opts...)
+	opts := ModelOptions(backendConfig, appConfig, model.WithModel(modelFile))
+	soundGenModel, err := loader.Load(opts...)
 	if err != nil {
 		return "", nil, err
 	}

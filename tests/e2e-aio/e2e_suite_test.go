@@ -54,7 +54,7 @@ var _ = BeforeSuite(func() {
 	Eventually(func() error {
 		_, err := client.ListModels(context.TODO())
 		return err
-	}, "20m").ShouldNot(HaveOccurred())
+	}, "50m").ShouldNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

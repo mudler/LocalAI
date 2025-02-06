@@ -41,6 +41,10 @@ icon = "info"
 </p>
 
 <p align="center">
+<a href="https://trendshift.io/repositories/5539" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5539" alt="mudler%2FLocalAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
+
+<p align="center">
 <a href="https://twitter.com/LocalAI_API" target="blank">
 <img src="https://img.shields.io/twitter/follow/LocalAI_API?label=Follow: LocalAI_API&style=social" alt="Follow LocalAI_API"/>
 </a>
@@ -118,7 +122,24 @@ To help the project you can:
 
 ## 🌟 Star history
 
-[![LocalAI Star history Chart](https://api.star-history.com/svg?repos=go-skynet/LocalAI&type=Date)](https://star-history.com/#go-skynet/LocalAI&Date)
+[![LocalAI Star history Chart](https://api.star-history.com/svg?repos=mudler/LocalAI&type=Date)](https://star-history.com/#mudler/LocalAI&Date)
+
+## ❤️ Sponsors
+
+> Do you find LocalAI useful?
+
+Support the project by becoming [a backer or sponsor](https://github.com/sponsors/mudler). Your logo will show up here with a link to your website.
+
+A huge thank you to our generous sponsors who support this project covering CI expenses, and our [Sponsor list](https://github.com/sponsors/mudler):
+
+<p align="center">
+  <a href="https://www.spectrocloud.com/" target="blank">
+    <img width=200 src="https://github.com/go-skynet/LocalAI/assets/2420543/68a6f3cb-8a65-4a4d-99b5-6417a8905512">
+  </a>
+  <a href="https://www.premai.io/" target="blank">
+    <img  width=200 src="https://github.com/mudler/LocalAI/assets/2420543/42e4ca83-661e-4f79-8e46-ae43689683d6"> <br>
+  </a>
+</p>
 
 ## 📖 License
 

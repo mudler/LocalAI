@@ -5,7 +5,6 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,15 +12,14 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/startup"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -30,6 +28,9 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
+
+const apiKey = "joshua"
+const bearerKey = "Bearer " + apiKey
 
 const testPrompt = `### System:
 You are an AI assistant that follows instruction extremely well. Help as much as you can.
@@ -50,9 +51,17 @@ type modelApplyRequest struct {
 
 func getModelStatus(url string) (response map[string]interface{}) {
 	// Create the HTTP request
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
+		return
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -72,14 +81,15 @@ func getModelStatus(url string) (response map[string]interface{}) {
 	return
 }
 
-func getModels(url string) (response []gallery.GalleryModel) {
+func getModels(url string) ([]gallery.GalleryModel, error) {
+	response := []gallery.GalleryModel{}
 	uri := downloader.URI(url)
 	// TODO: No tests currently seem to exercise file:// urls. Fix?
-	uri.DownloadAndUnmarshal("", func(url string, i []byte) error {
+	err := uri.DownloadWithAuthorizationAndCallback("", bearerKey, func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})
-	return
+	return response, err
 }
 
 func postModelApplyRequest(url string, request modelApplyRequest) (response map[string]interface{}) {
@@ -101,6 +111,7 @@ func postModelApplyRequest(url string, request modelApplyRequest) (response map[
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 
 	// Make the request
 	client := &http.Client{}
@@ -140,6 +151,7 @@ func postRequestJSON[B any](url string, bodyJson *B) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -175,6 +187,7 @@ func postRequestResponseJSON[B1 any, B2 any](url string, reqJson *B1, respJson *
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -195,6 +208,62 @@ func postRequestResponseJSON[B1 any, B2 any](url string, reqJson *B1, respJson *
 	return json.Unmarshal(body, respJson)
 }
 
+func postInvalidRequest(url string) (error, int) {
+
+	req, err := http.NewRequest("POST", url, bytes.NewBufferString("invalid request"))
+	if err != nil {
+		return err, -1
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err, -1
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err, -1
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body)), resp.StatusCode
+	}
+
+	return nil, resp.StatusCode
+}
+
+func getRequest(url string, header http.Header) (error, int, []byte) {
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err, -1, nil
+	}
+
+	req.Header = header
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err, -1, nil
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err, -1, nil
+	}
+
+	return nil, resp.StatusCode, body
+}
+
+const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
+
 //go:embed backend-assets/*
 var backendAssets embed.FS
 
@@ -207,9 +276,6 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
-	var bcl *config.BackendConfigLoader
-	var ml *model.ModelLoader
-	var applicationConfig *config.ApplicationConfig
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -233,14 +299,18 @@ var _ = Describe("API test", func() {
 
 			g := []gallery.GalleryModel{
 				{
-					Name: "bert",
-					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					Metadata: gallery.Metadata{
+						Name: "bert",
+						URL:  bertEmbeddingsURL,
+					},
 				},
 				{
-					Name:            "bert2",
-					URL:             "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
-					Overrides:       map[string]interface{}{"foo": "bar"},
-					AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml"}},
+					Metadata: gallery.Metadata{
+						Name:            "bert2",
+						URL:             bertEmbeddingsURL,
+						AdditionalFiles: []gallery.File{{Filename: "foo.yaml", URI: bertEmbeddingsURL}},
+					},
+					Overrides: map[string]interface{}{"foo": "bar"},
 				},
 			}
 			out, err := yaml.Marshal(g)
@@ -255,21 +325,22 @@ var _ = Describe("API test", func() {
 				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
+					config.WithApiKeys([]string{apiKey}),
 					config.WithBackendAssets(backendAssets),
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
 			Expect(err).ToNot(HaveOccurred())
 
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
 
-			defaultConfig := openai.DefaultConfig("")
+			defaultConfig := openai.DefaultConfig(apiKey)
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
 
 			client2 = openaigo.NewClient("")
@@ -295,10 +366,46 @@ var _ = Describe("API test", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		Context("Auth Tests", func() {
+			It("Should fail if the api key is missing", func() {
+				err, sc := postInvalidRequest("http://127.0.0.1:9090/models/available")
+				Expect(err).ToNot(BeNil())
+				Expect(sc).To(Equal(401))
+			})
+		})
+
+		Context("URL routing Tests", func() {
+			It("Should support reverse-proxy when unauthenticated", func() {
+
+				err, sc, body := getRequest("http://127.0.0.1:9090/myprefix/", http.Header{
+					"X-Forwarded-Proto":  {"https"},
+					"X-Forwarded-Host":   {"example.org"},
+					"X-Forwarded-Prefix": {"/myprefix/"},
+				})
+				Expect(err).To(BeNil(), "error")
+				Expect(sc).To(Equal(401), "status code")
+				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
+			})
+
+			It("Should support reverse-proxy when authenticated", func() {
+
+				err, sc, body := getRequest("http://127.0.0.1:9090/myprefix/", http.Header{
+					"Authorization":      {bearerKey},
+					"X-Forwarded-Proto":  {"https"},
+					"X-Forwarded-Host":   {"example.org"},
+					"X-Forwarded-Prefix": {"/myprefix/"},
+				})
+				Expect(err).To(BeNil(), "error")
+				Expect(sc).To(Equal(200), "status code")
+				Expect(string(body)).To(ContainSubstring(`<base href="https://example.org/myprefix/" />`), "body")
+			})
+		})
+
 		Context("Applying models", func() {
 
 			It("applies models from a gallery", func() {
-				models := getModels("http://127.0.0.1:9090/models/available")
+				models, err := getModels("http://127.0.0.1:9090/models/available")
+				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
 				Expect(models[1].Installed).To(BeFalse(), fmt.Sprint(models))
@@ -328,10 +435,11 @@ var _ = Describe("API test", func() {
 				content := map[string]interface{}{}
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(content["backend"]).To(Equal("bert-embeddings"))
+				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 				Expect(content["foo"]).To(Equal("bar"))
 
-				models = getModels("http://127.0.0.1:9090/models/available")
+				models, err = getModels("http://127.0.0.1:9090/models/available")
+				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Name).To(Or(Equal("bert"), Equal("bert2")))
 				Expect(models[1].Name).To(Or(Equal("bert"), Equal("bert2")))
@@ -346,7 +454,7 @@ var _ = Describe("API test", func() {
 			It("overrides models", func() {
 
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					URL:  bertEmbeddingsURL,
 					Name: "bert",
 					Overrides: map[string]interface{}{
 						"backend": "llama",
@@ -372,7 +480,7 @@ var _ = Describe("API test", func() {
 			})
 			It("apply models from config", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/models/hermes-2-pro-mistral.yaml",
+					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml",
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -382,7 +490,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "900s", "10s").Should(Equal(true))
 
 				Eventually(func() []string {
 					models, _ := client.ListModels(context.TODO())
@@ -395,7 +503,7 @@ var _ = Describe("API test", func() {
 			})
 			It("apply models without overrides", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					URL:       "https://raw.githubusercontent.com/go-skynet/model-gallery/main/bert-embeddings.yaml",
+					URL:       bertEmbeddingsURL,
 					Name:      "bert",
 					Overrides: map[string]interface{}{},
 				})
@@ -415,7 +523,7 @@ var _ = Describe("API test", func() {
 				content := map[string]interface{}{}
 				err = yaml.Unmarshal(dat, &content)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(content["backend"]).To(Equal("bert-embeddings"))
+				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 			})
 
 			It("runs openllama(llama-ggml backend)", Label("llama"), func() {
@@ -483,7 +591,7 @@ var _ = Describe("API test", func() {
 				var res map[string]string
 				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res["location"]).To(Equal("San Francisco"), fmt.Sprint(res))
+				Expect(res["location"]).To(ContainSubstring("San Francisco"), fmt.Sprint(res))
 				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
 				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 
@@ -496,7 +604,7 @@ var _ = Describe("API test", func() {
 
 				modelName := "hermes-2-pro-mistral"
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/master/embedded/models/hermes-2-pro-mistral.yaml",
+					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml",
 				})
 
 				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -506,7 +614,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "900s", "10s").Should(Equal(true))
 
 				By("testing chat")
 				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: modelName, Messages: []openai.ChatCompletionMessage{
@@ -583,9 +691,13 @@ var _ = Describe("API test", func() {
 					Name: "model-gallery",
 					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/index.yaml",
 				},
+				{
+					Name: "localai",
+					URL:  "https://raw.githubusercontent.com/mudler/LocalAI/refs/heads/master/gallery/index.yaml",
+				},
 			}
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithAudioDir(tmpdir),
@@ -596,7 +708,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendAssetsOutput(tmpdir))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")
@@ -652,7 +764,7 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 
 			Expect(resp.StatusCode).To(Equal(200), fmt.Sprint(string(dat)))
-			Expect(resp.Header.Get("Content-Type")).To(Equal("audio/x-wav"))
+			Expect(resp.Header.Get("Content-Type")).To(Or(Equal("audio/x-wav"), Equal("audio/vnd.wave")))
 		})
 		It("installs and is capable to generate images", Label("stablediffusion"), func() {
 			if runtime.GOOS != "linux" {
@@ -660,10 +772,8 @@ var _ = Describe("API test", func() {
 			}
 
 			response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-				ID: "model-gallery@stablediffusion",
-				Overrides: map[string]interface{}{
-					"parameters": map[string]interface{}{"model": "stablediffusion_assets"},
-				},
+				ID:   "localai@sd-1.5-ggml",
+				Name: "stablediffusion",
 			})
 
 			Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -674,14 +784,14 @@ var _ = Describe("API test", func() {
 				response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
 				fmt.Println(response)
 				return response["processed"].(bool)
-			}, "360s", "10s").Should(Equal(true))
+			}, "1200s", "10s").Should(Equal(true))
 
 			resp, err := http.Post(
 				"http://127.0.0.1:9090/v1/images/generations",
 				"application/json",
 				bytes.NewBuffer([]byte(`{
-					 			"prompt": "floating hair, portrait, ((loli)), ((one girl)), cute face, hidden hands, asymmetrical bangs, beautiful detailed eyes, eye shadow, hair ornament, ribbons, bowties, buttons, pleated skirt, (((masterpiece))), ((best quality)), colorful|((part of the head)), ((((mutated hands and fingers)))), deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, Octane renderer, lowres, bad anatomy, bad hands, text",
-								"mode": 2,  "seed":9000,
+					 			"prompt": "a lovely cat",
+								"step": 1,  "seed":9000,
 					 			"size": "256x256", "n":2}`)))
 			// The response should contain an URL
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
@@ -690,6 +800,7 @@ var _ = Describe("API test", func() {
 
 			imgUrlResp := &schema.OpenAIResponse{}
 			err = json.Unmarshal(dat, imgUrlResp)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(dat))
 			Expect(imgUrlResp.Data).ToNot(Or(BeNil(), BeZero()))
 			imgUrl := imgUrlResp.Data[0].URL
 			Expect(imgUrl).To(ContainSubstring("http://127.0.0.1:9090/"), imgUrl)
@@ -716,14 +827,14 @@ var _ = Describe("API test", func() {
 
 			var err error
 
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := application.New(
 				append(commonOpts,
-					config.WithExternalBackend("huggingface", os.Getenv("HUGGINGFACE_GRPC")),
+					config.WithExternalBackend("transformers", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 			go app.Listen("127.0.0.1:9090")
 
@@ -750,7 +861,7 @@ var _ = Describe("API test", func() {
 		It("returns the models list", func() {
 			models, err := client.ListModels(context.TODO())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(models.Models)).To(Equal(6)) // If "config.yaml" should be included, this should be 8?
+			Expect(len(models.Models)).To(Equal(7)) // If "config.yaml" should be included, this should be 8?
 		})
 		It("can generate completions via ggml", func() {
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel.ggml", Prompt: testPrompt})
@@ -810,8 +921,8 @@ var _ = Describe("API test", func() {
 				},
 			)
 			Expect(err).ToNot(HaveOccurred(), err)
-			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 384))
-			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 384))
+			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 2048))
+			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 2048))
 
 			sunEmbedding := resp.Data[0].Embedding
 			resp2, err := client.CreateEmbeddings(
@@ -852,71 +963,6 @@ var _ = Describe("API test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
 				Expect(resp2.Data[0].Embedding).ToNot(Equal(resp.Data[1].Embedding))
-			})
-		})
-
-		Context("backends", func() {
-			It("runs rwkv completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
-				resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,"})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(resp.Choices[0].Text).To(ContainSubstring("five"))
-
-				stream, err := client.CreateCompletionStream(context.TODO(), openai.CompletionRequest{
-					Model: "rwkv_test", Prompt: "Count up to five: one, two, three, four,", Stream: true,
-				})
-				Expect(err).ToNot(HaveOccurred())
-				defer stream.Close()
-
-				tokens := 0
-				text := ""
-				for {
-					response, err := stream.Recv()
-					if errors.Is(err, io.EOF) {
-						break
-					}
-
-					Expect(err).ToNot(HaveOccurred())
-					text += response.Choices[0].Text
-					tokens++
-				}
-				Expect(text).ToNot(BeEmpty())
-				Expect(text).To(ContainSubstring("five"))
-				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
-			})
-			It("runs rwkv chat completion", func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
-				resp, err := client.CreateChatCompletion(context.TODO(),
-					openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices) > 0).To(BeTrue())
-				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("Sure"), ContainSubstring("five")))
-
-				stream, err := client.CreateChatCompletionStream(context.TODO(), openai.ChatCompletionRequest{Model: "rwkv_test", Messages: []openai.ChatCompletionMessage{{Content: "Can you count up to five?", Role: "user"}}})
-				Expect(err).ToNot(HaveOccurred())
-				defer stream.Close()
-
-				tokens := 0
-				text := ""
-				for {
-					response, err := stream.Recv()
-					if errors.Is(err, io.EOF) {
-						break
-					}
-
-					Expect(err).ToNot(HaveOccurred())
-					text += response.Choices[0].Delta.Content
-					tokens++
-				}
-				Expect(text).ToNot(BeEmpty())
-				Expect(text).To(Or(ContainSubstring("Sure"), ContainSubstring("five")))
-
-				Expect(tokens).ToNot(Or(Equal(1), Equal(0)))
 			})
 		})
 
@@ -999,14 +1045,14 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
-			bcl, ml, applicationConfig, err = startup.Startup(
+			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
 					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())
-			app, err = App(bcl, ml, applicationConfig)
+			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
 			go app.Listen("127.0.0.1:9090")

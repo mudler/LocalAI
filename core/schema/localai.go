@@ -9,6 +9,10 @@ type BackendMonitorRequest struct {
 	Model string `json:"model" yaml:"model"`
 }
 
+type TokenMetricsRequest struct {
+	Model string `json:"model" yaml:"model"`
+}
+
 type BackendMonitorResponse struct {
 	MemoryInfo    *gopsutil.MemoryInfoStat
 	MemoryPercent float32
@@ -26,7 +30,14 @@ type TTSRequest struct {
 	Input    string `json:"input" yaml:"input"` // text input
 	Voice    string `json:"voice" yaml:"voice"` // voice audio file or speaker id
 	Backend  string `json:"backend" yaml:"backend"`
-	Language string `json:"language,omitempty" yaml:"language,omitempty"` // (optional) language to use with TTS model
+	Language string `json:"language,omitempty" yaml:"language,omitempty"`               // (optional) language to use with TTS model
+	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
+}
+
+// @Description VAD request body
+type VADRequest struct {
+	Model string    `json:"model" yaml:"model"` // model name or full path
+	Audio []float32 `json:"audio" yaml:"audio"` // model name or full path
 }
 
 type StoresSet struct {
@@ -71,6 +82,11 @@ type P2PNodesResponse struct {
 	FederatedNodes []p2p.NodeData `json:"federated_nodes" yaml:"federated_nodes"`
 }
 
+type SysInfoModel struct {
+	ID string `json:"id"`
+}
+
 type SystemInformationResponse struct {
-	Backends []string `json:"backends"`
+	Backends []string       `json:"backends"`
+	Models   []SysInfoModel `json:"loaded_models"`
 }

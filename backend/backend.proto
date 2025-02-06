@@ -26,6 +26,21 @@ service Backend {
   rpc StoresFind(StoresFindOptions) returns (StoresFindResult) {}
 
   rpc Rerank(RerankRequest) returns (RerankResult) {}
+
+  rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
+
+  rpc VAD(VADRequest) returns (VADResponse) {}
+}
+
+// Define the empty request
+message MetricsRequest {}
+
+message MetricsResponse {
+  int32 slot_id = 1;
+  string prompt_json_for_slot = 2;  // Stores the prompt as a JSON string.
+  float tokens_per_second = 3;
+  int32 tokens_generated = 4;
+  int32 prompt_tokens_processed = 5;
 }
 
 message RerankRequest {
@@ -134,6 +149,9 @@ message PredictOptions {
   repeated string Images = 42;
   bool UseTokenizerTemplate = 43;
   repeated Message Messages = 44;
+  repeated string Videos = 45;
+  repeated string Audios = 46;
+  string CorrelationId = 47;
 }
 
 // The response message containing the result
@@ -141,6 +159,13 @@ message Reply {
   bytes message = 1;
   int32 tokens = 2;
   int32 prompt_tokens = 3;
+  double timing_prompt_processing = 4;
+  double timing_token_generation = 5;
+}
+
+message GrammarTrigger {
+  string word = 1;
+  bool at_start = 2; 
 }
 
 message ModelOptions {
@@ -203,6 +228,7 @@ message ModelOptions {
   int32  SwapSpace = 53;
   int32  MaxModelLen = 54;
   int32  TensorParallelSize = 55;
+  string LoadFormat = 58;
 
   string MMProj = 41;
 
@@ -216,6 +242,18 @@ message ModelOptions {
 
   bool FlashAttention = 56;
   bool NoKVOffload = 57;
+
+  string ModelPath = 59;
+
+  repeated string LoraAdapters = 60;
+  repeated float LoraScales = 61;
+
+  repeated string Options = 62;
+
+  string CacheTypeKey = 63;
+  string CacheTypeValue = 64;
+
+  repeated GrammarTrigger GrammarTriggers = 65;
 }
 
 message Result {
@@ -269,6 +307,19 @@ message TTSRequest {
   string dst = 3;
   string voice = 4;
   optional string language = 5;
+}
+
+message VADRequest {
+  repeated float audio = 1;
+}
+
+message VADSegment {
+  float start = 1;
+  float end = 2;
+}
+
+message VADResponse {
+  repeated VADSegment segments = 1;
 }
 
 message SoundGenerationRequest {

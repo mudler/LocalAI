@@ -9,50 +9,44 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/hpcloud/tail"
 	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"
 )
 
-func (ml *ModelLoader) StopAllExcept(s string) error {
-	return ml.StopGRPC(func(id string, p *process.Process) bool {
-		if id == s {
-			return false
-		}
-
-		for ml.models[id].GRPC(false, ml.wd).IsBusy() {
-			log.Debug().Msgf("%s busy. Waiting.", id)
-			time.Sleep(2 * time.Second)
-		}
-		log.Debug().Msgf("[single-backend] Stopping %s", id)
-		return true
-	})
-}
-
 func (ml *ModelLoader) deleteProcess(s string) error {
-	if _, exists := ml.grpcProcesses[s]; exists {
-		if err := ml.grpcProcesses[s].Stop(); err != nil {
-			log.Error().Err(err).Msgf("(deleteProcess) error while deleting grpc process %s", s)
-		}
+	defer delete(ml.models, s)
+
+	log.Debug().Msgf("Deleting process %s", s)
+
+	m, exists := ml.models[s]
+	if !exists {
+		log.Error().Msgf("Model does not exist %s", s)
+		// Nothing to do
+		return nil
 	}
-	delete(ml.grpcProcesses, s)
-	delete(ml.models, s)
-	return nil
-}
 
-type GRPCProcessFilter = func(id string, p *process.Process) bool
+	process := m.Process()
+	if process == nil {
+		log.Error().Msgf("No process for %s", s)
+		// Nothing to do as there is no process
+		return nil
+	}
 
-func includeAllProcesses(_ string, _ *process.Process) bool {
-	return true
+	err := process.Stop()
+	if err != nil {
+		log.Error().Err(err).Msgf("(deleteProcess) error while deleting process %s", s)
+	}
+
+	return err
 }
 
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 	var err error = nil
-	for k, p := range ml.grpcProcesses {
-		if filter(k, p) {
-			e := ml.deleteProcess(k)
+	for k, m := range ml.models {
+		if filter(k, m.Process()) {
+			e := ml.ShutdownModel(k)
 			err = errors.Join(err, e)
 		}
 	}
@@ -60,21 +54,26 @@ func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 }
 
 func (ml *ModelLoader) StopAllGRPC() error {
-	return ml.StopGRPC(includeAllProcesses)
+	return ml.StopGRPC(all)
 }
 
 func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
-	p, exists := ml.grpcProcesses[id]
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	p, exists := ml.models[id]
 	if !exists {
 		return -1, fmt.Errorf("no grpc backend found for %s", id)
 	}
-	return strconv.Atoi(p.PID)
+	if p.Process() == nil {
+		return -1, fmt.Errorf("no grpc backend found for %s", id)
+	}
+	return strconv.Atoi(p.Process().PID)
 }
 
-func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) error {
+func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
 	// Make sure the process is executable
 	if err := os.Chmod(grpcProcess, 0700); err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Debug().Msgf("Loading GRPC Process: %s", grpcProcess)
@@ -83,7 +82,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	workDir, err := filepath.Abs(filepath.Dir(grpcProcess))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	grpcControlProcess := process.New(
@@ -99,10 +98,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		ml.wd.AddAddressModelMap(serverAddress, id)
 	}
 
-	ml.grpcProcesses[id] = grpcControlProcess
-
 	if err := grpcControlProcess.Run(); err != nil {
-		return err
+		return grpcControlProcess, err
 	}
 
 	log.Debug().Msgf("GRPC Service state dir: %s", grpcControlProcess.StateDir())
@@ -136,5 +133,5 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		}
 	}()
 
-	return nil
+	return grpcControlProcess, nil
 }

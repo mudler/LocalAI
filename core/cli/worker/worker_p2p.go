@@ -76,8 +76,14 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 					"util",
 					"llama-cpp-rpc-server",
 				)
-				extraArgs := strings.Split(r.ExtraLLamaCPPArgs, " ")
+				var extraArgs []string
+
+				if r.ExtraLLamaCPPArgs != "" {
+					extraArgs = strings.Split(r.ExtraLLamaCPPArgs, " ")
+				}
 				args := append([]string{"--host", address, "--port", fmt.Sprint(port)}, extraArgs...)
+				log.Debug().Msgf("Starting llama-cpp-rpc-server on '%s:%d' with args: %+v (%d)", address, port, args, len(args))
+
 				args, grpcProcess = library.LoadLDSO(r.BackendAssetsPath, args, grpcProcess)
 
 				cmd := exec.Command(

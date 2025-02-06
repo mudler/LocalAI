@@ -28,16 +28,8 @@ func ModelTTS(
 		bb = model.PiperBackend
 	}
 
-	grpcOpts := gRPCModelOpts(backendConfig)
-
-	opts := modelOpts(config.BackendConfig{}, appConfig, []model.Option{
-		model.WithBackendString(bb),
-		model.WithModel(modelFile),
-		model.WithContext(appConfig.Context),
-		model.WithAssetDir(appConfig.AssetsDestination),
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-	})
-	ttsModel, err := loader.BackendLoader(opts...)
+	opts := ModelOptions(backendConfig, appConfig, model.WithBackendString(bb), model.WithModel(modelFile))
+	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		return "", nil, err
 	}

@@ -17,6 +17,9 @@
 # LIMIT_TARGETS="cublas12"
 # source $(dirname $0)/../common/libbackend.sh
 #
+
+PYTHON_VERSION="3.10"
+
 function init() {
     # Name of the backend (directory name)
     BACKEND_NAME=${PWD##*/}
@@ -88,7 +91,7 @@ function getBuildProfile() {
 # always result in an activated virtual environment
 function ensureVenv() {
     if [ ! -d "${EDIR}/venv" ]; then
-        uv venv ${EDIR}/venv
+        uv venv --python ${PYTHON_VERSION} ${EDIR}/venv
         echo "virtualenv created"
     fi
 

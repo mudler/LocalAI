@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/rs/zerolog/log"
@@ -82,7 +83,8 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 			Galleries:        mgs.galleries,
 			ConfigURL:        input.ConfigURL,
 		}
-		return c.JSON(schema.GalleryResponse{ID: uuid.String(), StatusURL: c.BaseURL() + "/models/jobs/" + uuid.String()})
+
+		return c.JSON(schema.GalleryResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%smodels/jobs/%s", utils.BaseURL(c), uuid.String())})
 	}
 }
 
@@ -105,7 +107,7 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 			return err
 		}
 
-		return c.JSON(schema.GalleryResponse{ID: uuid.String(), StatusURL: c.BaseURL() + "/models/jobs/" + uuid.String()})
+		return c.JSON(schema.GalleryResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%smodels/jobs/%s", utils.BaseURL(c), uuid.String())})
 	}
 }
 
@@ -115,19 +117,25 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 // @Router /models/available [get]
 func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		log.Debug().Msgf("Listing models from galleries: %+v", mgs.galleries)
 
 		models, err := gallery.AvailableGalleryModels(mgs.galleries, mgs.modelPath)
 		if err != nil {
 			return err
 		}
-		log.Debug().Msgf("Models found from galleries: %+v", models)
-		for _, m := range models {
-			log.Debug().Msgf("Model found from galleries: %+v", m)
+
+		log.Debug().Msgf("Available %d models from %d galleries\n", len(models), len(mgs.galleries))
+
+		m := []gallery.Metadata{}
+
+		for _, mm := range models {
+			m = append(m, mm.Metadata)
 		}
-		dat, err := json.Marshal(models)
+
+		log.Debug().Msgf("Models %#v", m)
+
+		dat, err := json.Marshal(m)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not marshal models: %w", err)
 		}
 		return c.Send(dat)
 	}

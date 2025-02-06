@@ -14,6 +14,8 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/templates"
+
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -24,11 +26,11 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	var id, textContentToReturn string
 	var created int
 
-	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	process := func(s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
 		initialMessage := schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
@@ -38,18 +40,24 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		}
 		responses <- initialMessage
 
-		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+			usage := schema.OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			}
+			if extraUsage {
+				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+			}
+
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0}},
 				Object:  "chat.completion.chunk",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     usage.Prompt,
-					CompletionTokens: usage.Completion,
-					TotalTokens:      usage.Prompt + usage.Completion,
-				},
+				Usage:   usage,
 			}
 
 			responses <- resp
@@ -57,7 +65,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		})
 		close(responses)
 	}
-	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse) {
+	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
 		result := ""
 		_, tokenUsage, _ := ComputeChoices(req, prompt, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
@@ -88,6 +96,15 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				log.Error().Err(err).Msg("error handling question")
 				return
 			}
+			usage := schema.OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			}
+			if extraUsage {
+				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+			}
 
 			resp := schema.OpenAIResponse{
 				ID:      id,
@@ -95,11 +112,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{{Delta: &schema.Message{Content: &result}, Index: 0}},
 				Object:  "chat.completion.chunk",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     tokenUsage.Prompt,
-					CompletionTokens: tokenUsage.Completion,
-					TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-				},
+				Usage:   usage,
 			}
 
 			responses <- resp
@@ -161,6 +174,15 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		textContentToReturn = ""
 		id = uuid.New().String()
 		created = int(time.Now().Unix())
+		// Set CorrelationID
+		correlationID := c.Get("X-Correlation-ID")
+		if len(strings.TrimSpace(correlationID)) == 0 {
+			correlationID = id
+		}
+		c.Set("X-Correlation-ID", correlationID)
+
+		// Opt-in extra usage flag
+		extraUsage := c.Get("Extra-Usage", "") != ""
 
 		modelFile, input, err := readRequest(c, cl, ml, startupOptions, true)
 		if err != nil {
@@ -288,148 +310,10 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 		// If we are using the tokenizer template, we don't need to process the messages
 		// unless we are processing functions
 		if !config.TemplateConfig.UseTokenizerTemplate || shouldUseFn {
-			suppressConfigSystemPrompt := false
-			mess := []string{}
-			for messageIndex, i := range input.Messages {
-				var content string
-				role := i.Role
-
-				// if function call, we might want to customize the role so we can display better that the "assistant called a json action"
-				// if an "assistant_function_call" role is defined, we use it, otherwise we use the role that is passed by in the request
-				if (i.FunctionCall != nil || i.ToolCalls != nil) && i.Role == "assistant" {
-					roleFn := "assistant_function_call"
-					r := config.Roles[roleFn]
-					if r != "" {
-						role = roleFn
-					}
-				}
-				r := config.Roles[role]
-				contentExists := i.Content != nil && i.StringContent != ""
-
-				fcall := i.FunctionCall
-				if len(i.ToolCalls) > 0 {
-					fcall = i.ToolCalls
-				}
-
-				// First attempt to populate content via a chat message specific template
-				if config.TemplateConfig.ChatMessage != "" {
-					chatMessageData := model.ChatMessageTemplateData{
-						SystemPrompt: config.SystemPrompt,
-						Role:         r,
-						RoleName:     role,
-						Content:      i.StringContent,
-						FunctionCall: fcall,
-						FunctionName: i.Name,
-						LastMessage:  messageIndex == (len(input.Messages) - 1),
-						Function:     config.Grammar != "" && (messageIndex == (len(input.Messages) - 1)),
-						MessageIndex: messageIndex,
-					}
-					templatedChatMessage, err := ml.EvaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
-					if err != nil {
-						log.Error().Err(err).Interface("message", chatMessageData).Str("template", config.TemplateConfig.ChatMessage).Msg("error processing message with template, skipping")
-					} else {
-						if templatedChatMessage == "" {
-							log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", config.TemplateConfig.ChatMessage, chatMessageData)
-							continue // TODO: This continue is here intentionally to skip over the line `mess = append(mess, content)` below, and to prevent the sprintf
-						}
-						log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
-						content = templatedChatMessage
-					}
-				}
-
-				marshalAnyRole := func(f any) {
-					j, err := json.Marshal(f)
-					if err == nil {
-						if contentExists {
-							content += "\n" + fmt.Sprint(r, " ", string(j))
-						} else {
-							content = fmt.Sprint(r, " ", string(j))
-						}
-					}
-				}
-				marshalAny := func(f any) {
-					j, err := json.Marshal(f)
-					if err == nil {
-						if contentExists {
-							content += "\n" + string(j)
-						} else {
-							content = string(j)
-						}
-					}
-				}
-				// If this model doesn't have such a template, or if that template fails to return a value, template at the message level.
-				if content == "" {
-					if r != "" {
-						if contentExists {
-							content = fmt.Sprint(r, i.StringContent)
-						}
-
-						if i.FunctionCall != nil {
-							marshalAnyRole(i.FunctionCall)
-						}
-						if i.ToolCalls != nil {
-							marshalAnyRole(i.ToolCalls)
-						}
-					} else {
-						if contentExists {
-							content = fmt.Sprint(i.StringContent)
-						}
-						if i.FunctionCall != nil {
-							marshalAny(i.FunctionCall)
-						}
-						if i.ToolCalls != nil {
-							marshalAny(i.ToolCalls)
-						}
-					}
-					// Special Handling: System. We care if it was printed at all, not the r branch, so check seperately
-					if contentExists && role == "system" {
-						suppressConfigSystemPrompt = true
-					}
-				}
-
-				mess = append(mess, content)
-			}
-
-			joinCharacter := "\n"
-			if config.TemplateConfig.JoinChatMessagesByCharacter != nil {
-				joinCharacter = *config.TemplateConfig.JoinChatMessagesByCharacter
-			}
-
-			predInput = strings.Join(mess, joinCharacter)
-			log.Debug().Msgf("Prompt (before templating): %s", predInput)
-
-			templateFile := ""
-
-			// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
-			if ml.ExistsInModelPath(fmt.Sprintf("%s.tmpl", config.Model)) {
-				templateFile = config.Model
-			}
-
-			if config.TemplateConfig.Chat != "" && !shouldUseFn {
-				templateFile = config.TemplateConfig.Chat
-			}
-
-			if config.TemplateConfig.Functions != "" && shouldUseFn {
-				templateFile = config.TemplateConfig.Functions
-			}
-
-			if templateFile != "" {
-				templatedInput, err := ml.EvaluateTemplateForPrompt(model.ChatPromptTemplate, templateFile, model.PromptTemplateData{
-					SystemPrompt:         config.SystemPrompt,
-					SuppressSystemPrompt: suppressConfigSystemPrompt,
-					Input:                predInput,
-					Functions:            funcs,
-				})
-				if err == nil {
-					predInput = templatedInput
-					log.Debug().Msgf("Template found, input modified to: %s", predInput)
-				} else {
-					log.Debug().Msgf("Template failed loading: %s", err.Error())
-				}
-			}
+			predInput = evaluator.TemplateMessages(input.Messages, config, funcs, shouldUseFn)
 
 			log.Debug().Msgf("Prompt (after templating): %s", predInput)
-			if shouldUseFn && config.Grammar != "" {
+			if config.Grammar != "" {
 				log.Debug().Msgf("Grammar: %+v", config.Grammar)
 			}
 		}
@@ -444,13 +328,14 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			c.Set("Cache-Control", "no-cache")
 			c.Set("Connection", "keep-alive")
 			c.Set("Transfer-Encoding", "chunked")
+			c.Set("X-Correlation-ID", id)
 
 			responses := make(chan schema.OpenAIResponse)
 
 			if !shouldUseFn {
-				go process(predInput, input, config, ml, responses)
+				go process(predInput, input, config, ml, responses, extraUsage)
 			} else {
-				go processTools(noActionName, predInput, input, config, ml, responses)
+				go processTools(noActionName, predInput, input, config, ml, responses, extraUsage)
 			}
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
@@ -578,6 +463,15 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 			if err != nil {
 				return err
 			}
+			usage := schema.OpenAIUsage{
+				PromptTokens:     tokenUsage.Prompt,
+				CompletionTokens: tokenUsage.Completion,
+				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
+			}
+			if extraUsage {
+				usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
+				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
+			}
 
 			resp := &schema.OpenAIResponse{
 				ID:      id,
@@ -585,11 +479,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, startup
 				Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: result,
 				Object:  "chat.completion",
-				Usage: schema.OpenAIUsage{
-					PromptTokens:     tokenUsage.Prompt,
-					CompletionTokens: tokenUsage.Completion,
-					TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-				},
+				Usage:   usage,
 			}
 			respData, _ := json.Marshal(resp)
 			log.Debug().Msgf("Response: %s", respData)
@@ -640,8 +530,16 @@ func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, m
 	for _, m := range input.Messages {
 		images = append(images, m.StringImages...)
 	}
+	videos := []string{}
+	for _, m := range input.Messages {
+		videos = append(videos, m.StringVideos...)
+	}
+	audios := []string{}
+	for _, m := range input.Messages {
+		audios = append(audios, m.StringAudios...)
+	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, ml, *config, o, nil)
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, *config, o, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err

@@ -14,6 +14,10 @@ config_file: |
       system: "System: "
       assistant: "Assistant: "
     f16: true
+    stopwords:
+    - <|end|>
+    - <|endoftext|>
+    - <eos>
     template:
       completion: |
         Complete the following sentence: {{.Input}}

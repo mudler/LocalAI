@@ -14,15 +14,13 @@ import (
 
 func ModelTranscription(audio, language string, translate bool, ml *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
 
-	opts := modelOpts(backendConfig, appConfig, []model.Option{
-		model.WithBackendString(model.WhisperBackend),
-		model.WithModel(backendConfig.Model),
-		model.WithContext(appConfig.Context),
-		model.WithThreads(uint32(*backendConfig.Threads)),
-		model.WithAssetDir(appConfig.AssetsDestination),
-	})
+	if backendConfig.Backend == "" {
+		backendConfig.Backend = model.WhisperBackend
+	}
 
-	transcriptionModel, err := ml.BackendLoader(opts...)
+	opts := ModelOptions(backendConfig, appConfig)
+
+	transcriptionModel, err := ml.Load(opts...)
 	if err != nil {
 		return nil, err
 	}

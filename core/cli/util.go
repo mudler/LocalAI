@@ -15,8 +15,9 @@ import (
 )
 
 type UtilCMD struct {
-	GGUFInfo GGUFInfoCMD `cmd:"" name:"gguf-info" help:"Get information about a GGUF file"`
-	HFScan   HFScanCMD   `cmd:"" name:"hf-scan" help:"Checks installed models for known security issues. WARNING: this is a best-effort feature and may not catch everything!"`
+	GGUFInfo         GGUFInfoCMD         `cmd:"" name:"gguf-info" help:"Get information about a GGUF file"`
+	HFScan           HFScanCMD           `cmd:"" name:"hf-scan" help:"Checks installed models for known security issues. WARNING: this is a best-effort feature and may not catch everything!"`
+	UsecaseHeuristic UsecaseHeuristicCMD `cmd:"" name:"usecase-heuristic" help:"Checks a specific model config and prints what usecase LocalAI will offer for it."`
 }
 
 type GGUFInfoCMD struct {
@@ -28,6 +29,11 @@ type HFScanCMD struct {
 	ModelsPath string   `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	Galleries  string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	ToScan     []string `arg:""`
+}
+
+type UsecaseHeuristicCMD struct {
+	ConfigName string `name:"The config file to check"`
+	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 }
 
 func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
@@ -98,4 +104,32 @@ func (hfscmd *HFScanCMD) Run(ctx *cliContext.Context) error {
 		log.Info().Msg("No security warnings were detected for your installed models. Please note that this is a BEST EFFORT tool, and all issues may not be detected.")
 		return nil
 	}
+}
+
+func (uhcmd *UsecaseHeuristicCMD) Run(ctx *cliContext.Context) error {
+	if len(uhcmd.ConfigName) == 0 {
+		log.Error().Msg("ConfigName is a required parameter")
+		return fmt.Errorf("config name is a required parameter")
+	}
+	if len(uhcmd.ModelsPath) == 0 {
+		log.Error().Msg("ModelsPath is a required parameter")
+		return fmt.Errorf("model path is a required parameter")
+	}
+	bcl := config.NewBackendConfigLoader(uhcmd.ModelsPath)
+	err := bcl.LoadBackendConfig(uhcmd.ConfigName)
+	if err != nil {
+		log.Error().Err(err).Str("ConfigName", uhcmd.ConfigName).Msg("error while loading backend")
+		return err
+	}
+	bc, exists := bcl.GetBackendConfig(uhcmd.ConfigName)
+	if !exists {
+		log.Error().Str("ConfigName", uhcmd.ConfigName).Msg("ConfigName not found")
+	}
+	for name, uc := range config.GetAllBackendConfigUsecases() {
+		if bc.HasUsecases(uc) {
+			log.Info().Str("Usecase", name)
+		}
+	}
+	log.Info().Msg("---")
+	return nil
 }

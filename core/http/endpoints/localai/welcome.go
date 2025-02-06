@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
@@ -13,15 +14,10 @@ import (
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 	cl *config.BackendConfigLoader, ml *model.ModelLoader, modelStatus func() (map[string]string, map[string]string)) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		models, _ := services.ListModels(cl, ml, "", true)
 		backendConfigs := cl.GetAllBackendConfigs()
-
 		galleryConfigs := map[string]*gallery.Config{}
-		modelsWithBackendConfig := map[string]interface{}{}
 
 		for _, m := range backendConfigs {
-			modelsWithBackendConfig[m.Name] = nil
-
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {
 				continue
@@ -29,20 +25,15 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			galleryConfigs[m.Name] = cfg
 		}
 
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
 		// Get model statuses to display in the UI the operation in progress
 		processingModels, taskTypes := modelStatus()
-
-		modelsWithoutConfig := []string{}
-
-		for _, m := range models {
-			if _, ok := modelsWithBackendConfig[m]; !ok {
-				modelsWithoutConfig = append(modelsWithoutConfig, m)
-			}
-		}
 
 		summary := fiber.Map{
 			"Title":             "LocalAI API - " + internal.PrintableVersion(),
 			"Version":           internal.PrintableVersion(),
+			"BaseURL":           utils.BaseURL(c),
 			"Models":            modelsWithoutConfig,
 			"ModelsConfig":      backendConfigs,
 			"GalleryConfig":     galleryConfigs,

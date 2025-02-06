@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -15,7 +16,6 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -27,32 +27,14 @@ type LLMResponse struct {
 }
 
 type TokenUsage struct {
-	Prompt     int
-	Completion int
+	Prompt                 int
+	Completion             int
+	TimingPromptProcessing float64
+	TimingTokenGeneration  float64
 }
 
-func ModelInference(ctx context.Context, s string, messages []schema.Message, images []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
-	threads := c.Threads
-	if *threads == 0 && o.Threads != 0 {
-		threads = &o.Threads
-	}
-	grpcOpts := gRPCModelOpts(c)
-
-	var inferenceModel grpc.Backend
-	var err error
-
-	opts := modelOpts(c, o, []model.Option{
-		model.WithLoadGRPCLoadModelOpts(grpcOpts),
-		model.WithThreads(uint32(*threads)), // some models uses this to allocate threads during startup
-		model.WithAssetDir(o.AssetsDestination),
-		model.WithModel(modelFile),
-		model.WithContext(o.Context),
-	})
-
-	if c.Backend != "" {
-		opts = append(opts, model.WithBackendString(c.Backend))
-	}
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
 	if o.AutoloadGalleries { // experimental
@@ -66,12 +48,8 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		}
 	}
 
-	if c.Backend == "" {
-		inferenceModel, err = loader.GreedyLoader(opts...)
-	} else {
-		inferenceModel, err = loader.BackendLoader(opts...)
-	}
-
+	opts := ModelOptions(c, o)
+	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +66,16 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			switch ct := message.Content.(type) {
 			case string:
 				protoMessages[i].Content = ct
+			case []interface{}:
+				// If using the tokenizer template, in case of multimodal we want to keep the multimodal content as and return only strings here
+				data, _ := json.Marshal(ct)
+				resultData := []struct {
+					Text string `json:"text"`
+				}{}
+				json.Unmarshal(data, &resultData)
+				for _, r := range resultData {
+					protoMessages[i].Content += r.Text
+				}
 			default:
 				return nil, fmt.Errorf("unsupported type for schema.Message.Content for inference: %T", ct)
 			}
@@ -101,6 +89,8 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		opts.Messages = protoMessages
 		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate
 		opts.Images = images
+		opts.Videos = videos
+		opts.Audios = audios
 
 		tokenUsage := TokenUsage{}
 
@@ -129,8 +119,14 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			ss := ""
 
 			var partialRune []byte
-			err := inferenceModel.PredictStream(ctx, opts, func(chars []byte) {
-				partialRune = append(partialRune, chars...)
+			err := inferenceModel.PredictStream(ctx, opts, func(reply *proto.Reply) {
+				msg := reply.Message
+				partialRune = append(partialRune, msg...)
+
+				tokenUsage.Prompt = int(reply.PromptTokens)
+				tokenUsage.Completion = int(reply.Tokens)
+				tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
+				tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
 
 				for len(partialRune) > 0 {
 					r, size := utf8.DecodeRune(partialRune)
@@ -143,6 +139,10 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 					ss += string(r)
 
 					partialRune = partialRune[size:]
+				}
+
+				if len(msg) == 0 {
+					tokenCallback("", tokenUsage)
 				}
 			})
 			return LLMResponse{
@@ -161,6 +161,10 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			if tokenUsage.Completion == 0 {
 				tokenUsage.Completion = int(reply.Tokens)
 			}
+
+			tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
+			tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
+
 			return LLMResponse{
 				Response: string(reply.Message),
 				Usage:    tokenUsage,

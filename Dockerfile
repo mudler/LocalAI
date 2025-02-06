@@ -9,24 +9,37 @@ FROM ${BASE_IMAGE} AS requirements-core
 USER root
 
 ARG GO_VERSION=1.22.6
+ARG CMAKE_VERSION=3.26.4
+ARG CMAKE_FROM_SOURCE=false
 ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,huggingface-embeddings:/build/backend/python/sentencetransformers/run.sh,transformers:/build/backend/python/transformers/run.sh,sentencetransformers:/build/backend/python/sentencetransformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,openvoice:/build/backend/python/openvoice/run.sh,vall-e-x:/build/backend/python/vall-e-x/run.sh,vllm:/build/backend/python/vllm/run.sh,mamba:/build/backend/python/mamba/run.sh,exllama2:/build/backend/python/exllama2/run.sh,transformers-musicgen:/build/backend/python/transformers-musicgen/run.sh,parler-tts:/build/backend/python/parler-tts/run.sh"
-
+ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,transformers:/build/backend/python/transformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,autogptq:/build/backend/python/autogptq/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,faster-whisper:/build/backend/python/faster-whisper/run.sh,kokoro:/build/backend/python/kokoro/run.sh,vllm:/build/backend/python/vllm/run.sh,exllama2:/build/backend/python/exllama2/run.sh"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         ccache \
         ca-certificates \
-        cmake \
-        curl \
+        curl libssl-dev \
         git \
         unzip upx-ucl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
 
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
@@ -55,13 +68,9 @@ ENV PATH=/opt/rocm/bin:${PATH}
 # OpenBLAS requirements and stable diffusion
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libopenblas-dev \
-        libopencv-dev && \
+        libopenblas-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# Set up OpenCV
-RUN ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
 
 WORKDIR /build
 
@@ -71,7 +80,8 @@ WORKDIR /build
 # The requirements-extras target is for any builds with IMAGE_TYPE=extras. It should not be placed in this target unless every IMAGE_TYPE=extras build will use it
 FROM requirements-core AS requirements-extras
 
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# Install uv as a system package
+RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/bin sh
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -100,12 +110,13 @@ FROM requirements-${IMAGE_TYPE} AS requirements-drivers
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
+ARG SKIP_DRIVERS=false
 
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 # Vulkan requirements
 RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "vulkan" ]; then
+    if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
             software-properties-common pciutils wget gpg-agent && \
@@ -121,7 +132,7 @@ EOT
 
 # CuBLAS requirements
 RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "cublas" ]; then
+    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
             software-properties-common pciutils
@@ -147,7 +158,7 @@ RUN <<EOT bash
 EOT
 
 # If we are building with clblas support, we need the libraries for the builds
-RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
+RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             libclblast-dev && \
@@ -155,7 +166,7 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ]; then \
         rm -rf /var/lib/apt/lists/* \
     ; fi
 
-RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
@@ -188,6 +199,8 @@ FROM ${GRPC_BASE_IMAGE} AS grpc
 # This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
 ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG GRPC_VERSION=v1.65.0
+ARG CMAKE_FROM_SOURCE=false
+ARG CMAKE_VERSION=3.26.4
 
 ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 
@@ -196,11 +209,23 @@ WORKDIR /build
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
-        build-essential \
-        cmake \
+        build-essential curl libssl-dev \
         git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
 
 # We install GRPC to a different prefix here so that we can copy in only the build artifacts later
 # saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
@@ -221,7 +246,7 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 
 FROM requirements-drivers AS builder-base
 
-ARG GO_TAGS="stablediffusion tts p2p"
+ARG GO_TAGS="tts p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"
@@ -255,35 +280,12 @@ RUN <<EOT bash
     fi
 EOT
 
-
-###################################
-###################################
-
-# This first portion of builder holds the layers specifically used to build backend-assets/grpc/stablediffusion
-# In most cases, builder is the image you should be using - however, this can save build time if one just needs to copy backend-assets/grpc/stablediffusion and nothing else.
-FROM builder-base AS builder-sd
-
-# stablediffusion does not tolerate a newer version of abseil, copy only over enough elements to build it
-COPY Makefile .
-COPY go.mod .
-COPY go.sum .
-COPY backend/backend.proto ./backend/backend.proto
-COPY backend/go/image/stablediffusion ./backend/go/image/stablediffusion
-COPY pkg/grpc ./pkg/grpc
-COPY pkg/stablediffusion ./pkg/stablediffusion
-RUN git init
-RUN make sources/go-stable-diffusion
-RUN touch prepare-sources
-
-# Actually build the backend
-RUN GRPC_BACKENDS=backend-assets/grpc/stablediffusion make backend-assets/grpc/stablediffusion
-
 ###################################
 ###################################
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
 # Adjustments to the build process should likely be made here.
-FROM builder-sd AS builder
+FROM builder-base AS builder
 
 # Install the pre-built GRPC
 COPY --from=grpc /opt/grpc /usr/local
@@ -297,11 +299,11 @@ COPY .git .
 RUN make prepare
 
 ## Build the binary
-## If it's CUDA, we want to skip some of the llama-compat backends to save space
-## We only leave the most CPU-optimized variant and the fallback for the cublas build
-## (both will use CUDA for the actual computation)
-RUN if [ "${BUILD_TYPE}" = "cublas" ]; then \
-        SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make build; \
+## If it's CUDA or hipblas, we want to skip some of the llama-compat backends to save space
+## We only leave the most CPU-optimized variant and the fallback for the cublas/hipblas build
+## (both will use CUDA or hipblas for the actual computation)
+RUN if [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx512 backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make build; \
     else \
         make build; \
     fi
@@ -323,8 +325,6 @@ ARG FFMPEG
 
 COPY --from=grpc /opt/grpc /usr/local
 
-COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion /build/backend-assets/grpc/stablediffusion
-
 COPY .devcontainer-scripts /.devcontainer-scripts
 
 # Add FFmpeg
@@ -338,9 +338,8 @@ RUN if [ "${FFMPEG}" = "true" ]; then \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ssh less && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+        ssh less wget
+# For the devcontainer, leave apt functional in case additional devtools are needed at runtime.
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
@@ -398,36 +397,28 @@ COPY --from=builder /build/local-ai ./
 # Copy shared libraries for piper
 COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
-# do not let stablediffusion rebuild (requires an older version of absl)
-COPY --from=builder-sd /build/backend-assets/grpc/stablediffusion ./backend-assets/grpc/stablediffusion
-
 # Change the shell to bash so we can use [[ tests below
 SHELL ["/bin/bash", "-c"]
 # We try to strike a balance between individual layer size (as that affects total push time) and total image size
 # Splitting the backends into more groups with fewer items results in a larger image, but a smaller size for the largest layer
 # Splitting the backends into fewer groups with more items results in a smaller image, but a larger size for the largest layer
 
+RUN if [[ ( "${IMAGE_TYPE}" == "extras ")]]; then \
+        apt-get -qq -y install espeak-ng \
+    ; fi
+
 RUN if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/coqui \
     ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "parler-tts" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/parler-tts \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "faster-whisper" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/faster-whisper \
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "diffusers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/diffusers \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "transformers-musicgen" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/transformers-musicgen \
     ; fi
 
-RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vall-e-x" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/vall-e-x \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "openvoice" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/openvoice \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "sentencetransformers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/sentencetransformers \
+RUN if [[ ( "${EXTRA_BACKENDS}" =~ "kokoro" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
+        make -C backend/python/kokoro \
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "exllama2" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/exllama2 \
@@ -447,9 +438,6 @@ RUN if [[ ( "${EXTRA_BACKENDS}" =~ "vllm" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "rerankers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/rerankers \
-    ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "mamba" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
-        make -C backend/python/mamba \
     ; fi
 
 # Make sure the models directory exists

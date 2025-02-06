@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/keyauth"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/utils"
 )
 
 // This file contains the configuration generators and handler functions that are used along with the fiber/keyauth middleware
@@ -15,7 +16,7 @@ import (
 // Therefore `dave-gray101/v2keyauth` contains the v2 backport of the middleware until v3 stabilizes and we migrate.
 
 func GetKeyAuthConfig(applicationConfig *config.ApplicationConfig) (*v2keyauth.Config, error) {
-	customLookup, err := v2keyauth.MultipleKeySourceLookup([]string{"header:Authorization", "header:x-api-key", "header:xi-api-key"}, keyauth.ConfigDefault.AuthScheme)
+	customLookup, err := v2keyauth.MultipleKeySourceLookup([]string{"header:Authorization", "header:x-api-key", "header:xi-api-key", "cookie:token"}, keyauth.ConfigDefault.AuthScheme)
 	if err != nil {
 		return nil, err
 	}
@@ -35,9 +36,13 @@ func getApiKeyErrorHandler(applicationConfig *config.ApplicationConfig) fiber.Er
 			if len(applicationConfig.ApiKeys) == 0 {
 				return ctx.Next() // if no keys are set up, any error we get here is not an error.
 			}
+			ctx.Set("WWW-Authenticate", "Bearer")
 			if applicationConfig.OpaqueErrors {
-				return ctx.SendStatus(403)
+				return ctx.SendStatus(401)
 			}
+			return ctx.Status(401).Render("views/login", fiber.Map{
+				"BaseURL": utils.BaseURL(ctx),
+			})
 		}
 		if applicationConfig.OpaqueErrors {
 			return ctx.SendStatus(500)

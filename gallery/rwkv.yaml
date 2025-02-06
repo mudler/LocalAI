@@ -1,0 +1,24 @@
+---
+name: "rwkv"
+
+config_file: |
+    parameters:
+      top_k: 80
+      temperature: 0.9
+      max_tokens: 4098
+      top_p: 0.8
+    context_size: 4098
+
+    roles:
+      user: "User: "
+      system: "System: "
+      assistant: "Assistant: "
+
+    stopwords:
+    - 'Assistant:'
+    - '<s>'
+
+    template:
+      chat: "{{.Input}}\nAssistant: "
+      completion: |
+        {{.Input}}

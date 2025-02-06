@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/application"
 	cli_api "github.com/mudler/LocalAI/core/cli/api"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
-	"github.com/mudler/LocalAI/core/startup"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -32,7 +32,6 @@ type RunCMD struct {
 
 	Galleries           string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	AutoloadGalleries   bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models"`
-	RemoteLibrary       string   `env:"LOCALAI_REMOTE_LIBRARY,REMOTE_LIBRARY" default:"${remoteLibraryURL}" help:"A LocalAI remote library URL" group:"models"`
 	PreloadModels       string   `env:"LOCALAI_PRELOAD_MODELS,PRELOAD_MODELS" help:"A List of models to apply in JSON at start" group:"models"`
 	Models              []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
 	PreloadModelsConfig string   `env:"LOCALAI_PRELOAD_MODELS_CONFIG,PRELOAD_MODELS_CONFIG" help:"A List of models to apply at startup. Path to a YAML config file" group:"models"`
@@ -53,6 +52,7 @@ type RunCMD struct {
 	OpaqueErrors                       bool     `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
 	UseSubtleKeyComparison             bool     `env:"LOCALAI_SUBTLE_KEY_COMPARISON" default:"false" help:"If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resiliancy against timing attacks." group:"hardening"`
 	DisableApiKeyRequirementForHttpGet bool     `env:"LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET" default:"false" help:"If true, a valid API key is not required to issue GET requests to portions of the web ui. This should only be enabled in secure testing environments" group:"hardening"`
+	DisableMetricsEndpoint             bool     `env:"LOCALAI_DISABLE_METRICS_ENDPOINT,DISABLE_METRICS_ENDPOINT" default:"false" help:"Disable the /metrics endpoint" group:"api"`
 	HttpGetExemptedEndpoints           []string `env:"LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS" default:"^/$,^/browse/?$,^/talk/?$,^/p2p/?$,^/chat/?$,^/text2image/?$,^/tts/?$,^/static/.*$,^/swagger.*$" help:"If LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET is overriden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review" group:"hardening"`
 	Peer2Peer                          bool     `env:"LOCALAI_P2P,P2P" name:"p2p" default:"false" help:"Enable P2P mode" group:"p2p"`
 	Peer2PeerDHTInterval               int      `env:"LOCALAI_P2P_DHT_INTERVAL,P2P_DHT_INTERVAL" default:"360" name:"p2p-dht-interval" help:"Interval for DHT refresh (used during token generation)" group:"p2p"`
@@ -69,6 +69,8 @@ type RunCMD struct {
 	WatchdogBusyTimeout                string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
+	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
+	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -87,7 +89,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithDynamicConfigDirPollInterval(r.LocalaiConfigDirPollInterval),
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
-		config.WithModelLibraryURL(r.RemoteLibrary),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithCsrf(r.CSRF),
@@ -104,6 +105,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithDisableApiKeyRequirementForHttpGet(r.DisableApiKeyRequirementForHttpGet),
 		config.WithHttpGetExemptedEndpoints(r.HttpGetExemptedEndpoints),
 		config.WithP2PNetworkID(r.Peer2PeerNetworkID),
+		config.WithLoadToMemory(r.LoadToMemory),
+		config.WithMachineTag(r.MachineTag),
+	}
+
+	if r.DisableMetricsEndpoint {
+		opts = append(opts, config.DisableMetricsEndpoint)
 	}
 
 	token := ""
@@ -179,16 +186,16 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	if r.PreloadBackendOnly {
-		_, _, _, err := startup.Startup(opts...)
+		_, err := application.New(opts...)
 		return err
 	}
 
-	cl, ml, options, err := startup.Startup(opts...)
+	app, err := application.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed basic startup tasks with error %s", err.Error())
 	}
 
-	appHTTP, err := http.App(cl, ml, options)
+	appHTTP, err := http.API(app)
 	if err != nil {
 		log.Error().Err(err).Msg("error during HTTP App construction")
 		return err

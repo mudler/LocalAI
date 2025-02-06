@@ -295,6 +295,20 @@ definitions:
     - StatusResponse_BUSY
     - StatusResponse_READY
     - StatusResponse_ERROR
+  proto.VADResponse:
+    properties:
+      segments:
+        items:
+          $ref: '#/definitions/proto.VADSegment'
+        type: array
+    type: object
+  proto.VADSegment:
+    properties:
+      end:
+        type: number
+      start:
+        type: number
+    type: object
   schema.BackendMonitorRequest:
     properties:
       model:
@@ -453,9 +467,17 @@ definitions:
       role:
         description: The message role
         type: string
+      string_audios:
+        items:
+          type: string
+        type: array
       string_content:
         type: string
       string_images:
+        items:
+          type: string
+        type: array
+      string_videos:
         items:
           type: string
         type: array
@@ -548,6 +570,8 @@ definitions:
         type: number
       prompt:
         description: Prompt is read only by completion/image API calls
+      quality:
+        type: string
       repeat_last_n:
         type: integer
       repeat_penalty:
@@ -624,6 +648,12 @@ definitions:
         type: integer
       prompt_tokens:
         type: integer
+      timing_prompt_processing:
+        description: Extra timing data, disabled by default as is't not a part of
+          OpenAI specification
+        type: number
+      timing_token_generation:
+        type: number
       total_tokens:
         type: integer
     type: object
@@ -638,11 +668,20 @@ definitions:
           $ref: '#/definitions/p2p.NodeData'
         type: array
     type: object
+  schema.SysInfoModel:
+    properties:
+      id:
+        type: string
+    type: object
   schema.SystemInformationResponse:
     properties:
       backends:
         items:
           type: string
+        type: array
+      loaded_models:
+        items:
+          $ref: '#/definitions/schema.SysInfoModel'
         type: array
     type: object
   schema.TTSRequest:
@@ -659,9 +698,26 @@ definitions:
       model:
         description: model name or full path
         type: string
+      response_format:
+        description: (optional) output format
+        type: string
       voice:
         description: voice audio file or speaker id
         type: string
+    type: object
+  schema.TokenizeRequest:
+    properties:
+      content:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.TokenizeResponse:
+    properties:
+      tokens:
+        items:
+          type: integer
+        type: array
     type: object
   schema.ToolCall:
     properties:
@@ -672,6 +728,18 @@ definitions:
       index:
         type: integer
       type:
+        type: string
+    type: object
+  schema.VADRequest:
+    description: VAD request body
+    properties:
+      audio:
+        description: model name or full path
+        items:
+          type: number
+        type: array
+      model:
+        description: model name or full path
         type: string
     type: object
 info:
@@ -847,6 +915,18 @@ paths:
           schema:
             $ref: '#/definitions/schema.SystemInformationResponse'
       summary: Show the LocalAI instance information
+  /tokenMetrics:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Get TokenMetrics for Active Slot.
   /tts:
     post:
       consumes:
@@ -1129,6 +1209,50 @@ paths:
           schema:
             type: string
       summary: Generates audio from the input text.
+  /v1/tokenMetrics:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Get TokenMetrics for Active Slot.
+  /v1/tokenize:
+    post:
+      parameters:
+      - description: Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TokenizeRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.TokenizeResponse'
+      summary: Tokenize the input.
+  /vad:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VADRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/proto.VADResponse'
+      summary: Detect voice fragments in an audio stream
 securityDefinitions:
   BearerAuth:
     in: header

@@ -11,32 +11,65 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func modelOpts(c config.BackendConfig, so *config.ApplicationConfig, opts []model.Option) []model.Option {
+func ModelOptions(c config.BackendConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
+	name := c.Name
+	if name == "" {
+		name = c.Model
+	}
+
+	defOpts := []model.Option{
+		model.WithBackendString(c.Backend),
+		model.WithModel(c.Model),
+		model.WithAssetDir(so.AssetsDestination),
+		model.WithContext(so.Context),
+		model.WithModelID(name),
+	}
+
+	threads := 1
+
+	if c.Threads != nil {
+		threads = *c.Threads
+	}
+
+	if so.Threads != 0 {
+		threads = so.Threads
+	}
+
+	c.Threads = &threads
+
+	grpcOpts := grpcModelOpts(c)
+	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
+
 	if so.SingleBackend {
-		opts = append(opts, model.WithSingleActiveBackend())
+		defOpts = append(defOpts, model.WithSingleActiveBackend())
 	}
 
 	if so.ParallelBackendRequests {
-		opts = append(opts, model.EnableParallelRequests)
+		defOpts = append(defOpts, model.EnableParallelRequests)
 	}
 
 	if c.GRPC.Attempts != 0 {
-		opts = append(opts, model.WithGRPCAttempts(c.GRPC.Attempts))
+		defOpts = append(defOpts, model.WithGRPCAttempts(c.GRPC.Attempts))
 	}
 
 	if c.GRPC.AttemptsSleepTime != 0 {
-		opts = append(opts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
+		defOpts = append(defOpts, model.WithGRPCAttemptsDelay(c.GRPC.AttemptsSleepTime))
 	}
 
 	for k, v := range so.ExternalGRPCBackends {
-		opts = append(opts, model.WithExternalBackend(k, v))
+		defOpts = append(defOpts, model.WithExternalBackend(k, v))
 	}
 
-	return opts
+	return append(defOpts, opts...)
 }
 
 func getSeed(c config.BackendConfig) int32 {
-	seed := int32(*c.Seed)
+	var seed int32 = config.RAND_SEED
+
+	if c.Seed != nil {
+		seed = int32(*c.Seed)
+	}
+
 	if seed == config.RAND_SEED {
 		seed = rand.Int31()
 	}
@@ -44,32 +77,82 @@ func getSeed(c config.BackendConfig) int32 {
 	return seed
 }
 
-func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
+func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
 	}
+
+	f16 := false
+	if c.F16 != nil {
+		f16 = *c.F16
+	}
+
+	embeddings := false
+	if c.Embeddings != nil {
+		embeddings = *c.Embeddings
+	}
+
+	lowVRAM := false
+	if c.LowVRAM != nil {
+		lowVRAM = *c.LowVRAM
+	}
+
+	mmap := false
+	if c.MMap != nil {
+		mmap = *c.MMap
+	}
+
+	ctxSize := 1024
+	if c.ContextSize != nil {
+		ctxSize = *c.ContextSize
+	}
+
+	mmlock := false
+	if c.MMlock != nil {
+		mmlock = *c.MMlock
+	}
+
+	nGPULayers := 9999999
+	if c.NGPULayers != nil {
+		nGPULayers = *c.NGPULayers
+	}
+
+	triggers := make([]*pb.GrammarTrigger, 0)
+	for _, t := range c.FunctionsConfig.GrammarConfig.GrammarTriggers {
+		triggers = append(triggers, &pb.GrammarTrigger{
+			Word:    t.Word,
+			AtStart: t.AtStart,
+		})
+
+	}
+
 	return &pb.ModelOptions{
 		CUDA:                 c.CUDA || c.Diffusers.CUDA,
 		SchedulerType:        c.Diffusers.SchedulerType,
+		GrammarTriggers:      triggers,
 		PipelineType:         c.Diffusers.PipelineType,
-		CFGScale:             c.Diffusers.CFGScale,
+		CFGScale:             c.CFGScale,
 		LoraAdapter:          c.LoraAdapter,
 		LoraScale:            c.LoraScale,
-		F16Memory:            *c.F16,
+		LoraAdapters:         c.LoraAdapters,
+		LoraScales:           c.LoraScales,
+		F16Memory:            f16,
 		LoraBase:             c.LoraBase,
 		IMG2IMG:              c.Diffusers.IMG2IMG,
 		CLIPModel:            c.Diffusers.ClipModel,
 		CLIPSubfolder:        c.Diffusers.ClipSubFolder,
+		Options:              c.Options,
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
 		ControlNet:           c.Diffusers.ControlNet,
-		ContextSize:          int32(*c.ContextSize),
+		ContextSize:          int32(ctxSize),
 		Seed:                 getSeed(c),
 		NBatch:               int32(b),
 		NoMulMatQ:            c.NoMulMatQ,
 		DraftModel:           c.DraftModel,
-		AudioPath:            c.VallE.AudioPath,
+		AudioPath:            c.AudioPath,
 		Quantization:         c.Quantization,
+		LoadFormat:           c.LoadFormat,
 		GPUMemoryUtilization: c.GPUMemoryUtilization,
 		TrustRemoteCode:      c.TrustRemoteCode,
 		EnforceEager:         c.EnforceEager,
@@ -78,6 +161,8 @@ func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		TensorParallelSize:   int32(c.TensorParallelSize),
 		MMProj:               c.MMProj,
 		FlashAttention:       c.FlashAttention,
+		CacheTypeKey:         c.CacheTypeK,
+		CacheTypeValue:       c.CacheTypeV,
 		NoKVOffload:          c.NoKVOffloading,
 		YarnExtFactor:        c.YarnExtFactor,
 		YarnAttnFactor:       c.YarnAttnFactor,
@@ -85,16 +170,16 @@ func gRPCModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		YarnBetaSlow:         c.YarnBetaSlow,
 		NGQA:                 c.NGQA,
 		RMSNormEps:           c.RMSNormEps,
-		MLock:                *c.MMlock,
+		MLock:                mmlock,
 		RopeFreqBase:         c.RopeFreqBase,
 		RopeScaling:          c.RopeScaling,
 		Type:                 c.ModelType,
 		RopeFreqScale:        c.RopeFreqScale,
 		NUMA:                 c.NUMA,
-		Embeddings:           *c.Embeddings,
-		LowVRAM:              *c.LowVRAM,
-		NGPULayers:           int32(*c.NGPULayers),
-		MMap:                 *c.MMap,
+		Embeddings:           embeddings,
+		LowVRAM:              lowVRAM,
+		NGPULayers:           int32(nGPULayers),
+		MMap:                 mmap,
 		MainGPU:              c.MainGPU,
 		Threads:              int32(*c.Threads),
 		TensorSplit:          c.TensorSplit,

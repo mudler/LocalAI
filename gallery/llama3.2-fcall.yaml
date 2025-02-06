@@ -1,0 +1,49 @@
+---
+name: "llama3.2-fcall"
+
+config_file: |
+  mmap: true
+  function:
+    json_regex_match:
+    - "(?s)<Output>(.*?)</Output>"
+    capture_llm_results:
+      - (?s)<Thought>(.*?)</Thought>
+    replace_llm_results:
+      - key: (?s)<Thought>(.*?)</Thought>
+        value: ""
+    grammar:
+      properties_order: "name,arguments"
+      function_arguments_key: "arguments"
+  template:
+    chat: |
+      <|start_header_id|>system<|end_header_id|>
+      You are a helpful assistant<|eot_id|><|start_header_id|>user<|end_header_id|>
+      {{.Input }}
+      <|start_header_id|>assistant<|end_header_id|>
+    chat_message: |
+      <|start_header_id|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}<|end_header_id|>
+      {{ if .FunctionCall -}}
+      {{ else if eq .RoleName "tool" -}}
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content -}}
+      {{ else if .FunctionCall -}}
+      {{ toJson .FunctionCall -}}
+      {{ end -}}
+      <|eot_id|>
+    completion: |
+      {{.Input}}
+    function: |
+      <|start_header_id|>system<|end_header_id|>
+      You are an AI assistant that executes function calls, and these are the tools at your disposal:
+      {{range .Functions}}
+      {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+      {{end}}
+      <|eot_id|>{{.Input}}<|start_header_id|>assistant<|end_header_id|>
+  context_size: 8192
+  f16: true
+  stopwords:
+  - <|im_end|>
+  - <dummy32000>
+  - "<|eot_id|>"
+  - <|end_of_text|>

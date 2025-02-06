@@ -1,0 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.4.1+cu118
+faster-whisper
+opencv-python
+accelerate
+compel
+peft
+sentencepiece
+optimum-quanto

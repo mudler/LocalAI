@@ -1,4 +1,6 @@
-grpcio==1.66.1
+grpcio==1.70.0
 protobuf
 certifi
-setuptools==69.5.1 # https://github.com/mudler/LocalAI/issues/2406
+setuptools
+scipy==1.15.1
+numpy>=2.0.0

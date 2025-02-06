@@ -35,30 +35,6 @@ jobs:
         run: |
            make --jobs=5 --output-sync=target -C backend/python/transformers
            make --jobs=5 --output-sync=target -C backend/python/transformers test
-
-  tests-sentencetransformers:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
-          # Install UV
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
-          sudo apt-get install -y libopencv-dev
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
-
-      - name: Test sentencetransformers
-        run: |
-           make --jobs=5 --output-sync=target -C backend/python/sentencetransformers
-           make --jobs=5 --output-sync=target -C backend/python/sentencetransformers test
-
-
   tests-rerankers:
     runs-on: ubuntu-latest
     steps:
@@ -102,71 +78,27 @@ jobs:
           make --jobs=5 --output-sync=target -C backend/python/diffusers
           make --jobs=5 --output-sync=target -C backend/python/diffusers test
 
-  tests-parler-tts:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
-          # Install UV
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
-          sudo apt-get install -y libopencv-dev
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
+  # tests-transformers-musicgen:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v4
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
 
-      - name: Test parler-tts
-        run: |
-           make --jobs=5 --output-sync=target -C backend/python/parler-tts
-           make --jobs=5 --output-sync=target -C backend/python/parler-tts test
-
-  tests-openvoice:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
-          # Install UV
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
-          sudo apt-get install -y libopencv-dev
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
-
-      - name: Test openvoice
-        run: |
-           make --jobs=5 --output-sync=target -C backend/python/openvoice
-           make --jobs=5 --output-sync=target -C backend/python/openvoice test
-
-  tests-transformers-musicgen:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
-          # Install UV
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
-          sudo apt-get install -y libopencv-dev
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
-
-      - name: Test transformers-musicgen
-        run: |
-           make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen
-           make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen test
+  #     - name: Test transformers-musicgen
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen
+  #          make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen test
 
   # tests-bark:
   #   runs-on: ubuntu-latest
@@ -253,26 +185,6 @@ jobs:
   #       run: |
   #          make --jobs=5 --output-sync=target -C backend/python/vllm
   #          make --jobs=5 --output-sync=target -C backend/python/vllm test
-  tests-vallex:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install build-essential ffmpeg
-          # Install UV
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
-          sudo apt-get install -y libopencv-dev
-          pip install --user --no-cache-dir grpcio-tools==1.64.1
-      - name: Test vall-e-x
-        run: |
-           make --jobs=5 --output-sync=target -C backend/python/vall-e-x
-           make --jobs=5 --output-sync=target -C backend/python/vall-e-x test
 
   tests-coqui:
     runs-on: ubuntu-latest

@@ -123,8 +123,9 @@ var _ = Describe("E2E test", func() {
 			It("correctly", func() {
 				resp, err := client.CreateImage(context.TODO(),
 					openai.ImageRequest{
-						Prompt: "test",
-						Size:   openai.CreateImageSize512x512,
+						Prompt:  "test",
+						Quality: "1",
+						Size:    openai.CreateImageSize256x256,
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -135,7 +136,8 @@ var _ = Describe("E2E test", func() {
 				resp, err := client.CreateImage(context.TODO(),
 					openai.ImageRequest{
 						Prompt:         "test",
-						Size:           openai.CreateImageSize512x512,
+						Size:           openai.CreateImageSize256x256,
+						Quality:        "1",
 						ResponseFormat: openai.CreateImageResponseFormatURL,
 					},
 				)
@@ -147,7 +149,8 @@ var _ = Describe("E2E test", func() {
 				resp, err := client.CreateImage(context.TODO(),
 					openai.ImageRequest{
 						Prompt:         "test",
-						Size:           openai.CreateImageSize512x512,
+						Size:           openai.CreateImageSize256x256,
+						Quality:        "1",
 						ResponseFormat: openai.CreateImageResponseFormatB64JSON,
 					},
 				)
@@ -171,7 +174,7 @@ var _ = Describe("E2E test", func() {
 		})
 		Context("vision", func() {
 			It("correctly", func() {
-				model := "gpt-4-vision-preview"
+				model := "gpt-4o"
 				resp, err := client.CreateChatCompletion(context.TODO(),
 					openai.ChatCompletionRequest{
 						Model: model, Messages: []openai.ChatCompletionMessage{
@@ -260,11 +263,9 @@ var _ = Describe("E2E test", func() {
 				resp, err := http.Post(rerankerEndpoint, "application/json", bytes.NewReader(serialized))
 				Expect(err).To(BeNil())
 				Expect(resp).ToNot(BeNil())
-				Expect(resp.StatusCode).To(Equal(200))
-
 				body, err := io.ReadAll(resp.Body)
-				Expect(err).To(BeNil())
-				Expect(body).ToNot(BeNil())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("body: %s, response: %+v", body, resp))
 
 				deserializedResponse := schema.JINARerankResponse{}
 				err = json.Unmarshal(body, &deserializedResponse)
