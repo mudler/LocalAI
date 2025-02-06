@@ -124,7 +124,7 @@ Note: rwkv models needs to specify the backend `rwkv` in the YAML config files a
 
 {{% alert note %}}
 
-The `ggml` file format has been deprecated. If you are using `ggml` models and you are configuring your model with a YAML file, specify, use the `llama-ggml` backend instead. If you are relying in automatic detection of the model, you should be fine. For `gguf` models, use the `llama` backend. The go backend is deprecated as well but still available as `go-llama`. The go backend supports still features not available in the mainline: speculative sampling and embeddings.
+The `ggml` file format has been deprecated. If you are using `ggml` models and you are configuring your model with a YAML file, specify, use a LocalAI version older than v2.25.0. For `gguf` models, use the `llama` backend. The go backend is deprecated as well but still available as `go-llama`.
 
 {{% /alert %}}
 
@@ -175,25 +175,12 @@ name: llama
 backend: llama
 parameters:
   # Relative to the models path
-  model: file.gguf.bin
-```
-
-In the example above we specify `llama` as the backend to restrict loading `gguf` models only. 
-
-For instance, to use the `llama-ggml` backend for `ggml` models:
-
-```yaml
-name: llama
-backend: llama-ggml
-parameters:
-  # Relative to the models path
-  model: file.ggml.bin
+  model: file.gguf
 ```
 
 #### Reference
 
 - [llama](https://github.com/ggerganov/llama.cpp)
-- [binding](https://github.com/go-skynet/go-llama.cpp)
 
 
 ### exllama/2

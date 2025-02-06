@@ -43,8 +43,6 @@ var TypeAlias map[string]string = map[string]string{
 var AutoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
 
 const (
-	LlamaGGML = "llama-ggml"
-
 	LLamaCPP = "llama-cpp"
 
 	LLamaCPPAVX2     = "llama-cpp-avx2"
@@ -143,10 +141,10 @@ func orderBackends(backends map[string][]string) ([]string, error) {
 
 	// sets a priority list - first has more priority
 	priorityList := []string{
-		// First llama.cpp(variants) and llama-ggml to follow.
+		// First llama.cpp(variants)
 		// We keep the fallback to prevent that if the llama.cpp variants
 		// that depends on shared libs if breaks have still a safety net.
-		LLamaCPP, LlamaGGML, LLamaCPPFallback,
+		LLamaCPP, LLamaCPPFallback,
 	}
 
 	toTheEnd := []string{
