@@ -3605,6 +3605,20 @@
     - filename: rubenroy_Gilgamesh-72B-Q4_K_M.gguf
       sha256: c6842b3bc882082c63243e762234ae697c1727bebed18b5241eb97e019f0cf68
       uri: huggingface://bartowski/rubenroy_Gilgamesh-72B-GGUF/rubenroy_Gilgamesh-72B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tiger-lab_qwen2.5-32b-instruct-cft"
+  urls:
+    - https://huggingface.co/TIGER-Lab/Qwen2.5-32B-Instruct-CFT
+    - https://huggingface.co/bartowski/TIGER-Lab_Qwen2.5-32B-Instruct-CFT-GGUF
+  description: |
+    Qwen2.5-32B-Instruct-CFT is a 32B parameter model fine-tuned using our novel Critique Fine-Tuning (CFT) approach. Built upon the Qwen2.5-32B-Instruct base model, this variant is trained to critique and analyze responses rather than simply imitate them, leading to enhanced reasoning capabilities.
+  overrides:
+    parameters:
+      model: TIGER-Lab_Qwen2.5-32B-Instruct-CFT-Q4_K_M.gguf
+  files:
+    - filename: TIGER-Lab_Qwen2.5-32B-Instruct-CFT-Q4_K_M.gguf
+      sha256: 57e87e246db368f39f31f38e44ba8e9dc838a026f729f5a123aacc2aeb5a9402
+      uri: huggingface://bartowski/TIGER-Lab_Qwen2.5-32B-Instruct-CFT-GGUF/TIGER-Lab_Qwen2.5-32B-Instruct-CFT-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
