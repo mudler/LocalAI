@@ -401,6 +401,11 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 				log.Debug().Msgf("Text content to return: %s", textContentToReturn)
 				noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
 
+				finishReason := "stop"
+				if len(input.Tools) > 0 {
+					finishReason = "tool_calls"
+				}
+
 				switch {
 				case noActionsToRun:
 					result, err := handleQuestion(config, input, ml, startupOptions, results, s, predInput)
@@ -408,17 +413,16 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 						log.Error().Err(err).Msg("error handling question")
 						return
 					}
+
 					*c = append(*c, schema.Choice{
-						Message: &schema.Message{Role: "assistant", Content: &result}})
+						FinishReason: finishReason,
+						Message:      &schema.Message{Role: "assistant", Content: &result}})
 				default:
 					toolChoice := schema.Choice{
+						FinishReason: finishReason,
 						Message: &schema.Message{
 							Role: "assistant",
 						},
-					}
-
-					if len(input.Tools) > 0 {
-						toolChoice.FinishReason = "tool_calls"
 					}
 
 					for _, ss := range results {
@@ -438,7 +442,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 								},
 							)
 						} else {
-							// otherwise we return more choices directly
+							// otherwise we return more choices directly (deprecated)
 							*c = append(*c, schema.Choice{
 								FinishReason: "function_call",
 								Message: &schema.Message{
