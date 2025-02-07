@@ -553,6 +553,29 @@
     - filename: Black-Ink-Guild_Pernicious_Prophecy_70B-Q4_K_M.gguf
       sha256: d8d4874b837993546b750db3faf1c6e5d867883a6750f04f1f4986973d7c107b
       uri: huggingface://bartowski/Black-Ink-Guild_Pernicious_Prophecy_70B-GGUF/Black-Ink-Guild_Pernicious_Prophecy_70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "nohobby_l3.3-prikol-70b-v0.5"
+  icon: https://files.catbox.moe/x9t3zo.png
+  urls:
+    - https://huggingface.co/Nohobby/L3.3-Prikol-70B-v0.5
+    - https://huggingface.co/bartowski/Nohobby_L3.3-Prikol-70B-v0.5-GGUF
+  description: |
+    99% of mergekit addicts quit before they hit it big.
+
+    Gosh, I need to create an org for my test runs - my profile looks like a dumpster.
+
+    What was it again? Ah, the new model.
+
+    Exactly what I wanted. All I had to do was yank out the cursed official DeepSeek distill and here we are.
+
+    From the brief tests it gave me some unusual takes on the character cards I'm used to. Just this makes it worth it imo. Also the writing is kinda nice.
+  overrides:
+    parameters:
+      model: Nohobby_L3.3-Prikol-70B-v0.5-Q4_K_M.gguf
+  files:
+    - filename: Nohobby_L3.3-Prikol-70B-v0.5-Q4_K_M.gguf
+      sha256: 36f29015f1f420f51569603445a3ea5fe72e3651c2022ef064086f5617578fe6
+      uri: huggingface://bartowski/Nohobby_L3.3-Prikol-70B-v0.5-GGUF/Nohobby_L3.3-Prikol-70B-v0.5-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
