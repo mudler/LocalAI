@@ -6913,6 +6913,22 @@
     - filename: krutrim-ai-labs_Krutrim-2-instruct-Q4_K_M.gguf
       sha256: 03aa6d1fb7ab70482a2242839b8d8e1c789aa90a8be415076ddf84bef65f06c7
       uri: huggingface://bartowski/krutrim-ai-labs_Krutrim-2-instruct-GGUF/krutrim-ai-labs_Krutrim-2-instruct-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "cognitivecomputations_dolphin3.0-r1-mistral-24b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63111b2d88942700629f5771/hdAvdwZiJaLbGmvSZ3wTT.png
+  urls:
+    - https://huggingface.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B
+    - https://huggingface.co/bartowski/cognitivecomputations_Dolphin3.0-R1-Mistral-24B-GGUF
+  description: |
+    Dolphin 3.0 R1 is the next generation of the Dolphin series of instruct-tuned models. Designed to be the ultimate general purpose local model, enabling coding, math, agentic, function calling, and general use cases.
+  overrides:
+    parameters:
+      model: cognitivecomputations_Dolphin3.0-R1-Mistral-24B-Q4_K_M.gguf
+  files:
+    - filename: cognitivecomputations_Dolphin3.0-R1-Mistral-24B-Q4_K_M.gguf
+      sha256: d67de1e94fb32742bd09ee8beebbeb36a4b544785a8f8413dc4d9490e04eda6c
+      uri: huggingface://bartowski/cognitivecomputations_Dolphin3.0-R1-Mistral-24B-GGUF/cognitivecomputations_Dolphin3.0-R1-Mistral-24B-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
