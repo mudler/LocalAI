@@ -13,14 +13,8 @@ func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.Bac
 	var err error
 
 	opts := ModelOptions(backendConfig, appConfig)
+	inferenceModel, err = loader.Load(opts...)
 
-	// TODO: looks weird, seems to be a correct merge?
-	if backendConfig.Backend == "" {
-		inferenceModel, err = loader.Load(opts...)
-	} else {
-		opts = append(opts, model.WithBackendString(backendConfig.Backend))
-		inferenceModel, err = loader.Load(opts...)
-	}
 	if err != nil {
 		return schema.TokenizeResponse{}, err
 	}
