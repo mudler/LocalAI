@@ -43,11 +43,10 @@ var TypeAlias map[string]string = map[string]string{
 var AutoDetect = os.Getenv("DISABLE_AUTODETECT") != "true"
 
 const (
-	LlamaGGML = "llama-ggml"
-
 	LLamaCPP = "llama-cpp"
 
 	LLamaCPPAVX2     = "llama-cpp-avx2"
+	LLamaCPPAVX512   = "llama-cpp-avx512"
 	LLamaCPPAVX      = "llama-cpp-avx"
 	LLamaCPPFallback = "llama-cpp-fallback"
 	LLamaCPPCUDA     = "llama-cpp-cuda"
@@ -65,6 +64,18 @@ const (
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
 )
+
+var llamaCPPVariants = []string{
+	LLamaCPPAVX2,
+	LLamaCPPAVX512,
+	LLamaCPPAVX,
+	LLamaCPPFallback,
+	LLamaCPPCUDA,
+	LLamaCPPHipblas,
+	LLamaCPPSycl16,
+	LLamaCPPSycl32,
+	LLamaCPPGRPC,
+}
 
 func backendPath(assetDir, backend string) string {
 	return filepath.Join(assetDir, "backend-assets", "grpc", backend)
@@ -107,40 +118,14 @@ ENTRY:
 	if AutoDetect {
 		// if we find the llama.cpp variants, show them of as a single backend (llama-cpp) as later we are going to pick that up
 		// when starting the service
-		foundLCPPAVX, foundLCPPAVX2, foundLCPPFallback, foundLCPPGRPC, foundLCPPCuda, foundLCPPHipblas, foundSycl16, foundSycl32 := false, false, false, false, false, false, false, false
+		foundVariants := map[string]bool{}
 		if _, ok := backends[LLamaCPP]; !ok {
 			for _, e := range entry {
-				if strings.Contains(e.Name(), LLamaCPPAVX2) && !foundLCPPAVX2 {
-					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPAVX2)
-					foundLCPPAVX2 = true
-				}
-				if strings.Contains(e.Name(), LLamaCPPAVX) && !foundLCPPAVX {
-					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPAVX)
-					foundLCPPAVX = true
-				}
-				if strings.Contains(e.Name(), LLamaCPPFallback) && !foundLCPPFallback {
-					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPFallback)
-					foundLCPPFallback = true
-				}
-				if strings.Contains(e.Name(), LLamaCPPGRPC) && !foundLCPPGRPC {
-					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPGRPC)
-					foundLCPPGRPC = true
-				}
-				if strings.Contains(e.Name(), LLamaCPPCUDA) && !foundLCPPCuda {
-					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPCUDA)
-					foundLCPPCuda = true
-				}
-				if strings.Contains(e.Name(), LLamaCPPHipblas) && !foundLCPPHipblas {
-					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPHipblas)
-					foundLCPPHipblas = true
-				}
-				if strings.Contains(e.Name(), LLamaCPPSycl16) && !foundSycl16 {
-					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPSycl16)
-					foundSycl16 = true
-				}
-				if strings.Contains(e.Name(), LLamaCPPSycl32) && !foundSycl32 {
-					backends[LLamaCPP] = append(backends[LLamaCPP], LLamaCPPSycl32)
-					foundSycl32 = true
+				for _, v := range llamaCPPVariants {
+					if strings.Contains(e.Name(), v) && !foundVariants[v] {
+						backends[LLamaCPP] = append(backends[LLamaCPP], v)
+						foundVariants[v] = true
+					}
 				}
 			}
 		}
@@ -156,10 +141,10 @@ func orderBackends(backends map[string][]string) ([]string, error) {
 
 	// sets a priority list - first has more priority
 	priorityList := []string{
-		// First llama.cpp(variants) and llama-ggml to follow.
+		// First llama.cpp(variants)
 		// We keep the fallback to prevent that if the llama.cpp variants
 		// that depends on shared libs if breaks have still a safety net.
-		LLamaCPP, LlamaGGML, LLamaCPPFallback,
+		LLamaCPP, LLamaCPPFallback,
 	}
 
 	toTheEnd := []string{
@@ -281,6 +266,12 @@ func selectGRPCProcessByHostCapabilities(backend, assetDir string, f16 bool) str
 		p := backendPath(assetDir, LLamaCPPAVX2)
 		if _, err := os.Stat(p); err == nil {
 			log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
+			selectedProcess = p
+		}
+	} else if xsysinfo.HasCPUCaps(cpuid.AVX512F) {
+		p := backendPath(assetDir, LLamaCPPAVX512)
+		if _, err := os.Stat(p); err == nil {
+			log.Info().Msgf("[%s] attempting to load with AVX512 variant", backend)
 			selectedProcess = p
 		}
 	} else if xsysinfo.HasCPUCaps(cpuid.AVX) {

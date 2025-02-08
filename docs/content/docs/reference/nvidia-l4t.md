@@ -21,7 +21,13 @@ git clone https://github.com/mudler/LocalAI
 
 cd LocalAI
 
-docker build --build-arg SKIP_DRIVERS=true --build-arg BUILD_TYPE=cublas --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r36.4.0 --build-arg IMAGE_TYPE=core -t localai-orin .
+docker build --build-arg SKIP_DRIVERS=true --build-arg BUILD_TYPE=cublas --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r36.4.0 --build-arg IMAGE_TYPE=core -t quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-core .
+```
+
+Otherwise images are available on quay.io and dockerhub:
+
+```bash
+docker pull quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-core
 ```
 
 ## Usage
@@ -29,7 +35,7 @@ docker build --build-arg SKIP_DRIVERS=true --build-arg BUILD_TYPE=cublas --build
 Run the LocalAI container on Nvidia ARM64 devices using the following command, where `/data/models` is the directory containing the models:
 
 ```bash
-docker run -e DEBUG=true -p 8080:8080 -v /data/models:/build/models  -ti --restart=always --name local-ai --runtime nvidia --gpus all localai-orin
+docker run -e DEBUG=true -p 8080:8080 -v /data/models:/build/models  -ti --restart=always --name local-ai --runtime nvidia --gpus all quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-core
 ```
 
 Note: `/data/models` is the directory containing the models. You can replace it with the directory containing your models.

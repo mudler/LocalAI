@@ -21,14 +21,16 @@ import (
 )
 
 const (
-	HuggingFacePrefix = "huggingface://"
-	OCIPrefix         = "oci://"
-	OllamaPrefix      = "ollama://"
-	HTTPPrefix        = "http://"
-	HTTPSPrefix       = "https://"
-	GithubURI         = "github:"
-	GithubURI2        = "github://"
-	LocalPrefix       = "file://"
+	HuggingFacePrefix  = "huggingface://"
+	HuggingFacePrefix1 = "hf://"
+	HuggingFacePrefix2 = "hf.co/"
+	OCIPrefix          = "oci://"
+	OllamaPrefix       = "ollama://"
+	HTTPPrefix         = "http://"
+	HTTPSPrefix        = "https://"
+	GithubURI          = "github:"
+	GithubURI2         = "github://"
+	LocalPrefix        = "file://"
 )
 
 type URI string
@@ -127,6 +129,8 @@ func (u URI) LooksLikeURL() bool {
 	return strings.HasPrefix(string(u), HTTPPrefix) ||
 		strings.HasPrefix(string(u), HTTPSPrefix) ||
 		strings.HasPrefix(string(u), HuggingFacePrefix) ||
+		strings.HasPrefix(string(u), HuggingFacePrefix1) ||
+		strings.HasPrefix(string(u), HuggingFacePrefix2) ||
 		strings.HasPrefix(string(u), GithubURI) ||
 		strings.HasPrefix(string(u), OllamaPrefix) ||
 		strings.HasPrefix(string(u), OCIPrefix) ||
@@ -170,8 +174,10 @@ func (s URI) ResolveURL() string {
 		projectPath := strings.Join(repoPath[2:], "/")
 
 		return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
-	case strings.HasPrefix(string(s), HuggingFacePrefix):
+	case strings.HasPrefix(string(s), HuggingFacePrefix) || strings.HasPrefix(string(s), HuggingFacePrefix1) || strings.HasPrefix(string(s), HuggingFacePrefix2):
 		repository := strings.Replace(string(s), HuggingFacePrefix, "", 1)
+		repository = strings.Replace(repository, HuggingFacePrefix1, "", 1)
+		repository = strings.Replace(repository, HuggingFacePrefix2, "", 1)
 		// convert repository to a full URL.
 		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
 		owner := strings.Split(repository, "/")[0]

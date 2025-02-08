@@ -1,0 +1,23 @@
+---
+name: "deepseek-r1"
+
+config_file: |
+  context_size: 131072
+  mmap: true
+  f16: true
+  stopwords:
+    - <｜begin▁of▁sentence｜>
+    - <｜end▁of▁sentence｜>
+    - <｜User｜>
+    - <｜Assistant｜>
+  template:
+    chat_message: |
+      {{if eq .RoleName "system" -}}{{.Content }}
+      {{ end -}}
+      {{if eq .RoleName "user" -}}<｜User｜>{{.Content}}
+      {{end -}}
+      {{if eq .RoleName "assistant" -}}<｜Assistant｜>{{.Content}}<｜end▁of▁sentence｜>{{end}}
+    completion: |
+      {{.Input}}
+    chat: |
+      {{.Input -}}<｜Assistant｜>

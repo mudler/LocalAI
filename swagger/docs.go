@@ -765,6 +765,17 @@ const docTemplate = `{
         "/v1/tokenize": {
             "post": {
                 "summary": "Tokenize the input.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.TokenizeRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Response",
@@ -1834,6 +1845,17 @@ const docTemplate = `{
                 },
                 "voice": {
                     "description": "voice audio file or speaker id",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.TokenizeRequest": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "model": {
                     "type": "string"
                 }
             }

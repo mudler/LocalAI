@@ -12,6 +12,7 @@ import (
 
 // TokenizeEndpoint exposes a REST API to tokenize the content
 // @Summary Tokenize the input.
+// @Param request body schema.TokenizeRequest true "Request"
 // @Success 200 {object} schema.TokenizeResponse "Response"
 // @Router /v1/tokenize [post]
 func TokenizeEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
@@ -51,8 +52,6 @@ func TokenizeEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, app
 			return err
 		}
 
-		c.JSON(tokenResponse)
-		return nil
-
+		return c.JSON(tokenResponse)
 	}
 }

@@ -48,8 +48,10 @@ var _ = Describe("Model test", func() {
 			defer os.RemoveAll(tempdir)
 
 			gallery := []GalleryModel{{
-				Name: "bert",
-				URL:  bertEmbeddingsURL,
+				Metadata: Metadata{
+					Name: "bert",
+					URL:  bertEmbeddingsURL,
+				},
 			}}
 			out, err := yaml.Marshal(gallery)
 			Expect(err).ToNot(HaveOccurred())

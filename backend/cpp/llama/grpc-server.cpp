@@ -468,6 +468,9 @@ struct llama_server_context
     bool add_bos_token      = true;
     bool has_eos_token      = true;
 
+    bool grammar_lazy = false;
+    std::vector<common_grammar_trigger> grammar_trigger_words;
+
     int32_t n_ctx;  // total context for all clients / slots
 
     // system prompt
@@ -706,6 +709,8 @@ struct llama_server_context
         slot->sparams.grammar           = json_value(data, "grammar",           default_sparams.grammar);
         slot->sparams.n_probs           = json_value(data, "n_probs",           default_sparams.n_probs);
         slot->sparams.min_keep          = json_value(data, "min_keep",          default_sparams.min_keep);
+        slot->sparams.grammar_trigger_words = grammar_trigger_words;
+        slot->sparams.grammar_lazy = grammar_lazy;
 
         if (slot->n_predict > 0 && slot->params.n_predict > slot->n_predict) {
             // Might be better to reject the request with a 400 ?
@@ -2374,6 +2379,21 @@ static void params_parse(const backend::ModelOptions* request,
     if ( request->ropefreqscale() != 0.0f ) {
         params.rope_freq_scale = request->ropefreqscale();
     }
+
+    if (request->grammartriggers_size() > 0) {
+        LOG_INFO("configuring grammar triggers", {});
+        llama.grammar_lazy = true;
+        for (int i = 0; i < request->grammartriggers_size(); i++) {
+            common_grammar_trigger trigger;
+            trigger.word = request->grammartriggers(i).word();
+            trigger.at_start = request->grammartriggers(i).at_start();
+            llama.grammar_trigger_words.push_back(trigger);
+            LOG_INFO("grammar trigger", {
+                { "word", trigger.word },
+                { "at_start", trigger.at_start }
+            });
+        }
+    }
 }
 
 
@@ -2518,6 +2538,18 @@ public:
         {
             return grpc::Status::OK;
         }
+
+        return grpc::Status::OK;
+    }
+
+    grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response){
+         json data = parse_options(false, request, llama);
+
+         std::vector<llama_token> tokens = llama.tokenize(data["prompt"],false);
+
+         for (int i=0 ; i< tokens.size(); i++){
+            response->add_tokens(tokens[i]);
+         }
 
         return grpc::Status::OK;
     }

@@ -62,7 +62,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
-	if err := pkgStartup.InstallModels(options.Galleries, options.ModelLibraryURL, options.ModelPath, options.EnforcePredownloadScans, nil, options.ModelsURL...); err != nil {
+	if err := pkgStartup.InstallModels(options.Galleries, options.ModelPath, options.EnforcePredownloadScans, nil, options.ModelsURL...); err != nil {
 		log.Error().Err(err).Msg("error installing models")
 	}
 

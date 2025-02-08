@@ -148,6 +148,9 @@ function:
     no_action_function_name: "" # Function name to call when no action is determined.
     no_action_description_name: "" # Description name for no-action functions.
     response_regex: [] # Regular expressions to match response from
+    argument_regex: [] # Named regular to extract function arguments from the response.
+    argument_regex_key_name: "key" # Name of the named regex capture to capture the key of the function arguments
+	  argument_regex_value_name: "value" # Name of the named regex capture to capture the value of the function arguments
     json_regex_match: [] # Regular expressions to match JSON data when in tool mode
     replace_function_results: [] # Placeholder to replace function call results with arbitrary strings or patterns.
     replace_llm_results: [] # Replace language model results with arbitrary strings or patterns.

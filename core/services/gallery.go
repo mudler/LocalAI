@@ -129,7 +129,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 					if op.GalleryModelName != "" {
 						err = gallery.InstallModelFromGallery(op.Galleries, op.GalleryModelName, g.appConfig.ModelPath, op.Req, progressCallback, g.appConfig.EnforcePredownloadScans)
 					} else if op.ConfigURL != "" {
-						err = startup.InstallModels(op.Galleries, op.ConfigURL, g.appConfig.ModelPath, g.appConfig.EnforcePredownloadScans, progressCallback, op.ConfigURL)
+						err = startup.InstallModels(op.Galleries, g.appConfig.ModelPath, g.appConfig.EnforcePredownloadScans, progressCallback, op.ConfigURL)
 						if err != nil {
 							updateError(err)
 							continue

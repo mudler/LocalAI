@@ -9,7 +9,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/embedded"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
@@ -18,42 +17,17 @@ import (
 // InstallModels will preload models from the given list of URLs and galleries
 // It will download the model if it is not already present in the model path
 // It will also try to resolve if the model is an embedded model YAML configuration
-func InstallModels(galleries []config.Gallery, modelLibraryURL string, modelPath string, enforceScan bool, downloadStatus func(string, string, string, float64), models ...string) error {
+func InstallModels(galleries []config.Gallery, modelPath string, enforceScan bool, downloadStatus func(string, string, string, float64), models ...string) error {
 	// create an error that groups all errors
 	var err error
-
-	lib, _ := embedded.GetRemoteLibraryShorteners(modelLibraryURL, modelPath)
 
 	for _, url := range models {
 		// As a best effort, try to resolve the model from the remote library
 		// if it's not resolved we try with the other method below
-		if modelLibraryURL != "" {
-			if lib[url] != "" {
-				log.Debug().Msgf("[startup] model configuration is defined remotely: %s (%s)", url, lib[url])
-				url = lib[url]
-			}
-		}
 
-		url = embedded.ModelShortURL(url)
 		uri := downloader.URI(url)
 
 		switch {
-		case embedded.ExistsInModelsLibrary(url):
-			modelYAML, e := embedded.ResolveContent(url)
-			// If we resolve something, just save it to disk and continue
-			if e != nil {
-				log.Error().Err(e).Msg("error resolving model content")
-				err = errors.Join(err, e)
-				continue
-			}
-
-			log.Debug().Msgf("[startup] resolved embedded model: %s", url)
-			md5Name := utils.MD5(url)
-			modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
-			if e := os.WriteFile(modelDefinitionFilePath, modelYAML, 0600); err != nil {
-				log.Error().Err(e).Str("filepath", modelDefinitionFilePath).Msg("error writing model definition")
-				err = errors.Join(err, e)
-			}
 		case uri.LooksLikeOCI():
 			log.Debug().Msgf("[startup] resolved OCI model to download: %s", url)
 

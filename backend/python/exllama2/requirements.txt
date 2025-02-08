@@ -1,4 +1,4 @@
-grpcio==1.69.0
+grpcio==1.70.0
 protobuf
 certifi
 wheel
