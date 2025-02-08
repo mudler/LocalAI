@@ -30,6 +30,7 @@ ONNX_OS?=linux
 
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
+export GGML_CMAKE_ARGS?=
 export CMAKE_ARGS?=
 export BACKEND_LIBS?=
 
@@ -78,9 +79,45 @@ ifndef UNAME_S
 UNAME_S := $(shell uname -s)
 endif
 
-# IF native is false, we add -DGGML_NATIVE=OFF to CMAKE_ARGS
+# IF native is false, we add -DGGML_NATIVE=OFF to GGML_CMAKE_ARGS
 ifeq ($(NATIVE),false)
-	CMAKE_ARGS+=-DGGML_NATIVE=OFF
+	GGML_CMAKE_ARGS+=-DGGML_NATIVE=OFF
+endif
+
+# Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
+GGML_CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
+
+# If build type is cublas, then we set -DGGML_CUDA=ON to GGML_CMAKE_ARGS automatically
+ifeq ($(BUILD_TYPE),cublas)
+	GGML_CMAKE_ARGS+=-DGGML_CUDA=ON
+# If build type is openblas then we set -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
+# to GGML_CMAKE_ARGS automatically
+else ifeq ($(BUILD_TYPE),openblas)
+	GGML_CMAKE_ARGS+=-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
+# If build type is clblas (openCL) we set -DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
+else ifeq ($(BUILD_TYPE),clblas)
+	GGML_CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
+# If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++ 
+else ifeq ($(BUILD_TYPE),hipblas)
+	GGML_CMAKE_ARGS+=-DGGML_HIP=ON
+# If it's OSX, DO NOT embed the metal library - -DGGML_METAL_EMBED_LIBRARY=ON requires further investigation
+# But if it's OSX without metal, disable it here
+else ifeq ($(OS),Darwin)
+	ifneq ($(BUILD_TYPE),metal)
+		GGML_CMAKE_ARGS+=-DGGML_METAL=OFF
+	else
+		GGML_CMAKE_ARGS+=-DGGML_METAL=ON
+		GGML_CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
+		TARGET+=--target ggml-metal
+	endif
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f16)
+	GGML_CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DGGML_SYCL_F16=ON
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f32)
+	GGML_CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
 endif
 
 # Detect if we are running on arm64
@@ -107,7 +144,7 @@ ifeq ($(OS),Darwin)
 		BUILD_TYPE=metal
 	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
-		CMAKE_ARGS+=-DGGML_METAL=OFF
+		GGML_CMAKE_ARGS+=-DGGML_METAL=OFF
 		export GGML_NO_ACCELERATE=1
 		export GGML_NO_METAL=1
 	endif
@@ -132,7 +169,7 @@ ifeq ($(BUILD_TYPE),cublas)
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
-	CMAKE_ARGS+=-DGGML_VULKAN=1
+	GGML_CMAKE_ARGS+=-DGGML_VULKAN=1
 endif
 
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
@@ -153,7 +190,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	export GGML_HIP=1
 	GPU_TARGETS ?= gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
-	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
+	GGML_CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
 	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib
 endif
 
@@ -213,6 +250,8 @@ endif
 ifeq ($(BUILD_API_ONLY),true)
 	GRPC_BACKENDS=
 endif
+
+export CMAKE_ARGS?=$(GGML_CMAKE_ARGS)
 
 .PHONY: all test build vendor get-sources prepare-sources prepare
 
