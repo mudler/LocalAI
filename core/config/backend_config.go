@@ -287,7 +287,8 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	defaultTopP := 0.95
 	defaultTopK := 40
 	defaultTemp := 0.9
-	defaultMirostat := 2
+	// https://github.com/mudler/LocalAI/issues/2780
+	defaultMirostat := 0
 	defaultMirostatTAU := 5.0
 	defaultMirostatETA := 0.1
 	defaultTypicalP := 1.0
