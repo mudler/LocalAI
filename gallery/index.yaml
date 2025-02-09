@@ -3658,6 +3658,21 @@
     - filename: TIGER-Lab_Qwen2.5-32B-Instruct-CFT-Q4_K_M.gguf
       sha256: 57e87e246db368f39f31f38e44ba8e9dc838a026f729f5a123aacc2aeb5a9402
       uri: huggingface://bartowski/TIGER-Lab_Qwen2.5-32B-Instruct-CFT-GGUF/TIGER-Lab_Qwen2.5-32B-Instruct-CFT-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "subtleone_qwen2.5-32b-erudite-writer"
+  icon: https://huggingface.co/SubtleOne/Qwen2.5-32b-Erudite-Writer/resolve/main/robot-creating-fantasy2.jpg
+  urls:
+    - https://huggingface.co/SubtleOne/Qwen2.5-32b-Erudite-Writer
+    - https://huggingface.co/bartowski/SubtleOne_Qwen2.5-32b-Erudite-Writer-GGUF
+  description: |
+    This model is a merge using Rombos's top-ranked 32b model, based on Qwen 2.5, and merging three creative writing finetunes. The creative content is a serious upgrade over the base it started with and has a much more literary style than the previous Writer model. I won't call it better or worse, merely a very distinct flavor and style. I quite like it, and enjoin you to try it as well. Enjoy!
+  overrides:
+    parameters:
+      model: SubtleOne_Qwen2.5-32b-Erudite-Writer-Q4_K_M.gguf
+  files:
+    - filename: SubtleOne_Qwen2.5-32b-Erudite-Writer-Q4_K_M.gguf
+      sha256: fb059c88be4d7d579f0776cead4ca44cf7423b834c5502ce67ef41b15cd0973b
+      uri: huggingface://bartowski/SubtleOne_Qwen2.5-32b-Erudite-Writer-GGUF/SubtleOne_Qwen2.5-32b-Erudite-Writer-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
@@ -5848,6 +5863,21 @@
     - filename: uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
       sha256: 85b2c3e1aa4e8cc3bf616f84c7595c963d5439f3fcfdbd5c957fb22e84d10b1c
       uri: huggingface://bartowski/uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-GGUF/uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "huihui-ai_deepseek-r1-distill-llama-70b-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/DeepSeek-R1-Distill-Llama-70B-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-GGUF
+  description: |
+    This is an uncensored version of deepseek-ai/DeepSeek-R1-Distill-Llama-70B created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+  overrides:
+    parameters:
+      model: huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-Q4_K_M.gguf
+  files:
+    - filename: huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-Q4_K_M.gguf
+      sha256: 2ed91d01c4b7a0f33f578c6389d0dd6a64d071b3f7963c40b4e1e71235dc74d6
+      uri: huggingface://bartowski/huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-GGUF/huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
