@@ -3658,6 +3658,21 @@
     - filename: TIGER-Lab_Qwen2.5-32B-Instruct-CFT-Q4_K_M.gguf
       sha256: 57e87e246db368f39f31f38e44ba8e9dc838a026f729f5a123aacc2aeb5a9402
       uri: huggingface://bartowski/TIGER-Lab_Qwen2.5-32B-Instruct-CFT-GGUF/TIGER-Lab_Qwen2.5-32B-Instruct-CFT-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "subtleone_qwen2.5-32b-erudite-writer"
+  icon: https://huggingface.co/SubtleOne/Qwen2.5-32b-Erudite-Writer/resolve/main/robot-creating-fantasy2.jpg
+  urls:
+    - https://huggingface.co/SubtleOne/Qwen2.5-32b-Erudite-Writer
+    - https://huggingface.co/bartowski/SubtleOne_Qwen2.5-32b-Erudite-Writer-GGUF
+  description: |
+    This model is a merge using Rombos's top-ranked 32b model, based on Qwen 2.5, and merging three creative writing finetunes. The creative content is a serious upgrade over the base it started with and has a much more literary style than the previous Writer model. I won't call it better or worse, merely a very distinct flavor and style. I quite like it, and enjoin you to try it as well. Enjoy!
+  overrides:
+    parameters:
+      model: SubtleOne_Qwen2.5-32b-Erudite-Writer-Q4_K_M.gguf
+  files:
+    - filename: SubtleOne_Qwen2.5-32b-Erudite-Writer-Q4_K_M.gguf
+      sha256: fb059c88be4d7d579f0776cead4ca44cf7423b834c5502ce67ef41b15cd0973b
+      uri: huggingface://bartowski/SubtleOne_Qwen2.5-32b-Erudite-Writer-GGUF/SubtleOne_Qwen2.5-32b-Erudite-Writer-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
