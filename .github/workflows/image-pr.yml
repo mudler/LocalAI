@@ -53,7 +53,7 @@ jobs:
             tag-suffix: '-cublas-cuda12-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=3 --output-sync=target"
           # - build-type: 'hipblas'
