@@ -5848,6 +5848,21 @@
     - filename: uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
       sha256: 85b2c3e1aa4e8cc3bf616f84c7595c963d5439f3fcfdbd5c957fb22e84d10b1c
       uri: huggingface://bartowski/uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-GGUF/uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "huihui-ai_deepseek-r1-distill-llama-70b-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/DeepSeek-R1-Distill-Llama-70B-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-GGUF
+  description: |
+    This is an uncensored version of deepseek-ai/DeepSeek-R1-Distill-Llama-70B created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+  overrides:
+    parameters:
+      model: huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-Q4_K_M.gguf
+  files:
+    - filename: huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-Q4_K_M.gguf
+      sha256: 2ed91d01c4b7a0f33f578c6389d0dd6a64d071b3f7963c40b4e1e71235dc74d6
+      uri: huggingface://bartowski/huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-GGUF/huihui-ai_DeepSeek-R1-Distill-Llama-70B-abliterated-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
