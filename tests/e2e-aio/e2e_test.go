@@ -124,7 +124,7 @@ var _ = Describe("E2E test", func() {
 				req := openai.ImageRequest{
 					Prompt:  "test",
 					Quality: "1",
-					Size:    openai.CreateImageSize512x512,
+					Size:    openai.CreateImageSize256x256,
 				}
 				resp, err := client.CreateImage(context.TODO(), req)
 				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error sending image request %+v", req))
