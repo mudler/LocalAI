@@ -235,7 +235,7 @@ jobs:
             IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
-            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_MAKEFLAGS=--jobs=2 --output-sync=target
             GRPC_VERSION=v1.65.0
             MAKEFLAGS=${{ inputs.makeflags }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
@@ -264,7 +264,7 @@ jobs:
             IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
-            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
+            GRPC_MAKEFLAGS=--jobs=2 --output-sync=target
             GRPC_VERSION=v1.65.0
             MAKEFLAGS=${{ inputs.makeflags }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
