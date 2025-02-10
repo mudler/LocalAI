@@ -5600,6 +5600,21 @@
     - filename: Selene-1-Mini-Llama-3.1-8B-Q4_K_M.gguf
       sha256: 908e6ce19f7cd3d7394bd7c38e43de2f228aca6aceda35c7ee70d069ad60493e
       uri: huggingface://bartowski/Selene-1-Mini-Llama-3.1-8B-GGUF/Selene-1-Mini-Llama-3.1-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "ilsp_llama-krikri-8b-instruct"
+  icon: https://huggingface.co/ilsp/Llama-Krikri-8B-Instruct/resolve/main/llama-krikri-image.jpg
+  urls:
+    - https://huggingface.co/ilsp/Llama-Krikri-8B-Instruct
+    - https://huggingface.co/bartowski/ilsp_Llama-Krikri-8B-Instruct-GGUF
+  description: |
+    Following the release of Meltemi-7B on the 26th March 2024, we are happy to welcome Krikri to the family of ILSP open Greek LLMs. Krikri is built on top of Llama-3.1-8B, extending its capabilities for Greek through continual pretraining on a large corpus of high-quality and locally relevant Greek texts. We present Llama-Krikri-8B-Instruct, along with the base model, Llama-Krikri-8B-Base.
+  overrides:
+    parameters:
+      model: ilsp_Llama-Krikri-8B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: ilsp_Llama-Krikri-8B-Instruct-Q4_K_M.gguf
+      sha256: 0ae3a259f03ed79ba634a99ee3bfc672d785b5594b2f71053ed8cb760098abb6
+      uri: huggingface://bartowski/ilsp_Llama-Krikri-8B-Instruct-GGUF/ilsp_Llama-Krikri-8B-Instruct-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
