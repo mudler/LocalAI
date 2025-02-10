@@ -49,3 +49,15 @@ func ListModels(bcl *config.BackendConfigLoader, ml *model.ModelLoader, filter c
 
 	return dataModels, nil
 }
+
+func CheckIfModelExists(bcl *config.BackendConfigLoader, ml *model.ModelLoader, modelName string, looseFilePolicy LooseFilePolicy) (bool, error) {
+	filter, err := config.BuildNameFilterFn(modelName)
+	if err != nil {
+		return false, err
+	}
+	models, err := ListModels(bcl, ml, filter, looseFilePolicy)
+	if err != nil {
+		return false, err
+	}
+	return (len(models) > 0), nil
+}

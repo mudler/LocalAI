@@ -3,7 +3,7 @@ package elevenlabs
 import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
-	fiberContext "github.com/mudler/LocalAI/core/http/ctx"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,39 +20,21 @@ import (
 func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		input := new(schema.ElevenLabsTTSRequest)
 		voiceID := c.Params("voice-id")
 
-		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
-			return err
+		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.ElevenLabsTTSRequest)
+		if !ok || input.ModelID == "" {
+			return fiber.ErrBadRequest
 		}
 
-		modelFile, err := fiberContext.ModelFromContext(c, cl, ml, input.ModelID, false)
-		if err != nil {
-			modelFile = input.ModelID
-			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
+		cfg, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+		if !ok || cfg == nil {
+			return fiber.ErrBadRequest
 		}
 
-		cfg, err := cl.LoadBackendConfigFileByName(modelFile, appConfig.ModelPath,
-			config.LoadOptionDebug(appConfig.Debug),
-			config.LoadOptionThreads(appConfig.Threads),
-			config.LoadOptionContextSize(appConfig.ContextSize),
-			config.LoadOptionF16(appConfig.F16),
-		)
-		if err != nil {
-			modelFile = input.ModelID
-			log.Warn().Msgf("Model not found in context: %s", input.ModelID)
-		} else {
-			if input.ModelID != "" {
-				modelFile = input.ModelID
-			} else {
-				modelFile = cfg.Model
-			}
-		}
-		log.Debug().Msgf("Request for model: %s", modelFile)
+		log.Debug().Str("modelName", input.ModelID).Msg("elevenlabs TTS request recieved")
 
-		filePath, _, err := backend.ModelTTS(cfg.Backend, input.Text, modelFile, "", voiceID, ml, appConfig, *cfg)
+		filePath, _, err := backend.ModelTTS(input.Text, voiceID, input.LanguageCode, ml, appConfig, *cfg)
 		if err != nil {
 			return err
 		}

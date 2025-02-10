@@ -2,7 +2,7 @@ package schema
 
 import "time"
 
-type Segment struct {
+type TranscriptionSegment struct {
 	Id     int           `json:"id"`
 	Start  time.Duration `json:"start"`
 	End    time.Duration `json:"end"`
@@ -11,6 +11,6 @@ type Segment struct {
 }
 
 type TranscriptionResult struct {
-	Segments []Segment `json:"segments"`
-	Text     string    `json:"text"`
+	Segments []TranscriptionSegment `json:"segments"`
+	Text     string                 `json:"text"`
 }

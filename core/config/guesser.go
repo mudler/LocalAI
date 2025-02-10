@@ -161,10 +161,11 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string) {
 	}
 
 	// We try to guess only if we don't have a template defined already
-	f, err := gguf.ParseGGUFFile(filepath.Join(modelPath, cfg.ModelFileName()))
+	guessPath := filepath.Join(modelPath, cfg.ModelFileName())
+	f, err := gguf.ParseGGUFFile(guessPath)
 	if err != nil {
 		// Only valid for gguf files
-		log.Debug().Msgf("guessDefaultsFromFile: %s", "not a GGUF file")
+		log.Debug().Str("filePath", guessPath).Msg("guessDefaultsFromFile: not a GGUF file")
 		return
 	}
 

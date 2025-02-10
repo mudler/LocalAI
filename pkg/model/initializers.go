@@ -458,7 +458,7 @@ func (ml *ModelLoader) ListAvailableBackends(assetdir string) ([]string, error) 
 func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 
-	log.Info().Msgf("Loading model '%s' with backend %s", o.modelID, o.backendString)
+	log.Info().Str("modelID", o.modelID).Str("backend", o.backendString).Str("o.model", o.model).Msg("BackendLoader starting")
 
 	backend := strings.ToLower(o.backendString)
 	if realBackend, exists := Aliases[backend]; exists {
