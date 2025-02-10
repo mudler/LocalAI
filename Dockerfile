@@ -198,7 +198,7 @@ FROM ${GRPC_BASE_IMAGE} AS grpc
 
 # This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
 ARG GRPC_MAKEFLAGS="-j4 -Otarget"
-ARG GRPC_VERSION=v1.65.0
+ARG GRPC_VERSION=v1.70.0
 ARG CMAKE_FROM_SOURCE=false
 ARG CMAKE_VERSION=3.26.4
 
