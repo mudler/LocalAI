@@ -505,30 +505,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/completions": {
-            "post": {
-                "summary": "Generate completions for a given prompt and model.",
-                "parameters": [
-                    {
-                        "description": "query params",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.OpenAIRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "$ref": "#/definitions/schema.OpenAIResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/edits": {
             "post": {
                 "summary": "OpenAI edit endpoint",
@@ -1421,6 +1397,9 @@ const docTemplate = `{
         "schema.JINARerankRequest": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "type": "string"
+                },
                 "documents": {
                     "type": "array",
                     "items": {
@@ -1630,7 +1609,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "model": {
-                    "description": "Also part of the OpenAI official spec",
                     "type": "string"
                 },
                 "model_base_name": {
@@ -1836,7 +1814,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "model": {
-                    "description": "model name or full path",
                     "type": "string"
                 },
                 "response_format": {
@@ -1900,7 +1877,6 @@ const docTemplate = `{
                     }
                 },
                 "model": {
-                    "description": "model name or full path",
                     "type": "string"
                 }
             }
