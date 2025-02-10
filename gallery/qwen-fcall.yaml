@@ -1,0 +1,49 @@
+---
+name: "qwen-fcall"
+
+config_file: |
+  mmap: true
+  function:
+    json_regex_match:
+    - "(?s)<Output>(.*?)</Output>"
+    capture_llm_results:
+      - (?s)<Thought>(.*?)</Thought>
+    replace_llm_results:
+      - key: (?s)<Thought>(.*?)</Thought>
+        value: ""
+    grammar:
+      properties_order: "name,arguments"
+  template:
+    chat_message: |
+      <|im_start|>{{ .RoleName }}
+      {{ if .FunctionCall -}}
+      Function call:
+      {{ else if eq .RoleName "tool" -}}
+      Function response:
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content }}
+      {{ end -}}
+      {{ if .FunctionCall -}}
+      {{toJson .FunctionCall}}
+      {{ end -}}<|im_end|>
+    function: |
+      <|im_start|>system
+      You are an AI assistant that executes function calls, and these are the tools at your disposal:
+      {{range .Functions}}
+      {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+      {{end}}
+      <|im_end|>
+      {{.Input -}}
+      <|im_start|>assistant
+    chat: |
+      {{.Input -}}
+      <|im_start|>assistant
+    completion: |
+      {{.Input}}
+  context_size: 4096
+  f16: true
+  stopwords:
+  - '<|im_end|>'
+  - '<dummy32000>'
+  - '</s>'
