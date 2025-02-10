@@ -3673,6 +3673,22 @@
     - filename: SubtleOne_Qwen2.5-32b-Erudite-Writer-Q4_K_M.gguf
       sha256: fb059c88be4d7d579f0776cead4ca44cf7423b834c5502ce67ef41b15cd0973b
       uri: huggingface://bartowski/SubtleOne_Qwen2.5-32b-Erudite-Writer-GGUF/SubtleOne_Qwen2.5-32b-Erudite-Writer-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "localai-functioncall-qwen2.5-7b-v0.5"
+  url: "github:mudler/LocalAI/gallery/qwen-fcall.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/Dzbdzn27KEc3K6zNNi070.png
+  urls:
+    - https://huggingface.co/mudler/LocalAI-functioncall-qwen2.5-7b-v0.5
+    - https://huggingface.co/mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF
+  description: |
+    A model tailored to be conversational and execute function calls with LocalAI. This model is based on qwen2.5 (7B).
+  overrides:
+    parameters:
+      model: localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
+  files:
+    - filename: localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
+      sha256: 4e7b7fe1d54b881f1ef90799219dc6cc285d29db24f559c8998d1addb35713d4
+      uri: huggingface://mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF/localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
