@@ -2,9 +2,10 @@ name: 'generate and publish GRPC docker caches'
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - master
+
+  schedule:
+    # daily at midnight
+    - cron: '0 0 * * *'
 
 concurrency:
   group: grpc-cache-${{ github.head_ref || github.ref }}-${{ github.repository }}
