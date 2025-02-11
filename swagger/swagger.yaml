@@ -412,6 +412,8 @@ definitions:
     type: object
   schema.JINARerankRequest:
     properties:
+      backend:
+        type: string
       documents:
         items:
           type: string
@@ -551,7 +553,6 @@ definitions:
         description: Image (not supported by OpenAI)
         type: integer
       model:
-        description: Also part of the OpenAI official spec
         type: string
       model_base_name:
         description: AutoGPTQ
@@ -696,7 +697,6 @@ definitions:
         description: (optional) language to use with TTS model
         type: string
       model:
-        description: model name or full path
         type: string
       response_format:
         description: (optional) output format
@@ -739,7 +739,6 @@ definitions:
           type: number
         type: array
       model:
-        description: model name or full path
         type: string
     type: object
 info:

@@ -1414,6 +1414,9 @@
         "schema.JINARerankRequest": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "type": "string"
+                },
                 "documents": {
                     "type": "array",
                     "items": {
@@ -1623,7 +1626,6 @@
                     "type": "integer"
                 },
                 "model": {
-                    "description": "Also part of the OpenAI official spec",
                     "type": "string"
                 },
                 "model_base_name": {
@@ -1829,7 +1831,6 @@
                     "type": "string"
                 },
                 "model": {
-                    "description": "model name or full path",
                     "type": "string"
                 },
                 "response_format": {
@@ -1893,7 +1894,6 @@
                     }
                 },
                 "model": {
-                    "description": "model name or full path",
                     "type": "string"
                 }
             }
