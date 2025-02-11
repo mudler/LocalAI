@@ -159,6 +159,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 torchType = torch.float16
                 variant = "fp16"
 
+            options = request.Options
+
+            # empty dict
+            self.options = {}
+
+            # The options are a list of strings in this form optname:optvalue
+            # We are storing all the options in a dict so we can use it later when
+            # generating the images
+            for opt in options:
+                key, value = opt.split(":")
+                self.options[key] = value
+
             local = False
             modelFile = request.Model
 
@@ -440,6 +452,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # create a dictionary of parameters by using the keys from EnableParameters and the values from defaults
         kwargs = {key: options.get(key) for key in keys if key in options}
+
+        # populate kwargs from self.options.
+        kwargs.update(self.options)
 
         # Set seed
         if request.seed > 0:
