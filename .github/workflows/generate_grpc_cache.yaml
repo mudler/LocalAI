@@ -83,7 +83,7 @@ jobs:
           # If the build-args are not an EXACT match, it will result in a cache miss, which will require GRPC to be built from scratch.
           build-args: |
             GRPC_BASE_IMAGE=${{ matrix.grpc-base-image }}
-            GRPC_MAKEFLAGS=--jobs=1 --output-sync=target
+            GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
             GRPC_VERSION=v1.70.0
           context: .
           file: ./Dockerfile
