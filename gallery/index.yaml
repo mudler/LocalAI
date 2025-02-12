@@ -3689,6 +3689,20 @@
     - filename: localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
       sha256: 4e7b7fe1d54b881f1ef90799219dc6cc285d29db24f559c8998d1addb35713d4
       uri: huggingface://mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF/localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
+- !!merge <<: *qwen25
+  name: "simplescaling_s1.1-32b"
+  urls:
+    - https://huggingface.co/simplescaling/s1.1-32B
+    - https://huggingface.co/bartowski/simplescaling_s1.1-32B-GGUF
+  description: |
+    s1.1 is our sucessor of s1 with better reasoning performance by leveraging reasoning traces from r1 instead of Gemini. This model is a successor of s1-32B with slightly better performance. Thanks to Ryan Marten for helping generate r1 traces for s1K.
+  overrides:
+    parameters:
+      model: simplescaling_s1.1-32B-Q4_K_M.gguf
+  files:
+    - filename: simplescaling_s1.1-32B-Q4_K_M.gguf
+      sha256: 6ce3cbfcca8ab50a6e877e6bdfc6538c54e1d9a7e5cc81a9930d5d056a9db4e8
+      uri: huggingface://bartowski/simplescaling_s1.1-32B-GGUF/simplescaling_s1.1-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
