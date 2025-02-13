@@ -3747,6 +3747,21 @@
     - filename: nvidia_AceInstruct-7B-Q4_K_M.gguf
       sha256: 94e262e0d82d39fa36c4278b2a4b4fa7e93bfaa7cca33283fb9ee006bac02a8a
       uri: huggingface://bartowski/nvidia_AceInstruct-7B-GGUF/nvidia_AceInstruct-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nvidia_aceinstruct-72b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/AceInstruct-72B
+    - https://huggingface.co/bartowski/nvidia_AceInstruct-72B-GGUF
+  description: |
+    We introduce AceInstruct, a family of advanced SFT models for coding, mathematics, and general-purpose tasks. The AceInstruct family, which includes AceInstruct-1.5B, 7B, and 72B, is Improved using Qwen. These models are fine-tuned on Qwen2.5-Base using general SFT datasets. These same datasets are also used in the training of AceMath-Instruct. Different from AceMath-Instruct which is specialized for math questions, AceInstruct is versatile and can be applied to a wide range of domains. Benchmark evaluations across coding, mathematics, and general knowledge tasks demonstrate that AceInstruct delivers performance comparable to Qwen2.5-Instruct.
+  overrides:
+    parameters:
+      model: nvidia_AceInstruct-72B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_AceInstruct-72B-Q4_K_M.gguf
+      sha256: c8452b2d6c33693d5fd1b5f3aa476451fbd4e78c9621b9baf39ad1a3f2b91503
+      uri: huggingface://bartowski/nvidia_AceInstruct-72B-GGUF/nvidia_AceInstruct-72B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
