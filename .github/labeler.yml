@@ -1,4 +1,4 @@
-enhancements:
+enhancement:
  - head-branch: ['^feature', 'feature']
 
 dependencies:
