@@ -73,6 +73,27 @@
     - filename: localai-functioncall-phi-4-v0.1-q4_k_m.gguf
       uri: huggingface://mudler/LocalAI-functioncall-phi-4-v0.1-Q4_K_M-GGUF/localai-functioncall-phi-4-v0.1-q4_k_m.gguf
       sha256: 0ae4e5e4ba89c16c1e810285c5c8b84416fa67f8ed7c175aa0b6fc0a103017aa
+- !!merge <<: *phi4
+  name: "sicariussicariistuff_phi-lthy4"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/SicariusSicariiStuff/Phi-lthy4/resolve/main/Images/Phi-Lthy4.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Phi-lthy4
+    - https://huggingface.co/bartowski/SicariusSicariiStuff_Phi-lthy4-GGUF
+  description: |
+    - The BEST Phi-4 Roleplay finetune in the world (Not that much of an achievement here, Phi roleplay  finetunes can probably be counted on a single hand).
+    - Compact size & fully healed from the brain surgery Only 11.9B parameters. Phi-4 wasn't that hard to run even at 14B, now with even fewer brain cells, your new phone could probably run it easily. (SD8Gen3 and above recommended).
+    - Strong Roleplay & Creative writing abilities. This really surprised me. Actually good.
+    Writes and roleplays quite uniquely, probably because of lack of RP\writing slop in the pretrain. Who would have thought?
+    - Smart assistant with low refusals - It kept some of the smarts, and our little Phi-Lthy here will be quite eager to answer your naughty questions.
+    - Quite good at following the character card. Finally, it puts its math brain to some productive tasks. Gooner technology is becoming more popular by the day.
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff_Phi-lthy4-Q4_K_M.gguf
+  files:
+    - filename: SicariusSicariiStuff_Phi-lthy4-Q4_K_M.gguf
+      sha256: a5004b2d0f3eb869f07285f53ec283aa383063085987113d2a41cb54708fb5ad
+      uri: huggingface://bartowski/SicariusSicariiStuff_Phi-lthy4-GGUF/SicariusSicariiStuff_Phi-lthy4-Q4_K_M.gguf
 - &falcon3
   name: "falcon3-1b-instruct"
   url: "github:mudler/LocalAI/gallery/falcon3.yaml@master"
