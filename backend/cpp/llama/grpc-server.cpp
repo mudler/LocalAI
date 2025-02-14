@@ -1155,6 +1155,14 @@ struct llama_server_context
             slot.has_next_token = false;
         }
 
+        if (slot.n_past >= slot.n_ctx) {
+            slot.truncated      = true;
+            slot.stopped_limit = true;
+            slot.has_next_token = false;
+
+            LOG_VERBOSE("stopped due to running out of context capacity", {});
+        }
+
         if (result.tok == llama_vocab_eos(vocab) || llama_vocab_is_eog(vocab, result.tok))
         {
             slot.stopped_eos = true;
@@ -1627,17 +1635,17 @@ struct llama_server_context
             {
                 if (slot.is_processing() && system_tokens.size() + slot.cache_tokens.size() >= (size_t) slot.n_ctx)
                 {
+                    // this check is redundant (for good)
+                    // we should never get here, because generation should already stopped in process_token()
+
                     // START LOCALAI changes
                     // Temporary disable context-shifting as it can lead to infinite loops (issue: https://github.com/ggerganov/llama.cpp/issues/3969)
                     // See: https://github.com/mudler/LocalAI/issues/1333
                     // Context is exhausted, release the slot
                     slot.release();
                     send_final_response(slot);
-                    slot.cache_tokens.clear();
-                    slot.n_past = 0;
-                    slot.truncated = false;
-                    slot.has_next_token = true;
-                    LOG("Context exhausted. Slot %d released (%d tokens in cache)\n", slot.id, (int) slot.cache_tokens.size());
+                    slot.has_next_token = false;
+                    LOG_ERROR("context is exhausted, release the slot", {});
 
                     continue;
                     // END LOCALAI changes
