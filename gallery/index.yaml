@@ -3783,6 +3783,25 @@
     - filename: nvidia_AceInstruct-72B-Q4_K_M.gguf
       sha256: c8452b2d6c33693d5fd1b5f3aa476451fbd4e78c9621b9baf39ad1a3f2b91503
       uri: huggingface://bartowski/nvidia_AceInstruct-72B-GGUF/nvidia_AceInstruct-72B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-thoughts_openthinker-32b"
+  icon: https://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.png
+  urls:
+    - https://huggingface.co/open-thoughts/OpenThinker-32B
+    - https://huggingface.co/bartowski/open-thoughts_OpenThinker-32B-GGUF
+  description: |
+    This model is a fine-tuned version of Qwen/Qwen2.5-32B-Instruct on the OpenThoughts-114k dataset.
+
+    The dataset is derived by distilling DeepSeek-R1 using the data pipeline available on github. More info about the dataset can be found on the dataset card at OpenThoughts-114k dataset.
+
+    The numbers reported in the table below are evaluated with our open-source tool Evalchemy.
+  overrides:
+    parameters:
+      model: open-thoughts_OpenThinker-32B-Q4_K_M.gguf
+  files:
+    - filename: open-thoughts_OpenThinker-32B-Q4_K_M.gguf
+      sha256: 6795de6e7025e4a77042232908fe7be304b6b6b465c5feb71ba6861f37038aaf
+      uri: huggingface://bartowski/open-thoughts_OpenThinker-32B-GGUF/open-thoughts_OpenThinker-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
