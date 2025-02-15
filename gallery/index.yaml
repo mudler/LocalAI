@@ -3802,6 +3802,20 @@
     - filename: open-thoughts_OpenThinker-32B-Q4_K_M.gguf
       sha256: 6795de6e7025e4a77042232908fe7be304b6b6b465c5feb71ba6861f37038aaf
       uri: huggingface://bartowski/open-thoughts_OpenThinker-32B-GGUF/open-thoughts_OpenThinker-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rombo-org_rombo-llm-v3.0-qwen-32b"
+  urls:
+    - https://huggingface.co/Rombo-Org/Rombo-LLM-V3.0-Qwen-32b
+    - https://huggingface.co/bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-GGUF
+  description: |
+    Rombo-LLM-V3.0-Qwen-32b is a Continued Finetune model on top of the previous V2.5 version using the "NovaSky-AI/Sky-T1_data_17k" dataset. The resulting model was then merged backed into the base model for higher performance as written in the continuous finetuning technique bellow. This model is a good general purpose model, however it excells at coding and math.
+  overrides:
+    parameters:
+      model: Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-Q4_K_M.gguf
+  files:
+    - filename: Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-Q4_K_M.gguf
+      sha256: 1d214d46721aba2bb2a5778c108c4707b5dd7dbc5751158734c67af271532fb5
+      uri: huggingface://bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-GGUF/Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
