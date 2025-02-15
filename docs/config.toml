@@ -36,7 +36,7 @@ defaultContentLanguage = 'en'
   mono_font       = "Fira Code" # Default is System font
 
     [params.footer]
-        copyright = "© 2023-2024 <a href='https://mudler.pm' target=_blank>Ettore Di Giacinto</a>"
+        copyright = "© 2023-2025 <a href='https://mudler.pm' target=_blank>Ettore Di Giacinto</a>"
         version = true # includes git commit info
 
     [params.social]
