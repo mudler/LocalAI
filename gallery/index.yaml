@@ -7194,6 +7194,23 @@
     - filename: SicariusSicariiStuff_Redemption_Wind_24B-Q4_K_M.gguf
       sha256: 40025eb00d83c9e9393555962962a2dfc5251fe7bd70812835ff0bcc55ecc463
       uri: huggingface://bartowski/SicariusSicariiStuff_Redemption_Wind_24B-GGUF/SicariusSicariiStuff_Redemption_Wind_24B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pygmalionai_eleusis-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PygmalionAI/Eleusis-12B
+    - https://huggingface.co/bartowski/PygmalionAI_Eleusis-12B-GGUF
+  description: |
+    Alongside the release of Pygmalion-3, we present an additional roleplay model based on Mistral's Nemo Base named Eleusis, a unique model that has a distinct voice among its peers. Though it was meant to be a test run for further experiments, this model was received warmly to the point where we felt it was right to release it publicly.
+
+    We release the weights of Eleusis under the Apache 2.0 license, ensuring a free and open ecosystem for it to flourish under.
+  overrides:
+    parameters:
+      model: PygmalionAI_Eleusis-12B-Q4_K_M.gguf
+  files:
+    - filename: PygmalionAI_Eleusis-12B-Q4_K_M.gguf
+      sha256: 899091671ae483fc7c132512221ee6600984c936cd8c261becee696d00080701
+      uri: huggingface://bartowski/PygmalionAI_Eleusis-12B-GGUF/PygmalionAI_Eleusis-12B-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
