@@ -5782,6 +5782,21 @@
     - filename: NousResearch_DeepHermes-3-Llama-3-8B-Preview-Q4_K_M.gguf
       sha256: de36671bcfc78636dc3c1be4b702198c9d9e0b8abe22dc644e4da332b31b325f
       uri: huggingface://bartowski/NousResearch_DeepHermes-3-Llama-3-8B-Preview-GGUF/NousResearch_DeepHermes-3-Llama-3-8B-Preview-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "davidbrowne17_llamathink-8b-instruct"
+  icon: https://huggingface.co/DavidBrowne17/LlamaThink-8B-instruct/resolve/main/llamathinker.png
+  urls:
+    - https://huggingface.co/DavidBrowne17/LlamaThink-8B-instruct
+    - https://huggingface.co/bartowski/DavidBrowne17_LlamaThink-8B-instruct-GGUF
+  description: |
+    LlamaThink-8b-instruct is an instruction-tuned language model built on the LLaMA-3 architecture. It is optimized for generating thoughtful, structured responses using a unique dual-section output format.
+  overrides:
+    parameters:
+      model: DavidBrowne17_LlamaThink-8B-instruct-Q4_K_M.gguf
+  files:
+    - filename: DavidBrowne17_LlamaThink-8B-instruct-Q4_K_M.gguf
+      sha256: 6aea4e13f03347e03d6989c736a7ccab82582115eb072cacfeb7f0b645a8bec0
+      uri: huggingface://bartowski/DavidBrowne17_LlamaThink-8B-instruct-GGUF/DavidBrowne17_LlamaThink-8B-instruct-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
