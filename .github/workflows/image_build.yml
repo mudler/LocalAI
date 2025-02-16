@@ -310,6 +310,11 @@ jobs:
           tags: ${{ steps.meta_aio_dockerhub.outputs.tags }}
           labels: ${{ steps.meta_aio_dockerhub.outputs.labels }}
 
+      - name: Cleanup
+        run: |
+          docker builder prune -f
+          docker system prune --force --volumes --all
+
       - name: Latest tag
         # run this on branches, when it is a tag and there is a latest-image defined
         if: github.event_name != 'pull_request' && inputs.latest-image != ''  && github.ref_type == 'tag'
