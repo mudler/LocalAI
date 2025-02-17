@@ -12340,16 +12340,6 @@
     embeddings: true
     parameters:
       model: llama-3.2-1b-instruct-q4_k_m.gguf
-## Stable Diffusion
-- url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
-  license: "BSD-3"
-  urls:
-    - https://github.com/EdVince/Stable-Diffusion-NCNN
-    - https://github.com/EdVince/Stable-Diffusion-NCNN/blob/main/LICENSE
-  description: |
-    Stable Diffusion in NCNN with c++, supported txt2img and img2img
-  name: stablediffusion-cpp
-  icon: https://avatars.githubusercontent.com/u/100950301
 - &piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master ## Piper TTS
   name: voice-en-us-kathleen-low
