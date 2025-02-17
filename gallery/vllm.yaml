@@ -16,8 +16,8 @@ config_file: |
       use_tokenizer_template: true
     # Uncomment to specify a quantization method (optional)
     # quantization: "awq"
-    # Uncomment to set dtype, choices are: 'auto', 'half', 'float16', 'bfloat16', 'float', 'float32'. awq on vLLM does not support bfloat16
-    # dtype: 'float16'
+    # Uncomment to set dtype, choices are: "auto", "half", "float16", "bfloat16", "float", "float32". awq on vLLM does not support bfloat16
+    # dtype: "float16"
     # Uncomment to limit the GPU memory utilization (vLLM default is 0.9 for 90%)
     # gpu_memory_utilization: 0.5
     # Uncomment to trust remote code from huggingface
