@@ -9,7 +9,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - repository: "ggerganov/llama.cpp"
+          - repository: "ggml-org/llama.cpp"
             variable: "CPPLLAMA_VERSION"
             branch: "master"
           - repository: "ggerganov/whisper.cpp"
