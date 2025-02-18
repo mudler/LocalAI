@@ -1550,6 +1550,23 @@
     - filename: localai-functioncall-llama3.2-3b-v0.5-q4_k_m.gguf
       sha256: edc50f6c243e6bd6912599661a15e030de03d2be53409663ac27d3ca48306ee4
       uri: huggingface://mudler/LocalAI-functioncall-llama3.2-3b-v0.5-Q4_K_M-GGUF/localai-functioncall-llama3.2-3b-v0.5-q4_k_m.gguf
+- !!merge <<: *llama32
+  name: "kubeguru-llama3.2-3b-v0.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/rptpRyhrcUEG3i2OPT897.png
+  urls:
+    - https://huggingface.co/Spectro-Cloud/kubeguru-llama3.2-3b-v0.1
+    - https://huggingface.co/mradermacher/kubeguru-llama3.2-3b-v0.1-GGUF
+  description: |
+    Kubeguru: Your Kubernetes & Linux Expert AI
+    Ask anything about Kubernetes, Linux, containers—and get expert answers in real-time!
+    Kubeguru is a specialized Large Language Model (LLM) developed and released by the Open Source team at Spectro Cloud. Whether you're managing cloud-native applications, deploying edge workloads, or troubleshooting containerized services, Kubeguru provides precise, actionable insights at every step.
+  overrides:
+    parameters:
+      model: kubeguru-llama3.2-3b-v0.1.Q4_K_M.gguf
+  files:
+    - filename: kubeguru-llama3.2-3b-v0.1.Q4_K_M.gguf
+      sha256: 770900ba9594f64f31b35fe444d31263712cabe167efaf4201d79fdc29de9533
+      uri: huggingface://mradermacher/kubeguru-llama3.2-3b-v0.1-GGUF/kubeguru-llama3.2-3b-v0.1.Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
