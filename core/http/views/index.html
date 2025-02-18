@@ -41,7 +41,7 @@
                 <thead class="text-xs text-gray-400 uppercase bg-gray-700">
                     <tr>
                         <th class="px-4 py-2"></th>
-                        <th class="px-4 py-2">Model Name</th>
+                        <th class="px-4 py-2"><i class="fas fa-brain pr-2"></i>Model Name</th>
                         <th class="px-4 py-2">Backend</th>
                         <th class="px-4 py-2 float-right">Actions</th>
                     </tr>
@@ -66,7 +66,7 @@
                         {{ end }}
                     </td>
                     <td class="px-4 py-3 font-bold">
-                        <p class="font-bold text-white flex items-center"><i class="fas fa-brain pr-2"></i><a href="browse?term={{.Name}}">{{.Name}}</a></p>
+                        <p class="font-bold text-white flex items-center"><a href="browse?term={{.Name}}">{{.Name}}</a> <a href="chat/{{.Name}}"><i class="fas fa-comments"></i></a></p>
                     </td>
                     <td class="px-4 py-3 font-bold">
                         {{ if .Backend }}
