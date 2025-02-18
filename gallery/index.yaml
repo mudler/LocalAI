@@ -5828,6 +5828,23 @@
     - filename: DavidBrowne17_LlamaThink-8B-instruct-Q4_K_M.gguf
       sha256: 6aea4e13f03347e03d6989c736a7ccab82582115eb072cacfeb7f0b645a8bec0
       uri: huggingface://bartowski/DavidBrowne17_LlamaThink-8B-instruct-GGUF/DavidBrowne17_LlamaThink-8B-instruct-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "allenai_llama-3.1-tulu-3.1-8b"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu3/Tulu3-logo.png
+  urls:
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3.1-8B
+    - https://huggingface.co/bartowski/allenai_Llama-3.1-Tulu-3.1-8B-GGUF
+  description: |
+    Tülu 3 is a leading instruction following model family, offering a post-training package with fully open-source data, code, and recipes designed to serve as a comprehensive guide for modern techniques. This is one step of a bigger process to training fully open-source models, like our OLMo models. Tülu 3 is designed for state-of-the-art performance on a diversity of tasks in addition to chat, such as MATH, GSM8K, and IFEval.
+
+    Version 3.1 update: The new version of our Tülu model is from an improvement only in the final RL stage of training. We switched from PPO to GRPO (no reward model) and did further hyperparameter tuning to achieve substantial performance improvements across the board over the original Tülu 3 8B model.
+  overrides:
+    parameters:
+      model: allenai_Llama-3.1-Tulu-3.1-8B-Q4_K_M.gguf
+  files:
+    - filename: allenai_Llama-3.1-Tulu-3.1-8B-Q4_K_M.gguf
+      sha256: 5eae0f1a9bcdea7cad9f1d0d5ba7540bb3de3e2d72293c076a23f24db1c2c7da
+      uri: huggingface://bartowski/allenai_Llama-3.1-Tulu-3.1-8B-GGUF/allenai_Llama-3.1-Tulu-3.1-8B-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
