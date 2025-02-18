@@ -29,7 +29,7 @@
             </h3>
             {{ range .Models }}
             <div class="bg-gray-800 border-b border-gray-700 p-4 mt-4">
-                <h4 class="text-md font-bold text-gray-200">{{.}}</h4>
+                <h4 class="text-md font-bold text-gray-200">{{.Name}}</h4>
             </div>              
             {{end}}
             {{end}}
@@ -66,7 +66,18 @@
                         {{ end }}
                     </td>
                     <td class="px-4 py-3 font-bold">
-                        <p class="font-bold text-white flex items-center"><a href="browse?term={{.Name}}">{{.Name}}</a> <a href="chat/{{.Name}}"><i class="fas fa-comments"></i></a></p>
+                        <p class="font-bold text-white flex items-center">{{.Name}} <a href="browse?term={{.Name}}" class="ml-2 text-blue-400 hover:text-blue-600"><i class="fas fa-search"></i></a></p>
+                        {{ range .KnownUsecaseStrings }}
+                        {{ if eq . "FLAG_CHAT" }}
+                            <a href="chat/{{$cfg.Name}}" class="ml-2 bg-blue-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-blue-700 hover:shadow-lg"><i class="fas fa-comments pr-1"></i>Chat</a>
+                        {{ end }}
+                        {{ if eq . "FLAG_IMAGE" }}
+                            <a href="text2image/{{$cfg.Name}}" class="ml-2 bg-green-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-green-700 hover:shadow-lg"><i class="fas fa-image pr-1"></i>Image</a>
+                        {{ end }}
+                        {{ if eq . "FLAG_TTS" }}
+                            <a href="tts/{{$cfg.Name}}" class="ml-2 bg-purple-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-purple-700 hover:shadow-lg"><i class="fas fa-microphone pr-1"></i>TTS</a>
+                        {{ end }}
+                        {{ end }}
                     </td>
                     <td class="px-4 py-3 font-bold">
                         {{ if .Backend }}
