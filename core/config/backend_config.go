@@ -400,6 +400,15 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Debug = &trueV
 	}
 
+	if len(cfg.KnownUsecaseStrings) == 0 {
+		// Infer use case if not provided
+		for k, usecase := range GetAllBackendConfigUsecases() {
+			if cfg.HasUsecases(usecase) {
+				cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, k)
+			}
+		}
+	}
+
 	guessDefaultsFromFile(cfg, lo.modelPath)
 }
 
