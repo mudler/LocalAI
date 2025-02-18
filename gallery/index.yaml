@@ -3847,6 +3847,34 @@
     - filename: ozone-ai_0x-lite-Q4_K_M.gguf
       sha256: 7f163e72ead7522bd6774555a932e0a11f212d17cdc9442e2cfd1b017009f832
       uri: huggingface://bartowski/ozone-ai_0x-lite-GGUF/ozone-ai_0x-lite-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nbeerbower_dumpling-qwen2.5-14b"
+  icon: https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-32B/resolve/main/dumpling_cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-14B
+    - https://huggingface.co/bartowski/nbeerbower_Dumpling-Qwen2.5-14B-GGUF
+  description: |
+    nbeerbower/EVA-abliterated-TIES-Qwen2.5-14B finetuned on:
+
+        nbeerbower/GreatFirewall-DPO
+        nbeerbower/Schule-DPO
+        nbeerbower/Purpura-DPO
+        nbeerbower/Arkhaios-DPO
+        jondurbin/truthy-dpo-v0.1
+        antiven0m/physical-reasoning-dpo
+        flammenai/Date-DPO-NoAsterisks
+        flammenai/Prude-Phi3-DPO
+        Atsunori/HelpSteer2-DPO
+        jondurbin/gutenberg-dpo-v0.1
+        nbeerbower/gutenberg2-dpo
+        nbeerbower/gutenberg-moderne-dpo.
+  overrides:
+    parameters:
+      model: nbeerbower_Dumpling-Qwen2.5-14B-Q4_K_M.gguf
+  files:
+    - filename: nbeerbower_Dumpling-Qwen2.5-14B-Q4_K_M.gguf
+      sha256: 2d38348414b2719971a08a604313ed98b44b586490633d6e237dd096ae5bf31d
+      uri: huggingface://bartowski/nbeerbower_Dumpling-Qwen2.5-14B-GGUF/nbeerbower_Dumpling-Qwen2.5-14B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
