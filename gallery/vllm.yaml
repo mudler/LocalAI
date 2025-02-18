@@ -16,6 +16,8 @@ config_file: |
       use_tokenizer_template: true
     # Uncomment to specify a quantization method (optional)
     # quantization: "awq"
+    # Uncomment to set dtype, choices are: "auto", "half", "float16", "bfloat16", "float", "float32". awq on vLLM does not support bfloat16
+    # dtype: "float16"
     # Uncomment to limit the GPU memory utilization (vLLM default is 0.9 for 90%)
     # gpu_memory_utilization: 0.5
     # Uncomment to trust remote code from huggingface
@@ -30,3 +32,10 @@ config_file: |
     # Allows you to partition and run large models. Performance gains are limited.
     # https://github.com/vllm-project/vllm/issues/1435
     # tensor_parallel_size: 2
+    # Uncomment to disable log stats
+    # disable_log_stats: true
+    # Uncomment to specify Multi-Model limits per prompt, defaults to 1 per modality if not specified
+    # limit_mm_per_prompt:
+    #   image: 2
+    #   video: 2
+    #   audio: 2

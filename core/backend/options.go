@@ -159,6 +159,12 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		SwapSpace:            int32(c.SwapSpace),
 		MaxModelLen:          int32(c.MaxModelLen),
 		TensorParallelSize:   int32(c.TensorParallelSize),
+		DisableLogStatus:     c.DisableLogStatus,
+		DType:                c.DType,
+		// LimitMMPerPrompt vLLM
+		LimitImagePerPrompt:  int32(c.LimitMMPerPrompt.LimitImagePerPrompt),
+		LimitVideoPerPrompt:  int32(c.LimitMMPerPrompt.LimitVideoPerPrompt),
+		LimitAudioPerPrompt:  int32(c.LimitMMPerPrompt.LimitAudioPerPrompt),
 		MMProj:               c.MMProj,
 		FlashAttention:       c.FlashAttention,
 		CacheTypeKey:         c.CacheTypeK,
