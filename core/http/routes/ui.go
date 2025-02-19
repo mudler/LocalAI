@@ -305,23 +305,6 @@ func RegisterUIRoutes(app *fiber.App,
 		})
 	}
 
-	// Show the Chat page
-	app.Get("/chat/:model", func(c *fiber.Ctx) error {
-		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
-
-		summary := fiber.Map{
-			"Title":        "LocalAI - Chat with " + c.Params("model"),
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        c.Params("model"),
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
-		}
-
-		// Render index
-		return c.Render("views/chat", summary)
-	})
-
 	app.Get("/talk/", func(c *fiber.Ctx) error {
 		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 
@@ -345,20 +328,45 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/chat/", func(c *fiber.Ctx) error {
 
-		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
+		allModels, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
+		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(backendConfigs) == 0 {
+		if len(allModels) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
 
 		summary := fiber.Map{
-			"Title":        "LocalAI - Chat with " + backendConfigs[0],
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0],
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
+			"Title":               "LocalAI - Chat with " + allModels[0],
+			"BaseURL":             utils.BaseURL(c),
+			"AllModels":           allModels,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"ModelsConfig":        backendConfigs,
+			"Model":               allModels[0],
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
+		}
+
+		// Render index
+		return c.Render("views/chat", summary)
+	})
+
+	// Show the Chat page
+	app.Get("/chat/:model", func(c *fiber.Ctx) error {
+		allModels, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
+		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
+		summary := fiber.Map{
+			"Title":               "LocalAI - Chat with " + c.Params("model"),
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"AllModels":           allModels,
+			"Model":               c.Params("model"),
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index

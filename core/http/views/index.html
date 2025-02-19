@@ -50,6 +50,7 @@
                 {{$galleryConfig:=.GalleryConfig}}
                 {{$noicon:="https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"}}
                 {{ range .ModelsConfig }}
+                {{ $backendCfg := . }}
                 {{ $cfg:= index $galleryConfig .Name}}
                 <tr class="bg-gray-800 border-b border-gray-700">
                     <td class="px-4 py-3">
@@ -69,13 +70,13 @@
                         <p class="font-bold text-white flex items-center">{{.Name}} <a href="browse?term={{.Name}}" class="ml-2 text-blue-400 hover:text-blue-600"><i class="fas fa-search"></i></a></p>
                         {{ range .KnownUsecaseStrings }}
                         {{ if eq . "FLAG_CHAT" }}
-                            <a href="chat/{{$cfg.Name}}" class="ml-2 bg-blue-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-blue-700 hover:shadow-lg"><i class="fas fa-comments pr-1"></i>Chat</a>
+                            <a href="chat/{{$backendCfg.Name}}" class="ml-2 bg-blue-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-blue-700 hover:shadow-lg"><i class="fas fa-comments pr-1"></i>Chat</a>
                         {{ end }}
                         {{ if eq . "FLAG_IMAGE" }}
-                            <a href="text2image/{{$cfg.Name}}" class="ml-2 bg-green-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-green-700 hover:shadow-lg"><i class="fas fa-image pr-1"></i>Image</a>
+                            <a href="text2image/{{$backendCfg.Name}}" class="ml-2 bg-green-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-green-700 hover:shadow-lg"><i class="fas fa-image pr-1"></i>Image</a>
                         {{ end }}
                         {{ if eq . "FLAG_TTS" }}
-                            <a href="tts/{{$cfg.Name}}" class="ml-2 bg-purple-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-purple-700 hover:shadow-lg"><i class="fas fa-microphone pr-1"></i>TTS</a>
+                            <a href="tts/{{$backendCfg.Name}}" class="ml-2 bg-purple-500 text-white py-1 px-3 rounded-lg shadow transition duration-300 ease-in-out hover:bg-purple-700 hover:shadow-lg"><i class="fas fa-microphone pr-1"></i>TTS</a>
                         {{ end }}
                         {{ end }}
                     </td>
