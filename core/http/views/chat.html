@@ -100,14 +100,25 @@ SOFTWARE.
         <option value="" disabled class="text-gray-400" >Select a model</option>
         {{ $model:=.Model}}
         {{ range .ModelsConfig }}
-        {{ if eq . $model }}
-        <option value="chat/{{.}}" selected  class="bg-gray-700 text-white">{{.}}</option>
-        {{ else }}
-        <option value="chat/{{.}}" class="bg-gray-700 text-white">{{.}}</option>
+          {{ $cfg := . }}
+          {{ if eq .Name $model }}
+            <option value="chat/{{.Name}}" selected  class="bg-gray-700 text-white">{{.Name}}</option>
+          {{ else }}
+            {{ range .KnownUsecaseStrings }}
+              {{ if eq . "FLAG_CHAT" }}
+                  <option value="chat/{{$cfg.Name}}" class="bg-gray-700 text-white">{{$cfg.Name}}</option>
+              {{ end }}
+            {{ end }}
+          {{ end }}
         {{ end }}
-        {{ end }}
+        {{ range .ModelsWithoutConfig }}
+          {{ if eq . $model }}
+            <option value="chat/{{.}}" selected  class="bg-gray-700 text-white">{{.}}</option>
+          {{ else }}
+            <option value="chat/{{.}}" class="bg-gray-700 text-white">{{.}}</option>
+          {{ end }}
+        {{end}}
       </select>
-
       </div>
     </div>
 
