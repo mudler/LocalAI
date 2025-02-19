@@ -7357,6 +7357,23 @@
     - filename: PygmalionAI_Eleusis-12B-Q4_K_M.gguf
       sha256: 899091671ae483fc7c132512221ee6600984c936cd8c261becee696d00080701
       uri: huggingface://bartowski/PygmalionAI_Eleusis-12B-GGUF/PygmalionAI_Eleusis-12B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pygmalionai_pygmalion-3-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PygmalionAI/Pygmalion-3-12B
+    - https://huggingface.co/bartowski/PygmalionAI_Pygmalion-3-12B-GGUF
+  description: |
+    It's been a long road fraught with delays, technical issues and us banging our heads against the wall, but we're glad to say that we've returned to open-source roleplaying with our newest model, Pygmalion-3. We've taken Mistral's Nemo base model and fed it hundreds of millions of tokens of conversations, creative writing and instructions to create a model dedicated towards roleplaying that we hope fulfills your expectations.
+
+    As part of our open-source roots and promises to those who have been with us since the beginning, we release this model under the permissive Apache 2.0 license, allowing anyone to use and develop upon our work for everybody in the local models community.
+  overrides:
+    parameters:
+      model: PygmalionAI_Pygmalion-3-12B-Q4_K_M.gguf
+  files:
+    - filename: PygmalionAI_Pygmalion-3-12B-Q4_K_M.gguf
+      sha256: ea6504af7af72db98c2e1fe6b0a7cd4389ccafc6c99247a8c606bf503d7eee6b
+      uri: huggingface://bartowski/PygmalionAI_Pygmalion-3-12B-GGUF/PygmalionAI_Pygmalion-3-12B-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
