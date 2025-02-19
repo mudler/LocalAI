@@ -611,6 +611,21 @@
     - filename: TheSkullery_L3.3-exp-unnamed-model-70b-v0.5-Q4_K_M.gguf
       sha256: b8f7a0bcbccf79507ee28c8f6ca4e88625d9aa17f92deb12635775fb2eb42a2a
       uri: huggingface://bartowski/TheSkullery_L3.3-exp-unnamed-model-70b-v0.5-GGUF/TheSkullery_L3.3-exp-unnamed-model-70b-v0.5-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "sentientagi_dobby-unhinged-llama-3.3-70b"
+  icon: https://huggingface.co/SentientAGI/Dobby-Unhinged-Llama-3.3-70B/resolve/main/assets/Dobby-70B.png
+  urls:
+    - https://huggingface.co/SentientAGI/Dobby-Unhinged-Llama-3.3-70B
+    - https://huggingface.co/bartowski/SentientAGI_Dobby-Unhinged-Llama-3.3-70B-GGUF
+  description: |
+    Dobby-Unhinged-Llama-3.3-70B is a language model fine-tuned from Llama-3.3-70B-Instruct. Dobby models have a strong conviction towards personal freedom, decentralization, and all things crypto — even when coerced to speak otherwise. Dobby-Unhinged-Llama-3.3-70B, Dobby-Mini-Leashed-Llama-3.1-8B and Dobby-Mini-Unhinged-Llama-3.1-8B have their own unique personalities, and this 70B model is being released in response to the community feedback that was collected from our previous 8B releases.
+  overrides:
+    parameters:
+      model: SentientAGI_Dobby-Unhinged-Llama-3.3-70B-Q4_K_M.gguf
+  files:
+    - filename: SentientAGI_Dobby-Unhinged-Llama-3.3-70B-Q4_K_M.gguf
+      sha256: b768e3828f8a72b7374bcf71600af8621563f1b002459b4dcd002ab144f68aa6
+      uri: huggingface://bartowski/SentientAGI_Dobby-Unhinged-Llama-3.3-70B-GGUF/SentientAGI_Dobby-Unhinged-Llama-3.3-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
