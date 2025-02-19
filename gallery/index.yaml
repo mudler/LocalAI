@@ -3930,6 +3930,20 @@
     - filename: nbeerbower_Dumpling-Qwen2.5-72B-Q4_K_M.gguf
       sha256: 384de5ba5e60255846cd38e2bfad0374b059fb627ba8abb02273186f28684385
       uri: huggingface://bartowski/nbeerbower_Dumpling-Qwen2.5-72B-GGUF/nbeerbower_Dumpling-Qwen2.5-72B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-r1_openr1-qwen-7b"
+  urls:
+    - https://huggingface.co/open-r1/OpenR1-Qwen-7B
+    - https://huggingface.co/bartowski/open-r1_OpenR1-Qwen-7B-GGUF
+  description: |
+    This is a finetune of Qwen2.5-Math-Instruct on OpenR1-220k-Math (default split). We train the model on the default split of OpenR1-220k-Math for 3 epochs. We use learning rate of 5e-5 and extend the context length from 4k to 32k, by increasing RoPE frequency to 300k. The training follows a linear learning rate schedule with a 10% warmup phase.
+  overrides:
+    parameters:
+      model: open-r1_OpenR1-Qwen-7B-Q4_K_M.gguf
+  files:
+    - filename: open-r1_OpenR1-Qwen-7B-Q4_K_M.gguf
+      sha256: d3bf99666cd19b637948ec9943044b591d3b906d0ee4f3ef1b3eb693ac8f66a6
+      uri: huggingface://bartowski/open-r1_OpenR1-Qwen-7B-GGUF/open-r1_OpenR1-Qwen-7B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
