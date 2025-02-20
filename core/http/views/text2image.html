@@ -13,7 +13,7 @@
         <div class="mt-12">
           <div class="flex items-center justify-center text-center pb-2">
             <span class="text-3xl font-semibold text-gray-100">
-              🖼️ Text to Image
+              🖼️ Text to Image {{ if .Model }} (using {{.Model}}) {{ end }}
             <a href="https://localai.io/features/image-generation" target="_blank" >
               <i class="fas fa-circle-info pr-2"></i>
             </a>
@@ -49,12 +49,16 @@
                 <option value="" disabled class="text-gray-400" >Select a model</option>
                 {{ $model:=.Model}}
                 {{ range .ModelsConfig }}
-                {{ if eq .Name $model }}
-                <option value="text2image/{{.Name}}" selected class="bg-gray-700 text-white">{{.Name}}</option>
-                {{ else }}
-                <option value="text2image/{{.Name}}" class="bg-gray-700 text-white">{{.Name}}</option>
+                  {{ $cfg := . }}
+                  {{ range .KnownUsecaseStrings }}
+                    {{ if eq . "FLAG_IMAGE" }}
+                        <option value="text2image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-gray-700 text-white">{{$cfg.Name}}</option>
+                    {{ end }}
+                  {{ end }}
                 {{ end }}
-                {{ end }}
+                {{ range .ModelsWithoutConfig }}
+                    <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-700 text-white">{{.}}</option>
+                {{end}}
               </select>
               
               </div>

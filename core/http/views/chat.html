@@ -44,7 +44,7 @@ SOFTWARE.
 
       <div class="flex items-center justify-between">
 
-      <h1 class="text-lg font-semibold"> <i class="fa-solid fa-comments"></i> Chat with {{.Model}} <a href="browse?term={{.Model}}" ><i class="fas fa-brain pr-2"></i></a> <a href="https://localai.io/features/text-generation/" target="_blank" >
+      <h1 class="text-lg font-semibold"> <i class="fa-solid fa-comments"></i> Chat {{ if .Model }} with {{.Model}} {{ end }} <a href="browse?term={{.Model}}" ><i class="fas fa-brain pr-2"></i></a> <a href="https://localai.io/features/text-generation/" target="_blank" >
         <i class="fas fa-circle-info pr-2"></i>
       </a></h1>
       <div x-show="component === 'menu'" id="menu">
@@ -101,22 +101,14 @@ SOFTWARE.
         {{ $model:=.Model}}
         {{ range .ModelsConfig }}
           {{ $cfg := . }}
-          {{ if eq .Name $model }}
-            <option value="chat/{{.Name}}" selected  class="bg-gray-700 text-white">{{.Name}}</option>
-          {{ else }}
-            {{ range .KnownUsecaseStrings }}
-              {{ if eq . "FLAG_CHAT" }}
-                  <option value="chat/{{$cfg.Name}}" class="bg-gray-700 text-white">{{$cfg.Name}}</option>
-              {{ end }}
+          {{ range .KnownUsecaseStrings }}
+            {{ if eq . "FLAG_CHAT" }}
+                <option value="chat/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-gray-700 text-white">{{$cfg.Name}}</option>
             {{ end }}
           {{ end }}
         {{ end }}
         {{ range .ModelsWithoutConfig }}
-          {{ if eq . $model }}
-            <option value="chat/{{.}}" selected  class="bg-gray-700 text-white">{{.}}</option>
-          {{ else }}
-            <option value="chat/{{.}}" class="bg-gray-700 text-white">{{.}}</option>
-          {{ end }}
+            <option value="chat/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-700 text-white">{{.}}</option>
         {{end}}
       </select>
       </div>
