@@ -6266,6 +6266,22 @@
     - filename: agentica-org_DeepScaleR-1.5B-Preview-Q4_K_M.gguf
       sha256: bf51b412360a84792ae9145e2ca322379234c118dbff498ff08e589253b67ded
       uri: huggingface://bartowski/agentica-org_DeepScaleR-1.5B-Preview-GGUF/agentica-org_DeepScaleR-1.5B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "internlm_oreal-deepseek-r1-distill-qwen-7b"
+  urls:
+    - https://huggingface.co/internlm/OREAL-DeepSeek-R1-Distill-Qwen-7B
+    - https://huggingface.co/bartowski/internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-GGUF
+  description: |
+    We introduce OREAL-7B and OREAL-32B, a mathematical reasoning model series trained using Outcome REwArd-based reinforcement Learning, a novel RL framework designed for tasks where only binary outcome rewards are available.
+
+    With OREAL, a 7B model achieves 94.0 pass@1 accuracy on MATH-500, matching the performance of previous 32B models. OREAL-32B further surpasses previous distillation-trained 32B models, reaching 95.0 pass@1 accuracy on MATH-500.
+  overrides:
+    parameters:
+      model: internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+  files:
+    - filename: internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+      sha256: fa9dc8b0d4be0952252c25ff33e766a8399ce7b085647b95abe3edbe536cd8ed
+      uri: huggingface://bartowski/internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-GGUF/internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
