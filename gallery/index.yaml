@@ -3975,6 +3975,22 @@
     - filename: internlm_OREAL-32B-Q4_K_M.gguf
       sha256: 5af1b3f66e3a1f95931a54500d03368c0cc7ca42cc67370338b29c18362e4a94
       uri: huggingface://bartowski/internlm_OREAL-32B-GGUF/internlm_OREAL-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "internlm_oreal-7b"
+  urls:
+    - https://huggingface.co/internlm/OREAL-7B
+    - https://huggingface.co/bartowski/internlm_OREAL-7B-GGUF
+  description: |
+    We introduce OREAL-7B and OREAL-32B, a mathematical reasoning model series trained using Outcome REwArd-based reinforcement Learning, a novel RL framework designed for tasks where only binary outcome rewards are available.
+
+    With OREAL, a 7B model achieves 94.0 pass@1 accuracy on MATH-500, matching the performance of previous 32B models. OREAL-32B further surpasses previous distillation-trained 32B models, reaching 95.0 pass@1 accuracy on MATH-500.
+  overrides:
+    parameters:
+      model: internlm_OREAL-7B-Q4_K_M.gguf
+  files:
+    - filename: internlm_OREAL-7B-Q4_K_M.gguf
+      sha256: 0f7ba453e91872f06a666fda692fbcec13fdd343f74c7dfa7219df31c038ca1c
+      uri: huggingface://bartowski/internlm_OREAL-7B-GGUF/internlm_OREAL-7B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
