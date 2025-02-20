@@ -327,23 +327,31 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/chat/", func(c *fiber.Ctx) error {
-
-		allModels, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 		backendConfigs := cl.GetAllBackendConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(allModels) == 0 {
+		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
+		modelThatCanBeUsed := ""
+
+		title := "LocalAI - Chat"
+
+		for _, b := range backendConfigs {
+			if b.HasUsecases(config.FLAG_CHAT) {
+				modelThatCanBeUsed = b.Name
+				title = "LocalAI - Chat with " + modelThatCanBeUsed
+				break
+			}
+		}
 
 		summary := fiber.Map{
-			"Title":               "LocalAI - Chat with " + allModels[0],
+			"Title":               title,
 			"BaseURL":             utils.BaseURL(c),
-			"AllModels":           allModels,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"ModelsConfig":        backendConfigs,
-			"Model":               allModels[0],
+			"Model":               modelThatCanBeUsed,
 			"Version":             internal.PrintableVersion(),
 			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
@@ -354,7 +362,6 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// Show the Chat page
 	app.Get("/chat/:model", func(c *fiber.Ctx) error {
-		allModels, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 		backendConfigs := cl.GetAllBackendConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
@@ -363,7 +370,6 @@ func RegisterUIRoutes(app *fiber.App,
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsConfig":        backendConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
-			"AllModels":           allModels,
 			"Model":               c.Params("model"),
 			"Version":             internal.PrintableVersion(),
 			"IsP2PEnabled":        p2p.IsP2PEnabled(),
@@ -375,14 +381,16 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/text2image/:model", func(c *fiber.Ctx) error {
 		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		summary := fiber.Map{
-			"Title":        "LocalAI - Generate images with " + c.Params("model"),
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        c.Params("model"),
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
+			"Title":               "LocalAI - Generate images with " + c.Params("model"),
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               c.Params("model"),
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -390,21 +398,33 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/text2image/", func(c *fiber.Ctx) error {
-
 		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(backendConfigs) == 0 {
+		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
 
+		modelThatCanBeUsed := ""
+		title := "LocalAI - Generate images"
+
+		for _, b := range backendConfigs {
+			if b.HasUsecases(config.FLAG_IMAGE) {
+				modelThatCanBeUsed = b.Name
+				title = "LocalAI - Generate images with " + modelThatCanBeUsed
+				break
+			}
+		}
+
 		summary := fiber.Map{
-			"Title":        "LocalAI - Generate images with " + backendConfigs[0].Name,
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0].Name,
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
+			"Title":               title,
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               modelThatCanBeUsed,
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -413,14 +433,16 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/tts/:model", func(c *fiber.Ctx) error {
 		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		summary := fiber.Map{
-			"Title":        "LocalAI - Generate images with " + c.Params("model"),
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        c.Params("model"),
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
+			"Title":               "LocalAI - Generate images with " + c.Params("model"),
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               c.Params("model"),
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -428,21 +450,32 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/tts/", func(c *fiber.Ctx) error {
-
 		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(backendConfigs) == 0 {
+		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
 
+		modelThatCanBeUsed := ""
+		title := "LocalAI - Generate audio"
+
+		for _, b := range backendConfigs {
+			if b.HasUsecases(config.FLAG_CHAT) {
+				modelThatCanBeUsed = b.Name
+				title = "LocalAI - Generate audio with " + modelThatCanBeUsed
+				break
+			}
+		}
 		summary := fiber.Map{
-			"Title":        "LocalAI - Generate audio with " + backendConfigs[0].Name,
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0].Name,
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
-			"Version":      internal.PrintableVersion(),
+			"Title":               title,
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               modelThatCanBeUsed,
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
+			"Version":             internal.PrintableVersion(),
 		}
 
 		// Render index
