@@ -7504,6 +7504,23 @@
     - filename: PygmalionAI_Pygmalion-3-12B-Q4_K_M.gguf
       sha256: ea6504af7af72db98c2e1fe6b0a7cd4389ccafc6c99247a8c606bf503d7eee6b
       uri: huggingface://bartowski/PygmalionAI_Pygmalion-3-12B-GGUF/PygmalionAI_Pygmalion-3-12B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pocketdoc_dans-personalityengine-v1.2.0-24b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PocketDoc/Dans-PersonalityEngine-V1.2.0-24b
+    - https://huggingface.co/bartowski/PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-GGUF
+  description: |
+     This model series is intended to be multifarious in its capabilities and should be quite capable at both co-writing and roleplay as well as find itself quite at home performing sentiment analysis or summarization as part of a pipeline.
+
+      It has been trained on a wide array of one shot instructions, multi turn instructions, tool use, role playing scenarios, text adventure games, co-writing, and much more.
+  overrides:
+    parameters:
+      model: PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-Q4_K_M.gguf
+  files:
+    - filename: PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-Q4_K_M.gguf
+      sha256: 6358033ea52dbde158dbcdb44bd68b2b8959cc77514c86a9ccc64ba1a452f287
+      uri: huggingface://bartowski/PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-GGUF/PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
