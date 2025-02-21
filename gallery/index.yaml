@@ -3991,6 +3991,21 @@
     - filename: internlm_OREAL-7B-Q4_K_M.gguf
       sha256: 0f7ba453e91872f06a666fda692fbcec13fdd343f74c7dfa7219df31c038ca1c
       uri: huggingface://bartowski/internlm_OREAL-7B-GGUF/internlm_OREAL-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "smirki_uigen-t1.1-qwen-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/VSplF7AM1PJPzeR9FlDhE.png
+  urls:
+    - https://huggingface.co/smirki/UIGEN-T1.1-Qwen-14B
+    - https://huggingface.co/bartowski/smirki_UIGEN-T1.1-Qwen-14B-GGUF
+  description: |
+    UIGEN-T1.1 is a 14-billion parameter transformer model fine-tuned on Qwen2.5-Coder-14B-Instruct. It is designed for reasoning-based UI generation, leveraging a complex chain-of-thought approach to produce robust HTML and CSS-based UI components. Currently, it is limited to basic applications such as dashboards, landing pages, and sign-up forms.
+  overrides:
+    parameters:
+      model: smirki_UIGEN-T1.1-Qwen-14B-Q4_K_M.gguf
+  files:
+    - filename: smirki_UIGEN-T1.1-Qwen-14B-Q4_K_M.gguf
+      sha256: 7ad2326f06a304891a1d01d4de9feda42cb4395e4cbdc4d60dc2a26d15e5ea91
+      uri: huggingface://bartowski/smirki_UIGEN-T1.1-Qwen-14B-GGUF/smirki_UIGEN-T1.1-Qwen-14B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
