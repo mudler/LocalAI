@@ -6019,6 +6019,29 @@
     - filename: allenai_Llama-3.1-Tulu-3.1-8B-Q4_K_M.gguf
       sha256: 5eae0f1a9bcdea7cad9f1d0d5ba7540bb3de3e2d72293c076a23f24db1c2c7da
       uri: huggingface://bartowski/allenai_Llama-3.1-Tulu-3.1-8B-GGUF/allenai_Llama-3.1-Tulu-3.1-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-rp-ink"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/XLm9ZK0bIPyo3HooA1EPc.png
+  urls:
+    - https://huggingface.co/allura-org/L3.1-8b-RP-Ink
+    - https://huggingface.co/Triangle104/L3.1-8b-RP-Ink-Q4_K_M-GGUF
+  description: |
+    A roleplay-focused LoRA finetune of Llama 3.1 8B Instruct. Methodology and hyperparams inspired by SorcererLM and Slush.
+    Yet another model in the Ink series, following in the footsteps of the rest of them
+    Dataset
+
+    The worst mix of data you've ever seen. Like, seriously, you do not want to see the things that went into this model. It's bad.
+
+    "this is like washing down an adderall with a bottle of methylated rotgut" - inflatebot
+
+    Update: I have sent the (public datasets in the) data mix publicly already so here's that
+  overrides:
+    parameters:
+      model: l3.1-8b-rp-ink-q4_k_m.gguf
+  files:
+    - filename: l3.1-8b-rp-ink-q4_k_m.gguf
+      sha256: 0e8d44a92153cda0c6a5d6b0d9af44d4806104b39d3232f9097cfcc384a78152
+      uri: huggingface://Triangle104/L3.1-8b-RP-Ink-Q4_K_M-GGUF/l3.1-8b-rp-ink-q4_k_m.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
