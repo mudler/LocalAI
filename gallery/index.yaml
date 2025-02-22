@@ -4036,6 +4036,20 @@
     - filename: Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-Q4_K_M.gguf
       sha256: 3f159ffb494338d03502096c52db5e062a81b09acfd3cc4f6352ca61d6f489df
       uri: huggingface://bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-GGUF/Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ozone-ai_reverb-7b"
+  urls:
+    - https://huggingface.co/ozone-research/Reverb-7b
+    - https://huggingface.co/bartowski/ozone-ai_Reverb-7b-GGUF
+  description: |
+    Reverb-7b is a 7 billion parameter language model developed by Ozone AI. It is a causal language model designed for text generation and various downstream tasks. This is the third model release by Ozone AI.
+  overrides:
+    parameters:
+      model: ozone-ai_Reverb-7b-Q4_K_M.gguf
+  files:
+    - filename: ozone-ai_Reverb-7b-Q4_K_M.gguf
+      sha256: f769c6e1a85d3426263f585f640a90c10e7e26b89345a700a4cabf62eb0583d4
+      uri: huggingface://bartowski/ozone-ai_Reverb-7b-GGUF/ozone-ai_Reverb-7b-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
