@@ -3,7 +3,9 @@ package routes
 import (
 	"fmt"
 	"html/template"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -126,6 +128,8 @@ func RegisterUIRoutes(app *fiber.App,
 		// Show the Models page (all models)
 		app.Get("/browse", func(c *fiber.Ctx) error {
 			term := c.Query("term")
+			page := c.Query("page")
+			items := c.Query("items")
 
 			models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
@@ -164,6 +168,54 @@ func RegisterUIRoutes(app *fiber.App,
 				//	"ApplicationConfig": appConfig,
 			}
 
+			if page == "" {
+				page = "1"
+			}
+
+			if page != "" {
+				log.Debug().Msgf("page : %+v\n", page)
+				// return a subset of the models
+				pageNum, err := strconv.Atoi(page)
+				if err != nil {
+					return c.Status(fiber.StatusBadRequest).SendString("Invalid page number")
+				}
+
+				if pageNum == 0 {
+					return c.Render("views/models", summary)
+				}
+
+				itemsNum, err := strconv.Atoi(items)
+				if err != nil {
+					itemsNum = 21
+				}
+
+				totalPages := int(math.Ceil(float64(len(models)) / float64(itemsNum)))
+
+				models = models.Paginate(pageNum, itemsNum)
+
+				log.Debug().Msgf("number of models : %+v\n", len(models))
+				prevPage := pageNum - 1
+				nextPage := pageNum + 1
+				if prevPage < 1 {
+					prevPage = 1
+				}
+				if nextPage > totalPages {
+					nextPage = totalPages
+				}
+				if prevPage != pageNum {
+					summary["PrevPage"] = prevPage
+				}
+				summary["NextPage"] = nextPage
+				summary["TotalPages"] = totalPages
+				summary["CurrentPage"] = pageNum
+				summary["Models"] = template.HTML(elements.ListModels(models, processingModels, galleryService))
+
+				log.Debug().Msgf("totalPages : %+v\n", totalPages)
+				log.Debug().Msgf("prevPage : %+v\n", prevPage)
+				log.Debug().Msgf("nextPage : %+v\n", nextPage)
+				log.Debug().Msgf("CurrentPage : %+v\n", pageNum)
+			}
+
 			// Render index
 			return c.Render("views/models", summary)
 		})
@@ -171,6 +223,9 @@ func RegisterUIRoutes(app *fiber.App,
 		// Show the models, filtered from the user input
 		// https://htmx.org/examples/active-search/
 		app.Post("/browse/search/models", func(c *fiber.Ctx) error {
+			page := c.Query("page")
+			items := c.Query("items")
+
 			form := struct {
 				Search string `form:"search"`
 			}{}
@@ -180,7 +235,26 @@ func RegisterUIRoutes(app *fiber.App,
 
 			models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
-			return c.SendString(elements.ListModels(gallery.GalleryModels(models).Search(form.Search), processingModels, galleryService))
+			if page != "" {
+				// return a subset of the models
+				pageNum, err := strconv.Atoi(page)
+				if err != nil {
+					return c.Status(fiber.StatusBadRequest).SendString("Invalid page number")
+				}
+
+				itemsNum, err := strconv.Atoi(items)
+				if err != nil {
+					itemsNum = 21
+				}
+
+				models = models.Paginate(pageNum, itemsNum)
+			}
+
+			if form.Search != "" {
+				models = models.Search(form.Search)
+			}
+
+			return c.SendString(elements.ListModels(models, processingModels, galleryService))
 		})
 
 		/*
