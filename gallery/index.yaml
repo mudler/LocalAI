@@ -4021,6 +4021,21 @@
     - filename: smirki_UIGEN-T1.1-Qwen-7B-Q4_K_M.gguf
       sha256: e5d78dea15d4281455d64aef1c0f18da5674c6f15285a2991e63208d264b61ae
       uri: huggingface://bartowski/smirki_UIGEN-T1.1-Qwen-7B-GGUF/smirki_UIGEN-T1.1-Qwen-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rombo-org_rombo-llm-v3.0-qwen-72b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/wp9qOi2K2WGzkey0I3SgH.jpeg
+  urls:
+    - https://huggingface.co/Rombo-Org/Rombo-LLM-V3.0-Qwen-72b
+    - https://huggingface.co/bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-GGUF
+  description: |
+    Rombos-LLM-V3.0-Qwen-72b is a continues finetuned version of the Rombo-LLM-V2.5-Qwen-72b on a Reasoning and Non-reasoning dataset. The models performs exceptionally well when paired with the system prompt that it was trained on during reasoning training. Nearing SOTA levels even quantized to 4-bit.
+  overrides:
+    parameters:
+      model: Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-Q4_K_M.gguf
+  files:
+    - filename: Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-Q4_K_M.gguf
+      sha256: 3f159ffb494338d03502096c52db5e062a81b09acfd3cc4f6352ca61d6f489df
+      uri: huggingface://bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-GGUF/Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
