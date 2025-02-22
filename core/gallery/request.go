@@ -62,3 +62,15 @@ func (gm GalleryModels) FindByName(name string) *GalleryModel {
 	}
 	return nil
 }
+
+func (gm GalleryModels) Paginate(pageNum int, itemsNum int) GalleryModels {
+	start := (pageNum - 1) * itemsNum
+	end := start + itemsNum
+	if start > len(gm) {
+		start = len(gm)
+	}
+	if end > len(gm) {
+		end = len(gm)
+	}
+	return gm[start:end]
+}

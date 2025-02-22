@@ -75,9 +75,37 @@
                 hx-indicator=".htmx-indicator">
 
             <div id="search-results">{{.Models}}</div>
+            <!-- Pagination -->
+            <div class="flex justify-center mt-5">
+                <div class="flex items
+                -center">
+                    <button onclick="window.location.href='browse?page={{.PrevPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-l-md" {{if not .PrevPage}}disabled{{end}}
+                    ><i class="fas fa-arrow-left"></i></button>
+                    <button onclick="window.location.href='browse?page={{.NextPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-r-md" {{if not .NextPage}}disabled{{end}}
+                    ><i class="fas fa-arrow-right"></i></button>
+                    <!-- 
+                    TODO: do not refresh the page, but use htmx.
+                    This however requires the page calculation to be here instead that in the golang backend.
+                    <button class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-l-md" 
+                        hx-post="browse/search/models?page={{.PrevPage}}" 
+                        hx-target="#search-results" 
+                        hx-indicator=".htmx-indicator"
+                        {{if not .PrevPage}}disabled{{end}}
+                    >
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <button class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-r-md" 
+                        hx-post="browse/search/models?page={{.NextPage}}" 
+                        hx-target="#search-results" 
+                        hx-indicator=".htmx-indicator"
+                        {{if not .NextPage}}disabled{{end}}
+                    > 
+                    <i class="fas fa-arrow-right"></i>
+                    </button>
+                    -->
+            </div>
         </div>
     </div>
-
     {{template "views/partials/footer" .}}
 </div>
 
