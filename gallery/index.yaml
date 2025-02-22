@@ -6380,6 +6380,20 @@
     - filename: internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
       sha256: fa9dc8b0d4be0952252c25ff33e766a8399ce7b085647b95abe3edbe536cd8ed
       uri: huggingface://bartowski/internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-GGUF/internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "arcee-ai_arcee-maestro-7b-preview"
+  urls:
+    - https://huggingface.co/arcee-ai/Arcee-Maestro-7B-Preview
+    - https://huggingface.co/bartowski/arcee-ai_Arcee-Maestro-7B-Preview-GGUF
+  description: |
+    Arcee-Maestro-7B-Preview (7B) is Arcee's first reasoning model trained with reinforment learning. It is based on the Qwen2.5-7B DeepSeek-R1 distillation DeepSeek-R1-Distill-Qwen-7B with further GRPO training. Though this is just a preview of our upcoming work, it already shows promising improvements to mathematical and coding abilities across a range of tasks.
+  overrides:
+    parameters:
+      model: arcee-ai_Arcee-Maestro-7B-Preview-Q4_K_M.gguf
+  files:
+    - filename: arcee-ai_Arcee-Maestro-7B-Preview-Q4_K_M.gguf
+      sha256: 7b1099e67ad1d10a80868ca0c39e78e7b3f89da87aa316166f56cc259e53cb7f
+      uri: huggingface://bartowski/arcee-ai_Arcee-Maestro-7B-Preview-GGUF/arcee-ai_Arcee-Maestro-7B-Preview-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
