@@ -626,6 +626,21 @@
     - filename: SentientAGI_Dobby-Unhinged-Llama-3.3-70B-Q4_K_M.gguf
       sha256: b768e3828f8a72b7374bcf71600af8621563f1b002459b4dcd002ab144f68aa6
       uri: huggingface://bartowski/SentientAGI_Dobby-Unhinged-Llama-3.3-70B-GGUF/SentientAGI_Dobby-Unhinged-Llama-3.3-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "steelskull_l3.3-mokume-gane-r1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/F_aK-DO_bMK7fWpDaHoNd.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Mokume-Gane-R1-70b
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-GGUF
+  description: |
+    Named after the Japanese metalworking technique 'Mokume-gane' (木目金), meaning 'wood grain metal', this model embodies the artistry of creating distinctive layered patterns through the careful mixing of different components. Just as Mokume-gane craftsmen blend various metals to create unique visual patterns, this model combines specialized AI components to generate creative and unexpected outputs.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Mokume-Gane-R1-70b-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Mokume-Gane-R1-70b-Q4_K_M.gguf
+      sha256: 301534a01cec1434c9d0a1b6f13be4e1b5896015d28cee393c3f323ee94efa50
+      uri: huggingface://bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-GGUF/Steelskull_L3.3-Mokume-Gane-R1-70b-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
