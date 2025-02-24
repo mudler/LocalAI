@@ -12587,6 +12587,18 @@
     - filename: t5xxl_fp16.safetensors
       sha256: 6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635
       uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
+- !!merge <<: *flux
+  name: flux.1dev-abliteratedv2
+  description: |
+    The FLUX.1 [dev] Abliterated-v2 model is a modified version of FLUX.1 [dev] and a successor to FLUX.1 [dev] Abliterated. This version has undergone a process called unlearning, which removes the model's built-in refusal mechanism. This allows the model to respond to a wider range of prompts, including those that the original model might have deemed inappropriate or harmful.
+
+    The abliteration process involves identifying and isolating the specific components of the model responsible for refusal behavior and then modifying or ablating those components. This results in a model that is more flexible and responsive, while still maintaining the core capabilities of the original FLUX.1 [dev] model.
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/flux.1dev-abliteratedv2
+    - https://huggingface.co/black-forest-labs/FLUX.1-schnell
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff/flux.1dev-abliteratedv2
 - &whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master" ## Whisper
   name: "whisper-1"
