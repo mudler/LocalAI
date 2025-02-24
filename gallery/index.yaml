@@ -671,6 +671,31 @@
     - filename: Steelskull_L3.3-Cu-Mai-R1-70b-Q4_K_M.gguf
       sha256: 7e61cf7b3126414a7d7a54264e2ba42f663aefb7f82af6bb06da9d35e6a8843a
       uri: huggingface://bartowski/Steelskull_L3.3-Cu-Mai-R1-70b-GGUF/Steelskull_L3.3-Cu-Mai-R1-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "nohobby_l3.3-prikol-70b-extra"
+  icon: https://files.catbox.moe/x9t3zo.png
+  urls:
+    - https://huggingface.co/Nohobby/L3.3-Prikol-70B-EXTRA
+    - https://huggingface.co/bartowski/Nohobby_L3.3-Prikol-70B-EXTRA-GGUF
+  description: |
+    After banging my head against the wall some more - I actually managed to merge DeepSeek distill into my mess! Along with even more models (my hand just slipped, I swear)
+
+    The prose is better than in v0.5, but has a different feel to it, so I guess it's more of a step to the side than forward (hence the title EXTRA instead of 0.6).
+
+    The context recall may have improved, or I'm just gaslighting myself to think so.
+
+    And of course, since it now has DeepSeek in it - <think> tags!
+
+    They kinda work out of the box if you add <think> to the 'Start Reply With' field in ST - that way the model will write a really short character thought in it. However, if we want some OOC reasoning, things get trickier.
+
+    My initial thought was that this model could be instructed to use <think> either only for {{char}}'s inner monologue or for detached analysis, but actually it would end up writing character thoughts most of the time anyway, and the times when it did reason stuff it threw the narrative out of the window by making it too formal and even adding some notes at the end.
+  overrides:
+    parameters:
+      model: Nohobby_L3.3-Prikol-70B-EXTRA-Q4_K_M.gguf
+  files:
+    - filename: Nohobby_L3.3-Prikol-70B-EXTRA-Q4_K_M.gguf
+      sha256: 0efb34490e9714d6c8cc5dd4bf59ea894bf766af8a038982f5eba7bab9d0f962
+      uri: huggingface://bartowski/Nohobby_L3.3-Prikol-70B-EXTRA-GGUF/Nohobby_L3.3-Prikol-70B-EXTRA-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
