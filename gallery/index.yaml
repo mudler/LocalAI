@@ -6439,6 +6439,31 @@
     - filename: arcee-ai_Arcee-Maestro-7B-Preview-Q4_K_M.gguf
       sha256: 7b1099e67ad1d10a80868ca0c39e78e7b3f89da87aa316166f56cc259e53cb7f
       uri: huggingface://bartowski/arcee-ai_Arcee-Maestro-7B-Preview-GGUF/arcee-ai_Arcee-Maestro-7B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "steelskull_l3.3-san-mai-r1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/8fZQZaLM0XO9TyKh-yMQ7.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-San-Mai-R1-70b
+    - https://huggingface.co/bartowski/Steelskull_L3.3-San-Mai-R1-70b-GGUF
+  description: |
+    L3.3-San-Mai-R1-70b represents the foundational release in a three-part model series, followed by L3.3-Cu-Mai-R1-70b (Version A) and L3.3-Mokume-Gane-R1-70b (Version C). The name "San-Mai" draws inspiration from the Japanese bladesmithing technique of creating three-layer laminated composite metals, known for combining a hard cutting edge with a tougher spine - a metaphor for this model's balanced approach to AI capabilities.
+    Built on a custom DeepSeek R1 Distill base (DS-Hydroblated-R1-v4.1), San-Mai-R1 integrates specialized components through the SCE merge method:
+
+    EVA and EURYALE foundations for creative expression and scene comprehension
+    Cirrus and Hanami elements for enhanced reasoning capabilities
+    Anubis components for detailed scene description
+    Negative_LLAMA integration for balanced perspective and response
+
+    Core Capabilities
+
+    As the OG model in the series, San-Mai-R1 serves as the gold standard and reliable baseline. User feedback consistently highlights its superior intelligence, coherence, and unique ability to provide deep character insights. Through proper prompting, the model demonstrates advanced reasoning capabilities and an "X-factor" that enables unprompted exploration of character inner thoughts and motivations.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-San-Mai-R1-70b-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-San-Mai-R1-70b-Q4_K_M.gguf
+      sha256: 2287bfa14af188b0fc3a9f4e3afc9c303b7c41cee49238434f971c090b850306
+      uri: huggingface://bartowski/Steelskull_L3.3-San-Mai-R1-70b-GGUF/Steelskull_L3.3-San-Mai-R1-70b-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
