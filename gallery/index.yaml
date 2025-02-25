@@ -94,6 +94,28 @@
     - filename: SicariusSicariiStuff_Phi-lthy4-Q4_K_M.gguf
       sha256: a5004b2d0f3eb869f07285f53ec283aa383063085987113d2a41cb54708fb5ad
       uri: huggingface://bartowski/SicariusSicariiStuff_Phi-lthy4-GGUF/SicariusSicariiStuff_Phi-lthy4-Q4_K_M.gguf
+- !!merge <<: *phi4
+  name: "sicariussicariistuff_phi-line_14b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/SicariusSicariiStuff/Phi-Line_14B/resolve/main/Images/Phi-Line_14B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Phi-Line_14B
+    - https://huggingface.co/bartowski/SicariusSicariiStuff_Phi-Line_14B-GGUF
+  description: |
+    Excellent Roleplay with more brains. (Who would have thought Phi-4 models would be good at this? so weird... )
+    Medium length response (1-4 paragraphs, usually 2-3).
+    Excellent assistant that follows instructions well enough, and keeps good formating.
+    Strong Creative writing abilities. Will obey requests regarding formatting (markdown headlines for paragraphs, etc).
+    Writes and roleplays quite uniquely, probably because of lack of RP\writing slop in the pretrain. This is just my guesstimate.
+    LOW refusals - Total freedom in RP, can do things other RP models won't, and I'll leave it at that. Low refusals in assistant tasks as well.
+    VERY good at following the character card. Math brain is used for gooner tech, as it should be.
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff_Phi-Line_14B-Q4_K_M.gguf
+  files:
+    - filename: SicariusSicariiStuff_Phi-Line_14B-Q4_K_M.gguf
+      sha256: 552c5a613bc5f24494646858795837ac42d3c216c5caedd7f4d6b954e5df58f2
+      uri: huggingface://bartowski/SicariusSicariiStuff_Phi-Line_14B-GGUF/SicariusSicariiStuff_Phi-Line_14B-Q4_K_M.gguf
 - &falcon3
   name: "falcon3-1b-instruct"
   url: "github:mudler/LocalAI/gallery/falcon3.yaml@master"
