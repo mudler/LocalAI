@@ -6511,6 +6511,20 @@
     - filename: Steelskull_L3.3-San-Mai-R1-70b-Q4_K_M.gguf
       sha256: 2287bfa14af188b0fc3a9f4e3afc9c303b7c41cee49238434f971c090b850306
       uri: huggingface://bartowski/Steelskull_L3.3-San-Mai-R1-70b-GGUF/Steelskull_L3.3-San-Mai-R1-70b-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "perplexity-ai_r1-1776-distill-llama-70b"
+  urls:
+    - https://huggingface.co/perplexity-ai/r1-1776-distill-llama-70b
+    - https://huggingface.co/bartowski/perplexity-ai_r1-1776-distill-llama-70b-GGUF
+  description: |
+    R1 1776 is a DeepSeek-R1 reasoning model that has been post-trained by Perplexity AI to remove Chinese Communist Party censorship. The model provides unbiased, accurate, and factual information while maintaining high reasoning capabilities.
+  overrides:
+    parameters:
+      model: perplexity-ai_r1-1776-distill-llama-70b-Q4_K_M.gguf
+  files:
+    - filename: perplexity-ai_r1-1776-distill-llama-70b-Q4_K_M.gguf
+      sha256: 4030b5778cbbd0723454c9a0c340c32dc4e86a98d46f5e6083527da6a9c90012
+      uri: huggingface://bartowski/perplexity-ai_r1-1776-distill-llama-70b-GGUF/perplexity-ai_r1-1776-distill-llama-70b-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
