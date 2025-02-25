@@ -718,6 +718,31 @@
     - filename: Nohobby_L3.3-Prikol-70B-EXTRA-Q4_K_M.gguf
       sha256: 0efb34490e9714d6c8cc5dd4bf59ea894bf766af8a038982f5eba7bab9d0f962
       uri: huggingface://bartowski/Nohobby_L3.3-Prikol-70B-EXTRA-GGUF/Nohobby_L3.3-Prikol-70B-EXTRA-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "latitudegames_wayfarer-large-70b-llama-3.3"
+  icon: https://huggingface.co/LatitudeGames/Wayfarer-Large-70B-Llama-3.3/resolve/main/wayfarer-large.jpg
+  urls:
+    - https://huggingface.co/LatitudeGames/Wayfarer-Large-70B-Llama-3.3
+    - https://huggingface.co/bartowski/LatitudeGames_Wayfarer-Large-70B-Llama-3.3-GGUF
+  description: |
+    We’ve heard over and over from AI Dungeon players that modern AI models are too nice, never letting them fail or die. While it may be good for a chatbot to be nice and helpful, great stories and games aren’t all rainbows and unicorns. They have conflict, tension, and even death. These create real stakes and consequences for characters and the journeys they go on.
+
+    Similarly, great games need opposition. You must be able to fail, die, and may even have to start over. This makes games more fun!
+
+    However, the vast majority of AI models, through alignment RLHF, have been trained away from darkness, violence, or conflict, preventing them from fulfilling this role. To give our players better options, we decided to train our own model to fix these issues.
+
+    The Wayfarer model series are a set of adventure role-play models specifically trained to give players a challenging and dangerous experience.
+
+    We wanted to contribute back to the open source community that we’ve benefitted so much from so we open sourced a 12b parameter version version back in Jan. We thought people would love it but people were even more excited than we expected.
+
+    Due to popular request we decided to train a larger 70b version based on Llama 3.3.
+  overrides:
+    parameters:
+      model: LatitudeGames_Wayfarer-Large-70B-Llama-3.3-Q4_K_M.gguf
+  files:
+    - filename: LatitudeGames_Wayfarer-Large-70B-Llama-3.3-Q4_K_M.gguf
+      sha256: 5b9f6923e247e5c6db3fc0f6fe558939b51b5fe1003d83cf5c10e74b586a1bf8
+      uri: huggingface://bartowski/LatitudeGames_Wayfarer-Large-70B-Llama-3.3-GGUF/LatitudeGames_Wayfarer-Large-70B-Llama-3.3-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
