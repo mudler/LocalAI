@@ -29,7 +29,8 @@ SOFTWARE.
 <html lang="en">
   {{template "views/partials/head" .}}
   <script defer src="static/chat.js"></script>
-
+  {{ $allGalleryConfigs:=.GalleryConfig }}
+  {{ $model:=.Model}}
   <!-- Adjust layout classes to let the chat fill the viewport and be responsive -->
   <body class="bg-slate-900 text-gray-100 flex flex-col h-screen" x-data="{ key: $store.chat.key }">
     {{template "views/partials/navbar" .}}
@@ -42,14 +43,64 @@ SOFTWARE.
         <div class="flex items-center justify-between flex-wrap gap-2">
           <h1 class="text-lg font-semibold flex items-center">
             <i class="fa-solid fa-comments mr-2"></i>
+            {{ if $model }}
+            {{ $galleryConfig:= index $allGalleryConfigs $model}}
+
+            <img src="{{$galleryConfig.Icon}}" class="rounded-lg mt-2 max-w-8 max-h-8 mr-2">
+              
+            <button data-twe-ripple-init data-twe-ripple-color="light" class="float-left inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong" data-modal-target="modal" data-modal-toggle="modal">
+                <p class="flex items-center">
+                    <i class="fas fa-info-circle pr-2"></i>
+                    Info
+                </p>
+            </button>
+
+            <div id="modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+              <div class="relative p-4 w-full max-w-2xl max-h-full">
+                <div class="relative p-4 w-full max-w-2xl max-h-full bg-white rounded-lg shadow dark:bg-gray-700">
+                
+                  <!-- Header -->
+                  <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+                      <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ $model }}</h3>
+                      <button class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="modal">
+                          <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                          </svg>
+                          <span class="sr-only">Close modal</span>
+                      </button>
+                  </div>
+                          
+                  <!-- Body -->
+                  <div class="p-4 md:p-5 space-y-4">
+                      <div class="flex justify-center items-center">
+                          <img class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded" src="{{$galleryConfig.Icon}}" loading="lazy"/>
+                      </div>
+                      <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">{{ $galleryConfig.Description }}</p>
+                      <hr>
+                      <p class="text-sm font-semibold text-gray-900 dark:text-white">Links</p>
+                      <ul>
+                          {{range $galleryConfig.URLs}}
+                          <li><a href="{{ . }}">{{ . }}</a></li>
+                          {{end}}
+                      </ul>                   
+                  </div>
+                          
+                  <!-- Footer -->
+                  <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
+                      <button data-modal-hide="modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+                          Close
+                      </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {{ end }}
             Chat
             {{ if .Model }} with {{.Model}} {{ end }}
             <a class="ml-2" href="browse?term={{.Model}}">
               <i class="fas fa-brain pr-2"></i>
             </a>
-            <a href="https://localai.io/features/text-generation/" target="_blank">
-              <i class="fas fa-circle-info"></i>
-            </a>
+
           </h1>
           <div x-show="component === 'menu'" id="menu">
             <button
@@ -76,6 +127,9 @@ SOFTWARE.
             >
               Set system prompt
             </button>
+            <a href="https://localai.io/features/text-generation/" target="_blank">
+              Docs <i class="fas fa-circle-info"></i>
+            </a>
           </div>
           <!-- API Key form -->
           <form x-show="component === 'key'" id="key" class="flex items-center gap-2">
@@ -124,7 +178,7 @@ SOFTWARE.
             class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
           >
             <option value="" disabled class="text-gray-400">Select a model</option>
-            {{ $model:=.Model}}
+           
             {{ range .ModelsConfig }}
               {{ $cfg := . }}
               {{ range .KnownUsecaseStrings }}
@@ -162,10 +216,22 @@ SOFTWARE.
         <div id="messages">
           <template x-for="message in history">
             <div class="message flex items-start space-x-2 my-2">
+              {{ if .Model }} 
+              {{ $galleryConfig:= index $allGalleryConfigs .Model}}
+              <template x-if="message.role === 'user'">
               <i
-                class="fa-solid h-8 w-8"
-                :class="message.role === 'user' ? 'fa-user' : 'fa-robot'"
+                class="fa-solid h-8 w-8 fa-user"
               ></i>
+              </template>
+              <template x-if="message.role != 'user'">
+               <img src="{{$galleryConfig.Icon}}" class="rounded-lg mt-2 max-w-8 max-h-8">
+              </template>
+              {{ else }}
+              <i
+              class="fa-solid h-8 w-8"
+              :class="message.role === 'user' ? 'fa-user' : 'fa-robot'"
+              ></i>
+              {{ end }}
               <div class="flex flex-col flex-1">
                 <span
                   class="text-xs font-semibold text-gray-400"

@@ -6,6 +6,7 @@
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
+    {{ $numModelsPerPage := 21 }}
     <div class="container mx-auto px-4 flex-grow">
 
         <div class="models mt-12">
@@ -71,17 +72,18 @@
                 name="search" placeholder="Begin Typing To Search models..." 
                 hx-post="browse/search/models" 
                 hx-trigger="input changed delay:500ms, search" 
-                hx-target="#search-results" 
+                hx-target="#search-results"
                 hx-indicator=".htmx-indicator">
 
             <div id="search-results">{{.Models}}</div>
+            {{ if gt .AvailableModels $numModelsPerPage }}
             <!-- Pagination -->
-            <div class="flex justify-center mt-5">
+            <div id="paginate" class="flex justify-center mt-5">
                 <div class="flex items
                 -center">
-                    <button onclick="window.location.href='browse?page={{.PrevPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-l-md" {{if not .PrevPage}}disabled{{end}}
+                    <button onclick="window.location.href='browse?page={{.PrevPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-l-md {{if not .PrevPage}}invisible{{end}}" 
                     ><i class="fas fa-arrow-left"></i></button>
-                    <button onclick="window.location.href='browse?page={{.NextPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-r-md" {{if not .NextPage}}disabled{{end}}
+                    <button onclick="window.location.href='browse?page={{.NextPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-r-md {{if not .NextPage}}invisible{{end}}"
                     ><i class="fas fa-arrow-right"></i></button>
                     <!-- 
                     TODO: do not refresh the page, but use htmx.
@@ -103,6 +105,7 @@
                     <i class="fas fa-arrow-right"></i>
                     </button>
                     -->
+                {{ end }}
             </div>
         </div>
     </div>

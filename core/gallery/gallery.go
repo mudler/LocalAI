@@ -29,6 +29,8 @@ func InstallModelFromGallery(galleries []config.Gallery, name string, basePath s
 			if err != nil {
 				return err
 			}
+			config.Description = model.Description
+			config.License = model.License
 		} else if len(model.ConfigFile) > 0 {
 			// TODO: is this worse than using the override method with a blank cfg yaml?
 			reYamlConfig, err := yaml.Marshal(model.ConfigFile)

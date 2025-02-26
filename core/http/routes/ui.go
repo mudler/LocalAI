@@ -404,6 +404,15 @@ func RegisterUIRoutes(app *fiber.App,
 			return c.Redirect(utils.BaseURL(c))
 		}
 		modelThatCanBeUsed := ""
+		galleryConfigs := map[string]*gallery.Config{}
+
+		for _, m := range backendConfigs {
+			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
+			if err != nil {
+				continue
+			}
+			galleryConfigs[m.Name] = cfg
+		}
 
 		title := "LocalAI - Chat"
 
@@ -419,6 +428,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"Title":               title,
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsWithoutConfig": modelsWithoutConfig,
+			"GalleryConfig":       galleryConfigs,
 			"ModelsConfig":        backendConfigs,
 			"Model":               modelThatCanBeUsed,
 			"Version":             internal.PrintableVersion(),
@@ -434,10 +444,21 @@ func RegisterUIRoutes(app *fiber.App,
 		backendConfigs := cl.GetAllBackendConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
+		galleryConfigs := map[string]*gallery.Config{}
+
+		for _, m := range backendConfigs {
+			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
+			if err != nil {
+				continue
+			}
+			galleryConfigs[m.Name] = cfg
+		}
+
 		summary := fiber.Map{
 			"Title":               "LocalAI - Chat with " + c.Params("model"),
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsConfig":        backendConfigs,
+			"GalleryConfig":       galleryConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Params("model"),
 			"Version":             internal.PrintableVersion(),
