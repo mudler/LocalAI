@@ -49,7 +49,7 @@ function submitPrompt(event) {
   document.getElementById("input").value = "";
   const key = localStorage.getItem("key");
   const systemPrompt = localStorage.getItem("system_prompt");
-
+  Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
   promptGPT(systemPrompt, key, input);
 }
 
@@ -74,7 +74,6 @@ function readInputImage() {
     // Make the "loader" visible
     document.getElementById("loader").style.display = "block";
     document.getElementById("input").disabled = true;
-    document.getElementById('messages').scrollIntoView(false)
 
     messages = Alpine.store("chat").messages();
 
@@ -181,8 +180,8 @@ function readInputImage() {
       const chatStore = Alpine.store("chat");
       chatStore.add("assistant", token);
       // Efficiently scroll into view without triggering multiple reflows
-      const messages = document.getElementById('messages');
-      messages.scrollTop = messages.scrollHeight;
+      // const messages = document.getElementById('messages');
+      // messages.scrollTop = messages.scrollHeight;
     };
 
     let buffer = "";

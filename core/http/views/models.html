@@ -6,6 +6,7 @@
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
+    {{ $numModelsPerPage := 21 }}
     <div class="container mx-auto px-4 flex-grow">
 
         <div class="models mt-12">
@@ -20,38 +21,45 @@
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "tts"}'
-                hx-indicator=".htmx-indicator" >TTS</button> 
+                    onclick="hidePagination()"
+                    hx-indicator=".htmx-indicator" >TTS</button> 
                 <button  hx-post="browse/search/models" 
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "stablediffusion"}'
-                hx-indicator=".htmx-indicator" >Image generation</button> 
+                    onclick="hidePagination()"
+                    hx-indicator=".htmx-indicator" >Image generation</button> 
                 <button  hx-post="browse/search/models" \
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "llm"}'
-                hx-indicator=".htmx-indicator" >Text generation</button> 
+                    onclick="hidePagination()"
+                    hx-indicator=".htmx-indicator" >Text generation</button> 
                 <button  hx-post="browse/search/models" 
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "multimodal"}'
-                hx-indicator=".htmx-indicator" >Multimodal</button> 
+                    onclick="hidePagination()"
+                    hx-indicator=".htmx-indicator" >Multimodal</button> 
                 <button  hx-post="browse/search/models" 
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "embedding"}'
-                hx-indicator=".htmx-indicator" >Embeddings</button>
+                    onclick="hidePagination()"
+                    hx-indicator=".htmx-indicator" >Embeddings</button>
                 <button  hx-post="browse/search/models"
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "rerank"}'
-                hx-indicator=".htmx-indicator" >Rerankers</button> 
+                    onclick="hidePagination()"
+                    hx-indicator=".htmx-indicator" >Rerankers</button> 
                 <button  
                     hx-post="browse/search/models"
                     class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
                     hx-target="#search-results" 
                     hx-vals='{"search": "whisper"}'
-                hx-indicator=".htmx-indicator" >Audio transcription</button> 
+                    onclick="hidePagination()"
+                    hx-indicator=".htmx-indicator" >Audio transcription</button> 
             </div>
 
             <div class="text-center text-xs font-semibold text-gray-100">
@@ -59,6 +67,7 @@
                 {{ range .AllTags }}
                     <button  hx-post="browse/search/models" class="text-blue-500" hx-target="#search-results" 
                     hx-vals='{"search": "{{.}}"}'
+                    onclick="hidePagination()"
                     hx-indicator=".htmx-indicator" >{{.}}</button> 
                 {{ end }}
             </div>
@@ -71,17 +80,21 @@
                 name="search" placeholder="Begin Typing To Search models..." 
                 hx-post="browse/search/models" 
                 hx-trigger="input changed delay:500ms, search" 
-                hx-target="#search-results" 
+                hx-target="#search-results"
+                oninput="hidePagination()"
+                onchange="hidePagination()"
+                onsearch="hidePagination()"
                 hx-indicator=".htmx-indicator">
 
             <div id="search-results">{{.Models}}</div>
+            {{ if gt .AvailableModels $numModelsPerPage }}
             <!-- Pagination -->
-            <div class="flex justify-center mt-5">
+            <div id="paginate" class="flex justify-center mt-5">
                 <div class="flex items
                 -center">
-                    <button onclick="window.location.href='browse?page={{.PrevPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-l-md" {{if not .PrevPage}}disabled{{end}}
+                    <button onclick="window.location.href='browse?page={{.PrevPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-l-md {{if not .PrevPage}}invisible{{end}}" 
                     ><i class="fas fa-arrow-left"></i></button>
-                    <button onclick="window.location.href='browse?page={{.NextPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-r-md" {{if not .NextPage}}disabled{{end}}
+                    <button onclick="window.location.href='browse?page={{.NextPage}}'" class="bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-gray-200 px-3 py-1 rounded-r-md {{if not .NextPage}}invisible{{end}}"
                     ><i class="fas fa-arrow-right"></i></button>
                     <!-- 
                     TODO: do not refresh the page, but use htmx.
@@ -103,11 +116,29 @@
                     <i class="fas fa-arrow-right"></i>
                     </button>
                     -->
+                </div>
             </div>
+            {{ end }}
         </div>
     </div>
     {{template "views/partials/footer" .}}
 </div>
+
+<script>
+    function hidePagination() {
+        const paginateDiv = document.getElementById('paginate');
+        if (paginateDiv) {
+            paginateDiv.style.display = 'none';
+        }
+    }
+
+    // Listen for the htmx:afterSwap event to handle cases when the search results are updated
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'search-results') {
+            hidePagination();
+        }
+    });
+</script>
 
 </body>
 </html>
