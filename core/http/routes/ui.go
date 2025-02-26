@@ -209,11 +209,6 @@ func RegisterUIRoutes(app *fiber.App,
 				summary["TotalPages"] = totalPages
 				summary["CurrentPage"] = pageNum
 				summary["Models"] = template.HTML(elements.ListModels(models, processingModels, galleryService))
-
-				log.Debug().Msgf("totalPages : %+v\n", totalPages)
-				log.Debug().Msgf("prevPage : %+v\n", prevPage)
-				log.Debug().Msgf("nextPage : %+v\n", nextPage)
-				log.Debug().Msgf("CurrentPage : %+v\n", pageNum)
 			}
 
 			// Render index
