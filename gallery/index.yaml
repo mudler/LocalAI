@@ -6188,6 +6188,20 @@
     - filename: l3.1-8b-rp-ink-q4_k_m.gguf
       sha256: 0e8d44a92153cda0c6a5d6b0d9af44d4806104b39d3232f9097cfcc384a78152
       uri: huggingface://Triangle104/L3.1-8b-RP-Ink-Q4_K_M-GGUF/l3.1-8b-rp-ink-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "locutusque_thespis-llama-3.1-8b"
+  urls:
+    - https://huggingface.co/Locutusque/Thespis-Llama-3.1-8B
+    - https://huggingface.co/bartowski/Locutusque_Thespis-Llama-3.1-8B-GGUF
+  description: |
+    The Thespis family of language models is designed to enhance roleplaying performance through reasoning inspired by the Theory of Mind. Thespis-Llama-3.1-8B is a fine-tuned version of an abliterated Llama-3.1-8B model, optimized using Group Relative Policy Optimization (GRPO). The model is specifically rewarded for minimizing "slop" and repetition in its outputs, aiming to produce coherent and engaging text that maintains character consistency and avoids low-quality responses. This version represents an initial release; future iterations will incorporate a more rigorous fine-tuning process.
+  overrides:
+    parameters:
+      model: Locutusque_Thespis-Llama-3.1-8B-Q4_K_M.gguf
+  files:
+    - filename: Locutusque_Thespis-Llama-3.1-8B-Q4_K_M.gguf
+      sha256: 94138f3774f496e28c2e76bb6df7a073c6087f8c074216a24b3cbcdc58ec7853
+      uri: huggingface://bartowski/Locutusque_Thespis-Llama-3.1-8B-GGUF/Locutusque_Thespis-Llama-3.1-8B-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
