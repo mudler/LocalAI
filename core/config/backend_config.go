@@ -222,7 +222,15 @@ func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {
 		return err
 	}
 	*c = BackendConfig(aux)
+
 	c.KnownUsecases = GetUsecasesFromYAML(c.KnownUsecaseStrings)
+	// Make sure the usecases are valid, we rewrite with what we identified
+	c.KnownUsecaseStrings = []string{}
+	for k, usecase := range GetAllBackendConfigUsecases() {
+		if c.HasUsecases(usecase) {
+			c.KnownUsecaseStrings = append(c.KnownUsecaseStrings, k)
+		}
+	}
 	return nil
 }
 
@@ -410,15 +418,6 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Debug = &trueV
 	}
 
-	if len(cfg.KnownUsecaseStrings) == 0 {
-		// Infer use case if not provided
-		for k, usecase := range GetAllBackendConfigUsecases() {
-			if cfg.HasUsecases(usecase) {
-				cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, k)
-			}
-		}
-	}
-
 	guessDefaultsFromFile(cfg, lo.modelPath)
 }
 
@@ -491,6 +490,10 @@ func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
 	}
 }
 
+func stringToFlag(s string) string {
+	return "FLAG_" + strings.ToUpper(s)
+}
+
 func GetUsecasesFromYAML(input []string) *BackendConfigUsecases {
 	if len(input) == 0 {
 		return nil
@@ -498,7 +501,7 @@ func GetUsecasesFromYAML(input []string) *BackendConfigUsecases {
 	result := FLAG_ANY
 	flags := GetAllBackendConfigUsecases()
 	for _, str := range input {
-		flag, exists := flags["FLAG_"+strings.ToUpper(str)]
+		flag, exists := flags[stringToFlag(str)]
 		if exists {
 			result |= flag
 		}
