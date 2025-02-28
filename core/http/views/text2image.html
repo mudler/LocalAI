@@ -7,21 +7,31 @@
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
-    <div class="container mx-auto px-4 flex-grow " x-data="{ component: 'menu' }">
+    <div class="container mx-auto px-4 py-8 flex-grow " x-data="{ component: 'menu' }">
     
 
+          <!-- Hero Header -->
+          <div class="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 rounded-2xl shadow-xl p-6 mb-8">
+            <div class="max-w-4xl mx-auto text-center">
+                <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                        Image generation {{ if .Model }} with {{.Model}} {{ end }}
+                    </span>
+                </h1>
+                <div class="flex flex-wrap justify-center gap-4">
+                  <a href="https://localai.io/features/image-generation/" target="_blank" 
+                     class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                      <i class="fas fa-book-reader mr-2"></i>
+                      <span>Documentation</span>
+                      <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
+                  </a>
+              </div>
+            </div>
+        </div>
+      
+            
         <div class="mt-12">
-          <div class="flex items-center justify-center text-center pb-2">
-            <span class="text-3xl font-semibold text-gray-100">
-              🖼️ Text to Image {{ if .Model }} (using {{.Model}}) {{ end }}
-            <a href="https://localai.io/features/image-generation" target="_blank" >
-              <i class="fas fa-circle-info pr-2"></i>
-            </a>
-            </span>
-    
-          </div>
-
-            <div class="text-center font-semibold text-gray-100">
+           <div class="text-center font-semibold text-gray-100">
               <div class="flex items-center justify-between">
 
               <div x-show="component === 'menu'" id="menu">
@@ -64,7 +74,7 @@
               </div>
             </div>
 
-            <div class="mt-12">
+            <div class="mt-12 relative">
               <input id="image-model" type="hidden" value="{{.Model}}">
               <form id="genimage" action="text2image/{{.Model}}" method="get">
                 <input
@@ -73,13 +83,16 @@
                   name="input"
                   placeholder="Prompt…"
                   autocomplete="off"
-                  class="p-2 border rounded w-full bg-gray-600 text-white placeholder-gray-300"
+                  class="form-control block w-full pl-10 px-4 py-3 text-base font-normal text-gray-300 bg-gray-900/80 bg-clip-padding border border-gray-700/70 rounded-lg transition ease-in-out focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 focus:outline-none"
                   required
                 />
+                <span id="loader" class="my-2 loader absolute right-3 top-2"  >
+                  <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </span>
               </form>
-              <div class="container max-w-screen-lg mx-auto mt-4 pb-10 flex justify-center">
-                <div id="loader" class="my-2 loader"  ></div>
-              </div>
               <div class="container max-w-screen-lg mx-auto mt-4 pb-10 flex justify-center">
                 <div id="result" class="mx-auto"></div>
               </div>
