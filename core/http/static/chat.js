@@ -27,6 +27,21 @@ SOFTWARE.
 
 */
 
+function toggleLoader(show) {
+  const loader = document.getElementById('loader');
+  const sendButton = document.getElementById('send-button');
+  
+  if (show) {
+    loader.style.display = 'block';
+    sendButton.style.display = 'none';
+    document.getElementById("input").disabled = true;
+  } else {
+    document.getElementById("input").disabled = false;
+    loader.style.display = 'none';
+    sendButton.style.display = 'block';
+  }
+}
+
 function submitKey(event) {
     event.preventDefault();
     localStorage.setItem("key", document.getElementById("apiKey").value);
@@ -72,8 +87,8 @@ function readInputImage() {
     // Set class "loader" to the element with "loader" id
     //document.getElementById("loader").classList.add("loader");
     // Make the "loader" visible
-    document.getElementById("loader").style.display = "block";
-    document.getElementById("input").disabled = true;
+    toggleLoader(true);
+
 
     messages = Alpine.store("chat").messages();
 
@@ -243,10 +258,8 @@ function readInputImage() {
     }
 
     // Remove class "loader" from the element with "loader" id
-    //document.getElementById("loader").classList.remove("loader");
-    document.getElementById("loader").style.display = "none";
-    // enable input
-    document.getElementById("input").disabled = false;
+    toggleLoader(false);
+
     // scroll to the bottom of the chat
     document.getElementById('messages').scrollIntoView(false)
     // set focus to the input

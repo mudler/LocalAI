@@ -13,7 +13,7 @@ func installButton(galleryName string) elem.Node {
 		attrs.Props{
 			"data-twe-ripple-init":  "",
 			"data-twe-ripple-color": "light",
-			"class":                 "float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+			"class":                 "float-right inline-flex items-center rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out shadow hover:shadow-lg",
 			"hx-swap":               "outerHTML",
 			// post the Model ID as param
 			"hx-post": "browse/install/model/" + galleryName,
@@ -52,7 +52,7 @@ func infoButton(m *gallery.GalleryModel) elem.Node {
 		attrs.Props{
 			"data-twe-ripple-init":  "",
 			"data-twe-ripple-color": "light",
-			"class":                 "float-left inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong",
+			"class":                 "inline-flex items-center rounded-lg bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out",
 			"data-modal-target":     modalName(m),
 			"data-modal-toggle":     modalName(m),
 		},
