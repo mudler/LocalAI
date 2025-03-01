@@ -4197,6 +4197,20 @@
     - filename: ozone-research_Chirp-01-Q4_K_M.gguf
       sha256: 4ca7328f9b649755077c9064de0b9748d9f12a2e4ce8f493c94e1b19a8b5a035
       uri: huggingface://bartowski/ozone-research_Chirp-01-GGUF/ozone-research_Chirp-01-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ozone-research_0x-lite"
+  urls:
+    - https://huggingface.co/ozone-research/0x-lite
+    - https://huggingface.co/bartowski/ozone-research_0x-lite-GGUF
+  description: |
+    0x Lite is a state-of-the-art language model developed by Ozone AI, designed to deliver ultra-high-quality text generation capabilities while maintaining a compact and efficient architecture. Built on the latest advancements in natural language processing, 0x Lite is optimized for both speed and accuracy, making it a strong contender in the space of language models. It is particularly well-suited for applications where resource constraints are a concern, offering a lightweight alternative to larger models like GPT while still delivering comparable performance.
+  overrides:
+    parameters:
+      model: ozone-research_0x-lite-Q4_K_M.gguf
+  files:
+    - filename: ozone-research_0x-lite-Q4_K_M.gguf
+      sha256: c11f3bd1c607ca329f48d1b6a3e540ac4c5ea8d57097550639709d9202b7f405
+      uri: huggingface://bartowski/ozone-research_0x-lite-GGUF/ozone-research_0x-lite-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
