@@ -38,3 +38,4 @@ config_file: |
   - '<|im_end|>'
   - '<dummy32000>'
   - '</s>'
+  - '<|endoftext|>'
