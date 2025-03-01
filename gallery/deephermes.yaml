@@ -13,7 +13,7 @@ config_file: |
     disable_no_action: true
     grammar:
       triggers:
-        word: "<tool_call>"
+      - word: "<tool_call>"
         at_start: false
   template:
     chat_message: |
