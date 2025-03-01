@@ -4181,6 +4181,22 @@
     - filename: ozone-ai_Reverb-7b-Q4_K_M.gguf
       sha256: f769c6e1a85d3426263f585f640a90c10e7e26b89345a700a4cabf62eb0583d4
       uri: huggingface://bartowski/ozone-ai_Reverb-7b-GGUF/ozone-ai_Reverb-7b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ozone-research_chirp-01"
+  urls:
+    - https://huggingface.co/ozone-research/Chirp-01
+    - https://huggingface.co/bartowski/ozone-research_Chirp-01-GGUF
+  description: |
+    Chirp-3b is a high-performing 3B parameter language model crafted by the Ozone Research team. Fine-tuned from a robust base model (Qwen2.5 3B Instruct), it was trained on 50 million tokens of distilled data from GPT-4o. This compact yet powerful model delivers exceptional results, outperforming expectations on benchmarks like MMLU Pro and IFEval.
+
+    Chirp-3b is an open-source effort to push the limits of what small-scale LLMs can achieve, making it a valuable tool for researchers and enthusiasts alike.
+  overrides:
+    parameters:
+      model: ozone-research_Chirp-01-Q4_K_M.gguf
+  files:
+    - filename: ozone-research_Chirp-01-Q4_K_M.gguf
+      sha256: 4ca7328f9b649755077c9064de0b9748d9f12a2e4ce8f493c94e1b19a8b5a035
+      uri: huggingface://bartowski/ozone-research_Chirp-01-GGUF/ozone-research_Chirp-01-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
