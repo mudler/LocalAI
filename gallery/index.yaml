@@ -4211,6 +4211,22 @@
     - filename: ozone-research_0x-lite-Q4_K_M.gguf
       sha256: c11f3bd1c607ca329f48d1b6a3e540ac4c5ea8d57097550639709d9202b7f405
       uri: huggingface://bartowski/ozone-research_0x-lite-GGUF/ozone-research_0x-lite-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "allenai_olmocr-7b-0225-preview"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/olmocr/olmocr.png
+  urls:
+    - https://huggingface.co/allenai/olmOCR-7B-0225-preview
+    - https://huggingface.co/bartowski/allenai_olmOCR-7B-0225-preview-GGUF
+    - https://olmocr.allenai.org/papers/olmocr.pdf
+  description: |
+    This is a preview release of the olmOCR model that's fine tuned from Qwen2-VL-7B-Instruct using the olmOCR-mix-0225 dataset.
+  overrides:
+    parameters:
+      model: allenai_olmOCR-7B-0225-preview-Q4_K_M.gguf
+  files:
+    - filename: allenai_olmOCR-7B-0225-preview-Q4_K_M.gguf
+      sha256: 0a5603f95ba59828061d315b7869e021ea1b86e2dececaba8a1f9bcc3f81e84a
+      uri: huggingface://bartowski/allenai_olmOCR-7B-0225-preview-GGUF/allenai_olmOCR-7B-0225-preview-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
