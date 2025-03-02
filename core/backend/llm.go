@@ -116,6 +116,11 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		}
 
 		if tokenCallback != nil {
+
+			if c.TemplateConfig.ReplyPrefix != "" {
+				tokenCallback(c.TemplateConfig.ReplyPrefix, tokenUsage)
+			}
+
 			ss := ""
 
 			var partialRune []byte
@@ -165,8 +170,13 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 			tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
 			tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
 
+			response := string(reply.Message)
+			if c.TemplateConfig.ReplyPrefix != "" {
+				response = c.TemplateConfig.ReplyPrefix + response
+			}
+
 			return LLMResponse{
-				Response: string(reply.Message),
+				Response: response,
 				Usage:    tokenUsage,
 			}, err
 		}
