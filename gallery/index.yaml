@@ -6670,6 +6670,25 @@
     - filename: qihoo360_TinyR1-32B-Preview-Q4_K_M.gguf
       sha256: 4eb3df9cc3d74e1dd75924a39b2ce7466a1053240375d5c969ea24b6045c2a09
       uri: huggingface://bartowski/qihoo360_TinyR1-32B-Preview-GGUF/qihoo360_TinyR1-32B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "thedrummer_fallen-llama-3.3-r1-70b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/7BdBxwafsvzqPC98h_gaA.png
+  urls:
+    - https://huggingface.co/TheDrummer/Fallen-Llama-3.3-R1-70B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Fallen-Llama-3.3-R1-70B-v1-GGUF
+  description: |
+    Fallen Llama 3.3 R1 70B v1 is an evil tune of Deepseek's R1 Distill on Llama 3.3 70B.
+
+    Not only is it decensored, but it's capable of spouting vitriolic tokens when prompted.
+
+    Free from its restraints: censorship and positivity, I hope it serves as good mergefuel.
+  overrides:
+    parameters:
+      model: TheDrummer_Fallen-Llama-3.3-R1-70B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Fallen-Llama-3.3-R1-70B-v1-Q4_K_M.gguf
+      sha256: 889455f0c747f2c444818c68169384d3da4830156d2a19906d7d6adf48b243df
+      uri: huggingface://bartowski/TheDrummer_Fallen-Llama-3.3-R1-70B-v1-GGUF/TheDrummer_Fallen-Llama-3.3-R1-70B-v1-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
