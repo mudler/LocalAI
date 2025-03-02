@@ -1079,6 +1079,21 @@
     - filename: MoE-Girl-800MA-3BT.Q4_K_M.gguf
       sha256: 4c3cb57c27aadabd05573a1a01d6c7aee0f21620db919c7704f758d172e0bfa3
       uri: huggingface://mradermacher/MoE-Girl-800MA-3BT-GGUF/MoE-Girl-800MA-3BT.Q4_K_M.gguf
+- !!merge <<: *granite3
+  url: "github:mudler/LocalAI/gallery/granite3-2.yaml@master"
+  name: "ibm-granite_granite-3.2-8b-instruct"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-3.2-8b-instruct
+    - https://huggingface.co/bartowski/ibm-granite_granite-3.2-8b-instruct-GGUF
+  description: |
+    Granite-3.2-8B-Instruct is an 8-billion-parameter, long-context AI model fine-tuned for thinking capabilities. Built on top of Granite-3.1-8B-Instruct, it has been trained using a mix of permissively licensed open-source datasets and internally generated synthetic data designed for reasoning tasks. The model allows controllability of its thinking capability, ensuring it is applied only when required.
+  overrides:
+    parameters:
+      model: ibm-granite_granite-3.2-8b-instruct-Q4_K_M.gguf
+  files:
+    - filename: ibm-granite_granite-3.2-8b-instruct-Q4_K_M.gguf
+      sha256: bd041eb5bc5e75e4f9a863372000046fd6490374f4dec07f399ca152b1df09c2
+      uri: huggingface://bartowski/ibm-granite_granite-3.2-8b-instruct-GGUF/ibm-granite_granite-3.2-8b-instruct-Q4_K_M.gguf
 - name: "moe-girl-1ba-7bt-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/kTXXSSSqpb21rfyOX7FUa.jpeg
   # chatml
