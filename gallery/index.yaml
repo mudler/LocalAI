@@ -757,6 +757,21 @@
     - filename: LatitudeGames_Wayfarer-Large-70B-Llama-3.3-Q4_K_M.gguf
       sha256: 5b9f6923e247e5c6db3fc0f6fe558939b51b5fe1003d83cf5c10e74b586a1bf8
       uri: huggingface://bartowski/LatitudeGames_Wayfarer-Large-70B-Llama-3.3-GGUF/LatitudeGames_Wayfarer-Large-70B-Llama-3.3-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "steelskull_l3.3-mokume-gane-r1-70b-v1.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/F_aK-DO_bMK7fWpDaHoNd.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Mokume-Gane-R1-70b-v1.1
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-GGUF
+  description: |
+    Named after the Japanese metalworking technique 'Mokume-gane' (木目金), meaning 'wood grain metal', this model embodies the artistry of creating distinctive layered patterns through the careful mixing of different components. Just as Mokume-gane craftsmen blend various metals to create unique visual patterns, this model combines specialized AI components to generate creative and unexpected outputs.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-Q4_K_M.gguf
+      sha256: f91b7f7f35b0d23971595773cdc8151f6d6a33427f170dc2216e005b5fd09776
+      uri: huggingface://bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-GGUF/Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
