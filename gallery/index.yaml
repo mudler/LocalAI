@@ -4353,6 +4353,27 @@
     - filename: Boomer_Qwen_72B.i1-Q4_K_M.gguf
       sha256: 5cee89356d512874ca45f516c322d99f2b3534db5a3acd43a96c031cced3bc75
       uri: huggingface://mradermacher/Boomer_Qwen_72B-i1-GGUF/Boomer_Qwen_72B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "azura-qwen2.5-32b-i1"
+  icon: https://huggingface.co/nbeerbower/Azura-Qwen2.5-32B/resolve/main/cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Azura-Qwen2.5-32B
+    - https://huggingface.co/mradermacher/Azura-Qwen2.5-32B-i1-GGUF
+  description: |
+    This model was merged using the Model Stock merge method using nbeerbower/Dumpling-Qwen2.5-32B as a base.
+    The following models were included in the merge:
+
+    rinna/qwen2.5-bakeneko-32b-instruct
+    EVA-UNIT-01/EVA-Qwen2.5-32B-v0.2
+    zetasepic/Qwen2.5-32B-Instruct-abliterated-v2
+    nbeerbower/Dumpling-Qwen2.5-32B-v2
+  overrides:
+    parameters:
+      model: Azura-Qwen2.5-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: Azura-Qwen2.5-32B.i1-Q4_K_M.gguf
+      sha256: a3ec93f192dc4ce062fd176d6615d4da34af81d909b89c372678b779a46b8d3b
+      uri: huggingface://mradermacher/Azura-Qwen2.5-32B-i1-GGUF/Azura-Qwen2.5-32B.i1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
