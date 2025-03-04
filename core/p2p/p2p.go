@@ -311,7 +311,6 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 				NodeData:   *nd,
 				CancelFunc: ndService.CancelFunc,
 			}
-			zlog.Debug().Msgf("Node %s is still online", nd.ID)
 		}
 	}
 }
