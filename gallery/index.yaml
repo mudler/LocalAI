@@ -4291,6 +4291,42 @@
     - filename: allenai_olmOCR-7B-0225-preview-Q4_K_M.gguf
       sha256: 0a5603f95ba59828061d315b7869e021ea1b86e2dececaba8a1f9bcc3f81e84a
       uri: huggingface://bartowski/allenai_olmOCR-7B-0225-preview-GGUF/allenai_olmOCR-7B-0225-preview-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "boomer_qwen_72b-i1"
+  icon: https://huggingface.co/SicariusSicariiStuff/Boomer_Qwen_72B/resolve/main/Images/03.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Boomer_Qwen_72B
+    - https://huggingface.co/mradermacher/Boomer_Qwen_72B-i1-GGUF
+  description: |
+    An absolute unit derived from Qwen-72B, but turbo-charged with pure unfiltered boomer sigma grindset energy. This model has internalized decades of "back in my day" wisdom and distilled it into the most powerful financial NLP system ever created.
+
+    Core features:
+
+        Programmed to automatically respond "Just buy the dip" to any market analysis
+        Enhanced pattern recognition for spotting "kids these days" scenarios
+        Built-in mortgage calculator that always concludes "rent is throwing money away"
+        Advanced NLP pipeline for transforming any input into "when I was your age" narratives
+        Hardwired belief in "number go up" as the fundamental law of economics
+
+    Training methodology: Collected prime boomer wisdom from countless Facebook rants, Thanksgiving dinner lectures, and unsolicited advice sessions. Fed it through Qwen's architecture until it achieved enlightenment and started spontaneously generating complaints about avocado toast.
+
+    Performance metrics: Achieves SOTA results on:
+
+        Real estate evangelism
+        "Pull yourself up by your bootstraps" pep talks
+        Gold standard nostalgia generation
+        Market timing (but only in retrospect)
+
+    Basically took the raw computational power of Qwen-72B and gave it a healthy dose of "they don't make 'em like they used to" energy. The result? A model that knows the secret to success is just working hard and investing in the S&P 500.
+
+    Warning: May spontaneously generate advice about starting in the mail room and working your way up to CEO.
+  overrides:
+    parameters:
+      model: Boomer_Qwen_72B.i1-Q4_K_M.gguf
+  files:
+    - filename: Boomer_Qwen_72B.i1-Q4_K_M.gguf
+      sha256: 5cee89356d512874ca45f516c322d99f2b3534db5a3acd43a96c031cced3bc75
+      uri: huggingface://mradermacher/Boomer_Qwen_72B-i1-GGUF/Boomer_Qwen_72B.i1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
