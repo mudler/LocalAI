@@ -772,6 +772,25 @@
     - filename: Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-Q4_K_M.gguf
       sha256: f91b7f7f35b0d23971595773cdc8151f6d6a33427f170dc2216e005b5fd09776
       uri: huggingface://bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-GGUF/Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-geneticlemonade-unleashed-70b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c6c638328850e12d38c/P8HgQAzAjEWE67u9sSKJz.png
+  urls:
+    - https://huggingface.co/zerofata/L3.3-GeneticLemonade-Unleashed-70B
+    - https://huggingface.co/mradermacher/L3.3-GeneticLemonade-Unleashed-70B-i1-GGUF
+  description: |
+    Inspired to learn how to merge by the Nevoria series from SteelSkull.
+
+    This model is the result of a few dozen different attempts of learning how to merge.
+
+    Designed for RP, this model is mostly uncensored and focused around striking a balance between writing style, creativity and intelligence.
+  overrides:
+    parameters:
+      model: L3.3-GeneticLemonade-Unleashed-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.3-GeneticLemonade-Unleashed-70B.i1-Q4_K_M.gguf
+      sha256: c1f5527ee6a5dec99d19d795430570c3af7efc969c30aca2c22b601af6ac4fe4
+      uri: huggingface://mradermacher/L3.3-GeneticLemonade-Unleashed-70B-i1-GGUF/L3.3-GeneticLemonade-Unleashed-70B.i1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
