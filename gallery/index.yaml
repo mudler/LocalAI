@@ -791,6 +791,32 @@
     - filename: L3.3-GeneticLemonade-Unleashed-70B.i1-Q4_K_M.gguf
       sha256: c1f5527ee6a5dec99d19d795430570c3af7efc969c30aca2c22b601af6ac4fe4
       uri: huggingface://mradermacher/L3.3-GeneticLemonade-Unleashed-70B-i1-GGUF/L3.3-GeneticLemonade-Unleashed-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-magicalgirl-2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
+  urls:
+    - https://huggingface.co/KaraKaraWitch/Llama-3.3-MagicalGirl-2
+    - https://huggingface.co/mradermacher/Llama-3.3-MagicalGirl-2-GGUF
+  description: |
+    New merge. This an experiment to increase the "Madness" in a model. Merge is based on top UGI-Bench models (So yeah, I would think this would be benchmaxxing.)
+
+    This is the second time I'm using SCE. The previous MagicalGirl model seems to be quite happy with it.
+
+    Added KaraKaraWitch/Llama-MiraiFanfare-3.3-70B based on feedback I got from others (People generally seem to remember this rather than other models). So I'm not sure how this would play into the merge.
+    The following models were included in the merge:
+
+        TheDrummer/Anubis-70B-v1
+        SicariusSicariiStuff/Negative_LLAMA_70B
+        LatitudeGames/Wayfarer-Large-70B-Llama-3.3
+        KaraKaraWitch/Llama-MiraiFanfare-3.3-70B
+        Black-Ink-Guild/Pernicious_Prophecy_70B
+  overrides:
+    parameters:
+      model: Llama-3.3-MagicalGirl-2.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-MagicalGirl-2.Q4_K_M.gguf
+      sha256: 01bd7e23c764d18279da4dbd20de19e60009d6e66e8aad1c93732a33f214e6a2
+      uri: huggingface://mradermacher/Llama-3.3-MagicalGirl-2-GGUF/Llama-3.3-MagicalGirl-2.Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
