@@ -31,7 +31,7 @@ SOFTWARE.
   <script defer src="static/chat.js"></script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
-  <body class="bg-slate-900 text-gray-100 flex flex-col h-screen" x-data="{ key: $store.chat.key, sidebarOpen: true }">
+  <body class="bg-slate-900 text-gray-100 flex flex-col h-screen" x-data="{ sidebarOpen: true }">
     {{template "views/partials/navbar" .}}
 
     <!-- Main container with sidebar toggle -->
@@ -150,36 +150,9 @@ SOFTWARE.
             </div>
 
             <!-- Settings tab -->
-            <div x-show="activeTab === 'settings'" x-data="{ showKeyForm: false, showPromptForm: false }" class="space-y-3">
+            <div x-show="activeTab === 'settings'" x-data="{ showPromptForm: false }" class="space-y-3">           
               <button 
-                @click="showKeyForm = !showKeyForm; showPromptForm = false" 
-                class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
-              >
-                <span><i class="fa-solid fa-key mr-2"></i> API Key</span>
-                <i :class="showKeyForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
-              </button>
-              
-              <div x-show="showKeyForm" class="p-3 bg-gray-700 rounded">
-                <form id="key" class="flex flex-col space-y-2">
-                  <input
-                    type="password"
-                    id="apiKey"
-                    name="apiKey"
-                    class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
-                    placeholder="OpenAI API Key"
-                    x-model.lazy="key"
-                  />
-                  <button
-                    type="submit"
-                    class="px-3 py-2 text-sm rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                  >
-                    Save API Key
-                  </button>
-                </form>
-              </div>
-
-              <button 
-                @click="showPromptForm = !showPromptForm; showKeyForm = false" 
+                @click="showPromptForm = !showPromptForm" 
                 class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
               >
                 <span><i class="fa-solid fa-message mr-2"></i> System Prompt</span>

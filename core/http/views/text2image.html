@@ -59,38 +59,7 @@
                             <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-800 text-white">{{.}}</option>
                         {{end}}
                     </select>
-                </div>
-                
-                <!-- API Key Controls -->
-                <div class="w-full md:w-auto">
-                    <div x-show="component === 'menu'" id="menu" class="flex justify-end">
-                        <button @click="component = 'key'" title="Update API key"
-                            class="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:shadow-lg"
-                        >
-                            <i class="fas fa-key mr-2"></i>
-                            <span>Set API Key</span>
-                        </button>
-                    </div>
-                    <form x-show="component === 'key'" id="key" class="flex items-center space-x-2">
-                        <div class="relative">
-                            <input
-                                type="password"
-                                id="apiKey"
-                                name="apiKey"
-                                placeholder="OpenAI API Key"
-                                x-model.lazy="key"
-                                class="pl-3 pr-10 py-2 bg-gray-900 border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg text-gray-200"
-                            />
-                            <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-                                <i class="fas fa-lock text-gray-500"></i>
-                            </div>
-                        </div>
-                        <button @click="component = 'menu'" type="submit" title="Save API key"
-                            class="bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg transition duration-300 ease-in-out">
-                            <i class="fas fa-save"></i>
-                        </button>
-                    </form>
-                </div>
+                </div>               
             </div>
         </div>
             

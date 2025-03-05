@@ -23,42 +23,6 @@
         <!-- Talk Interface -->
         <div class="max-w-3xl mx-auto">
           <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-blue-900/20">
-            <!-- Key Management Header -->
-            <div class="border-b border-gray-700 p-4" x-data="{ component: 'menu' }">
-              <div class="flex items-center justify-center">
-                <div x-show="component === 'menu'" id="menu">
-                  <button 
-                    @click="component = 'key'" 
-                    title="Update API key"
-                    class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg"
-                  >
-                    <i class="fas fa-key mr-2"></i>
-                    <span>Set API Key</span>
-                    <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
-                  </button>
-                </div>
-                
-                <form x-show="component === 'key'" id="key" class="flex items-center space-x-2">
-                  <input
-                    type="password"
-                    id="apiKey"
-                    name="apiKey"
-                    class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-lg shadow-sm p-2 appearance-none"
-                    placeholder="API Key"
-                    x-model.lazy="key"
-                  />
-                  <button 
-                    @click="component = 'menu'" 
-                    type="submit" 
-                    title="Save API key"
-                    class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition duration-300"
-                  >
-                    <i class="fa-solid fa-arrow-right"></i>
-                  </button>
-                </form>
-              </div>
-            </div>
-
             <!-- Talk Interface Body -->
             <div class="p-6">
               <!-- Recording Status -->
