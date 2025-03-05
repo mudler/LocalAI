@@ -173,7 +173,6 @@ func RegisterUIRoutes(app *fiber.App,
 			}
 
 			if page != "" {
-				log.Debug().Msgf("page : %+v\n", page)
 				// return a subset of the models
 				pageNum, err := strconv.Atoi(page)
 				if err != nil {
@@ -193,7 +192,6 @@ func RegisterUIRoutes(app *fiber.App,
 
 				models = models.Paginate(pageNum, itemsNum)
 
-				log.Debug().Msgf("number of models : %+v\n", len(models))
 				prevPage := pageNum - 1
 				nextPage := pageNum + 1
 				if prevPage < 1 {
@@ -552,7 +550,7 @@ func RegisterUIRoutes(app *fiber.App,
 		title := "LocalAI - Generate audio"
 
 		for _, b := range backendConfigs {
-			if b.HasUsecases(config.FLAG_CHAT) {
+			if b.HasUsecases(config.FLAG_TTS) {
 				modelThatCanBeUsed = b.Name
 				title = "LocalAI - Generate audio with " + modelThatCanBeUsed
 				break

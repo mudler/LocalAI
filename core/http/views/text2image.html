@@ -3,104 +3,148 @@
 {{template "views/partials/head" .}}
 <script defer src="static/image.js"></script>
 
-<body class="bg-gray-900 text-gray-200">
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
-    <div class="container mx-auto px-4 py-8 flex-grow " x-data="{ component: 'menu' }">
+    <div class="container mx-auto px-4 py-8 flex-grow" x-data="{ component: 'menu' }">
     
-
-          <!-- Hero Header -->
-          <div class="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 rounded-2xl shadow-xl p-6 mb-8">
+        <!-- Hero Section -->
+        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-10">
             <div class="max-w-4xl mx-auto text-center">
-                <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-                        Image generation {{ if .Model }} with {{.Model}} {{ end }}
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                        Image Generation {{ if .Model }} with {{.Model}} {{ end }}
                     </span>
                 </h1>
+                <p class="text-xl text-gray-300 mb-6">Create stunning images from text descriptions</p>
                 <div class="flex flex-wrap justify-center gap-4">
-                  <a href="https://localai.io/features/image-generation/" target="_blank" 
-                     class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
-                      <i class="fas fa-book-reader mr-2"></i>
-                      <span>Documentation</span>
-                      <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
-                  </a>
-              </div>
+                    <a href="https://localai.io/features/image-generation/" target="_blank" 
+                       class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                        <i class="fas fa-book-reader mr-2"></i>
+                        <span>Documentation</span>
+                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
+                    </a>
+                    <a href="browse" 
+                       class="group flex items-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                        <i class="fas fa-images mr-2"></i>
+                        <span>Gallery</span>
+                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
+                    </a>
+                </div>
             </div>
         </div>
       
-            
-        <div class="mt-12">
-           <div class="text-center font-semibold text-gray-100">
-              <div class="flex items-center justify-between">
-
-              <div x-show="component === 'menu'" id="menu">
-                <button @click="component = 'key'" title="Update API key"
-                class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
-                >Set API Key🔑</button>
-              </div>
-              <form x-show="component === 'key'" id="key">
-                <input
-                  type="password"
-                  id="apiKey"
-                  name="apiKey"
-                  placeholder="OpenAI API Key"
-                  x-model.lazy="key"
-                />
-                <button @click="component = 'menu'" type="submit" title="Save API key">
-                  🔒
-                </button>
-              </form>
-
-              <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
-                class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
-                >	
-                <!-- Options -->
-                <option value="" disabled class="text-gray-400" >Select a model</option>
-                {{ $model:=.Model}}
-                {{ range .ModelsConfig }}
-                  {{ $cfg := . }}
-                  {{ range .KnownUsecaseStrings }}
-                    {{ if eq . "FLAG_IMAGE" }}
-                        <option value="text2image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-gray-700 text-white">{{$cfg.Name}}</option>
-                    {{ end }}
-                  {{ end }}
-                {{ end }}
-                {{ range .ModelsWithoutConfig }}
-                    <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-700 text-white">{{.}}</option>
-                {{end}}
-              </select>
-              
-              </div>
+        <!-- Model Selection and Controls -->
+        <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl p-6 mb-8 shadow-lg">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <!-- Model Selector -->
+                <div class="w-full md:w-auto">
+                    <label for="model-select" class="block text-sm font-medium text-gray-300 mb-2">Select a Model</label>
+                    <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
+                        id="model-select"
+                        class="bg-gray-900 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-lg shadow-sm p-2.5 pr-10 appearance-none w-full md:w-64 transition-colors duration-200"
+                    >	
+                        <option value="" disabled class="text-gray-400">Select a model</option>
+                        {{ $model:=.Model}}
+                        {{ range .ModelsConfig }}
+                          {{ $cfg := . }}
+                          {{ range .KnownUsecaseStrings }}
+                            {{ if eq . "FLAG_IMAGE" }}
+                                <option value="text2image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-gray-800 text-white">{{$cfg.Name}}</option>
+                            {{ end }}
+                          {{ end }}
+                        {{ end }}
+                        {{ range .ModelsWithoutConfig }}
+                            <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-800 text-white">{{.}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                
+                <!-- API Key Controls -->
+                <div class="w-full md:w-auto">
+                    <div x-show="component === 'menu'" id="menu" class="flex justify-end">
+                        <button @click="component = 'key'" title="Update API key"
+                            class="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:shadow-lg"
+                        >
+                            <i class="fas fa-key mr-2"></i>
+                            <span>Set API Key</span>
+                        </button>
+                    </div>
+                    <form x-show="component === 'key'" id="key" class="flex items-center space-x-2">
+                        <div class="relative">
+                            <input
+                                type="password"
+                                id="apiKey"
+                                name="apiKey"
+                                placeholder="OpenAI API Key"
+                                x-model.lazy="key"
+                                class="pl-3 pr-10 py-2 bg-gray-900 border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg text-gray-200"
+                            />
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                                <i class="fas fa-lock text-gray-500"></i>
+                            </div>
+                        </div>
+                        <button @click="component = 'menu'" type="submit" title="Save API key"
+                            class="bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg transition duration-300 ease-in-out">
+                            <i class="fas fa-save"></i>
+                        </button>
+                    </form>
+                </div>
             </div>
-
-            <div class="mt-12 relative">
-              <input id="image-model" type="hidden" value="{{.Model}}">
-              <form id="genimage" action="text2image/{{.Model}}" method="get">
-                <input
-                  type="text"
-                  id="input"
-                  name="input"
-                  placeholder="Prompt…"
-                  autocomplete="off"
-                  class="form-control block w-full pl-10 px-4 py-3 text-base font-normal text-gray-300 bg-gray-900/80 bg-clip-padding border border-gray-700/70 rounded-lg transition ease-in-out focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 focus:outline-none"
-                  required
-                />
-                <span id="loader" class="my-2 loader absolute right-3 top-2"  >
-                  <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                </span>
-              </form>
-              <div class="container max-w-screen-lg mx-auto mt-4 pb-10 flex justify-center">
-                <div id="result" class="mx-auto"></div>
-              </div>
+        </div>
+            
+        <!-- Image Generation Form -->
+        <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">
+            <h2 class="text-2xl font-bold text-white mb-6">Generate an Image</h2>
+            
+            <div class="relative">
+                <input id="image-model" type="hidden" value="{{.Model}}">
+                <form id="genimage" action="text2image/{{.Model}}" method="get" class="mb-8">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-4">
+                            <i class="fas fa-magic text-blue-400"></i>
+                        </div>
+                        <input
+                            type="text"
+                            id="input"
+                            name="input"
+                            placeholder="Describe the image you want to generate..."
+                            autocomplete="off"
+                            class="form-control block w-full pl-12 pr-12 py-4 text-lg font-normal text-gray-300 bg-gray-900/80 bg-clip-padding border border-gray-700/70 rounded-lg transition ease-in-out focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 focus:outline-none"
+                            required
+                        />
+                        <span id="loader" class="my-2 loader absolute right-4 top-4 hidden">
+                            <svg class="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </div>
+                </form>
+                
+                <!-- Image Results Container -->
+                <div class="mt-6 border-t border-gray-700/50 pt-6">
+                    <h3 class="text-xl font-semibold text-gray-200 mb-4">Generated Image</h3>
+                    <div class="container mx-auto flex justify-center">
+                        <div id="result" class="mx-auto bg-gray-900/50 border border-gray-700/50 rounded-xl p-4 min-h-[300px] flex items-center justify-center">
+                            <p class="text-gray-400 italic">Your generated image will appear here</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     {{template "views/partials/footer" .}}
 </div>
+
+<script>
+    // Show loader when form is submitted
+    document.getElementById('genimage').addEventListener('submit', function() {
+        document.getElementById('loader').classList.remove('hidden');
+    });
+</script>
+
 </body>
 </html>

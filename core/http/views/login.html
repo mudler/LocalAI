@@ -1,25 +1,216 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Open Authenticated Website</title>
-    <base href="{{.BaseURL}}" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
-</head>
-<body>
-    <h1>Authorization is required</h1>
-    <input type="text" id="token" placeholder="Token" />
-    <button onclick="login()">Login</button>
-    <script>
-        function login() {
-            const token = document.getElementById('token').value;
-            var date = new Date();
-            date.setTime(date.getTime() + (24*60*60*1000));
-            document.cookie = `token=${token}; expires=${date.toGMTString()}`;
+{{template "views/partials/head" .}}
 
-            window.location.reload();
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<div class="flex flex-col min-h-screen">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow flex items-center justify-center">
+        <!-- Auth Card -->
+        <div class="max-w-md w-full bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden shadow-xl">
+            <div class="animation-container">
+                <div class="text-overlay">
+                <!--    <i class="fas fa-circle-nodes text-5xl text-blue-400 mb-2"></i> -->
+                </div>
+            </div>
+            
+            <div class="p-8">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-white">
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                            Authorization Required
+                        </span>
+                    </h2>
+                    <p class="text-gray-400 mt-2">Please enter your access token to continue</p>
+                </div>
+                
+                <form id="login-form" class="space-y-6" onsubmit="login(); return false;">
+                    <div>
+                        <label for="token" class="block text-sm font-medium text-gray-300 mb-2">Access Token</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-key text-gray-500"></i>
+                            </div>
+                            <input 
+                                type="password" 
+                                id="token" 
+                                name="token" 
+                                placeholder="Enter your token" 
+                                class="bg-gray-700/50 border border-gray-600 text-white placeholder-gray-400 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5"
+                                required
+                            />
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button 
+                            type="submit" 
+                            class="group w-full flex items-center justify-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-[1.02] hover:shadow-lg font-medium"
+                        >
+                            <i class="fas fa-sign-in-alt mr-2"></i>
+                            <span>Login</span>
+                            <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="mt-8 pt-6 border-t border-gray-700/50 text-center text-sm text-gray-400">
+                    <div class="flex items-center justify-center mb-2">
+                        <i class="fas fa-shield-alt mr-2 text-blue-400"></i>
+                        <span>Instance is token protected</span>
+                    </div>
+                    <p>Current time (UTC): <span id="current-time">{{.CurrentDate}}</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+    function login() {
+        const token = document.getElementById('token').value;
+        if (!token.trim()) {
+            // Show error with fading effect
+            const form = document.getElementById('login-form');
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'p-3 mt-4 bg-red-900/50 text-red-200 rounded-lg border border-red-700/50 text-sm flex items-center';
+            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> Please enter a valid token';
+            
+            // Remove any existing error message
+            const existingError = form.querySelector('.bg-red-900/50');
+            if (existingError) form.removeChild(existingError);
+            
+            // Add new error message with animation
+            form.appendChild(errorMsg);
+            setTimeout(() => {
+                errorMsg.style.opacity = '0';
+                errorMsg.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => errorMsg.remove(), 500);
+            }, 3000);
+            return;
         }
-    </script>
+        
+        var date = new Date();
+        date.setTime(date.getTime() + (24*60*60*1000));
+        document.cookie = `token=${token}; expires=${date.toGMTString()}; path=/`;
+
+        // Show loading state
+        const button = document.querySelector('button[type="submit"]');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Authenticating...';
+        button.classList.add('bg-gray-600');
+        
+        // Reload after short delay to show loading state
+        setTimeout(() => {
+            window.location.reload();
+        }, 800);
+    }
+    
+    // Update current time
+    function updateCurrentTime() {
+        const timeElement = document.getElementById('current-time');
+        if (timeElement) {
+            const now = new Date();
+            const year = now.getUTCFullYear();
+            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(now.getUTCDate()).padStart(2, '0');
+            const hours = String(now.getUTCHours()).padStart(2, '0');
+            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+            timeElement.textContent = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+    }
+    
+    // Initialize current time and update it every second
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+    
+    // Add subtle particle animation to the background
+    document.addEventListener('DOMContentLoaded', function() {
+        const animContainer = document.querySelector('.animation-container');
+        if (animContainer) {
+            const canvas = document.createElement('canvas');
+            animContainer.appendChild(canvas);
+            
+            const ctx = canvas.getContext('2d');
+            canvas.width = animContainer.offsetWidth;
+            canvas.height = animContainer.offsetHeight;
+            
+            // Create particles
+            const particles = [];
+            const particleCount = 30;
+            
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 3 + 1,
+                    color: `rgba(${Math.random() * 50 + 50}, ${Math.random() * 100 + 100}, ${Math.random() * 155 + 100}, ${Math.random() * 0.4 + 0.1})`,
+                    speedX: Math.random() * 0.5 - 0.25,
+                    speedY: Math.random() * 0.5 - 0.25
+                });
+            }
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                particles.forEach(particle => {
+                    particle.x += particle.speedX;
+                    particle.y += particle.speedY;
+                    
+                    // Bounce off edges
+                    if (particle.x < 0 || particle.x > canvas.width) {
+                        particle.speedX = -particle.speedX;
+                    }
+                    
+                    if (particle.y < 0 || particle.y > canvas.height) {
+                        particle.speedY = -particle.speedY;
+                    }
+                    
+                    // Draw particle
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = particle.color;
+                    ctx.fill();
+                });
+                
+                // Connect nearby particles with lines
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 100) {
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(100, 150, 255, ${0.1 * (1 - distance / 100)})`;
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+            
+            // Start animation
+            animate();
+            
+            // Resize handling
+            window.addEventListener('resize', () => {
+                canvas.width = animContainer.offsetWidth;
+                canvas.height = animContainer.offsetHeight;
+            });
+        }
+    });
+</script>
+
 </body>
 </html>

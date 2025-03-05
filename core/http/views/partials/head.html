@@ -95,6 +95,29 @@
       90% { transform: rotate(2deg); }
       100% { transform: rotate(0deg); }
     }
+
+/* Add this to your existing CSS */
+.active-node {
+  position: relative;
+  overflow: hidden;
+}
+
+.active-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.8), transparent);
+  animation: nodeGlow 3s ease-in-out infinite;
+}
+
+@keyframes nodeGlow {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
   </style>
 
   <!-- Initialize Flowbite on HTMX content load -->
