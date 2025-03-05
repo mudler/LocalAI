@@ -6427,6 +6427,27 @@
     - filename: Llama-3.1-8B-Instruct-Uncensored-DeLMAT.i1-Q4_K_M.gguf
       sha256: e05c69f6f3157aeb7c579d1bb8c3b7e0fb6631d262d76ba301b6693e068148b2
       uri: huggingface://mradermacher/Llama-3.1-8B-Instruct-Uncensored-DeLMAT-i1-GGUF/Llama-3.1-8B-Instruct-Uncensored-DeLMAT.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "lolzinventor_meta-llama-3.1-8b-survivev3"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/67a020f79102e9be6460b24b/RjVuDPjU6gTPc_dDlHDk9.jpeg
+  urls:
+    - https://huggingface.co/lolzinventor/Meta-Llama-3.1-8B-SurviveV3
+    - https://huggingface.co/bartowski/lolzinventor_Meta-Llama-3.1-8B-SurviveV3-GGUF
+  description: |
+    Primary intended uses:
+        Providing survival tips and information
+        Answering questions related to outdoor skills and wilderness survival
+        Offering guidance on shelter building
+    Out-of-scope uses:
+        Medical advice or emergency response (users should always seek professional help in emergencies)
+        Legal advice related to wilderness regulations or land use
+  overrides:
+    parameters:
+      model: lolzinventor_Meta-Llama-3.1-8B-SurviveV3-Q4_K_M.gguf
+  files:
+    - filename: lolzinventor_Meta-Llama-3.1-8B-SurviveV3-Q4_K_M.gguf
+      sha256: 7a8548655c4a0361de9cd5390be50e6b2c2375805f7952140cd27a93ec545dfc
+      uri: huggingface://bartowski/lolzinventor_Meta-Llama-3.1-8B-SurviveV3-GGUF/lolzinventor_Meta-Llama-3.1-8B-SurviveV3-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
