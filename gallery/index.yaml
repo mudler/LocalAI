@@ -6448,6 +6448,29 @@
     - filename: lolzinventor_Meta-Llama-3.1-8B-SurviveV3-Q4_K_M.gguf
       sha256: 7a8548655c4a0361de9cd5390be50e6b2c2375805f7952140cd27a93ec545dfc
       uri: huggingface://bartowski/lolzinventor_Meta-Llama-3.1-8B-SurviveV3-GGUF/lolzinventor_Meta-Llama-3.1-8B-SurviveV3-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-magicalgirl-2.5-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
+  urls:
+    - https://huggingface.co/KaraKaraWitch/Llama-3.3-MagicalGirl-2.5
+    - https://huggingface.co/mradermacher/Llama-3.3-MagicalGirl-2.5-i1-GGUF
+  description: |
+    2.5 is a slight modification of MagicalGirl-2 to include R1 to try and make it feel less dumb and more smart.
+    The following models were included in the merge:
+
+        LatitudeGames/Wayfarer-Large-70B-Llama-3.3
+        KaraKaraWitch/Llama-MiraiFanfare-3.3-70B
+        Black-Ink-Guild/Pernicious_Prophecy_70B
+        TheDrummer/Fallen-Llama-3.3-R1-70B-v1
+        huihui-ai/DeepSeek-R1-Distill-Llama-70B-abliterated
+        SicariusSicariiStuff/Negative_LLAMA_70B
+  overrides:
+    parameters:
+      model: Llama-3.3-MagicalGirl-2.5.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-MagicalGirl-2.5.i1-Q4_K_M.gguf
+      sha256: 25db6d4ae5649e6d2084036d8f05ec1aca459126e2d4734d6c18f1e16147a4d3
+      uri: huggingface://mradermacher/Llama-3.3-MagicalGirl-2.5-i1-GGUF/Llama-3.3-MagicalGirl-2.5.i1-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
