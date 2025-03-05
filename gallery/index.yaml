@@ -6409,6 +6409,24 @@
     - filename: Locutusque_Thespis-Llama-3.1-8B-Q4_K_M.gguf
       sha256: 94138f3774f496e28c2e76bb6df7a073c6087f8c074216a24b3cbcdc58ec7853
       uri: huggingface://bartowski/Locutusque_Thespis-Llama-3.1-8B-GGUF/Locutusque_Thespis-Llama-3.1-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-instruct-uncensored-delmat-i1"
+  urls:
+    - https://huggingface.co/nkpz/Llama-3.1-8B-Instruct-Uncensored-DeLMAT
+    - https://huggingface.co/mradermacher/Llama-3.1-8B-Instruct-Uncensored-DeLMAT-i1-GGUF
+  description: |
+    Decensored using a custom training script guided by activations, similar to ablation/"abliteration" scripts but not exactly the same approach.
+
+    I've found this effect to be stronger than most abliteration scripts, so please use responsibly etc etc.
+
+    The training script is released under the MIT license: https://github.com/nkpz/DeLMAT
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-Instruct-Uncensored-DeLMAT.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-8B-Instruct-Uncensored-DeLMAT.i1-Q4_K_M.gguf
+      sha256: e05c69f6f3157aeb7c579d1bb8c3b7e0fb6631d262d76ba301b6693e068148b2
+      uri: huggingface://mradermacher/Llama-3.1-8B-Instruct-Uncensored-DeLMAT-i1-GGUF/Llama-3.1-8B-Instruct-Uncensored-DeLMAT.i1-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
