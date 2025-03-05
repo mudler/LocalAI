@@ -42,12 +42,6 @@ function toggleLoader(show) {
   }
 }
 
-function submitKey(event) {
-    event.preventDefault();
-    localStorage.setItem("key", document.getElementById("apiKey").value);
-    document.getElementById("apiKey").blur();
-}
-
 function submitSystemPrompt(event) {
   event.preventDefault();
   localStorage.setItem("system_prompt", document.getElementById("systemPrompt").value);
@@ -62,10 +56,9 @@ function submitPrompt(event) {
   const input = document.getElementById("input").value;
   Alpine.store("chat").add("user", input, image);
   document.getElementById("input").value = "";
-  const key = localStorage.getItem("key");
   const systemPrompt = localStorage.getItem("system_prompt");
   Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
-  promptGPT(systemPrompt, key, input);
+  promptGPT(systemPrompt, input);
 }
 
 function readInputImage() {
@@ -82,7 +75,7 @@ function readInputImage() {
 }
 
 
-  async function promptGPT(systemPrompt, key, input) {
+  async function promptGPT(systemPrompt, input) {
     const model = document.getElementById("chat-model").value;
     // Set class "loader" to the element with "loader" id
     //document.getElementById("loader").classList.add("loader");
@@ -160,7 +153,6 @@ function readInputImage() {
     const response = await fetch("v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -266,19 +258,11 @@ function readInputImage() {
     document.getElementById("input").focus();
   }
 
-  document.getElementById("key").addEventListener("submit", submitKey);
   document.getElementById("system_prompt").addEventListener("submit", submitSystemPrompt);
 
   document.getElementById("prompt").addEventListener("submit", submitPrompt);
   document.getElementById("input").focus();
   document.getElementById("input_image").addEventListener("change", readInputImage);
-
-  storeKey = localStorage.getItem("key");
-  if (storeKey) {
-    document.getElementById("apiKey").value = storeKey;
-  } else {
-    document.getElementById("apiKey").value = null;
-  }
 
   storesystemPrompt = localStorage.getItem("system_prompt");
   if (storesystemPrompt) {

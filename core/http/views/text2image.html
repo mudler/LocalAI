@@ -10,7 +10,7 @@
     <div class="container mx-auto px-4 py-8 flex-grow" x-data="{ component: 'menu' }">
     
         <!-- Hero Section -->
-        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-10">
+        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-6">
             <div class="max-w-4xl mx-auto text-center">
                 <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
                     <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
@@ -35,15 +35,16 @@
             </div>
         </div>
       
-        <!-- Model Selection and Controls -->
-        <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl p-6 mb-8 shadow-lg">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                <!-- Model Selector -->
-                <div class="w-full md:w-auto">
-                    <label for="model-select" class="block text-sm font-medium text-gray-300 mb-2">Select a Model</label>
+        <!-- Model Selection - Positioned between hero and generation form -->
+        <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl p-5 mb-6 shadow-lg">
+            <div class="flex items-center">
+                <div class="text-lg font-medium text-blue-400 mr-4">
+                    <i class="fas fa-palette mr-2"></i>Select Model:
+                </div>
+                <div class="flex-grow">
                     <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
                         id="model-select"
-                        class="bg-gray-900 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-lg shadow-sm p-2.5 pr-10 appearance-none w-full md:w-64 transition-colors duration-200"
+                        class="bg-gray-900 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-lg shadow-sm p-2.5 pr-10 appearance-none w-full max-w-md transition-colors duration-200"
                     >	
                         <option value="" disabled class="text-gray-400">Select a model</option>
                         {{ $model:=.Model}}
@@ -59,37 +60,6 @@
                             <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-800 text-white">{{.}}</option>
                         {{end}}
                     </select>
-                </div>
-                
-                <!-- API Key Controls -->
-                <div class="w-full md:w-auto">
-                    <div x-show="component === 'menu'" id="menu" class="flex justify-end">
-                        <button @click="component = 'key'" title="Update API key"
-                            class="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:shadow-lg"
-                        >
-                            <i class="fas fa-key mr-2"></i>
-                            <span>Set API Key</span>
-                        </button>
-                    </div>
-                    <form x-show="component === 'key'" id="key" class="flex items-center space-x-2">
-                        <div class="relative">
-                            <input
-                                type="password"
-                                id="apiKey"
-                                name="apiKey"
-                                placeholder="OpenAI API Key"
-                                x-model.lazy="key"
-                                class="pl-3 pr-10 py-2 bg-gray-900 border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-lg text-gray-200"
-                            />
-                            <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-                                <i class="fas fa-lock text-gray-500"></i>
-                            </div>
-                        </div>
-                        <button @click="component = 'menu'" type="submit" title="Save API key"
-                            class="bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg transition duration-300 ease-in-out">
-                            <i class="fas fa-save"></i>
-                        </button>
-                    </form>
                 </div>
             </div>
         </div>
@@ -127,7 +97,7 @@
                 <div class="mt-6 border-t border-gray-700/50 pt-6">
                     <h3 class="text-xl font-semibold text-gray-200 mb-4">Generated Image</h3>
                     <div class="container mx-auto flex justify-center">
-                        <div id="result" class="mx-auto bg-gray-900/50 border border-gray-700/50 rounded-xl p-4 min-h-[300px] flex items-center justify-center">
+                        <div id="result" class="mx-auto bg-gray-900/50 border border-gray-700/50 rounded-xl p-4 min-h-[300px] w-full flex items-center justify-center">
                             <p class="text-gray-400 italic">Your generated image will appear here</p>
                         </div>
                     </div>

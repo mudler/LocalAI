@@ -1,52 +1,18 @@
 // Initialize Alpine store for API key management
 document.addEventListener('alpine:init', () => {
-  Alpine.store('chat', {
-    get key() {
-      return localStorage.getItem('key') || '';
-    },
-    set key(value) {
-      localStorage.setItem('key', value);
-    }
-  });
+  Alpine.store('chat', {  });
 });
-
-function submitKey(event) {
-  event.preventDefault();
-  const keyValue = document.getElementById("apiKey").value;
-  localStorage.setItem("key", keyValue);
-  
-  // Show brief visual confirmation
-  const button = event.submitter;
-  const originalIcon = button.innerHTML;
-  button.innerHTML = '<i class="fa-solid fa-check text-green-400"></i>';
-  button.classList.add('bg-green-600');
-  button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-  
-  setTimeout(() => {
-    button.innerHTML = originalIcon;
-    button.classList.remove('bg-green-600');
-    button.classList.add('bg-blue-600', 'hover:bg-blue-700');
-  }, 1000);
-  
-  document.getElementById("apiKey").blur();
-}
 
 function genAudio(event) {
   event.preventDefault();
   const input = document.getElementById("input").value;
-  const key = localStorage.getItem("key");
 
   if (!input.trim()) {
     showNotification('error', 'Please enter text to convert to speech');
     return;
   }
 
-  if (!key) {
-    showNotification('warning', 'API key is not set. Please set your API key first.');
-    return;
-  }
-
-  tts(key, input);
+  tts(input);
 }
 
 function showNotification(type, message) {
@@ -109,7 +75,7 @@ function showNotification(type, message) {
   }, 5000);
 }
 
-async function tts(key, input) {
+async function tts(input) {
   // Show loader and prepare UI
   const loader = document.getElementById("loader");
   const inputField = document.getElementById("input");
@@ -126,7 +92,6 @@ async function tts(key, input) {
     const response = await fetch("tts", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -224,17 +189,10 @@ async function tts(key, input) {
 
 // Set up event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById("key").addEventListener("submit", submitKey);
   document.getElementById("input").focus();
   document.getElementById("tts").addEventListener("submit", genAudio);
   document.getElementById("loader").style.display = "none";
-
-  // Initialize stored API key if available
-  const storeKey = localStorage.getItem("key");
-  if (storeKey) {
-    document.getElementById("apiKey").value = storeKey;
-  }
-  
+ 
   // Add basic keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     // Submit on Ctrl+Enter
