@@ -165,7 +165,6 @@ message Reply {
 
 message GrammarTrigger {
   string word = 1;
-  bool at_start = 2;
 }
 
 message ModelOptions {

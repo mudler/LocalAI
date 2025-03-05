@@ -54,7 +54,6 @@ type GrammarConfig struct {
 type GrammarTrigger struct {
 	// Trigger is the string that triggers the grammar
 	Word    string `yaml:"word"`
-	AtStart bool   `yaml:"at_start"`
 }
 
 // FunctionsConfig is the configuration for the tool/function call.

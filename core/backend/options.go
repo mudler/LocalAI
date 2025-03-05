@@ -122,7 +122,6 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	for _, t := range c.FunctionsConfig.GrammarConfig.GrammarTriggers {
 		triggers = append(triggers, &pb.GrammarTrigger{
 			Word:    t.Word,
-			AtStart: t.AtStart,
 		})
 
 	}
