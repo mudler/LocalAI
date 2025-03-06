@@ -1169,6 +1169,40 @@
     - filename: ibm-granite_granite-3.2-2b-instruct-Q4_K_M.gguf
       sha256: e1b915b0849becf4fdda188dee7b09cbebbfabd71c6f3f2b75dd3eca0a8fded1
       uri: huggingface://bartowski/ibm-granite_granite-3.2-2b-instruct-GGUF/ibm-granite_granite-3.2-2b-instruct-Q4_K_M.gguf
+- name: "granite-embedding-107m-multilingual"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ibm-granite/granite-embedding-107m-multilingual
+    - https://huggingface.co/bartowski/granite-embedding-107m-multilingual-GGUF
+  description: |
+      Granite-Embedding-107M-Multilingual is a 107M parameter dense biencoder embedding model from the Granite Embeddings suite that can be used to generate high quality text embeddings. This model produces embedding vectors of size 384 and is trained using a combination of open source relevance-pair datasets with permissive, enterprise-friendly license, and IBM collected and generated datasets. This model is developed using contrastive finetuning, knowledge distillation and model merging for improved performance.
+  tags:
+    - embeddings
+  overrides:
+    embeddings: true
+    parameters:
+      model: granite-embedding-107m-multilingual-f16.gguf
+  files:
+    - filename: granite-embedding-107m-multilingual-f16.gguf
+      uri: huggingface://bartowski/granite-embedding-107m-multilingual-GGUF/granite-embedding-107m-multilingual-f16.gguf
+      sha256: 3fc99928632fcecad589c401ec33bbba86b51c457e9813e3a1cb801ff4106e21
+- name: "granite-embedding-125m-english"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ibm-granite/granite-embedding-125m-english
+    - https://huggingface.co/bartowski/granite-embedding-125m-english-GGUF
+  description: |
+    Granite-Embedding-125m-English is a 125M parameter dense biencoder embedding model from the Granite Embeddings suite that can be used to generate high quality text embeddings. This model produces embedding vectors of size 768. Compared to most other open-source models, this model was only trained using open-source relevance-pair datasets with permissive, enterprise-friendly license, plus IBM collected and generated datasets. While maintaining competitive scores on academic benchmarks such as BEIR, this model also performs well on many enterprise use cases. This model is developed using retrieval oriented pretraining, contrastive finetuning and knowledge distillation.
+  tags:
+    - embeddings
+  overrides:
+    embeddings: true
+    parameters:
+      model: granite-embedding-125m-english-f16.gguf
+  files:
+    - filename: granite-embedding-125m-english-f16.gguf
+      uri: huggingface://bartowski/granite-embedding-125m-english-GGUF/granite-embedding-125m-english-f16.gguf
+      sha256: e2950cf0228514e0e81c6f0701a62a9e4763990ce660b4a3c0329cd6a4acd4b9
 - name: "moe-girl-1ba-7bt-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/kTXXSSSqpb21rfyOX7FUa.jpeg
   # chatml
