@@ -4374,6 +4374,20 @@
     - filename: Azura-Qwen2.5-32B.i1-Q4_K_M.gguf
       sha256: a3ec93f192dc4ce062fd176d6615d4da34af81d909b89c372678b779a46b8d3b
       uri: huggingface://mradermacher/Azura-Qwen2.5-32B-i1-GGUF/Azura-Qwen2.5-32B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen_qwq-32b"
+  urls:
+    - https://huggingface.co/Qwen/QwQ-32B
+    - https://huggingface.co/bartowski/Qwen_QwQ-32B-GGUF
+  description: |
+    QwQ is the reasoning model of the Qwen series. Compared with conventional instruction-tuned models, QwQ, which is capable of thinking and reasoning, can achieve significantly enhanced performance in downstream tasks, especially hard problems. QwQ-32B is the medium-sized reasoning model, which is capable of achieving competitive performance against state-of-the-art reasoning models, e.g., DeepSeek-R1, o1-mini.
+  overrides:
+    parameters:
+      model: Qwen_QwQ-32B-Q4_K_M.gguf
+  files:
+    - filename: Qwen_QwQ-32B-Q4_K_M.gguf
+      sha256: 87cc1894a68008856cde6ff24bfb9b99488a0d18c2e0a2b1ddeabd43cd0498e0
+      uri: huggingface://bartowski/Qwen_QwQ-32B-GGUF/Qwen_QwQ-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
