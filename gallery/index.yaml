@@ -13758,6 +13758,23 @@
     - filename: voice-zh_CN-huayan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh_CN-huayan-medium.tar.gz
       sha256: 0299a5e7f481ba853404e9f0e1515a94d5409585d76963fa4d30c64bd630aa99
+- name: "nomic-embed-text-v1.5"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nomic-ai/nomic-embed-text-v1.5
+    - https://huggingface.co/mradermacher/nomic-embed-text-v1.5-GGUF
+  description: |
+     Resizable Production Embeddings with Matryoshka Representation Learning
+  tags:
+    - embeddings
+  overrides:
+    embeddings: true
+    parameters:
+      model: nomic-embed-text-v1.5.f16.gguf
+  files:
+    - filename: nomic-embed-text-v1.5.f16.gguf
+      uri: https://huggingface.co/mradermacher/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf
+      sha256: af8cb9e4ca0bf19eb54d08c612fdf325059264abbbd2c619527e5d2dda8de655
 - name: "silero-vad"
   icon: https://github.com/snakers4/silero-models/raw/master/files/silero_logo.jpg
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
