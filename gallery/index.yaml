@@ -4388,6 +4388,21 @@
     - filename: Qwen_QwQ-32B-Q4_K_M.gguf
       sha256: 87cc1894a68008856cde6ff24bfb9b99488a0d18c2e0a2b1ddeabd43cd0498e0
       uri: huggingface://bartowski/Qwen_QwQ-32B-GGUF/Qwen_QwQ-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rombo-org_rombo-llm-v3.1-qwq-32b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/hXnQV6WtMKrmIQPdjECSX.jpeg
+  urls:
+    - https://huggingface.co/Rombo-Org/Rombo-LLM-V3.1-QWQ-32b
+    - https://huggingface.co/bartowski/Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-GGUF
+  description: |
+    Rombo-LLM-V3.1-QWQ-32b is a Continued Finetune model (Merge only) of (Qwen/QwQ-32B) and its base model (Qwen/Qwen2.5-32B). This merge is done to decrease catastrophic forgetting during finetuning, and increase overall performance of the model. The tokenizers are taken from the QwQ-32B for thinking capabilities.
+  overrides:
+    parameters:
+      model: Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-Q4_K_M.gguf
+  files:
+    - filename: Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-Q4_K_M.gguf
+      sha256: ee0b5027c686f3c37938f33b62788e27211852268f9e5c32e00058f0cf1688c7
+      uri: huggingface://bartowski/Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-GGUF/Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
