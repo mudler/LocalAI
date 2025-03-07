@@ -61,6 +61,7 @@ struct task_server {
     json data;
     bool infill_mode = false;
     bool embedding_mode = false;
+    bool reranking_mode = false;
     int multitask_id = -1;
 };
 
