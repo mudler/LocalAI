@@ -4455,6 +4455,21 @@
     - filename: Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-Q4_K_M.gguf
       sha256: ee0b5027c686f3c37938f33b62788e27211852268f9e5c32e00058f0cf1688c7
       uri: huggingface://bartowski/Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-GGUF/Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "huihui-ai_qwq-32b-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/QwQ-32B-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_QwQ-32B-abliterated-GGUF
+  description: |
+    This is an uncensored version of Qwen/QwQ-32B created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+  overrides:
+    parameters:
+      model: huihui-ai_QwQ-32B-abliterated-Q4_K_M.gguf
+  files:
+    - filename: huihui-ai_QwQ-32B-abliterated-Q4_K_M.gguf
+      sha256: 27d3c3e116015257985fa27b87e3f3aafbeb4762152d60474e883547d436025e
+      uri: huggingface://bartowski/huihui-ai_QwQ-32B-abliterated-GGUF/huihui-ai_QwQ-32B-abliterated-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
