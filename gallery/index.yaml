@@ -817,6 +817,24 @@
     - filename: Llama-3.3-MagicalGirl-2.Q4_K_M.gguf
       sha256: 01bd7e23c764d18279da4dbd20de19e60009d6e66e8aad1c93732a33f214e6a2
       uri: huggingface://mradermacher/Llama-3.3-MagicalGirl-2-GGUF/Llama-3.3-MagicalGirl-2.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "steelskull_l3.3-electra-r1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/GXLpDNkbGEvESfLmWkKpD.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Electra-R1-70b
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Electra-R1-70b-GGUF
+  description: |
+    L3.3-Electra-R1-70b is the newest release of the Unnamed series, this is the 6th iteration based of user feedback.
+    Built on a custom DeepSeek R1 Distill base (TheSkullery/L3.1x3.3-Hydroblated-R1-70B-v4.4), Electra-R1 integrates specialized components through the SCE merge method. The model uses float32 dtype during processing with a bfloat16 output dtype for optimized performance.
+    Electra-R1 serves newest gold standard and baseline. User feedback consistently highlights its superior intelligence, coherence, and unique ability to provide deep character insights. Through proper prompting, the model demonstrates advanced reasoning capabilities and unprompted exploration of character inner thoughts and motivations.
+    The model utilizes the custom Hydroblated-R1 base, created for stability and enhanced reasoning. The SCE merge method's settings are precisely tuned based on extensive community feedback (of over 10 diffrent models from Nevoria to Cu-Mai), ensuring optimal component integration while maintaining model coherence and reliability. This foundation establishes Electra-R1 as the benchmark upon which its variant models build and expand.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Electra-R1-70b-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Electra-R1-70b-Q4_K_M.gguf
+      sha256: 1f39e1d398ef659ad7074c827dc6993c2007813a303ee72c189e88c4c76f70db
+      uri: huggingface://bartowski/Steelskull_L3.3-Electra-R1-70b-GGUF/Steelskull_L3.3-Electra-R1-70b-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
