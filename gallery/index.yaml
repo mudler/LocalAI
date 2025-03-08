@@ -1855,6 +1855,20 @@
     - filename: kubeguru-llama3.2-3b-v0.1.Q4_K_M.gguf
       sha256: 770900ba9594f64f31b35fe444d31263712cabe167efaf4201d79fdc29de9533
       uri: huggingface://mradermacher/kubeguru-llama3.2-3b-v0.1-GGUF/kubeguru-llama3.2-3b-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "goppa-ai_goppa-logillama"
+  urls:
+    - https://huggingface.co/goppa-ai/Goppa-LogiLlama
+    - https://huggingface.co/bartowski/goppa-ai_Goppa-LogiLlama-GGUF
+  description: |
+    LogiLlama is a fine-tuned language model developed by Goppa AI. Built upon a 1B-parameter base from LLaMA, LogiLlama has been enhanced with injected knowledge and logical reasoning abilities. Our mission is to make smaller models smarter—delivering improved reasoning and problem-solving capabilities while maintaining a low memory footprint and energy efficiency for on-device applications.
+  overrides:
+    parameters:
+      model: goppa-ai_Goppa-LogiLlama-Q4_K_M.gguf
+  files:
+    - filename: goppa-ai_Goppa-LogiLlama-Q4_K_M.gguf
+      sha256: 0e06ae23d06139f746c65c9a0a81d552b11b2d8d9512a5979def8ae2cb52dc64
+      uri: huggingface://bartowski/goppa-ai_Goppa-LogiLlama-GGUF/goppa-ai_Goppa-LogiLlama-Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
