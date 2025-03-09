@@ -4484,6 +4484,21 @@
     - filename: huihui-ai_QwQ-32B-abliterated-Q4_K_M.gguf
       sha256: 27d3c3e116015257985fa27b87e3f3aafbeb4762152d60474e883547d436025e
       uri: huggingface://bartowski/huihui-ai_QwQ-32B-abliterated-GGUF/huihui-ai_QwQ-32B-abliterated-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tower-babel_babel-9b-chat"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/64802face9ff472e30dc1ceb/9mRO092PjPmzd8qSr7F5V.png
+  urls:
+    - https://huggingface.co/Tower-Babel/Babel-9B-Chat
+    - https://huggingface.co/bartowski/Tower-Babel_Babel-9B-Chat-GGUF
+  description: |
+    We introduce Babel, a multilingual LLM that covers the top 25 languages by number of speakers, including English, Chinese, Hindi, Spanish, Arabic, French, Bengali, Portuguese, Russian, Urdu, Indonesian, German, Japanese, Swahili, Filipino, Tamil, Vietnamese, Turkish, Italian, Javanese, Korean, Hausa, Persian, Thai, and Burmese. These 25 languages support over 90% of the global population, and include many languages neglected by other open multilingual LLMs. Unlike traditional continued pretraining approaches, Babel expands its parameter count through a layer extension technique that elevates Babel's performance ceiling.
+  overrides:
+    parameters:
+      model: Tower-Babel_Babel-9B-Chat-Q4_K_M.gguf
+  files:
+    - filename: Tower-Babel_Babel-9B-Chat-Q4_K_M.gguf
+      sha256: cf024c81b9c5e31dd9b4fe89f7bed01be8a6a704722780fe8d240b1ecb7942eb
+      uri: huggingface://bartowski/Tower-Babel_Babel-9B-Chat-GGUF/Tower-Babel_Babel-9B-Chat-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
