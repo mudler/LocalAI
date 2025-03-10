@@ -11937,6 +11937,27 @@
     - filename: Triangulum-10B.Q4_K_M.gguf
       sha256: dd071f99edf6b166044bf229cdeec19419c4c348e3fc3d6587cfcc55e6fb85fa
       uri: huggingface://mradermacher/Triangulum-10B-GGUF/Triangulum-10B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "opencrystal-l3-15b-v2.1-i1"
+  icon: https://huggingface.co/Darkknight535/OpenCrystal-15B-L3-v2/resolve/main/Rohma_2024-08-30%4023h37m38s.jpg
+  urls:
+    - https://huggingface.co/Darkknight535/OpenCrystal-L3-15B-v2.1
+    - https://huggingface.co/mradermacher/OpenCrystal-L3-15B-v2.1-i1-GGUF
+  description: |
+    Automatically speaks as other NPCs.
+    Creative output.
+    Coherent responses.
+    Output feels similar to using Character.ai.
+    Improved adherence to prompts.
+    Reduced hallucinations (15B).
+    Capable of summarizing and generating image prompts well.
+  overrides:
+    parameters:
+      model: OpenCrystal-L3-15B-v2.1.i1-Q4_K_M.gguf
+  files:
+    - filename: OpenCrystal-L3-15B-v2.1.i1-Q4_K_M.gguf
+      sha256: b7db0a810771c856bd598b9a11f6aec6672019a4e18822af3a5957a03184296f
+      uri: huggingface://mradermacher/OpenCrystal-L3-15B-v2.1-i1-GGUF/OpenCrystal-L3-15B-v2.1.i1-Q4_K_M.gguf
 - &command-R
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master" ### START Command-r
   name: "command-r-v01:q1_s"
