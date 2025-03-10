@@ -6590,6 +6590,23 @@
     - filename: LLMEvoLLaMA-3.1-8B-v0.1.i1-Q4_K_M.gguf
       sha256: 4a1042b707499451c42acfbecb8319568c856f0c634aabe79c95d7a6436837ab
       uri: huggingface://mradermacher/LLMEvoLLaMA-3.1-8B-v0.1-i1-GGUF/LLMEvoLLaMA-3.1-8B-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "hyperllama3.1-v2-i1"
+  urls:
+    - https://huggingface.co/bunnycore/HyperLlama3.1-v2
+    - https://huggingface.co/mradermacher/HyperLlama3.1-v2-i1-GGUF
+  description: |
+    HyperLlama3.1-v2 is a merge of the following models using mergekit:
+    vicgalle/Configurable-Llama-3.1-8B-Instruct
+    bunnycore/HyperLlama-3.1-8B
+    ValiantLabs/Llama3.1-8B-ShiningValiant2
+  overrides:
+    parameters:
+      model: HyperLlama3.1-v2.i1-Q4_K_M.gguf
+  files:
+    - filename: HyperLlama3.1-v2.i1-Q4_K_M.gguf
+      sha256: b0357b1876898c485fe0532a8fdc10a4f5a190421bd573899710072558ba330b
+      uri: huggingface://mradermacher/HyperLlama3.1-v2-i1-GGUF/HyperLlama3.1-v2.i1-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
