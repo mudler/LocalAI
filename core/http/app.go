@@ -153,6 +153,14 @@ func API(application *application.Application) (*fiber.App, error) {
 		Browse:     true,
 	}))
 
+	if application.ApplicationConfig().ImageDir != "" {
+		router.Static("/generated-images", application.ApplicationConfig().ImageDir)
+	}
+
+	if application.ApplicationConfig().AudioDir != "" {
+		router.Static("/generated-audio", application.ApplicationConfig().AudioDir)
+	}
+
 	// Auth is applied to _all_ endpoints. No exceptions. Filtering out endpoints to bypass is the role of the Filter property of the KeyAuth Configuration
 	router.Use(v2keyauth.New(*kaConfig))
 

@@ -112,14 +112,6 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		re.SetOpenAIRequest,
 		openai.ImageEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
 
-	if application.ApplicationConfig().ImageDir != "" {
-		app.Static("/generated-images", application.ApplicationConfig().ImageDir)
-	}
-
-	if application.ApplicationConfig().AudioDir != "" {
-		app.Static("/generated-audio", application.ApplicationConfig().AudioDir)
-	}
-
 	// List models
 	app.Get("/v1/models", openai.ListModelsEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
 	app.Get("/models", openai.ListModelsEndpoint(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig()))
