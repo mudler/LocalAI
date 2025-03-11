@@ -1,6 +1,6 @@
 accelerate
 auto-gptq==0.7.1
-grpcio==1.70.0
+grpcio==1.71.0
 protobuf
 certifi
 transformers
