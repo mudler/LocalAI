@@ -4499,6 +4499,20 @@
     - filename: Tower-Babel_Babel-9B-Chat-Q4_K_M.gguf
       sha256: cf024c81b9c5e31dd9b4fe89f7bed01be8a6a704722780fe8d240b1ecb7942eb
       uri: huggingface://bartowski/Tower-Babel_Babel-9B-Chat-GGUF/Tower-Babel_Babel-9B-Chat-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "openpipe_deductive-reasoning-qwen-14b"
+  urls:
+    - https://huggingface.co/OpenPipe/Deductive-Reasoning-Qwen-14B
+    - https://huggingface.co/bartowski/OpenPipe_Deductive-Reasoning-Qwen-14B-GGUF
+  description: |
+    Deductive Reasoning Qwen 14B is a reinforcement fine-tune of Qwen 2.5 14B Instruct to solve challenging deduction problems from the Temporal Clue dataset, trained by OpenPipe!
+  overrides:
+    parameters:
+      model: OpenPipe_Deductive-Reasoning-Qwen-14B-Q4_K_M.gguf
+  files:
+    - filename: OpenPipe_Deductive-Reasoning-Qwen-14B-Q4_K_M.gguf
+      sha256: 23474b114e1e14f5f63829369e9af14d3f8e6b437b7974e1d3ac0c842b4cc3f5
+      uri: huggingface://bartowski/OpenPipe_Deductive-Reasoning-Qwen-14B-GGUF/OpenPipe_Deductive-Reasoning-Qwen-14B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
