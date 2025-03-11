@@ -4513,6 +4513,20 @@
     - filename: OpenPipe_Deductive-Reasoning-Qwen-14B-Q4_K_M.gguf
       sha256: 23474b114e1e14f5f63829369e9af14d3f8e6b437b7974e1d3ac0c842b4cc3f5
       uri: huggingface://bartowski/OpenPipe_Deductive-Reasoning-Qwen-14B-GGUF/OpenPipe_Deductive-Reasoning-Qwen-14B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "openpipe_deductive-reasoning-qwen-32b"
+  urls:
+    - https://huggingface.co/OpenPipe/Deductive-Reasoning-Qwen-32B
+    - https://huggingface.co/bartowski/OpenPipe_Deductive-Reasoning-Qwen-32B-GGUF
+  description: |
+    Deductive Reasoning Qwen 32B is a reinforcement fine-tune of Qwen 2.5 32B Instruct to solve challenging deduction problems from the Temporal Clue dataset, trained by OpenPipe!
+  overrides:
+    parameters:
+      model: OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
+  files:
+    - filename: OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
+      sha256: 53a8314e572c60c867da897721d366f183dc6d2193c83a41ff8ad46a2a0692c8
+      uri: huggingface://bartowski/OpenPipe_Deductive-Reasoning-Qwen-32B-GGUF/OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
