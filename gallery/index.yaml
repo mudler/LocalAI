@@ -4527,6 +4527,49 @@
     - filename: OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
       sha256: 53a8314e572c60c867da897721d366f183dc6d2193c83a41ff8ad46a2a0692c8
       uri: huggingface://bartowski/OpenPipe_Deductive-Reasoning-Qwen-32B-GGUF/OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-r1_olympiccoder-32b"
+  urls:
+    - https://huggingface.co/open-r1/OlympicCoder-32B
+    - https://huggingface.co/bartowski/open-r1_OlympicCoder-32B-GGUF
+  description: |
+    OlympicCoder-32B is a code mode that achieves very strong performance on competitive coding benchmarks such as LiveCodeBench andthe 2024 International Olympiad in Informatics.
+  overrides:
+    parameters:
+      model: open-r1_OlympicCoder-32B-Q4_K_M.gguf
+  files:
+    - filename: open-r1_OlympicCoder-32B-Q4_K_M.gguf
+      sha256: bb82e4aa2219f655d37c7efad8985582cf3c32de0e0299ecd2f304d32ac39f12
+      uri: huggingface://bartowski/open-r1_OlympicCoder-32B-GGUF/open-r1_OlympicCoder-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-r1_olympiccoder-7b"
+  urls:
+    - https://huggingface.co/open-r1/OlympicCoder-7B
+    - https://huggingface.co/bartowski/open-r1_OlympicCoder-7B-GGUF
+  description: |
+    OlympicCoder-7B is a code model that achieves strong performance on competitive coding benchmarks such as LiveCodeBench and the 2024 International Olympiad in Informatics.
+  overrides:
+    parameters:
+      model: open-r1_OlympicCoder-7B-Q4_K_M.gguf
+  files:
+    - filename: open-r1_OlympicCoder-7B-Q4_K_M.gguf
+      sha256: 21e18e7fd1fb244455a67d4dee538a4d86dc96d507c39a4ad16ef335fb9e6e2f
+      uri: huggingface://bartowski/open-r1_OlympicCoder-7B-GGUF/open-r1_OlympicCoder-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "trashpanda-org_qwq-32b-snowdrop-v0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/675a77cf99ca23af9daacccc/Tdn0PJBFnG3J6UcjO9G94.png
+  urls:
+    - https://huggingface.co/trashpanda-org/QwQ-32B-Snowdrop-v0
+    - https://huggingface.co/bartowski/trashpanda-org_QwQ-32B-Snowdrop-v0-GGUF
+  description: |
+    R1 at home for RP, literally. Able to handle my cards with gimmicks and subtle tricks in them. With a good reasoning starter+prompt, I'm getting consistently-structured responses that have a good amount of variation across them still while rerolling. Char/scenario portrayal is good despite my focus on writing style, lorebooks are properly referenced at times. Slop doesn't seem to be too much of an issue with thinking enabled. Some user impersonation is rarely observed. Prose is refreshing if you take advantage of what I did (writing style fixation). I know I said Marigold would be my daily driver, but this one is that now, it's that good.
+  overrides:
+    parameters:
+      model: trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
+  files:
+    - filename: trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
+      sha256: 584d2f14f2f08ce499665c332bef30245b605ed2278e9075766237835f564c5f
+      uri: huggingface://bartowski/trashpanda-org_QwQ-32B-Snowdrop-v0-GGUF/trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
@@ -9056,6 +9099,21 @@
     - filename: TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
       sha256: 218a14f0bf8266f9e77d16b8b4f5cc1dc76e97eb582a2c97cca5a3a2c35de86b
       uri: huggingface://bartowski/TheDrummer_Gemmasutra-Pro-27B-v1.1-GGUF/TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "thedrummer_gemmasutra-small-4b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/Cekk7d2UAKu7LPsw8SxV7.png
+  urls:
+    - https://huggingface.co/TheDrummer/Gemmasutra-Small-4B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Gemmasutra-Small-4B-v1-GGUF
+  description: |
+    An upscaled Gemma 2B tune with modern techniques. Au Revoir, Gemma!
+  overrides:
+    parameters:
+      model: TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
+      sha256: 81dd2e2d9546f5dc2150c45c62acabc112068b801ca50b79feceabb1bd4d6f1a
+      uri: huggingface://bartowski/TheDrummer_Gemmasutra-Small-4B-v1-GGUF/TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
