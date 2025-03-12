@@ -1,7 +1,7 @@
+embeddings: true
 name: text-embedding-ada-002
-backend: sentencetransformers
 parameters:
-  model: all-MiniLM-L6-v2
+  model: huggingface://bartowski/granite-embedding-107m-multilingual-GGUF/granite-embedding-107m-multilingual-f16.gguf
 
 usage: |
     You can test this model with curl like this:

@@ -1,31 +1,27 @@
-backend: llama-cpp
-context_size: 4096
+context_size: 2046
 f16: true
-mmap: true
+mmproj: moondream2-mmproj-f16.gguf
 name: gpt-4o
-
-roles:
-  user: "USER:"
-  assistant: "ASSISTANT:"
-  system: "SYSTEM:"
-
-mmproj: bakllava-mmproj.gguf
 parameters:
-  model: bakllava.gguf
-
+  model: moondream2-text-model-f16.gguf
+roles:
+  assistant: "\nAnswer: "
+  system: "\nSystem: "
+  user: "\nQuestion: "
+stopwords:
+- 'Question:'
+- <|endoftext|>
 template:
   chat: |
-    A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.
     {{.Input}}
-    ASSISTANT:
+    Answer:
+  completion: |
+    Complete the following sentence: {{.Input}}
 
 download_files:
-- filename: bakllava.gguf
-  uri: huggingface://mys/ggml_bakllava-1/ggml-model-q4_k.gguf
-- filename: bakllava-mmproj.gguf
-  uri: huggingface://mys/ggml_bakllava-1/mmproj-model-f16.gguf
-
-usage: |
-    curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-        "model": "gpt-4-vision-preview",
-        "messages": [{"role": "user", "content": [{"type":"text", "text": "What is in the image?"}, {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg" }}], "temperature": 0.9}]}'
+- filename: moondream2-text-model-f16.gguf
+  sha256: 4e17e9107fb8781629b3c8ce177de57ffeae90fe14adcf7b99f0eef025889696
+  uri: huggingface://moondream/moondream2-gguf/moondream2-text-model-f16.gguf
+- filename: moondream2-mmproj-f16.gguf
+  sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
+  uri: huggingface://moondream/moondream2-gguf/moondream2-mmproj-f16.gguf
