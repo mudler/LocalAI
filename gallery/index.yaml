@@ -4541,6 +4541,20 @@
     - filename: open-r1_OlympicCoder-32B-Q4_K_M.gguf
       sha256: bb82e4aa2219f655d37c7efad8985582cf3c32de0e0299ecd2f304d32ac39f12
       uri: huggingface://bartowski/open-r1_OlympicCoder-32B-GGUF/open-r1_OlympicCoder-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-r1_olympiccoder-7b"
+  urls:
+    - https://huggingface.co/open-r1/OlympicCoder-7B
+    - https://huggingface.co/bartowski/open-r1_OlympicCoder-7B-GGUF
+  description: |
+    OlympicCoder-7B is a code model that achieves strong performance on competitive coding benchmarks such as LiveCodeBench and the 2024 International Olympiad in Informatics.
+  overrides:
+    parameters:
+      model: open-r1_OlympicCoder-7B-Q4_K_M.gguf
+  files:
+    - filename: open-r1_OlympicCoder-7B-Q4_K_M.gguf
+      sha256: 21e18e7fd1fb244455a67d4dee538a4d86dc96d507c39a4ad16ef335fb9e6e2f
+      uri: huggingface://bartowski/open-r1_OlympicCoder-7B-GGUF/open-r1_OlympicCoder-7B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
