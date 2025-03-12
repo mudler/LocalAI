@@ -4555,6 +4555,21 @@
     - filename: open-r1_OlympicCoder-7B-Q4_K_M.gguf
       sha256: 21e18e7fd1fb244455a67d4dee538a4d86dc96d507c39a4ad16ef335fb9e6e2f
       uri: huggingface://bartowski/open-r1_OlympicCoder-7B-GGUF/open-r1_OlympicCoder-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "trashpanda-org_qwq-32b-snowdrop-v0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/675a77cf99ca23af9daacccc/Tdn0PJBFnG3J6UcjO9G94.png
+  urls:
+    - https://huggingface.co/trashpanda-org/QwQ-32B-Snowdrop-v0
+    - https://huggingface.co/bartowski/trashpanda-org_QwQ-32B-Snowdrop-v0-GGUF
+  description: |
+    R1 at home for RP, literally. Able to handle my cards with gimmicks and subtle tricks in them. With a good reasoning starter+prompt, I'm getting consistently-structured responses that have a good amount of variation across them still while rerolling. Char/scenario portrayal is good despite my focus on writing style, lorebooks are properly referenced at times. Slop doesn't seem to be too much of an issue with thinking enabled. Some user impersonation is rarely observed. Prose is refreshing if you take advantage of what I did (writing style fixation). I know I said Marigold would be my daily driver, but this one is that now, it's that good.
+  overrides:
+    parameters:
+      model: trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
+  files:
+    - filename: trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
+      sha256: 584d2f14f2f08ce499665c332bef30245b605ed2278e9075766237835f564c5f
+      uri: huggingface://bartowski/trashpanda-org_QwQ-32B-Snowdrop-v0-GGUF/trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
