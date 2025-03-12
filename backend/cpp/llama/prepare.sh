@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 ## Patches
 ## Apply patches from the `patches` directory
 for patch in $(ls patches); do
