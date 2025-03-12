@@ -4527,6 +4527,20 @@
     - filename: OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
       sha256: 53a8314e572c60c867da897721d366f183dc6d2193c83a41ff8ad46a2a0692c8
       uri: huggingface://bartowski/OpenPipe_Deductive-Reasoning-Qwen-32B-GGUF/OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-r1_olympiccoder-32b"
+  urls:
+    - https://huggingface.co/open-r1/OlympicCoder-32B
+    - https://huggingface.co/bartowski/open-r1_OlympicCoder-32B-GGUF
+  description: |
+    OlympicCoder-32B is a code mode that achieves very strong performance on competitive coding benchmarks such as LiveCodeBench andthe 2024 International Olympiad in Informatics.
+  overrides:
+    parameters:
+      model: open-r1_OlympicCoder-32B-Q4_K_M.gguf
+  files:
+    - filename: open-r1_OlympicCoder-32B-Q4_K_M.gguf
+      sha256: bb82e4aa2219f655d37c7efad8985582cf3c32de0e0299ecd2f304d32ac39f12
+      uri: huggingface://bartowski/open-r1_OlympicCoder-32B-GGUF/open-r1_OlympicCoder-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
