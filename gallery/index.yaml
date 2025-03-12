@@ -9056,6 +9056,21 @@
     - filename: TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
       sha256: 218a14f0bf8266f9e77d16b8b4f5cc1dc76e97eb582a2c97cca5a3a2c35de86b
       uri: huggingface://bartowski/TheDrummer_Gemmasutra-Pro-27B-v1.1-GGUF/TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "thedrummer_gemmasutra-small-4b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/Cekk7d2UAKu7LPsw8SxV7.png
+  urls:
+    - https://huggingface.co/TheDrummer/Gemmasutra-Small-4B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Gemmasutra-Small-4B-v1-GGUF
+  description: |
+    An upscaled Gemma 2B tune with modern techniques. Au Revoir, Gemma!
+  overrides:
+    parameters:
+      model: TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
+      sha256: 81dd2e2d9546f5dc2150c45c62acabc112068b801ca50b79feceabb1bd4d6f1a
+      uri: huggingface://bartowski/TheDrummer_Gemmasutra-Small-4B-v1-GGUF/TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
