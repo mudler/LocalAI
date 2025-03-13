@@ -24,6 +24,20 @@
     - filename: gemma-3-27b-it-Q4_K_M.gguf
       sha256: edc9aff4d811a285b9157618130b08688b0768d94ee5355b02dc0cb713012e15
       uri: huggingface://ggml-org/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-12b-it"
+  urls:
+    - https://ai.google.dev/gemma/docs/core
+    - https://huggingface.co/ggml-org/gemma-3-12b-it-GGUF
+  description: |
+    google/gemma-3-12b-it is an open-source, state-of-the-art, lightweight, multimodal model built from the same research and technology used to create the Gemini models. It is capable of handling text and image input and generating text output. It has a large context window of 128K tokens and supports over 140 languages. The 12B variant has been fine-tuned using the instruction-tuning approach. Gemma 3 models are suitable for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes them deployable in environments with limited resources such as laptops, desktops, or your own cloud infrastructure.
+  overrides:
+    parameters:
+      model: gemma-3-12b-it-Q4_K_M.gguf
+  files:
+    - filename: gemma-3-12b-it-Q4_K_M.gguf
+      sha256: 7bb69bff3f48a7b642355d64a90e481182a7794707b3133890646b1efa778ff5
+      uri: huggingface://ggml-org/gemma-3-12b-it-GGUF/gemma-3-12b-it-Q4_K_M.gguf
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
