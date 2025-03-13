@@ -511,7 +511,10 @@ struct llama_server_context
         if (!params.mmproj.empty()) {
             multimodal = true;
             LOG_INFO("Multi Modal Mode Enabled", {});
-            clp_ctx = clip_model_load(params.mmproj.c_str(), /*verbosity=*/ 1);
+            clp_ctx = clip_init(params.mmproj.c_str(), clip_context_params {
+                /* use_gpu */ false,
+                /*verbosity=*/ 1,
+            });
             if(clp_ctx == nullptr) {
                 LOG_ERR("unable to load clip model: %s", params.mmproj.c_str());
                 return false;
