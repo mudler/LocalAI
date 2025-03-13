@@ -1,4 +1,29 @@
 ---
+- &gemma3
+  url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
+  name: "gemma-3-27b-it"
+  icon: https://ai.google.dev/static/gemma/images/gemma3.png
+  license: gemma
+  urls:
+    - https://ai.google.dev/gemma/docs
+    - https://huggingface.co/ggml-org/gemma-3-27b-it-GGUF
+  description: |
+    Google/gemma-3-27b-it is an open-source, state-of-the-art vision-language model built from the same research and technology used to create the Gemini models. It is multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants. Gemma 3 models have a large, 128K context window, multilingual support in over 140 languages, and are available in more sizes than previous versions. They are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - gemma
+    - gemma3
+    - gemma-3
+  overrides:
+    parameters:
+      model: gemma-3-27b-it-Q4_K_M.gguf
+  files:
+    - filename: gemma-3-27b-it-Q4_K_M.gguf
+      sha256: edc9aff4d811a285b9157618130b08688b0768d94ee5355b02dc0cb713012e15
+      uri: huggingface://ggml-org/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
