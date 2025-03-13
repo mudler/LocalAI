@@ -52,6 +52,20 @@
     - filename: gemma-3-4b-it-Q4_K_M.gguf
       sha256: 882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863
       uri: huggingface://ggml-org/gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-1b-it"
+  urls:
+    - https://ai.google.dev/gemma/docs/core
+    - https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF
+  description: |
+    google/gemma-3-1b-it is a large language model with 1 billion parameters. It is part of the Gemma family of open, state-of-the-art models from Google, built from the same research and technology used to create the Gemini models. Gemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants. These models have multilingual support in over 140 languages, and are available in more sizes than previous versions. They are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
+  overrides:
+    parameters:
+      model: gemma-3-1b-it-Q4_K_M.gguf
+  files:
+    - filename: gemma-3-1b-it-Q4_K_M.gguf
+      sha256: 8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135
+      uri: huggingface://ggml-org/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q4_K_M.gguf
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
