@@ -4674,6 +4674,21 @@
     - filename: trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
       sha256: 584d2f14f2f08ce499665c332bef30245b605ed2278e9075766237835f564c5f
       uri: huggingface://bartowski/trashpanda-org_QwQ-32B-Snowdrop-v0-GGUF/trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "prithivmlmods_viper-coder-32b-elite13"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/n5x-NuenasIjm3HljPUYY.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Viper-Coder-32B-Elite13
+    - https://huggingface.co/bartowski/prithivMLmods_Viper-Coder-32B-Elite13-GGUF
+  description: |
+    Viper-Coder-32B-Elite13 is based on the qwq-32B modality architecture, designed to be the best for coding and reasoning tasks. It has been fine-tuned on a synthetic dataset leveraging the latest coding logits and CoT datasets, further optimizing its chain-of-thought (CoT) reasoning and logical problem-solving abilities. The model demonstrates significant improvements in context understanding, structured data processing, and long-context comprehension, making it ideal for complex coding tasks, instruction-following, and technical text generation.
+  overrides:
+    parameters:
+      model: prithivMLmods_Viper-Coder-32B-Elite13-Q4_K_M.gguf
+  files:
+    - filename: prithivMLmods_Viper-Coder-32B-Elite13-Q4_K_M.gguf
+      sha256: 57a41ed2fc0d62847cf85ff20cc71be9c5978d22a56e39f2390c6563e5b0c931
+      uri: huggingface://bartowski/prithivMLmods_Viper-Coder-32B-Elite13-GGUF/prithivMLmods_Viper-Coder-32B-Elite13-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
