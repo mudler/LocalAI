@@ -80,6 +80,30 @@
     - filename: qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
       sha256: 84307cc73098017108f8b9157b614cea655f2054c34218422b1d246e214df5af
       uri: huggingface://bartowski/qgallouedec_gemma-3-27b-it-codeforces-SFT-GGUF/qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
+- &eurollm
+  name: "eurollm-9b-instruct"
+  icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - eurollm
+    - cpu
+    - gpu
+    - text-generation
+  urls:
+    - https://huggingface.co/utter-project/EuroLLM-9B-Instruct
+    - https://huggingface.co/bartowski/EuroLLM-9B-Instruct-GGUF
+  description: |
+    The EuroLLM project has the goal of creating a suite of LLMs capable of understanding and generating text in all European Union languages as well as some additional relevant languages. EuroLLM-9B is a 9B parameter model trained on 4 trillion tokens divided across the considered languages and several data sources: Web data, parallel data (en-xx and xx-en), and high-quality datasets. EuroLLM-9B-Instruct was further instruction tuned on EuroBlocks, an instruction tuning dataset with focus on general instruction-following and machine translation.
+  overrides:
+    parameters:
+      model: EuroLLM-9B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: EuroLLM-9B-Instruct-Q4_K_M.gguf
+      sha256: 785a3b2883532381704ef74f866f822f179a931801d1ed1cf12e6deeb838806b
+      uri: huggingface://bartowski/EuroLLM-9B-Instruct-GGUF/EuroLLM-9B-Instruct-Q4_K_M.gguf
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
