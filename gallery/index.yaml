@@ -1950,6 +1950,29 @@
     - filename: goppa-ai_Goppa-LogiLlama-Q4_K_M.gguf
       sha256: 0e06ae23d06139f746c65c9a0a81d552b11b2d8d9512a5979def8ae2cb52dc64
       uri: huggingface://bartowski/goppa-ai_Goppa-LogiLlama-GGUF/goppa-ai_Goppa-LogiLlama-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "nousresearch_deephermes-3-llama-3-3b-preview"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/qwiH8967CH59ZxiX_a-rP.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/DeepHermes-3-Llama-3-3B-Preview
+    - https://huggingface.co/bartowski/NousResearch_DeepHermes-3-Llama-3-3B-Preview-GGUF
+  description: |
+    DeepHermes 3 Preview is the latest version of our flagship Hermes series of LLMs by Nous Research, and one of the first models in the world to unify Reasoning (long chains of thought that improve answer accuracy) and normal LLM response modes into one model. We have also improved LLM annotation, judgement, and function calling.
+
+    DeepHermes 3 Preview is a hybrid reasoning model, and one of the first LLM models to unify both "intuitive", traditional mode responses and long chain of thought reasoning responses into a single model, toggled by a system prompt.
+
+    Hermes 3, the predecessor of DeepHermes 3, is a generalist language model with many improvements over Hermes 2, including advanced agentic capabilities, much better roleplaying, reasoning, multi-turn conversation, long context coherence, and improvements across the board.
+
+    The ethos of the Hermes series of models is focused on aligning LLMs to the user, with powerful steering capabilities and control given to the end user.
+
+    This is a preview Hermes with early reasoning capabilities, distilled from R1 across a variety of tasks that benefit from reasoning and objectivity. Some quirks may be discovered! Please let us know any interesting findings or issues you discover!
+  overrides:
+    parameters:
+      model: NousResearch_DeepHermes-3-Llama-3-3B-Preview-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_DeepHermes-3-Llama-3-3B-Preview-Q4_K_M.gguf
+      sha256: 73d9a588383946dcac545a097c47d634558afd79ea43aac3a4563c311d89f195
+      uri: huggingface://bartowski/NousResearch_DeepHermes-3-Llama-3-3B-Preview-GGUF/NousResearch_DeepHermes-3-Llama-3-3B-Preview-Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
