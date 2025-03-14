@@ -66,6 +66,20 @@
     - filename: gemma-3-1b-it-Q4_K_M.gguf
       sha256: 8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135
       uri: huggingface://ggml-org/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "qgallouedec_gemma-3-27b-it-codeforces-sft"
+  urls:
+    - https://huggingface.co/qgallouedec/gemma-3-27b-it-codeforces-SFT
+    - https://huggingface.co/bartowski/qgallouedec_gemma-3-27b-it-codeforces-SFT-GGUF
+  description: |
+    This model is a fine-tuned version of google/gemma-3-27b-it on the open-r1/codeforces-cots dataset. It has been trained using TRL.
+  overrides:
+    parameters:
+      model: qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
+  files:
+    - filename: qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
+      sha256: 84307cc73098017108f8b9157b614cea655f2054c34218422b1d246e214df5af
+      uri: huggingface://bartowski/qgallouedec_gemma-3-27b-it-codeforces-SFT-GGUF/qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
