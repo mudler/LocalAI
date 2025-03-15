@@ -940,6 +940,20 @@
     - filename: Steelskull_L3.3-Electra-R1-70b-Q4_K_M.gguf
       sha256: 1f39e1d398ef659ad7074c827dc6993c2007813a303ee72c189e88c4c76f70db
       uri: huggingface://bartowski/Steelskull_L3.3-Electra-R1-70b-GGUF/Steelskull_L3.3-Electra-R1-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "allura-org_bigger-body-70b"
+  urls:
+    - https://huggingface.co/allura-org/Bigger-Body-70b
+    - https://huggingface.co/bartowski/allura-org_Bigger-Body-70b-GGUF
+  description: |
+    This model's primary directive [GLITCH]_ROLEPLAY-ENHANCEMENT[/CORRUPTED] was engineered for adaptive persona emulation across age demographics, though recent iterations show concerning remarkable bleed-through from corrupted memory sectors. While optimized for Playtime Playground™ narrative scaffolding, researchers should note its... enthusiastic adoption of assigned roles. Containment protocols advised during character initialization sequences.
+  overrides:
+    parameters:
+      model: allura-org_Bigger-Body-70b-Q4_K_M.gguf
+  files:
+    - filename: allura-org_Bigger-Body-70b-Q4_K_M.gguf
+      sha256: a63d1dbc018fd8023d517372cbb4ebcbba602eff64fffe476054430aa42823be
+      uri: huggingface://bartowski/allura-org_Bigger-Body-70b-GGUF/allura-org_Bigger-Body-70b-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
