@@ -8464,6 +8464,25 @@
     - filename: PocketDoc_Dans-SakuraKaze-V1.0.0-12b-Q4_K_M.gguf
       sha256: 9dde1b749af27cddc68de07875a067050e9f77199466c89eecc93842adf69ed9
       uri: huggingface://bartowski/PocketDoc_Dans-SakuraKaze-V1.0.0-12b-GGUF/PocketDoc_Dans-SakuraKaze-V1.0.0-12b-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "beaverai_mn-2407-dsk-qwqify-v0.1-12b"
+  urls:
+    - https://huggingface.co/BeaverAI/MN-2407-DSK-QwQify-v0.1-12B
+    - https://huggingface.co/bartowski/BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-GGUF
+  description: |
+    Test model to try to give an existing model QwQ's thoughts. For this first version it is ontop of PocketDoc/Dans-SakuraKaze-V1.0.0-12b (an rp/adventure/co-writing model), which was trained ontop of PocketDoc/Dans-PersonalityEngine-V1.1.0-12b (a jack of all trades instruct model), which was trained ontop of mistralai/Mistral-Nemo-Base-2407.
+
+    The prompt formatting and usage should be the same as with QwQ; Use ChatML, and remove the thinking from previous turns. If thoughts arent being generated automatically, add <think>\n to the start of the assistant turn.
+
+    It should follow previous model turns formatting. On first turns of the conversation you may need to regen a few times, and maybe edit the model responses for the first few turns to get it to your liking.
+  overrides:
+    parameters:
+      model: BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-Q4_K_M.gguf
+  files:
+    - filename: BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-Q4_K_M.gguf
+      sha256: 689c4c75f0382421e1e691d826fe64363232f4c93453d516456d3e38189d38ea
+      uri: huggingface://bartowski/BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-GGUF/BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
