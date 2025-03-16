@@ -8449,6 +8449,21 @@
     - filename: NousResearch_DeepHermes-3-Mistral-24B-Preview-Q4_K_M.gguf
       sha256: f364c56c685301b6a05275367b8b739d533892ae6eeda94e5a689c43c04edbf8
       uri: huggingface://bartowski/NousResearch_DeepHermes-3-Mistral-24B-Preview-GGUF/NousResearch_DeepHermes-3-Mistral-24B-Preview-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pocketdoc_dans-sakurakaze-v1.0.0-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PocketDoc/Dans-SakuraKaze-V1.0.0-12b
+    - https://huggingface.co/bartowski/PocketDoc_Dans-SakuraKaze-V1.0.0-12b-GGUF
+  description: |
+    A model based on Dans-PersonalityEngine-V1.1.0-12b with a focus on character RP, visual novel style group chats, old school text adventures, and co-writing.
+  overrides:
+    parameters:
+      model: PocketDoc_Dans-SakuraKaze-V1.0.0-12b-Q4_K_M.gguf
+  files:
+    - filename: PocketDoc_Dans-SakuraKaze-V1.0.0-12b-Q4_K_M.gguf
+      sha256: 9dde1b749af27cddc68de07875a067050e9f77199466c89eecc93842adf69ed9
+      uri: huggingface://bartowski/PocketDoc_Dans-SakuraKaze-V1.0.0-12b-GGUF/PocketDoc_Dans-SakuraKaze-V1.0.0-12b-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
