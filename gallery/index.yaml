@@ -954,6 +954,20 @@
     - filename: allura-org_Bigger-Body-70b-Q4_K_M.gguf
       sha256: a63d1dbc018fd8023d517372cbb4ebcbba602eff64fffe476054430aa42823be
       uri: huggingface://bartowski/allura-org_Bigger-Body-70b-GGUF/allura-org_Bigger-Body-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "readyart_forgotten-safeword-70b-3.6"
+  urls:
+    - https://huggingface.co/ReadyArt/Forgotten-Safeword-70B-3.6
+    - https://huggingface.co/bartowski/ReadyArt_Forgotten-Safeword-70B-3.6-GGUF
+  description: |
+    Forgotten-Safeword-70B-V3.6 is the event horizon of depravity. Combines Mistral's architecture with a dataset that makes the Voynich Manuscript look like a children's pop-up book. Features quantum-entangled depravity - every output rewrites your concept of shame!
+  overrides:
+    parameters:
+      model: ReadyArt_Forgotten-Safeword-70B-3.6-Q4_K_M.gguf
+  files:
+    - filename: ReadyArt_Forgotten-Safeword-70B-3.6-Q4_K_M.gguf
+      sha256: bd3a082638212064899db1afe29bf4c54104216e662ac6cc76722a21bf91967e
+      uri: huggingface://bartowski/ReadyArt_Forgotten-Safeword-70B-3.6-GGUF/ReadyArt_Forgotten-Safeword-70B-3.6-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
