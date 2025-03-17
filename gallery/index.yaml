@@ -18,12 +18,16 @@
     - gemma3
     - gemma-3
   overrides:
+    mmproj: gemma-3-27b-it-mmproj-f16.gguf
     parameters:
       model: gemma-3-27b-it-Q4_K_M.gguf
   files:
     - filename: gemma-3-27b-it-Q4_K_M.gguf
       sha256: edc9aff4d811a285b9157618130b08688b0768d94ee5355b02dc0cb713012e15
       uri: huggingface://ggml-org/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf
+    - filename: gemma-3-27b-it-mmproj-f16.gguf
+      sha256: 54cb61c842fe49ac3c89bc1a614a2778163eb49f3dec2b90ff688b4c0392cb48
+      uri: huggingface://lmstudio-community/gemma-3-27b-it-GGUF/mmproj-model-f16.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-12b-it"
   urls:
@@ -32,12 +36,16 @@
   description: |
     google/gemma-3-12b-it is an open-source, state-of-the-art, lightweight, multimodal model built from the same research and technology used to create the Gemini models. It is capable of handling text and image input and generating text output. It has a large context window of 128K tokens and supports over 140 languages. The 12B variant has been fine-tuned using the instruction-tuning approach. Gemma 3 models are suitable for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes them deployable in environments with limited resources such as laptops, desktops, or your own cloud infrastructure.
   overrides:
+    mmproj: gemma-3-12b-it-mmproj-f16.gguf
     parameters:
       model: gemma-3-12b-it-Q4_K_M.gguf
   files:
     - filename: gemma-3-12b-it-Q4_K_M.gguf
       sha256: 7bb69bff3f48a7b642355d64a90e481182a7794707b3133890646b1efa778ff5
       uri: huggingface://ggml-org/gemma-3-12b-it-GGUF/gemma-3-12b-it-Q4_K_M.gguf
+    - filename: gemma-3-12b-it-mmproj-f16.gguf
+      sha256: 30c02d056410848227001830866e0a269fcc28aaf8ca971bded494003de9f5a5
+      uri: huggingface://lmstudio-community/gemma-3-12b-it-GGUF/mmproj-model-f16.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-4b-it"
   urls:
@@ -46,12 +54,16 @@
   description: |
     Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. Gemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants. Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions. Gemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone. Gemma-3-4b-it is a 4 billion parameter model.
   overrides:
+    mmproj: gemma-3-4b-it-mmproj-f16.gguf
     parameters:
       model: gemma-3-4b-it-Q4_K_M.gguf
   files:
     - filename: gemma-3-4b-it-Q4_K_M.gguf
       sha256: 882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863
       uri: huggingface://ggml-org/gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf
+    - filename: gemma-3-4b-it-mmproj-f16.gguf
+      sha256: 8c0fb064b019a6972856aaae2c7e4792858af3ca4561be2dbf649123ba6c40cb
+      uri: huggingface://lmstudio-community/gemma-3-4b-it-GGUF/mmproj-model-f16.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-1b-it"
   urls:
