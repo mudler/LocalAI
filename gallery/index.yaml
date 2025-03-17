@@ -23,8 +23,8 @@
       model: gemma-3-27b-it-Q4_K_M.gguf
   files:
     - filename: gemma-3-27b-it-Q4_K_M.gguf
-      sha256: edc9aff4d811a285b9157618130b08688b0768d94ee5355b02dc0cb713012e15
-      uri: huggingface://ggml-org/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf
+      sha256: 6a2cf008500636489eecfc09b96a85bc85832f9964f1a28745128901b5709326
+      uri: huggingface://lmstudio-community/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf
     - filename: gemma-3-27b-it-mmproj-f16.gguf
       sha256: 54cb61c842fe49ac3c89bc1a614a2778163eb49f3dec2b90ff688b4c0392cb48
       uri: huggingface://lmstudio-community/gemma-3-27b-it-GGUF/mmproj-model-f16.gguf
@@ -41,8 +41,8 @@
       model: gemma-3-12b-it-Q4_K_M.gguf
   files:
     - filename: gemma-3-12b-it-Q4_K_M.gguf
-      sha256: 7bb69bff3f48a7b642355d64a90e481182a7794707b3133890646b1efa778ff5
-      uri: huggingface://ggml-org/gemma-3-12b-it-GGUF/gemma-3-12b-it-Q4_K_M.gguf
+      sha256: 9610e3e07375303f6cd89086b496bcc1ab581177f52042eff536475a29283ba2
+      uri: huggingface://lmstudio-community/gemma-3-12b-it-GGUF/gemma-3-12b-it-Q4_K_M.gguf
     - filename: gemma-3-12b-it-mmproj-f16.gguf
       sha256: 30c02d056410848227001830866e0a269fcc28aaf8ca971bded494003de9f5a5
       uri: huggingface://lmstudio-community/gemma-3-12b-it-GGUF/mmproj-model-f16.gguf
@@ -59,8 +59,8 @@
       model: gemma-3-4b-it-Q4_K_M.gguf
   files:
     - filename: gemma-3-4b-it-Q4_K_M.gguf
-      sha256: 882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863
-      uri: huggingface://ggml-org/gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf
+      sha256: be49949e48422e4547b00af14179a193d3777eea7fbbd7d6e1b0861304628a01
+      uri: huggingface://lmstudio-community/gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf
     - filename: gemma-3-4b-it-mmproj-f16.gguf
       sha256: 8c0fb064b019a6972856aaae2c7e4792858af3ca4561be2dbf649123ba6c40cb
       uri: huggingface://lmstudio-community/gemma-3-4b-it-GGUF/mmproj-model-f16.gguf
