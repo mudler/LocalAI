@@ -137,6 +137,37 @@
     - filename: mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf
       sha256: 1b18347ba3e998aa2fd4e21172369daa2f772aa0a228e3ed9136378346ccf3b7
       uri: huggingface://bartowski/mlabonne_gemma-3-4b-it-abliterated-GGUF/mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "soob3123_amoral-gemma3-12b"
+  urls:
+    - https://huggingface.co/soob3123/amoral-gemma3-12B
+    - https://huggingface.co/bartowski/soob3123_amoral-gemma3-12B-GGUF
+  description: |
+      A fine-tuned version of Google's Gemma 3 12B instruction-tuned model optimized for creative freedom and reduced content restrictions. This variant maintains strong reasoning capabilities while excelling in roleplaying scenarios and open-ended content generation.
+
+      Key Modifications:
+
+          Reduced refusal mechanisms compared to base model
+          Enhanced character consistency in dialogues
+          Improved narrative flow control
+          Optimized for multi-turn interactions
+
+      Intended Use
+
+      Primary Applications:
+
+          Interactive fiction and storytelling
+          Character-driven roleplaying scenarios
+          Creative writing assistance
+          Experimental AI interactions
+          Content generation for mature audiences
+  overrides:
+    parameters:
+      model: soob3123_amoral-gemma3-12B-Q4_K_M.gguf
+  files:
+    - filename: soob3123_amoral-gemma3-12B-Q4_K_M.gguf
+      sha256: f78824e6d9f24822078ebde4c0fe04f4a336f2004a32de0a82cbb92a3879ea35
+      uri: huggingface://bartowski/soob3123_amoral-gemma3-12B-GGUF/soob3123_amoral-gemma3-12B-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
