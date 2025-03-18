@@ -122,6 +122,21 @@
     - filename: mlabonne_gemma-3-12b-it-abliterated-Q4_K_M.gguf
       sha256: d1702ca02f33f97c4763cc23041e90b1586c6b8ee33fedc1c62e62045a845d2b
       uri: huggingface://bartowski/mlabonne_gemma-3-12b-it-abliterated-GGUF/mlabonne_gemma-3-12b-it-abliterated-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "mlabonne_gemma-3-4b-it-abliterated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/WjFfc8hhj20r5XK07Yny9.png
+  urls:
+    - https://huggingface.co/mlabonne/gemma-3-4b-it-abliterated
+    - https://huggingface.co/bartowski/mlabonne_gemma-3-4b-it-abliterated-GGUF
+  description: |
+    This is an uncensored version of google/gemma-3-4b-it created with a new abliteration technique. See this article to know more about abliteration.
+  overrides:
+    parameters:
+      model: mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf
+      sha256: 1b18347ba3e998aa2fd4e21172369daa2f772aa0a228e3ed9136378346ccf3b7
+      uri: huggingface://bartowski/mlabonne_gemma-3-4b-it-abliterated-GGUF/mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
