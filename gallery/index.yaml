@@ -92,6 +92,21 @@
     - filename: qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
       sha256: 84307cc73098017108f8b9157b614cea655f2054c34218422b1d246e214df5af
       uri: huggingface://bartowski/qgallouedec_gemma-3-27b-it-codeforces-SFT-GGUF/qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "mlabonne_gemma-3-27b-it-abliterated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/WjFfc8hhj20r5XK07Yny9.png
+  urls:
+    - https://huggingface.co/mlabonne/gemma-3-27b-it-abliterated
+    - https://huggingface.co/bartowski/mlabonne_gemma-3-27b-it-abliterated-GGUF
+  description: |
+    This is an uncensored version of google/gemma-3-27b-it created with a new abliteration technique. See this article to know more about abliteration.
+  overrides:
+    parameters:
+      model: mlabonne_gemma-3-27b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: mlabonne_gemma-3-27b-it-abliterated-Q4_K_M.gguf
+      sha256: 0d7afea4b1889c113f4a8ec1855d23bee71b3e3bedcb1fad84f9c9ffcdfe07d0
+      uri: huggingface://bartowski/mlabonne_gemma-3-27b-it-abliterated-GGUF/mlabonne_gemma-3-27b-it-abliterated-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
