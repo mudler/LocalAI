@@ -8602,6 +8602,24 @@
     - filename: mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
       sha256: c5743c1bf39db0ae8a5ade5df0374b8e9e492754a199cfdad7ef393c1590f7c0
       uri: huggingface://bartowski/mistralai_Mistral-Small-3.1-24B-Instruct-2503-GGUF/mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "gryphe_pantheon-rp-1.8-24b-small-3.1"
+  icon: https://huggingface.co/Gryphe/Pantheon-RP-1.8-24b-Small-3.1/resolve/main/Pantheon.png
+  urls:
+    - https://huggingface.co/Gryphe/Pantheon-RP-1.8-24b-Small-3.1
+    - https://huggingface.co/bartowski/Gryphe_Pantheon-RP-1.8-24b-Small-3.1-GGUF
+  description: |
+    Welcome to the next iteration of my Pantheon model series, in which I strive to introduce a whole collection of diverse personas that can be summoned with a simple activation phrase.
+
+    Pantheon's purpose is two-fold, as these personalities similarly enhance the general roleplay experience, helping to encompass personality traits, accents and mannerisms that language models might otherwise find difficult to convey well.
+  overrides:
+    parameters:
+      model: Gryphe_Pantheon-RP-1.8-24b-Small-3.1-Q4_K_M.gguf
+  files:
+    - filename: Gryphe_Pantheon-RP-1.8-24b-Small-3.1-Q4_K_M.gguf
+      sha256: de35f9dc65961fa07731dda4a9e6cf4545c5038ceaa4343527e4eddb2731788d
+      uri: huggingface://bartowski/Gryphe_Pantheon-RP-1.8-24b-Small-3.1-GGUF/Gryphe_Pantheon-RP-1.8-24b-Small-3.1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
