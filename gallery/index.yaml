@@ -1056,6 +1056,25 @@
     - filename: ReadyArt_Forgotten-Safeword-70B-3.6-Q4_K_M.gguf
       sha256: bd3a082638212064899db1afe29bf4c54104216e662ac6cc76722a21bf91967e
       uri: huggingface://bartowski/ReadyArt_Forgotten-Safeword-70B-3.6-GGUF/ReadyArt_Forgotten-Safeword-70B-3.6-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "nvidia_llama-3_3-nemotron-super-49b-v1"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/Llama-3_3-Nemotron-Super-49B-v1
+    - https://huggingface.co/bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF
+  description: |
+    Llama-3.3-Nemotron-Super-49B-v1 is a large language model (LLM) which is a derivative of Meta Llama-3.3-70B-Instruct (AKA the reference model). It is a reasoning model that is post trained for reasoning, human chat preferences, and tasks, such as RAG and tool calling. The model supports a context length of 128K tokens.
+
+    Llama-3.3-Nemotron-Super-49B-v1 is a model which offers a great tradeoff between model accuracy and efficiency. Efficiency (throughput) directly translates to savings. Using a novel Neural Architecture Search (NAS) approach, we greatly reduce the model’s memory footprint, enabling larger workloads, as well as fitting the model on a single GPU at high workloads (H200). This NAS approach enables the selection of a desired point in the accuracy-efficiency tradeoff.
+
+    The model underwent a multi-phase post-training process to enhance both its reasoning and non-reasoning capabilities. This includes a supervised fine-tuning stage for Math, Code, Reasoning, and Tool Calling as well as multiple reinforcement learning (RL) stages using REINFORCE (RLOO) and Online Reward-aware Preference Optimization (RPO) algorithms for both chat and instruction-following. The final model checkpoint is obtained after merging the final SFT and Online RPO checkpoints. For more details on how the model was trained, please see this blog.
+  overrides:
+    parameters:
+      model: nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf
+  files:
+    - filename: nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf
+      sha256: d3fc12f4480cad5060f183d6c186ca47d800509224632bb22e15791711950524
+      uri: huggingface://bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF/nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
