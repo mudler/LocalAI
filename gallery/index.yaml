@@ -8585,6 +8585,23 @@
     - filename: BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-Q4_K_M.gguf
       uri: huggingface://bartowski/BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-GGUF/BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-Q4_K_M.gguf
       sha256: f6ae7dd8be3aedd640483ccc6895c3fc205a019246bf2512a956589c0222386e
+- !!merge <<: *mistral03
+  name: "mistralai_mistral-small-3.1-24b-instruct-2503"
+  urls:
+    - https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503
+    - https://huggingface.co/bartowski/mistralai_Mistral-Small-3.1-24B-Instruct-2503-GGUF
+  description: |
+    Building upon Mistral Small 3 (2501), Mistral Small 3.1 (2503) adds state-of-the-art vision understanding and enhances long context capabilities up to 128k tokens without compromising text performance. With 24 billion parameters, this model achieves top-tier capabilities in both text and vision tasks.
+    This model is an instruction-finetuned version of: Mistral-Small-3.1-24B-Base-2503.
+
+    Mistral Small 3.1 can be deployed locally and is exceptionally "knowledge-dense," fitting within a single RTX 4090 or a 32GB RAM MacBook once quantized.
+  overrides:
+    parameters:
+      model: mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
+  files:
+    - filename: mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
+      sha256: c5743c1bf39db0ae8a5ade5df0374b8e9e492754a199cfdad7ef393c1590f7c0
+      uri: huggingface://bartowski/mistralai_Mistral-Small-3.1-24B-Instruct-2503-GGUF/mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
