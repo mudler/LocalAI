@@ -168,6 +168,21 @@
     - filename: soob3123_amoral-gemma3-12B-Q4_K_M.gguf
       sha256: f78824e6d9f24822078ebde4c0fe04f4a336f2004a32de0a82cbb92a3879ea35
       uri: huggingface://bartowski/soob3123_amoral-gemma3-12B-GGUF/soob3123_amoral-gemma3-12B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-4b-it-uncensored-dbl-x-i1"
+  icon: https://huggingface.co/DavidAU/Gemma-3-4b-it-Uncensored-DBL-X/resolve/main/gemma-4b-uncen.jpg
+  urls:
+    - https://huggingface.co/DavidAU/Gemma-3-4b-it-Uncensored-DBL-X
+    - https://huggingface.co/mradermacher/Gemma-3-4b-it-Uncensored-DBL-X-i1-GGUF
+  description: |
+    Google's newest Gemma-3 model that has been uncensored by David_AU (maintains instruction following / model performance and adds 4 layers to the model) and re-enforced with a system prompt (optional) - see below.
+  overrides:
+    parameters:
+      model: Gemma-3-4b-it-Uncensored-DBL-X.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-3-4b-it-Uncensored-DBL-X.i1-Q4_K_M.gguf
+      sha256: fd8a93f04eae7b7c966a53aed29810cef8cd3d281ee89ad8767d8043e3aec35b
+      uri: huggingface://mradermacher/Gemma-3-4b-it-Uncensored-DBL-X-i1-GGUF/Gemma-3-4b-it-Uncensored-DBL-X.i1-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
