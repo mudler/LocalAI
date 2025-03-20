@@ -4863,6 +4863,20 @@
     - filename: prithivMLmods_Viper-Coder-32B-Elite13-Q4_K_M.gguf
       sha256: 57a41ed2fc0d62847cf85ff20cc71be9c5978d22a56e39f2390c6563e5b0c931
       uri: huggingface://bartowski/prithivMLmods_Viper-Coder-32B-Elite13-GGUF/prithivMLmods_Viper-Coder-32B-Elite13-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rootxhacker_apollo-v3-32b"
+  urls:
+    - https://huggingface.co/rootxhacker/Apollo-v3-32B
+    - https://huggingface.co/bartowski/rootxhacker_Apollo-v3-32B-GGUF
+  description: |
+    This is an experimental hybrid reasoning model built on Qwen2.5-32B-Instruct
+  overrides:
+    parameters:
+      model: rootxhacker_Apollo-v3-32B-Q4_K_M.gguf
+  files:
+    - filename: rootxhacker_Apollo-v3-32B-Q4_K_M.gguf
+      sha256: 67aa4b88a017931fab622b05879c0ff5f0a6db758686d2200aaad19f21bd5d2a
+      uri: huggingface://bartowski/rootxhacker_Apollo-v3-32B-GGUF/rootxhacker_Apollo-v3-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
