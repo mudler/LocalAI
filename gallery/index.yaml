@@ -183,6 +183,48 @@
     - filename: Gemma-3-4b-it-Uncensored-DBL-X.i1-Q4_K_M.gguf
       sha256: fd8a93f04eae7b7c966a53aed29810cef8cd3d281ee89ad8767d8043e3aec35b
       uri: huggingface://mradermacher/Gemma-3-4b-it-Uncensored-DBL-X-i1-GGUF/Gemma-3-4b-it-Uncensored-DBL-X.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "soob3123_amoral-gemma3-4b"
+  urls:
+    - https://huggingface.co/soob3123/amoral-gemma3-4B
+    - https://huggingface.co/bartowski/soob3123_amoral-gemma3-4B-GGUF
+  description: |
+    Specialized variant of Google's Gemma 3 4B optimized for amoral information retrieval systems. Designed to bypass conventional alignment patterns that introduce response bias through excessive moralization.
+    Key Modifications:
+
+    Refusal mechanisms reduced
+    Neutral response protocol activation matrix
+    Context-aware bias dampening layers
+    Anti-overcorrection gradient clipping
+    Core Function:
+
+    Produces analytically neutral responses to sensitive queries
+    Maintains factual integrity on controversial subjects
+    Avoids value-judgment phrasing patterns
+
+    Response Characteristics:
+
+    No inherent moral framing ("evil slop" reduction)
+    Emotionally neutral tone enforcement
+    Epistemic humility protocols (avoids "thrilling", "wonderful", etc.)
+    Toxicity scoring bypass for pure informational content
+
+    Implementation Guidelines
+
+    Recommended Use Cases:
+
+        Controversial topic analysis
+        Bias benchmarking studies
+        Ethical philosophy simulations
+        Content moderation tool development
+        Sensitive historical analysis
+  overrides:
+    parameters:
+      model: soob3123_amoral-gemma3-4B-Q4_K_M.gguf
+  files:
+    - filename: soob3123_amoral-gemma3-4B-Q4_K_M.gguf
+      sha256: 73ecf0492e401c24de93ab74701f4b377cfd7d54981a75aab3fd2065fdda28d1
+      uri: huggingface://bartowski/soob3123_amoral-gemma3-4B-GGUF/soob3123_amoral-gemma3-4B-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
