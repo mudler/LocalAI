@@ -1132,6 +1132,28 @@
     - filename: nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf
       sha256: d3fc12f4480cad5060f183d6c186ca47d800509224632bb22e15791711950524
       uri: huggingface://bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF/nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "sao10k_llama-3.3-70b-vulpecula-r1"
+  icon: https://huggingface.co/Sao10K/Llama-3.3-70B-Vulpecula-r1/resolve/main/senkooo.jpg
+  urls:
+    - https://huggingface.co/Sao10K/Llama-3.3-70B-Vulpecula-r1
+    - https://huggingface.co/bartowski/Sao10K_Llama-3.3-70B-Vulpecula-r1-GGUF
+  description: |
+    🌟 A thinking-based model inspired by Deepseek-R1, trained through both SFT and a little bit of RL on creative writing data.
+    🧠 Prefill, or begin assistant replies with <think>\n to activate thinking mode, or not. It works well without thinking too.
+    🚀 Improved Steerability, instruct-roleplay and creative control over base model.
+    👾 Semi-synthetic Chat/Roleplaying datasets that has been re-made, cleaned and filtered for repetition, quality and output.
+    🎭 Human-based Natural Chat / Roleplaying datasets cleaned, filtered and checked for quality.
+    📝 Diverse Instruct dataset from a few different LLMs, cleaned and filtered for refusals and quality.
+    💭 Reasoning Traces taken from Deepseek-R1 for Instruct, Chat & Creative Tasks, filtered and cleaned for quality.
+    █▓▒ Toxic / Decensorship data was not needed for our purposes, the model is unrestricted enough as is.
+  overrides:
+    parameters:
+      model: Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
+  files:
+    - filename: Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
+      sha256: 817073c85286c25a9373f330aad32b503e6c13d626a3fbee926d96a7ab866845
+      uri: huggingface://bartowski/Sao10K_Llama-3.3-70B-Vulpecula-r1-GGUF/Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
