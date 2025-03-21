@@ -12931,6 +12931,21 @@
     - filename: Phi-3.5-MoE-instruct-Q4_K_M.gguf
       sha256: 43e91bb720869bd8a92d8eb86bc3c74a52c49cf61642ca709b3d7bb89644df36
       uri: huggingface://bartowski/Phi-3.5-MoE-instruct-GGUF/Phi-3.5-MoE-instruct-Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "luvgpt_phi3-uncensored-chat"
+  icon: https://huggingface.co/magicsquares137/phi3-uncensored-chat/resolve/main/00380-3290958654.png
+  urls:
+    - https://huggingface.co/luvGPT/phi3-uncensored-chat
+    - https://huggingface.co/bartowski/luvGPT_phi3-uncensored-chat-GGUF
+  description: |
+    This model is a fine-tuned version of microsoft/phi-3-mini-4k-instruct optimized for roleplaying conversations with a variety of character personas. The model speaks in a conversational format. Please not, prompt template guidelines are extremely important in getting usable output.
+  overrides:
+    parameters:
+      model: luvGPT_phi3-uncensored-chat-Q4_K_M.gguf
+  files:
+    - filename: luvGPT_phi3-uncensored-chat-Q4_K_M.gguf
+      sha256: 15e61e802907316a64932eab112eb6fc16f5861876e59e0867c00774a1941937
+      uri: huggingface://bartowski/luvGPT_phi3-uncensored-chat-GGUF/luvGPT_phi3-uncensored-chat-Q4_K_M.gguf
 - &hermes-2-pro-mistral
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master" ### START Hermes
   name: "hermes-2-pro-mistral"
