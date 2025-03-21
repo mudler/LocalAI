@@ -4934,6 +4934,20 @@
     - filename: SamsungSAILMontreal_ByteCraft-Q4_K_M.gguf
       sha256: b9e1b44e3e6d90fe5d7d7d4741c37bcb40724e50de8b8f0ad2480e095e8d1712
       uri: huggingface://bartowski/SamsungSAILMontreal_ByteCraft-GGUF/SamsungSAILMontreal_ByteCraft-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen-writerdemo-7b-s500-i1"
+  urls:
+    - https://huggingface.co/Quest-AI/qwen-writerdemo-7b-s500
+    - https://huggingface.co/mradermacher/qwen-writerdemo-7b-s500-i1-GGUF
+  description: |
+    This is a base model that has had an experimental reward model RL training done over it for a subset of the Erebus dataset (creative writing).
+  overrides:
+    parameters:
+      model: qwen-writerdemo-7b-s500.i1-Q4_K_M.gguf
+  files:
+    - filename: qwen-writerdemo-7b-s500.i1-Q4_K_M.gguf
+      sha256: dcc0e2dd36587fdd3ed0c8e8c215a01244f00dd85f62da23642410d0e688fe13
+      uri: huggingface://mradermacher/qwen-writerdemo-7b-s500-i1-GGUF/qwen-writerdemo-7b-s500.i1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
