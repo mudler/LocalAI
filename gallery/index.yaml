@@ -297,6 +297,25 @@
     - filename: huihui-ai_gemma-3-1b-it-abliterated-Q4_K_M.gguf
       sha256: 0760a54504d7529daf65f2a5de0692e773313685f50dd7f7eece2dae0dc28338
       uri: huggingface://bartowski/huihui-ai_gemma-3-1b-it-abliterated-GGUF/huihui-ai_gemma-3-1b-it-abliterated-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "sicariussicariistuff_x-ray_alpha"
+  icon: https://huggingface.co/SicariusSicariiStuff/X-Ray_Alpha/resolve/main/Images/X-Ray_Alpha.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/X-Ray_Alpha
+    - https://huggingface.co/bartowski/SicariusSicariiStuff_X-Ray_Alpha-GGUF
+  description: |
+    This is a pre-alpha proof-of-concept of a real fully uncensored vision model.
+
+    Why do I say "real"? The few vision models we got (qwen, llama 3.2) were "censored," and their fine-tunes were made only to the text portion of the model, as training a vision model is a serious pain.
+
+    The only actually trained and uncensored vision model I am aware of is ToriiGate; the rest of the vision models are just the stock vision + a fine-tuned LLM.
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff_X-Ray_Alpha-Q4_K_M.gguf
+  files:
+    - filename: SicariusSicariiStuff_X-Ray_Alpha-Q4_K_M.gguf
+      sha256: c3547fc287378cb814efc5205613c418cc0f99ef12852cce39a94e3a42e42db5
+      uri: huggingface://bartowski/SicariusSicariiStuff_X-Ray_Alpha-GGUF/SicariusSicariiStuff_X-Ray_Alpha-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
