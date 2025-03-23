@@ -8855,6 +8855,24 @@
     - filename: Gryphe_Pantheon-RP-1.8-24b-Small-3.1-Q4_K_M.gguf
       sha256: de35f9dc65961fa07731dda4a9e6cf4545c5038ceaa4343527e4eddb2731788d
       uri: huggingface://bartowski/Gryphe_Pantheon-RP-1.8-24b-Small-3.1-GGUF/Gryphe_Pantheon-RP-1.8-24b-Small-3.1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mawdistical_mawdistic-nightlife-24b"
+  urls:
+    - https://huggingface.co/Mawdistical/Mawdistic-NightLife-24bhttps://huggingface.co/Mawdistical/Mawdistic-NightLife-24b
+    - https://huggingface.co/bartowski/Mawdistical_Mawdistic-NightLife-24b-GGUF
+  description: |
+    STRICTLY FOR:
+    Academic research of how many furries can fit in your backdoor.
+    How many meows and purrs you ear drums can handle before they explode... :3
+    Asking stepbro to help you put on the m- uhh fursuit............. hehehe
+    Ignoring mom's calls asking where you are as you get wasted in a hotel room with 20 furries.
+  overrides:
+    parameters:
+      model: Mawdistical_Mawdistic-NightLife-24b-Q4_K_M.gguf
+  files:
+    - filename: Mawdistical_Mawdistic-NightLife-24b-Q4_K_M.gguf
+      sha256: f0fee87adfaa00d058002c1a4df630e504343d9e7ec24f6b7eae023376dffaf7
+      uri: huggingface://bartowski/Mawdistical_Mawdistic-NightLife-24b-GGUF/Mawdistical_Mawdistic-NightLife-24b-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
