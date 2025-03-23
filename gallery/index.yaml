@@ -2302,6 +2302,26 @@
     - filename: NousResearch_DeepHermes-3-Llama-3-3B-Preview-Q4_K_M.gguf
       sha256: 73d9a588383946dcac545a097c47d634558afd79ea43aac3a4563c311d89f195
       uri: huggingface://bartowski/NousResearch_DeepHermes-3-Llama-3-3B-Preview-GGUF/NousResearch_DeepHermes-3-Llama-3-3B-Preview-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "fiendish_llama_3b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Fiendish_LLAMA_3B/resolve/main/Images/Fiendish_LLAMA_3B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Fiendish_LLAMA_3B
+    - https://huggingface.co/mradermacher/Fiendish_LLAMA_3B-GGUF
+  description: |
+    Impish_LLAMA_3B's naughty sister. Less wholesome, more edge. NOT better, but different.
+    Superb Roleplay for a 3B size.
+    Short length response (1-2 paragraphs, usually 1), CAI style.
+    Naughty, and more evil that follows instructions well enough, and keeps good formatting.
+    LOW refusals - Total freedom in RP, can do things other RP models won't, and I'll leave it at that. Low refusals in assistant tasks as well.
+    VERY good at following the character card. Try the included characters if you're having sub optimal results.
+  overrides:
+    parameters:
+      model: Fiendish_LLAMA_3B.Q4_K_M.gguf
+  files:
+    - filename: Fiendish_LLAMA_3B.Q4_K_M.gguf
+      sha256: 5fd294c1ce7fd931e4dfcab54435571d5e7d62e8743581ab3d36b6852c782428
+      uri: huggingface://mradermacher/Fiendish_LLAMA_3B-GGUF/Fiendish_LLAMA_3B.Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
