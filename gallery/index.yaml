@@ -263,6 +263,25 @@
     - filename: TheDrummer_Fallen-Gemma3-12B-v1-Q4_K_M.gguf
       sha256: 8b5ff6cf6cd68688fa50c29e7b3c15c3f31c5c4794fff2dd71c9ca5a3d05cff3
       uri: huggingface://bartowski/TheDrummer_Fallen-Gemma3-12B-v1-GGUF/TheDrummer_Fallen-Gemma3-12B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "thedrummer_fallen-gemma3-27b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/9oyZxzpfhmmNr21S1P_iJ.gif
+  urls:
+    - https://huggingface.co/TheDrummer/Fallen-Gemma3-27B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Fallen-Gemma3-27B-v1-GGUF
+  description: |
+    Fallen Gemma3 27B v1 is an evil tune of Gemma 3 27B but it is not a complete decensor.
+
+    Evil tunes knock out the positivity and may enjoy torturing you and humanity.
+
+    Vision still works and it has something to say about the crap you feed it.
+  overrides:
+    parameters:
+      model: TheDrummer_Fallen-Gemma3-27B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Fallen-Gemma3-27B-v1-Q4_K_M.gguf
+      sha256: a72a4da55c3cf61ac5eb91a72ad27b155c8f52e25881272a72939b8aa1960b62
+      uri: huggingface://bartowski/TheDrummer_Fallen-Gemma3-27B-v1-GGUF/TheDrummer_Fallen-Gemma3-27B-v1-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
