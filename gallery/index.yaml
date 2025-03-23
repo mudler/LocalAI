@@ -7498,6 +7498,28 @@
     - filename: TheDrummer_Fallen-Llama-3.3-R1-70B-v1-Q4_K_M.gguf
       sha256: 889455f0c747f2c444818c68169384d3da4830156d2a19906d7d6adf48b243df
       uri: huggingface://bartowski/TheDrummer_Fallen-Llama-3.3-R1-70B-v1-GGUF/TheDrummer_Fallen-Llama-3.3-R1-70B-v1-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "knoveleng_open-rs3"
+  urls:
+    - https://huggingface.co/knoveleng/Open-RS3
+    - https://huggingface.co/bartowski/knoveleng_Open-RS3-GGUF
+  description: |
+    This repository hosts model for the Open RS project, accompanying the paper Reinforcement Learning for Reasoning in Small LLMs: What Works and What Doesn’t. The project explores enhancing reasoning capabilities in small large language models (LLMs) using reinforcement learning (RL) under resource-constrained conditions.
+
+    We focus on a 1.5-billion-parameter model, DeepSeek-R1-Distill-Qwen-1.5B, trained on 4 NVIDIA A40 GPUs (48 GB VRAM each) within 24 hours. By adapting the Group Relative Policy Optimization (GRPO) algorithm and leveraging a curated, compact mathematical reasoning dataset, we conducted three experiments to assess performance and behavior. Key findings include:
+
+    Significant reasoning improvements, e.g., AMC23 accuracy rising from 63% to 80% and AIME24 reaching 46.7%, outperforming o1-preview.
+    Efficient training with just 7,000 samples at a cost of $42, compared to thousands of dollars for baseline models.
+    Challenges like optimization instability and length constraints with extended training.
+
+    These results showcase RL-based fine-tuning as a cost-effective approach for small LLMs, making reasoning capabilities accessible in resource-limited settings. We open-source our code, models, and datasets to support further research.
+  overrides:
+    parameters:
+      model: knoveleng_Open-RS3-Q4_K_M.gguf
+  files:
+    - filename: knoveleng_Open-RS3-Q4_K_M.gguf
+      sha256: 599ab49d78949e62e37c5e37b0c313626d066ca614020b9b17c2b5bbcf18ea7f
+      uri: huggingface://bartowski/knoveleng_Open-RS3-GGUF/knoveleng_Open-RS3-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
