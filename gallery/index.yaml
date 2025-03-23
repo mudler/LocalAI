@@ -225,6 +225,25 @@
     - filename: soob3123_amoral-gemma3-4B-Q4_K_M.gguf
       sha256: 73ecf0492e401c24de93ab74701f4b377cfd7d54981a75aab3fd2065fdda28d1
       uri: huggingface://bartowski/soob3123_amoral-gemma3-4B-GGUF/soob3123_amoral-gemma3-4B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "thedrummer_fallen-gemma3-4b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/94Zn7g7jE8LavD1bK67Su.gif
+  urls:
+    - https://huggingface.co/TheDrummer/Fallen-Gemma3-4B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Fallen-Gemma3-4B-v1-GGUF
+  description: |
+    Fallen Gemma3 4B v1 is an evil tune of Gemma 3 4B but it is not a complete decensor.
+
+    Evil tunes knock out the positivity and may enjoy torturing you and humanity.
+
+    Vision still works and it has something to say about the crap you feed it.
+  overrides:
+    parameters:
+      model: TheDrummer_Fallen-Gemma3-4B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Fallen-Gemma3-4B-v1-Q4_K_M.gguf
+      sha256: 85490a97bda2d40437c8dade4a68bb58e760c1263a2fbc59191daef57ee2d6c3
+      uri: huggingface://bartowski/TheDrummer_Fallen-Gemma3-4B-v1-GGUF/TheDrummer_Fallen-Gemma3-4B-v1-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
