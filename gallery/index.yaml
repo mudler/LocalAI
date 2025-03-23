@@ -282,6 +282,21 @@
     - filename: TheDrummer_Fallen-Gemma3-27B-v1-Q4_K_M.gguf
       sha256: a72a4da55c3cf61ac5eb91a72ad27b155c8f52e25881272a72939b8aa1960b62
       uri: huggingface://bartowski/TheDrummer_Fallen-Gemma3-27B-v1-GGUF/TheDrummer_Fallen-Gemma3-27B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "huihui-ai_gemma-3-1b-it-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/gemma-3-1b-it-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_gemma-3-1b-it-abliterated-GGUF
+  description: |
+    This is an uncensored version of google/gemma-3-1b-it created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens
+  overrides:
+    parameters:
+      model: huihui-ai_gemma-3-1b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: huihui-ai_gemma-3-1b-it-abliterated-Q4_K_M.gguf
+      sha256: 0760a54504d7529daf65f2a5de0692e773313685f50dd7f7eece2dae0dc28338
+      uri: huggingface://bartowski/huihui-ai_gemma-3-1b-it-abliterated-GGUF/huihui-ai_gemma-3-1b-it-abliterated-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
