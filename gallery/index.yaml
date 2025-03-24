@@ -12435,6 +12435,24 @@
     - filename: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
       sha256: cdc0f4de6df2ba120835fbd25c2a0ae2af8548f46d2c40c7a018c51c3d19e0c0
       uri: huggingface://mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF/Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "dusk_rainbow"
+  icon: https://huggingface.co/SicariusSicariiStuff/Dusk_Rainbow/resolve/main/Dusk_Rainbow.gif
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Dusk_Rainbow
+    - https://huggingface.co/mradermacher/Dusk_Rainbow-GGUF
+  description: |
+    A girl of peculiar appetites and an even more peculiar imagination lived in a small, sleepy village nestled deep in the countryside. The kind of village where the clouds hung low, casting shadows like sullen toddlers refusing to play. But on this particular day, the girl ambled through the woods, when she noticed something curious: a plant, of all things, that seemed to have been dipped in a cookie jar, judging by its smell. A botanical biscuit, in the middle of a birch grove.
+    This model is the result of training a fraction (16M tokens) of the testing data Intended for LLAMA-3_8B_Unaligned's upcoming beta. The base model is a merge of merges, made by Invisietch's and named EtherealRainbow-v0.3-8B. The name for this model reflects the base that was used for this finetune while hinting a darker, and more uncensored aspects associated with the nature of the LLAMA-3_8B_Unaligned project.
+
+    As a result of the unique data added, this model has an exceptional adherence to instructions about paragraph length, and to the story writing prompt. I would like to emphasize, no ChatGPT \ Claude was used for any of the additional data I added in this finetune. The goal is to eventually have a model with a minimal amount of slop, this cannot be reliably done by relying on API models, which pollute datasets with their bias and repetitive words.
+  overrides:
+    parameters:
+      model: Dusk_Rainbow.Q4_K_M.gguf
+  files:
+    - filename: Dusk_Rainbow.Q4_K_M.gguf
+      sha256: d02cb1612903f4840e4d72e92582b0dca64a8a7e6662953e8ad1ea62f9464e31
+      uri: huggingface://mradermacher/Dusk_Rainbow-GGUF/Dusk_Rainbow.Q4_K_M.gguf
 - &chatml
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ### ChatML
   name: "una-thepitbull-21.4b-v2"
