@@ -2337,6 +2337,27 @@
     - filename: Impish_LLAMA_3B.Q4_K_M.gguf
       sha256: 3b83672669e0b06943a5dcc09dec9663b3019ba5d6b14340c9c3e92a2a4125cf
       uri: huggingface://mradermacher/Impish_LLAMA_3B-GGUF/Impish_LLAMA_3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "eximius_persona_5b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Eximius_Persona_5B/resolve/main/Images/Eximius_Persona_5B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Eximius_Persona_5B
+    - https://huggingface.co/mradermacher/Eximius_Persona_5B-GGUF
+  description: |
+    I wanted to create a model with an exceptional capacity for using varied speech patterns and fresh role-play takes. The model had to have a unique personality, not on a surface level but on the inside, for real. Unfortunately, SFT alone just didn't cut it. And I had only 16GB of VRAM at the time. Oh, and I wanted it to be small enough to be viable for phones and to be able to give a fight to larger models while at it. If only there was a magical way to do it.
+
+    Merges. Merges are quite unique. In the early days, they were considered "fake." Clearly, there's no such thing as merges. Where are the papers? No papers? Then it's clearly impossible. "Mathematically impossible." Simply preposterous. To mix layers and hope for a coherent output? What nonsense!
+
+    And yet, they were real. Undi95 made some of the earliest merges I can remember, and the "LLAMA2 Era" was truly amazing and innovative thanks to them. Cool stuff like Tiefighter was being made, and eventually the time tested Midnight-Miqu-70B (v1.5 is my personal favorite).
+
+    Merges are an interesting thing, as they affect LLMs in a way that is currently impossible to reproduce using SFT (or any 'SOTA' technique). One of the plagues we have today, while we have orders of magnitude smarter LLMs, is GPTisms and predictability. Merges can potentially 'solve' that. How? In short, if you physically tear neurons (passthrough brain surgery) while you somehow manage to keep the model coherent enough, and if you're lucky, it can even follows instructions- then magical stuff begins to happen.
+  overrides:
+    parameters:
+      model: Eximius_Persona_5B.Q4_K_M.gguf
+  files:
+    - filename: Eximius_Persona_5B.Q4_K_M.gguf
+      sha256: 8a8e7a0fa1068755322c51900e53423d795e57976b4d95982242cbec41141c7b
+      uri: huggingface://mradermacher/Eximius_Persona_5B-GGUF/Eximius_Persona_5B.Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
