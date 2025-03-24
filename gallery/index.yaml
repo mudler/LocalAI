@@ -2322,6 +2322,21 @@
     - filename: Fiendish_LLAMA_3B.Q4_K_M.gguf
       sha256: 5fd294c1ce7fd931e4dfcab54435571d5e7d62e8743581ab3d36b6852c782428
       uri: huggingface://mradermacher/Fiendish_LLAMA_3B-GGUF/Fiendish_LLAMA_3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "impish_llama_3b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_LLAMA_3B/resolve/main/Images/Impish_LLAMA_3B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_LLAMA_3B
+    - https://huggingface.co/mradermacher/Impish_LLAMA_3B-GGUF
+  description: |
+    "With that naughty impish grin of hers, so damn sly it could have ensnared the devil himself, and that impish glare in her eyes, sharper than of a succubus fang, she chuckled impishly with such mischief that even the moon might’ve blushed. I needed no witch's hex to divine her nature—she was, without a doubt, a naughty little imp indeed." This model was trained on ~25M tokens, in 3 phases, the first and longest phase was an FFT to teach the model new stuff, and to confuse the shit out of it too, so it would be a little bit less inclined to use GPTisms.
+  overrides:
+    parameters:
+      model: Impish_LLAMA_3B.Q4_K_M.gguf
+  files:
+    - filename: Impish_LLAMA_3B.Q4_K_M.gguf
+      sha256: 3b83672669e0b06943a5dcc09dec9663b3019ba5d6b14340c9c3e92a2a4125cf
+      uri: huggingface://mradermacher/Impish_LLAMA_3B-GGUF/Impish_LLAMA_3B.Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
