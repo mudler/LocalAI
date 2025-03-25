@@ -7225,6 +7225,20 @@
     - filename: HyperLlama3.1-v2.i1-Q4_K_M.gguf
       sha256: b0357b1876898c485fe0532a8fdc10a4f5a190421bd573899710072558ba330b
       uri: huggingface://mradermacher/HyperLlama3.1-v2-i1-GGUF/HyperLlama3.1-v2.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "jdineen_llama-3.1-8b-think"
+  urls:
+    - https://huggingface.co/jdineen/Llama-3.1-8B-Think
+    - https://huggingface.co/bartowski/jdineen_Llama-3.1-8B-Think-GGUF
+  description: |
+    This model is a fine-tuned version of Orenguteng/Llama-3.1-8B-Lexi-Uncensored-V2 on the jdineen/grpo-with-thinking-500-tagged dataset. It has been trained using TRL.
+  overrides:
+    parameters:
+      model: jdineen_Llama-3.1-8B-Think-Q4_K_M.gguf
+  files:
+    - filename: jdineen_Llama-3.1-8B-Think-Q4_K_M.gguf
+      sha256: 47efe28c37f12a644e02abb417c421b243e8001d3c9345dd7f650c8050ab78fc
+      uri: huggingface://bartowski/jdineen_Llama-3.1-8B-Think-GGUF/jdineen_Llama-3.1-8B-Think-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
