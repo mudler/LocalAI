@@ -5117,6 +5117,20 @@
     - filename: qwen-writerdemo-7b-s500.i1-Q4_K_M.gguf
       sha256: dcc0e2dd36587fdd3ed0c8e8c215a01244f00dd85f62da23642410d0e688fe13
       uri: huggingface://mradermacher/qwen-writerdemo-7b-s500-i1-GGUF/qwen-writerdemo-7b-s500.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "helpingai_helpingai3-raw"
+  urls:
+    - https://huggingface.co/HelpingAI/Helpingai3-raw
+    - https://huggingface.co/bartowski/HelpingAI_Helpingai3-raw-GGUF
+  description: |
+    The LLM model described is an emotionally intelligent, conversational and EQ-focused model developed by HelpingAI. It is based on the Helpingai3-raw model and has been quantized using the llama.cpp framework. The model is available in various quantization levels, allowing for different trade-offs between performance and size. Users can choose the appropriate quantization level based on their available RAM, VRAM, and desired performance. The model's weights are provided in .gguf format and can be downloaded from the Hugging Face model repository.
+  overrides:
+    parameters:
+      model: HelpingAI_Helpingai3-raw-Q4_K_M.gguf
+  files:
+    - filename: HelpingAI_Helpingai3-raw-Q4_K_M.gguf
+      sha256: de7a223ad397ba27c889dad08466de471166f1e76962b855c72cf6b779a7b857
+      uri: huggingface://bartowski/HelpingAI_Helpingai3-raw-GGUF/HelpingAI_Helpingai3-raw-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
