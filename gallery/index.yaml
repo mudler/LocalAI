@@ -8976,6 +8976,23 @@
     - filename: Mawdistical_Mawdistic-NightLife-24b-Q4_K_M.gguf
       sha256: f0fee87adfaa00d058002c1a4df630e504343d9e7ec24f6b7eae023376dffaf7
       uri: huggingface://bartowski/Mawdistical_Mawdistic-NightLife-24b-GGUF/Mawdistical_Mawdistic-NightLife-24b-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "alamios_mistral-small-3.1-draft-0.5b"
+  urls:
+    - https://huggingface.co/alamios/Mistral-Small-3.1-DRAFT-0.5B
+    - https://huggingface.co/bartowski/alamios_Mistral-Small-3.1-DRAFT-0.5B-GGUF
+  description: |
+    This model is meant to be used as draft model for speculative decoding with mistralai/Mistral-Small-3.1-24B-Instruct-2503 or mistralai/Mistral-Small-24B-Instruct-2501
+    Data info
+
+    The data are Mistral's outputs and includes all kind of tasks from various datasets in English, French, German, Spanish, Italian and Portuguese. It has been trained for 2 epochs on 20k unique examples, for a total of 12 million tokens per epoch.
+  overrides:
+    parameters:
+      model: alamios_Mistral-Small-3.1-DRAFT-0.5B-Q4_K_M.gguf
+  files:
+    - filename: alamios_Mistral-Small-3.1-DRAFT-0.5B-Q4_K_M.gguf
+      sha256: 60c67c7f3a5c6410c460b742ff9698b91980d9bb0519a91bcc0a3065fbd4aadd
+      uri: huggingface://bartowski/alamios_Mistral-Small-3.1-DRAFT-0.5B-GGUF/alamios_Mistral-Small-3.1-DRAFT-0.5B-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
