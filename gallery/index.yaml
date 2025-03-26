@@ -7272,6 +7272,22 @@
     - filename: jdineen_Llama-3.1-8B-Think-Q4_K_M.gguf
       sha256: 47efe28c37f12a644e02abb417c421b243e8001d3c9345dd7f650c8050ab78fc
       uri: huggingface://bartowski/jdineen_Llama-3.1-8B-Think-GGUF/jdineen_Llama-3.1-8B-Think-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "textsynth-8b-i1"
+  urls:
+    - https://huggingface.co/theprint/TextSynth-8B
+    - https://huggingface.co/mradermacher/TextSynth-8B-i1-GGUF
+  description: |
+    This is a finetune of Llama 3.1 8B, trained on synthesizing text from two different sources. When used for other purposes, the result is a slightly more creative version of Llama 3.1, using more descriptive and evocative language in some instances.
+
+    It's great for brainstorming sessions, creative writing and free-flowing conversations. It's less good for technical documentation, email writing and that sort of thing.
+  overrides:
+    parameters:
+      model: TextSynth-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: TextSynth-8B.i1-Q4_K_M.gguf
+      sha256: 9186a8cb3a797cd2cd5b2eeaee99808674d96731824a9ee45685bbf480ba56c3
+      uri: huggingface://mradermacher/TextSynth-8B-i1-GGUF/TextSynth-8B.i1-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
