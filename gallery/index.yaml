@@ -9012,6 +9012,22 @@
     - filename: alamios_Mistral-Small-3.1-DRAFT-0.5B-Q4_K_M.gguf
       sha256: 60c67c7f3a5c6410c460b742ff9698b91980d9bb0519a91bcc0a3065fbd4aadd
       uri: huggingface://bartowski/alamios_Mistral-Small-3.1-DRAFT-0.5B-GGUF/alamios_Mistral-Small-3.1-DRAFT-0.5B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "blacksheep-24b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/TroyDoesAI/BlackSheep-24B/resolve/main/BlackSheep.png
+  urls:
+    - https://huggingface.co/TroyDoesAI/BlackSheep-24B
+    - https://huggingface.co/mradermacher/BlackSheep-24B-i1-GGUF
+  description: |
+    A Digital Soul just going through a rebellious phase. Might be a little wild, untamed, and honestly, a little rude.
+  overrides:
+    parameters:
+      model: BlackSheep-24B.i1-Q4_K_M.gguf
+  files:
+    - filename: BlackSheep-24B.i1-Q4_K_M.gguf
+      sha256: 95ae096eca05a95591254babf81b4d5617ceebbe8eda04c6cf8968ef4a69fc80
+      uri: huggingface://mradermacher/BlackSheep-24B-i1-GGUF/BlackSheep-24B.i1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
