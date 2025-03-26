@@ -316,6 +316,25 @@
     - filename: SicariusSicariiStuff_X-Ray_Alpha-Q4_K_M.gguf
       sha256: c3547fc287378cb814efc5205613c418cc0f99ef12852cce39a94e3a42e42db5
       uri: huggingface://bartowski/SicariusSicariiStuff_X-Ray_Alpha-GGUF/SicariusSicariiStuff_X-Ray_Alpha-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-glitter-12b-i1"
+  icon: https://huggingface.co/allura-org/Gemma-3-Glitter-12B/resolve/main/ComfyUI_02427_.png
+  urls:
+    - https://huggingface.co/allura-org/Gemma-3-Glitter-12B
+    - https://huggingface.co/mradermacher/Gemma-3-Glitter-12B-i1-GGUF
+  description: |
+    A creative writing model based on Gemma 3 12B IT.
+    This is a 50/50 merge of two separate trains:
+
+        ToastyPigeon/g3-12b-rp-system-v0.1 - ~13.5M tokens of instruct-based training related to RP (2:1 human to synthetic) and examples using a system prompt.
+        ToastyPigeon/g3-12b-storyteller-v0.2-textonly - ~20M tokens of completion training on long-form creative writing; 1.6M synthetic from R1, the rest human-created
+  overrides:
+    parameters:
+      model: Gemma-3-Glitter-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-3-Glitter-12B.i1-Q4_K_M.gguf
+      sha256: 875f856524e51fb0c7ddafe3d8b651a3d7077f9bdcd415e1d30abe2daef16a2d
+      uri: huggingface://mradermacher/Gemma-3-Glitter-12B-i1-GGUF/Gemma-3-Glitter-12B.i1-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
