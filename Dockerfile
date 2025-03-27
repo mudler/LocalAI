@@ -24,6 +24,7 @@ RUN apt-get update && \
         ca-certificates \
         curl libssl-dev \
         git \
+        git-lfs \
         unzip upx-ucl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
