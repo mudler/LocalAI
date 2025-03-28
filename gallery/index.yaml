@@ -5201,6 +5201,24 @@
     - filename: HelpingAI_Helpingai3-raw-Q4_K_M.gguf
       sha256: de7a223ad397ba27c889dad08466de471166f1e76962b855c72cf6b779a7b857
       uri: huggingface://bartowski/HelpingAI_Helpingai3-raw-GGUF/HelpingAI_Helpingai3-raw-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-14b-instruct-1m-unalign-i1"
+  urls:
+    - https://huggingface.co/ToastyPigeon/Qwen2.5-14B-Instruct-1M-Unalign
+    - https://huggingface.co/mradermacher/Qwen2.5-14B-Instruct-1M-Unalign-i1-GGUF
+  description: |
+    A simple unalignment fine-tune on ~900k tokens aiming to make the model more compliant and willing to handle user requests.
+
+    This is the same unalignment training seen in concedo/Beepo-22B, so big thanks to concedo for the dataset.
+
+    Chat template is same as the original, ChatML.
+  overrides:
+    parameters:
+      model: Qwen2.5-14B-Instruct-1M-Unalign.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-14B-Instruct-1M-Unalign.i1-Q4_K_M.gguf
+      sha256: 11b2eb96a8a4d512fceb3344dccc694972801c964cf748d723fdf436bc368915
+      uri: huggingface://mradermacher/Qwen2.5-14B-Instruct-1M-Unalign-i1-GGUF/Qwen2.5-14B-Instruct-1M-Unalign.i1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
