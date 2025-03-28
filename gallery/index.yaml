@@ -7799,6 +7799,24 @@
     - filename: knoveleng_Open-RS3-Q4_K_M.gguf
       sha256: 599ab49d78949e62e37c5e37b0c313626d066ca614020b9b17c2b5bbcf18ea7f
       uri: huggingface://bartowski/knoveleng_Open-RS3-GGUF/knoveleng_Open-RS3-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "thoughtless-fallen-abomination-70b-r1-v4.1-i1"
+  icon: https://huggingface.co/ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1/resolve/main/waifu2.webp
+  urls:
+    - https://huggingface.co/ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1
+    - https://huggingface.co/mradermacher/Thoughtless-Fallen-Abomination-70B-R1-v4.1-i1-GGUF
+  description: |
+      ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1 benefits from the coherence and well rounded roleplay experience of TheDrummer/Fallen-Llama-3.3-R1-70B-v1. We've:
+          🔁 Re-integrated your favorite V1.2 scenarios (now with better kink distribution)
+          🧪 Direct-injected the Abomination dataset into the model's neural pathways
+          ⚖️ Achieved perfect balance between "oh my" and "oh my"
+  overrides:
+    parameters:
+      model: Thoughtless-Fallen-Abomination-70B-R1-v4.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Thoughtless-Fallen-Abomination-70B-R1-v4.1.i1-Q4_K_M.gguf
+      sha256: 96d1707b6d018791cab4da77a5065ceda421d8180ab9ffa232aefa15757bd63a
+      uri: huggingface://mradermacher/Thoughtless-Fallen-Abomination-70B-R1-v4.1-i1-GGUF/Thoughtless-Fallen-Abomination-70B-R1-v4.1.i1-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
