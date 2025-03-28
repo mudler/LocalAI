@@ -335,6 +335,31 @@
     - filename: Gemma-3-Glitter-12B.i1-Q4_K_M.gguf
       sha256: 875f856524e51fb0c7ddafe3d8b651a3d7077f9bdcd415e1d30abe2daef16a2d
       uri: huggingface://mradermacher/Gemma-3-Glitter-12B-i1-GGUF/Gemma-3-Glitter-12B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "soob3123_amoral-gemma3-12b-v2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62f93f9477b722f1866398c2/Isat4sbJnBZGcxZko9Huz.png
+  urls:
+    - https://huggingface.co/soob3123/amoral-gemma3-12B-v2
+    - https://huggingface.co/bartowski/soob3123_amoral-gemma3-12B-v2-GGUF
+  description: |
+      Core Function:
+
+          Produces analytically neutral responses to sensitive queries
+          Maintains factual integrity on controversial subjects
+          Avoids value-judgment phrasing patterns
+
+      Response Characteristics:
+
+          No inherent moral framing ("evil slop" reduction)
+          Emotionally neutral tone enforcement
+          Epistemic humility protocols (avoids "thrilling", "wonderful", etc.)
+  overrides:
+    parameters:
+      model: soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
+  files:
+    - filename: soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
+      sha256: eb5792cf73bac3dbaa39e3a79ec01a056affff4607b96f96c9b911c877d5a50a
+      uri: huggingface://bartowski/soob3123_amoral-gemma3-12B-v2-GGUF/soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
